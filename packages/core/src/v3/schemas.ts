@@ -556,7 +556,9 @@ export const contextStateSchema = z.object({
   categories: z.record(z.string(), z.number().int().nonnegative()).default({}),
   segments: z.array(z.record(z.string(), z.unknown())).default([]),
   render_text: z.string().default(''),
-  render_keys: z.record(z.string(), z.unknown()).default({}),
+  messages: z
+    .array(z.object({ role: z.string(), parts: z.array(z.record(z.string(), z.unknown())) }))
+    .default([]),
 });
 
 export const toolInvocationSchema = z.object({

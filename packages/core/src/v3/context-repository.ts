@@ -60,7 +60,7 @@ function contextSnapshot(value: unknown): ContextSnapshot {
     autocompact_pct: result.autocompact_pct ?? undefined,
     segments: result.segments,
     render_text: result.render_text,
-    render_keys: result.render_keys,
+    messages: result.messages,
     provenance: {
       source: 'server',
       observed_at: new Date().toISOString(),

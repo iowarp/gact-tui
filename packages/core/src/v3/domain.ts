@@ -406,7 +406,8 @@ export interface ContextSnapshot {
   autocompact_pct?: number;
   segments?: Array<Record<string, unknown>>;
   render_text?: string;
-  render_keys?: Record<string, unknown>;
+  /** The agent's context as the model receives it (role + typed parts). */
+  messages?: Array<{ role: string; parts: Array<Record<string, unknown>> }>;
   provenance: Provenance;
 }
 

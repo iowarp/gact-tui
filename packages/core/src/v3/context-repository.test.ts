@@ -39,7 +39,7 @@ class RecordingTransport implements ClioTransport {
             categories: { conversation: 120 },
             segments: [{ id: 'segment_1', kind: 'message' }],
             render_text: 'Retained evidence',
-            render_keys: { segment_1: true },
+            messages: [{ role: 'user', parts: [{ type: 'text', text: 'Retained evidence' }] }],
           };
     return request.decode(value);
   }
@@ -55,6 +55,7 @@ describe('ContextRepository', () => {
     expect((await repository.contextPolicy('sess 1')).requires_user_consent).toBe(true);
     expect(await repository.compactContext('sess 1', 'expert/main')).toMatchObject({
       render_text: 'Retained evidence',
+      messages: [{ role: 'user', parts: [{ type: 'text', text: 'Retained evidence' }] }],
       used_tokens: 1000,
       used_tokens_source: 'provider',
       cache_read_tokens: 750,

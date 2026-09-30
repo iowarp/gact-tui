@@ -1329,9 +1329,23 @@ Implemented shapes (clio):
 >   },
 >   "segments": [ /* attributed working-set rows */ ],
 >   "render_text": "...",              // pre-rendered one-line summary
->   "render_keys": { /* ... */ }
+>   "messages": [                      // the agent's context exactly as the model receives it
+>     { "role": "user", "parts": [ { "type": "text", "text": "..." } ] },
+>     { "role": "assistant", "parts": [
+>         { "type": "thinking", "text": "..." }, { "type": "text", "text": "..." },
+>         { "type": "tool_call", "id": "call_1", "name": "...", "input": { } } ] },
+>     { "role": "tool", "parts": [
+>         { "type": "tool_result", "id": "call_1", "name": "...", "is_error": false,
+>           "content": [ { "type": "text", "text": "..." } ] } ] }
+>   ]
 > }
 > ```
+>
+> `messages` is the scope's live segments folded the way the agent loop folds them:
+> part `type` is `text | thinking | tool_call | tool_result | image | document`
+> (media carry `media_type` only, never their bytes). CLIO's own additions are user
+> messages whose text starts `[clio: <source>]`. It replaces the old `render_keys`
+> trajectory dict, which no longer matched what the model sees.
 >
 > **Fullness** = `used_pct` (model-grounded, preferred) else `pct_used`; draw
 > the auto-compaction line on the bar at `autocompact_pct`; absolute usage =
