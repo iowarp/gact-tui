@@ -1,6 +1,7 @@
 import { TransportError } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -33,8 +34,27 @@ vi.mock('vega-embed', async (importOriginal) => {
   };
 });
 
+import { useState } from 'react';
 import { ClioChart, type ClioChartProps } from './a2ui-chart';
+import { ClioComposerAnnotations } from './composer-annotations';
 import { escapeHtml, formatChartTooltip, refusingLoader } from './chart-embed';
+import { SelectionActionsProvider } from './selection-actions';
+import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
+import type { ComposerAnnotation } from '@/lib/composer-annotations';
+
+function ComposerHarness({ children }: { children: ReactNode }) {
+  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {});
+  return (
+    <>
+      {children}
+      <ClioComposerAnnotations
+        annotations={annotations}
+        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+      />
+    </>
+  );
+}
 
 const ROWS = [
   { t: 0, v: 1.5, run: 'a' },
@@ -79,6 +99,23 @@ describe('ClioChart', () => {
     expect(screen.getByText('Loss')).toBeInTheDocument();
     expect(screen.getByText(/v over t, one line per run\. · 4 rows/u)).toBeInTheDocument();
     expect(container.querySelector('[data-renderer="svg"]')).not.toBeNull();
+  });
+
+  it('does not lose a rows update that arrives while the chart is still embedding (#1533 #506 LOW)', async () => {
+    // `embedChart` is genuinely async here (real vega-embed, just observed —
+    // see the mock above); a `rows` prop change landing in the gap between
+    // starting it and its promise resolving used to be silently dropped,
+    // since the `[rows]` effect only pushes into an ALREADY-embedded view.
+    // `rerender` runs synchronously, before that promise's `.then` gets a
+    // chance to run — reliably landing in that exact gap.
+    const { rerender } = render(
+      wrap(<ClioChart {...PRESET} componentId="ch1" data={ROWS} title="Loss" />),
+    );
+    const laterRows = [...ROWS, { t: 2, v: 3.1, run: 'a' }];
+    rerender(wrap(<ClioChart {...PRESET} componentId="ch1" data={laterRows} title="Loss" />));
+
+    const view = await embeddedView();
+    await waitFor(() => expect(view.data('source')).toHaveLength(laterRows.length));
   });
 
   it('refuses a spec that breaks the guard and says why, without embedding it', () => {
@@ -203,6 +240,26 @@ describe('ClioChart', () => {
     );
   });
 
+  it('selects a value via the keyboard-operable control, writing it as a real click would (#1533 #506 LOW)', async () => {
+    // A brush/lasso drag has no keyboard equivalent, but a point selection
+    // does: a reui <Select> beside the chart lists the entity field's own
+    // distinct values, keyboard-navigable by construction (Radix Select).
+    const user = userEvent.setup();
+    const setSelection = vi.fn();
+    render(
+      wrap(<ClioChart {...PRESET} componentId="ch1" data={ROWS} setSelection={setSelection} />),
+    );
+    await embeddedView();
+
+    const trigger = await screen.findByRole('combobox', { name: 'Select a run by keyboard' });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('option', { name: 'b' }));
+
+    await waitFor(() =>
+      expect(setSelection).toHaveBeenCalledWith({ field: 'run', values: ['b'], source: 'ch1' }),
+    );
+  });
+
   it('shows a selection another component wrote, and does not write it back', async () => {
     const setSelection = vi.fn();
     const props = { ...PRESET, componentId: 'ch1', data: ROWS, setSelection };
@@ -224,6 +281,139 @@ describe('ClioChart', () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(view.signal('sel')).toMatchObject({ run: ['a'] });
+  });
+
+  it('re-queries the brushed x range at full detail and offers a reset control', async () => {
+    repository.artifactTableQuery.mockImplementation((_id: string, request: { filter?: Array<{ column: string; op: string }> }) => {
+      const zoomed = (request.filter ?? []).some((entry) => entry.column === 't' && entry.op === 'range');
+      return Promise.resolve(
+        zoomed
+          ? {
+              columns: { run: ['a'], t: [0.4], v: [1.8] },
+              downsample: { mode: 'none' },
+              matchedRows: 1,
+              returnedRows: 1,
+              schema: [],
+              totalRows: 4,
+              truncated: false,
+            }
+          : {
+              columns: { run: ['a', 'a', 'b', 'b'], t: [0, 1, 0, 1], v: [1.5, 1.2, 2, 2.4] },
+              downsample: { mode: 'none' },
+              matchedRows: 4,
+              returnedRows: 4,
+              schema: [],
+              totalRows: 4,
+              truncated: false,
+            },
+      );
+    });
+    render(wrap(<ClioChart {...PRESET} componentId="ch9" dataUri="artifact://artifact_runs01" />));
+    const view = await embeddedView();
+    await waitFor(() => expect(() => view.signal('sel_zoom')).not.toThrow());
+
+    // What a real drag over the x axis produces: the pixel-space `<param>_x`
+    // signal, which vega-lite inverts through the x scale (chart-zoom.test.ts
+    // pins the exact resolved shape against the installed vega-lite).
+    view.signal('sel_zoom_x', [0, view.width()]);
+    await view.runAsync();
+
+    await waitFor(
+      () =>
+        expect(repository.artifactTableQuery).toHaveBeenCalledWith(
+          'artifact_runs01',
+          expect.objectContaining({
+            filter: expect.arrayContaining([expect.objectContaining({ column: 't', op: 'range' })]),
+          }),
+          expect.anything(),
+        ),
+      { timeout: 2000 },
+    );
+
+    expect(await screen.findByText(/^Zoomed to t/u)).toBeInTheDocument();
+    const resetButton = screen.getByRole('button', { name: /reset zoom/iu });
+    resetButton.click();
+    await waitFor(() => expect(screen.queryByText(/^Zoomed to t/u)).not.toBeInTheDocument());
+  });
+
+  it("layers the viewer's own filter onto the producer's dataQuery, never replacing it", async () => {
+    repository.artifactTableQuery.mockResolvedValue({
+      columns: { run: ['b'], t: [0], v: [2] },
+      downsample: { mode: 'none' },
+      matchedRows: 1,
+      returnedRows: 1,
+      schema: [],
+      totalRows: 4,
+      truncated: false,
+    });
+    const user = userEvent.setup();
+    render(
+      wrap(
+        <ClioChart
+          {...PRESET}
+          componentId="ch10"
+          dataQuery={{ filter: [{ column: 'run', op: 'eq', value: 'a' }] }}
+          dataUri="artifact://artifact_runs01"
+        />,
+      ),
+    );
+    await embeddedView();
+    await waitFor(() => expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole('button', { name: /^filters/iu }));
+    await user.type(screen.getByLabelText('Filter run, contains'), 'b');
+
+    await waitFor(
+      () =>
+        expect(repository.artifactTableQuery).toHaveBeenLastCalledWith(
+          'artifact_runs01',
+          expect.objectContaining({
+            filter: [
+              { column: 'run', op: 'eq', value: 'a' },
+              { column: 'run', op: 'contains', value: 'b' },
+            ],
+          }),
+          expect.anything(),
+        ),
+      { timeout: 2000 },
+    );
+  });
+
+  it('"Reference this" attaches the dataset, filters, and the brushed zone, with a re-queryable JSON block', async () => {
+    repository.artifactTableQuery.mockResolvedValue({
+      columns: { run: ['a', 'a'], t: [0, 1], v: [1.5, 1.2] },
+      downsample: { mode: 'none' },
+      matchedRows: 4,
+      returnedRows: 2,
+      schema: [],
+      totalRows: 4,
+      truncated: false,
+    });
+    const user = userEvent.setup();
+    render(
+      wrap(
+        <SelectionActionsProvider>
+          <ComposerHarness>
+            <ClioChart
+              {...PRESET}
+              componentId="ch11"
+              dataQuery={{ filter: [{ column: 'run', op: 'eq', value: 'a' }] }}
+              dataUri="artifact://artifact_runs01"
+              title="Loss over time"
+            />
+          </ComposerHarness>
+        </SelectionActionsProvider>,
+      ),
+    );
+    await embeddedView();
+    await waitFor(() => expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole('button', { name: 'Reference this' }));
+
+    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    expect(attached).toHaveTextContent('Loss over time');
+    expect(attached).toHaveTextContent('artifact_runs01');
+    expect(attached).toHaveTextContent('run = a');
   });
 
   it('says when a bound selection has no selection param to follow', async () => {

@@ -12,7 +12,7 @@ import type { LucideIcon } from 'lucide-react';
  * declare which kinds they apply to, so adding a kind never changes an action
  * that does not handle it.
  */
-export type SelectionTarget = AgentAnswerTextSelection;
+export type SelectionTarget = AgentAnswerTextSelection | DataSurfaceZoneSelection;
 
 /** A contiguous run of text inside one agent answer in the transcript. */
 export interface AgentAnswerTextSelection {
@@ -23,6 +23,22 @@ export interface AgentAnswerTextSelection {
   sessionId: string;
   /** The answer message the text belongs to. */
   messageId: string;
+}
+
+/**
+ * A selection or "zone" on a `dataUri` chart, map, or table (#1533 item 5,
+ * "Reference this"): a brushed range, a rectangle, or a run of rows. The
+ * surface itself (`data-zone-reference.ts`'s `buildZoneReference`) composes
+ * the precise, re-queryable content; this target only carries the finished
+ * result, so the registry and toolbar stay ignorant of chart/map/table
+ * internals.
+ */
+export interface DataSurfaceZoneSelection {
+  kind: 'data-surface-zone';
+  /** Short label for the composer card, e.g. "Depth vs. magnitude chart". */
+  title: string;
+  /** The full reference block: component, dataset, filters, zone, and a preview. */
+  markdown: string;
 }
 
 export type SelectionTargetKind = SelectionTarget['kind'];

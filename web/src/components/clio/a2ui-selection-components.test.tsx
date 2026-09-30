@@ -4,6 +4,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="map-canvas" />,
 }));
+// See a2ui-map-data-source.test.tsx for why the side list's virtualizer is
+// stubbed to render every row in tests.
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 56,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        size: 56,
+        start: index * 56,
+      })),
+  }),
+}));
 
 import { ClioSelectableDataTable } from './a2ui-data-table';
 import { ClioScientificMap } from './a2ui-map';
@@ -77,6 +91,65 @@ describe('clio.map.v1 selection', () => {
       'false',
     ]);
   });
+
+  it('ignores a selection written for a different field even when values coincide', () => {
+    // A selection keyed by "category" with value "PBO2" must never highlight
+    // this map's "id"-keyed point of the same string — the two columns are
+    // unrelated, and matching on value alone (ignoring `state.field`) would
+    // wrongly link surfaces that were never bound to the same field.
+    render(
+      <ClioScientificMap
+        componentId="map"
+        points={POINTS}
+        selection={{ field: 'category', values: ['PBO2'], source: 'chart' }}
+        setSelection={vi.fn()}
+      />,
+    );
+    expect(POINTS.map((point) => pressed(new RegExp(point.label, 'u')))).toEqual([
+      'false',
+      'false',
+      'false',
+    ]);
+  });
+
+  it("prefers a dataUri point's own selectionValue over its synthetic id/label/category", () => {
+    // A producer's dataset can have a real column literally named "id" for
+    // `selectionField` (the earthquake fixture does this) — its value must
+    // win over this point's synthetic display id, which happens to collide.
+    const setSelection = vi.fn();
+    const datasetPoints = [
+      { id: 'synthetic-0', label: 'Station A', latitude: 1, longitude: 1, selectionValue: 'real-42' },
+      { id: 'synthetic-1', label: 'Station B', latitude: 2, longitude: 2, selectionValue: 'real-43' },
+    ];
+    render(
+      <ClioScientificMap
+        componentId="map"
+        points={datasetPoints}
+        selection={{ field: 'id', values: ['real-42'] }}
+        selectionField="id"
+        setSelection={setSelection}
+      />,
+    );
+    expect(pressed(/Station A/u)).toBe('true');
+    expect(pressed(/Station B/u)).toBe('false');
+
+    fireEvent.click(screen.getByRole('button', { name: /Station B/u }));
+    expect(setSelection).toHaveBeenCalledWith({ field: 'id', values: ['real-43'], source: 'map' });
+  });
+
+  it('warns instead of silently no-oping when inline points cannot resolve a bound selectionField', () => {
+    render(
+      <ClioScientificMap
+        componentId="map"
+        points={POINTS}
+        selectionField="magnitude"
+        setSelection={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(/have no.*magnitude.*value to select by/iu),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('clio.data-table.v1 selection', () => {
@@ -121,6 +194,50 @@ describe('clio.data-table.v1 selection', () => {
     });
   });
 
+  it('shift-clicks a range of rows into the shared selection (a table zone)', () => {
+    const setSelection = vi.fn();
+    render(
+      <ClioSelectableDataTable
+        columns={['station', 'value']}
+        componentId="table"
+        rows={ROWS}
+        setSelection={setSelection}
+      />,
+    );
+
+    // A plain click sets the range's anchor at row 0 ("MTA1")...
+    fireEvent.click(screen.getByText('MTA1'));
+    // ...then a shift-click on the last row selects every row in between.
+    const lastRow = screen.getAllByRole('row').slice(1).at(-1)!;
+    fireEvent.click(lastRow, { shiftKey: true });
+
+    expect(setSelection).toHaveBeenLastCalledWith({
+      field: 'station',
+      values: ['MTA1', 'PBO2', 'PBO2'],
+      source: 'table',
+    });
+  });
+
+  it('treats a shift-click with no prior plain click as an ordinary single-row click', () => {
+    const setSelection = vi.fn();
+    render(
+      <ClioSelectableDataTable
+        columns={['station', 'value']}
+        componentId="table"
+        rows={ROWS}
+        setSelection={setSelection}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('MTA1'), { shiftKey: true });
+
+    expect(setSelection).toHaveBeenLastCalledWith({
+      field: 'station',
+      values: ['MTA1'],
+      source: 'table',
+    });
+  });
+
   it('highlights rows matching the bound selection, a numeric id included', () => {
     render(
       <ClioSelectableDataTable
@@ -133,6 +250,27 @@ describe('clio.data-table.v1 selection', () => {
     );
     const rows = screen.getAllByRole('row').slice(1);
     expect(rows.map((row) => row.getAttribute('aria-selected'))).toEqual([null, null, 'true']);
+  });
+
+  it('ignores a bound selection on a different field even when its values coincide', () => {
+    // A chart bound to "value" writing values=[2] must never highlight this
+    // table's "station" column just because no row's station literally
+    // reads "2" — the real risk is the reverse: a coincidental string match
+    // across unrelated fields. Use a value that DOES appear in `station`
+    // ("PBO2" contains no bare "2" as a column value, so pick a selection
+    // field that isn't bound here at all) to prove the field gate, not the
+    // value comparison, is what blocks the match.
+    render(
+      <ClioSelectableDataTable
+        columns={['station', 'value']}
+        componentId="table"
+        rows={ROWS}
+        selection={{ field: 'other-field', values: ['PBO2'], source: 'chart' }}
+        setSelection={vi.fn()}
+      />,
+    );
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows.every((row) => !row.hasAttribute('aria-selected'))).toBe(true);
   });
 
   it('keeps a legacy static selection string harmless', () => {

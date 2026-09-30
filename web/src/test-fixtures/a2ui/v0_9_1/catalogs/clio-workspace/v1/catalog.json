@@ -50,35 +50,112 @@
     },
     "DataQuery": {
       "additionalProperties": false,
-      "description": "A server-side table query applied to dataUri: the table-query request body (POST /v1/artifacts/{id}/table-query) without format. The server runs filter, then aggregate, then downsample, then limit. Omit columns to request the columns implied by the component (its named *Field properties and its selection field). Shared by clio.chart.v1, clio.map.v1, and clio.data-table.v1.",
+      "description": "A server-side table query applied to dataUri: the table-query request body (POST /v1/artifacts/{id}/table-query) without format. The server runs filter, then aggregate, then downsample, then sort, then offset/limit. Omit columns to request every column of dataUri — except alongside aggregate, where columns is required, since aggregate's output columns (e.g. price_mean) don't exist in the source and so cannot be inferred. limit bounds the rows in ONE response (a transfer size), not the underlying data; offset pages through a larger result across several requests. When a chart or map query would otherwise exceed limit without an explicit downsample, the server instead samples evenly across the full range and reports that it did, rather than silently truncating to the first rows. limit's own maximum here is a generous safety ceiling, not the deployment's real per-response cap, which is server-configured. A viewer (e.g. an interactive data-table) may layer its own user-driven paging/filtering/sorting on top of this dataQuery without replacing it — the agent's own filter/aggregate/downsample intent still applies underneath. Shared verbatim by clio.chart.v1, clio.map.v1, and clio.data-table.v1.",
+      "if": {
+        "properties": {
+          "aggregate": {
+            "not": {
+              "type": "null"
+            }
+          }
+        },
+        "required": [
+          "aggregate"
+        ]
+      },
       "properties": {
         "aggregate": {
-          "$ref": "#/$defs/QueryAggregate"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QueryAggregate"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "columns": {
-          "items": {
-            "$ref": "#/$defs/FieldName"
-          },
-          "maxItems": 64,
-          "minItems": 1,
-          "type": "array",
-          "uniqueItems": true
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/FieldName"
+              },
+              "maxItems": 64,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "downsample": {
-          "$ref": "#/$defs/QueryDownsample"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QueryDownsample"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "filter": {
-          "items": {
-            "$ref": "#/$defs/QueryFilter"
-          },
-          "maxItems": 64,
-          "type": "array"
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/QueryFilter"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "limit": {
-          "maximum": 50000,
-          "minimum": 1,
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 50000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sort": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/QuerySort"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
+      },
+      "then": {
+        "required": [
+          "columns"
+        ]
       },
       "type": "object"
     },
@@ -218,7 +295,14 @@
       },
       "properties": {
         "entityColumn": {
-          "$ref": "#/$defs/FieldName"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldName"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "maxPerEntity": {
           "default": 500,
@@ -236,13 +320,39 @@
           "type": "string"
         },
         "x": {
-          "$ref": "#/$defs/FieldName"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldName"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "y": {
-          "$ref": "#/$defs/FieldName"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldName"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "then": {
+        "properties": {
+          "x": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "y": {
+            "not": {
+              "type": "null"
+            }
+          }
+        },
         "required": [
           "x",
           "y"
@@ -351,9 +461,29 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "contains"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "value"
+            ]
+          }
         }
       ],
-      "description": "One predicate; all filter entries are AND-ed. eq: value is a non-null scalar. in: value is a non-empty list of scalars. range: value is [min, max], inclusive, either side may be null. isnull: value omitted or true matches nulls, false matches non-nulls.",
+      "description": "One predicate; all filter entries are AND-ed. eq: value is a non-null scalar. in: value is a non-empty list of scalars. range: value is [min, max], inclusive, either side may be null. isnull: value omitted or true matches nulls, false matches non-nulls. contains: value is a non-empty string, matched as a case-insensitive substring of a string column (a per-column text filter).",
       "properties": {
         "column": {
           "$ref": "#/$defs/FieldName"
@@ -363,7 +493,8 @@
             "eq",
             "in",
             "range",
-            "isnull"
+            "isnull",
+            "contains"
           ],
           "type": "string"
         },
@@ -372,6 +503,23 @@
       "required": [
         "column",
         "op"
+      ],
+      "type": "object"
+    },
+    "QuerySort": {
+      "additionalProperties": false,
+      "description": "One dataQuery.sort key; earlier entries in the list sort first.",
+      "properties": {
+        "column": {
+          "$ref": "#/$defs/FieldName"
+        },
+        "desc": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "column"
       ],
       "type": "object"
     },
@@ -405,6 +553,111 @@
         "values"
       ],
       "type": "object"
+    },
+    "SpecDataNamedSource": {
+      "description": "Every `data` key anywhere in a Vega-Lite spec is absent or exactly {\"name\": \"source\"} — rows come from the component's data/dataUri, never the spec.",
+      "else": {
+        "if": {
+          "type": "array"
+        },
+        "then": {
+          "items": {
+            "$ref": "#/$defs/SpecDataNamedSource"
+          }
+        }
+      },
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "additionalProperties": {
+          "$ref": "#/$defs/SpecDataNamedSource"
+        },
+        "properties": {
+          "data": {
+            "const": {
+              "name": "source"
+            }
+          }
+        }
+      }
+    },
+    "SpecNoBindElement": {
+      "description": "No `element` key inside any `bind` object (params[].bind.element) anywhere in a Vega-Lite spec, at any depth — it is a CSS selector that could mount a Vega input widget into any element on the host page, not just this chart.",
+      "else": {
+        "if": {
+          "type": "array"
+        },
+        "then": {
+          "items": {
+            "$ref": "#/$defs/SpecNoBindElement"
+          }
+        }
+      },
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "additionalProperties": {
+          "$ref": "#/$defs/SpecNoBindElement"
+        },
+        "properties": {
+          "bind": {
+            "allOf": [
+              {
+                "if": {
+                  "type": "object"
+                },
+                "then": {
+                  "not": {
+                    "required": [
+                      "element"
+                    ]
+                  }
+                }
+              },
+              {
+                "$ref": "#/$defs/SpecNoBindElement"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "SpecNoForbiddenKeys": {
+      "description": "No `url` or `usermeta` key anywhere in a Vega-Lite spec, at any depth.",
+      "else": {
+        "if": {
+          "type": "array"
+        },
+        "then": {
+          "items": {
+            "$ref": "#/$defs/SpecNoForbiddenKeys"
+          }
+        }
+      },
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "additionalProperties": {
+          "$ref": "#/$defs/SpecNoForbiddenKeys"
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "url"
+              ]
+            },
+            {
+              "required": [
+                "usermeta"
+              ]
+            }
+          ]
+        }
+      }
     },
     "TabDefinition": {
       "additionalProperties": false,
@@ -1499,7 +1752,7 @@
               "const": "clio.chart.v1"
             },
             "data": {
-              "description": "Inline rows (at most 10000); use dataUri for more.",
+              "description": "Inline rows (at most 10000) — this array rides the surface's own wire message, so it is capped for transfer size; for a larger or growing dataset use dataUri instead, unbounded and paged/downsampled by the viewer.",
               "items": {
                 "additionalProperties": {
                   "type": [
@@ -1515,11 +1768,13 @@
               "type": "array"
             },
             "dataQuery": {
-              "$ref": "#/$defs/DataQuery",
-              "description": "Server-side table query narrowing dataUri; ignored without it."
+              "$ref": "#/$defs/DataQuery"
             },
             "dataUri": {
-              "description": "A registered artifact reference (artifact://...); never a raw path.",
+              "description": "A workspace file path or artifact:// reference; CLIO registers a path as an artifact before validation.",
+              "not": {
+                "pattern": "\\s"
+              },
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
               "type": "string"
             },
@@ -1557,7 +1812,18 @@
               "type": "string"
             },
             "spec": {
-              "description": "A Vega-Lite spec whose rows come from data/dataUri as the named dataset 'source'. The renderer also applies the spec guard (size, view count, no url/usermeta keys, data only as {name: source}); see a2ui/chart/guard_rules.json.",
+              "allOf": [
+                {
+                  "$ref": "#/$defs/SpecNoForbiddenKeys"
+                },
+                {
+                  "$ref": "#/$defs/SpecDataNamedSource"
+                },
+                {
+                  "$ref": "#/$defs/SpecNoBindElement"
+                }
+              ],
+              "description": "A Vega-Lite spec whose rows come from data/dataUri as the named dataset 'source' — the spec is chart configuration, never a data channel, and the dataset itself is unbounded via dataUri regardless of this cap. This schema already enforces the top-level key allowlist, no url/usermeta key at any depth, no bind.element at any depth (a CSS selector that could mount an input widget anywhere on the host page), and data only as {name: source} at any depth; the renderer additionally enforces the config-size (65536 bytes) and view-count (8) caps that keep the spec itself bounded and abuse-resistant, which JSON Schema cannot express. See a2ui/chart/guard_rules.json.",
               "propertyNames": {
                 "enum": [
                   "$schema",
@@ -1829,7 +2095,10 @@
               "const": "clio.code.v1"
             },
             "dataUri": {
-              "description": "A registered artifact reference (artifact://...); never a raw path. Its file content is the source.",
+              "description": "A workspace file path or artifact:// reference; CLIO registers a path as an artifact before validation. Its file content is the source.",
+              "not": {
+                "pattern": "\\s"
+              },
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
               "type": "string"
             },
@@ -1912,11 +2181,13 @@
               "const": "clio.data-table.v1"
             },
             "dataQuery": {
-              "$ref": "#/$defs/DataQuery",
-              "description": "Server-side table query narrowing dataUri; ignored without it."
+              "$ref": "#/$defs/DataQuery"
             },
             "dataUri": {
-              "description": "A registered artifact reference (artifact://...); never a raw path.",
+              "description": "A workspace file path or artifact:// reference; CLIO registers a path as an artifact before validation.",
+              "not": {
+                "pattern": "\\s"
+              },
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
               "type": "string"
             },
@@ -1930,6 +2201,10 @@
             "selection": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
               "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}, see $defs/SelectionState). Components bound to the same path share one selection."
+            },
+            "selectionField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Dataset column the shared selection's values are drawn from; required when selection is bound."
             }
           },
           "required": [
@@ -1974,6 +2249,24 @@
               "columns"
             ]
           }
+        },
+        {
+          "description": "selectionField is required when selection is bound (an object, not a literal).",
+          "if": {
+            "properties": {
+              "selection": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "selection"
+            ]
+          },
+          "then": {
+            "required": [
+              "selectionField"
+            ]
+          }
         }
       ],
       "description": "Tabular rows, inline or from a referenced dataset.",
@@ -1997,7 +2290,10 @@
               "const": "clio.diff.v1"
             },
             "dataUri": {
-              "description": "A registered artifact reference (artifact://...); never a raw path. Its file content is the diff text.",
+              "description": "A workspace file path or artifact:// reference; CLIO registers a path as an artifact before validation. Its file content is the diff text.",
+              "not": {
+                "pattern": "\\s"
+              },
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
               "type": "string"
             },
@@ -2077,11 +2373,13 @@
               "const": "clio.map.v1"
             },
             "dataQuery": {
-              "$ref": "#/$defs/DataQuery",
-              "description": "Server-side table query narrowing dataUri; ignored without it."
+              "$ref": "#/$defs/DataQuery"
             },
             "dataUri": {
-              "description": "A registered artifact reference (artifact://...); never a raw path. Requires latitudeField/longitudeField/labelField; a referenced dataset is bounded by dataQuery/limit, not the inline point cap.",
+              "description": "A workspace file path or artifact:// reference; CLIO registers a path as an artifact before validation. Requires latitudeField/longitudeField/labelField; a referenced dataset is bounded by dataQuery/limit, not the inline point cap.",
+              "not": {
+                "pattern": "\\s"
+              },
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
               "type": "string"
             },
@@ -2106,7 +2404,7 @@
               "description": "Dataset column holding longitude (required with dataUri)."
             },
             "points": {
-              "description": "Inline points (at most 500); use dataUri for more.",
+              "description": "Inline points (at most 500) — this array rides the surface's own wire message, so it is capped for transfer size; for a larger dataset use dataUri instead, unbounded and paged/downsampled by the viewer.",
               "items": {
                 "$ref": "#/$defs/MapPoint"
               },
@@ -2121,6 +2419,10 @@
             "selection": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
               "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}, see $defs/SelectionState). Components bound to the same path share one selection."
+            },
+            "selectionField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Dataset column the shared selection's values are drawn from; required when selection is bound."
             },
             "title": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
@@ -2170,6 +2472,24 @@
               "labelField"
             ]
           }
+        },
+        {
+          "description": "selectionField is required when selection is bound (an object, not a literal).",
+          "if": {
+            "properties": {
+              "selection": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "selection"
+            ]
+          },
+          "then": {
+            "required": [
+              "selectionField"
+            ]
+          }
         }
       ],
       "description": "Points on an interactive map (stations, sites, epicenters).",
@@ -2190,7 +2510,10 @@
               "const": "clio.mermaid.v1"
             },
             "dataUri": {
-              "description": "A registered artifact reference (artifact://...); never a raw path. Its file content is the source.",
+              "description": "A workspace file path or artifact:// reference; CLIO registers a path as an artifact before validation. Its file content is the source.",
+              "not": {
+                "pattern": "\\s"
+              },
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
               "type": "string"
             },
@@ -2484,12 +2807,15 @@
               "const": "clio.workflow.v1"
             },
             "dataUri": {
-              "description": "A registered artifact reference (artifact://...); never a raw path. A JSON file shaped {\"nodes\": [...], \"edges\": [...]}}.",
+              "description": "A workspace file path or artifact:// reference; CLIO registers a path as an artifact before validation. A JSON file shaped {\"nodes\": [...], \"edges\": [...]}.",
+              "not": {
+                "pattern": "\\s"
+              },
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
               "type": "string"
             },
             "edges": {
-              "description": "Inline edges, alongside nodes.",
+              "description": "Inline edges (at most 256), alongside nodes.",
               "items": {
                 "$ref": "#/$defs/WorkflowEdge"
               },
@@ -2497,7 +2823,7 @@
               "type": "array"
             },
             "nodes": {
-              "description": "Inline nodes; give edges too, or use dataUri instead of both.",
+              "description": "Inline nodes (at most 128) — rides the surface's own wire message; give edges too, or use dataUri instead of both for a larger graph, unbounded.",
               "items": {
                 "$ref": "#/$defs/WorkflowNode"
               },

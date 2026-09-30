@@ -74,10 +74,16 @@ export interface TableQueryDownsample {
   maxPerEntity?: number;
 }
 
-/** One column's sort order — the viewer's click-to-sort headers, or the producer's own choice. */
+/**
+ * One sort key — the viewer's click-to-sort headers, or the producer's own
+ * choice. `sort` is a LIST of these (clio-agent `TableQueryRequest.sort:
+ * list[TableSort]`, `TableSort {column, desc: bool}`): multiple keys apply in
+ * order for a stable, compound sort, though the table UI drives at most one
+ * at a time. `desc`, not `direction`, matches the wire contract exactly.
+ */
 export interface TableQuerySort {
   column: string;
-  direction: 'asc' | 'desc';
+  desc: boolean;
 }
 
 /**
@@ -98,7 +104,7 @@ export interface ArtifactTableQueryRequest {
   filter?: readonly TableQueryFilter[];
   aggregate?: TableQueryAggregate;
   downsample?: TableQueryDownsample;
-  sort?: TableQuerySort;
+  sort?: readonly TableQuerySort[];
   offset?: number;
   limit: number;
 }

@@ -89,10 +89,14 @@ export const queryDownsampleSchema = z
     'per_entity_lttb needs x and y',
   );
 
-/** `$defs/QuerySort`: one column's order — a producer's base view, or the viewer's own click. */
-export const querySortSchema = z
-  .object({ column: fieldNameSchema, direction: z.enum(['asc', 'desc']) })
-  .strict();
+/**
+ * `$defs/QuerySort`: one sort key — a producer's base view, or the viewer's
+ * own click. `desc`, not `direction`: matches clio-agent's `TableQueryRequest
+ * .sort: list[TableSort]` (`TableSort {column, desc: bool}`) exactly. `sort`
+ * itself is an ARRAY of these (multiple keys apply in order, a stable
+ * compound sort), never a single object.
+ */
+export const querySortSchema = z.object({ column: fieldNameSchema, desc: z.boolean() }).strict();
 
 /**
  * `$defs/DataQuery`: the table-query server's request model (without
@@ -111,7 +115,7 @@ export const dataQuerySchema = z
     filter: z.array(queryFilterSchema).max(64).optional(),
     aggregate: queryAggregateSchema.optional(),
     downsample: queryDownsampleSchema.optional(),
-    sort: querySortSchema.optional(),
+    sort: z.array(querySortSchema).optional(),
     offset: z.number().int().min(0).optional(),
     limit: z.number().int().min(1).max(50_000).optional(),
   })

@@ -1,7 +1,7 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
 import { Table2Icon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { z } from 'zod';
 import {
   Frame,
@@ -17,7 +17,9 @@ import {
   type A2UIAccessibility,
 } from './a2ui-accessibility';
 import { refinedStrictObject } from './a2ui-refined-schema';
+import { DataReferenceThisButton } from './data-reference-this-button';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
+import { columnKindFromRows, columnKindFromSchema, describeQueryFilter, mergeFilters } from './data-query-filters';
 import {
   ClioDataTable,
   type ClioDataColumn,
@@ -25,6 +27,7 @@ import {
   type ClioDataTableServerControl,
 } from './data-table';
 import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
+import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import {
   isBoundToPath,
   isSelectionValue,
@@ -32,7 +35,7 @@ import {
   selectionIncludes,
   type SelectionWriter,
 } from './selection-state';
-import { type QueryRow, type TableDataQuery, useTableQueryRows } from './table-query-rows';
+import { artifactIdFromDataUri, type TableDataQuery, useTableQueryRows } from './table-query-rows';
 
 /** Page sizes offered for a `dataUri` table, paging through the whole dataset server-side. */
 const DATA_TABLE_PAGE_SIZES = [25, 50, 100, 500] as const;
@@ -61,6 +64,8 @@ export interface ClioSelectableDataTableProps {
   action?: () => void;
   /** Present for a `dataUri` table: pages, sorts, and filters over the whole dataset server-side. */
   server?: ClioDataTableServerControl;
+  /** A `dataUri` table's own "Reference this" trigger, slotted into the toolbar by `ClioDataTableArtifactSource`. */
+  toolbarExtra?: ReactNode;
 }
 
 /**
@@ -79,6 +84,7 @@ export function ClioSelectableDataTable({
   selectionField,
   server,
   setSelection,
+  toolbarExtra,
 }: ClioSelectableDataTableProps) {
   const state = useMemo(() => parseSelectionState(selection), [selection]);
   const keys = useMemo(() => columns.map(columnKey), [columns]);
@@ -88,17 +94,36 @@ export function ClioSelectableDataTable({
     if (!state || keyColumn === undefined) return undefined;
     const selected = new Set<number>();
     rows.forEach((row, index) => {
-      if (selectionIncludes(state, row[keyColumn])) selected.add(index);
+      if (selectionIncludes(state, keyColumn, row[keyColumn])) selected.add(index);
     });
     return selected;
   }, [keyColumn, rows, state]);
 
-  const selectRow = (row: ClioDataRow) => {
-    const value = keyColumn === undefined ? undefined : row[keyColumn];
-    if (keyColumn !== undefined && isSelectionValue(value)) {
+  // The last plain (non-shift) row click, so a following shift-click can
+  // select every row between the two — a table "zone" (#1533 item 4), the
+  // same idea as a brushed chart range or a map rectangle: many rows' own
+  // `keyColumn` values become the shared selection at once. Scoped to the
+  // current page, since that is what `rows`/row indexes refer to.
+  const rangeAnchorRef = useRef<number | undefined>(undefined);
+
+  const selectRow = (row: ClioDataRow, interaction: { index: number; shiftKey: boolean }) => {
+    if (keyColumn === undefined) {
+      action?.();
+      return;
+    }
+    if (interaction.shiftKey && rangeAnchorRef.current !== undefined && setSelection) {
+      const [start, end] = [rangeAnchorRef.current, interaction.index].sort((a, b) => a - b);
+      const values = rows.slice(start, end + 1).map((candidate) => candidate[keyColumn]).filter(isSelectionValue);
+      setSelection({ field: keyColumn, values, source: componentId });
+      action?.();
+      return;
+    }
+    rangeAnchorRef.current = interaction.index;
+    const value = row[keyColumn];
+    if (isSelectionValue(value)) {
       // Clicking the one selected row again clears the selection.
       const onlyThis =
-        state?.field === keyColumn && state.values.length === 1 && selectionIncludes(state, value);
+        state?.values.length === 1 && selectionIncludes(state, keyColumn, value);
       setSelection?.({ field: keyColumn, values: onlyThis ? [] : [value], source: componentId });
     }
     action?.();
@@ -113,6 +138,7 @@ export function ClioSelectableDataTable({
       rows={rows}
       selectedRows={selectedRows}
       server={server}
+      toolbarExtra={toolbarExtra}
     />
   );
 }
@@ -129,28 +155,25 @@ interface ClioDataTableArtifactSourceProps {
   setSelection?: SelectionWriter;
 }
 
-/** A column's sampled kind, from the first non-null value the current page holds. */
+// Re-exported for callers (and this module's own tests) that imported these
+// from here before they moved to the shared `data-query-filters.ts`, used
+// now by `clio.chart.v1` and `clio.map.v1` too.
 // oxlint-disable-next-line react/only-export-components
-export function columnKindFromRows(rows: readonly QueryRow[] | undefined, key: string): 'number' | 'text' {
-  const sample = rows?.find((row) => row[key] !== null && row[key] !== undefined)?.[key];
-  return typeof sample === 'number' ? 'number' : 'text';
-}
+export { columnKindFromRows, mergeFilters };
 
-/** The viewer's own column filters, layered onto (never replacing) the producer's `dataQuery.filter`. */
+/**
+ * The wire `sort` to send: the viewer's own override when the reader has
+ * clicked a header, else the producer's own base sort UNCHANGED (never `[]`)
+ * — so clicking a sorted column's own direction a second time, which clears
+ * the override (reui's own three-state toggle), restores the producer's
+ * chosen ordering instead of falling through to no sort at all.
+ */
 // oxlint-disable-next-line react/only-export-components
-export function mergeFilters(
-  base: TableDataQuery['filter'],
-  userFilters: ReadonlyMap<string, ClioColumnFilterValue>,
-): NonNullable<TableDataQuery['filter']> {
-  const merged = [...(base ?? [])];
-  for (const [column, value] of userFilters) {
-    if (value.kind === 'text' && value.contains) {
-      merged.push({ column, op: 'contains', value: value.contains });
-    } else if (value.kind === 'range' && (value.min !== undefined || value.max !== undefined)) {
-      merged.push({ column, op: 'range', value: [value.min ?? null, value.max ?? null] });
-    }
-  }
-  return merged;
+export function resolveEffectiveSort(
+  sortOverride: { column: string; desc: boolean } | undefined,
+  baseSort: readonly { column: string; desc: boolean }[] | undefined,
+): readonly { column: string; desc: boolean }[] {
+  return sortOverride ? [sortOverride] : (baseSort ?? []);
 }
 
 /**
@@ -177,11 +200,36 @@ function ClioDataTableArtifactSource({
 }: ClioDataTableArtifactSourceProps) {
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_DATA_TABLE_PAGE_SIZE);
-  const [sort, setSort] = useState<{ column: string; direction: 'asc' | 'desc' } | undefined>(
-    dataQuery?.sort,
+  // The viewer's own sort override — a single key, since only one header is
+  // ever clicked at a time. `undefined` means "no override": the producer's
+  // own `dataQuery.sort` (already a list; multiple keys apply in order)
+  // shows and applies unchanged, so clearing a click-to-sort column restores
+  // the producer's base ordering rather than falling back to no sort at all.
+  const [sortOverride, setSortOverride] = useState<{ column: string; desc: boolean } | undefined>(
+    undefined,
   );
   const [filters, setFilters] = useState<ReadonlyMap<string, ClioColumnFilterValue>>(new Map());
 
+  // A new artifact or a materially different base query is a new dataset:
+  // the viewer's own page/sort/filter overrides describe the OLD one and
+  // must not silently carry over (a stale filter that happens to still
+  // parse could hide every row of the new table with no visible cause).
+  // Adjusted during render (see https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes),
+  // same pattern as `data-table-column-filter.tsx`'s `syncedValue`.
+  const resetKey = `${dataUri}\u0000${JSON.stringify(dataQuery ?? null)}`;
+  const [lastResetKey, setLastResetKey] = useState(resetKey);
+  if (resetKey !== lastResetKey) {
+    setLastResetKey(resetKey);
+    setPageIndex(0);
+    setSortOverride(undefined);
+    setFilters(new Map());
+  }
+
+  const baseSort = dataQuery?.sort;
+  const effectiveSort = useMemo(
+    () => resolveEffectiveSort(sortOverride, baseSort),
+    [baseSort, sortOverride],
+  );
   const requestColumns = useMemo(() => dataQuery?.columns ?? [], [dataQuery?.columns]);
   const effectiveDataQuery = useMemo<TableDataQuery>(
     () => ({
@@ -189,20 +237,25 @@ function ClioDataTableArtifactSource({
       filter: mergeFilters(dataQuery?.filter, filters),
       limit: pageSize,
       offset: pageIndex * pageSize,
-      sort,
+      sort: effectiveSort,
     }),
-    [dataQuery, filters, pageIndex, pageSize, sort],
+    [dataQuery, effectiveSort, filters, pageIndex, pageSize],
   );
-  const { rows, loading, error, matchedRows } = useTableQueryRows({
+  const { rows, loading, error, matchedRows, schema } = useTableQueryRows({
     columns: requestColumns,
     data: undefined,
     dataQuery: effectiveDataQuery,
     dataUri,
   });
+  // The server's own reported schema names every queried column regardless
+  // of row count, so an empty (but successful) result still renders a real,
+  // empty table instead of a skeleton that never resolves (a zero-row match
+  // has no `rows[0]` to read column names from).
   const renderColumns = useMemo<ClioDataColumn[] | undefined>(() => {
     if (columns) return columns;
+    if (schema?.length) return schema.map((column) => column.name);
     return rows?.[0] ? Object.keys(rows[0]) : undefined;
-  }, [columns, rows]);
+  }, [columns, rows, schema]);
 
   const handlePaginationChange = useCallback(
     (next: { pageIndex: number; pageSize: number }) => {
@@ -212,8 +265,8 @@ function ClioDataTableArtifactSource({
     [],
   );
   const handleSortChange = useCallback(
-    (next: { column: string; direction: 'asc' | 'desc' } | undefined) => {
-      setSort(next);
+    (next: { column: string; desc: boolean } | undefined) => {
+      setSortOverride(next);
       setPageIndex(0);
     },
     [],
@@ -230,7 +283,10 @@ function ClioDataTableArtifactSource({
     },
     [],
   );
-  const columnKind = useCallback((key: string) => columnKindFromRows(rows, key), [rows]);
+  const columnKind = useCallback(
+    (key: string) => columnKindFromSchema(schema, key) ?? columnKindFromRows(rows, key),
+    [rows, schema],
+  );
   // Stable across renders unless one of its own values actually changed — a
   // fresh object every render would rebuild ClioDataTable's whole column
   // list (and every column's filter control) on every keystroke and refetch.
@@ -244,10 +300,21 @@ function ClioDataTableArtifactSource({
       pageIndex,
       pageSize,
       pageSizeOptions: DATA_TABLE_PAGE_SIZES,
-      sort,
+      sort: effectiveSort[0],
       totalRows: matchedRows ?? rows?.length ?? 0,
     }),
-    [columnKind, filters, handleFilterChange, handlePaginationChange, handleSortChange, matchedRows, pageIndex, pageSize, rows, sort],
+    [
+      columnKind,
+      effectiveSort,
+      filters,
+      handleFilterChange,
+      handlePaginationChange,
+      handleSortChange,
+      matchedRows,
+      pageIndex,
+      pageSize,
+      rows,
+    ],
   );
 
   if (error) {
@@ -257,8 +324,25 @@ function ClioDataTableArtifactSource({
           <Table2Icon aria-hidden="true" className="size-4 text-primary" />
           <FrameTitle>Data table</FrameTitle>
         </FrameHeader>
-        <FramePanel>
+        <FramePanel className="gap-2">
           <p className="text-sm text-destructive">Table unavailable: {error}</p>
+          {filters.size > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              This viewer has {filters.size === 1 ? 'a filter' : `${filters.size} filters`} of its
+              own active, which may be the cause.{' '}
+              <button
+                className="font-medium text-primary underline underline-offset-2"
+                onClick={() => {
+                  setFilters(new Map());
+                  setPageIndex(0);
+                }}
+                type="button"
+              >
+                Clear {filters.size === 1 ? 'it' : 'them'}
+              </button>
+              .
+            </p>
+          ) : null}
         </FramePanel>
       </Frame>
     );
@@ -277,6 +361,21 @@ function ClioDataTableArtifactSource({
       </Frame>
     );
   }
+  const buildReference = (): DataZoneReference => {
+    const total = matchedRows ?? rows.length;
+    const start = pageIndex * pageSize + 1;
+    const end = start + rows.length - 1;
+    const previewColumns = renderColumns.slice(0, 5).map(columnKey);
+    return buildZoneReference({
+      componentLabel: a2uiAccessibilityLabel(accessibility) ?? 'Data table',
+      datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
+      filters: (effectiveDataQuery.filter ?? []).map(describeQueryFilter),
+      previewColumns,
+      previewRows: rows.slice(0, 5),
+      query: { dataQuery: effectiveDataQuery, dataUri },
+      zoneDescription: `rows ${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}${effectiveSort[0] ? `, sorted by ${effectiveSort[0].column} ${effectiveSort[0].desc ? 'desc' : 'asc'}` : ''}`,
+    });
+  };
   return (
     <ClioSelectableDataTable
       accessibility={accessibility}
@@ -286,6 +385,7 @@ function ClioDataTableArtifactSource({
       rows={rows as ClioDataRow[]}
       selection={selection}
       selectionField={selectionField}
+      toolbarExtra={<DataReferenceThisButton buildReference={buildReference} />}
       server={server}
       setSelection={setSelection}
     />

@@ -3,7 +3,7 @@ import {
   type ArtifactTableQueryRequest,
   type ArtifactTableQueryResult,
 } from '@clio/core/v3';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
@@ -27,16 +27,24 @@ export type QueryRow = Record<string, QueryCell>;
  */
 export type TableDataQuery = Partial<ArtifactTableQueryRequest>;
 
+/** One column's name and the server's own Arrow-derived type string (e.g. `int64`, `string`, `timestamp[us]`). */
+export interface QueryColumnSchema {
+  name: string;
+  type: string;
+}
+
 export interface TableQueryRows {
   rows: QueryRow[] | undefined;
   loading: boolean;
   error: string;
-  /** Says when the server returned fewer rows than matched (truncated or downsampled). */
+  /** Says when the server returned fewer rows than matched (truncated, downsampled, or a later page). */
   note: string;
   /** Rows the query matched before `limit`/downsample, when the server reported it. */
   matchedRows: number | undefined;
   /** Rows actually returned by this response. */
   returnedRows: number | undefined;
+  /** The queried columns' own server-reported types — authoritative over sampling a page for kind. */
+  schema: readonly QueryColumnSchema[] | undefined;
 }
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -62,10 +70,16 @@ export function columnarToRows(
   return rows;
 }
 
-function describeResult(result: ArtifactTableQueryResult): string {
+/**
+ * `offset` is true whenever the request named one (regardless of its value):
+ * a chart/map has no pagination UI of its own, so a paged request — even one
+ * whose page happens to come back whole (not `truncated`) — still needs its
+ * own "N of M" note, or a producer's `offset` would read as the WHOLE result.
+ */
+function describeResult(result: ArtifactTableQueryResult, requestedOffset: boolean): string {
   const mode = typeof result.downsample.mode === 'string' ? result.downsample.mode : 'none';
   const downsampled = mode !== 'none';
-  if (!downsampled && !result.truncated) return '';
+  if (!downsampled && !result.truncated && !requestedOffset) return '';
   const matched = result.matchedRows ?? result.totalRows;
   const parts = [
     `Showing ${result.returnedRows.toLocaleString()} of ${matched.toLocaleString()} rows`,
@@ -158,9 +172,15 @@ export function useTableQueryRows({
     queryFn: ({ signal }) => repository.artifactTableQuery(artifactId!, request, signal),
     retry: retryTableQuery,
     // Keeps the previous page/sort/filter's rows on screen while the next
-    // request is in flight — paging, sorting, and filtering read as a live
-    // table adjusting, not a flash back to a loading skeleton every click.
-    placeholderData: keepPreviousData,
+    // request for the SAME artifact is in flight — paging, sorting, and
+    // filtering read as a live table adjusting, not a flash back to a
+    // loading skeleton every click. Scoped to the artifact id (queryKey[2],
+    // set just above): unscoped `keepPreviousData` would keep showing a
+    // just-replaced artifact's own rows as "settled" placeholder data the
+    // instant a producer points `dataUri` at a different one, rather than
+    // the loading state a genuinely different dataset should show.
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[2] === artifactId ? previousData : undefined,
     ...IMMUTABLE_QUERY,
   });
   const queried = useMemo(
@@ -179,6 +199,7 @@ export function useTableQueryRows({
       note: '',
       matchedRows: data.length,
       returnedRows: data.length,
+      schema: undefined,
     };
   }
   if (!artifactId) {
@@ -189,6 +210,7 @@ export function useTableQueryRows({
       note: '',
       matchedRows: undefined,
       returnedRows: undefined,
+      schema: undefined,
     };
   }
   if (query.isError) {
@@ -199,14 +221,16 @@ export function useTableQueryRows({
       note: '',
       matchedRows: undefined,
       returnedRows: undefined,
+      schema: undefined,
     };
   }
   return {
     rows: queried,
     loading: query.isPending,
     error: '',
-    note: query.data ? describeResult(query.data) : '',
+    note: query.data ? describeResult(query.data, (dataQuery?.offset ?? 0) > 0) : '',
     matchedRows: query.data ? (query.data.matchedRows ?? query.data.totalRows) : undefined,
     returnedRows: query.data?.returnedRows,
+    schema: query.data?.schema as readonly QueryColumnSchema[] | undefined,
   };
 }

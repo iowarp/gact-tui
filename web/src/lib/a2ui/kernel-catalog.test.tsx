@@ -7,6 +7,23 @@ vi.mock('@/components/clio/scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="professional-map-renderer" />,
 }));
 
+// The map's side list virtualizes with `@tanstack/react-virtual` (#1533
+// MEDIUM 6); jsdom never resolves a real scroll-container height, so — same
+// as every other virtualized list in this codebase — stub it to render every
+// row, keeping these tests about catalog wiring rather than virtualization.
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 56,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        size: 56,
+        start: index * 56,
+      })),
+  }),
+}));
+
 vi.mock('@/components/clio/mermaid-diagram', () => ({
   ClioMermaidDiagram: ({
     accessibilityDescription,
@@ -317,4 +334,59 @@ describe('CLIO A2UI kernel catalog', () => {
       expect((await screen.findAllByLabelText(label)).length).toBeGreaterThan(0);
     }
   }, 20_000);
+
+  it('shows a clean fallback card, not the raw red "Unknown component" error, for a retired clio.time-series.v1', () => {
+    // #1533 MEDIUM 7: `clio.time-series.v1` was retired in favor of the
+    // preset-based `clio.chart.v1`, but old transcripts still name it. A
+    // legacy payload's shape is whatever the deleted schema once allowed —
+    // an arbitrary `points`/`series` blob here stands in for "anything at
+    // all", since the fallback reads none of it.
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['legacy-chart'] },
+      {
+        id: 'legacy-chart',
+        component: 'clio.time-series.v1',
+        title: 'Displacement over time',
+        series: [{ label: 'GNSS01', points: [{ x: 1, y: 2 }] }],
+      },
+    ]);
+
+    render(<A2uiSurface surface={surface} />);
+
+    expect(screen.getByText('This chart type is no longer supported')).toBeVisible();
+    expect(screen.getByText(/ask the agent to redraw it/iu)).toBeVisible();
+    expect(screen.queryByText(/Unknown component type/iu)).not.toBeInTheDocument();
+  });
+
+  describe('"exactly one of X or dataUri" exclusivity checks (#1533 LOW)', () => {
+    // `Boolean('')` reads the same as `Boolean(undefined)` — an inline field
+    // provided as an explicit empty string must still count as "provided",
+    // or an old surface sending one deliberately fails validation outright.
+    it.each([
+      ['clio.code.v1', { code: '', language: 'python' }],
+      ['clio.diff.v1', { path: 'a/b.py', diff: '' }],
+      ['clio.mermaid.v1', { source: '' }],
+    ] as const)('accepts an empty-string inline value for %s', (name, props) => {
+      const schema = KERNEL_COMPONENTS.get(name)!.schema;
+      expect(schema.safeParse(props).success).toBe(true);
+    });
+
+    it.each([
+      ['clio.code.v1', { language: 'python' }],
+      ['clio.diff.v1', { path: 'a/b.py' }],
+      ['clio.mermaid.v1', {}],
+    ] as const)('still rejects %s when neither the inline value nor dataUri is given', (name, props) => {
+      const schema = KERNEL_COMPONENTS.get(name)!.schema;
+      expect(schema.safeParse(props).success).toBe(false);
+    });
+
+    it.each([
+      ['clio.code.v1', { code: 'x', dataUri: 'artifact://artifact_1', language: 'python' }],
+      ['clio.diff.v1', { path: 'a/b.py', diff: 'x', dataUri: 'artifact://artifact_1' }],
+      ['clio.mermaid.v1', { source: 'x', dataUri: 'artifact://artifact_1' }],
+    ] as const)('still rejects %s when both the inline value and dataUri are given', (name, props) => {
+      const schema = KERNEL_COMPONENTS.get(name)!.schema;
+      expect(schema.safeParse(props).success).toBe(false);
+    });
+  });
 });

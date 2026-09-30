@@ -1,6 +1,16 @@
 import { MapPinIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import Map, { Marker, NavigationControl, Popup, type ViewState } from 'react-map-gl/maplibre';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import Map, {
+  Layer,
+  Marker,
+  NavigationControl,
+  Popup,
+  Source,
+  type MapLayerMouseEvent,
+  type MapRef,
+  type ViewState,
+} from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { cn } from '@/lib/utils';
 
@@ -23,8 +33,69 @@ export interface ScientificMapPoint {
 interface ScientificMapViewProps {
   points: readonly ScientificMapPoint[];
   selectedId?: string;
+  /**
+   * Every point a bound selection currently names (a zone can hold many),
+   * for the linked-highlight look; defaults to just `selectedId` when unset,
+   * so callers with no shared selection (the "one point at a time" case)
+   * need not pass it at all.
+   */
+  highlightedIds?: ReadonlySet<string>;
   onSelect: (pointId: string) => void;
+  /**
+   * Shift+drag a rectangle to select every point inside it (#1533 item 4:
+   * "drag a rectangle on the map"). Replaces maplibre's default shift+drag
+   * box-zoom for this view — see the `boxZoom.disable()` call below.
+   */
+  onZoneSelect?: (pointIds: string[]) => void;
 }
+
+/**
+ * Above this point count, one DOM `<Marker>` (its own React tree, its own
+ * click handler, its own layout pass) per point stops scaling — a producer's
+ * matched rows can legitimately reach the schema's own cap
+ * (`A2UI_MAP_POINTS_MAX` = 500; the earthquake demo dataset hits it
+ * unfiltered) and mounting hundreds of interactive DOM nodes inside a
+ * pannable/zoomable map both janks and floods the accessibility tree with
+ * off-screen buttons. Above the threshold, points instead become a single
+ * maplibre GeoJSON circle layer — GPU-instanced, not React state — and are
+ * (de)selected through the map's own `interactiveLayerIds` feature lookup.
+ */
+const MANY_POINTS_THRESHOLD = 150;
+const POINTS_SOURCE_ID = 'clio-map-points';
+const POINTS_LAYER_ID = 'clio-map-points-circles';
+/** Paint-expression colors; maplibre evaluates these itself and cannot read CSS custom properties. */
+const POINT_COLOR = '#1d4ed8';
+const POINT_HIGHLIGHTED_COLOR = '#ea580c';
+
+interface PointFeatureProperties {
+  id: string;
+  highlighted: boolean;
+}
+
+function pointsToGeoJson(
+  points: readonly ScientificMapPoint[],
+  highlightedIds: ReadonlySet<string>,
+) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: points.map((point) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const, coordinates: [point.longitude, point.latitude] },
+      properties: { id: point.id, highlighted: highlightedIds.has(point.id) } satisfies PointFeatureProperties,
+    })),
+  };
+}
+
+/** Container-relative pixel coordinates of a rubber-band drag in progress. */
+interface DragBox {
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+}
+
+/** Pixels a shift+drag must move before it counts as a zone (not a shift+click). */
+const ZONE_DRAG_THRESHOLD_PX = 4;
 
 const rasterStyle = {
   version: 8 as const,
@@ -69,52 +140,154 @@ function initialView(points: readonly ScientificMapPoint[]): Partial<ViewState> 
   };
 }
 
-export function ClioScientificMapView({ points, selectedId, onSelect }: ScientificMapViewProps) {
+export function ClioScientificMapView({
+  highlightedIds,
+  onSelect,
+  onZoneSelect,
+  points,
+  selectedId,
+}: ScientificMapViewProps) {
   const viewState = useMemo(() => initialView(points), [points]);
   const selected = points.find((point) => point.id === selectedId);
   const [mapError, setMapError] = useState<string>();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapRef>(null);
+  const [dragBox, setDragBox] = useState<DragBox | null>(null);
+  const manyPoints = points.length > MANY_POINTS_THRESHOLD;
+  const resolvedHighlightedIds = useMemo(
+    () => highlightedIds ?? new Set(selectedId ? [selectedId] : []),
+    [highlightedIds, selectedId],
+  );
+  const pointsGeoJson = useMemo(
+    () => (manyPoints ? pointsToGeoJson(points, resolvedHighlightedIds) : undefined),
+    [manyPoints, points, resolvedHighlightedIds],
+  );
+  const handleLayerClick = (event: MapLayerMouseEvent) => {
+    // A shift+drag's release also fires a synthetic click at the same
+    // modifier state; the rectangle gesture above already handled the
+    // selection, so a held Shift here must never also select the one point
+    // under the cursor.
+    if (event.originalEvent.shiftKey) return;
+    const feature = event.features?.[0];
+    const id = feature?.properties?.id;
+    if (typeof id === 'string') onSelect(id);
+  };
+
+  const containerPoint = (event: ReactPointerEvent<HTMLDivElement>): { x: number; y: number } => {
+    const rect = rootRef.current!.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+  const handlePointerDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!onZoneSelect || !event.shiftKey || event.button !== 0) return;
+    // Takes over shift+drag from maplibre's default box-zoom (disabled below)
+    // before it ever reaches the map canvas.
+    event.preventDefault();
+    event.stopPropagation();
+    const point = containerPoint(event);
+    setDragBox({ startX: point.x, startY: point.y, x: point.x, y: point.y });
+  };
+  const handlePointerMoveCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragBox) return;
+    event.stopPropagation();
+    const point = containerPoint(event);
+    setDragBox({ ...dragBox, x: point.x, y: point.y });
+  };
+  const handlePointerUpCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragBox) return;
+    event.stopPropagation();
+    const map = mapRef.current?.getMap();
+    const moved =
+      Math.abs(dragBox.x - dragBox.startX) > ZONE_DRAG_THRESHOLD_PX ||
+      Math.abs(dragBox.y - dragBox.startY) > ZONE_DRAG_THRESHOLD_PX;
+    if (map && moved) {
+      const corner1 = map.unproject([dragBox.startX, dragBox.startY]);
+      const corner2 = map.unproject([dragBox.x, dragBox.y]);
+      const west = Math.min(corner1.lng, corner2.lng);
+      const east = Math.max(corner1.lng, corner2.lng);
+      const south = Math.min(corner1.lat, corner2.lat);
+      const north = Math.max(corner1.lat, corner2.lat);
+      const ids = points
+        .filter(
+          (candidate) =>
+            candidate.longitude >= west &&
+            candidate.longitude <= east &&
+            candidate.latitude >= south &&
+            candidate.latitude <= north,
+        )
+        .map((candidate) => candidate.id);
+      onZoneSelect?.(ids);
+    }
+    setDragBox(null);
+  };
 
   return (
-    <div className="relative size-full">
+    <div
+      className="relative size-full"
+      data-slot="a2ui-map-surface"
+      onPointerDownCapture={handlePointerDownCapture}
+      onPointerMoveCapture={handlePointerMoveCapture}
+      onPointerUpCapture={handlePointerUpCapture}
+      ref={rootRef}
+    >
       <Map
         initialViewState={viewState}
+        interactiveLayerIds={manyPoints ? [POINTS_LAYER_ID] : undefined}
         mapStyle={rasterStyle}
         maxPitch={0}
         maxZoom={16}
         minZoom={1}
+        onClick={manyPoints ? handleLayerClick : undefined}
         onError={(event) =>
           setMapError(event.error?.message || 'The map tiles could not be loaded.')
         }
-        onLoad={() => setMapError(undefined)}
+        onLoad={(event) => {
+          setMapError(undefined);
+          // Shift+drag now draws a selection rectangle instead (see above).
+          event.target.boxZoom.disable();
+        }}
+        ref={mapRef}
         reuseMaps
         style={{ height: '100%', width: '100%' }}
       >
         <NavigationControl position="top-right" showCompass={false} />
-        {points.map((point) => (
-          <Marker
-            anchor="bottom"
-            key={point.id}
-            latitude={point.latitude}
-            longitude={point.longitude}
-          >
-            <button
-              aria-label={`Select ${point.label}`}
-              aria-pressed={point.id === selectedId}
-              className={cn(
-                'group grid size-8 place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                point.id === selectedId &&
-                  'scale-110 border-primary bg-primary text-primary-foreground',
-              )}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelect(point.id);
+        {manyPoints && pointsGeoJson ? (
+          <Source data={pointsGeoJson} id={POINTS_SOURCE_ID} type="geojson">
+            <Layer
+              id={POINTS_LAYER_ID}
+              paint={{
+                'circle-color': ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, POINT_COLOR],
+                'circle-opacity': 0.85,
+                'circle-radius': ['case', ['get', 'highlighted'], 6, 4],
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-width': ['case', ['get', 'highlighted'], 1.5, 0.5],
               }}
-              type="button"
-            >
-              <MapPinIcon aria-hidden="true" className="size-4" />
-            </button>
-          </Marker>
-        ))}
+              type="circle"
+            />
+          </Source>
+        ) : (
+          points.map((point) => {
+            const highlighted = resolvedHighlightedIds.has(point.id);
+            return (
+              <Marker anchor="bottom" key={point.id} latitude={point.latitude} longitude={point.longitude}>
+                <button
+                  aria-label={`Select ${point.label}`}
+                  aria-pressed={highlighted}
+                  className={cn(
+                    'group grid size-8 place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    highlighted && 'scale-110 border-primary bg-primary text-primary-foreground',
+                  )}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelect(point.id);
+                  }}
+                  type="button"
+                >
+                  <MapPinIcon aria-hidden="true" className="size-4" />
+                </button>
+              </Marker>
+            );
+          })
+        )}
         {selected ? (
           <Popup
             anchor="top"
@@ -133,6 +306,18 @@ export function ClioScientificMapView({ points, selectedId, onSelect }: Scientif
           </Popup>
         ) : null}
       </Map>
+      {dragBox ? (
+        <div
+          className="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-primary bg-primary/10"
+          data-slot="a2ui-map-zone-drag"
+          style={{
+            height: Math.abs(dragBox.y - dragBox.startY),
+            left: Math.min(dragBox.startX, dragBox.x),
+            top: Math.min(dragBox.startY, dragBox.y),
+            width: Math.abs(dragBox.x - dragBox.startX),
+          }}
+        />
+      ) : null}
       {mapError ? (
         <p
           className="absolute inset-x-3 bottom-3 rounded-md border border-destructive/30 bg-background/95 px-3 py-2 text-xs text-destructive shadow-sm"

@@ -134,7 +134,7 @@ export function buildExecutionProvenanceGraph(
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    label: edge.kind,
+    label: edgeLabel(edge.kind),
     type: 'smoothstep',
     markerEnd: { type: MarkerType.ArrowClosed },
   }));
@@ -167,6 +167,22 @@ function layoutExecutionGraph(
 
 export function executionNodeWidth(label: string): number {
   return Math.min(320, Math.max(196, 112 + label.length * 7));
+}
+
+/**
+ * A provenance edge's `kind` is a free-form string a provider can report as
+ * several relation tags joined with `|` (e.g. a combined "reads|writes"
+ * data-flow edge) — meaningful as a machine-readable value, but `|` reads as
+ * raw field-separator clutter on a rendered graph edge (#1533 LOW, marimo-
+ * clean visuals). Rendered as a comma-separated list instead, nothing the
+ * provider reported is dropped.
+ */
+export function edgeLabel(kind: string): string {
+  return kind
+    .split('|')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(', ');
 }
 
 export function statusValue(status: string): 'healthy' | 'degraded' | 'unavailable' | RunState {

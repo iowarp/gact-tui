@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 
 // This spec's very first real test has, in this sandboxed environment, been
@@ -13,6 +14,9 @@ test.beforeAll(async ({ browser }, testInfo) => {
   testInfo.setTimeout(300_000);
   const page = await browser.newPage();
   try {
+    await page.route('https://tile.openstreetmap.org/**', async (route) => {
+      await route.fulfill({ contentType: 'image/png', path: tilePlaceholderPath });
+    });
     const reset = await page.request.post(`${fixtureEndpoint}/__test/reset`);
     expect(reset.ok()).toBe(true);
     await page.addInitScript((endpoint) => {
@@ -48,7 +52,20 @@ const fixtureEndpoint = `http://127.0.0.1:${fixturePort}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
 const unexpectedErrors = new WeakMap<Page, string[]>();
 
+// The map's basemap fetches real tiles from tile.openstreetmap.org
+// (`scientific-map-view.tsx`'s `rasterStyle`); reaching the real service from
+// a sandboxed/CI environment is flaky and rate-limited (the plain public
+// tile server has no test SLA), which shows up as a blank white map in a
+// screenshot even though nothing in the app is actually broken. Routed to a
+// local fixture tile instead (#1533 item 6 — local tile routing for
+// screenshots, the desktop-map-csp.spec.ts pattern from gact-tui #505), the
+// map's own background is deterministic and instant in every test here.
+const tilePlaceholderPath = fileURLToPath(new URL('./fixtures/tile-placeholder.png', import.meta.url));
+
 test.beforeEach(async ({ page }) => {
+  await page.route('https://tile.openstreetmap.org/**', async (route) => {
+    await route.fulfill({ contentType: 'image/png', path: tilePlaceholderPath });
+  });
   const errors: string[] = [];
   unexpectedErrors.set(page, errors);
   page.on('console', (message) => {
@@ -123,6 +140,29 @@ function mapPointButton(page: Page, id: string) {
     .getByRole('button', { name: new RegExp(`^${id}\\b`, 'u') });
 }
 
+/**
+ * Past the virtualization threshold (#1533 MEDIUM 6), the side list only
+ * mounts rows scrolled into view — a point deep in the 500-row list (the
+ * earthquake fixture orders points by timestamp, not by id, so a given id's
+ * position is arbitrary) may not exist in the DOM at all until scrolled to.
+ * Scrolls the list container in increments — the same thing a sighted user
+ * would do to find it — until the target row mounts, then returns it.
+ */
+async function scrollToMapPointButton(page: Page, id: string) {
+  const list = page.locator('[data-slot="a2ui-map-points-list"]');
+  const target = mapPointButton(page, id);
+  if (await target.count()) return target;
+  const totalHeight = await list.evaluate((element) => element.scrollHeight);
+  const step = Math.max(await list.evaluate((element) => element.clientHeight) || 256, 256) * 6;
+  for (let top = 0; top <= totalHeight; top += step) {
+    await list.evaluate((element, value) => {
+      element.scrollTop = value;
+    }, top);
+    if (await target.count()) return target;
+  }
+  return target;
+}
+
 const screenshotDir =
   'D:/Libraries/Documents/projects/clio_develop_workspace/temp/a2ui-data-shots';
 
@@ -134,7 +174,11 @@ for (const theme of ['light', 'dark'] as const) {
     await page.setViewportSize({ height: 1400, width: 1280 });
     await page.addInitScript((value) => localStorage.setItem('theme', value), theme);
     await openEarthquakeDemo(page);
-    await expect(page.locator('.maplibregl-marker')).toHaveCount(500, { timeout: 60_000 });
+    // 500 points is past the map's own virtualization threshold (#1533
+    // MEDIUM 6): they draw as one GeoJSON layer, not 500 DOM markers, so
+    // "labeled locations" (driven by the resolved point count itself, not a
+    // rendering strategy) is what proves the whole referenced dataset loaded.
+    await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 60_000 });
     // The generated-UI surface lives inside the transcript's own scrolling
     // container, not the document, and is taller than even this viewport:
     // `fullPage` only extends to the document's height (capturing whatever
@@ -159,9 +203,10 @@ test('renders a chart, map, table, and metric from one referenced dataset', asyn
   await expect(page.getByText('Epicenters')).toBeVisible();
 
   // The map draws every referenced point, never a truncated inline subset
-  // (the inline cap of 500 governs `points`, not a `dataUri` map).
+  // (the inline cap of 500 governs `points`, not a `dataUri` map). Past the
+  // map's own virtualization threshold (#1533 MEDIUM 6), 500 points draw as
+  // one GeoJSON layer rather than 500 DOM markers.
   await expect(page.getByText('500 labeled locations')).toBeVisible();
-  await expect(page.locator('.maplibregl-marker')).toHaveCount(500, { timeout: 20_000 });
 
   // The table shows the agent's own base view (magnitude 2.0+), highest first.
   const table = page.getByRole('table');
@@ -173,7 +218,7 @@ test('selecting a map point highlights the matching table row', async ({ page })
   test.setTimeout(90_000);
   await openEarthquakeDemo(page);
 
-  await mapPointButton(page, 'eq0342').click();
+  await (await scrollToMapPointButton(page, 'eq0342')).click();
   await expect(mapPointButton(page, 'eq0342')).toHaveAttribute('aria-pressed', 'true');
 
   const table = page.getByRole('table');
@@ -191,7 +236,14 @@ test('selecting a table row highlights the matching map point', async ({ page })
   await topRow.click();
 
   await expect(topRow).toHaveAttribute('aria-selected', 'true');
-  await expect(mapPointButton(page, 'eq0342')).toHaveAttribute('aria-pressed', 'true');
+  // Selecting via the table brings the shared selection to `eq0342`, but the
+  // map's OWN virtualized list only mounts a row once it is scrolled into
+  // view (#1533 MEDIUM 6) — the row isn't unmounted by being selected, it
+  // just may never have rendered yet.
+  await expect(await scrollToMapPointButton(page, 'eq0342')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });
 
 test('data-table pages through the whole referenced dataset, page size and last page included', async ({
@@ -220,41 +272,34 @@ test('data-table pages through the whole referenced dataset, page size and last 
 
 // Both tests below open a `reui` DataGridColumnHeader dropdown (the filter
 // and sort menu) on a server-driven (`manualPagination`/`manualSorting`/
-// `manualFiltering`) table. That open never sticks in a real browser: Radix's
-// `onOpenChange` fires exactly once with `true` (confirmed by temporarily
-// instrumenting both the uncontrolled trigger and a controlled `open`/
-// `onOpenChange` owned directly by `DataGridColumnHeaderInner`), the DOM
-// never gains a `role="menu"` node, and no paired `onOpenChange(false)` ever
-// fires — i.e. the state is not toggled closed, the component holding it is
-// discarded and replaced with a fresh (default-closed) instance. Ruled out
-// as causes: click hit-testing (the click lands exactly on the trigger button
-// per `elementFromPoint`), the adjacent resize handle (identical failure with
-// `columnsResizable: false`), scroll position and viewport visibility (fixed
-// separately below and confirmed via `toBeInViewport()`), scroll-momentum
-// timing (identical failure after a 1s settle), an iframe boundary (a single
-// frame), and a thrown render error (zero console errors in either mode).
-// The file's own comments already document TanStack Table v9 rebuilding the
-// `table` object (and the header/column objects `flexRender` reads) on every
-// internal state change as a known source of exactly this class of staleness
-// for sort/pin state, worked around there with a `Subscribe`-based read; that
-// workaround does not extend to the dropdown's own open state, controlled or
-// not. This is pre-existing `reui/data-grid` + TanStack v9 (beta) behavior,
-// not something this dataUri/pagination work introduced — no other consumer
-// in this codebase drives this dropdown from an e2e test, and a minimal
-// isolated render (`ClioDataTable` + a bare `server` control, no A2UI, no
-// ARC, no query client) opens it correctly. Filed as a follow-up; the
+// `manualFiltering`) table. That dropdown used to never stick open in a real
+// browser: Radix's `onOpenChange` fired exactly once with `true`, the DOM
+// never gained a `role="menu"` node, and no paired `onOpenChange(false)` ever
+// fired — the state was not being toggled closed, the component holding it
+// was being discarded and replaced with a fresh (default-closed) instance.
+// Root cause: `flexRender` instantiates `column.columnDef.header` BY
+// REFERENCE (`React.createElement(Comp, props)`), and this table's `header`
+// was an inline arrow function recreated inside `ClioDataTable`'s `columns`
+// useMemo. TanStack v9 rebuilds its table/column wrapper objects on every
+// render (documented elsewhere in this codebase as a known source of exactly
+// this class of staleness for sort/pin state), and on top of that the real
+// A2UI/ARC/query-client stack re-renders for reasons unrelated to this table
+// at all — every such rebuild handed `flexRender` a new function identity at
+// the header's tree position, which React reads as a different component
+// type and unmounts. Fixed in `data-table.tsx`: `header`/`cell` are now
+// permanently stable module-scope function references
+// (`ClioColumnHeaderCell`/`ClioColumnValueCell`) that read their per-column
+// data off `columnDef.meta` instead of a closure, so column-def churn is an
+// ordinary props update (preserving DropdownMenu open state) rather than a
+// remount. Regression-tested directly in `data-table.test.tsx` (`keeps a
+// column header dropdown open across a full columns-array rebuild`); the
 // underlying request-building logic these menus drive (`mergeFilters`,
 // `columnKindFromRows`, offset/sort request assembly) is unit-tested in
-// `a2ui-data-table-source.test.tsx`, and the pager (a plain button, not a
-// Radix dropdown) is exercised live in the paging test above.
+// `a2ui-data-table-source.test.tsx`.
 
 test('a column filter narrows results while the agent base filter still applies', async ({
   page,
 }) => {
-  test.fixme(
-    true,
-    'DataGridColumnHeader dropdown does not stay open in a real browser for this table — see the comment above.',
-  );
   test.setTimeout(90_000);
   await openEarthquakeDemo(page);
   const table = page.getByRole('table');
@@ -273,22 +318,30 @@ test('a column filter narrows results while the agent base filter still applies'
   await placeHeader.click();
   await expect(page.getByRole('menu')).toBeVisible();
   await page.getByLabel('Filter place, contains').fill('eastern');
-  await expect(page.getByText(/1 - 32 of 32/u)).toBeVisible();
+  // Debounced (`SEARCH_DEBOUNCE_MS`), then a real network round trip: the
+  // default 5s expect timeout is tight on this environment's documented cold
+  // slowness (see the warm-up comment above `openEarthquakeDemo`).
+  await expect(page.getByText(/1 - 32 of 32/u)).toBeVisible({ timeout: 20_000 });
+
+  // Close the dropdown before querying by role: Radix correctly marks the
+  // rest of the page `aria-hidden` while its portal-rendered menu is open
+  // (the filter text input lives inside that menu, so typing never auto-
+  // closes it the way selecting a plain menu item does) — `getByRole`
+  // deliberately excludes an `aria-hidden` subtree, so every role-based
+  // locator below would resolve to nothing until the menu is dismissed.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
 
   // Every visible row is Eastern Sierra, and still within the agent's own
   // magnitude >= 2.0 base filter (never dropped by the viewer's own filter).
   const rows = table.locator('tbody tr');
-  await expect(rows).toHaveCount(32);
+  await expect(rows).toHaveCount(32, { timeout: 20_000 });
   const placeCells = await rows.locator('td').allTextContents();
   expect(placeCells.some((text) => text.includes('Eastern Sierra'))).toBe(true);
   expect(placeCells.some((text) => /\b[01]\.\d\d\b/u.test(text))).toBe(false);
 });
 
 test('clicking a column header toggles its sort', async ({ page }) => {
-  test.fixme(
-    true,
-    'DataGridColumnHeader dropdown does not stay open in a real browser for this table — see the comment above.',
-  );
   test.setTimeout(90_000);
   await openEarthquakeDemo(page);
   const table = page.getByRole('table');
@@ -308,4 +361,137 @@ test('clicking a column header toggles its sort', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Asc', exact: true }).click();
 
   await expect(firstRow).toContainText('eq0087');
+});
+
+// #1533 next slice (gact-tui, stacked on this branch): chart zoom/brush
+// re-query, user filters on charts and maps, zone selection, and "Reference
+// this". Screenshots for these land in a dedicated directory so they don't
+// collide with the #508 demo captures above.
+const exploreShotsDir =
+  'D:/Libraries/Documents/projects/clio_develop_workspace/temp/a2ui-explore-shots';
+
+test('brushing the chart re-queries the range at full detail and the zone links the map', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await openEarthquakeDemo(page);
+  // Past the map's own virtualization threshold (#1533 MEDIUM 6), 500 points
+  // draw as one GeoJSON layer rather than 500 DOM markers.
+  await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 20_000 });
+
+  const chartView = page.locator('[data-slot="a2ui-chart-view"]');
+  // The demo surface is far taller than the viewport inside the transcript's
+  // own scroll container, so the chart starts off-screen (a negative-y
+  // bounding box) - `page.mouse` works in viewport coordinates, so the drag
+  // below would silently land outside the page entirely without this.
+  await chartView.scrollIntoViewIfNeeded();
+  const box = await chartView.boundingBox();
+  if (!box) throw new Error('the chart view has no bounding box');
+  const y = box.y + box.height / 2;
+  // A left-to-right drag over the middle of the x (depth) axis - vega-lite's
+  // interval selection turns this into a brush without any spec change on
+  // the producer's side (`chart-zoom.ts`'s runtime-only injection).
+  await page.mouse.move(box.x + box.width * 0.25, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, y, { steps: 10 });
+  await page.mouse.up();
+
+  await expect(page.locator('[data-slot="a2ui-chart-zoom-caption"]')).toContainText(
+    'Zoomed to depth',
+    { timeout: 20_000 },
+  );
+
+  // The zone's own ids replaced the shared selection: the map (which always
+  // shows every referenced point, never paginated) highlights a proper
+  // subset - proof the brush actually re-queried and linked, not just
+  // redrew the same 500 points. The side list virtualizes (#1533 MEDIUM 6),
+  // so counting rendered `aria-pressed` buttons would only see whatever
+  // happens to be scrolled into view; the header's own "N of 500 selected"
+  // count (`a2ui-map.tsx`) is the always-visible, non-virtualized source of
+  // truth for how many of the 500 are actually selected.
+  const selectedCount = page.locator('[data-slot="a2ui-map"]').getByText(/of 500 selected$/u);
+  await expect(selectedCount).toBeVisible({ timeout: 20_000 });
+  const selectedText = (await selectedCount.textContent()) ?? '';
+  const selected = Number.parseInt(selectedText, 10);
+  expect(selected).toBeGreaterThan(0);
+  expect(selected).toBeLessThan(500);
+
+  await page.setViewportSize({ height: 1400, width: 1280 });
+  const surface = page.locator('[aria-label^="Generated UI,"]').last();
+  await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+  await page.screenshot({ path: `${exploreShotsDir}/chart-brush-zone-linked.png` });
+
+  // Double-click clears the brush and its zone.
+  await page.mouse.dblclick(box.x + box.width * 0.5, y);
+  await expect(page.locator('[data-slot="a2ui-chart-zoom-caption"]')).toHaveCount(0, {
+    timeout: 20_000,
+  });
+});
+
+test('a chart filter popover narrows the plotted rows, layered on the agent base view', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await openEarthquakeDemo(page);
+  const chartFrame = page.locator('[data-slot="a2ui-chart"]');
+  await expect(chartFrame).toContainText('500 rows', { timeout: 20_000 });
+
+  await chartFrame.getByRole('button', { name: /^Filters/u }).click();
+  await page.getByLabel('Filter place, contains').fill('eastern');
+
+  await expect(chartFrame).not.toContainText('500 rows', { timeout: 20_000 });
+  await expect(chartFrame).toContainText(/\d+ rows/u);
+
+  await page.screenshot({
+    path: `${exploreShotsDir}/chart-filter-popover.png`,
+    clip: (await chartFrame.boundingBox()) ?? undefined,
+  });
+});
+
+test('shift+dragging a rectangle on the map selects points and links the table', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await openEarthquakeDemo(page);
+  // Past the map's own virtualization threshold (#1533 MEDIUM 6), 500 points
+  // draw as one GeoJSON layer rather than 500 DOM markers.
+  await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 20_000 });
+
+  const mapSurface = page.locator('[data-slot="a2ui-map-surface"]');
+  // See the same call in the chart brush test above: `page.mouse` needs
+  // viewport coordinates, and the map starts off-screen in this tall,
+  // virtualized-transcript surface.
+  await mapSurface.scrollIntoViewIfNeeded();
+  const box = await mapSurface.boundingBox();
+  if (!box) throw new Error('the map surface has no bounding box');
+
+  await page.keyboard.down('Shift');
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.7, { steps: 10 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+
+  const selectedRows = page.getByRole('table').locator('tr[aria-selected="true"]');
+  await expect.poll(async () => selectedRows.count(), { timeout: 20_000 }).toBeGreaterThan(0);
+});
+
+test('"Reference this" puts a precise, re-queryable block in the composer', async ({ page }) => {
+  test.setTimeout(90_000);
+  await openEarthquakeDemo(page);
+  await expect(page.getByRole('table')).toBeVisible();
+
+  const referenceButtons = page.getByRole('button', { name: 'Reference this' });
+  await expect(referenceButtons.first()).toBeVisible({ timeout: 20_000 });
+  await referenceButtons.first().click();
+
+  const attached = page.getByRole('list', { name: 'Attached selections' });
+  await expect(attached).toBeVisible();
+  await expect(attached).toContainText('```json');
+  await expect(attached).toContainText('artifact_earthquake');
+
+  await page.screenshot({
+    path: `${exploreShotsDir}/reference-this-composer.png`,
+    clip: (await attached.boundingBox()) ?? undefined,
+  });
 });

@@ -298,7 +298,7 @@ function earthquakeDataSurface() {
                 // paging/sorting/filtering layers on top of this and never
                 // drops it (a2ui-component-design skill, rule 1).
                 filter: [{ column: 'magnitude', op: 'range', value: [2, null] }],
-                sort: { column: 'magnitude', direction: 'desc' },
+                sort: [{ column: 'magnitude', desc: true }],
               },
               selectionField: 'id',
               selection: { path: '/selection/earthquakes' },

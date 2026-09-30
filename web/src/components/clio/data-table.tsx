@@ -1,7 +1,14 @@
-import type { ColumnDef, PaginationState, SortingState, Updater } from '@tanstack/react-table';
+import type {
+  Column,
+  ColumnDef,
+  PaginationState,
+  Row,
+  SortingState,
+  Updater,
+} from '@tanstack/react-table';
 import { useTable } from '@tanstack/react-table';
 import { Table2Icon } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Badge as ReUIBadge } from '@/components/reui/badge';
 import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
 import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
@@ -23,6 +30,57 @@ export type ClioDataColumn = string | { key: string; label: string };
 export type ClioDataRow = Record<string, unknown>;
 
 /**
+ * Stable column-header renderer, declared once at module scope instead of as
+ * an inline arrow function inside the `columns` map below.
+ *
+ * `flexRender` instantiates `column.columnDef.header` BY REFERENCE
+ * (`React.createElement(Comp, props)`), and TanStack v9 rebuilds its table
+ * and column wrapper objects on every render (the reui data-grid's own
+ * comment: v9, unlike v8, "re-creates [table] on every state change"). An
+ * inline arrow function recreated on every `columns` recompute — any filter
+ * keystroke, any unrelated re-render upstream in the A2UI/ARC/query-client
+ * stack — gets a fresh identity each time, which React treats as a
+ * different component TYPE at that slot: it discards the previous instance
+ * rather than re-rendering it, wiping out whatever local state it held (the
+ * header's DropdownMenu open/closed state). That was the actual cause of the
+ * "the filter/sort dropdown won't stay open" behavior (#1533 follow-up) —
+ * the dropdown was never being toggled closed, its whole component instance
+ * was being unmounted and replaced with a fresh, default-closed one.
+ *
+ * The fix: a permanently stable function reference for `header`/`cell`,
+ * fed the per-column data it needs through `columnDef.meta` (read fresh
+ * every render) instead of through a JS closure. Column-def churn is then
+ * an ordinary props update — which preserves component state — never a
+ * remount.
+ */
+function ClioColumnHeaderCell<TData extends object>({
+  column,
+}: {
+  column: Column<DataGridFeatures, TData, unknown>;
+}) {
+  const meta = column.columnDef.meta;
+  return (
+    <DataGridColumnHeader column={column} filter={meta?.headerFilter} title={meta?.headerTitle} />
+  );
+}
+
+/** Stable cell renderer for `ClioDataTable` — see `ClioColumnHeaderCell` above for why this must not be an inline closure. */
+function ClioColumnValueCell<TData extends ClioDataRow>({
+  column,
+  row,
+}: {
+  column: Column<DataGridFeatures, TData, unknown>;
+  row: Row<DataGridFeatures, TData>;
+}) {
+  const value = (row.original as ClioDataRow)[column.id];
+  return (
+    <span className="font-mono text-xs" title={exactCell(value)}>
+      {formatCell(value)}
+    </span>
+  );
+}
+
+/**
  * Server-driven paging, sorting, and per-column filtering for a `dataUri`
  * table: the current page is exactly what `rows` holds, `totalRows` is the
  * whole dataset's matched count (not this page's length), and every control
@@ -37,8 +95,9 @@ export interface ClioDataTableServerControl {
   totalRows: number;
   /** Fires once per pagination change, page index and size together (a size change resets to page 0). */
   onPaginationChange: (pagination: { pageIndex: number; pageSize: number }) => void;
-  sort?: { column: string; direction: 'asc' | 'desc' };
-  onSortChange: (sort: { column: string; direction: 'asc' | 'desc' } | undefined) => void;
+  /** The one active sort key, in the wire's own `{column, desc}` shape — never `direction`. */
+  sort?: { column: string; desc: boolean };
+  onSortChange: (sort: { column: string; desc: boolean } | undefined) => void;
   /** This viewer's own per-column filters — layered on the producer's `dataQuery.filter`, never replacing it. */
   filters: ReadonlyMap<string, ClioColumnFilterValue>;
   onFilterChange: (column: string, value: ClioColumnFilterValue | undefined) => void;
@@ -55,16 +114,19 @@ export function ClioDataTable({
   onRowClick,
   selectedRows,
   server,
+  toolbarExtra,
 }: {
   columns: readonly ClioDataColumn[];
   rows: readonly ClioDataRow[];
   label?: string;
   description?: string;
-  onRowClick?: (row: ClioDataRow) => void;
+  onRowClick?: (row: ClioDataRow, interaction: { index: number; shiftKey: boolean }) => void;
   /** Indexes (into `rows`) to highlight as selected. */
   selectedRows?: ReadonlySet<number>;
   /** Present for a `dataUri` table: pages, sorts, and filters over the whole dataset server-side. */
   server?: ClioDataTableServerControl;
+  /** A `dataUri` table's own "Reference this" trigger, slotted into the toolbar. */
+  toolbarExtra?: ReactNode;
 }) {
   const columns = useMemo<ColumnDef<DataGridFeatures, ClioDataRow, unknown>[]>(
     () =>
@@ -101,18 +163,9 @@ export function ClioDataTable({
           id: key,
           accessorFn: (row: ClioDataRow) => row[key],
           enableSorting: Boolean(server),
-          header: ({ column }) => (
-            <DataGridColumnHeader column={column} filter={filterNode} title={title} />
-          ),
-          cell: ({ row }) => {
-            const value = row.original[key];
-            return (
-              <span className="font-mono text-xs" title={exactCell(value)}>
-                {formatCell(value)}
-              </span>
-            );
-          },
-          meta: { autoSize: true, headerTitle: title },
+          header: ClioColumnHeaderCell,
+          cell: ClioColumnValueCell,
+          meta: { autoSize: true, headerFilter: filterNode, headerTitle: title },
         };
       }),
     [columnDefinitions, server],
@@ -129,8 +182,7 @@ export function ClioDataTable({
     [server],
   );
   const sorting = useMemo<SortingState>(
-    () =>
-      server?.sort ? [{ desc: server.sort.direction === 'desc', id: server.sort.column }] : [],
+    () => (server?.sort ? [{ desc: server.sort.desc, id: server.sort.column }] : []),
     [server],
   );
 
@@ -153,9 +205,7 @@ export function ClioDataTable({
           onSortingChange: (updater: Updater<SortingState>) => {
             const next = typeof updater === 'function' ? updater(sorting) : updater;
             const first = next[0];
-            server.onSortChange(
-              first ? { column: first.id, direction: first.desc ? 'desc' : 'asc' } : undefined,
-            );
+            server.onSortChange(first ? { column: first.id, desc: first.desc } : undefined);
           },
           pageCount: Math.max(1, Math.ceil(server.totalRows / server.pageSize)),
           state: {
@@ -179,11 +229,12 @@ export function ClioDataTable({
       tableLayout={{ columnsResizable: true, dense: true, headerSticky: true, width: 'fixed' }}
     >
       <DataGridContainer className="overflow-hidden rounded-xl border">
-        <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b bg-muted/40 px-3 py-2">
           <Table2Icon aria-hidden="true" className="size-3.5 text-primary" />
           <ReUIBadge radius="full" variant="primary-light">
             {label}, {(server ? server.totalRows : rows.length).toLocaleString()} rows
           </ReUIBadge>
+          {toolbarExtra ? <div className="ms-auto flex items-center gap-1.5">{toolbarExtra}</div> : null}
         </div>
         <div
           aria-description={description}
