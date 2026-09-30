@@ -10,10 +10,13 @@ import {
 } from 'react';
 import {
   DEFAULT_ENDPOINT,
+  InfrastructureTargetGoneError,
   normalizeEndpoint,
   type ConnectionSettings,
   type SavedConnection,
+  type SavedSshRoute,
 } from '@/lib/connection';
+import { sshTargetDefinition } from '@/components/clio/managed-service-target-utils';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
 import {
@@ -62,11 +65,32 @@ function readManagedLabel(): string | undefined {
  */
 const RECENT_CONNECTIONS_LIMIT = 5;
 
+function parseSavedRoute(value: unknown): SavedSshRoute | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const item = value as Record<string, unknown>;
+  if (typeof item.host !== 'string' || typeof item.label !== 'string') return undefined;
+  const platform = item.platform;
+  return {
+    label: item.label,
+    installRoot: typeof item.installRoot === 'string' ? item.installRoot : '',
+    profile: typeof item.profile === 'string' ? item.profile : '',
+    host: item.host,
+    user: typeof item.user === 'string' ? item.user : '',
+    port: typeof item.port === 'number' ? item.port : 22,
+    jumpHosts: Array.isArray(item.jumpHosts)
+      ? item.jumpHosts.filter((v) => typeof v === 'string')
+      : [],
+    identityFile: typeof item.identityFile === 'string' ? item.identityFile : '',
+    platform: platform === 'linux' || platform === 'windows' ? platform : 'auto',
+  };
+}
+
 function parseInfrastructure(value: unknown): ConnectionSettings['infrastructure'] {
   if (!value || typeof value !== 'object') return undefined;
   const item = value as Record<string, unknown>;
   if (typeof item.targetId !== 'string' || item.serviceId !== 'clio_agent') return undefined;
-  return { targetId: item.targetId, serviceId: 'clio_agent' };
+  const route = parseSavedRoute(item.route);
+  return { targetId: item.targetId, serviceId: 'clio_agent', ...(route ? { route } : {}) };
 }
 
 interface ConnectionContextValue {
@@ -252,10 +276,22 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
           endpoint: controllerEndpoint,
           token: controllerToken,
         });
-        const target = (await controller.infrastructureTargets()).find(
+        let target = (await controller.infrastructureTargets()).find(
           (candidate) => candidate.id === next.infrastructure?.targetId,
         );
-        if (!target) throw new Error(`The ${vocab.agent}-owned SSH target no longer exists.`);
+        if (!target && next.infrastructure.route) {
+          // This computer's local CLIO never created (or no longer has) that
+          // target's record -- a fresh install after an update, a second
+          // computer, or a different local CLIO. Rebuild it from the saved
+          // route, exactly like a fresh "Deploy and connect" would, instead
+          // of failing outright (#1528).
+          target = await controller.createInfrastructureTarget(
+            sshTargetDefinition(next.infrastructure.route),
+          );
+        }
+        if (!target) {
+          throw new InfrastructureTargetGoneError(next.label || 'This connection');
+        }
         const status = await attachInfrastructureSshTransport(
           controllerEndpoint,
           controllerToken,
@@ -305,7 +341,14 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         if (service?.state !== 'running' || !service.connection_url) {
           throw new Error(`The managed ${vocab.agent} service is not running on ${target.label}.`);
         }
-        next = { ...next, endpoint: service.connection_url };
+        next = {
+          ...next,
+          endpoint: service.connection_url,
+          // A rebuild above may have minted a new target id (or the saved
+          // one just happened to collide with something else); carry the
+          // real one forward so it is what gets remembered next.
+          infrastructure: { ...next.infrastructure, targetId: target.id },
+        };
       }
       const endpoint = normalizeEndpoint(next.endpoint);
       const normalized = {

@@ -1,12 +1,15 @@
 import type {
   ClioRepository,
   ContainerRuntimeFact,
+  CreateInfrastructureTargetInput,
   InfrastructureOperation,
   InfrastructureTarget,
   SavedServer,
   ServerParameter,
   TargetFacts,
 } from '@clio/core/v3';
+import { vocab } from '@/lib/brand-vocabulary';
+import type { SavedSshRoute } from '@/lib/connection';
 import type { SshHost } from '@/lib/ssh-hosts';
 import type { ManagedTargetKind } from './managed-service-target';
 
@@ -28,6 +31,73 @@ export function targetMatchesHost(target: InfrastructureTarget, host: SshHost): 
   );
 }
 
+/** The SSH host shape `sshTargetDefinition` and `savedSshRoute` both need. */
+type SshRouteFields = Pick<
+  SshHost,
+  | 'label'
+  | 'installRoot'
+  | 'profile'
+  | 'host'
+  | 'user'
+  | 'port'
+  | 'jumpHosts'
+  | 'identityFile'
+  | 'platform'
+>;
+
+/** Build the infrastructure target request an SSH host's deploy registers. */
+export function sshTargetDefinition(host: SshRouteFields): CreateInfrastructureTargetInput {
+  return {
+    kind: 'ssh',
+    label: host.label,
+    // Saved OpenSSH profiles come from the desktop's Rust bridge, whose
+    // optional fields round-trip as `null` when unset; the backend stores
+    // plain strings, so a bare `null` fails request validation (#1438).
+    install_root: host.installRoot || '',
+    ssh: {
+      profile: host.profile ?? '',
+      host: host.host ?? '',
+      user: host.user ?? '',
+      port: host.port,
+      jump_hosts: host.jumpHosts ?? [],
+      identity_file: host.identityFile ?? '',
+      platform: host.platform,
+    },
+  };
+}
+
+/** The route a deployed target is saved with, so it can be rebuilt later. */
+export function savedSshRoute(host: SshRouteFields): SavedSshRoute {
+  return {
+    label: host.label,
+    installRoot: host.installRoot || '',
+    profile: host.profile ?? '',
+    host: host.host ?? '',
+    user: host.user ?? '',
+    port: host.port,
+    jumpHosts: host.jumpHosts ?? [],
+    identityFile: host.identityFile ?? '',
+    platform: host.platform ?? 'auto',
+  };
+}
+
+/**
+ * A `clio_agent` install/start found a healthy CLIO already running --
+ * a different install root or version than this desktop would use -- and
+ * left it alone rather than silently stopping it (#1528). The caller
+ * re-issues the action with `configuration.on_conflict` set to `"connect"`
+ * (adopt it as-is) or `"replace"` (stop it and install this version).
+ */
+export class VersionConflictError extends Error {
+  constructor(
+    public readonly installedVersion: string,
+    public readonly pid: string,
+  ) {
+    super(`${vocab.agent} ${installedVersion} is already running (pid ${pid}).`);
+    this.name = 'VersionConflictError';
+  }
+}
+
 export async function waitForOperation(
   repository: Pick<ClioRepository, 'infrastructureOperation'>,
   initial: InfrastructureOperation,
@@ -40,6 +110,12 @@ export async function waitForOperation(
   for (;;) {
     if (operation.state === 'succeeded') return operation;
     if (operation.state === 'failed' || operation.state === 'cancelled') {
+      if (operation.error === 'clio_deploy_version_conflict' && operation.conflict) {
+        throw new VersionConflictError(
+          operation.conflict.installed_version,
+          operation.conflict.pid,
+        );
+      }
       throw new Error(operation.error || operation.progress || `${operation.action} failed.`);
     }
     onProgress?.(operation);

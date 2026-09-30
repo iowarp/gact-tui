@@ -167,6 +167,18 @@ export const managedServiceCatalogSchema = z.object({
   services: z.array(managedServiceDefinitionSchema),
 });
 
+/**
+ * A healthy CLIO the claim step found but left running untouched: set only
+ * when `error` is `clio_deploy_version_conflict` (a different root or
+ * version than this desktop would install, and no `on_conflict` was given).
+ * The caller re-issues the same action with `configuration.on_conflict` set
+ * to `"connect"` (adopt it as-is) or `"replace"` (stop it and install).
+ */
+export const versionConflictDetailSchema = z.object({
+  installed_version: z.string(),
+  pid: z.string(),
+});
+
 export const infrastructureOperationSchema = z.object({
   id: z.string(),
   service_id: z.string(),
@@ -179,6 +191,7 @@ export const infrastructureOperationSchema = z.object({
     .string()
     .nullish()
     .transform((value) => value ?? undefined),
+  conflict: versionConflictDetailSchema.nullish().transform((value) => value ?? undefined),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -212,6 +225,7 @@ export type ServiceAccess = z.infer<typeof serviceAccessSchema>;
 export type ManagedServiceDefinition = z.infer<typeof managedServiceDefinitionSchema>;
 export type ManagedServiceCatalog = z.infer<typeof managedServiceCatalogSchema>;
 export type InfrastructureOperation = z.infer<typeof infrastructureOperationSchema>;
+export type VersionConflictDetail = z.infer<typeof versionConflictDetailSchema>;
 export type ExternalServiceConnection = z.infer<typeof externalServiceConnectionSchema>;
 
 export type CreateInfrastructureTargetInput = {
