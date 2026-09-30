@@ -1,4 +1,5 @@
-import { ChartLineIcon, XIcon } from 'lucide-react';
+import { ChartLineIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { View } from 'vega';
 import {
@@ -9,7 +10,13 @@ import {
   FrameTitle,
 } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   a2uiAccessibilityLabel,
   a2uiAccessibilityProps,
@@ -42,7 +49,12 @@ import {
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
 import { DataReferenceThisButton } from './data-reference-this-button';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
-import { columnKindFromRows, columnKindFromSchema, describeQueryFilter, mergeFilters } from './data-query-filters';
+import {
+  columnKindFromRows,
+  columnKindFromSchema,
+  describeQueryFilter,
+  mergeFilters,
+} from './data-query-filters';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import {
   isSelectionValue,
@@ -223,7 +235,10 @@ export function ClioChart(props: ClioChartProps) {
       const rangeEntry: NonNullable<ChartDataQuery['filter']>[number] = {
         column: xField,
         op: 'range',
-        value: [zoomRangeFilterValue(zoomRange.min, xType), zoomRangeFilterValue(zoomRange.max, xType)],
+        value: [
+          zoomRangeFilterValue(zoomRange.min, xType),
+          zoomRangeFilterValue(zoomRange.max, xType),
+        ],
       };
       zoomed = [...merged, rangeEntry];
     }
@@ -486,11 +501,13 @@ export function ClioChart(props: ClioChartProps) {
           ) : null}
           {zoomRange ? (
             <Button className="gap-1 text-xs" onClick={clearZoom} size="sm" variant="ghost">
-              <XIcon aria-hidden="true" className="size-3.5" />
+              <CloseIcon aria-hidden="true" className="size-3.5" />
               Reset zoom
             </Button>
           ) : null}
-          {props.dataUri && hasRows ? <DataReferenceThisButton buildReference={buildReference} /> : null}
+          {props.dataUri && hasRows ? (
+            <DataReferenceThisButton buildReference={buildReference} />
+          ) : null}
         </FrameHeader>
         <FramePanel className="p-0">
           {failure ? (
@@ -510,7 +527,10 @@ export function ClioChart(props: ClioChartProps) {
             </div>
           )}
           {!failure && zoomRange ? (
-            <p className="border-t px-3 py-2 text-xs text-muted-foreground" data-slot="a2ui-chart-zoom-caption">
+            <p
+              className="border-t px-3 py-2 text-xs text-muted-foreground"
+              data-slot="a2ui-chart-zoom-caption"
+            >
               Zoomed to {xField} {formatZoomBound(zoomRange.min, xType)}–
               {formatZoomBound(zoomRange.max, xType)}.
             </p>
