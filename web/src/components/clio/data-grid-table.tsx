@@ -149,11 +149,12 @@ function ClioDataGridRow<TData extends object>({ row }: { row: Row<DataGridFeatu
     .map((cell) => cell.column.columnDef.meta?.expandedContent)
     .find(Boolean);
   const interactive = Boolean(props.onRowClick);
-  const activate = () => props.onRowClick?.(row.original);
+  const activate = (event: { shiftKey: boolean }) =>
+    props.onRowClick?.(row.original, { index: row.index, shiftKey: event.shiftKey });
   const onKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
     if (!interactive || (event.key !== 'Enter' && event.key !== ' ')) return;
     event.preventDefault();
-    activate();
+    activate(event);
   };
 
   return (

@@ -2,6 +2,7 @@ import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9
 import { TransportError } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,13 +15,59 @@ vi.mock('@/providers/connection-provider', () => ({
 vi.mock('./scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="map-canvas" />,
 }));
+// The side list virtualizes with `@tanstack/react-virtual` (#1533 MEDIUM 6 —
+// scaling past one DOM node per point); jsdom never resolves a real scroll
+// container height, so — same as every other virtualized list in this
+// codebase (transcript-minimap.test.tsx, conversation-activity.test.tsx) —
+// stub it to render every row, keeping these tests about selection/filter
+// behavior rather than virtualization mechanics.
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 56,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        size: 56,
+        start: index * 56,
+      })),
+  }),
+}));
 
+import { useState } from 'react';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from '@/lib/a2ui/kernel-catalog';
 import { mapComponentSchema, pointsFromRows } from './a2ui-map';
+import { ClioComposerAnnotations } from './composer-annotations';
+import { SelectionActionsProvider } from './selection-actions';
+import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
+import type { ComposerAnnotation } from '@/lib/composer-annotations';
 
 function wrap(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+/** A composer stand-in, inside the provider, so "Reference this" has somewhere real to attach to. */
+function ComposerAndChildren({ children }: { children: ReactNode }) {
+  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {});
+  return (
+    <>
+      {children}
+      <ClioComposerAnnotations
+        annotations={annotations}
+        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+      />
+    </>
+  );
+}
+
+function WithComposer({ children }: { children: ReactNode }) {
+  return (
+    <SelectionActionsProvider>
+      <ComposerAndChildren>{children}</ComposerAndChildren>
+    </SelectionActionsProvider>
+  );
 }
 
 const TEST_CATALOG_ID = 'test://a2ui-map-data-source';
@@ -203,6 +250,99 @@ describe('clio.map.v1 dataUri rendering', () => {
       expect.objectContaining({ columns: expect.arrayContaining(['lat', 'lon', 'station']) }),
       expect.anything(),
     );
+  });
+
+  it("layers the viewer's own filter popover onto the producer's dataQuery, never replacing it", async () => {
+    repository.artifactTableQuery.mockResolvedValue({
+      columns: { category: ['GNSS'], lat: [34.1], lon: [-118.3], station: ['GNSS01'] },
+      downsample: { mode: 'none' },
+      matchedRows: 1,
+      returnedRows: 1,
+      schema: [],
+      totalRows: 2,
+      truncated: false,
+    });
+    const user = userEvent.setup();
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['map'] },
+      {
+        id: 'map',
+        component: 'clio.map.v1',
+        categoryField: 'category',
+        dataQuery: { filter: [{ column: 'lat', op: 'range', value: [30, null] }] },
+        dataUri: 'artifact://artifact_stations01',
+        labelField: 'station',
+        latitudeField: 'lat',
+        longitudeField: 'lon',
+      },
+    ]);
+
+    render(wrap(<A2uiSurface surface={surface} />));
+    await screen.findByText('1 labeled locations');
+    await waitFor(() => expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole('button', { name: /^filters/iu }));
+    await user.type(screen.getByLabelText('Filter category, contains'), 'gnss');
+
+    await waitFor(
+      () =>
+        expect(repository.artifactTableQuery).toHaveBeenLastCalledWith(
+          'artifact_stations01',
+          expect.objectContaining({
+            filter: [
+              { column: 'lat', op: 'range', value: [30, null] },
+              { column: 'category', op: 'contains', value: 'gnss' },
+            ],
+          }),
+          expect.anything(),
+        ),
+      { timeout: 2000 },
+    );
+  });
+
+  it('"Reference this" attaches the dataset, filters, and how many points are shown', async () => {
+    repository.artifactTableQuery.mockResolvedValue({
+      columns: { lat: [34.1], lon: [-118.3], station: ['GNSS01'] },
+      downsample: { mode: 'none' },
+      matchedRows: 2,
+      returnedRows: 1,
+      schema: [],
+      totalRows: 2,
+      truncated: true,
+    });
+    const user = userEvent.setup();
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['map'] },
+      {
+        id: 'map',
+        component: 'clio.map.v1',
+        dataQuery: { filter: [{ column: 'lat', op: 'range', value: [30, null] }] },
+        dataUri: 'artifact://artifact_stations01',
+        idField: 'station',
+        labelField: 'station',
+        latitudeField: 'lat',
+        longitudeField: 'lon',
+        title: 'GNSS stations',
+      },
+    ]);
+
+    render(wrap(<WithComposer><A2uiSurface surface={surface} /></WithComposer>));
+    await screen.findByText('1 labeled locations');
+
+    await user.click(screen.getByRole('button', { name: 'Reference this' }));
+
+    // The card: a plain label and one-line summary only (#1533 coordinator
+    // review) — the dataset id lives in the full reference, reached via the
+    // expand control and sent with the message.
+    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    expect(attached).toHaveTextContent('GNSS stations');
+    expect(attached).toHaveTextContent('1 of 2 points');
+    expect(attached.textContent).not.toContain('artifact_stations01');
+
+    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
+    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
+    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    expect(popoverBody).toHaveTextContent('artifact_stations01');
   });
 
   it('states a table-query refusal instead of a blank map', async () => {

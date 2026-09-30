@@ -61,6 +61,7 @@ import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map';
 import { ClioMermaidCatalogComponent } from '@/components/clio/a2ui-mermaid-catalog';
 import { ClioMeshViewportCatalogComponent } from '@/components/clio/a2ui-mesh-viewport-catalog';
 import { ClioSliderCatalogComponent } from '@/components/clio/a2ui-slider-catalog';
+import { ClioTimeSeriesFallbackCatalogComponent } from '@/components/clio/a2ui-time-series-fallback';
 import { ClioWorkflowCatalogComponent } from '@/components/clio/a2ui-workflow-catalog';
 import { useArtifactText } from '@/components/clio/artifact-text-query';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
@@ -375,7 +376,11 @@ const codeDataProperties = {
 };
 type CodeShape = z.infer<z.ZodObject<typeof codeDataProperties>>;
 function checkCodeComponent(value: CodeShape, context: z.RefinementCtx): void {
-  if (Boolean(value.code) === Boolean(value.dataUri)) {
+  // Presence, not truthiness: `code: ''` is a legitimately provided (if
+  // empty) inline code block, not an absent one — `Boolean('')` reading as
+  // "not provided" would fail an old surface that deliberately sends an
+  // empty snippet inline instead of a `dataUri`.
+  if ((value.code !== undefined) === (value.dataUri !== undefined)) {
     context.addIssue({ code: 'custom', message: 'Provide exactly one of code or dataUri' });
   }
 }
@@ -470,7 +475,9 @@ const diffDataProperties = {
 };
 type DiffShape = z.infer<z.ZodObject<typeof diffDataProperties>>;
 function checkDiffComponent(value: DiffShape, context: z.RefinementCtx): void {
-  if (Boolean(value.diff) === Boolean(value.dataUri)) {
+  // Presence, not truthiness — see checkCodeComponent above: `diff: ''` is a
+  // provided (empty) inline diff, not an absent one.
+  if ((value.diff !== undefined) === (value.dataUri !== undefined)) {
     context.addIssue({ code: 'custom', message: 'Provide exactly one of diff or dataUri' });
   }
 }
@@ -663,6 +670,7 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   ClioSliderCatalogComponent,
   ClioWorkflowCatalogComponent,
   ClioArtifactCatalogComponent,
+  ClioTimeSeriesFallbackCatalogComponent,
   Code,
   Diff,
   ActionCard,

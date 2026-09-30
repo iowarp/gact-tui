@@ -79,4 +79,37 @@ describe('chart spec guard', () => {
     for (let level = 0; level < 5_000; level += 1) deep = { a: deep };
     expect(checkChartSpec(deep).map((violation) => violation.code)).toEqual(['spec_too_deep']);
   });
+
+  it('forbids params[].bind.element — a signal binding that can target any element on the page', () => {
+    // A client-only rule ahead of the shared guard_rules.json (#1533 #506
+    // LOW): a `bind.element` CSS selector escapes the chart's own container,
+    // unlike an ordinary widget-binding `input`/`select`.
+    const violations = checkChartSpec({
+      mark: 'point',
+      params: [{ name: 'sel', bind: { input: 'range', element: '#some-other-page-element' } }],
+    });
+    expect(violations.map(({ code, path }) => [code, path])).toEqual([
+      ['forbidden_bind_element', '/params/0/bind/element'],
+    ]);
+  });
+
+  it('catches bind.element at any depth, not just directly under params[]', () => {
+    // Matches clio-schemas' own `$defs/SpecNoBindElement` (confirmed against
+    // the live schema on `feat/a2ui-data-everywhere`): it walks every `bind`
+    // object recursively, not only ones nested under a top-level `params`.
+    const violations = checkChartSpec({
+      layer: [{ mark: 'point', params: [{ name: 'sel', bind: { element: '#anywhere' } }] }],
+    });
+    expect(violations.map(({ code, path }) => [code, path])).toEqual([
+      ['forbidden_bind_element', '/layer/0/params/0/bind/element'],
+    ]);
+  });
+
+  it('leaves an ordinary widget bind (no element selector) alone', () => {
+    const violations = checkChartSpec({
+      mark: 'point',
+      params: [{ name: 'sel', bind: { input: 'range', min: 0, max: 10 } }],
+    });
+    expect(violations).toEqual([]);
+  });
 });

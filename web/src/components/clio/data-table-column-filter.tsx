@@ -35,7 +35,20 @@ export function ClioTextColumnFilter({
   useEffect(() => {
     onChangeRef.current = onChange;
   });
+  // Never fires on mount — only once `draft` changes from an actual
+  // keystroke. A column whose sampled kind flips (a numeric-looking id on
+  // one page, text on the next; see `columnKindFromSchema`'s own docstring)
+  // discards this control's whole instance for the other kind's; without
+  // this guard, the FRESH instance's own mount-time debounce would fire
+  // `onChange(value)` — `''` for an unset filter — and silently delete
+  // whatever filter the OTHER kind's control had already set on this
+  // column, even though the reader never touched either control.
+  const mountedRef = useRef(false);
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
     const timer = window.setTimeout(() => onChangeRef.current(draft), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [draft]);
@@ -78,7 +91,16 @@ export function ClioRangeColumnFilter({
   useEffect(() => {
     onChangeRef.current = onChange;
   });
+  // See `ClioTextColumnFilter`'s identical guard above: a fresh mount (a
+  // column whose sampled kind flipped, discarding the other kind's control)
+  // must never fire its own mount-time debounce and delete a filter the
+  // other control had already set.
+  const mountedRef = useRef(false);
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
     const timer = window.setTimeout(() => onChangeRef.current(draft), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [draft]);

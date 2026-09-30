@@ -125,15 +125,22 @@ export function runEarthquakeTableQuery(request) {
   }
   const matchedRows = filtered.length;
 
+  // `sort` is a LIST of `{column, desc}` keys, applied in order (a stable,
+  // compound sort) — the real server's contract (clio-agent
+  // `TableQueryRequest.sort: list[TableSort]`), not a single `{column,
+  // direction}` object.
+  const sortKeys = Array.isArray(request.sort) ? request.sort : [];
   let sorted = filtered;
-  if (request.sort) {
-    const { column, direction } = request.sort;
+  if (sortKeys.length) {
     sorted = [...filtered].sort((a, b) => {
-      const left = a[column];
-      const right = b[column];
-      if (left === right) return 0;
-      const ascending = left < right ? -1 : 1;
-      return direction === 'desc' ? -ascending : ascending;
+      for (const { column, desc } of sortKeys) {
+        const left = a[column];
+        const right = b[column];
+        if (left === right) continue;
+        const ascending = left < right ? -1 : 1;
+        return desc ? -ascending : ascending;
+      }
+      return 0;
     });
   }
 
@@ -147,9 +154,12 @@ export function runEarthquakeTableQuery(request) {
   return {
     status: 200,
     body: {
+      // Arrow-derived type strings, matching the real server
+      // (`str(pyarrow.DataType)`: `double`, `string`, ...) — not the
+      // generic `typeof` name a fixture could otherwise shortcut to.
       schema: columns.map((name) => ({
         name,
-        type: typeof EARTHQUAKE_ROWS[0][name] === 'number' ? 'number' : 'string',
+        type: typeof EARTHQUAKE_ROWS[0][name] === 'number' ? 'double' : 'string',
       })),
       columns: columnsOut,
       totalRows: EARTHQUAKE_ROWS.length,

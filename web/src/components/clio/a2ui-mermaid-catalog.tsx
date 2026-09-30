@@ -62,9 +62,14 @@ const mermaidDataProperties = {
 
 type MermaidShape = z.infer<z.ZodObject<typeof mermaidDataProperties>>;
 
-/** `clio.mermaid.v1`'s cross-field rule: exactly one of `source` or `dataUri`. */
+/**
+ * `clio.mermaid.v1`'s cross-field rule: exactly one of `source` or `dataUri`.
+ * Presence, not truthiness: `source: ''` is a provided (if empty) inline
+ * diagram, not an absent one — `Boolean('')` reading as "not provided" would
+ * fail an old surface that deliberately sends an empty diagram inline.
+ */
 function checkMermaidComponent(value: MermaidShape, context: z.RefinementCtx): void {
-  if (Boolean(value.source) === Boolean(value.dataUri)) {
+  if ((value.source !== undefined) === (value.dataUri !== undefined)) {
     context.addIssue({ code: 'custom', message: 'Provide exactly one of source or dataUri' });
   }
 }

@@ -40,6 +40,7 @@ import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useAddToChatSelectionAction } from '@/hooks/use-add-to-chat-selection-action';
+import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
@@ -62,6 +63,7 @@ export function WorkspacePage() {
   const [composerFocusKey, setComposerFocusKey] = useState(0);
   const focusComposerForAnswer = useCallback(() => setComposerFocusKey((key) => key + 1), []);
   useAddToChatSelectionAction(composerDraft, focusComposerForAnswer);
+  useReferenceThisSelectionAction(composerDraft, focusComposerForAnswer);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
   // "Is the Files view currently the mounted tab" -- gates workspaceFiles'

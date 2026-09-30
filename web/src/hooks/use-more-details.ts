@@ -151,8 +151,10 @@ export function useMoreDetails(
       order: 20,
       kinds: ['agent-answer-text'],
       // An aside answers about this session; it cannot open another aside.
-      isAvailable: (target) => target.sessionId === sessionId,
-      run: (target) => void open(target),
+      isAvailable: (target) => target.kind === 'agent-answer-text' && target.sessionId === sessionId,
+      run: (target) => {
+        if (target.kind === 'agent-answer-text') void open(target);
+      },
     }),
     [open, sessionId],
   );

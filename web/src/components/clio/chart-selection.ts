@@ -89,6 +89,17 @@ export function viewHasSignal(view: Pick<View, 'signal'>, param: string): boolea
 export interface ChartSelectionBinding {
   /** Show a state written elsewhere; a no-op for this chart's own writes and unchanged content. */
   apply: (state: SelectionState) => Promise<void>;
+  /**
+   * Selects `values` of the bound field exactly as a native pointer
+   * click/drag would: mutates the view's own selection store and re-runs it,
+   * so the existing signal listener reports it through `write` the same way
+   * a mouse-driven selection does. This is how a keyboard-operable control
+   * (a `<Select>` beside the chart, #1533 #506 LOW — arbitrary brush/lasso
+   * gestures have no keyboard equivalent, but a point selection does) drives
+   * the identical propagation path a click takes, with no special-casing
+   * anywhere else.
+   */
+  select: (values: readonly SelectionValue[]) => Promise<void>;
   dispose: () => void;
 }
 
@@ -158,6 +169,12 @@ export function bindChartSelection(
       } finally {
         applying = false;
       }
+    },
+    select: async (values) => {
+      const selectField = field ?? lastField;
+      if (disposed || !selectField) return;
+      view.data(selectionStoreName(param), selectionStoreTuples(selectField, values));
+      await view.runAsync();
     },
     dispose: () => {
       disposed = true;

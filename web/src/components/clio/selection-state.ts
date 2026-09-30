@@ -52,9 +52,22 @@ export function selectionKey(field: string, values: readonly SelectionValue[]): 
   return JSON.stringify([field, sorted]);
 }
 
-/** Whether `value` (a row or point's value of `state.field`) is selected. */
-export function selectionIncludes(state: SelectionState | undefined, value: unknown): boolean {
-  if (!state || !isSelectionValue(value)) return false;
+/**
+ * Whether `value` — a row or point's own value of `field`, THIS component's
+ * bound column, not necessarily the one the shared state was last written by
+ * — is selected. Checks `state.field === field` first: a state written by a
+ * DIFFERENT column (e.g. another linked component bound to `category` while
+ * this one reads `id`) must never match just because the two columns'
+ * VALUES happen to collide (a numeric id that coincides with a category
+ * string, for instance) — that would highlight the wrong rows/points for a
+ * selection this component was never meant to follow.
+ */
+export function selectionIncludes(
+  state: SelectionState | undefined,
+  field: string,
+  value: unknown,
+): boolean {
+  if (!state || state.field !== field || !isSelectionValue(value)) return false;
   // A numeric id may arrive as a string from a producer, or the other way round.
   return state.values.some((selected) => selected === value || String(selected) === String(value));
 }
