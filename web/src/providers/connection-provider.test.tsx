@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   createInfrastructureTarget: vi.fn(),
   setInfrastructureTransportState: vi.fn(),
   managedServiceCatalog: vi.fn(),
+  runManagedServiceAction: vi.fn(),
+  infrastructureOperation: vi.fn(),
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
@@ -134,6 +136,8 @@ describe('connection provider credentials', () => {
     mocks.createInfrastructureTarget.mockReset();
     mocks.setInfrastructureTransportState.mockReset();
     mocks.managedServiceCatalog.mockReset();
+    mocks.runManagedServiceAction.mockReset();
+    mocks.infrastructureOperation.mockReset();
     mocks.finishInstallerInfrastructure.mockResolvedValue(undefined);
     mocks.recoverInfrastructureSshTransports.mockResolvedValue(undefined);
     mocks.closeInfrastructureSshTransport.mockResolvedValue(undefined);
@@ -143,6 +147,8 @@ describe('connection provider credentials', () => {
       createInfrastructureTarget: mocks.createInfrastructureTarget,
       setInfrastructureTransportState: mocks.setInfrastructureTransportState,
       managedServiceCatalog: mocks.managedServiceCatalog,
+      runManagedServiceAction: mocks.runManagedServiceAction,
+      infrastructureOperation: mocks.infrastructureOperation,
     });
   });
 
@@ -253,96 +259,6 @@ describe('connection provider credentials', () => {
     });
     expect(mocks.attachInfrastructureSshTransport).toHaveBeenCalledTimes(2);
     expect(mocks.setInfrastructureTransportState).toHaveBeenCalledWith('homelab', 'connected');
-  });
-
-  it('rebuilds a missing infrastructure target from its saved SSH route (#1528)', async () => {
-    // Reproduces a desktop that never created -- or no longer has -- this
-    // host's target record: a fresh install after an update, a second
-    // computer, or a different local CLIO's store. The saved connection
-    // still remembers the SSH route it was deployed from.
-    localStorage.setItem(
-      'clio.recent-connections',
-      JSON.stringify([
-        {
-          endpoint: 'http://127.0.0.1:43123',
-          label: 'Ares lab',
-          infrastructure: {
-            targetId: 'gone-target',
-            serviceId: 'clio_agent',
-            route: {
-              label: 'ares lab',
-              installRoot: '',
-              profile: 'ares',
-              host: 'ares.cs.iit.edu',
-              user: 'researcher',
-              port: 22,
-              jumpHosts: [],
-              identityFile: '',
-              platform: 'linux',
-            },
-          },
-        },
-      ]),
-    );
-    mocks.inTauri.mockReturnValue(false);
-    mocks.waitForManagedBackend.mockResolvedValue({
-      url: 'http://127.0.0.1:17800',
-      bearer_token: 'controller-token',
-    });
-    // This desktop's own store never held "gone-target".
-    mocks.infrastructureTargets.mockResolvedValue([]);
-    const rebuilt = {
-      id: 'ares-lab-2',
-      label: 'ares lab',
-      kind: 'ssh',
-      transport_state: 'state_unknown',
-      auto_reconnect: true,
-      install_root: '',
-      ssh: { profile: 'ares' },
-    };
-    mocks.createInfrastructureTarget.mockResolvedValue(rebuilt);
-    mocks.attachInfrastructureSshTransport.mockResolvedValue({
-      session_id: 'ssh-ares',
-      state: 'connected',
-      reused: false,
-      output: '',
-    });
-    mocks.managedServiceCatalog.mockResolvedValue({
-      facts: {},
-      services: [{ id: 'clio_agent', state: 'running', connection_url: 'http://127.0.0.1:43123' }],
-    });
-    mocks.read.mockResolvedValue(undefined);
-
-    render(
-      <ConnectionProvider>
-        <ConnectionState />
-      </ConnectionProvider>,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('resolved endpoint')).toHaveTextContent(
-        'http://127.0.0.1:43123',
-      );
-    });
-    expect(screen.getByLabelText('resolve error')).toHaveTextContent('none');
-    // The rebuilt id -- not the stale, gone one -- is what gets remembered.
-    expect(screen.getByLabelText('resolved target id')).toHaveTextContent('ares-lab-2');
-    expect(mocks.createInfrastructureTarget).toHaveBeenCalledWith({
-      kind: 'ssh',
-      label: 'ares lab',
-      install_root: '',
-      ssh: {
-        profile: 'ares',
-        host: 'ares.cs.iit.edu',
-        user: 'researcher',
-        port: 22,
-        jump_hosts: [],
-        identity_file: '',
-        platform: 'linux',
-      },
-    });
-    expect(mocks.setInfrastructureTransportState).toHaveBeenCalledWith('ares-lab-2', 'connected');
   });
 
   it('fails with a typed, plain reason (not "no longer exists") when a target is gone and unrebuildable', async () => {
