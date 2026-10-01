@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "cases": [
     {
       "name": "strings",
@@ -17,11 +16,11 @@
       "valid": true,
       "value": {
         "field": "id",
+        "source": "ch1",
         "values": [
           1,
           2.5
-        ],
-        "source": "ch1"
+        ]
       }
     },
     {
@@ -85,11 +84,12 @@
       "valid": false,
       "value": {
         "field": "run",
+        "mode": "toggle",
         "values": [
           "a"
-        ],
-        "mode": "toggle"
+        ]
       }
     }
-  ]
+  ],
+  "version": 1
 }

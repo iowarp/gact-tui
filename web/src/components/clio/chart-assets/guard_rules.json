@@ -40,6 +40,7 @@
     "spec_not_object",
     "spec_too_deep",
     "spec_too_large",
+    "spec_invalid_encoding",
     "top_level_key_not_allowed",
     "too_many_views",
     "data_not_named_source",
@@ -75,7 +76,7 @@
   },
   "selectionParamPattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
   "sizeMeasure": "UTF-8 byte length of compact JSON: separators (',', ':'), no ASCII escaping, keys in their given order (JSON.stringify).",
-  "version": 2,
+  "version": 3,
   "viewCounting": "An object with a layer/concat/hconcat/vconcat array counts its children; an object with facet or repeat and an object spec counts that spec; otherwise an object with mark counts 1.",
   "xTypes": [
     "temporal",
