@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -80,13 +80,16 @@ describe('ClioArtifactCard', () => {
       </QueryClientProvider>,
     );
 
-    const row = screen.getByRole('button', { name: 'Open lifecycle-report.md' });
-    expect(row).toHaveClass('w-full', 'shadow-none');
+    const openButton = screen.getByRole('button', { name: 'Open lifecycle-report.md' });
+    // The CARD (not the open-target button nested inside it, see the G0
+    // nested-interactive fix below) carries these layout classes.
+    const card = openButton.closest('.shadow-none');
+    expect(card).toHaveClass('w-full', 'shadow-none');
     expect(screen.getByText('text/markdown, 175 B')).toBeVisible();
     expect(screen.getByText('Output')).toBeVisible();
     expect(document.querySelector('[data-attachment-variant="grid"]')).toBeNull();
 
-    await user.click(row);
+    await user.click(openButton);
     expect(onOpen).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'artifact_report', session_relation: 'produced' }),
       expect.objectContaining({ shiftKey: false }),
@@ -106,7 +109,7 @@ describe('ClioArtifactCard', () => {
     );
   });
 
-  it('makes the complete artifact element the labeled canvas action', async () => {
+  it('opens via the labeled name button, not the whole card (G0: no nested-interactive a11y violation)', async () => {
     const user = userEvent.setup();
     const onOpen = renderCard();
 
@@ -140,6 +143,27 @@ describe('ClioArtifactCard', () => {
     expect(screen.getByText('stations.csv')).toBeVisible();
     expect(screen.queryByText(/Open this data table/u)).not.toBeInTheDocument();
     expect(repository.readArtifactTextFor).not.toHaveBeenCalled();
+  });
+
+  it('G0: offers a download of the original file, without triggering onOpen', async () => {
+    const user = userEvent.setup();
+    const onOpen = renderCard();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await screen.findByRole('img', { name: 'station-timeseries.png' }); // wait past the preview query
+
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.click(screen.getByRole('menuitem', { name: /Download/ }));
+    const item = await screen.findByRole('menuitem', { name: 'Original file' });
+    fireEvent.pointerMove(item);
+    fireEvent.click(item);
+
+    await waitFor(() =>
+      expect(repository.readArtifactBytesFor).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'artifact_plot' }),
+      ),
+    );
+    expect(clickSpy).toHaveBeenCalledTimes(1); // the download anchor, not a card navigation
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   it('does not download an inline preview when the service omits artifact size', () => {

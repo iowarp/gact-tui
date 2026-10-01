@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { BoxIcon, ImageDownIcon, Link2Icon } from 'lucide-react';
+import { BoxIcon, Link2Icon } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Frame,
@@ -21,9 +21,10 @@ import {
   a2uiAccessibilityProps,
   type A2UIAccessibility,
 } from './a2ui-accessibility';
+import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import { formatFieldValue } from './mesh-viewport-colormap';
 import { MeshLegend, type MeshLegendState } from './mesh-viewport-legend';
-import { composeSnapshot, saveBlob } from './mesh-viewport-snapshot';
+import { composeSnapshot } from './mesh-viewport-snapshot';
 import { parsedMeshCache } from './mesh-viewport-cache';
 import { parseFeaMesh, type MeshField, type ParsedFeaMesh } from './mesh-viewport-mesh';
 import { MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
@@ -36,6 +37,9 @@ import {
   type MeshCameraState,
   type MeshSyncMember,
 } from './mesh-viewport-sync';
+import { downloadBlob, downloadBytes, filenameStemFromTitle } from './surface-export';
+import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
+import { SurfaceToolbar, type SurfaceCapabilities, type SurfaceExportFormat } from './surface-toolbar';
 
 export interface ClioMeshViewportProps {
   accessibility?: A2UIAccessibility;
@@ -80,6 +84,9 @@ const STAGE_LABEL: Record<string, string> = {
   baseline: 'Before optimization',
   optimized: 'After optimization',
 };
+
+/** Every `clio.fea-mesh.v1` export is glTF binary (`mesh-viewport-mesh.ts` always loads it with `GLTFLoader`). */
+const MESH_MIME_TYPE = 'model/gltf-binary';
 
 /** An orbitable view of one registered mesh, colored, thresholded, and stepped by its fields. */
 export function ClioMeshViewport({
@@ -160,6 +167,10 @@ export function ClioMeshViewport({
   const resetRef = useRef<(() => void) | undefined>(undefined);
   const lastCameraRef = useRef('');
   const setCameraRef = useRef(setCamera);
+  // Declared before the scene effect (not where it's first READ, further
+  // down) so the effect's dependency array below can force a fresh scene on
+  // every fullscreen toggle -- see that effect's own comment for why.
+  const [fullscreen, setFullscreen] = useSurfaceFullScreen();
 
   // Declared before the scene effect so a new scene starts from the current inputs.
   useEffect(() => {
@@ -248,7 +259,12 @@ export function ClioMeshViewport({
       sceneRef.current = undefined;
       scene.dispose();
     };
-  }, [group, instanceId, parsed, upAxis, webgl]);
+    // `fullscreen` forces a fresh scene (and WebGL context) on every toggle:
+    // `SurfaceFullScreenHost` moves this canvas between two portal targets
+    // (inline vs. dialog) rather than remounting the React tree, so this
+    // effect's other deps alone would never re-run on that move and the
+    // scene stayed bound to whichever container it was first created in.
+  }, [fullscreen, group, instanceId, parsed, upAxis, webgl]);
 
   // A camera written into the data model by the producer (or another view) moves this view.
   useEffect(() => {
@@ -304,20 +320,56 @@ export function ClioMeshViewport({
     ? `${heading}, colored by ${legend.field.label} from ${formatFieldValue(legend.min)} to ${formatFieldValue(legend.max)} ${legend.field.unit}`
     : `${heading}, geometry only`;
 
-  const saveSnapshot = () => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-    setSnapshotError('');
-    composeSnapshot(scene.capture(), heading, description, legend)
-      .then((blob) =>
-        saveBlob(
-          blob,
-          `${slug(heading)}${frameCount > 1 ? `-${slug(parsed!.frames[frameIndex]!)}` : ''}.png`,
-        ),
-      )
-      .catch((error: unknown) =>
-        setSnapshotError(error instanceof Error ? error.message : String(error)),
-      );
+  const exportFormats: SurfaceExportFormat[] = [
+    {
+      disabled: !parsed || !webgl,
+      id: 'png',
+      label: 'PNG snapshot',
+      run: async () => {
+        const scene = sceneRef.current;
+        if (!scene) return;
+        setSnapshotError('');
+        try {
+          const blob = await composeSnapshot(scene.capture(), heading, description, legend);
+          downloadBlob(
+            blob,
+            `${slug(heading)}${frameCount > 1 ? `-${slug(parsed!.frames[frameIndex]!)}` : ''}.png`,
+          );
+        } catch (error) {
+          setSnapshotError(error instanceof Error ? error.message : String(error));
+        }
+      },
+    },
+    {
+      disabled: !artifactId,
+      id: 'original',
+      label: 'Original file',
+      run: async () => {
+        if (!artifactId) return;
+        const bytes = await repository.readArtifactBytes(artifactId);
+        downloadBytes(bytes, MESH_MIME_TYPE, `${filenameStemFromTitle(heading)}.glb`);
+      },
+    },
+  ];
+
+  const buildReference = (): DataZoneReference => {
+    const colorLabel = inputs.color ? `colored by ${inputs.color.label}` : 'geometry only';
+    const frameLabel = frameCount > 1 ? parsed?.frames[frameIndex] : undefined;
+    return buildZoneReference({
+      componentLabel: heading,
+      datasetLabel: artifactId ?? meshUri,
+      filters: [],
+      previewColumns: [],
+      previewRows: [],
+      query: { field, frame: frameIndex, meshUri, thresholdField, thresholdMax, thresholdMin },
+      zoneDescription: `the current view — ${[colorLabel, frameLabel].filter(Boolean).join(', ')}`,
+    });
+  };
+
+  const toolbarCapabilities: SurfaceCapabilities = {
+    buildReference: parsed ? buildReference : undefined,
+    exportFormats,
+    fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
   };
 
   return (
@@ -329,6 +381,7 @@ export function ClioMeshViewport({
       <Frame
         {...a2uiAccessibilityProps(accessibility)}
         aria-label={a2uiAccessibilityLabel(accessibility) ?? `${heading} 3D view`}
+        className="group"
         dense
         role="group"
       >
@@ -354,62 +407,74 @@ export function ClioMeshViewport({
               </TooltipContent>
             </Tooltip>
           ) : null}
-          <HeaderAction disabled={!parsed || !webgl} label="Save image" onClick={saveSnapshot}>
-            <ImageDownIcon aria-hidden="true" />
-          </HeaderAction>
           <HeaderAction disabled={!parsed} label="Reset view" onClick={() => resetRef.current?.()}>
             <RetryIcon aria-hidden="true" />
           </HeaderAction>
+          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
         </FrameHeader>
-        <FramePanel className="p-0">
-          {failure ? (
-            <p className="p-4 text-sm text-destructive">3D view unavailable: {failure}</p>
-          ) : (
-            <div
-              aria-label={ariaSummary}
-              className="relative h-80 min-h-64 overflow-hidden"
-              onPointerLeave={() => setProbe(undefined)}
-              onPointerMove={onPointerMove}
-              ref={canvasRef}
-              role="img"
-            >
-              {!parsed ? (
-                <Skeleton
-                  aria-label={`Loading ${heading} mesh`}
-                  className="absolute inset-0 rounded-none motion-reduce:animate-none"
-                />
-              ) : null}
-              {probe && probeField ? (
-                <div
-                  className="pointer-events-none absolute rounded-md border bg-popover px-2 py-1 font-mono text-xs text-popover-foreground shadow-sm"
-                  style={{ left: probe.x + 12, top: probe.y + 12 }}
-                >
-                  {probeField.label !== legend?.field.label ? `${probeField.label} ` : ''}
-                  {formatFieldValue(probe.value ?? Number.NaN)} {probeField.unit}
-                </div>
-              ) : null}
-            </div>
-          )}
-          {thresholdNeedsCells ? (
-            <p
-              className="border-t px-3 py-2 text-xs text-muted-foreground"
-              data-reason="threshold_field_per_node"
-            >
-              {`“${thresholdNeedsCells.label}” is per-node; a threshold needs per-element values, so the threshold is off.`}
-            </p>
-          ) : null}
-          {missing.length ? (
-            <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-              This mesh has no {missing.join(' or ')} result, so that part of the view is off.
-            </p>
-          ) : null}
-          {snapshotError ? (
-            <p className="border-t px-3 py-2 text-xs text-destructive">
-              The image was not saved: {snapshotError}
-            </p>
-          ) : null}
-          {legend ? <MeshLegend legend={legend} /> : null}
-        </FramePanel>
+        <SurfaceFullScreenHost
+          fullscreen={fullscreen}
+          headerExtra={
+            <>
+              <HeaderAction disabled={!parsed} label="Reset view" onClick={() => resetRef.current?.()}>
+                <RetryIcon aria-hidden="true" />
+              </HeaderAction>
+              <SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} />
+            </>
+          }
+          onOpenChange={setFullscreen}
+          title={heading}
+        >
+          <FramePanel className="p-0">
+            {failure ? (
+              <p className="p-4 text-sm text-destructive">3D view unavailable: {failure}</p>
+            ) : (
+              <div
+                aria-label={ariaSummary}
+                className="relative h-80 min-h-64 overflow-hidden"
+                onPointerLeave={() => setProbe(undefined)}
+                onPointerMove={onPointerMove}
+                ref={canvasRef}
+                role="img"
+              >
+                {!parsed ? (
+                  <Skeleton
+                    aria-label={`Loading ${heading} mesh`}
+                    className="absolute inset-0 rounded-none motion-reduce:animate-none"
+                  />
+                ) : null}
+                {probe && probeField ? (
+                  <div
+                    className="pointer-events-none absolute rounded-md border bg-popover px-2 py-1 font-mono text-xs text-popover-foreground shadow-sm"
+                    style={{ left: probe.x + 12, top: probe.y + 12 }}
+                  >
+                    {probeField.label !== legend?.field.label ? `${probeField.label} ` : ''}
+                    {formatFieldValue(probe.value ?? Number.NaN)} {probeField.unit}
+                  </div>
+                ) : null}
+              </div>
+            )}
+            {thresholdNeedsCells ? (
+              <p
+                className="border-t px-3 py-2 text-xs text-muted-foreground"
+                data-reason="threshold_field_per_node"
+              >
+                {`“${thresholdNeedsCells.label}” is per-node; a threshold needs per-element values, so the threshold is off.`}
+              </p>
+            ) : null}
+            {missing.length ? (
+              <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+                This mesh has no {missing.join(' or ')} result, so that part of the view is off.
+              </p>
+            ) : null}
+            {snapshotError ? (
+              <p className="border-t px-3 py-2 text-xs text-destructive">
+                The image was not saved: {snapshotError}
+              </p>
+            ) : null}
+            {legend ? <MeshLegend legend={legend} /> : null}
+          </FramePanel>
+        </SurfaceFullScreenHost>
       </Frame>
     </div>
   );

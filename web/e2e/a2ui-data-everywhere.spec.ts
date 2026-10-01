@@ -225,7 +225,10 @@ async function mapPointsLayerData(page: Page): Promise<{
  */
 async function scrollToMapPointButton(page: Page, id: string) {
   // The locations list starts closed; open it the way a reader would.
-  const toggle = page.getByRole('button', { name: 'Locations list' });
+  // Matches either state ("Show"/"Hide the locations list") — this helper is
+  // called more than once per test, and the button's accessible name flips
+  // with its pressed state.
+  const toggle = page.getByRole('button', { name: /the locations list$/iu });
   if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
   const list = page.locator('[data-slot="a2ui-map-points-list"]');
   const target = mapPointButton(page, id);
@@ -600,6 +603,11 @@ test('a chart filter popover narrows the plotted rows, layered on the agent base
   const chartFrame = page.locator('[data-slot="a2ui-chart"]');
   await expect(chartFrame).toContainText('500 rows', { timeout: 20_000 });
 
+  // The toolbar is revealed on hover (G0 redesign); a real mouse user reaches
+  // it by moving across the card, so a synthetic click needs the same hover
+  // first, or the (by-default pointer-events-none-until-hovered) button
+  // never becomes a valid click target.
+  await chartFrame.hover();
   await chartFrame.getByRole('button', { name: /^Filters/u }).click();
   await page.getByLabel('Filter place, contains').fill('eastern');
 
@@ -656,7 +664,13 @@ test('"Reference this" puts a clean chip in the composer and a properly rendered
   await openEarthquakeDemo(page);
   await expect(page.getByRole('table')).toBeVisible();
 
-  const referenceButtons = page.getByRole('button', { name: 'Reference this' });
+  // The toolbar is revealed on hover (G0 redesign); hover the chart card
+  // itself (its own first "Reference this" is the one under test) rather
+  // than the button directly — a pointer-events-none-until-hovered element
+  // can never itself become the target of a `.hover()`/`.click()` either.
+  const chartFrame = page.locator('[data-slot="a2ui-chart"]');
+  await chartFrame.hover();
+  const referenceButtons = chartFrame.getByRole('button', { name: 'Reference this' });
   await expect(referenceButtons.first()).toBeVisible({ timeout: 20_000 });
   await referenceButtons.first().click();
 

@@ -32,7 +32,7 @@ const POINTS = [
 
 /** The locations list starts closed; these tests select points through it. */
 function openLocationsList() {
-  fireEvent.click(screen.getByRole('button', { name: 'Locations list' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show the locations list' }));
 }
 
 function pressed(label: RegExp) {
@@ -42,7 +42,7 @@ function pressed(label: RegExp) {
 describe('clio.map.v1 layout', () => {
   it('keeps the locations list closed until the reader asks for it', () => {
     render(<ClioScientificMap points={POINTS} />);
-    const toggle = screen.getByRole('button', { name: 'Locations list' });
+    const toggle = screen.getByRole('button', { name: 'Show the locations list' });
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByRole('button', { name: /Parkfield/u })).not.toBeInTheDocument();
 

@@ -31,11 +31,51 @@ export interface ChartZoomInjection {
   param?: string;
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Composition keys whose FIRST sub-view is where a brush attaches (see `withOneUnitParam`). */
+const NESTED_LIST_KEYS = ['layer', 'concat', 'hconcat', 'vconcat'] as const;
+
+/**
+ * Attaches `param` to exactly ONE leaf unit spec, recursing into the FIRST
+ * sub-view of any composition (`layer`/`concat`/`hconcat`/`vconcat`, or a
+ * `facet`/`repeat` operator's own `spec`) instead of the composition's own
+ * top level (G0 rule 4 / G3: "attach the brush to exactly one unit"). A
+ * `params` entry at the top of a LAYERED spec is pushed into EVERY layer
+ * unit by the Vega-Lite compiler, which then re-registers the same-named
+ * signal once per unit ("Duplicate signal name" — the G3 box-plot bug);
+ * `chart-embed.ts`'s `isSingleViewSpec` correctly treats `layer` as one
+ * visual plot (full width, one gesture), but a top-level `params` entry is
+ * still wrong for it. A no-op (returns `spec` unchanged) once the target
+ * leaf already defines a param of this name (a hand-authored spec that
+ * already brushes on its own).
+ */
+function withOneUnitParam(
+  spec: Record<string, unknown>,
+  param: Record<string, unknown>,
+): Record<string, unknown> {
+  for (const key of NESTED_LIST_KEYS) {
+    const list = spec[key];
+    if (Array.isArray(list) && list.length > 0 && isJsonObject(list[0])) {
+      const [first, ...rest] = list as Record<string, unknown>[];
+      return { ...spec, [key]: [withOneUnitParam(first, param), ...rest] };
+    }
+  }
+  if (('facet' in spec || 'repeat' in spec) && isJsonObject(spec.spec)) {
+    return { ...spec, spec: withOneUnitParam(spec.spec, param) };
+  }
+  const existingParams = Array.isArray(spec.params) ? spec.params : [];
+  if (existingParams.some((entry) => isJsonObject(entry) && entry.name === param.name)) return spec;
+  return { ...spec, params: [...existingParams, param] };
+}
+
 /**
  * Returns `spec` unchanged (and no param) when zoom/brush does not apply:
- * `xField` is required (the interval only ever spans the x encoding), and a
- * `type: "interval"` param already present under that name is left alone
- * (a hand-authored spec that already brushes on its own).
+ * `xField` is required (the interval only ever spans the x encoding). Safe
+ * on every composition shape (layered, faceted, concatenated) — see
+ * `withOneUnitParam` for where the param actually lands.
  */
 export function withZoomBrush(
   spec: Record<string, unknown>,
@@ -43,21 +83,8 @@ export function withZoomBrush(
 ): ChartZoomInjection {
   if (!xField) return { spec };
   const param = zoomBrushParamName(pointParam);
-  const existingParams = Array.isArray(spec.params) ? spec.params : [];
-  if (existingParams.some((entry) => isJsonObject(entry) && entry.name === param)) {
-    return { param, spec };
-  }
-  return {
-    param,
-    spec: {
-      ...spec,
-      params: [...existingParams, { name: param, select: { encodings: ['x'], type: 'interval' } }],
-    },
-  };
-}
-
-function isJsonObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  const paramDef = { name: param, select: { encodings: ['x'], type: 'interval' } };
+  return { param, spec: withOneUnitParam(spec, paramDef) };
 }
 
 export interface ChartZoomRange {
@@ -93,6 +120,26 @@ function toFiniteMillisOrNumber(value: unknown): number | undefined {
 /** A range's bound as a `range` filter's scalar: an ISO string for a temporal field, else the raw number. */
 export function zoomRangeFilterValue(bound: number, xType: string | undefined): string | number {
   return xType === 'temporal' ? new Date(bound).toISOString() : bound;
+}
+
+/**
+ * A row's raw x-field value as a comparable number against a brushed
+ * `ChartZoomRange`, using the declared x type to decide HOW to parse it --
+ * never `Date.parse` on a quantitative value (#516 review item 16): most
+ * numeric strings ("42.5") are not valid date text and `Date.parse` reads
+ * them as `NaN`, which silently drops every matching row from an inline
+ * chart's own client-side zoom filter instead of keeping it. `undefined`
+ * when the value cannot be read as either.
+ */
+export function zoomComparableValue(raw: unknown, xType: string | undefined): number | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  if (raw instanceof Date) return raw.getTime();
+  if (xType === 'temporal') {
+    const parsed = typeof raw === 'number' ? raw : Date.parse(String(raw));
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 export const CHART_ZOOM_DEBOUNCE_MS = 300;

@@ -1,5 +1,6 @@
 import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
 import {
@@ -200,7 +201,7 @@ describe('CLIO A2UI kernel catalog', () => {
       'Two bounded EarthScope locations',
     );
     expect(screen.getByText('2 locations')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Locations list' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show the locations list' }));
     const second = screen.getByRole('button', { name: /Station 2/ });
     fireEvent.click(second);
     expect(second).toHaveAttribute('aria-pressed', 'true');
@@ -477,6 +478,32 @@ describe('CLIO A2UI kernel catalog', () => {
     expect(screen.getByText('This chart type is no longer supported')).toBeVisible();
     expect(screen.getByText(/ask the agent to redraw it/iu)).toBeVisible();
     expect(screen.queryByText(/Unknown component type/iu)).not.toBeInTheDocument();
+  });
+
+  describe('G0: clio.metric.v1 built-in affordances', () => {
+    it('copies the value (with its unit) to the clipboard, never the bare toolbar', async () => {
+      const user = userEvent.setup();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+
+      const surface = buildSurface([
+        { id: 'root', component: 'Column', children: ['metric'] },
+        {
+          id: 'metric',
+          component: 'clio.metric.v1',
+          label: 'Stations',
+          value: 72,
+          unit: 'sites',
+        },
+      ]);
+      render(<A2uiSurface surface={surface} />);
+
+      await user.click(screen.getByRole('button', { name: 'More' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Copy' }));
+
+      expect(writeText).toHaveBeenCalledWith('72 sites');
+      Reflect.deleteProperty(navigator, 'clipboard');
+    });
   });
 
   describe('"exactly one of X or dataUri" exclusivity checks (#1533 LOW)', () => {

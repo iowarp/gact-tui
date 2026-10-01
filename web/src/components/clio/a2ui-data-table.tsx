@@ -1,7 +1,7 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
 import { Table2Icon } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import {
   Frame,
@@ -10,6 +10,7 @@ import {
   FramePanel,
   FrameTitle,
 } from '@/components/reui/frame';
+import { useRepository } from '@/hooks/use-repository';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   a2uiAccessibilityDescription,
@@ -17,7 +18,6 @@ import {
   type A2UIAccessibility,
 } from './a2ui-accessibility';
 import { refinedStrictObject } from './a2ui-refined-schema';
-import { DataReferenceThisButton } from './data-reference-this-button';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
 import { columnKindFromRows, columnKindFromSchema, describeQueryFilter, mergeFilters } from './data-query-filters';
 import {
@@ -35,7 +35,21 @@ import {
   selectionIncludes,
   type SelectionWriter,
 } from './selection-state';
-import { artifactIdFromDataUri, type TableDataQuery, useTableQueryRows } from './table-query-rows';
+import { type SurfaceCapabilities, type SurfaceExportFormat } from './surface-toolbar';
+import { filenameStemFromTitle } from './surface-export';
+import {
+  downloadInlineRowsAsCsv,
+  downloadInlineRowsAsJson,
+  downloadServerTableExport,
+  type ServerExportFormat,
+  type ServerExportQuery,
+} from './table-export-client';
+import {
+  artifactIdFromDataUri,
+  type QueryRow,
+  type TableDataQuery,
+  useTableQueryRows,
+} from './table-query-rows';
 
 /**
  * Page sizes offered for a `dataUri` table, paging through the whole dataset
@@ -45,6 +59,14 @@ import { artifactIdFromDataUri, type TableDataQuery, useTableQueryRows } from '.
  */
 const DATA_TABLE_PAGE_SIZES = [10, 25, 50, 100, 500] as const;
 const DEFAULT_DATA_TABLE_PAGE_SIZE = 10;
+
+/** The G0 download menu for a `dataUri` table: every server-export format, current view and full dataset. */
+const EXPORT_FORMATS: readonly ServerExportFormat[] = ['csv', 'json', 'parquet'];
+const EXPORT_FORMAT_LABELS: Record<ServerExportFormat, string> = {
+  csv: 'CSV',
+  json: 'JSON',
+  parquet: 'Parquet',
+};
 
 function columnKey(column: ClioDataColumn): string {
   return typeof column === 'string' ? column : column.key;
@@ -69,8 +91,17 @@ export interface ClioSelectableDataTableProps {
   action?: () => void;
   /** Present for a `dataUri` table: pages, sorts, and filters over the whole dataset server-side. */
   server?: ClioDataTableServerControl;
-  /** A `dataUri` table's own "Reference this" trigger, slotted into the toolbar by `ClioDataTableArtifactSource`. */
-  toolbarExtra?: ReactNode;
+  /**
+   * Download / "Reference this" affordances, built by `ClioDataTableArtifactSource`
+   * for a `dataUri` table (server-side export of the current filtered/sorted
+   * view or the full dataset, and a page-aware zone reference). Omitted for a
+   * direct, inline-rows caller (the catalog's non-`dataUri` branch, and plain
+   * callers/tests) — `ClioSelectableDataTable` then builds its own
+   * client-side CSV/JSON export and "whole table" reference from `rows`
+   * itself (G0 point 5: "Full screen, Reference this and Filters on
+   * inline-data views too").
+   */
+  capabilities?: SurfaceCapabilities;
 }
 
 /**
@@ -82,6 +113,7 @@ export interface ClioSelectableDataTableProps {
 export function ClioSelectableDataTable({
   accessibility,
   action,
+  capabilities,
   columns,
   componentId,
   rows,
@@ -89,12 +121,47 @@ export function ClioSelectableDataTable({
   selectionField,
   server,
   setSelection,
-  toolbarExtra,
 }: ClioSelectableDataTableProps) {
   const state = useMemo(() => parseSelectionState(selection), [selection]);
   const keys = useMemo(() => columns.map(columnKey), [columns]);
   const keyColumn =
     selectionField ?? (state && keys.includes(state.field) ? state.field : keys[0]);
+  const heading = a2uiAccessibilityLabel(accessibility) ?? 'Data table';
+  // The G0 default for a table used directly with inline rows (no dataUri,
+  // so no server route to export through and no live page/filter to
+  // describe as a "zone"): a plain client-side CSV/JSON of exactly what is
+  // shown, and a reference to the whole table. An empty table has nothing
+  // worth downloading or referencing. Only used when the caller supplies no
+  // `capabilities` of its own — `ClioDataTableArtifactSource` always does.
+  const inlineCapabilities = useMemo<SurfaceCapabilities>(() => {
+    if (!rows.length) return {};
+    const filenameStem = filenameStemFromTitle(heading);
+    // `ClioDataRow`'s cells are `unknown` (the component's own schema is
+    // `z.record(z.unknown())`); the export helpers want the narrower
+    // `QueryRow` shape the server/table-query path already guarantees.
+    // `rowsToCsv`/`rowsToJson` stringify (or `?? null`) whatever a cell holds
+    // regardless, so this is a type-level widening only, not a runtime risk.
+    const exportRows = rows as unknown as QueryRow[];
+    const exportFormats: SurfaceExportFormat[] = [
+      { id: 'csv', label: 'CSV data', run: () => downloadInlineRowsAsCsv(keys, exportRows, filenameStem) },
+      { id: 'json', label: 'JSON data', run: () => downloadInlineRowsAsJson(keys, exportRows, filenameStem) },
+      // No Parquet entry here: this repo has no client-side Parquet encoder
+      // for inline rows — only the server's table-export route produces one,
+      // and inline rows (no dataUri) never reach the server.
+    ];
+    const buildReference = (): DataZoneReference =>
+      buildZoneReference({
+        componentLabel: heading,
+        datasetLabel: 'inline data',
+        filters: [],
+        previewColumns: keys.slice(0, 5),
+        previewRows: rows.slice(0, 5),
+        query: { columns: keys, rowCount: rows.length },
+        zoneDescription: `the whole table (${rows.length.toLocaleString()} rows)`,
+      });
+    return { buildReference, exportFormats };
+  }, [heading, keys, rows]);
+  const toolbarCapabilities = capabilities ?? inlineCapabilities;
   const selectedRows = useMemo(() => {
     if (!state || keyColumn === undefined) return undefined;
     const selected = new Set<number>();
@@ -136,14 +203,14 @@ export function ClioSelectableDataTable({
 
   return (
     <ClioDataTable
+      capabilities={toolbarCapabilities}
       columns={columns}
       description={a2uiAccessibilityDescription(accessibility)}
-      label={a2uiAccessibilityLabel(accessibility)}
+      label={heading}
       onRowClick={setSelection || action ? selectRow : undefined}
       rows={rows}
       selectedRows={selectedRows}
       server={server}
-      toolbarExtra={toolbarExtra}
     />
   );
 }
@@ -203,6 +270,7 @@ function ClioDataTableArtifactSource({
   selectionField,
   setSelection,
 }: ClioDataTableArtifactSourceProps) {
+  const repository = useRepository();
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_DATA_TABLE_PAGE_SIZE);
   // The viewer's own sort override — a single key, since only one header is
@@ -366,6 +434,7 @@ function ClioDataTableArtifactSource({
       </Frame>
     );
   }
+  const heading = a2uiAccessibilityLabel(accessibility) ?? 'Data table';
   const buildReference = (): DataZoneReference => {
     const total = matchedRows ?? rows.length;
     const start = pageIndex * pageSize + 1;
@@ -379,7 +448,7 @@ function ClioDataTableArtifactSource({
         ? `the whole view (${total.toLocaleString()} rows)${sortSuffix}`
         : `rows ${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}${sortSuffix}`;
     return buildZoneReference({
-      componentLabel: a2uiAccessibilityLabel(accessibility) ?? 'Data table',
+      componentLabel: heading,
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
       filters: (effectiveDataQuery.filter ?? []).map(describeQueryFilter),
       previewColumns,
@@ -388,16 +457,58 @@ function ClioDataTableArtifactSource({
       zoneDescription,
     });
   };
+  // The "current view" export: the table's own live filter/sort/columns —
+  // never `effectiveDataQuery`'s `limit`/`offset` (the viewer's own page
+  // size), since "current view" means everything the reader has filtered or
+  // sorted by, not only the page presently on screen. `scope: 'full'` below
+  // ignores this query entirely and exports the whole, unfiltered dataset.
+  const filenameStem = filenameStemFromTitle(heading);
+  const currentExportQuery: ServerExportQuery = {
+    aggregate: dataQuery?.aggregate,
+    columns: dataQuery?.columns,
+    downsample: dataQuery?.downsample,
+    filter: effectiveDataQuery.filter,
+    sort: effectiveDataQuery.sort,
+  };
+  const exportFormats: SurfaceExportFormat[] = EXPORT_FORMATS.flatMap((format) => [
+    {
+      id: format,
+      label: `${EXPORT_FORMAT_LABELS[format]} (current view)`,
+      run: () =>
+        downloadServerTableExport({
+          dataUri,
+          filenameStem,
+          format,
+          query: currentExportQuery,
+          repository,
+          scope: 'current',
+        }),
+    },
+    {
+      id: `${format}-full`,
+      label: `${EXPORT_FORMAT_LABELS[format]} (full dataset)`,
+      run: () =>
+        downloadServerTableExport({
+          dataUri,
+          filenameStem,
+          format,
+          query: {},
+          repository,
+          scope: 'full',
+        }),
+    },
+  ]);
+  const tableCapabilities: SurfaceCapabilities = { buildReference, exportFormats };
   return (
     <ClioSelectableDataTable
       accessibility={accessibility}
       action={action}
+      capabilities={tableCapabilities}
       columns={renderColumns}
       componentId={componentId}
       rows={rows as ClioDataRow[]}
       selection={selection}
       selectionField={selectionField}
-      toolbarExtra={<DataReferenceThisButton buildReference={buildReference} />}
       server={server}
       setSelection={setSelection}
     />

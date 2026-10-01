@@ -150,7 +150,7 @@ function renderSurface(extra: ExtraComponents = NO_EXTRA) {
   );
   // The map's locations list starts closed; these tests read and drive the
   // map's selection through its pressed list rows.
-  fireEvent.click(screen.getByRole('button', { name: 'Locations list' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show the locations list' }));
   return built;
 }
 

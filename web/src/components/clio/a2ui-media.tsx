@@ -5,8 +5,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Spinner } from '@/components/ui/spinner';
 import { referenceFailure, type A2uiReferenceFailure } from '@/lib/a2ui/reference-failure';
-import { useA2uiReference } from '@/lib/a2ui/use-a2ui-reference';
+import { useA2uiReference, type A2uiReferenceState } from '@/lib/a2ui/use-a2ui-reference';
 import { useA2uiUrlGuard } from '@/lib/a2ui/url-guard';
+import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
+import { downloadUrl, filenameStemFromTitle } from './surface-export';
+import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
+import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 
 export type A2uiMediaKind = 'image' | 'video' | 'audio' | 'file';
 
@@ -75,6 +79,77 @@ export function A2uiExternalMedia({ kind, url }: { kind: A2uiMediaKind; url: str
   );
 }
 
+/**
+ * `clio.image.v1`'s G0 row: "download the original; full screen; Reference
+ * this." (Video/Audio are not in the G0 table and keep their bare elements
+ * below.) The original bytes are already resolved to `state.objectUrl` by
+ * `useA2uiReference` — downloading is just pointing an anchor at that same
+ * `blob:` URL (`downloadUrl`), no second fetch.
+ */
+/** The image's download filename: the resolved name, slugified, kept as-is if it already carries an extension, else suffixed from the media type. */
+function imageDownloadFilename(name: string, mediaType: string | undefined): string {
+  const slug = filenameStemFromTitle(name);
+  if (/\.[a-z0-9]{1,5}$/iu.test(slug)) return slug;
+  const extension = (mediaType || 'image/png').split('/').at(-1) || 'png';
+  return `${slug}.${extension}`;
+}
+
+function ReferenceImage({
+  label,
+  objectFit,
+  onError,
+  state,
+}: {
+  label: string | undefined;
+  objectFit: CSSProperties['objectFit'];
+  onError: () => void;
+  state: A2uiReferenceState;
+}) {
+  const [fullscreen, setFullscreen] = useSurfaceFullScreen();
+  const name = state.resolution?.name || label || 'image';
+  const objectUrl = state.objectUrl;
+
+  const buildReference = (): DataZoneReference =>
+    buildZoneReference({
+      componentLabel: label || 'Image',
+      datasetLabel: name,
+      filters: [],
+      previewColumns: [],
+      previewRows: [],
+      query: { name, mediaType: state.resolution?.media_type },
+      zoneDescription: 'the whole image',
+    });
+
+  const capabilities: SurfaceCapabilities = {
+    buildReference,
+    exportFormats: [
+      {
+        id: 'original',
+        label: 'Original image',
+        run: () => {
+          if (objectUrl) downloadUrl(objectUrl, imageDownloadFilename(name, state.resolution?.media_type));
+        },
+      },
+    ],
+    fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
+  };
+
+  return (
+    <div className="group relative" data-slot="a2ui-media-image">
+      <SurfaceToolbar capabilities={capabilities} />
+      <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={name}>
+        <img
+          alt={label ?? ''}
+          className={fullscreen ? 'max-h-full max-w-full object-contain' : 'max-w-full rounded-md'}
+          onError={onError}
+          src={state.objectUrl}
+          style={fullscreen ? undefined : { objectFit }}
+        />
+      </SurfaceFullScreenHost>
+    </div>
+  );
+}
+
 function ReferenceMedia({ kind, label, objectFit, url }: Omit<A2uiMediaProps, 'componentId'>) {
   const state = useA2uiReference(url);
   const [undisplayable, setUndisplayable] = useState<string>();
@@ -97,15 +172,7 @@ function ReferenceMedia({ kind, label, objectFit, url }: Omit<A2uiMediaProps, 'c
   }
   const onError = () => setUndisplayable(state.objectUrl);
   if (kind === 'image') {
-    return (
-      <img
-        alt={label ?? ''}
-        className="max-w-full rounded-md"
-        onError={onError}
-        src={state.objectUrl}
-        style={{ objectFit }}
-      />
-    );
+    return <ReferenceImage label={label} objectFit={objectFit} onError={onError} state={state} />;
   }
   if (kind === 'video') {
     return (

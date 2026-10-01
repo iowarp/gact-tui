@@ -46,6 +46,7 @@ function ClioMermaidArtifactSource({
     <ClioMermaidDiagram
       accessibilityDescription={accessibilityDescription}
       accessibilityLabel={accessibilityLabel}
+      dataUri={dataUri}
       source={text}
       title={title}
     />

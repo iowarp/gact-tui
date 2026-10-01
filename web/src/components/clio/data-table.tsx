@@ -8,7 +8,7 @@ import type {
 } from '@tanstack/react-table';
 import { useTable } from '@tanstack/react-table';
 import { Table2Icon } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { Badge as ReUIBadge } from '@/components/reui/badge';
 import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
 import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
@@ -26,6 +26,8 @@ import {
   type ClioColumnFilterValue,
 } from './data-table-column-filter';
 import { ClioDataGridTable } from './data-grid-table';
+import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
+import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 
 export type ClioDataColumn = string | { key: string; label: string };
 export type ClioDataRow = Record<string, unknown>;
@@ -112,7 +114,16 @@ export interface ClioDataTableServerControl {
   columnKind: (key: string) => 'number' | 'text' | undefined;
 }
 
-/** Interactive, resizable data table shared by native resources and A2UI surfaces. */
+/**
+ * Interactive, resizable data table shared by native resources and A2UI
+ * surfaces.
+ *
+ * Owns the G0 full-screen affordance itself (view-local UI state, not data a
+ * caller needs to see) — `capabilities` carries only what depends on the
+ * caller's own data/query (download, "Reference this"); `ClioDataTable`
+ * merges its own `fullScreen` entry in before handing the result to
+ * `SurfaceToolbar`, the same shared framework `clio.chart.v1` renders from.
+ */
 export function ClioDataTable({
   columns: columnDefinitions,
   rows,
@@ -121,7 +132,7 @@ export function ClioDataTable({
   onRowClick,
   selectedRows,
   server,
-  toolbarExtra,
+  capabilities,
 }: {
   columns: readonly ClioDataColumn[];
   rows: readonly ClioDataRow[];
@@ -132,9 +143,10 @@ export function ClioDataTable({
   selectedRows?: ReadonlySet<number>;
   /** Present for a `dataUri` table: pages, sorts, and filters over the whole dataset server-side. */
   server?: ClioDataTableServerControl;
-  /** A `dataUri` table's own "Reference this" trigger, slotted into the toolbar. */
-  toolbarExtra?: ReactNode;
+  /** Download / "Reference this" affordances the caller declares; full screen is always added here. */
+  capabilities?: SurfaceCapabilities;
 }) {
+  const [fullscreen, setFullscreen] = useSurfaceFullScreen();
   const columns = useMemo<ColumnDef<DataGridFeatures, ClioDataRow, unknown>[]>(
     () =>
       columnDefinitions.map((definition) => {
@@ -227,6 +239,11 @@ export function ClioDataTable({
     // Row ids are the row's index in `rows` (TanStack's default), matching `selectedRows`.
   });
 
+  const toolbarCapabilities: SurfaceCapabilities = {
+    ...capabilities,
+    fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
+  };
+
   return (
     <DataGrid<DataGridFeatures, ClioDataRow>
       emptyMessage="No rows were provided for this data view."
@@ -235,28 +252,35 @@ export function ClioDataTable({
       table={table}
       tableLayout={{ columnsResizable: true, dense: true, headerSticky: true, width: 'fixed' }}
     >
-      <DataGridContainer className="overflow-hidden rounded-xl border">
+      <DataGridContainer className="group relative overflow-hidden rounded-xl border">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b bg-muted/40 px-3 py-2">
           <Table2Icon aria-hidden="true" className="size-3.5 text-primary" />
           <ReUIBadge radius="full" variant="primary-light">
             {label}, {(server ? server.totalRows : rows.length).toLocaleString()} rows
           </ReUIBadge>
-          {toolbarExtra ? <div className="ms-auto flex items-center gap-1.5">{toolbarExtra}</div> : null}
-        </div>
-        <div
-          aria-description={description}
-          aria-label={`${label} columns`}
-          className="max-w-full overflow-x-auto overscroll-x-contain"
-          role="region"
-          tabIndex={0}
-        >
-          <ClioDataGridTable />
-        </div>
-        {server || rows.length > 10 ? (
-          <div className="border-t px-3">
-            <DataGridPagination sizes={[...(server?.pageSizeOptions ?? DATA_GRID_PAGE_SIZES)]} />
+          <div className="ms-auto">
+            <SurfaceToolbar capabilities={toolbarCapabilities} />
           </div>
-        ) : null}
+        </div>
+        {/* Only the scrollable rows + pagination move into the full-screen
+            dialog (same convention as `clio.chart.v1`'s `FramePanel`): the
+            header above, with the toolbar's own full-screen toggle, stays put. */}
+        <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={label}>
+          <div
+            aria-description={description}
+            aria-label={`${label} columns`}
+            className="max-w-full overflow-x-auto overscroll-x-contain"
+            role="region"
+            tabIndex={0}
+          >
+            <ClioDataGridTable />
+          </div>
+          {server || rows.length > 10 ? (
+            <div className="border-t px-3">
+              <DataGridPagination sizes={[...(server?.pageSizeOptions ?? DATA_GRID_PAGE_SIZES)]} />
+            </div>
+          ) : null}
+        </SurfaceFullScreenHost>
       </DataGridContainer>
     </DataGrid>
   );

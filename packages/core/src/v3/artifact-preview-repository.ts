@@ -110,6 +110,16 @@ export interface ArtifactTableQueryRequest {
 }
 
 const tableQueryValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+/**
+ * The stable server row key (G0: "views over the SAME dataUri link
+ * automatically, through a stable server row key"): one value per returned
+ * row, ordered and sized exactly like `columns`. Absent when the query
+ * aggregated (grouped rows have no single source row to key by).
+ */
+const rowKeySchema = z.object({
+  column: z.string(),
+  values: z.array(z.union([z.string(), z.number()])),
+});
 const artifactTableQuerySchema = z
   .object({
     artifact_id: z.string().optional(),
@@ -120,6 +130,7 @@ const artifactTableQuerySchema = z
     returnedRows: z.number().int().nonnegative(),
     truncated: z.boolean(),
     downsample: z.object({ mode: z.string() }).passthrough(),
+    rowKey: rowKeySchema.optional(),
   })
   .passthrough()
   .superRefine((value, context) => {
@@ -135,6 +146,24 @@ const artifactTableQuerySchema = z
 
 /** A columnar slice of a registered table: one array per column, all `returnedRows` long. */
 export type ArtifactTableQueryResult = z.infer<typeof artifactTableQuerySchema>;
+
+/**
+ * `POST /v1/artifacts/{id}/table-export` request (clio-agent
+ * `TableExportRequest`): the same filter/aggregate/downsample/sort shape as
+ * a table-query, plus which download format to serialize and whether to
+ * export the current (filtered/sorted) view or the full, unfiltered
+ * dataset. G0 (built-in data-view affordances): the download/export menu on
+ * every `dataUri` chart/map/table is driven by this, never by agent code.
+ */
+export interface ArtifactTableExportRequest {
+  columns?: readonly string[];
+  filter?: readonly TableQueryFilter[];
+  aggregate?: TableQueryAggregate;
+  downsample?: TableQueryDownsample;
+  sort?: readonly TableQuerySort[];
+  scope: 'current' | 'full';
+  format: 'csv' | 'json' | 'parquet';
+}
 
 /** Bounded structured previews for immutable registered artifacts. */
 export class ArtifactPreviewRepository extends ProviderRepository {
@@ -184,6 +213,25 @@ export class ArtifactPreviewRepository extends ProviderRepository {
           throw new Error('Artifact table query exceeded the requested row limit.');
         }
         return result;
+      },
+      signal,
+    });
+  }
+
+  /** The current view or full dataset of a registered CSV/Parquet artifact, serialized for download. */
+  public artifactTableExport(
+    artifactId: string,
+    query: ArtifactTableExportRequest,
+    signal?: AbortSignal,
+  ): Promise<Uint8Array> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/artifacts/${encodeURIComponent(artifactId)}/table-export`,
+      body: query,
+      responseType: 'bytes',
+      decode: (value) => {
+        if (!(value instanceof Uint8Array)) throw new TypeError('Expected a binary response');
+        return value;
       },
       signal,
     });

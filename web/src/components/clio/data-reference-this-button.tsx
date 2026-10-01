@@ -1,9 +1,9 @@
 import { ChartLineIcon } from 'lucide-react';
 import { useContext } from 'react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import type { DataSurfaceZoneSelection } from '@/lib/selection-actions';
-import { useDataHeaderCompact } from './data-header-density';
 import type { DataZoneReference } from './data-zone-reference';
 
 /**
@@ -29,29 +29,32 @@ export function DataReferenceThisButton({
   disabled?: boolean;
 }) {
   const registry = useContext(SelectionActionsContext);
-  const compact = useDataHeaderCompact();
   if (!registry) return null;
   return (
-    <Button
-      aria-label="Reference this"
-      className="gap-1.5 text-xs"
-      disabled={disabled}
-      title="Reference this data in your message"
-      onClick={() => {
-        const reference = buildReference();
-        const target: DataSurfaceZoneSelection = {
-          kind: 'data-surface-zone',
-          markdown: reference.markdown,
-          summary: reference.summary,
-          title: reference.title,
-        };
-        for (const action of registry.actionsFor(target)) action.run(target);
-      }}
-      size="sm"
-      variant="outline"
-    >
-      <ChartLineIcon aria-hidden="true" className="size-3.5" />
-      {compact ? null : 'Reference this'}
-    </Button>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            aria-label="Reference this"
+            disabled={disabled}
+            onClick={() => {
+              const reference = buildReference();
+              const target: DataSurfaceZoneSelection = {
+                kind: 'data-surface-zone',
+                markdown: reference.markdown,
+                summary: reference.summary,
+                title: reference.title,
+              };
+              for (const action of registry.actionsFor(target)) action.run(target);
+            }}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ChartLineIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Reference this data in your message</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

@@ -128,4 +128,78 @@ describe('ArtifactPreviewRepository', () => {
       repository.artifactTableQuery('artifact_runs', { columns: ['t'], limit: 2 }),
     ).rejects.toThrow('exceeded the requested row limit');
   });
+
+  it('decodes the optional stable row key (G0: auto-linking two views of one dataUri)', async () => {
+    const request = vi.fn(async (input: TransportRequest<unknown>) =>
+      input.decode({
+        schema: [{ name: 't', type: 'double' }],
+        columns: { t: [0, 1] },
+        totalRows: 2,
+        returnedRows: 2,
+        truncated: false,
+        downsample: { mode: 'none' },
+        rowKey: { column: '__row', values: [0, 1] },
+      }),
+    );
+    const transport = { request, stream: vi.fn() } as unknown as ClioTransport;
+    const repository = new ArtifactPreviewRepository(transport);
+
+    await expect(
+      repository.artifactTableQuery('artifact_runs', { columns: ['t'], limit: 10 }),
+    ).resolves.toMatchObject({ rowKey: { column: '__row', values: [0, 1] } });
+  });
+
+  it('decodes a table query result with no row key (an aggregated query)', async () => {
+    const request = vi.fn(async (input: TransportRequest<unknown>) =>
+      input.decode({
+        schema: [{ name: 't', type: 'double' }],
+        columns: { t: [0, 1] },
+        totalRows: 2,
+        returnedRows: 2,
+        truncated: false,
+        downsample: { mode: 'none' },
+      }),
+    );
+    const transport = { request, stream: vi.fn() } as unknown as ClioTransport;
+    const repository = new ArtifactPreviewRepository(transport);
+
+    const result = await repository.artifactTableQuery('artifact_runs', {
+      columns: ['t'],
+      limit: 10,
+    });
+    expect(result.rowKey).toBeUndefined();
+  });
+
+  it('exports a table as bytes through the binary transport', async () => {
+    const payload = new TextEncoder().encode('sensor,value\r\na,1\r\n');
+    const request = vi.fn(async (input: TransportRequest<unknown>) => input.decode(payload));
+    const transport = { request, stream: vi.fn() } as unknown as ClioTransport;
+    const repository = new ArtifactPreviewRepository(transport);
+
+    const bytes = await repository.artifactTableExport('artifact_runs', {
+      columns: ['sensor', 'value'],
+      format: 'csv',
+      scope: 'current',
+    });
+
+    expect(bytes).toEqual(payload);
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/v1/artifacts/artifact_runs/table-export',
+        responseType: 'bytes',
+        body: { columns: ['sensor', 'value'], format: 'csv', scope: 'current' },
+      }),
+    );
+  });
+
+  it('rejects an export decode when the transport does not actually return bytes', async () => {
+    const request = vi.fn(async (input: TransportRequest<unknown>) => input.decode('not bytes'));
+    const transport = { request, stream: vi.fn() } as unknown as ClioTransport;
+    const repository = new ArtifactPreviewRepository(transport);
+
+    await expect(
+      repository.artifactTableExport('artifact_runs', { format: 'csv', scope: 'current' }),
+    ).rejects.toThrow('Expected a binary response');
+  });
 });

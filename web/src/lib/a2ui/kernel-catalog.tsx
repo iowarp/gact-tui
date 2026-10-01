@@ -66,6 +66,8 @@ import { useArtifactText } from '@/components/clio/artifact-text-query';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
 import { resolvedCardAction } from './kernel-catalog-card-actions';
 import { KernelIcon } from './kernel-catalog-icon';
+import { copyTextToClipboard } from '@/components/clio/surface-export';
+import { SurfaceToolbar, type SurfaceCapabilities } from '@/components/clio/surface-toolbar';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
@@ -221,24 +223,42 @@ const Metric = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props }) => (
-    <ReUIFrame {...a2uiAccessibilityProps(props.accessibility)} dense role="group" spacing="sm">
-      <FramePanel>
-        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{props.label}</p>
-        <p className="mt-2 font-mono text-2xl font-semibold">
-          {String(props.value)}
-          {props.unit ? (
-            <span className="ml-1 text-sm text-muted-foreground">{props.unit}</span>
-          ) : null}
-        </p>
-        {props.trend || props.detail ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {[props.trend, props.detail].filter(Boolean).join(', ')}
+  ({ props }) => {
+    // G0 row for clio.metric.v1: "copy value; Reference this." (No query/
+    // filter/selection concept applies to a single scalar, so only `onCopy`
+    // is declared here — Reference this is scoped to data views that can
+    // describe a zone, which a bare metric cannot.)
+    const metricCapabilities: SurfaceCapabilities = {
+      onCopy: () => copyTextToClipboard(`${String(props.value)}${props.unit ? ` ${props.unit}` : ''}`),
+    };
+    return (
+      <ReUIFrame
+        {...a2uiAccessibilityProps(props.accessibility)}
+        className="group"
+        dense
+        role="group"
+        spacing="sm"
+      >
+        <FramePanel>
+          <SurfaceToolbar capabilities={metricCapabilities} />
+          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            {props.label}
           </p>
-        ) : null}
-      </FramePanel>
-    </ReUIFrame>
-  ),
+          <p className="mt-2 font-mono text-2xl font-semibold">
+            {String(props.value)}
+            {props.unit ? (
+              <span className="ml-1 text-sm text-muted-foreground">{props.unit}</span>
+            ) : null}
+          </p>
+          {props.trend || props.detail ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {[props.trend, props.detail].filter(Boolean).join(', ')}
+            </p>
+          ) : null}
+        </FramePanel>
+      </ReUIFrame>
+    );
+  },
 );
 
 const ClioProgress = createComponentImplementation(

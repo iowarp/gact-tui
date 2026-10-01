@@ -88,6 +88,18 @@ export interface QueryColumnSchema {
   type: string;
 }
 
+/**
+ * The server's stable per-row key (G0): one value per row in `rows`, same
+ * order. `undefined` for inline `data` (no server query ran) and for an
+ * aggregated query (grouped rows have no single source row to key by) — a
+ * component falls back to the row's own array index as its key in either
+ * case (still stable within one render of this same `rows` array).
+ */
+export interface QueryRowKey {
+  column: string;
+  values: readonly (string | number)[];
+}
+
 export interface TableQueryRows {
   rows: QueryRow[] | undefined;
   loading: boolean;
@@ -100,6 +112,8 @@ export interface TableQueryRows {
   returnedRows: number | undefined;
   /** The queried columns' own server-reported types — authoritative over sampling a page for kind. */
   schema: readonly QueryColumnSchema[] | undefined;
+  /** The server's stable row key for this result, when it reported one. */
+  rowKey: QueryRowKey | undefined;
 }
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -255,6 +269,7 @@ export function useTableQueryRows({
       matchedRows: data.length,
       returnedRows: data.length,
       schema: undefined,
+      rowKey: undefined,
     };
   }
   if (!artifactId) {
@@ -266,6 +281,7 @@ export function useTableQueryRows({
       matchedRows: undefined,
       returnedRows: undefined,
       schema: undefined,
+      rowKey: undefined,
     };
   }
   if (query.isError) {
@@ -277,6 +293,7 @@ export function useTableQueryRows({
       matchedRows: undefined,
       returnedRows: undefined,
       schema: undefined,
+      rowKey: undefined,
     };
   }
   return {
@@ -286,6 +303,7 @@ export function useTableQueryRows({
     note: query.data ? describeResult(query.data, (dataQuery?.offset ?? 0) > 0) : '',
     matchedRows: query.data ? (query.data.matchedRows ?? query.data.totalRows) : undefined,
     returnedRows: query.data?.returnedRows,
+    rowKey: query.data?.rowKey,
     schema: query.data?.schema as readonly QueryColumnSchema[] | undefined,
   };
 }

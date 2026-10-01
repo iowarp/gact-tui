@@ -1,11 +1,11 @@
-import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
+﻿import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
 import { TransportError } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const repository = vi.hoisted(() => ({ artifactTableQuery: vi.fn() }));
+const repository = vi.hoisted(() => ({ artifactTableExport: vi.fn(), artifactTableQuery: vi.fn() }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -650,3 +650,4 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     );
   });
 });
+
