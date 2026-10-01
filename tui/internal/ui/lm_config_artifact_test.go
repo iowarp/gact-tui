@@ -50,7 +50,7 @@ func newLMConfigTestApp() *App {
 					ID:             "codex",
 					Label:          "OpenAI Codex (subscription)",
 					Provider:       "codex",
-					APIBase:        "codex://exec",
+					APIBase:        "codex://direct",
 					SuggestedModel: "gpt-5.5",
 					RequiresAPIKey: false,
 					Description:    "Routes through the local codex CLI.",
@@ -116,7 +116,7 @@ func TestLMConfigPlaceholderAPIKeyIsOnlyForLocalNoAuthProviders(t *testing.T) {
 		{
 			name:    "codex cli",
 			preset:  client.LMProviderPreset{Provider: "codex", AuthMethod: "none"},
-			apiBase: "codex://exec",
+			apiBase: "codex://direct",
 			want:    false,
 		},
 		{
