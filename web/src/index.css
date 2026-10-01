@@ -275,6 +275,20 @@
     box-shadow 120ms ease;
 }
 
+/* `components/ui/input.tsx` is `bg-transparent dark:bg-input/30`: dark mode
+   gets a faint fill, not the same flat transparent as light mode, so a field
+   reads against the surrounding surface instead of disappearing into it.
+   `color-mix(in oklch, var(--input) 30%, transparent)` is this file's own
+   existing idiom for a Tailwind `/NN` opacity modifier (see the `.chip`
+   selected-state rule above) and composes correctly with dark mode's own
+   `--input` already carrying a 70% alpha. */
+.dark [data-slot='a2ui-surface-root'] input[type='text'],
+.dark [data-slot='a2ui-surface-root'] input[type='number'],
+.dark [data-slot='a2ui-surface-root'] input[type='password'],
+.dark [data-slot='a2ui-surface-root'] textarea {
+  background: color-mix(in oklch, var(--input) 30%, transparent);
+}
+
 [data-slot='a2ui-surface-root'] textarea {
   min-height: 4rem;
   padding-block: 0.5rem;
