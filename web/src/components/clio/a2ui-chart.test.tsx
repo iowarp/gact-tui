@@ -35,7 +35,9 @@ vi.mock('vega-embed', async (importOriginal) => {
 });
 
 import { useState } from 'react';
+import guardCases from '@/test-fixtures/chart/guard_cases.json';
 import { ClioChart, type ClioChartProps } from './a2ui-chart';
+import type { ChartRow } from './chart-data';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { escapeHtml, formatChartTooltip, refusingLoader } from './chart-embed';
 import { SelectionActionsProvider } from './selection-actions';
@@ -99,6 +101,48 @@ describe('ClioChart', () => {
     expect(screen.getByText('Loss')).toBeInTheDocument();
     expect(screen.getByText(/v over t, one line per run\. · 4 rows/u)).toBeInTheDocument();
     expect(container.querySelector('[data-renderer="svg"]')).not.toBeNull();
+  });
+
+  it('draws the geoshape gallery fixture through the real embed path, no NaN coordinates (#1549 G4 review)', async () => {
+    const testCase = guardCases.cases.find(
+      (candidate) => candidate.name === 'gallery-choropleth-projection-geojson',
+    )!;
+    render(
+      wrap(
+        <ClioChart
+          componentId="ch-geo"
+          data={(testCase as { data: ChartRow[] }).data}
+          spec={testCase.spec as Record<string, unknown>}
+        />,
+      ),
+    );
+    const view = await embeddedView();
+    const svg = await view.toSVG();
+    const geoshapeTags = [...svg.matchAll(/<path\b[^>]*"geoshape"[^>]*\/?>/gu)].map(([tag]) => tag);
+    expect(geoshapeTags).toHaveLength((testCase as { data: unknown[] }).data.length);
+    for (const tag of geoshapeTags) expect(tag).not.toMatch(/NaN/);
+  });
+
+  it('draws the lon/lat gallery fixture through the real embed path, no NaN coordinates (#1549 G4 review)', async () => {
+    const testCase = guardCases.cases.find(
+      (candidate) => candidate.name === 'gallery-lon-lat-point-map',
+    )!;
+    render(
+      wrap(
+        <ClioChart
+          componentId="ch-lonlat"
+          data={(testCase as { data: ChartRow[] }).data}
+          spec={testCase.spec as Record<string, unknown>}
+        />,
+      ),
+    );
+    const view = await embeddedView();
+    const svg = await view.toSVG();
+    const circleTags = [...svg.matchAll(/<path\b[^>]*\/?>/gu)]
+      .map(([tag]) => tag)
+      .filter((tag) => tag.includes('"circle"') && tag.includes('aria-label'));
+    expect(circleTags).toHaveLength((testCase as { data: unknown[] }).data.length);
+    for (const tag of circleTags) expect(tag).not.toMatch(/NaN/);
   });
 
   it('does not lose a rows update that arrives while the chart is still embedding (#1533 #506 LOW)', async () => {
