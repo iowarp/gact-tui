@@ -96,10 +96,14 @@ describe('A2UI surface revision recovery (G2, #23/#29)', () => {
 
     expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
 
-    // The server compacts the invalid `updateComponents` away (it redefines
-    // the SAME component ids) and appends the corrected one — `createSurface`
-    // is NOT resent, exactly like a real revision.
-    update(a2uiSurface([createMessage, gridMessage(8, 'Grid content')], 2));
+    // G2 merge-gate finding (gact-tui#513 comment 5937313752, reproduced
+    // against a real server): the server does NOT compact the invalid
+    // `updateComponents` away. A `GET .../a2ui/surfaces` on the real server
+    // showed the bad message and the fix PRESENT TOGETHER — revision 2
+    // appends the fix; it does not replace anything.
+    update(
+      a2uiSurface([createMessage, gridMessage(15, 'Grid content'), gridMessage(8, 'Grid content')], 2),
+    );
 
     expect(await screen.findByText('Grid content')).toBeVisible();
     expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
@@ -112,10 +116,52 @@ describe('A2UI surface revision recovery (G2, #23/#29)', () => {
     // The genuine validation failure, not a replay artifact.
     expect(screen.queryByText(/already exists/iu)).not.toBeInTheDocument();
 
-    update(a2uiSurface([createMessage, gridMessage(8, 'Grid content')], 2));
+    // Same real-server shape as above: the bad message is still there.
+    update(
+      a2uiSurface([createMessage, gridMessage(15, 'Grid content'), gridMessage(8, 'Grid content')], 2),
+    );
 
     await screen.findByText('Grid content');
     expect(screen.queryByText(/already exists/iu)).not.toBeInTheDocument();
+    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
+  });
+
+  // G2 merge-gate finding (gact-tui#513 comment 5937313752): reproduces the
+  // EXACT shape pulled from a real server's `GET .../a2ui/surfaces` for this
+  // bug (a bare `root` Grid, no wrapper component) — the bad message defines
+  // `root` outright (not just one property of an already-good `root`), and
+  // the fix re-sends ONLY `root`, never resending the `label` that was
+  // always valid and never touched by either Grid message. A loop that
+  // stops on the first throw never reaches the fix; this must render.
+  it('renders a fix that re-sends only the failing component, with the bad one still in the stream', async () => {
+    const labelMessage = {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [{ id: 'label', component: 'Text', text: 'Grid content' }],
+      },
+    };
+    const badGrid = {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [{ id: 'root', component: 'Grid', gap: 15, children: ['label'] }],
+      },
+    };
+    const fixedGrid = {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [{ id: 'root', component: 'Grid', gap: 8, children: ['label'] }],
+      },
+    };
+
+    const { update } = renderSurface(a2uiSurface([createMessage, labelMessage, badGrid], 1));
+    expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
+
+    update(a2uiSurface([createMessage, labelMessage, badGrid, fixedGrid], 2));
+
+    expect(await screen.findByText('Grid content')).toBeVisible();
     expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
   });
 

@@ -210,9 +210,14 @@ interface ProcessorEntry {
    * `createSurface`). `-1` before anything has ever been applied, so the
    * very first revision (always >= 1) is never mistaken for stale.
    *
-   * Only ever advanced after a FULLY successful apply pass — a batch that
-   * throws partway through leaves it where it was, so a retry at the same
-   * revision is not mistaken for a no-op.
+   * Advanced once every message in a revision's pending set has been
+   * ATTEMPTED, whether or not all of them succeeded — a still-failing
+   * message is retried by fingerprint on the next revision that moves
+   * forward, not by re-running this same revision again (which would only
+   * ever reproduce the identical, deterministic failure). This is a
+   * progress marker for "nothing more to usefully do at this revision
+   * number", not a success marker; `hasRenderableRoot` is what decides
+   * whether the result is shown as a model or a failure.
    */
   appliedRevision: number;
   /**
@@ -288,16 +293,42 @@ interface PendingA2uiMessage {
  * resumes after it instead of resending `createSurface` into a model that
  * already has it (`@a2ui/web_core`'s `Surface ${id} already exists.`, the
  * defect this replaces).
+ *
+ * G2 merge-gate finding (gact-tui#513 comment 5937313752): a throwing
+ * message does NOT stop the loop — every remaining message is still
+ * attempted. The real server keeps a bad `updateComponents` in
+ * `surface.messages` forever (it does not drop a superseded message the way
+ * an earlier design assumed, `clio_agent/gact/a2ui.py`), so a later, good
+ * message that fixes the same component arrives ALONGSIDE the still-present
+ * bad one, not in its place. Stopping on the first throw meant that fix was
+ * never even attempted. `processUpdateComponentsMessage` validates every
+ * component in a message before mutating any of them, so a throw here never
+ * leaves a half-applied component for a later message to build on top of —
+ * each message either fully lands or fully doesn't.
+ *
+ * A failed message's fingerprint is deliberately NOT added to
+ * `appliedFingerprints`: it is retried on every future reconcile for as long
+ * as the server keeps it in the stream. That's cheap (one more
+ * `processMessages` call and a caught throw) and harmless — the alternative,
+ * treating a throw as "applied", would permanently hide a component the
+ * server never actually fixed.
+ *
+ * Returns the LAST failure encountered, if any — the caller only surfaces it
+ * when the resulting model still has no renderable root; otherwise a
+ * subsequent, successful message already overrode whatever broke, and the
+ * failure is moot.
  */
 function applyPendingMessages(
   entry: ProcessorEntry,
   pending: PendingA2uiMessage[],
 ): A2uiProcessorFailure | undefined {
+  let failure: A2uiProcessorFailure | undefined;
   for (const { message, fingerprint } of pending) {
     try {
       entry.processor.processMessages([message]);
+      entry.appliedFingerprints.add(fingerprint);
     } catch (error) {
-      return {
+      failure = {
         code: 'processor_error',
         message:
           error instanceof Error
@@ -305,9 +336,13 @@ function applyPendingMessages(
             : 'The interactive surface could not be validated.',
       };
     }
-    entry.appliedFingerprints.add(fingerprint);
   }
-  return undefined;
+  return failure;
+}
+
+/** The surface's own root component — the renderability bar `@a2ui/react`'s `A2uiSurface` itself uses (`ROOT_COMPONENT_ID`, `node-resolver.js`): no root means an indefinite `LoadingPlaceholder`, not a crash. */
+function hasRenderableRoot(model: SurfaceModel<ReactComponentImplementation> | undefined): boolean {
+  return model?.componentsModel.get('root') !== undefined;
 }
 
 /**
@@ -341,6 +376,20 @@ function applyPendingMessages(
  * The server never produces an array that requires UNDOING an already-
  * applied message within one lifecycle, so an upsert-only replay is always
  * sufficient short of an actual recreate.
+ *
+ * A message that throws (`applyPendingMessages`) does NOT stop that pass —
+ * every other pending message is still attempted (G2 merge-gate finding,
+ * gact-tui#513 comment 5937313752: the real server keeps a bad
+ * `updateComponents` in the stream forever rather than dropping it once a
+ * fix arrives, so the fix shows up ALONGSIDE the still-present bad message,
+ * not in its place — a loop that stopped on the first throw never reached
+ * it). The failure is only shown to the user when the surface STILL has no
+ * renderable root (`hasRenderableRoot`) once every pending message has been
+ * tried: a bad message that a later, good one overrides — or one that never
+ * touched an already-good root in the first place — must not block
+ * rendering. A missing root with NO failure (nothing has defined it yet) is
+ * the ordinary "still loading" state and is left to `@a2ui/react`'s own
+ * `LoadingPlaceholder`, not treated as an error.
  *
  * `onError` is wired exactly once per processor to `onValidationFailed`, so a
  * component's `surface.dispatchError` (the URL-scheme guard, `checks`, or any
@@ -435,16 +484,25 @@ export function useA2uiSurfaceModel(
       const fingerprint = fingerprintA2uiMessage(message);
       if (!entry.appliedFingerprints.has(fingerprint)) pending.push({ message, fingerprint });
     }
-    if (pending.length > 0) {
-      const failure = applyPendingMessages(entry, pending);
-      if (failure) {
-        setResult({ failure });
-        return;
-      }
-    }
+    // A throw does not stop this pass -- every pending message is attempted,
+    // so a later, good message is never starved by an earlier bad one that
+    // the server kept in the stream alongside it (`applyPendingMessages`).
+    const failure = pending.length > 0 ? applyPendingMessages(entry, pending) : undefined;
     entry.appliedRevision = surface.revision;
 
     const model = entry.processor.model.getSurface(surface.id);
+    if (failure && !hasRenderableRoot(model)) {
+      // The resulting state is still not renderable -- either nothing has
+      // ever defined `root` yet and the one message that tried just failed,
+      // or (same effect) a message that WOULD have fixed an already-broken
+      // root never arrived. Show the failure; a missing root with no
+      // failure at all (component data pending, not any error) instead
+      // falls through to `setResult({ model })` below and
+      // `@a2ui/react`'s own `LoadingPlaceholder`.
+      setResult({ failure });
+      return;
+    }
+
     if (model && !entry.errorSubscribed) {
       entry.errorSubscribed = true;
       const subscription = model.onError.subscribe(
