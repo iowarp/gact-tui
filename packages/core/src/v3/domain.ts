@@ -658,25 +658,6 @@ export interface HookInspection {
   recent_invocations: Array<Record<string, unknown>>;
 }
 
-export interface ServiceIntegrationHealth {
-  name: string;
-  status: string;
-  detail?: string;
-  summary?: string;
-  config_source?: string;
-  next_action?: string;
-  endpoint?: string;
-  required?: boolean;
-}
-
-export interface ServiceHealth {
-  healthy: boolean;
-  uptime_s: number;
-  overall_status: string;
-  integrations: ServiceIntegrationHealth[];
-  tool_hooks_installed?: boolean;
-}
-
 export interface RuntimeMetrics {
   uptime_s: number;
   sessions: { total: number; active: number; by_status: Record<string, number> };

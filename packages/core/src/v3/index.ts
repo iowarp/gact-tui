@@ -18,6 +18,7 @@ export * from './infrastructure-repository.js';
 export * from './system-repository.js';
 export * from './spotter-domain.js';
 export * from './sandbox-domain.js';
+export * from './service-health-domain.js';
 export * from './execution-provenance-repository.js';
 export * from './execution-provenance-schemas.js';
 export * from './event-types.js';

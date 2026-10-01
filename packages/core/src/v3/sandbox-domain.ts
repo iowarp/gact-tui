@@ -4,7 +4,7 @@
  * belongs in its own owner module, not appended to the file already at its
  * line-count ratchet), matching `infrastructure-domain.ts` / `memory-domain.ts`'s pattern.
  */
-import type { ServiceIntegrationHealth } from './domain.js';
+import type { ServiceIntegrationHealth } from './service-health-domain.js';
 
 /**
  * `GET /v1/system/sandbox` — the `sandbox` doctor row alone, projected the
