@@ -1,5 +1,5 @@
 {
-  "commit": "0086493c40b119a4143fe15197006678467cad60",
+  "commit": "94ca91501697972afc246dd6a348d30464322a5d",
   "examples": {
     "examples/00_complex-layout.json": "ed212b67775521aca4b9843549ebeafc187531ce3744c9d23c6ff05e3fef4eeb",
     "examples/00_formatted-text.json": "6e4f63093895f7bbbd9f7b119f2c5024ca8eb0abd42d0e027270bccfa5e85851",
@@ -48,7 +48,7 @@
   "catalogs": {
     "catalogs/basic/catalog.json": "8cc94d0a482e67048f9fc989964ca5da56fe42f531d919315a508989fb22e13e",
     "catalogs/basic/catalog.clio.json": "11a1e1312cf5b47239aa122f497b5f521ec78ff5503298eec21682a7368c3e20",
-    "catalogs/clio-workspace/v1/catalog.json": "4aef984f0d77df5facbe7479cddd4239f7d9f50460c882c5828507c348d4828f",
+    "catalogs/clio-workspace/v1/catalog.json": "9526a901d6baf2f707f71a84345b0e85b2e9bbe2a41147a0542e0d2ef5c12265",
     "catalogs/clio-workspace/v1/catalog.clio.json": "75ea6641f59171b13a19e8ba41dfda3b6bafc8cbfe77620949efec42b20eb1dd"
   }
 }
