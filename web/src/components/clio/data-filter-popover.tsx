@@ -1,6 +1,7 @@
 import { ListFilterIcon } from 'lucide-react';
 import { Badge as ReUIBadge } from '@/components/reui/badge';
 import { Button } from '@/components/ui/button';
+import { useDataHeaderCompact } from './data-header-density';
 import {
   Popover,
   PopoverContent,
@@ -44,6 +45,7 @@ export function DataFilterPopover({
   onFilterChange: (column: string, value: ClioColumnFilterValue | undefined) => void;
 }) {
   const activeCount = filters.size;
+  const compact = useDataHeaderCompact();
   if (!fields.length) return null;
   return (
     <Popover>
@@ -53,10 +55,11 @@ export function DataFilterPopover({
           className="gap-1.5"
           disabled={disabled}
           size="sm"
+          title={label}
           variant="outline"
         >
           <ListFilterIcon aria-hidden="true" className="size-3.5" />
-          {label}
+          {compact ? null : label}
           {activeCount ? (
             <ReUIBadge className="ms-0.5" radius="full" size="sm" variant="primary-light">
               {activeCount}

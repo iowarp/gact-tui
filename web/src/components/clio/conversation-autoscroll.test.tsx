@@ -140,6 +140,17 @@ afterEach(() => {
 });
 
 describe('ClioConversation transcript autoscroll', () => {
+  it('turns off browser scroll anchoring on the transcript scroller', () => {
+    // With anchoring on, the browser moved a reader who had scrolled up back to
+    // the bottom each time the virtualizer re-positioned rows, with no script
+    // call at all (seen live, idle and running sessions alike). jsdom cannot
+    // run anchoring, so this pins the one style that turns it off.
+    stubScrollGeometry();
+    render(conversation('Done'));
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    expect(log).toHaveClass('[overflow-anchor:none]');
+  });
+
   it('stays pinned to the bottom while text streams', () => {
     const geometry = stubScrollGeometry();
     const view = render(conversation('Streaming'));

@@ -192,7 +192,8 @@ describe('CLIO A2UI kernel catalog', () => {
       'aria-description',
       'Two bounded EarthScope locations',
     );
-    expect(screen.getByText('2 labeled locations')).toBeVisible();
+    expect(screen.getByText('2 locations')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Locations list' }));
     const second = screen.getByRole('button', { name: /Station 2/ });
     fireEvent.click(second);
     expect(second).toHaveAttribute('aria-pressed', 'true');

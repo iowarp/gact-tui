@@ -1,6 +1,6 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
 import { BrainIcon, ChevronDownIcon, ListChecksIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -42,6 +42,8 @@ type SubagentActivityEntry = Extract<
 >;
 
 interface ConversationTurnProps {
+  /** The final answer has started streaming below: the chain Activity collapses. */
+  answerStarted?: boolean;
   iterations: readonly ConversationIteration[];
   mode: 'chain' | 'full';
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -60,6 +62,7 @@ interface ConversationTurnProps {
 
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
 export function ConversationTurn({
+  answerStarted = false,
   iterations,
   mode,
   onOpenSubagent,
@@ -137,6 +140,7 @@ export function ConversationTurn({
           ) : (
             <ConversationTurn
               key={section.iterations[0].id}
+              answerStarted={answerStarted}
               iterations={section.iterations}
               mode={mode}
               subagents={subagents}
@@ -180,7 +184,7 @@ export function ConversationTurn({
   }
 
   return (
-    <ChainOfThought className="space-y-0" defaultOpen>
+    <ActivityChain answerStarted={answerStarted}>
       <ChainOfThoughtHeader className="min-h-8">Activity</ChainOfThoughtHeader>
       <ChainOfThoughtContent>
         {iterations.map((iteration) => (
@@ -199,6 +203,30 @@ export function ConversationTurn({
           />
         ))}
       </ChainOfThoughtContent>
+    </ActivityChain>
+  );
+}
+
+/**
+ * The chain view's Activity block: open while the agent works, folded away once
+ * the final answer's first token arrives, the way a finished thinking step
+ * folds. A reader's own open or close wins from then on.
+ */
+function ActivityChain({
+  answerStarted,
+  children,
+}: {
+  answerStarted: boolean;
+  children: ReactNode;
+}) {
+  const [readerOpen, setReaderOpen] = useState<boolean | undefined>(undefined);
+  return (
+    <ChainOfThought
+      className="space-y-0"
+      onOpenChange={setReaderOpen}
+      open={readerOpen ?? !answerStarted}
+    >
+      {children}
     </ChainOfThought>
   );
 }
