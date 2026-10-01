@@ -38,6 +38,7 @@ import {
   type ChartRenderer,
 } from './chart-embed';
 import { ChartPresetError, renderChartPreset } from './chart-presets';
+import { withDefaultProjectionFit } from './chart-projection-fit';
 import { bindChartSelection, viewHasSignal, type ChartSelectionBinding } from './chart-selection';
 import { CHART_SPEC_RULES, checkChartSpec, describeChartSpecViolations } from './chart-spec-guard';
 import {
@@ -343,11 +344,18 @@ export function ClioChart(props: ClioChartProps) {
     // an update is a lost write: silently dropped until some later,
     // unrelated rows change happened to come along.
     const embeddedRows = rowsRef.current;
-    const prepared = prepareChartSpec(embedSpec, {
-      height,
-      rows: cloneRows(embeddedRows ?? []),
-      width: node.clientWidth || undefined,
-    });
+    // Renderer default (owner ruling, feedback_affordances_are_renderer_defaults.md
+    // — #1549 G4 review): a geoshape mark needs projection.fit to actually
+    // draw, and the agent should never have to know that. See
+    // chart-projection-fit.ts; an agent-authored fit always wins.
+    const prepared = withDefaultProjectionFit(
+      prepareChartSpec(embedSpec, {
+        height,
+        rows: cloneRows(embeddedRows ?? []),
+        width: node.clientWidth || undefined,
+      }),
+      embeddedRows ?? [],
+    );
     embedChart(node, prepared, { dark: isDarkTheme(), renderer })
       .then(async (result) => {
         if (cancelled) {

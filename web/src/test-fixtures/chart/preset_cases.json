@@ -1,14 +1,6 @@
 {
-  "version": 1,
   "cases": [
     {
-      "name": "trajectories-minimal",
-      "preset": "trajectories",
-      "fields": {
-        "xField": "step",
-        "yField": "loss",
-        "entityField": "run"
-      },
       "expected": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "data": {
@@ -79,19 +71,16 @@
             }
           }
         ]
-      }
+      },
+      "fields": {
+        "entityField": "run",
+        "xField": "step",
+        "yField": "loss"
+      },
+      "name": "trajectories-minimal",
+      "preset": "trajectories"
     },
     {
-      "name": "trajectories-temporal-grouped-faceted",
-      "preset": "trajectories",
-      "fields": {
-        "xField": "time",
-        "yField": "disp_mm",
-        "entityField": "station",
-        "colorField": "network",
-        "facetField": "component",
-        "xType": "temporal"
-      },
       "expected": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "data": {
@@ -170,16 +159,19 @@
             }
           }
         ]
-      }
+      },
+      "fields": {
+        "colorField": "network",
+        "entityField": "station",
+        "facetField": "component",
+        "xField": "time",
+        "xType": "temporal",
+        "yField": "disp_mm"
+      },
+      "name": "trajectories-temporal-grouped-faceted",
+      "preset": "trajectories"
     },
     {
-      "name": "spectra-minimal",
-      "preset": "spectra",
-      "fields": {
-        "xField": "wavelength_nm",
-        "yField": "absorbance",
-        "entityField": "sample"
-      },
       "expected": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "data": {
@@ -250,17 +242,16 @@
             }
           }
         ]
-      }
+      },
+      "fields": {
+        "entityField": "sample",
+        "xField": "wavelength_nm",
+        "yField": "absorbance"
+      },
+      "name": "spectra-minimal",
+      "preset": "spectra"
     },
     {
-      "name": "heatmap-minimal",
-      "preset": "heatmap",
-      "fields": {
-        "xField": "hour",
-        "yField": "sensor",
-        "colorField": "temp_c",
-        "entityField": "sensor"
-      },
       "expected": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "data": {
@@ -338,17 +329,17 @@
             }
           }
         ]
-      }
+      },
+      "fields": {
+        "colorField": "temp_c",
+        "entityField": "sensor",
+        "xField": "hour",
+        "yField": "sensor"
+      },
+      "name": "heatmap-minimal",
+      "preset": "heatmap"
     },
     {
-      "name": "boxplot-grouped",
-      "preset": "boxplot",
-      "fields": {
-        "xField": "treatment",
-        "yField": "yield",
-        "entityField": "plot",
-        "colorField": "site"
-      },
       "expected": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "data": {
@@ -443,17 +434,17 @@
             ]
           }
         ]
-      }
+      },
+      "fields": {
+        "colorField": "site",
+        "entityField": "plot",
+        "xField": "treatment",
+        "yField": "yield"
+      },
+      "name": "boxplot-grouped",
+      "preset": "boxplot"
     },
     {
-      "name": "scatter-custom-selection-param",
-      "preset": "scatter",
-      "fields": {
-        "xField": "porosity",
-        "yField": "permeability",
-        "entityField": "core",
-        "selectionParam": "picked"
-      },
       "expected": {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "data": {
@@ -515,75 +506,84 @@
             }
           }
         ]
-      }
+      },
+      "fields": {
+        "entityField": "core",
+        "selectionParam": "picked",
+        "xField": "porosity",
+        "yField": "permeability"
+      },
+      "name": "scatter-custom-selection-param",
+      "preset": "scatter"
     }
   ],
   "errorCases": [
     {
-      "name": "missing-entity-field",
-      "preset": "trajectories",
       "fields": {
         "xField": "t",
         "yField": "v"
-      }
+      },
+      "name": "missing-entity-field",
+      "preset": "trajectories"
     },
     {
+      "fields": {
+        "entityField": "e",
+        "xField": "x",
+        "yField": "y"
+      },
       "name": "heatmap-missing-color-field",
-      "preset": "heatmap",
-      "fields": {
-        "xField": "x",
-        "yField": "y",
-        "entityField": "e"
-      }
+      "preset": "heatmap"
     },
     {
+      "fields": {
+        "entityField": "e",
+        "facetField": "f",
+        "xField": "g",
+        "yField": "v"
+      },
       "name": "boxplot-does-not-facet",
-      "preset": "boxplot",
-      "fields": {
-        "xField": "g",
-        "yField": "v",
-        "entityField": "e",
-        "facetField": "f"
-      }
+      "preset": "boxplot"
     },
     {
+      "fields": {
+        "entityField": "e",
+        "xField": "g",
+        "xType": "ordinal",
+        "yField": "v"
+      },
       "name": "boxplot-has-no-x-type",
-      "preset": "boxplot",
-      "fields": {
-        "xField": "g",
-        "yField": "v",
-        "entityField": "e",
-        "xType": "ordinal"
-      }
+      "preset": "boxplot"
     },
     {
+      "fields": {
+        "entityField": "e",
+        "xField": "x",
+        "xType": "nominal",
+        "yField": "y"
+      },
       "name": "bad-x-type",
-      "preset": "scatter",
-      "fields": {
-        "xField": "x",
-        "yField": "y",
-        "entityField": "e",
-        "xType": "nominal"
-      }
+      "preset": "scatter"
     },
     {
+      "fields": {
+        "entityField": "e",
+        "selectionParam": "1 sel",
+        "xField": "x",
+        "yField": "y"
+      },
       "name": "bad-selection-param",
-      "preset": "scatter",
-      "fields": {
-        "xField": "x",
-        "yField": "y",
-        "entityField": "e",
-        "selectionParam": "1 sel"
-      }
+      "preset": "scatter"
     },
     {
-      "name": "unknown-preset",
-      "preset": "violin",
       "fields": {
+        "entityField": "e",
         "xField": "x",
-        "yField": "y",
-        "entityField": "e"
-      }
+        "yField": "y"
+      },
+      "name": "unknown-preset",
+      "preset": "violin"
     }
-  ]
+  ],
+  "version": 1
 }

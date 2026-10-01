@@ -5,6 +5,7 @@ import {
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { IMMUTABLE_QUERY, TABLE_QUERY_ROW_LIMIT } from '@/lib/runtime-limits';
@@ -18,7 +19,61 @@ import { useConnectionSettings } from '@/providers/connection-provider';
  * skill, rule 1 and rule 5).
  */
 
-export type QueryCell = string | number | boolean | null;
+/**
+ * RFC 7946 §3.1 Geometry object, strictly shaped exactly like clio-schemas'
+ * `$defs/GeoJsonGeometry` (`clio_schemas.a2ui.catalog_bounded`) and the
+ * matching discriminated pydantic union
+ * (`clio_schemas.a2ui.v0_9_1.bounded_components.GeoJsonGeometry`) — never a
+ * Feature/FeatureCollection, never a bare coordinate array. A table-query
+ * cell or an inline `clio.chart.v1` `data` cell may be one of these (issue
+ * #1549 G4 — a geoshape mark can then draw real shapes from a geometry
+ * column). The server actually emitting one from a `.geojson` artifact by
+ * `dataUri` is a later slice (#1549 G7); today only inline `data` can carry
+ * one in practice.
+ */
+export type GeoJsonGeometry =
+  | { type: 'Point'; coordinates: number[] }
+  | { type: 'MultiPoint'; coordinates: number[][] }
+  | { type: 'LineString'; coordinates: number[][] }
+  | { type: 'MultiLineString'; coordinates: number[][][] }
+  | { type: 'Polygon'; coordinates: number[][][] }
+  | { type: 'MultiPolygon'; coordinates: number[][][][] }
+  | { type: 'GeometryCollection'; geometries: GeoJsonGeometry[] };
+
+const geoJsonPosition = z.array(z.number()).min(2).max(3);
+const geoJsonLinearRing = z.array(geoJsonPosition).min(4);
+
+/** Zod mirror of {@link GeoJsonGeometry} — the one runtime check for the shape above. */
+export const geoJsonGeometrySchema: z.ZodType<GeoJsonGeometry> = z.lazy(() =>
+  z.discriminatedUnion('type', [
+    z.object({ type: z.literal('Point'), coordinates: geoJsonPosition }).strict(),
+    z.object({ type: z.literal('MultiPoint'), coordinates: z.array(geoJsonPosition) }).strict(),
+    z
+      .object({ type: z.literal('LineString'), coordinates: z.array(geoJsonPosition).min(2) })
+      .strict(),
+    z
+      .object({
+        type: z.literal('MultiLineString'),
+        coordinates: z.array(z.array(geoJsonPosition).min(2)),
+      })
+      .strict(),
+    z.object({ type: z.literal('Polygon'), coordinates: z.array(geoJsonLinearRing) }).strict(),
+    z
+      .object({
+        type: z.literal('MultiPolygon'),
+        coordinates: z.array(z.array(geoJsonLinearRing)),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal('GeometryCollection'),
+        geometries: z.array(z.lazy(() => geoJsonGeometrySchema)),
+      })
+      .strict(),
+  ]),
+);
+
+export type QueryCell = string | number | boolean | null | GeoJsonGeometry;
 export type QueryRow = Record<string, QueryCell>;
 
 /**
