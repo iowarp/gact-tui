@@ -5,6 +5,7 @@ import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 import type { ToolPresentation } from './tool-presentation-domain.js';
 import type { CapabilityNegotiation } from './capability-domain.js';
+import type { PendingCompaction } from './compaction-domain.js';
 import type { UsageSnapshot } from './usage-domain.js';
 
 export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
@@ -752,6 +753,8 @@ export interface EntityState {
   surfaces: Record<string, A2UISurface>;
   a2ui_action_lifecycles: Record<string, A2UIActionLifecycle>;
   infrastructure: Record<string, InfrastructureDependency>;
+  /** Live compactions keyed by `compaction_id` (stream-only; see PendingCompaction). */
+  compactions: Record<string, PendingCompaction>;
   active_turns: Record<string, string>;
   responded_turns: Record<string, string>;
   revisions: Record<string, number>;
@@ -760,6 +763,7 @@ export interface EntityState {
   gaps: TransportGap[];
 }
 export type { ActionCardAction, MessageBlock, MessageBlockContext } from './message-domain.js';
+export type { CompactionError, CompactionTrigger, PendingCompaction } from './compaction-domain.js';
 export type { A2uiAgentCapabilities, CapabilityNegotiation } from './capability-domain.js';
 export type {
   CommandDefinition,

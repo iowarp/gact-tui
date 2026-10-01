@@ -37,19 +37,23 @@ describe('forward-compatible wire enums', () => {
     });
   });
 
-  it('retains a compacted context as its own message block', () => {
+  it('decodes a compaction summary as a summarization injection block', () => {
     expect(
       messageBlockSchema.parse({
-        id: 'compact_1',
-        type: 'compaction',
-        summary: '- Preserved evidence',
-        auto: false,
+        id: 'part_summary',
+        type: 'injection',
+        source: 'summarization',
+        text: '- Preserved evidence',
+        trigger: 'manual',
+        compaction_id: 'cmp_1',
       }),
     ).toEqual({
-      id: 'compact_1',
-      type: 'compaction',
-      summary: '- Preserved evidence',
-      auto: false,
+      id: 'part_summary',
+      type: 'injection',
+      source: 'summarization',
+      text: '- Preserved evidence',
+      trigger: 'manual',
+      compaction_id: 'cmp_1',
     });
   });
 

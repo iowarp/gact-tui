@@ -33,18 +33,20 @@ export type MessageBlock = MessageBlockContext &
     | { id: string; type: 'tool'; tool_id: string; thought?: string }
     | { id: string; type: 'plan'; title: string; detail?: string }
     | {
-        id: string;
-        type: 'compaction';
-        summary: string;
-        auto?: boolean;
-      }
-    | {
-        /** Harness data the agent was given (plan reminder, todos, a path hint, ...). */
+        /**
+         * Harness data the agent was given (plan reminder, todos, a path hint, a
+         * context summary, ...). A `summarization` injection is the record of a
+         * compaction: `text` is the summary that replaced the earlier context,
+         * `trigger` says whether the service (`auto`) or the user (`manual`)
+         * started it, and `compaction_id` matches its `compaction.*` events.
+         */
         id: string;
         type: 'injection';
         source: string;
         text: string;
         call_id?: string;
+        trigger?: 'auto' | 'manual';
+        compaction_id?: string;
       }
     | { id: string; type: 'task'; task_id: string }
     | { id: string; type: 'subagent'; subagent_id: string; stage?: string; task?: string }

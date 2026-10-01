@@ -48,12 +48,12 @@ class RecordingTransport implements ClioTransport {
 }
 
 describe('ContextRepository', () => {
-  it('loads compartment policy and compacts the selected live scope', async () => {
+  it('loads compartment policy and the selected live scope', async () => {
     const transport = new RecordingTransport();
     const repository = new ClioRepository(transport);
 
     expect((await repository.contextPolicy('sess 1')).requires_user_consent).toBe(true);
-    expect(await repository.compactContext('sess 1', 'expert/main')).toMatchObject({
+    expect(await repository.contextState('sess 1', 'expert/main')).toMatchObject({
       render_text: 'Retained evidence',
       messages: [{ role: 'user', parts: [{ type: 'text', text: 'Retained evidence' }] }],
       used_tokens: 1000,
@@ -71,8 +71,8 @@ describe('ContextRepository', () => {
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
       { method: 'GET', path: '/v1/sessions/sess%201/context/policy' },
       {
-        method: 'POST',
-        path: '/v1/sessions/sess%201/context/compact?scope=expert%2Fmain',
+        method: 'GET',
+        path: '/v1/sessions/sess%201/context/state?scope=expert%2Fmain',
       },
       {
         method: 'PATCH',

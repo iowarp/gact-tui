@@ -21,6 +21,12 @@ import {
   userQuestionSchema,
 } from './schemas.js';
 import type { TransportFrame } from './transport.js';
+import {
+  reduceCompactionCompleted,
+  reduceCompactionFailed,
+  reduceCompactionStarted,
+  settleCompactions,
+} from './compaction-reducer.js';
 
 const MAX_CURSOR_HISTORY = 2_048;
 const MAX_GAP_HISTORY = 100;
@@ -44,6 +50,7 @@ export function createEntityState(): EntityState {
     surfaces: {},
     a2ui_action_lifecycles: {},
     infrastructure: {},
+    compactions: {},
     active_turns: {},
     responded_turns: {},
     revisions: {},
@@ -191,7 +198,12 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     }
     case 'message.upserted': {
       const message = messageSchema.parse(envelope.payload);
-      return { ...base, revisions, messages: { ...base.messages, [message.id]: message } };
+      return {
+        ...base,
+        revisions,
+        messages: { ...base.messages, [message.id]: message },
+        compactions: settleCompactions(base.compactions, message),
+      };
     }
     case 'session.upserted': {
       const session = sessionSchema.parse(envelope.payload);
@@ -239,11 +251,13 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
           subagent.session_id !== message.session_id)
       )
         throw new Error('Invalid handoff entity owner');
+      const upserted = upsertBlock(message, block);
       return {
         ...base,
         revisions,
         responded_turns: markRespondedTurn(base, message, block),
-        messages: { ...base.messages, [message.id]: upsertBlock(message, block) },
+        messages: { ...base.messages, [message.id]: upserted },
+        compactions: settleCompactions(base.compactions, upserted),
         subagents: subagent
           ? { ...base.subagents, [subagent.id]: { ...base.subagents[subagent.id], ...subagent } }
           : base.subagents,
@@ -572,6 +586,24 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         },
       };
     }
+    case 'compaction.started':
+      return {
+        ...base,
+        revisions,
+        compactions: reduceCompactionStarted(base, envelope.payload, envelope.occurred_at),
+      };
+    case 'compaction.completed':
+      return {
+        ...base,
+        revisions,
+        compactions: reduceCompactionCompleted(base, envelope.payload, envelope.occurred_at),
+      };
+    case 'compaction.failed':
+      return {
+        ...base,
+        revisions,
+        compactions: reduceCompactionFailed(base, envelope.payload, envelope.occurred_at),
+      };
     case 'stream.gap':
       return { ...base, revisions, stream: 'gapped' };
     case 'stream.live':

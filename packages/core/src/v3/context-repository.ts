@@ -93,19 +93,6 @@ export class ContextRepository extends SearchRepository {
     });
   }
 
-  public compactContext(
-    sessionId: string,
-    scope: string,
-    signal?: AbortSignal,
-  ): Promise<ContextSnapshot> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/compact?scope=${encodeURIComponent(scope)}`,
-      decode: contextSnapshot,
-      signal,
-    });
-  }
-
   public updateContextPreferences(
     sessionId: string,
     input: { automatic_compaction?: boolean; autocompact_pct?: number },
