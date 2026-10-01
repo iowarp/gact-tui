@@ -2,16 +2,21 @@ import guardRules from './chart-assets/guard_rules.json';
 
 /**
  * TypeScript mirror of the `clio.chart.v1` spec guard
- * (`clio_schemas.a2ui.chart_spec.check_chart_spec`, clio-schemas 0.5.0).
+ * (`clio_schemas.a2ui.chart_spec.check_chart_spec`, clio-schemas 0.5.2).
  *
  * Every limit comes from `chart-assets/guard_rules.json`, a byte copy of
  * `schemas/a2ui/chart/guard_rules.json`; the shared fixtures in
  * `test-fixtures/chart/guard_cases.json` pin this port to the Python one.
  * A spec that fails is never handed to Vega — the chart states why instead.
+ *
+ * `bind_element_not_allowed` previously shipped here under a client-only
+ * name (`forbidden_bind_element`) that drifted from the Python guard's own
+ * code for the identical rule (#1549 G4 — the Python code is the contract;
+ * fixed to use it on both sides).
  */
 
 /** The rules version this port implements; the Python side bumps it when a rule changes meaning. */
-export const CHART_SPEC_RULES_SUPPORTED_VERSION = 1;
+export const CHART_SPEC_RULES_SUPPORTED_VERSION = 2;
 
 export const CHART_SPEC_RULES = guardRules;
 
@@ -23,10 +28,7 @@ export type ChartSpecViolationCode =
   | 'too_many_views'
   | 'data_not_named_source'
   | 'forbidden_key'
-  // Client-only addition ahead of the shared `guard_rules.json` (#1533 #506
-  // LOW) — not yet in the Python guard's `errorCodes`; reported upstream so
-  // the schema/server guard picks up the same rule.
-  | 'forbidden_bind_element';
+  | 'bind_element_not_allowed';
 
 /** One guard failure: a stable code, a JSON Pointer to the offending node, and a message. */
 export interface ChartSpecViolation {
@@ -101,13 +103,12 @@ function isNamedSource(value: unknown): boolean {
  * element by CSS selector, anywhere on the host page, not just inside the
  * chart's own container.
  *
- * `guard_rules.json` (this port's parity source, `errorCodes`) doesn't have
- * this rule yet, but clio-schemas' own catalog schema already forbids it —
- * confirmed directly against `$defs/SpecNoBindElement` in
- * `iowarp/clio-schemas`' `feat/a2ui-data-everywhere` branch, which walks
- * every `bind` object recursively (not just `params[].bind`) the same way
- * this does. This client-only check exists so a bad spec is refused here
- * too, before it ever reaches the server (#1533 #506 LOW).
+ * `guard_rules.json`'s own `errorCodes` carries this rule as
+ * `bind_element_not_allowed` (`clio_schemas.a2ui.chart_spec.
+ * check_chart_spec`); the catalog's JSON Schema forbids the same thing via
+ * `$defs/SpecNoBindElement`, which walks every `bind` object recursively
+ * (not just `params[].bind`) the same way this does. This check exists so a
+ * bad spec is refused here too, before it ever reaches the server.
  */
 
 /** Every guard violation in `spec`, in the same order as the Python guard (empty when it passes). */
@@ -166,7 +167,7 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
           });
         } else if (key === 'bind' && isJsonObject(child) && 'element' in child) {
           violations.push({
-            code: 'forbidden_bind_element',
+            code: 'bind_element_not_allowed',
             path: pointer(pointer(path, key), 'element'),
             message: "'bind.element' is not allowed — it can bind to any element on the page",
           });

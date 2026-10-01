@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import guardCases from '@/test-fixtures/chart/guard_cases.json';
 import {
   CHART_SPEC_RULES,
@@ -12,13 +12,22 @@ import {
   specDepth,
 } from './chart-spec-guard';
 
+// jsdom has no 2D canvas: say so before vega-lite loads (it probes one for
+// text metrics at import) so it estimates text width quietly, matching
+// chart-selection.test.ts / chart-zoom.test.ts.
+vi.hoisted(() => {
+  HTMLCanvasElement.prototype.getContext = () => null;
+});
+
+import { compile } from 'vega-lite';
+
 /**
- * `clio-schemas` 0.5.0 `HASHES.json` entries for the chart resources this
+ * `clio-schemas` 0.5.2 `HASHES.json` entries for the chart resources this
  * renderer vendors. A mismatch means the copies drifted from the source of
  * truth: re-copy them from `schemas/a2ui/chart/` and update these hashes.
  */
 const CLIO_SCHEMAS_CHART_HASHES: Record<string, string> = {
-  'guard_rules.json': 'd8cfd372ce76c79a5027bb383cf90946d5a417269bd881065ebb57efd74c6f2b',
+  'guard_rules.json': 'b25af2742b71a49aa134c0b4ca97ef6bc3032240014ef0a15b0ef89d9f5bdabc',
   'presets/boxplot.json': '6473a35c14bbde0d5c62e60b1647d608f7cc730b3eeee4a4cc3b2e382eef90bd',
   'presets/heatmap.json': 'd39995019b3b8269841dd74abe458fb71d14377b4f1335c6370045364dc498ed',
   'presets/scatter.json': '8212912d8324c53ec725fc3c277ef6c471aea245ad5b32043d336bef7c0c870f',
@@ -81,27 +90,28 @@ describe('chart spec guard', () => {
   });
 
   it('forbids params[].bind.element — a signal binding that can target any element on the page', () => {
-    // A client-only rule ahead of the shared guard_rules.json (#1533 #506
-    // LOW): a `bind.element` CSS selector escapes the chart's own container,
-    // unlike an ordinary widget-binding `input`/`select`.
+    // `bind_element_not_allowed` (`guard_rules.json`'s own `errorCodes`,
+    // `clio_schemas.a2ui.chart_spec.check_chart_spec`): a `bind.element` CSS
+    // selector escapes the chart's own container, unlike an ordinary
+    // widget-binding `input`/`select`.
     const violations = checkChartSpec({
       mark: 'point',
       params: [{ name: 'sel', bind: { input: 'range', element: '#some-other-page-element' } }],
     });
     expect(violations.map(({ code, path }) => [code, path])).toEqual([
-      ['forbidden_bind_element', '/params/0/bind/element'],
+      ['bind_element_not_allowed', '/params/0/bind/element'],
     ]);
   });
 
   it('catches bind.element at any depth, not just directly under params[]', () => {
-    // Matches clio-schemas' own `$defs/SpecNoBindElement` (confirmed against
-    // the live schema on `feat/a2ui-data-everywhere`): it walks every `bind`
-    // object recursively, not only ones nested under a top-level `params`.
+    // Matches clio-schemas' own `$defs/SpecNoBindElement`: it walks every
+    // `bind` object recursively, not only ones nested under a top-level
+    // `params`.
     const violations = checkChartSpec({
       layer: [{ mark: 'point', params: [{ name: 'sel', bind: { element: '#anywhere' } }] }],
     });
     expect(violations.map(({ code, path }) => [code, path])).toEqual([
-      ['forbidden_bind_element', '/layer/0/params/0/bind/element'],
+      ['bind_element_not_allowed', '/layer/0/params/0/bind/element'],
     ]);
   });
 
@@ -111,5 +121,27 @@ describe('chart spec guard', () => {
       params: [{ name: 'sel', bind: { input: 'range', min: 0, max: 10 } }],
     });
     expect(violations).toEqual([]);
+  });
+
+  describe('G4 gallery fixtures', () => {
+    // The Altair-gallery fixtures proving the data-free layout keys and
+    // `projection` (#1549 G4) pass both guards *and* actually compile —
+    // guard-shaped JSON that vega-lite itself rejects would be a false pass.
+    const galleryCases = guardCases.cases.filter((testCase) => testCase.name.startsWith('gallery-'));
+
+    it('has the three required gallery fixtures (facet+columns, projection+geoshape, concat+spacing)', () => {
+      expect(galleryCases.length).toBeGreaterThanOrEqual(3);
+      for (const testCase of galleryCases) expect(testCase.valid).toBe(true);
+    });
+
+    it.each(galleryCases.map((testCase) => [testCase.name, testCase] as const))(
+      '%s passes the guard and compiles with vega-lite',
+      (_name, testCase) => {
+        expect(checkChartSpec(testCase.spec)).toEqual([]);
+        expect(() =>
+          compile(testCase.spec as unknown as Parameters<typeof compile>[0]),
+        ).not.toThrow();
+      },
+    );
   });
 });
