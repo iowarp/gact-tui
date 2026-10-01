@@ -15,7 +15,6 @@ import {
 } from '@/components/reui/cascader/cascader';
 import {
   CascaderColumns,
-  CascaderSectionedItems,
 } from '@/components/reui/cascader/cascader-columns';
 import { CascaderFooter } from '@/components/reui/cascader/cascader-footer';
 import { CascaderNav } from '@/components/reui/cascader/cascader-nav';
@@ -63,10 +62,6 @@ interface ClioModelPickerProps {
   onRetryCatalog?: (providerId?: string) => void;
   options: readonly ClioModelOption[];
   provider?: string;
-  /** The selected half of a multi-transport provider (Codex `sdk` / `direct`):
-   * the same model id is listed once per transport, so without it the
-   * selection cannot tell the two rows apart. */
-  transport?: string;
   title?: string;
   trigger: ReactNode;
 }
@@ -89,7 +84,6 @@ export function ClioModelPicker({
   onRetryCatalog,
   options,
   provider,
-  transport,
   title = 'Choose a model',
   trigger,
 }: ClioModelPickerProps) {
@@ -104,7 +98,7 @@ export function ClioModelPicker({
   const showColumns = useMediaQuery('(min-width: 768px)');
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  // The full preset (auth_method, requires_api_key, status, transports, ...)
+  // The full preset (auth_method, requires_api_key, status, ...)
   // that ClioModelOption does not carry per row -- read from the SAME cached
   // query Settings uses, so this never issues a second network request.
   const configuration = useQuery({
@@ -148,11 +142,7 @@ export function ClioModelPicker({
   // static (non-`<button>`) element for exactly this case.
   const providerRowsAreTrailButtons = showColumns && path.length > 0;
   const selectedChoice = options.find(
-    (choice) =>
-      choice.available &&
-      choice.providerId === provider &&
-      choice.id === model &&
-      (!transport || choice.transport === transport),
+    (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
   const search = useModelPickerSearchView({
     providers: visibleProviders,
@@ -169,7 +159,7 @@ export function ClioModelPicker({
   // group instead, so the clear that follows is dropped.
   const keepQueryOnce = useRef(false);
   const activePreset = presetsById.get(activeGroup?.id ?? '');
-  // The provider in view's right-hand panel: its sections, setup state and
+  // The provider in view's right-hand panel: its setup state and
   // action row, from the SAME shared action hook every provider surface uses.
   const panel = useProviderPanel({ group: activeGroup, preset: activePreset, open, notice });
   const activeStage = panel.stage;
@@ -369,11 +359,6 @@ export function ClioModelPicker({
                         empty={providerColumn ? panel.column.empty : undefined}
                         footer={providerColumn ? panel.column.footer : undefined}
                         key={column.depth}
-                        sections={
-                          providerColumn && panel.column.sections
-                            ? panel.column.sections(column.items)
-                            : undefined
-                        }
                       />
                     );
                   }}
@@ -381,11 +366,7 @@ export function ClioModelPicker({
               ) : (
                 <>
                   <CascaderList className="w-full flex-1" maxHeight="100%">
-                    {path.length && panel.column.sections ? (
-                      <CascaderSectionedItems sections={panel.column.sections} />
-                    ) : (
-                      <CascaderVirtualItems />
-                    )}
+                    <CascaderVirtualItems />
                   </CascaderList>
                   {path.length ? (
                     <>

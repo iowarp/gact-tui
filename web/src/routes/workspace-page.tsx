@@ -80,7 +80,6 @@ export function WorkspacePage() {
     configuredEffort,
     activeModel,
     activeProvider,
-    activeTransport,
     attentionInteractions,
     agentBlueprints,
     allSessions,
@@ -532,7 +531,6 @@ export function WorkspacePage() {
           onReferencesChange={composerDraft.onReferencesChange}
           onValueChange={composerDraft.onValueChange}
           provider={activeProvider}
-          transport={activeTransport}
           queuedMessages={queuedMessages.data ?? []}
           resources={workspaceResources.data ?? []}
           queueBusy={

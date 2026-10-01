@@ -9,22 +9,18 @@ import { useProviderCatalog } from './use-provider-catalog';
  * "sonnet") rather than its catalog id ("claude-sonnet-5"); matching by id
  * alone silently misses every alias-configured model (#1436).
  * `resolvedModelId`, when the caller has it (GET /v1/providers/lm), is an
- * extra match key for the currently configured model. A multi-transport
- * provider (Codex) lists a model once per transport; `transport` picks the
- * row the model was bound through, when given.
+ * extra match key for the currently configured model.
  */
 export function useCatalogModel(
   providerId: string | undefined,
   modelId: string | undefined,
   resolvedModelId?: string,
-  transport?: string,
 ): ProviderCatalogModel | undefined {
   const catalog = useProviderCatalog();
   if (!providerId || !modelId) return undefined;
-  const rows = (
+  return (
     catalog.data?.providers.find((provider) => provider.id === providerId)?.models ?? []
-  ).filter((row) =>
+  ).find((row) =>
     matchesConfiguredModel({ id: row.model_id, aliases: row.aliases }, modelId, resolvedModelId),
   );
-  return (transport ? rows.find((row) => row.transport === transport) : undefined) ?? rows[0];
 }

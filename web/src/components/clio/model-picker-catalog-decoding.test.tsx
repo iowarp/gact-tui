@@ -12,13 +12,9 @@ import { buildModelOptions } from '@/lib/model-options';
 import { ClioModelPicker } from './model-picker';
 
 /**
- * The owner's live-tested regression (re-review after 493cc859/1448175b): the
- * two-half Codex submenu never rendered even though the WIRE was correct,
- * because the zod catalog schema didn't declare `transports`/`transport` and
- * silently stripped them. Every other picker test builds `ClioModelOption[]`
- * by hand, which bypasses the decoder entirely and could not have caught
- * this. This one runs the REAL recorded `/v1/provider-catalog` JSON (the
- * fixture `@clio/core/v3` itself is tested against) through
+ * Every other picker test builds `ClioModelOption[]` by hand, which bypasses
+ * the decoder entirely. This one runs the REAL recorded `/v1/provider-catalog`
+ * JSON (the fixture `@clio/core/v3` itself is tested against) through
  * `providerCatalogSchema` and `buildModelOptions`, then renders the picker.
  */
 const catalogFixture = JSON.parse(
@@ -72,6 +68,7 @@ const defaultConfiguration = {
       requires_api_key: false,
       auth_method: 'subscription',
       is_authenticated: true,
+      supports_logout: true,
       supports_live_catalog: true,
       supports_vision: true,
     },
@@ -93,21 +90,30 @@ afterEach(() => {
 });
 
 describe('the picker survives the real provider-catalog decoder', () => {
-  it('renders Codex\'s two transports as labelled halves from the decoded live catalog', async () => {
+  it('renders a Direct-only Codex catalog row as one plain model list, with no transport choice', async () => {
     repository.languageModelConfiguration.mockResolvedValue(defaultConfiguration);
 
-    // The exact boundary the bug lived at: parse the REAL recorded JSON with
-    // the REAL schema, never a hand-built ClioModelOption fixture.
+    // The REAL recorded JSON through the REAL schema: Codex reports only its
+    // `direct` transport, so there is nothing to choose between.
+    const raw = catalogFixture.provider_catalog_live as {
+      providers: Array<{ id: string; transports?: Array<{ id: string }> }>;
+    };
+    expect(raw.providers.find((provider) => provider.id === 'codex')?.transports).toEqual([
+      expect.objectContaining({ id: 'direct' }),
+    ]);
     const catalog = providerCatalogSchema.parse(catalogFixture.provider_catalog_live);
-    const codexEntry = catalog.providers.find((provider) => provider.id === 'codex');
-    expect(codexEntry?.transports?.map((transport) => transport.id)).toEqual(['sdk', 'direct']);
-    expect(codexEntry?.models.every((model) => model.transport === 'sdk')).toBe(true);
-
     const options = buildModelOptions({
       activeCatalogProvider: 'codex',
       providerCatalog: catalog,
       presets: defaultConfiguration.presets,
     });
+    const codexModels = options.filter((option) => option.providerId === 'codex');
+    expect(codexModels.map((option) => option.id)).toEqual([
+      'gpt-5.6-luna',
+      'gpt-5.6-sol',
+      'gpt-5.6-mini',
+      'gpt-5.5',
+    ]);
 
     const user = userEvent.setup();
     renderPicker(
@@ -121,10 +127,17 @@ describe('the picker survives the real provider-catalog decoder', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
 
-    expect(screen.getByText('SDK')).toBeVisible();
-    expect(screen.getByText('gpt-5.6-luna')).toBeVisible();
-    expect(screen.getByText('or')).toBeVisible();
-    expect(screen.getByText('Direct')).toBeVisible();
-    expect(await screen.findByRole('button', { name: 'Log in' })).toBeVisible();
+    for (const id of ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-mini', 'gpt-5.5']) {
+      expect(screen.getByText(id)).toBeVisible();
+    }
+    // No transport headings, no "or" rule, no split groups, no per-transport log in.
+    expect(screen.queryByText('SDK')).not.toBeInTheDocument();
+    expect(screen.queryByText('Direct')).not.toBeInTheDocument();
+    expect(screen.queryByText('or')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="cascader-column-section"]')).toBeNull();
+    expect(document.querySelector('[data-transport]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
+    // The provider-level action row still offers its own sign-out.
+    expect(await screen.findByRole('button', { name: 'Log out' })).toBeVisible();
   });
 });

@@ -137,9 +137,9 @@ describe('translateKnownProviderErrorReason', () => {
   it('drops any other typed "snake_case_code: " prefix, keeping the sentence after it', () => {
     expect(
       translateKnownProviderErrorReason(
-        'codex_sdk_signed_out: the Codex SDK/runtime is installed, but no account is signed in',
+        'claude_code_signed_out: the Claude Code CLI is installed, but no account is signed in',
       ),
-    ).toBe('The Codex SDK/runtime is installed, but no account is signed in');
+    ).toBe('The Claude Code CLI is installed, but no account is signed in');
   });
 
   it('never truncates ordinary prose that merely contains a colon', () => {

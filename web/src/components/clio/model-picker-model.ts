@@ -1,4 +1,4 @@
-import type { LanguageModelPreset, ProviderCatalogTransport, ProviderClientFact } from '@clio/core/v3';
+import type { LanguageModelPreset, ProviderClientFact } from '@clio/core/v3';
 import { isLocalServerPreset } from '@/lib/local-servers';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
 import {
@@ -44,11 +44,8 @@ export interface ProviderGroup {
   detail?: string;
   /** The provider's typed failure reason (untranslated), when it reported one. */
   failure?: string;
-  /** This provider's own transports (Codex: sdk + direct) -- absent for
-   * every single-transport provider. See `ProviderCatalogTransport`. */
-  transports?: readonly ProviderCatalogTransport[];
-  /** The CLI its SDK transport runs (installed vs bundled) -- Codex and
-   * Claude Code only; its presence is what offers the SDK update check. */
+  /** The CLI its SDK runs (installed vs bundled) -- Claude Code only; its
+   * presence is what offers the SDK update check. */
   client?: ProviderClientFact;
 }
 
@@ -177,80 +174,17 @@ function derivedProviderGroup(
     setupNeed: health === 'setup' ? (providerSetupNeed(preset) ?? 'sign_in') : undefined,
     detail: details[0],
     failure: group.choices.find((choice) => choice.failure)?.failure,
-    transports: group.choices.find((choice) => choice.transports)?.transports,
     client: group.choices.find((choice) => choice.client)?.client,
   };
-}
-
-/**
- * A preset scoped to one of its own `transports` -- same identity (id,
- * provider, api_base: the mutations are still preset-level; there is no
- * per-transport auth endpoint yet), but with `label`/auth fields overridden
- * by that transport's own reported health, so `ProviderActionPanel` renders
- * THAT transport's action instead of the preset's overall one.
- *
- * `transport.health` -- not a nonexistent per-transport `is_authenticated` --
- * is the wire's own source for this: `"ready"` means authenticated,
- * `"needs_install"` maps to the picker's `install_required` status, anything
- * else falls through to `auth_method`'s normal sign-in derivation. Only the
- * DIRECT transport carries `auth` at all (its real, CLIO-driven OAuth flow);
- * a transport with no `auth` (the SDK, signed in through the Codex CLI
- * itself) is rendered as plain status text by the caller, never a button
- * for an action CLIO cannot actually perform.
- */
-export function transportScopedPreset(
-  preset: LanguageModelPreset,
-  transport: ProviderCatalogTransport,
-): LanguageModelPreset {
-  return {
-    ...preset,
-    label: transport.label,
-    is_authenticated: transport.health === 'ready',
-    auth_method: transport.auth?.method ?? preset.auth_method,
-    status: transport.health === 'needs_install' ? 'install_required' : preset.status,
-    status_message: transport.reason || preset.status_message,
-    supports_logout: transport.auth?.logout === true,
-  };
-}
-
-/**
- * The ready half of a multi-transport provider as ONE preset: ready, so
- * `ProviderActionPanel` renders Verify provider / Refresh models, and able to
- * sign out only when a READY transport's own `auth.logout` says CLIO can
- * (Codex Direct: yes; the SDK transport is the user's own Codex login) --
- * never the preset-level flag, which cannot tell the two transports apart.
- */
-export function readyTransportsPreset(
-  preset: LanguageModelPreset,
-  transports: readonly ProviderCatalogTransport[],
-): LanguageModelPreset {
-  return {
-    ...preset,
-    status: 'ready',
-    status_message: undefined,
-    is_authenticated: true,
-    requires_api_key: false,
-    supports_logout: transports.some(
-      (transport) => transport.health === 'ready' && transport.auth?.logout === true,
-    ),
-  };
-}
-
-/** Whether `group` has at least one available model that came from `transportId`. */
-export function transportHasModels(group: ProviderGroup, transportId: string): boolean {
-  return group.availableChoices.some((choice) => choice.transport === transportId);
 }
 
 export function providerNodeValue(providerId: string): string {
   return `${PROVIDER_NODE_PREFIX}${providerId}`;
 }
 
-/** A model row's tree identity. Two transports of one provider can report the
- * same model id (Codex SDK and Direct both list `gpt-5.5`), so the transport
- * is part of it -- otherwise the second half's rows collapse into the first. */
+/** A model row's tree identity. */
 export function modelNodeValue(choice: ClioModelOption): string {
-  const transport = choice.transport ? `${choice.transport}:` : '';
-  return `${MODEL_NODE_PREFIX}${choice.providerId}:${transport}${choice.id}`;
+  return `${MODEL_NODE_PREFIX}${choice.providerId}:${choice.id}`;
 }
 
 export function providerSearchDescription(group: ProviderGroup): string {

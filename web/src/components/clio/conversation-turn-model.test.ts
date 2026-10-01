@@ -218,7 +218,7 @@ describe('conversationTurnPresentation', () => {
           id: 'provider_reasoning',
           type: 'reasoning',
           text: '**Use the file reader.****Then inspect the result.**',
-          provider_source: 'codex_app_server',
+          provider_source: 'codex_direct',
         },
         { id: 'next_1', type: 'text', text: 'Inspecting evidence.', channel: 'next_thought' },
         { id: 'tool_1', type: 'tool', tool_id: 'call_read' },
@@ -447,7 +447,7 @@ describe('conversationTurnPresentation', () => {
           id: 'reasoning_live',
           type: 'reasoning',
           text: '**Planning the tool call**',
-          provider_source: 'codex_app_server',
+          provider_source: 'codex_direct',
         },
         {
           id: 'next_live',

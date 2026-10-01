@@ -98,11 +98,11 @@ export const providerCatalog = {
       ],
     },
     {
-      // The active model: its real Codex SDK efforts drive the composer control.
+      // The active model: its real Codex efforts drive the composer control.
       id: 'codex',
       name: 'OpenAI Codex',
       kind: 'codex',
-      endpoint: 'codex://sdk',
+      endpoint: 'codex://direct',
       configuration_url: '/settings/providers?provider=codex',
       connectivity: 'ok',
       auth: 'ok',
@@ -113,7 +113,7 @@ export const providerCatalog = {
         providerCatalogModel({
           provider_id: 'codex',
           provider_kind: 'codex',
-          endpoint: 'codex://sdk',
+          endpoint: 'codex://direct',
           deployment: '',
           model_id: 'gpt-5.6-luna',
           modalities: ['text', 'image'],
@@ -122,7 +122,7 @@ export const providerCatalog = {
             parameter: '',
             levels: ['minimal', 'low', 'medium', 'high', 'xhigh'],
             default: 'medium',
-            source: 'codex_sdk',
+            source: 'codex_direct_model_list',
           },
           context_window: 262144,
           loaded_context_window: null,

@@ -82,7 +82,7 @@ function renderSettings(providerCatalog: unknown = catalog) {
   repository.providerCatalog.mockResolvedValue(providerCatalog);
   repository.providerModels.mockResolvedValue({
     provider_id: 'codex',
-    source: 'codex_app_server',
+    source: 'codex_direct_model_list',
     models: [{ id: 'gpt-5.6-luna', name: 'GPT-5.6-Luna' }],
   });
   const client = new QueryClient({
@@ -142,7 +142,7 @@ describe('new session defaults settings', () => {
       'GPT-5.6-Luna',
     );
     expect(screen.getByText('Available models were checked by the connected agent.')).toBeVisible();
-    expect(screen.queryByText(/codex_app_server/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/codex_direct_model_list/u)).not.toBeInTheDocument();
   });
 });
 
