@@ -164,7 +164,7 @@ describe('processor store survives a live-store reconcile whose surface differs 
     expect(repository.a2uiAction).not.toHaveBeenCalled();
   });
 
-  it('does not crash or double-apply when the reconciled surface has FEWER messages', async () => {
+  it('does not crash or double-apply when a STALE reconcile carries FEWER messages', async () => {
     const user = userEvent.setup();
     useLiveStore
       .getState()
@@ -179,14 +179,20 @@ describe('processor store survives a live-store reconcile whose surface differs 
       useLiveStore.getState().applyFrames([streamGapFrame('2')]);
     });
 
-    // A REST transcript that (for whatever authoritative reason) carries
-    // fewer applied messages than the client already streamed — the
-    // processor's appliedCount is now past the end of the new array, so
-    // `.slice(appliedCount)` is empty: nothing is reprocessed, nothing
-    // throws, and the already-built model (and its typed text) is untouched.
+    // A REST transcript race-reading BEHIND the live stream (G2 adversarial
+    // review, F1): the server's revision is per-surface and monotonic
+    // (`gact/a2ui.py`'s `_apply_staged_message`), so a snapshot genuinely
+    // behind what is already applied carries revision <= 1, never 2 --
+    // revision 2 with fewer messages can only mean the server COMPACTED the
+    // array (a consolidating update dropped `fieldMessage`), which is
+    // authoritative and must still apply (see `processor-store-revision-
+    // recovery.test.tsx`'s shrinking-compaction case). Here `revision: 1`
+    // is a genuine duplicate/stale read: the processor's revision gate
+    // rejects it outright, so nothing is reprocessed, nothing throws, and
+    // the already-built model (and its typed text) is untouched.
     act(() => {
       useLiveStore.getState().reconcileSnapshots({
-        surfaces: { [SURFACE_ID]: a2uiSurface([createMessage, bindMessage], 2) },
+        surfaces: { [SURFACE_ID]: a2uiSurface([createMessage, bindMessage], 1) },
         revisions: {},
       });
     });

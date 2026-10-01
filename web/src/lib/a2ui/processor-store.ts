@@ -203,15 +203,41 @@ interface ProcessorEntry {
   processor: MessageProcessor<ReactComponentImplementation>;
   catalogsKey: string;
   /**
-   * The exact message objects already folded into `processor`'s model, in
-   * order. Compared by VALUE against each new `surface.messages` snapshot —
-   * never by array length or index — because the server COMPACTS that array
-   * in place: a corrected `updateComponents` drops the `updateComponents`
-   * it supersedes (`gact/a2ui.py`'s `_apply_staged_message`, ~449-458), so
-   * the array a later revision carries is not a stable append-only log an
-   * index can safely replay against.
+   * The server's own per-surface revision counter (`A2UISurface.revision`,
+   * monotonic for one `createSurface` lifecycle — `gact/a2ui.py`'s
+   * `_apply_staged_message` increments it once per applied message, and
+   * resets to a FRESH count when a `deleteSurface` is followed by a new
+   * `createSurface`). `-1` before anything has ever been applied, so the
+   * very first revision (always >= 1) is never mistaken for stale.
+   *
+   * Only ever advanced after a FULLY successful apply pass — a batch that
+   * throws partway through leaves it where it was, so a retry at the same
+   * revision is not mistaken for a no-op.
    */
-  appliedMessages: A2uiMessage[];
+  appliedRevision: number;
+  /**
+   * Fingerprint of the `createSurface` message the current `processor` was
+   * built from. A different fingerprint on a later revision means this is a
+   * NEW surface lifecycle (a `deleteSurface` followed by a `createSurface`,
+   * delivered together in one reconcile) — authoritative regardless of the
+   * revision number, since a recreate starts the server's counter over.
+   * `undefined` only before the first message has ever been applied.
+   */
+  createFingerprint: string | undefined;
+  /**
+   * Fingerprints of every message already folded into `processor`'s model
+   * for the CURRENT create lifecycle. Membership, not array position,
+   * decides what is new: the server COMPACTS `surface.messages` in place (a
+   * corrected `updateComponents` drops every earlier `updateComponents` it
+   * supersedes — `gact/a2ui.py`'s `_apply_staged_message`, ~449-458 — so a
+   * later revision's array is a filtered-then-appended set, not a stable
+   * append-only log an index or a prefix scan can safely replay against).
+   * Each fingerprint is computed and cached exactly once, when the message
+   * is applied, so a long-lived surface (inline chart data can be
+   * thousands of rows) never re-stringifies its own history on a later
+   * revision — only the current incoming array is fingerprinted, once each.
+   */
+  appliedFingerprints: Set<string>;
   errorSubscribed: boolean;
   errorUnsubscribe: () => void;
 }
@@ -223,22 +249,9 @@ function fingerprintA2uiMessage(message: A2uiMessage): string {
   return JSON.stringify(message);
 }
 
-/**
- * How many LEADING messages of `incoming` are value-identical to `applied`.
- * Once the two streams disagree at some index, nothing after it can be
- * trusted to still line up, so the scan stops at the first mismatch rather
- * than at the shorter array's end.
- */
-function commonAppliedPrefixLength(applied: A2uiMessage[], incoming: A2uiMessage[]): number {
-  const max = Math.min(applied.length, incoming.length);
-  let index = 0;
-  while (
-    index < max &&
-    fingerprintA2uiMessage(applied[index]) === fingerprintA2uiMessage(incoming[index])
-  ) {
-    index++;
-  }
-  return index;
+/** The lifecycle-starting `createSurface` message, if `incoming` carries one. */
+function findCreateSurfaceMessage(incoming: A2uiMessage[]): A2uiMessage | undefined {
+  return incoming.find((message) => 'createSurface' in message);
 }
 
 function createProcessorEntry(
@@ -252,27 +265,35 @@ function createProcessorEntry(
       version,
     }),
     catalogsKey,
-    appliedMessages: [],
+    appliedRevision: -1,
+    createFingerprint: undefined,
+    appliedFingerprints: new Set(),
     errorSubscribed: false,
     errorUnsubscribe: () => undefined,
   };
 }
 
+interface PendingA2uiMessage {
+  message: A2uiMessage;
+  /** Computed once by the caller while filtering `incoming` -- never re-stringified here. */
+  fingerprint: string;
+}
+
 /**
  * Feeds `pending` into `entry.processor` ONE message at a time — never the
  * whole batch through a single `processMessages` call — so a throw partway
- * through leaves `entry.appliedMessages` reflecting EXACTLY what the model
- * actually committed. A `createSurface` that lands before a sibling
+ * through leaves `entry.appliedFingerprints` reflecting EXACTLY what the
+ * model actually committed. A `createSurface` that lands before a sibling
  * `updateComponents` throws is recorded as applied; the next revision then
- * resumes right after it instead of resending `createSurface` into a model
- * that already has it (`@a2ui/web_core`'s `Surface ${id} already exists.`,
- * the defect this replaces).
+ * resumes after it instead of resending `createSurface` into a model that
+ * already has it (`@a2ui/web_core`'s `Surface ${id} already exists.`, the
+ * defect this replaces).
  */
 function applyPendingMessages(
   entry: ProcessorEntry,
-  pending: A2uiMessage[],
+  pending: PendingA2uiMessage[],
 ): A2uiProcessorFailure | undefined {
-  for (const message of pending) {
+  for (const { message, fingerprint } of pending) {
     try {
       entry.processor.processMessages([message]);
     } catch (error) {
@@ -284,7 +305,7 @@ function applyPendingMessages(
             : 'The interactive surface could not be validated.',
       };
     }
-    entry.appliedMessages.push(message);
+    entry.appliedFingerprints.add(fingerprint);
   }
   return undefined;
 }
@@ -294,22 +315,32 @@ function applyPendingMessages(
  * caller no longer remounts on `surface.revision`
  * (`docs/design/a2ui-compat-campaign-2026-09.md` S6 deletion: the
  * revision-keyed remount that wiped unsubmitted form state). Each revision
- * is reconciled against `entry.appliedMessages` **by value**, never by
- * replaying `surface.messages.slice(someIndex)`:
- * - a pure extension (everything already applied still matches the new
- *   array's prefix) is applied incrementally, same as before;
- * - a snapshot SHORTER than what's already applied (a post-gap REST
- *   reconcile racing the live stream, `processor-store-reconcile.test.tsx`)
- *   is never authoritative enough to regress an already-rendered surface, so
- *   it's a no-op;
- * - anything else — the new array disagrees with a message this processor
- *   already applied, whether from server-side compaction rewriting it in
- *   place or from a prior batch that threw partway through — rebuilds: a
- *   fresh processor replays the FULL compacted stream from scratch. A
- *   rebuild necessarily resets any in-progress local component state (e.g.
- *   unsubmitted form input) for this surface; that is the honest cost of a
- *   stream the processor cannot incrementally unwind, and it only happens on
- *   a genuine divergence, not on every revision.
+ * is reconciled against `entry`'s revision counter and fingerprint set,
+ * never by replaying `surface.messages.slice(someIndex)` or rebuilding on
+ * every change:
+ * - a NEW create lifecycle (the incoming `createSurface` fingerprint
+ *   differs from the one this processor was built from — a `deleteSurface`
+ *   plus a `createSurface` delivered together in one reconcile) always
+ *   rebuilds, regardless of its revision number, since a recreate starts
+ *   the server's counter over;
+ * - otherwise, a revision at or behind what is already applied (a post-gap
+ *   REST reconcile racing the live stream, `processor-store-reconcile.
+ *   test.tsx`) is never authoritative enough to regress an already-rendered
+ *   surface, so it is a no-op;
+ * - otherwise, every message in the new array NOT already applied — by
+ *   fingerprint, not position, so a shrinking compaction (several earlier
+ *   `updateComponents` replaced by one consolidating message) is still
+ *   picked up — is applied, in order, as an UPSERT onto the EXISTING model
+ *   (`updateComponents` on an existing component id replaces its
+ *   properties in place, same as `@a2ui/web_core` already does for any
+ *   repeat update). An ordinary same-id `updateComponents` therefore never
+ *   rebuilds and never disturbs this surface's data model — a bound
+ *   `TextField`'s typed input, a linked selection — because nothing is
+ *   discarded; only unseen messages are folded in.
+ *
+ * The server never produces an array that requires UNDOING an already-
+ * applied message within one lifecycle, so an upsert-only replay is always
+ * sufficient short of an actual recreate.
  *
  * `onError` is wired exactly once per processor to `onValidationFailed`, so a
  * component's `surface.dispatchError` (the URL-scheme guard, `checks`, or any
@@ -367,27 +398,43 @@ export function useA2uiSurfaceModel(
     let entry = entryRef.current;
 
     const incoming = surface.messages as A2uiMessage[];
-    if (incoming.length < entry.appliedMessages.length) {
-      // Behind what this processor already rendered -- never discard an
-      // already-rendered surface (and whatever local state it holds) for a
-      // snapshot that carries less than we already applied. Wait for a
-      // revision that is a forward extension instead.
-      return;
-    }
-    if (commonAppliedPrefixLength(entry.appliedMessages, incoming) < entry.appliedMessages.length) {
-      // Genuine divergence: the new stream disagrees with a message this
-      // processor already committed. Incremental replay cannot unwind an
-      // applied message, so rebuild fresh and replay the full compacted
-      // stream -- this is also what lets a surface that failed partway
-      // through an earlier batch recover instead of resending a
-      // `createSurface` the (old) model already has.
+    const incomingCreate = findCreateSurfaceMessage(incoming);
+    const incomingCreateFingerprint = incomingCreate
+      ? fingerprintA2uiMessage(incomingCreate)
+      : undefined;
+    const isRecreate =
+      incomingCreateFingerprint !== undefined &&
+      entry.createFingerprint !== undefined &&
+      incomingCreateFingerprint !== entry.createFingerprint;
+
+    if (isRecreate) {
+      // A new create lifecycle (deleteSurface + createSurface delivered
+      // together, e.g. in one reconcile) -- the server's revision counter
+      // restarts for it, so it is authoritative regardless of its number.
+      // Incremental replay cannot unwind the OLD lifecycle's applied
+      // messages, so rebuild fresh and replay the new one from scratch.
       entry.errorUnsubscribe();
       entry = createProcessorEntry(catalogs, catalogIds, handleAction, version);
       entryRef.current = entry;
       registerA2uiSurfaceProcessor(surface.session_id, surface.id, entry.processor);
+    } else if (entry.createFingerprint !== undefined && surface.revision <= entry.appliedRevision) {
+      // Same lifecycle, but at or behind what is already applied (a
+      // post-gap REST reconcile racing the live stream, `processor-store-
+      // reconcile.test.tsx`) -- never authoritative enough to regress an
+      // already-rendered surface. Wait for a revision that moves forward.
+      return;
     }
+    entry.createFingerprint = incomingCreateFingerprint ?? entry.createFingerprint;
 
-    const pending = incoming.slice(entry.appliedMessages.length);
+    // Each incoming message is fingerprinted exactly once here; an already-
+    // applied one is looked up in the cached `appliedFingerprints` set, not
+    // re-stringified (a long-lived surface's inline data can be thousands of
+    // rows, and most revisions only ever add one new message).
+    const pending: PendingA2uiMessage[] = [];
+    for (const message of incoming) {
+      const fingerprint = fingerprintA2uiMessage(message);
+      if (!entry.appliedFingerprints.has(fingerprint)) pending.push({ message, fingerprint });
+    }
     if (pending.length > 0) {
       const failure = applyPendingMessages(entry, pending);
       if (failure) {
@@ -395,6 +442,7 @@ export function useA2uiSurfaceModel(
         return;
       }
     }
+    entry.appliedRevision = surface.revision;
 
     const model = entry.processor.model.getSurface(surface.id);
     if (model && !entry.errorSubscribed) {
