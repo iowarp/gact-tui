@@ -98,14 +98,17 @@ test.afterEach(async ({ page }) => {
 
 /** Opens the workspace, publishes the linked earthquake surface, and waits for it to render. */
 async function openEarthquakeDemo(page: Page) {
+  // Publish before loading the page: the fixture serves the surface in its
+  // session snapshot, not as a live event, so a page that loaded first never
+  // sees it. (It used to work only because the flag leaked from an earlier
+  // test across `/__test/reset`, which now clears it.)
+  const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-data-demo`);
+  expect(published.ok()).toBe(true);
   await page.goto(workspaceUrl);
   await expect(
     page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
   ).toBeVisible();
   await expect(page.getByText('Live', { exact: true })).toBeVisible();
-
-  const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-data-demo`);
-  expect(published.ok()).toBe(true);
 
   // Detached surface (no owning message): scroll the virtualized transcript
   // to its end so it mounts, same pattern as a2ui-smoke.spec.ts.
