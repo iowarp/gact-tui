@@ -323,6 +323,11 @@ export function ZoomPan({
     if (!canvas) return;
 
     const onWheel = (e: WheelEvent) => {
+      // #1549 G9 #27: only zoom when Ctrl/Meta is held -- also how browsers
+      // report a trackpad pinch gesture as a wheel event -- so a plain wheel
+      // (mouse scroll, or a trackpad pan) is left alone and scrolls the page
+      // instead of being captured by the diagram underneath the cursor.
+      if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
 
       const rect = canvas.getBoundingClientRect();
