@@ -9,7 +9,6 @@ import {
   AlertTriangleIcon,
   ExternalLinkIcon,
   FileCode2Icon,
-  PackageOpenIcon,
   PanelsTopLeftIcon,
   RouteIcon,
   SyringeIcon,
@@ -32,7 +31,6 @@ import {
   PlanTrigger,
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
@@ -50,6 +48,7 @@ import { TranscriptResourceAttachments } from './transcript-resource-attachment'
 import { GroundedMessageResponse } from './grounded-message-response';
 import { toolOutputDiffKey } from './declared-diff-key';
 import { vocab } from '@/lib/brand-vocabulary';
+import { SummarizationInjection } from './conversation-summarization';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -198,10 +197,12 @@ function MessageBlockView({
           </PlanHeader>
         </Plan>
       );
-    case 'compaction':
-      return <CompactionSummary block={block} />;
     case 'injection':
-      return <HarnessInjection block={block} />;
+      return block.source === 'summarization' ? (
+        <SummarizationInjection block={block} label={INJECTION_LABELS.summarization} />
+      ) : (
+        <HarnessInjection block={block} />
+      );
     case 'artifact': {
       const artifact = artifacts[block.artifact_id];
       return artifact ? (
@@ -402,6 +403,7 @@ const INJECTION_LABELS: Record<string, string> = {
   circuit_breaker: 'Repeated-failure warning',
   result_spilled: 'Large result saved to a file',
   hook: 'Hook',
+  summarization: 'Summarization',
 };
 
 /**
@@ -433,44 +435,6 @@ function HarnessInjection({ block }: { block: InjectionBlock }) {
           {block.text}
         </pre>
       ) : null}
-    </section>
-  );
-}
-
-type CompactionBlock = Extract<MessageBlock, { type: 'compaction' }>;
-
-/**
- * The compaction checkpoint row (#1339): `/compact` APPENDS this as a
- * synthetic assistant message rather than replacing the transcript, so the
- * collapsed state previews what the agent actually received instead of
- * hiding it entirely.
- */
-function CompactionSummary({ block }: { block: CompactionBlock }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <section className="min-w-0 max-w-full" data-slot="compaction-summary">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-muted-foreground">
-        <PackageOpenIcon aria-hidden="true" className="size-4 shrink-0" />
-        <span>Context summarized</span>
-        <Badge variant="secondary">{block.auto ? 'Automatic' : 'Requested'}</Badge>
-        <button
-          aria-expanded={expanded}
-          className="text-xs font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          onClick={() => setExpanded((value) => !value)}
-          type="button"
-        >
-          {expanded ? 'Show less' : 'Show more'}
-        </button>
-      </div>
-      {expanded ? (
-        <div className="mt-2 min-w-0 max-w-full break-words">
-          <GroundedMessageResponse>{block.summary}</GroundedMessageResponse>
-        </div>
-      ) : (
-        <p className="mt-1 line-clamp-3 min-w-0 max-w-full whitespace-pre-wrap break-words text-sm leading-5 text-muted-foreground">
-          {block.summary}
-        </p>
-      )}
     </section>
   );
 }

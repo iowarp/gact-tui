@@ -53,8 +53,19 @@ export interface ConversationIteration {
   summary: string;
 }
 
+/**
+ * A context summary that happened inside the turn. It stays at its step: it
+ * renders between the iterations before it and the ones after it.
+ */
+export interface ConversationTurnSummarization {
+  /** How many iterations precede the summary. */
+  afterIteration: number;
+  block: Extract<MessageBlock, { type: 'injection' }>;
+}
+
 export interface ConversationTurnPresentation {
   iterations: ConversationIteration[];
+  summarizations: ConversationTurnSummarization[];
   residualBlocks: MessageBlock[];
 }
 
@@ -64,9 +75,10 @@ export function conversationTurnPresentation(
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task> = {},
 ): ConversationTurnPresentation {
-  const { iterations, consumed } = fallbackIterations(message, tools, tasks);
+  const { iterations, summarizations, consumed } = fallbackIterations(message, tools, tasks);
   return {
     iterations,
+    summarizations,
     residualBlocks: message.blocks.filter((block) => !consumed.has(block.id)),
   };
 }
@@ -75,8 +87,13 @@ function fallbackIterations(
   message: Message,
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task>,
-): { iterations: ConversationIteration[]; consumed: Set<string> } {
+): {
+  iterations: ConversationIteration[];
+  summarizations: ConversationTurnSummarization[];
+  consumed: Set<string>;
+} {
   const iterations: ConversationIteration[] = [];
+  const summarizations: ConversationTurnSummarization[] = [];
   const consumed = new Set<string>();
   const indexed = message.blocks.map((block, position) => ({ block, position }));
   const ordered = indexed.some(({ block }) => block.sequence === undefined)
@@ -107,6 +124,12 @@ function fallbackIterations(
   };
 
   for (const { block } of ordered) {
+    if (block.type === 'injection' && block.source === 'summarization') {
+      flush();
+      summarizations.push({ afterIteration: iterations.length, block });
+      consumed.add(block.id);
+      continue;
+    }
     if (block.type === 'reasoning') {
       if (!block.streaming && !block.text.trim()) {
         consumed.add(block.id);
@@ -192,7 +215,7 @@ function fallbackIterations(
     messageCompletedNormally(message) && !current.activity.some((entry) => entry.kind === 'tool'),
     messageInterrupted(message),
   );
-  return { consumed, iterations };
+  return { consumed, iterations, summarizations };
 }
 
 function messageToolOwnsReceipt(iteration: ConversationIteration, message: string): boolean {

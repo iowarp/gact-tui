@@ -906,7 +906,7 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
   expect(Math.abs(measurements.bottomGap)).toBeLessThanOrEqual(2);
 });
 
-test('shows the compaction checkpoint row collapsed with a clamped preview, then expands it (#1339)', async ({
+test('shows the summarization injection collapsed with a clamped preview, then expands it', async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -914,9 +914,11 @@ test('shows the compaction checkpoint row collapsed with a clamped preview, then
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
   await settleConversationAtLatest(page);
 
-  const compactionRow = page.locator('[data-slot="compaction-summary"]');
+  const compactionRow = page.locator(
+    '[data-slot="harness-injection"][data-source="summarization"]',
+  );
   await expect(compactionRow).toBeVisible();
-  await expect(compactionRow.getByText('Context summarized')).toBeVisible();
+  await expect(compactionRow.getByText(/gave the agent: Summarization/)).toBeVisible();
   await expect(compactionRow.getByText('Automatic')).toBeVisible();
 
   // Collapsed: a clamped preview of the summary the agent received, not an
@@ -936,7 +938,7 @@ test('shows the compaction checkpoint row collapsed with a clamped preview, then
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       ),
   );
-  await expect(compactionRow).toHaveScreenshot('compaction-row-collapsed.png', {
+  await expect(compactionRow).toHaveScreenshot('summarization-row-collapsed.png', {
     animations: 'disabled',
   });
 

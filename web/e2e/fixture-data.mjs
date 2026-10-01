@@ -153,18 +153,20 @@ export const providerCatalog = {
 };
 
 /**
- * One compaction checkpoint block (#1339): `/compact` APPENDS this to the
- * transcript rather than replacing it, so earlier messages stay reachable
- * above the checkpoint row.
+ * One compaction record: a `summarization` injection carrying the summary the
+ * agent received. Compaction APPENDS it to the transcript rather than replacing
+ * it, so earlier messages stay reachable above the row.
  */
 export const compactionCheckpoint = {
   id: 'block_compaction',
-  type: 'compaction',
-  summary:
+  type: 'injection',
+  source: 'summarization',
+  trigger: 'auto',
+  compaction_id: 'cmp_fixture',
+  text:
     'The agent reviewed the EarthScope station evidence ledger, cross-checked coverage against ' +
     'quality flags, and confirmed the derived displacement series before this checkpoint. Earlier ' +
     'messages remain in the transcript above this row and can be reopened at any time.',
-  auto: true,
 };
 
 /** One steer accepted for the next safe boundary, on a real transcript message. */
