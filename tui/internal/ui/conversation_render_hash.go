@@ -194,6 +194,8 @@ func conversationHashPart(h *maphash.Hash, p gact.Part) {
 	write(p.Message)
 	writeBool(p.Recoverable)
 	writeBool(p.Auto)
+	write(p.Trigger)
+	write(p.CompactionID)
 	write(p.URI)
 	write(p.MimeType)
 	write(p.Name)

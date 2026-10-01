@@ -25,6 +25,10 @@ const (
 	// PartTypeInjection is data CLIO (the harness) put into the agent's context:
 	// Source names what it is, Text is exactly what the agent got.
 	PartTypeInjection = "injection"
+	// PartTypeNotice is a service notice recorded in the transcript. Source
+	// "compaction_failed" is a failed compaction: Text says why, Code is its
+	// typed reason, Trigger who started it ("auto" | "manual").
+	PartTypeNotice = "notice"
 )
 
 // Part is a single content block within a Message (SPEC §4.5).
@@ -130,6 +134,10 @@ type Part struct {
 	Code        string `json:"code,omitempty"`
 	Message     string `json:"message,omitempty"`
 	Recoverable bool   `json:"recoverable,omitempty"`
+
+	// injection (summarization), notice
+	Trigger      string `json:"trigger,omitempty"`
+	CompactionID string `json:"compaction_id,omitempty"`
 
 	// compaction
 	CompactedMessageIDs []string `json:"compacted_message_ids,omitempty"`
