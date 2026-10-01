@@ -1,7 +1,6 @@
 import { ListFilterIcon } from 'lucide-react';
 import { Badge as ReUIBadge } from '@/components/reui/badge';
 import { Button } from '@/components/ui/button';
-import { useDataHeaderCompact } from './data-header-density';
 import {
   Popover,
   PopoverContent,
@@ -10,6 +9,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ClioRangeColumnFilter,
   ClioTextColumnFilter,
@@ -27,9 +27,10 @@ export interface DataFilterField {
  * The same server-side filter controls `clio.data-table.v1`'s column headers
  * use, in a small popover attached to a chart or map — the owner's ruling
  * that charts and maps get "the same server-side filter controls as the
- * table ... layered on the agent's query". A toolbar button (not a per-column
- * header, since these components have none) opens the popover; a badge shows
- * how many of this viewer's own filters are active.
+ * table ... layered on the agent's query". An icon-only toolbar button (G0's
+ * shared toolbar styling: every affordance has one predictable home, same
+ * icon/size/tooltip pattern everywhere) opens the popover; a badge shows how
+ * many of this viewer's own filters are active.
  */
 export function DataFilterPopover({
   disabled,
@@ -45,28 +46,37 @@ export function DataFilterPopover({
   onFilterChange: (column: string, value: ClioColumnFilterValue | undefined) => void;
 }) {
   const activeCount = filters.size;
-  const compact = useDataHeaderCompact();
   if (!fields.length) return null;
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          aria-label={activeCount ? `${label}, ${activeCount} active` : label}
-          className="gap-1.5"
-          disabled={disabled}
-          size="sm"
-          title={label}
-          variant="outline"
-        >
-          <ListFilterIcon aria-hidden="true" className="size-3.5" />
-          {compact ? null : label}
-          {activeCount ? (
-            <ReUIBadge className="ms-0.5" radius="full" size="sm" variant="primary-light">
-              {activeCount}
-            </ReUIBadge>
-          ) : null}
-        </Button>
-      </PopoverTrigger>
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                aria-label={activeCount ? `${label}, ${activeCount} active` : label}
+                className="relative"
+                disabled={disabled}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <ListFilterIcon aria-hidden="true" className="size-3.5" />
+                {activeCount ? (
+                  <ReUIBadge
+                    className="absolute -right-1 -top-1 h-3.5 min-w-3.5 px-0.5 text-[0.6rem] leading-none"
+                    radius="full"
+                    size="sm"
+                    variant="primary-light"
+                  >
+                    {activeCount}
+                  </ReUIBadge>
+                ) : null}
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{activeCount ? `${label}, ${activeCount} active` : label}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <PopoverContent align="end" className="w-72">
         <PopoverHeader>
           <PopoverTitle>{label}</PopoverTitle>

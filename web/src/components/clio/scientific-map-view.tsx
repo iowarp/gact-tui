@@ -46,6 +46,14 @@ interface ScientificMapViewProps {
    * box-zoom for this view — see the `boxZoom.disable()` call below.
    */
   onZoneSelect?: (pointIds: string[]) => void;
+  /**
+   * Hands the live maplibre `Map` instance up to the caller once it loads
+   * (G0: PNG export reads `map.getCanvas()` directly — see `map-export.ts`).
+   * Fires again after a full-screen toggle remounts this view: with
+   * `reuseMaps` that is the SAME underlying instance, reparented, not a new
+   * one, so the caller's own captured reference stays valid throughout.
+   */
+  onMapInstance?: (map: MapLibreMap) => void;
 }
 
 /**
@@ -158,6 +166,7 @@ function initialView(points: readonly ScientificMapPoint[]): Partial<ViewState> 
 
 export function ClioScientificMapView({
   highlightedIds,
+  onMapInstance,
   onSelect,
   onZoneSelect,
   points,
@@ -342,6 +351,11 @@ export function ClioScientificMapView({
       ref={rootRef}
     >
       <Map
+        // Required for a reliable `canvas.toBlob()`/`toDataURL()` read (G0
+        // PNG export, `map-export.ts`'s `mapPngBlob`): a WebGL canvas's
+        // backbuffer is cleared after each paint by default, which can read
+        // back as a blank image without this.
+        canvasContextAttributes={{ preserveDrawingBuffer: true }}
         initialViewState={viewState}
         interactiveLayerIds={manyPoints ? [POINTS_LAYER_ID] : undefined}
         mapStyle={rasterStyle}
@@ -357,6 +371,7 @@ export function ClioScientificMapView({
           // Shift+drag now draws a selection rectangle instead (see above).
           event.target.boxZoom.disable();
           setMapInstance(event.target);
+          onMapInstance?.(event.target);
         }}
         ref={mapRef}
         reuseMaps

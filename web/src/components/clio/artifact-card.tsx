@@ -33,6 +33,8 @@ import {
 import { cn } from '@/lib/utils';
 import { describeReferenceError } from '@/lib/a2ui/reference-failure';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
+import { downloadBytes } from './surface-export';
+import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 
 export interface ClioArtifactCardProps {
   artifact: ArtifactEntity;
@@ -162,11 +164,28 @@ export function ClioArtifactCard({
       ? describeReferenceError(contentError)
       : undefined;
 
+  // G0 (`clio.artifact.v1`: "download; open" — "open" is the existing
+  // `onOpen` click). Fetched on demand, independent of the preview query
+  // above (which is gated to images within the inline preview budget) — a
+  // download must reach the artifact regardless of size or media type.
+  const downloadCapabilities: SurfaceCapabilities = {
+    exportFormats: [
+      {
+        id: 'original',
+        label: 'Original file',
+        run: async () => {
+          const bytes = await repository.readArtifactBytesFor(artifact);
+          downloadBytes(bytes, artifact.media_type || 'application/octet-stream', artifact.name);
+        },
+      },
+    ],
+  };
+
   return (
     <Artifact
       aria-label={onOpen ? `Open ${artifact.name}` : undefined}
       className={cn(
-        'group/artifact',
+        'group/artifact group relative',
         onOpen &&
           'cursor-pointer transition-colors hover:border-primary/60 hover:bg-muted/15 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
         className,
@@ -197,6 +216,10 @@ export function ClioArtifactCard({
             {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
           </Badge>
         ) : null}
+        {/* Stops the click from bubbling into the card's own onOpen handler. */}
+        <div className="shrink-0" onClick={(event) => event.stopPropagation()} role="presentation">
+          <SurfaceToolbar capabilities={downloadCapabilities} />
+        </div>
       </ArtifactHeader>
       {preview ? (
         <ArtifactContent className="p-0">

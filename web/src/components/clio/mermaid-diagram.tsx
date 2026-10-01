@@ -1,26 +1,21 @@
-import {
-  AlertTriangleIcon,
-  Code2Icon,
-  EyeIcon,
-  Maximize2Icon,
-  Minimize2Icon,
-  WorkflowIcon,
-} from 'lucide-react';
+import { AlertTriangleIcon, Code2Icon, EyeIcon, WorkflowIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
   CodeBlockFilename,
   CodeBlockHeader,
   CodeBlockTitle,
 } from '@/components/ai-elements/code-block';
 import type { MermaidConfig } from '@/components/mermaidcn/mermaid';
 import { MermaidPreview } from '@/components/mermaidcn/mermaid-preview';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { artifactIdFromDataUri } from './table-query-rows';
+import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
+import { svgIntrinsicSize, svgToPngBlob } from './mermaid-export';
 import { validateMermaidSource } from './mermaid-security';
+import { copyTextToClipboard, downloadBlob, downloadText, filenameStemFromTitle } from './surface-export';
+import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
+import { SurfaceToolbar, type SurfaceCapabilities, type SurfaceExportFormat } from './surface-toolbar';
 
 type MermaidView = 'render' | 'source';
 
@@ -43,21 +38,24 @@ const config: MermaidConfig = {
   },
 };
 
-/** A MermaidCN-backed diagram with source, export, fullscreen, and auto-fit canvas controls. */
+/** A MermaidCN-backed diagram with source, G0 download/copy/reference/full-screen, and an auto-fit canvas. */
 export function ClioMermaidDiagram({
   accessibilityDescription,
   accessibilityLabel,
+  dataUri,
   source,
   title,
 }: {
   accessibilityDescription?: string;
   accessibilityLabel?: string;
+  /** The artifact this diagram's `source` was read from, when it has one — used only to name the diagram in exports/references, never re-fetched here. */
+  dataUri?: string;
   source: string;
   title?: string;
 }) {
   const [view, setView] = useState<MermaidView>('render');
   const [svgOutput, setSvgOutput] = useState('');
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useSurfaceFullScreen();
   const validationError = useMemo(() => {
     try {
       validateMermaidSource(source);
@@ -67,100 +65,123 @@ export function ClioMermaidDiagram({
     }
   }, [source]);
 
-  const content = (
+  const heading = title || 'Diagram';
+  const filenameStem = filenameStemFromTitle(heading);
+
+  const exportFormats: SurfaceExportFormat[] = [
+    {
+      id: 'svg',
+      label: 'SVG image',
+      disabled: !svgOutput,
+      run: () => downloadText(svgOutput, 'image/svg+xml', `${filenameStem}.svg`),
+    },
+    {
+      id: 'png',
+      label: 'PNG image',
+      disabled: !svgOutput,
+      run: async () => {
+        const size = svgIntrinsicSize(svgOutput);
+        if (!size) return;
+        downloadBlob(await svgToPngBlob(svgOutput, size.width, size.height), `${filenameStem}.png`);
+      },
+    },
+    {
+      id: 'source',
+      label: 'Mermaid source',
+      run: () => downloadText(source, 'text/vnd.mermaid', `${filenameStem}.mmd`),
+    },
+  ];
+
+  const buildReference = (): DataZoneReference =>
+    buildZoneReference({
+      componentLabel: heading,
+      datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri ?? 'inline diagram',
+      filters: [],
+      previewColumns: [],
+      previewRows: [],
+      query: dataUri ? { dataUri } : { source },
+      zoneDescription: 'the whole diagram',
+    });
+
+  // Not a G0 download/select/zoom/full-screen/reference affordance (it's the
+  // diagram's own render/source view switch), so it stays in this
+  // component's own header rather than the shared `SurfaceToolbar` overflow.
+  const diagramHeaderExtra = (
+    <ToggleGroup
+      aria-label="Diagram view"
+      onValueChange={(value) => {
+        if (value === 'render' || value === 'source') setView(value);
+      }}
+      size="sm"
+      spacing={0}
+      type="single"
+      value={view}
+      variant="outline"
+    >
+      <ToggleGroupItem aria-label="Show rendered diagram" value="render">
+        <EyeIcon aria-hidden="true" data-icon="inline-start" />
+        Render
+      </ToggleGroupItem>
+      <ToggleGroupItem aria-label="Show Mermaid source" value="source">
+        <Code2Icon aria-hidden="true" data-icon="inline-start" />
+        Source
+      </ToggleGroupItem>
+    </ToggleGroup>
+  );
+  const toolbarCapabilities: SurfaceCapabilities = {
+    buildReference,
+    copyLabel: 'Copy source',
+    exportFormats,
+    fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
+    onCopy: async () => {
+      await copyTextToClipboard(source);
+    },
+  };
+
+  return (
     <section
       aria-description={accessibilityDescription}
-      aria-label={accessibilityLabel || title || 'Diagram'}
-      className={fullscreen ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-card' : 'min-w-0 bg-card'}
+      aria-label={accessibilityLabel || heading}
+      className="group relative min-w-0 bg-card"
     >
       <header className="flex items-center justify-between gap-3 pb-2">
         <div className="flex min-w-0 items-center gap-2">
           <WorkflowIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-          <h3 className="truncate text-sm font-medium">{title || 'Diagram'}</h3>
+          <h3 className="truncate text-sm font-medium">{heading}</h3>
         </div>
-        <div className="flex items-center gap-1">
-          <ToggleGroup
-            aria-label="Diagram view"
-            onValueChange={(value) => {
-              if (value === 'render' || value === 'source') setView(value);
-            }}
-            size="sm"
-            spacing={0}
-            type="single"
-            value={view}
-            variant="outline"
-          >
-            <ToggleGroupItem aria-label="Show rendered diagram" value="render">
-              <EyeIcon aria-hidden="true" data-icon="inline-start" />
-              Render
-            </ToggleGroupItem>
-            <ToggleGroupItem aria-label="Show Mermaid source" value="source">
-              <Code2Icon aria-hidden="true" data-icon="inline-start" />
-              Source
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <Button
-            aria-label={fullscreen ? 'Exit diagram fullscreen' : 'View diagram fullscreen'}
-            onClick={() => setFullscreen((current) => !current)}
-            size="icon-sm"
-            title={fullscreen ? 'Exit fullscreen' : 'View fullscreen'}
-            variant="ghost"
-          >
-            {fullscreen ? (
-              <Minimize2Icon aria-hidden="true" />
-            ) : (
-              <Maximize2Icon aria-hidden="true" />
-            )}
-          </Button>
-        </div>
+        {diagramHeaderExtra}
       </header>
-      <div className={fullscreen ? 'min-h-0 flex-1' : undefined}>
-        {validationError ? (
-          <div className="flex min-h-64 items-center justify-center gap-2 p-4 text-sm text-destructive">
-            <AlertTriangleIcon aria-hidden="true" className="size-4 shrink-0" />
-            {validationError}
-          </div>
-        ) : view === 'source' ? (
-          <CodeBlock
-            className={fullscreen ? 'h-full' : 'min-h-72'}
-            code={source}
-            language="mermaid"
-          >
-            <CodeBlockHeader>
-              <CodeBlockTitle>
-                <CodeBlockFilename>Mermaid source</CodeBlockFilename>
-              </CodeBlockTitle>
-              <CodeBlockActions>
-                <CodeBlockCopyButton aria-label="Copy Mermaid source" />
-              </CodeBlockActions>
-            </CodeBlockHeader>
-          </CodeBlock>
-        ) : (
-          <MermaidPreview
-            chart={source}
-            className={fullscreen ? 'h-full' : 'h-72 sm:h-80'}
-            config={config}
-            onSvgOutputChange={setSvgOutput}
-            svgOutput={svgOutput}
-          />
-        )}
-      </div>
+      <SurfaceToolbar capabilities={toolbarCapabilities} />
+      <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={heading}>
+        <div className={fullscreen ? 'min-h-0 flex-1' : undefined}>
+          {validationError ? (
+            <div className="flex min-h-64 items-center justify-center gap-2 p-4 text-sm text-destructive">
+              <AlertTriangleIcon aria-hidden="true" className="size-4 shrink-0" />
+              {validationError}
+            </div>
+          ) : view === 'source' ? (
+            <CodeBlock
+              className={fullscreen ? 'h-full' : 'min-h-72'}
+              code={source}
+              language="mermaid"
+            >
+              <CodeBlockHeader>
+                <CodeBlockTitle>
+                  <CodeBlockFilename>Mermaid source</CodeBlockFilename>
+                </CodeBlockTitle>
+              </CodeBlockHeader>
+            </CodeBlock>
+          ) : (
+            <MermaidPreview
+              chart={source}
+              className={fullscreen ? 'h-full' : 'h-72 sm:h-80'}
+              config={config}
+              onSvgOutputChange={setSvgOutput}
+              svgOutput={svgOutput}
+            />
+          )}
+        </div>
+      </SurfaceFullScreenHost>
     </section>
-  );
-
-  return (
-    <>
-      {fullscreen ? null : content}
-      <Dialog onOpenChange={setFullscreen} open={fullscreen}>
-        <DialogContent
-          aria-describedby={undefined}
-          className="flex h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-none flex-col gap-0 overflow-hidden rounded-lg p-4 sm:max-w-none"
-          showCloseButton={false}
-        >
-          <DialogTitle className="sr-only">{title || 'Diagram'}</DialogTitle>
-          {fullscreen ? content : null}
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }

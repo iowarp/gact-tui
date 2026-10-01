@@ -1,10 +1,12 @@
 import { ClioRepository, TransportError } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { BrowserClioTransport } from '@/lib/transport/browser-transport';
+import { SelectionActionsProvider } from './selection-actions';
 
 const PNG = new Uint8Array([137, 80, 78, 71]);
 const AWKWARD = 'plot #1 & more+50%.png';
@@ -236,5 +238,68 @@ describe('A2uiMedia', () => {
     await waitFor(() =>
       expect(view.container.querySelector(kind)).toHaveAttribute('src', 'blob:a2ui-media-1'),
     );
+  });
+
+  describe('G0: Image affordances (download, full screen, Reference this)', () => {
+    it('downloads the original bytes straight from the already-resolved blob: URL', async () => {
+      const user = userEvent.setup();
+      fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_abc'));
+      fake.readA2uiReferenceBytes.mockResolvedValue(PNG);
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+        this: HTMLAnchorElement,
+      ) {
+        expect(this.href).toBe('blob:a2ui-media-1');
+        // AWKWARD = 'plot #1 & more+50%.png': unsafe runs become single
+        // underscores, the trailing ".png" extension is kept verbatim.
+        expect(this.download).toBe('plot_1_more_50_.png');
+      });
+      renderMedia(<A2uiMedia componentId="img" kind="image" label="Plot" url="artifact_abc" />);
+      await screen.findByRole('img', { name: 'Plot' });
+
+      await user.click(screen.getByRole('button', { name: 'More' }));
+      await user.click(screen.getByRole('menuitem', { name: /Download/ }));
+      const item = await screen.findByRole('menuitem', { name: 'Original image' });
+      fireEvent.pointerMove(item);
+      fireEvent.click(item);
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers a full-screen toggle', async () => {
+      const user = userEvent.setup();
+      fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_abc'));
+      fake.readA2uiReferenceBytes.mockResolvedValue(PNG);
+      renderMedia(<A2uiMedia componentId="img" kind="image" label="Plot" url="artifact_abc" />);
+      await screen.findByRole('img', { name: 'Plot' });
+
+      const toggle = screen.getByRole('button', { name: 'Full screen' });
+      await user.click(toggle);
+
+      expect(screen.getAllByRole('img', { name: 'Plot' })).toHaveLength(1); // moved, not duplicated
+      expect(screen.getAllByRole('button', { name: 'Exit full screen' }).length).toBeGreaterThan(0);
+    });
+
+    it('offers "Reference this"', async () => {
+      fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_abc'));
+      fake.readA2uiReferenceBytes.mockResolvedValue(PNG);
+      renderMedia(
+        <SelectionActionsProvider>
+          <A2uiMedia componentId="img" kind="image" label="Plot" url="artifact_abc" />
+        </SelectionActionsProvider>,
+      );
+      await screen.findByRole('img', { name: 'Plot' });
+
+      expect(screen.getByRole('button', { name: 'Reference this' })).toBeInTheDocument();
+    });
+
+    it('does not add a download/full-screen toolbar to video or audio (out of the G0 table)', async () => {
+      fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_tone', { media_type: 'audio/wav' }));
+      fake.readA2uiReferenceBytes.mockResolvedValue(PNG);
+      renderMedia(<A2uiMedia componentId="m" kind="audio" label="Clip" url="artifact_tone" />);
+      await waitFor(() => expect(document.querySelector('audio')).not.toBeNull());
+
+      expect(screen.queryByRole('button', { name: 'Download' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Full screen' })).not.toBeInTheDocument();
+    });
   });
 });

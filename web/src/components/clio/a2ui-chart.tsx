@@ -1,7 +1,6 @@
 import { ChartLineIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useContainerQuery } from '@/hooks/use-container-query';
 import { useRepository } from '@/hooks/use-repository';
 import type { View } from 'vega';
 import {
@@ -50,7 +49,6 @@ import {
   type ChartZoomRange,
 } from './chart-zoom';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
-import { DATA_HEADER_LABEL_MIN_WIDTH, DataHeaderCompactContext } from './data-header-density';
 import { dataViewFlexStyle } from './data-view-layout';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
 import {
@@ -474,8 +472,6 @@ export function ClioChart(props: ClioChartProps) {
     return () => observer.disconnect();
   }, [failure, hasRows, singleView]);
 
-  const frameRef = useRef<HTMLDivElement>(null);
-  const roomyHeader = useContainerQuery(frameRef, DATA_HEADER_LABEL_MIN_WIDTH);
   const heading = title || 'Chart';
   const description = describeChart(spec, displayRows, loading, note);
   const label = a2uiAccessibilityLabel(accessibility) ?? `${heading} chart`;
@@ -567,37 +563,41 @@ export function ClioChart(props: ClioChartProps) {
         ]
       : []),
   ];
+  // Component-specific view-state controls (not a G0 download/select/zoom/
+  // full-screen/reference affordance, so not part of the shared
+  // `SurfaceToolbar` overflow) rendered inline in the chart's own header, as
+  // before this redesign.
+  const chartHeaderExtra = (
+    <>
+      {linkable && selectionField && selectionCandidates.length > 0 ? (
+        <Select onValueChange={handleSelectCandidate} value={selectedCandidate}>
+          <SelectTrigger
+            aria-label={`Select a ${selectionField} by keyboard`}
+            className="text-xs"
+            size="sm"
+          >
+            <SelectValue placeholder={`Select ${selectionField}…`} />
+          </SelectTrigger>
+          <SelectContent>
+            {selectionCandidates.map((candidate) => (
+              <SelectItem key={String(candidate)} value={String(candidate)}>
+                {String(candidate)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
+      {zoomRange ? (
+        <Button className="gap-1 text-xs" onClick={clearZoom} size="sm" variant="ghost">
+          <CloseIcon aria-hidden="true" className="size-3.5" />
+          Reset zoom
+        </Button>
+      ) : null}
+    </>
+  );
   const toolbarCapabilities: SurfaceCapabilities = {
     buildReference: hasRows ? buildReference : undefined,
     exportFormats: hasRows ? exportFormats : undefined,
-    extra: (
-      <>
-        {linkable && selectionField && selectionCandidates.length > 0 ? (
-          <Select onValueChange={handleSelectCandidate} value={selectedCandidate}>
-            <SelectTrigger
-              aria-label={`Select a ${selectionField} by keyboard`}
-              className="text-xs"
-              size="sm"
-            >
-              <SelectValue placeholder={`Select ${selectionField}…`} />
-            </SelectTrigger>
-            <SelectContent>
-              {selectionCandidates.map((candidate) => (
-                <SelectItem key={String(candidate)} value={String(candidate)}>
-                  {String(candidate)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null}
-        {zoomRange ? (
-          <Button className="gap-1 text-xs" onClick={clearZoom} size="sm" variant="ghost">
-            <CloseIcon aria-hidden="true" className="size-3.5" />
-            Reset zoom
-          </Button>
-        ) : null}
-      </>
-    ),
     filters: filterableFields.length ? (
       <DataFilterPopover fields={filterableFields} filters={filters} onFilterChange={handleFilterChange} />
     ) : undefined,
@@ -605,25 +605,25 @@ export function ClioChart(props: ClioChartProps) {
   };
 
   return (
-    <div
-      className="min-w-0"
-      data-slot="a2ui-chart"
-      ref={frameRef}
-      style={dataViewFlexStyle(weight)}
-    >
-      <Frame {...a2uiAccessibilityProps(accessibility)} aria-label={label} dense role="group">
-        <DataHeaderCompactContext.Provider value={!roomyHeader}>
-          <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
-            <ChartLineIcon aria-hidden="true" className="size-4 text-primary" />
-            <div className="min-w-0 flex-1">
-              <FrameTitle className="truncate">{heading}</FrameTitle>
-              <FrameDescription className="truncate" title={description}>
-                {description}
-              </FrameDescription>
-            </div>
-            <SurfaceToolbar capabilities={toolbarCapabilities} />
-          </FrameHeader>
-        </DataHeaderCompactContext.Provider>
+    <div className="min-w-0" data-slot="a2ui-chart" style={dataViewFlexStyle(weight)}>
+      <Frame
+        {...a2uiAccessibilityProps(accessibility)}
+        aria-label={label}
+        className="group"
+        dense
+        role="group"
+      >
+        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
+          <ChartLineIcon aria-hidden="true" className="size-4 text-primary" />
+          <div className="min-w-0 flex-1">
+            <FrameTitle className="truncate">{heading}</FrameTitle>
+            <FrameDescription className="truncate" title={description}>
+              {description}
+            </FrameDescription>
+          </div>
+          {chartHeaderExtra}
+        </FrameHeader>
+        <SurfaceToolbar capabilities={toolbarCapabilities} />
         <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={heading}>
           <FramePanel className="p-0">
             {failure ? (

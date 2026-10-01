@@ -4,6 +4,7 @@ import {
   downloadBlob,
   downloadBytes,
   downloadText,
+  downloadUrl,
   filenameStemFromTitle,
   rowsToCsv,
   rowsToJson,
@@ -75,6 +76,21 @@ describe('browser download helpers', () => {
       'application/vnd.apache.parquet',
       'image/svg+xml',
     ]);
+  });
+
+  it('downloadUrl clicks a download anchor pointed straight at the given URL, minting no new object URL', () => {
+    const createUrl = vi.spyOn(URL, 'createObjectURL');
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      expect(this.href).toBe('blob:existing/abc');
+      expect(this.download).toBe('photo.png');
+    });
+
+    downloadUrl('blob:existing/abc', 'photo.png');
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(createUrl).not.toHaveBeenCalled();
   });
 });
 

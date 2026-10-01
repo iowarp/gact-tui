@@ -1,14 +1,19 @@
-import { CopyIcon, DownloadIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { CheckIcon, CopyIcon, DownloadIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { MoreIcon } from '@/lib/icon-vocabulary';
+import { cn } from '@/lib/utils';
 import { DataReferenceThisButton } from './data-reference-this-button';
-import { useDataHeaderCompact } from './data-header-density';
 import type { DataZoneReference } from './data-zone-reference';
 
 /**
@@ -22,6 +27,22 @@ import type { DataZoneReference } from './data-zone-reference';
  *
  * A capability a component does not declare simply renders nothing: layout,
  * text and input components pass no capabilities at all and get no toolbar.
+ *
+ * Design (owner review, 2026-10-01 — "controlled messy, not uncontrolled
+ * messy"): the toolbar is icon-only (every label lives in a tooltip and the
+ * accessible name), floats over the component's own top-right corner with no
+ * header row or background chrome of its own, and is revealed on hover/focus
+ * of the surface (always visible, at low emphasis, on touch). Every
+ * component renders the SAME controls in the SAME canonical order, declared
+ * ONCE here — a component only says which entries it supports; it never
+ * reorders or restyles them:
+ *   [Filters?] [Reference this?] [Full screen?] [More ▾?]
+ * with the overflow menu always ordered Download ▸, Selection, Copy.
+ * Component-specific state controls that are not a G0 download/select/
+ * zoom/full-screen/reference affordance (a view-mode toggle, a "reset zoom"
+ * button, a keyboard selection fallback) are NOT part of this shared
+ * surface — a component renders those itself, in its own header, same as
+ * before this redesign.
  */
 
 /** One entry in the download format menu. `run` does the actual export (client-side or via a server route). */
@@ -40,20 +61,19 @@ export interface SurfaceFullScreenControl {
 }
 
 export interface SurfaceCapabilities {
-  /** The download menu. Omit entirely when the component has nothing to export. */
+  /** The download menu, nested in the overflow. Omit entirely when the component has nothing to export. */
   exportFormats?: readonly SurfaceExportFormat[];
-  /** A single one-click copy affordance (e.g. a metric's value, a code block's text). */
+  /** A single one-click copy affordance (e.g. a metric's value, a code block's text), nested in the overflow. */
   onCopy?: () => void | Promise<void>;
   copyLabel?: string;
-  /** "Reference this" (G0's model affordance): present whenever the component can describe a zone. */
+  /** "Reference this" (G0's model affordance): present whenever the component can describe a zone. Primary (always visible when declared, never buried in the overflow). */
   buildReference?: () => DataZoneReference;
+  /** Primary (always visible when declared). */
   fullScreen?: SurfaceFullScreenControl;
-  /** A component's own filter popover (e.g. `DataFilterPopover`), slotted in before the shared controls. */
+  /** A component's own filter popover (e.g. `DataFilterPopover`), already a self-contained icon button + popover. Primary (always visible when declared). */
   filters?: ReactNode;
-  /** A short inline hint (e.g. "Shift+drag to select an area"). */
+  /** A short description of the surface's selection/linking affordance, shown as an informational row in the overflow (e.g. "Shift+drag to select an area"). */
   selectionHint?: ReactNode;
-  /** Escape hatch for a control that does not fit the declared shapes above. Used sparingly. */
-  extra?: ReactNode;
 }
 
 /** Whether `capabilities` would render anything at all (callers use this to skip an empty toolbar wrapper). */
@@ -66,13 +86,43 @@ export function hasToolbarContent(capabilities: SurfaceCapabilities | undefined)
       capabilities.buildReference ||
       capabilities.fullScreen ||
       capabilities.filters ||
-      capabilities.selectionHint ||
-      capabilities.extra,
+      capabilities.selectionHint,
   );
 }
 
-function DownloadMenu({ formats }: { formats: readonly SurfaceExportFormat[] }) {
-  const compact = useDataHeaderCompact();
+function ToolbarIconButton({
+  'aria-pressed': ariaPressed,
+  busy,
+  icon,
+  label,
+  onClick,
+}: {
+  'aria-pressed'?: boolean;
+  busy?: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          aria-label={label}
+          aria-pressed={ariaPressed}
+          disabled={busy}
+          onClick={onClick}
+          size="icon-sm"
+          variant="ghost"
+        >
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function DownloadSubmenu({ formats }: { formats: readonly SurfaceExportFormat[] }) {
   const [busy, setBusy] = useState(false);
   if (!formats.length) return null;
   const run = (format: SurfaceExportFormat) => {
@@ -80,91 +130,112 @@ function DownloadMenu({ formats }: { formats: readonly SurfaceExportFormat[] }) 
     void Promise.resolve(format.run()).finally(() => setBusy(false));
   };
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label="Download"
-          className="gap-1.5"
-          disabled={busy}
-          size="sm"
-          title="Download"
-          variant="outline"
-        >
-          <DownloadIcon aria-hidden="true" className="size-3.5" />
-          {compact ? null : 'Download'}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={busy}>
+        <DownloadIcon aria-hidden="true" className="size-3.5" />
+        Download
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
         {formats.map((format) => (
-          <DropdownMenuItem disabled={format.disabled} key={format.id} onSelect={() => run(format)}>
+          <DropdownMenuItem disabled={format.disabled || busy} key={format.id} onSelect={() => run(format)}>
             {format.label}
           </DropdownMenuItem>
         ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }
 
-function CopyButton({ label = 'Copy', onCopy }: { label?: string; onCopy: () => void | Promise<void> }) {
-  const compact = useDataHeaderCompact();
+function CopyMenuItem({ label = 'Copy', onCopy }: { label?: string; onCopy: () => void | Promise<void> }) {
   const [copied, setCopied] = useState(false);
   return (
-    <Button
-      aria-label={label}
-      className="gap-1.5 text-xs"
-      onClick={() => {
+    <DropdownMenuItem
+      onSelect={(event) => {
+        // Stays open long enough to show the transient confirmation, same as
+        // the inline button this replaces.
+        event.preventDefault();
         void Promise.resolve(onCopy()).then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      size="sm"
-      title={label}
-      variant="outline"
     >
-      <CopyIcon aria-hidden="true" className="size-3.5" />
-      {compact ? null : copied ? 'Copied' : label}
-    </Button>
-  );
-}
-
-function FullScreenButton({ control }: { control: SurfaceFullScreenControl }) {
-  const compact = useDataHeaderCompact();
-  const label = control.isOpen ? 'Exit full screen' : 'Full screen';
-  return (
-    <Button
-      aria-label={label}
-      aria-pressed={control.isOpen}
-      className="gap-1.5"
-      onClick={control.onToggle}
-      size="sm"
-      title={label}
-      variant="outline"
-    >
-      {control.isOpen ? (
-        <Minimize2Icon aria-hidden="true" className="size-3.5" />
+      {copied ? (
+        <CheckIcon aria-hidden="true" className="size-3.5" />
       ) : (
-        <Maximize2Icon aria-hidden="true" className="size-3.5" />
+        <CopyIcon aria-hidden="true" className="size-3.5" />
       )}
-      {compact ? null : label}
-    </Button>
+      {copied ? 'Copied' : label}
+    </DropdownMenuItem>
   );
 }
 
 /** Renders every affordance `capabilities` declares, in the same order and shape everywhere. */
 export function SurfaceToolbar({ capabilities }: { capabilities: SurfaceCapabilities }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   if (!hasToolbarContent(capabilities)) return null;
-  const { buildReference, copyLabel, exportFormats, extra, filters, fullScreen, onCopy, selectionHint } =
-    capabilities;
+  const { buildReference, copyLabel, exportFormats, filters, fullScreen, onCopy, selectionHint } = capabilities;
+  const hasOverflow = Boolean(exportFormats?.length || selectionHint || onCopy);
   return (
-    <div className="flex flex-wrap items-center gap-1.5" data-slot="surface-toolbar">
-      {filters}
-      {selectionHint}
-      {extra}
-      {exportFormats?.length ? <DownloadMenu formats={exportFormats} /> : null}
-      {onCopy ? <CopyButton label={copyLabel} onCopy={onCopy} /> : null}
-      {buildReference ? <DataReferenceThisButton buildReference={buildReference} /> : null}
-      {fullScreen ? <FullScreenButton control={fullScreen} /> : null}
+    <div
+      className={cn(
+        'absolute right-1.5 top-1.5 z-10 flex items-center gap-0.5 rounded-md',
+        'opacity-100 transition-opacity duration-150 motion-reduce:transition-none',
+        // Hover/focus reveal: only on devices that actually have hover (a
+        // mouse/trackpad). Touch devices keep the controls visible, at the
+        // base (low) emphasis set above, per the owner's ruling.
+        '[@media(hover:hover)]:opacity-0',
+        '[@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100',
+        // Stays revealed while one of its own menus/popovers is open, even
+        // if the pointer or focus has moved off the surface in the meantime.
+        menuOpen && '![@media(hover:hover)]:opacity-100',
+      )}
+      data-slot="surface-toolbar"
+    >
+      <TooltipProvider delayDuration={150}>
+        {filters}
+        {buildReference ? <DataReferenceThisButton buildReference={buildReference} /> : null}
+        {fullScreen ? (
+          <ToolbarIconButton
+            aria-pressed={fullScreen.isOpen}
+            icon={
+              fullScreen.isOpen ? (
+                <Minimize2Icon aria-hidden="true" className="size-3.5" />
+              ) : (
+                <Maximize2Icon aria-hidden="true" className="size-3.5" />
+              )
+            }
+            label={fullScreen.isOpen ? 'Exit full screen' : 'Full screen'}
+            onClick={fullScreen.onToggle}
+          />
+        ) : null}
+        {hasOverflow ? (
+          <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button aria-label="More" size="icon-sm" variant="ghost">
+                    <MoreIcon aria-hidden="true" className="size-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">More</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              {exportFormats?.length ? <DownloadSubmenu formats={exportFormats} /> : null}
+              {selectionHint ? (
+                <div
+                  className="flex items-center gap-1.5 px-1.5 py-1 text-xs text-muted-foreground"
+                  data-slot="surface-toolbar-selection-hint"
+                >
+                  {selectionHint}
+                </div>
+              ) : null}
+              {onCopy ? <CopyMenuItem label={copyLabel} onCopy={onCopy} /> : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </TooltipProvider>
     </div>
   );
 }

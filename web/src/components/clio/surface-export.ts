@@ -41,6 +41,22 @@ export function downloadBlob(blob: Blob, filename: string): void {
   }
 }
 
+/**
+ * `downloadBlob`, for a URL already in hand (e.g. a `blob:` URL a reference
+ * resolver already built) — skips minting a second object URL for bytes that
+ * already have one.
+ */
+export function downloadUrl(url: string, filename: string): void {
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
 /** `downloadBlob`, for bytes already in hand (a fetched export, a canvas export, ...). */
 export function downloadBytes(data: BlobPart | Uint8Array, mimeType: string, filename: string): void {
   // `Uint8Array`'s newer generic typing (`Uint8Array<ArrayBufferLike>`) is not

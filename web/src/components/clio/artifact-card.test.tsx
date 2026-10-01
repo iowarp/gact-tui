@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -140,6 +140,27 @@ describe('ClioArtifactCard', () => {
     expect(screen.getByText('stations.csv')).toBeVisible();
     expect(screen.queryByText(/Open this data table/u)).not.toBeInTheDocument();
     expect(repository.readArtifactTextFor).not.toHaveBeenCalled();
+  });
+
+  it('G0: offers a download of the original file, without triggering onOpen', async () => {
+    const user = userEvent.setup();
+    const onOpen = renderCard();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await screen.findByRole('img', { name: 'station-timeseries.png' }); // wait past the preview query
+
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.click(screen.getByRole('menuitem', { name: /Download/ }));
+    const item = await screen.findByRole('menuitem', { name: 'Original file' });
+    fireEvent.pointerMove(item);
+    fireEvent.click(item);
+
+    await waitFor(() =>
+      expect(repository.readArtifactBytesFor).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'artifact_plot' }),
+      ),
+    );
+    expect(clickSpy).toHaveBeenCalledTimes(1); // the download anchor, not a card navigation
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   it('does not download an inline preview when the service omits artifact size', () => {

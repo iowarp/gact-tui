@@ -81,18 +81,28 @@ function workflowSource(
 interface ClioWorkflowDiagramProps {
   accessibility?: A2UIAccessibility;
   action?: () => void;
+  /** The artifact `{nodes, edges}` was read from, when it has one — named in exports/references only. */
+  dataUri?: string;
   nodes: readonly WorkflowNode[];
   edges: readonly WorkflowEdge[];
   selected?: string;
 }
 
 // oxlint-disable-next-line react/only-export-components
-function ClioWorkflowDiagram({ accessibility, action, nodes, edges, selected }: ClioWorkflowDiagramProps) {
+function ClioWorkflowDiagram({
+  accessibility,
+  action,
+  dataUri,
+  nodes,
+  edges,
+  selected,
+}: ClioWorkflowDiagramProps) {
   return (
     <div {...a2uiAccessibilityProps(accessibility)} className="grid gap-2" role="group">
       <ClioMermaidDiagram
         accessibilityDescription={a2uiAccessibilityDescription(accessibility)}
         accessibilityLabel={a2uiAccessibilityLabel(accessibility)}
+        dataUri={dataUri}
         source={workflowSource(nodes, edges, selected)}
         title="Workflow"
       />
@@ -163,6 +173,7 @@ function ClioWorkflowArtifactSource({
     <ClioWorkflowDiagram
       accessibility={accessibility}
       action={action}
+      dataUri={dataUri}
       edges={parsed.edges}
       nodes={parsed.nodes}
       selected={selected}
