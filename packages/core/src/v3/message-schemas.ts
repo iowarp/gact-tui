@@ -183,6 +183,27 @@ const injectionMessageBlockSchema = additivelyTolerant(
     })
     .strict(),
 );
+/**
+ * A service notice recorded in the transcript, e.g. a failed compaction
+ * (`source: "compaction_failed"`) with its typed `code`.
+ */
+const noticeMessageBlockSchema = additivelyTolerant(
+  z
+    .object({
+      id: z.string(),
+      type: z.literal('notice'),
+      source: z.string(),
+      text: z.string(),
+      code: z.string().optional(),
+      trigger: z.enum(['auto', 'manual']).optional(),
+      compaction_id: z.string().optional(),
+      agent_id: z.string().optional(),
+      sequence: z.number().int().positive().optional(),
+      stream_source: z.string().optional(),
+      channel: z.string().optional(),
+    })
+    .strict(),
+);
 const unknownMessageBlockSchema = z
   .object({
     id: z.string(),
@@ -216,6 +237,7 @@ export const messageBlockSchema = z.union([
   subagentMessageBlockSchema,
   agentMessageBlockSchema,
   injectionMessageBlockSchema,
+  noticeMessageBlockSchema,
   knownMessageBlockSchema,
   additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,

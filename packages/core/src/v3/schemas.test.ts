@@ -57,6 +57,33 @@ describe('forward-compatible wire enums', () => {
     });
   });
 
+  it('decodes a failed compaction as a notice block with its typed code', () => {
+    expect(
+      messageBlockSchema.parse({
+        id: 'part_notice',
+        type: 'notice',
+        source: 'compaction_failed',
+        text: 'No language model is bound.',
+        code: 'compaction_unavailable',
+        trigger: 'auto',
+        compaction_id: 'cmp_1',
+        agent_id: 'main',
+        sequence: 4,
+        added_later: true,
+      }),
+    ).toEqual({
+      id: 'part_notice',
+      type: 'notice',
+      source: 'compaction_failed',
+      text: 'No language model is bound.',
+      code: 'compaction_unavailable',
+      trigger: 'auto',
+      compaction_id: 'cmp_1',
+      agent_id: 'main',
+      sequence: 4,
+    });
+  });
+
   it('retains message metadata used to classify internal resume envelopes', () => {
     expect(
       messageSchema.parse({

@@ -168,24 +168,81 @@ describe('compaction events', () => {
     expect(done.compactions).toEqual({});
   });
 
-  it('turns a started compaction into a typed error row at the same place on failure', () => {
+  it('keeps an unrecorded failure as a typed error row at the same place', () => {
     const failed = apply(
       transcript(),
       frame('compaction.started', midTurn),
       frame('compaction.failed', {
         ...midTurn,
-        error: { code: 'compaction_unavailable', message: 'No language model is bound.' },
+        part_id: '',
+        error: { code: 'compaction_failure_unrecorded', message: 'No language model is bound.' },
       }),
     );
     expect(failed.compactions.cmp_1).toMatchObject({
       status: 'failed',
       anchor_message_id: 'msg_assistant',
-      error: { code: 'compaction_unavailable', message: 'No language model is bound.' },
+      error: { code: 'compaction_failure_unrecorded', message: 'No language model is bound.' },
     });
+    expect(failed.compactions.cmp_1?.part_id).toBeUndefined();
 
     // A redelivered start does not resurrect the shimmer over the failure.
     const redelivered = apply(failed, frame('compaction.started', midTurn));
     expect(redelivered.compactions.cmp_1?.status).toBe('failed');
+  });
+
+  it('hands a recorded failure to its transcript notice, in either arrival order', () => {
+    const notice = {
+      id: 'part_notice',
+      type: 'notice',
+      source: 'compaction_failed',
+      text: 'No language model is bound.',
+      code: 'compaction_unavailable',
+      trigger: 'auto',
+      compaction_id: 'cmp_1',
+    };
+    const failure = {
+      ...midTurn,
+      part_id: 'part_notice',
+      error: { code: 'compaction_unavailable', message: 'No language model is bound.' },
+    };
+
+    // Event first: the row holds the error until the notice lands mid-turn.
+    const failed = apply(
+      transcript(),
+      frame('compaction.started', midTurn),
+      frame('compaction.failed', failure),
+    );
+    expect(failed.compactions.cmp_1).toMatchObject({ status: 'failed', part_id: 'part_notice' });
+    const recorded = apply(
+      failed,
+      frame('message.block.upserted', {
+        message_id: 'msg_assistant',
+        block: { ...notice, compaction_id: undefined },
+      }),
+    );
+    expect(recorded.compactions).toEqual({});
+    expect(recorded.messages.msg_assistant?.blocks.at(-1)).toMatchObject({
+      type: 'notice',
+      source: 'compaction_failed',
+      code: 'compaction_unavailable',
+    });
+
+    // Notice first (its own between-turns row): the failure adds no live row,
+    // and a redelivered start does not bring the shimmer back.
+    const noticeFirst = apply(
+      transcript(),
+      frame('compaction.started', midTurn),
+      frame('message.upserted', {
+        id: 'msg_notice_ab12',
+        session_id: 'sess_1',
+        role: 'assistant',
+        created_at: '2026-10-01T12:00:40Z',
+        blocks: [notice],
+      }),
+      frame('compaction.failed', failure),
+      frame('compaction.started', midTurn),
+    );
+    expect(noticeFirst.compactions).toEqual({});
   });
 
   it('records a malformed compaction event as an error rather than inventing state', () => {

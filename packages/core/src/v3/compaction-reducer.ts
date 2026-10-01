@@ -23,9 +23,14 @@ export const compactionCompletedSchema = z.object({
   replaced_count: z.number().int().nonnegative(),
 });
 
-/** `compaction.failed`: no summary was produced; `error` is the typed reason. */
+/**
+ * `compaction.failed`: no summary was produced; `error` is the typed reason and
+ * `part_id` the transcript notice recording it (`""` when it could not be
+ * recorded, code `compaction_failure_unrecorded`).
+ */
 export const compactionFailedSchema = z.object({
   ...compactionEventFields,
+  part_id: z.string().default(''),
   error: z.object({ code: z.string().min(1), message: z.string() }),
 });
 
@@ -54,6 +59,30 @@ function anchorMessageId(state: EntityState, event: CompactionEvent): string | u
 
 function summaryResident(state: EntityState, messageId: string, partId: string): boolean {
   return state.messages[messageId]?.blocks.some((block) => block.id === partId) ?? false;
+}
+
+/** The compaction ids and block ids a message records outcomes for. */
+function recordedOutcomes(message: Message): { compactionIds: Set<string>; blockIds: Set<string> } {
+  const compactionIds = new Set<string>();
+  for (const block of message.blocks) {
+    if (
+      ((block.type === 'injection' && block.source === 'summarization') ||
+        (block.type === 'notice' && block.source === 'compaction_failed')) &&
+      block.compaction_id
+    ) {
+      compactionIds.add(block.compaction_id);
+    }
+  }
+  return { compactionIds, blockIds: new Set(message.blocks.map((block) => block.id)) };
+}
+
+function outcomeRecorded(state: EntityState, compactionId: string, partId: string): boolean {
+  return Object.values(state.messages).some((message) => {
+    const recorded = recordedOutcomes(message);
+    return (
+      recorded.compactionIds.has(compactionId) || (partId !== '' && recorded.blockIds.has(partId))
+    );
+  });
 }
 
 function pendingFromEvent(
@@ -91,8 +120,10 @@ export function reduceCompactionStarted(
 ): EntityState['compactions'] {
   const event = compactionStartedSchema.parse(payload);
   const previous = state.compactions[event.compaction_id];
-  // A redelivered start must not resurrect a compaction that already ended.
+  // A redelivered start must not resurrect a compaction that already ended,
+  // whether its outcome is still a live row or already in the transcript.
   if (previous && previous.status !== 'running') return state.compactions;
+  if (!previous && outcomeRecorded(state, event.compaction_id, '')) return state.compactions;
   return {
     ...state.compactions,
     [event.compaction_id]: pendingFromEvent(state, event, occurredAt),
@@ -124,47 +155,48 @@ export function reduceCompactionCompleted(
   };
 }
 
-/** Reduces `compaction.failed` into an error row at the same position. */
+/**
+ * Reduces `compaction.failed`. The transcript's failure notice is the durable
+ * record (live == reload), so the row is cleared once that notice is resident;
+ * until then, or when the service could not record it, the row shows the typed
+ * error at the same position.
+ */
 export function reduceCompactionFailed(
   state: EntityState,
   payload: unknown,
   occurredAt: string,
 ): EntityState['compactions'] {
   const event = compactionFailedSchema.parse(payload);
+  if (outcomeRecorded(state, event.compaction_id, event.part_id)) {
+    return withoutCompaction(state.compactions, event.compaction_id);
+  }
   return {
     ...state.compactions,
     [event.compaction_id]: {
       ...pendingFromEvent(state, event, occurredAt),
       status: 'failed',
+      ...(event.part_id ? { part_id: event.part_id } : {}),
       error: event.error,
     },
   };
 }
 
 /**
- * Drops every unfinished compaction whose summary this message now carries,
- * matched by the completion's `part_id` or by the block's own `compaction_id`.
- * Returns the same object when nothing settled.
+ * Drops every live compaction whose outcome this message now records -- its
+ * summary or its failure notice -- matched by the outcome's `part_id` or by the
+ * block's own `compaction_id`. Returns the same object when nothing settled.
  */
 export function settleCompactions(
   compactions: EntityState['compactions'],
   message: Message,
 ): EntityState['compactions'] {
-  const blockIds = new Set(message.blocks.map((block) => block.id));
-  const summarized = new Set(
-    message.blocks.flatMap((block) =>
-      block.type === 'injection' && block.source === 'summarization' && block.compaction_id
-        ? [block.compaction_id]
-        : [],
-    ),
-  );
+  const { compactionIds, blockIds } = recordedOutcomes(message);
   const settled = Object.values(compactions).filter(
     (compaction) =>
-      compaction.status !== 'failed' &&
-      (summarized.has(compaction.compaction_id) ||
-        (compaction.message_id === message.id &&
-          compaction.part_id !== undefined &&
-          blockIds.has(compaction.part_id))),
+      compactionIds.has(compaction.compaction_id) ||
+      (compaction.part_id !== undefined &&
+        (compaction.message_id === undefined || compaction.message_id === message.id) &&
+        blockIds.has(compaction.part_id)),
   );
   if (settled.length === 0) return compactions;
   return settled.reduce(

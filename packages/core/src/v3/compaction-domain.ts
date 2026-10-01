@@ -32,6 +32,11 @@ export interface PendingCompaction {
    */
   status: 'running' | 'completing' | 'failed';
   message_id?: string;
+  /**
+   * The transcript block that records the outcome: the summary when completing,
+   * the failure notice when failed (absent when the service could not record
+   * the failure, which then lives only in this row).
+   */
   part_id?: string;
   error?: CompactionError;
   started_at: string;

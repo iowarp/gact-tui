@@ -48,6 +48,21 @@ export type MessageBlock = MessageBlockContext &
         trigger?: 'auto' | 'manual';
         compaction_id?: string;
       }
+    | {
+        /**
+         * A service notice recorded in the transcript. `source:
+         * "compaction_failed"` is the durable record of a failed compaction:
+         * `text` says why, `code` is its typed reason, `trigger` who started it,
+         * and `compaction_id` matches its `compaction.*` events.
+         */
+        id: string;
+        type: 'notice';
+        source: string;
+        text: string;
+        code?: string;
+        trigger?: 'auto' | 'manual';
+        compaction_id?: string;
+      }
     | { id: string; type: 'task'; task_id: string }
     | { id: string; type: 'subagent'; subagent_id: string; stage?: string; task?: string }
     | {
