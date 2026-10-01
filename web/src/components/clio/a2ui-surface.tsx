@@ -298,6 +298,14 @@ function ClioA2UISurfaceContent({
           ? '[--a2ui-tabs-content-padding:0]'
           : 'p-3 [--a2ui-tabs-content-padding:0]'
       }
+      // The one marker every surface host shares, framed or bare, inline or
+      // full screen: `ClioA2UISurfaceCard`'s full-screen dialog (and
+      // `pending-a2ui-response.tsx`'s own) portals this div's subtree
+      // directly, bypassing each host's own `id`/`data-slot` wrapper, so a
+      // CSS patch scoped to those misses the dialog (#1549 G9 #25). This
+      // div is the thing being moved in every case, so index.css scopes its
+      // catalog-wide patches (ChoicePicker, TextField/Label) here instead.
+      data-slot="a2ui-surface-root"
     >
       <MarkdownContext.Provider value={renderMarkdown}>
         <A2uiUrlViolationProvider value={reportUrlViolation}>
