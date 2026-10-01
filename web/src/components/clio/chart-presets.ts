@@ -12,7 +12,7 @@ import {
 
 /**
  * TypeScript mirror of `clio_schemas.a2ui.chart_spec.render_preset`
- * (clio-schemas 0.5.0). The templates in `chart-assets/presets/` are byte
+ * (clio-schemas 0.5.2). The templates in `chart-assets/presets/` are byte
  * copies of `schemas/a2ui/chart/presets/*.json`; the grammar has two
  * constructs, implemented exactly as the Python renderer does:
  *
