@@ -16,14 +16,27 @@ import guardRules from './chart-assets/guard_rules.json';
  */
 
 /** The rules version this port implements; the Python side bumps it when a rule changes meaning. */
-export const CHART_SPEC_RULES_SUPPORTED_VERSION = 2;
+export const CHART_SPEC_RULES_SUPPORTED_VERSION = 3;
 
 export const CHART_SPEC_RULES = guardRules;
 
+/**
+ * `spec_invalid_encoding` (clio-schemas 0.5.2, #1549 G4 review) is in this
+ * union for type completeness — a violation list can come back from the
+ * server (`create_a2ui_surface`'s typed refusal) and must still render here —
+ * but {@link checkChartSpec} itself can never produce it. The rule exists
+ * because Python's strict UTF-8 codec refuses a lone UTF-16 surrogate (code
+ * unit, reachable via a `\uD800`-style JSON escape); `JSON.stringify` has no
+ * such failure mode; it escapes a lone surrogate to literal `\uXXXX` text
+ * instead of passing it through (the "Well-Formed JSON.stringify" spec
+ * change), so the serialised text is always valid, encodable UTF-8. See
+ * `chart-spec-guard.test.ts`'s dedicated case for the demonstration.
+ */
 export type ChartSpecViolationCode =
   | 'spec_not_object'
   | 'spec_too_deep'
   | 'spec_too_large'
+  | 'spec_invalid_encoding'
   | 'top_level_key_not_allowed'
   | 'too_many_views'
   | 'data_not_named_source'
@@ -127,6 +140,9 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
     ];
   }
   const violations: ChartSpecViolation[] = [];
+  // `serializedSize` cannot throw here (see `ChartSpecViolationCode`'s doc
+  // comment on `spec_invalid_encoding`) — no try/catch needed, unlike the
+  // Python port.
   const size = serializedSize(spec);
   if (size > guardRules.maxSpecBytes) {
     violations.push({
@@ -189,6 +205,38 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
     for (let index = children.length - 1; index >= 0; index -= 1) stack.push(children[index]!);
   }
   return violations;
+}
+
+/**
+ * Violation codes `checkChartSpec` can report that plain JSON Schema cannot
+ * express (`clio_schemas.a2ui.catalog_bounded`'s module docstring): the
+ * serialized-size cap, UTF-8-encodability, and the recursive view-composition
+ * count. The catalog's own JSON Schema enforces only the rest of
+ * `checkChartSpec` — the top-level key allowlist and the recursive
+ * forbidden-key/data-named-source/bind-element walk — so those three stay
+ * pydantic/renderer-only, checked separately (the catalog test's `renders()`
+ * helper does, via a plain `checkChartSpec` call).
+ */
+const JSON_SCHEMA_INEXPRESSIBLE_CODES: ReadonlySet<ChartSpecViolationCode> = new Set([
+  'spec_too_large',
+  'spec_invalid_encoding',
+  'too_many_views',
+]);
+
+/**
+ * The subset of {@link checkChartSpec} that plain JSON Schema — and so this
+ * catalog's zod mirror of it — can actually express (#1549 G4 review).
+ * `clio.chart.v1`'s `spec` field uses this, not the full `checkChartSpec`,
+ * so the zod schema agrees with the *server's JSON Schema* specifically
+ * (deep url/usermeta/data/bind.element rules included) without also failing
+ * a spec that is JSON-Schema-valid but renderer-refused for size or view
+ * count — exactly the server's own two-layer split (`WORKSPACE_VALIDATORS`
+ * vs. `ChartComponent.model_validate`, `tests/test_a2ui_corpus.py`).
+ */
+export function checkChartSpecSchemaRules(spec: unknown): ChartSpecViolation[] {
+  return checkChartSpec(spec).filter(
+    (violation) => !JSON_SCHEMA_INEXPRESSIBLE_CODES.has(violation.code),
+  );
 }
 
 /** A one-line, reader-facing summary of the violations (the chart's stated error). */

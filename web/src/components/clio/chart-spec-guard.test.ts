@@ -27,12 +27,27 @@ import { compile } from 'vega-lite';
  * truth: re-copy them from `schemas/a2ui/chart/` and update these hashes.
  */
 const CLIO_SCHEMAS_CHART_HASHES: Record<string, string> = {
-  'guard_rules.json': 'b25af2742b71a49aa134c0b4ca97ef6bc3032240014ef0a15b0ef89d9f5bdabc',
+  'guard_rules.json': '5dfdf33ce061c686d0e74586751cc622098759513f3450b572d400b56479abe7',
   'presets/boxplot.json': '6473a35c14bbde0d5c62e60b1647d608f7cc730b3eeee4a4cc3b2e382eef90bd',
   'presets/heatmap.json': 'd39995019b3b8269841dd74abe458fb71d14377b4f1335c6370045364dc498ed',
   'presets/scatter.json': '8212912d8324c53ec725fc3c277ef6c471aea245ad5b32043d336bef7c0c870f',
   'presets/spectra.json': '1723d96636ed662137ed58e760cf2c494e71711eba701cd83d7d9fea8d176b90',
   'presets/trajectories.json': 'acb91b6fcdc592a87e049ef5ed3edcd7bc3866abe28e136a0a466f55c926eb4b',
+};
+
+/**
+ * The shared fixtures themselves (`a2ui/chart/fixtures/*.json` in
+ * clio-schemas — shipped as package data and hashed since #1549 G4), vendored
+ * here at `test-fixtures/chart/` rather than `chart-assets/`: they are test
+ * data, never shipped in the app bundle. A mismatch means these drifted from
+ * clio-schemas: re-copy them and update these hashes (#1549 G4 review —
+ * `component_cases.json` had drifted this way once already).
+ */
+const CLIO_SCHEMAS_CHART_FIXTURE_HASHES: Record<string, string> = {
+  'guard_cases.json': '04c9540a951fbc4eb2dadfadf75b74a58d2bf22242ebfe2fc3112144b723a118',
+  'preset_cases.json': '2767c24e9773aa8e9b38da0c7c06a5aa06cb15254f20938d4212b7bf79cf230f',
+  'selection_state_cases.json': '485f2f529f9695eb7957b421267596b86b8895a487b509c9ce3462cba662d3da',
+  'component_cases.json': '25d44e61df49064a7242289fec27569b526a8666295be4ea87ae127a327f88d1',
 };
 
 describe('chart spec guard', () => {
@@ -45,6 +60,14 @@ describe('chart spec guard', () => {
     'vendors %s byte-for-byte from clio-schemas',
     (file, hash) => {
       const bytes = readFileSync(resolve(process.cwd(), 'src/components/clio/chart-assets', file));
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(hash);
+    },
+  );
+
+  it.each(Object.entries(CLIO_SCHEMAS_CHART_FIXTURE_HASHES))(
+    'pins shared fixture %s byte-for-byte from clio-schemas',
+    (file, hash) => {
+      const bytes = readFileSync(resolve(process.cwd(), 'src/test-fixtures/chart', file));
       expect(createHash('sha256').update(bytes).digest('hex')).toBe(hash);
     },
   );
@@ -81,6 +104,22 @@ describe('chart spec guard', () => {
     expect(countViews({ facet: {}, spec: { layer: [{ mark: 'line' }, { mark: 'point' }] } })).toBe(
       2,
     );
+  });
+
+  it('never produces spec_invalid_encoding: JSON.stringify escapes a lone surrogate, unlike Python', () => {
+    // The Python guard's `spec_invalid_encoding` (clio-schemas #1549 G4
+    // review) exists because `str.encode("utf-8")` refuses a lone UTF-16
+    // surrogate. `JSON.stringify` has no such failure mode: per the
+    // "Well-Formed JSON.stringify" spec change, it escapes a lone surrogate
+    // to literal `\uXXXX` text instead of passing it through, so the result
+    // is always valid, encodable UTF-8. `spec_invalid_encoding` stays in
+    // `ChartSpecViolationCode` only so a server-reported violation can still
+    // render (see that type's doc comment) — `checkChartSpec` itself never
+    // emits it, which this demonstrates rather than asserts away.
+    const spec = { mark: 'point', description: '\ud800' };
+    expect(JSON.stringify(spec)).toContain('\\ud800');
+    expect(() => serializedSize(spec)).not.toThrow();
+    expect(checkChartSpec(spec)).toEqual([]);
   });
 
   it('stops at the depth limit without walking a hostile spec', () => {
