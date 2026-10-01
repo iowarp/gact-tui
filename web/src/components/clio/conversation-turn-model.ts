@@ -54,18 +54,19 @@ export interface ConversationIteration {
 }
 
 /**
- * A context summary that happened inside the turn. It stays at its step: it
- * renders between the iterations before it and the ones after it.
+ * The record of a compaction that happened inside the turn -- its summary or
+ * its failure notice. It stays at its step: it renders between the iterations
+ * before it and the ones after it.
  */
-export interface ConversationTurnSummarization {
-  /** How many iterations precede the summary. */
+export interface ConversationTurnCompactionRecord {
+  /** How many iterations precede the record. */
   afterIteration: number;
-  block: Extract<MessageBlock, { type: 'injection' }>;
+  block: Extract<MessageBlock, { type: 'injection' | 'notice' }>;
 }
 
 export interface ConversationTurnPresentation {
   iterations: ConversationIteration[];
-  summarizations: ConversationTurnSummarization[];
+  compactionRecords: ConversationTurnCompactionRecord[];
   residualBlocks: MessageBlock[];
 }
 
@@ -75,10 +76,10 @@ export function conversationTurnPresentation(
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task> = {},
 ): ConversationTurnPresentation {
-  const { iterations, summarizations, consumed } = fallbackIterations(message, tools, tasks);
+  const { iterations, compactionRecords, consumed } = fallbackIterations(message, tools, tasks);
   return {
     iterations,
-    summarizations,
+    compactionRecords,
     residualBlocks: message.blocks.filter((block) => !consumed.has(block.id)),
   };
 }
@@ -89,11 +90,11 @@ function fallbackIterations(
   tasks: Record<string, Task>,
 ): {
   iterations: ConversationIteration[];
-  summarizations: ConversationTurnSummarization[];
+  compactionRecords: ConversationTurnCompactionRecord[];
   consumed: Set<string>;
 } {
   const iterations: ConversationIteration[] = [];
-  const summarizations: ConversationTurnSummarization[] = [];
+  const compactionRecords: ConversationTurnCompactionRecord[] = [];
   const consumed = new Set<string>();
   const indexed = message.blocks.map((block, position) => ({ block, position }));
   const ordered = indexed.some(({ block }) => block.sequence === undefined)
@@ -124,9 +125,12 @@ function fallbackIterations(
   };
 
   for (const { block } of ordered) {
-    if (block.type === 'injection' && block.source === 'summarization') {
+    if (
+      (block.type === 'injection' && block.source === 'summarization') ||
+      (block.type === 'notice' && block.source === 'compaction_failed')
+    ) {
       flush();
-      summarizations.push({ afterIteration: iterations.length, block });
+      compactionRecords.push({ afterIteration: iterations.length, block });
       consumed.add(block.id);
       continue;
     }
@@ -215,7 +219,7 @@ function fallbackIterations(
     messageCompletedNormally(message) && !current.activity.some((entry) => entry.kind === 'tool'),
     messageInterrupted(message),
   );
-  return { consumed, iterations, summarizations };
+  return { compactionRecords, consumed, iterations };
 }
 
 function messageToolOwnsReceipt(iteration: ConversationIteration, message: string): boolean {

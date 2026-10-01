@@ -48,7 +48,7 @@ import { TranscriptResourceAttachments } from './transcript-resource-attachment'
 import { GroundedMessageResponse } from './grounded-message-response';
 import { toolOutputDiffKey } from './declared-diff-key';
 import { vocab } from '@/lib/brand-vocabulary';
-import { SummarizationInjection } from './conversation-summarization';
+import { SummarizationInjection, TranscriptNotice } from './conversation-summarization';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -203,6 +203,8 @@ function MessageBlockView({
       ) : (
         <HarnessInjection block={block} />
       );
+    case 'notice':
+      return <TranscriptNotice block={block} />;
     case 'artifact': {
       const artifact = artifacts[block.artifact_id];
       return artifact ? (

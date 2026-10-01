@@ -10,6 +10,7 @@ import { GroundedMessageResponse } from './grounded-message-response';
 import { humanizeProtocolValue } from './presentation-labels';
 
 type SummarizationBlock = Extract<MessageBlock, { type: 'injection' }>;
+type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
 
 const SUMMARIZING_LABEL = 'Summarizing context';
 
@@ -68,30 +69,68 @@ export function SummarizationInjection({
   );
 }
 
+/** A compaction that produced no summary: why, its typed code, and who started it. */
+function CompactionFailure({
+  code,
+  message,
+  trigger,
+}: {
+  code?: string;
+  message: string;
+  trigger?: CompactionTrigger;
+}) {
+  return (
+    <Alert data-slot="compaction-failed" variant="destructive">
+      <AlertTriangleIcon aria-hidden="true" />
+      <AlertTitle className="flex flex-wrap items-center gap-2">
+        Context could not be summarized
+        {trigger ? <CompactionTriggerBadge trigger={trigger} /> : null}
+      </AlertTitle>
+      <AlertDescription>
+        {message || 'The service did not report why.'}
+        {code ? <span className="mt-1 block text-xs">{humanizeProtocolValue(code)}</span> : null}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+/**
+ * A service notice from the transcript. A failed compaction's notice is its
+ * durable record and looks exactly like the live failure row it replaces.
+ */
+export function TranscriptNotice({ block }: { block: NoticeBlock }) {
+  if (block.source === 'compaction_failed') {
+    return <CompactionFailure code={block.code} message={block.text} trigger={block.trigger} />;
+  }
+  return (
+    <Alert data-slot="transcript-notice">
+      <AlertTriangleIcon aria-hidden="true" />
+      <AlertTitle>{humanizeProtocolValue(block.source)}</AlertTitle>
+      <AlertDescription>
+        {block.text}
+        {block.code ? (
+          <span className="mt-1 block text-xs">{humanizeProtocolValue(block.code)}</span>
+        ) : null}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 /**
  * A compaction in progress, in the place its summary will appear: a shimmering
  * "Summarizing context" (static under reduced motion) with who started it. A
- * failed compaction shows its typed error here instead.
+ * failure not yet (or never) recorded in the transcript shows its typed error
+ * here instead.
  */
 export function ClioCompactionProgress({ compaction }: { compaction: PendingCompaction }) {
   const reducedMotion = useReducedMotionConfig();
   if (compaction.status === 'failed') {
     return (
-      <Alert data-slot="compaction-failed" variant="destructive">
-        <AlertTriangleIcon aria-hidden="true" />
-        <AlertTitle className="flex flex-wrap items-center gap-2">
-          Context could not be summarized
-          <CompactionTriggerBadge trigger={compaction.trigger} />
-        </AlertTitle>
-        <AlertDescription>
-          {compaction.error?.message || 'The service did not report why.'}
-          {compaction.error?.code ? (
-            <span className="mt-1 block text-xs">
-              {humanizeProtocolValue(compaction.error.code)}
-            </span>
-          ) : null}
-        </AlertDescription>
-      </Alert>
+      <CompactionFailure
+        code={compaction.error?.code}
+        message={compaction.error?.message ?? ''}
+        trigger={compaction.trigger}
+      />
     );
   }
   return (

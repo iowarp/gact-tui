@@ -34,7 +34,7 @@ import { McpAppResponseMessageRow } from './conversation-message-projections';
 import { ClioCompactionProgress } from './conversation-summarization';
 import type {
   ConversationIteration,
-  ConversationTurnSummarization,
+  ConversationTurnCompactionRecord,
 } from './conversation-turn-model';
 import { useConversationTurn } from './use-conversation-turn';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
@@ -71,7 +71,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const cancellablePendingSteer =
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
   const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
-  const { linkedSubagentIds, residualBlocks, summarizations } = turn;
+  const { compactionRecords, linkedSubagentIds, residualBlocks } = turn;
   const visibleResidualBlocks = residualBlocks.filter(
     (block) => block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
   );
@@ -274,8 +274,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               </Alert>
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
-                {turnSegments(turn.iterations, summarizations).map((segment) =>
-                  segment.kind === 'summary' ? (
+                {turnSegments(turn.iterations, compactionRecords).map((segment) =>
+                  segment.kind === 'record' ? (
                     <MessageBlockSequence
                       blocks={[segment.block]}
                       key={segment.block.id}
@@ -326,24 +326,24 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
 
 type TurnSegment =
   | { kind: 'iterations'; iterations: ConversationIteration[] }
-  | { kind: 'summary'; block: ConversationTurnSummarization['block'] };
+  | { kind: 'record'; block: ConversationTurnCompactionRecord['block'] };
 
-/** Splits a turn's iterations at the context summaries that happened inside it. */
+/** Splits a turn's iterations at the compaction records made inside it. */
 function turnSegments(
   iterations: readonly ConversationIteration[],
-  summarizations: readonly ConversationTurnSummarization[],
+  records: readonly ConversationTurnCompactionRecord[],
 ): TurnSegment[] {
   const segments: TurnSegment[] = [];
   let start = 0;
-  for (const summary of summarizations) {
-    if (summary.afterIteration > start) {
+  for (const record of records) {
+    if (record.afterIteration > start) {
       segments.push({
         kind: 'iterations',
-        iterations: iterations.slice(start, summary.afterIteration),
+        iterations: iterations.slice(start, record.afterIteration),
       });
-      start = summary.afterIteration;
+      start = record.afterIteration;
     }
-    segments.push({ kind: 'summary', block: summary.block });
+    segments.push({ kind: 'record', block: record.block });
   }
   if (start < iterations.length) {
     segments.push({ kind: 'iterations', iterations: iterations.slice(start) });

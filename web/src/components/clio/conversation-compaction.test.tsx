@@ -94,6 +94,25 @@ const assistantMessage: Message = {
   blocks: [{ id: 'assistant_text', type: 'text', text: 'Reading the station files now.' }],
 };
 
+const noticeBlock: Extract<Message['blocks'][number], { type: 'notice' }> = {
+  id: 'part_notice',
+  type: 'notice',
+  source: 'compaction_failed',
+  text: 'No language model is bound.',
+  code: 'compaction_unavailable',
+  trigger: 'manual',
+  compaction_id: 'cmp_live',
+};
+
+/** A between-turns failure notice exactly as the service returns it on reload. */
+const noticeMessage: Message = {
+  id: 'msg_notice_ab12',
+  session_id: 'session_1',
+  role: 'assistant',
+  created_at: '2026-10-01T00:00:04Z',
+  blocks: [noticeBlock],
+};
+
 function pending(overrides: Partial<PendingCompaction> = {}): PendingCompaction {
   return {
     compaction_id: 'cmp_live',
@@ -166,6 +185,18 @@ describe('ClioConversation summarization injection', () => {
     ).toBeTruthy();
   });
 
+  it('renders the trailing recall line as part of the summary text', async () => {
+    const user = userEvent.setup();
+    const recall = 'Earlier detail is archived; call recall_context to retrieve it.';
+    conversation([
+      { ...summaryMessage, blocks: [{ ...summaryBlock, text: `${summary}\n\n${recall}` }] },
+    ]);
+    // The collapsed preview is the same clamped text; expanding shows the recall line.
+    expect(screen.getByText(/unique-marker-tail/)).toHaveClass('line-clamp-3');
+    await user.click(screen.getByRole('button', { name: 'Show more' }));
+    expect(screen.getByText(/call recall_context to retrieve it/)).toBeInTheDocument();
+  });
+
   it('labels a user-requested summary distinctly from an automatic one', () => {
     conversation([
       {
@@ -233,6 +264,73 @@ describe('ClioConversation compaction progress', () => {
     expect(failure).toHaveTextContent('No language model is bound.');
     expect(failure).toHaveTextContent('Compaction unavailable');
     expect(document.getElementById('message-message_assistant')?.contains(failure)).toBe(true);
+  });
+
+  it('renders a reloaded failure notice with the in-place error look', () => {
+    conversation([userMessage, assistantMessage, noticeMessage]);
+    const failure = document.querySelector('[data-slot="compaction-failed"]');
+    expect(failure).toHaveTextContent('Context could not be summarized');
+    expect(failure).toHaveTextContent('No language model is bound.');
+    expect(failure).toHaveTextContent('Compaction unavailable');
+    expect(failure).toHaveTextContent('Requested');
+    expect(document.getElementById('message-msg_notice_ab12')?.contains(failure)).toBe(true);
+  });
+
+  it('renders a mid-turn failure notice inside the turn, at its step', () => {
+    conversation([
+      userMessage,
+      {
+        ...assistantMessage,
+        blocks: [
+          { id: 'r1', type: 'reasoning', text: 'Read the station files.' },
+          { ...noticeBlock, trigger: 'auto' },
+          { id: 'answer', type: 'text', text: 'Final answer text.', channel: 'answer' },
+        ],
+      },
+    ]);
+    const failure = document.querySelector('[data-slot="compaction-failed"]');
+    expect(failure).toHaveTextContent('Automatic');
+    expect(document.getElementById('message-message_assistant')?.contains(failure)).toBe(true);
+    expect(
+      failure!.compareDocumentPosition(screen.getByText('Final answer text.')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('drops the live failure row once its notice is in the transcript', () => {
+    conversation(
+      [userMessage, assistantMessage, noticeMessage],
+      [
+        pending({
+          compaction_id: 'cmp_unlisted',
+          status: 'failed',
+          part_id: 'part_notice',
+          error: { code: 'compaction_unavailable', message: 'No language model is bound.' },
+        }),
+      ],
+    );
+    // Exactly one failure: the transcript's notice, not the live row as well.
+    expect(document.querySelectorAll('[data-slot="compaction-failed"]')).toHaveLength(1);
+    expect(
+      document
+        .getElementById('message-msg_notice_ab12')
+        ?.contains(document.querySelector('[data-slot="compaction-failed"]')),
+    ).toBe(true);
+  });
+
+  it('keeps the live failure row when the service could not record the failure', () => {
+    conversation(
+      [userMessage, assistantMessage],
+      [
+        pending({
+          status: 'failed',
+          error: { code: 'compaction_failure_unrecorded', message: 'Disk is full.' },
+        }),
+      ],
+    );
+    expect(document.querySelector('[data-slot="compaction-failed"]')).toHaveTextContent(
+      'Disk is full.',
+    );
   });
 
   it('places a compaction with no resident anchor after the last message', () => {

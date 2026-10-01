@@ -23,7 +23,7 @@ const turn: Message = {
   ],
 };
 
-describe('conversationTurnPresentation summarizations', () => {
+describe('conversationTurnPresentation compaction records', () => {
   it('keeps a mid-turn summary at its step, between the iterations around it', () => {
     const presentation = conversationTurnPresentation(turn, {});
 
@@ -31,7 +31,25 @@ describe('conversationTurnPresentation summarizations', () => {
       'r1',
       'r2',
     ]);
-    expect(presentation.summarizations).toEqual([{ afterIteration: 1, block: turn.blocks[1] }]);
+    expect(presentation.compactionRecords).toEqual([{ afterIteration: 1, block: turn.blocks[1] }]);
+    expect(presentation.residualBlocks.map((block) => block.id)).toEqual(['answer']);
+  });
+
+  it('keeps a mid-turn failure notice at its step too', () => {
+    const notice = {
+      id: 'part_notice',
+      type: 'notice' as const,
+      source: 'compaction_failed',
+      text: 'No language model is bound.',
+      code: 'compaction_unavailable',
+      trigger: 'auto' as const,
+      compaction_id: 'cmp_1',
+    };
+    const presentation = conversationTurnPresentation(
+      { ...turn, blocks: [turn.blocks[0]!, notice, turn.blocks[2]!, turn.blocks[3]!] },
+      {},
+    );
+    expect(presentation.compactionRecords).toEqual([{ afterIteration: 1, block: notice }]);
     expect(presentation.residualBlocks.map((block) => block.id)).toEqual(['answer']);
   });
 
@@ -46,7 +64,7 @@ describe('conversationTurnPresentation summarizations', () => {
       },
       {},
     );
-    expect(presentation.summarizations).toEqual([]);
+    expect(presentation.compactionRecords).toEqual([]);
     expect(presentation.residualBlocks.map((block) => block.id)).toEqual(['hint']);
   });
 });
