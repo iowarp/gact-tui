@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { ZoomPan } from './zoom-pan';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as platform from '@/lib/platform';
+import { ZoomPan, zoomScrollHint } from './zoom-pan';
 
 afterEach(cleanup);
 
@@ -73,5 +74,31 @@ describe('ZoomPan wheel scoping', () => {
     await flushZoomFrame();
 
     expect(currentPercent()).toBeGreaterThan(before);
+  });
+});
+
+/**
+ * #1549 G9 follow-up (adversarial review of #514): the toolbar hint said
+ * "Scroll to zoom, drag to pan" even after the wheel listener above started
+ * requiring Ctrl/Meta -- stale copy that no longer named a real affordance.
+ * `zoomScrollHint` is the one shared string every host (`mermaid-preview.tsx`
+ * and `resource-viewers.tsx`'s image viewer, both built on this component)
+ * renders instead, so the modifier can't drift out of sync again.
+ */
+describe('zoomScrollHint', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('names Ctrl+scroll on a non-Mac host', () => {
+    vi.spyOn(platform, 'isMacOS').mockReturnValue(false);
+
+    expect(zoomScrollHint()).toBe('Ctrl+scroll or pinch to zoom, drag to pan');
+  });
+
+  it('names the Mac glyph on a macOS host', () => {
+    vi.spyOn(platform, 'isMacOS').mockReturnValue(true);
+
+    expect(zoomScrollHint()).toBe('⌘+scroll or pinch to zoom, drag to pan');
   });
 });

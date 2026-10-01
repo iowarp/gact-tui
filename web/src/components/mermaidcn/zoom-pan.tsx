@@ -2,7 +2,23 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { isMacOS } from '@/lib/platform';
 import { AlertTriangleIcon, Loader2 } from 'lucide-react';
+
+/**
+ * #1549 G9 #27 follow-up (adversarial review of #514): the wheel listener
+ * below only zooms on Ctrl/Meta+wheel now, so the toolbar hint that used to
+ * say "Scroll to zoom" was stale everywhere it was copy-pasted
+ * (`mermaid-preview.tsx`, and `resource-viewers.tsx`'s image viewer, which
+ * also renders this component). One shared string names the actual
+ * modifier, showing the Mac glyph on Mac hosts. There's no separate
+ * "or when the canvas is focused" exception: `handleKeyDown` already zooms
+ * on a focused canvas via `+`/`-`/`0`, so a focused plain wheel keeping its
+ * own Ctrl/Meta gate is consistent, not a gap.
+ */
+export function zoomScrollHint(): string {
+  return `${isMacOS() ? '⌘' : 'Ctrl'}+scroll or pinch to zoom, drag to pan`;
+}
 
 export interface ZoomPanProps {
   imageSrc?: string;
