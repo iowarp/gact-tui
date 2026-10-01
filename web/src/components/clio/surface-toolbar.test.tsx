@@ -47,6 +47,13 @@ describe('hasToolbarContent', () => {
 });
 
 describe('SurfaceToolbar', () => {
+  it('pairs pointer-events with opacity, so the invisible hover state never blocks clicks underneath it (regression: a real browser run found the toolbar swallowing clicks on the map behind it while hidden)', () => {
+    render(<SurfaceToolbar capabilities={{ onCopy: () => {} }} />);
+    const toolbar = document.querySelector('[data-slot="surface-toolbar"]')!;
+    expect(toolbar.className).toContain('[@media(hover:hover)]:pointer-events-none');
+    expect(toolbar.className).toContain('[@media(hover:hover)]:group-hover:pointer-events-auto');
+  });
+
   it('renders nothing for a component with no declared affordances (layout/text/input)', () => {
     const { container } = render(<SurfaceToolbar capabilities={{}} />);
     expect(container).toBeEmptyDOMElement();

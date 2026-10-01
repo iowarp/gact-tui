@@ -378,7 +378,7 @@ export function ClioMeshViewport({
         dense
         role="group"
       >
-        <FrameHeader className="flex-row items-center gap-2">
+        <FrameHeader className="flex-row items-center gap-2 pr-36">
           <BoxIcon aria-hidden="true" className="size-4 text-primary" />
           <div className="min-w-0 flex-1">
             <FrameTitle className="truncate">{heading}</FrameTitle>

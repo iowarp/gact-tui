@@ -613,7 +613,7 @@ export function ClioChart(props: ClioChartProps) {
         dense
         role="group"
       >
-        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
+        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5 pr-36">
           <ChartLineIcon aria-hidden="true" className="size-4 text-primary" />
           <div className="min-w-0 flex-1">
             <FrameTitle className="truncate">{heading}</FrameTitle>

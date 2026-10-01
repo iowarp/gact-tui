@@ -144,7 +144,7 @@ export function ClioMermaidDiagram({
       aria-label={accessibilityLabel || heading}
       className="group relative min-w-0 bg-card"
     >
-      <header className="flex items-center justify-between gap-3 pb-2">
+      <header className="flex items-center justify-between gap-3 pb-2 pr-36">
         <div className="flex min-w-0 items-center gap-2">
           <WorkflowIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
           <h3 className="truncate text-sm font-medium">{heading}</h3>

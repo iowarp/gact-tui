@@ -355,7 +355,7 @@ export function ClioScientificMap({
         dense
         role="group"
       >
-        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
+        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5 pr-36">
           <MapIcon aria-hidden="true" className="size-4 text-primary" />
           <div className="min-w-0 flex-1">
             <FrameTitle className="truncate">{title}</FrameTitle>

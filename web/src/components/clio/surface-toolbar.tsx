@@ -43,6 +43,15 @@ import type { DataZoneReference } from './data-zone-reference';
  * button, a keyboard selection fallback) are NOT part of this shared
  * surface — a component renders those itself, in its own header, same as
  * before this redesign.
+ *
+ * Because this toolbar is `position: absolute` (out of flow) rather than a
+ * trailing flex item, a component with its own header content reserves
+ * space for it explicitly (`pr-36`, ~the widest toolbar's four icon buttons
+ * plus its corner offset) — a Playwright run caught the alternative: a
+ * header's own trailing control (the map's "Show the locations list", the
+ * chart's keyboard-select/reset-zoom, the mermaid/workflow render-source
+ * toggle, the mesh viewport's "Reset view") flowing all the way to the edge
+ * and sitting UNDER the toolbar once hover reveals it, stealing its clicks.
  */
 
 /** One entry in the download format menu. `run` does the actual export (client-side or via a server route). */
@@ -186,9 +195,18 @@ export function SurfaceToolbar({ capabilities }: { capabilities: SurfaceCapabili
         // base (low) emphasis set above, per the owner's ruling.
         '[@media(hover:hover)]:opacity-0',
         '[@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100',
-        // Stays revealed while one of its own menus/popovers is open, even
-        // if the pointer or focus has moved off the surface in the meantime.
-        menuOpen && '![@media(hover:hover)]:opacity-100',
+        // `pointer-events` travels WITH `opacity` (never on its own): an
+        // `opacity-0` element is still hit-tested by default, so without this
+        // the toolbar's own invisible hover-target area sits on top of (and
+        // silently swallows clicks meant for) the chart/map/table content
+        // underneath it — a real bug a Playwright run caught (clicking a map
+        // point near the toolbar's corner hit the toolbar instead).
+        '[@media(hover:hover)]:pointer-events-none',
+        '[@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-focus-within:pointer-events-auto',
+        // Stays revealed (and clickable) while one of its own menus/popovers
+        // is open, even if the pointer or focus has moved off the surface in
+        // the meantime.
+        menuOpen && '![@media(hover:hover)]:opacity-100 [@media(hover:hover)]:pointer-events-auto',
       )}
       data-slot="surface-toolbar"
     >
