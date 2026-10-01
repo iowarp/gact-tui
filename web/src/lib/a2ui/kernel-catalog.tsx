@@ -16,7 +16,6 @@ import {
   DateTimeInput,
   Card,
   Divider,
-  Icon,
   List,
   Modal,
   Row,
@@ -65,6 +64,7 @@ import { ClioTimeSeriesFallbackCatalogComponent } from '@/components/clio/a2ui-t
 import { ClioWorkflowCatalogComponent } from '@/components/clio/a2ui-workflow-catalog';
 import { useArtifactText } from '@/components/clio/artifact-text-query';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
+import { KernelIcon } from './kernel-catalog-icon';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
@@ -512,6 +512,24 @@ const cardAction = z
   })
   .strict();
 
+/**
+ * `cardAction.action`'s declared type is `CommonSchemas.Action`'s
+ * pre-binding JSON shape (`{ event: {...} }` or a function-call union) --
+ * the payload the agent sends. By render time the generic binder has
+ * already walked the array and resolved each `action` field into a zero-arg
+ * closure (`GenericBinder.bindAction`, `@a2ui/web_core`), the same
+ * transformation a component's own top-level `action` prop gets (which is
+ * why `Callout`/`Diff` above call `props.action?.()` directly, not
+ * `dispatchAction(props.action)` -- #1549 G1). `@a2ui/react`'s
+ * `ResolveA2uiProps` type utility just doesn't propagate that
+ * transformation through a field nested inside `z.array(...)`, so the
+ * static type here still names the untransformed shape; this reflects the
+ * real, runtime-confirmed contract instead of re-introducing G1's bug.
+ */
+function resolvedCardAction(action: z.infer<typeof cardAction>['action']): () => void {
+  return action as unknown as () => void;
+}
+
 const ActionCard = createComponentImplementation(
   {
     name: 'clio.action-card.v1',
@@ -526,7 +544,7 @@ const ActionCard = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props, context }) => (
+  ({ props }) => (
     <Alert
       {...a2uiAccessibilityProps(props.accessibility)}
       variant={props.severity === 'critical' ? 'destructive' : 'default'}
@@ -537,7 +555,7 @@ const ActionCard = createComponentImplementation(
         {props.actions.map((item) => (
           <Button
             key={item.label}
-            onClick={() => void context.dispatchAction(item.action)}
+            onClick={() => void resolvedCardAction(item.action)()}
             size="sm"
             variant={item.tone === 'destructive' ? 'destructive' : 'outline'}
           >
@@ -563,7 +581,7 @@ const Approval = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props, context }) => (
+  ({ props }) => (
     <div {...a2uiAccessibilityProps(props.accessibility)} role="group">
       <Confirmation approval={{ id: props.title }} state="approval-requested">
         <ShieldAlertIcon aria-hidden="true" className="size-4 text-warning" />
@@ -577,7 +595,7 @@ const Approval = createComponentImplementation(
             {props.actions.map((item) => (
               <ConfirmationAction
                 key={item.label}
-                onClick={() => void context.dispatchAction(item.action)}
+                onClick={() => void resolvedCardAction(item.action)()}
                 variant={item.tone === 'destructive' ? 'destructive' : 'outline'}
               >
                 {item.label}
@@ -640,7 +658,7 @@ const AudioPlayer = createComponentImplementation(AudioPlayerApi, ({ props, cont
 const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   Text,
   Image,
-  Icon,
+  KernelIcon,
   Video,
   AudioPlayer,
   Row,

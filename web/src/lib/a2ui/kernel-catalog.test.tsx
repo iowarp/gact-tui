@@ -336,6 +336,51 @@ describe('CLIO A2UI kernel catalog', () => {
     }
   }, 20_000);
 
+  it('dispatches action-card and approval button actions instead of dropping them (#1549 G1)', async () => {
+    // The generic binder already resolves `item.action` into a zero-arg
+    // closure (`GenericBinder.bindAction`) before these components ever see
+    // it, so re-wrapping it in `context.dispatchAction(...)` hands
+    // `SurfaceModel.dispatchAction` a function instead of an `{ event }`
+    // payload, which it drops with no `event` key and no error. Calling the
+    // closure directly is the same path `Button`'s own `onClick: props.action`
+    // and this file's `Callout` already use.
+    const continueAction = { event: { name: 'card.continue' } };
+    const approveAction = { event: { name: 'approval.approve' } };
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['action', 'approval'] },
+      {
+        id: 'action',
+        component: 'clio.action-card.v1',
+        title: 'Continue analysis',
+        body: 'Review the result',
+        severity: 'info',
+        actions: [{ label: 'Continue', action: continueAction }],
+      },
+      {
+        id: 'approval',
+        component: 'clio.approval.v1',
+        title: 'Approve export',
+        reason: 'Write the report',
+        risk: 'low',
+        actions: [{ label: 'Approve', action: approveAction }],
+      },
+    ]);
+    const onAction = vi.fn();
+    surface.onAction.subscribe(onAction);
+
+    render(<A2uiSurface surface={surface} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    await vi.waitFor(() => {
+      expect(onAction).toHaveBeenCalledWith(expect.objectContaining({ name: 'card.continue' }));
+      expect(onAction).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'approval.approve' }),
+      );
+    });
+  });
+
   it('shows a clean fallback card, not the raw red "Unknown component" error, for a retired clio.time-series.v1', () => {
     // #1533 MEDIUM 7: `clio.time-series.v1` was retired in favor of the
     // preset-based `clio.chart.v1`, but old transcripts still name it. A
