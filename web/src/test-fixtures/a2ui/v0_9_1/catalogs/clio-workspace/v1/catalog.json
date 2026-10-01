@@ -1166,12 +1166,16 @@
               "type": "array"
             },
             "columns": {
+              "maximum": 12,
+              "minimum": 1,
               "type": "integer"
             },
             "component": {
               "const": "Grid"
             },
             "gap": {
+              "maximum": 12,
+              "minimum": 0,
               "type": "number"
             }
           },

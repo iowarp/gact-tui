@@ -2827,6 +2827,20 @@ against the live surface and publishes the resulting surface update. The
 non-state `a2ui.action.received` audit event is a server extension, not a
 canonical reducer entity.
 
+Each surface row MAY carry `part_id` (the transcript part id the backend minted
+for the `createSurface` that started this lifecycle — a fresh value on every
+`createSurface`, including a recreate of a previously-deleted surface id) and
+`message_revisions` (an array parallel to `messages`, same length and order:
+the revision at which each message's CURRENT content was produced — a
+corrected/consolidated message is re-stamped with the revision of the latest
+change that produced it, not the revision it first appeared at). Both are
+server extensions clients MAY use to apply surface updates incrementally by
+comparing stamps instead of message content; a client that doesn't recognize
+either field ignores it and MUST still render from `messages` directly. A
+backend that omits both (or omits `message_revisions` while still sending
+`part_id`) is a valid, if less efficient for the client, data source — these
+fields are additive and never required for `messages` to be self-sufficient.
+
 ---
 
 ## §8 Extensibility

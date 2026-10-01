@@ -722,6 +722,8 @@ export interface A2UISurface {
   revision: number;
   state: A2UIState;
   messages: unknown[];
+  // See `a2uiSurfaceSchema` in `schemas.ts` for the contract.
+  message_revisions?: number[];
   error?: string;
 }
 

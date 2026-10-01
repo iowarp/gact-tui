@@ -61,6 +61,14 @@ const extraMessage = {
   updateDataModel: { surfaceId: SURFACE_ID, path: '/status', value: 'synced' },
 };
 
+// Coordinator design (2026-10-01): the modern, stamped protocol --
+// `part_id` plus `message_revisions` parallel to `messages`. Every message
+// in this file's fixtures is its own distinct slot (never two
+// `updateComponents` for the same surface, so nothing merges), so the
+// default plain 1..N sequence is realistic; `revision` is passed
+// separately (not derived) so a test can still express a genuinely STALE
+// snapshot with a revision lower than what its own message count would
+// otherwise suggest.
 function a2uiSurface(messages: unknown[], revision: number): A2UISurface {
   return {
     id: SURFACE_ID,
@@ -69,7 +77,9 @@ function a2uiSurface(messages: unknown[], revision: number): A2UISurface {
     protocol_version: '0.9.1',
     revision,
     state: 'ready',
+    part_id: 'part-1',
     messages: messages as A2UISurface['messages'],
+    message_revisions: messages.map((_, index) => index + 1),
   };
 }
 
@@ -136,7 +146,7 @@ describe('processor store survives a live-store reconcile whose surface differs 
     const user = userEvent.setup();
     useLiveStore
       .getState()
-      .applyFrames([surfaceFrame('1', a2uiSurface([createMessage, bindMessage, fieldMessage], 1))]);
+      .applyFrames([surfaceFrame('1', a2uiSurface([createMessage, bindMessage, fieldMessage], 3))]);
 
     render(<LiveA2uiSurfaceHarness />);
     const input = await screen.findByLabelText('Name');
@@ -151,7 +161,7 @@ describe('processor store survives a live-store reconcile whose surface differs 
     act(() => {
       useLiveStore.getState().reconcileSnapshots({
         surfaces: {
-          [SURFACE_ID]: a2uiSurface([createMessage, bindMessage, fieldMessage, extraMessage], 2),
+          [SURFACE_ID]: a2uiSurface([createMessage, bindMessage, fieldMessage, extraMessage], 4),
         },
         revisions: {},
       });
@@ -164,11 +174,11 @@ describe('processor store survives a live-store reconcile whose surface differs 
     expect(repository.a2uiAction).not.toHaveBeenCalled();
   });
 
-  it('does not crash or double-apply when the reconciled surface has FEWER messages', async () => {
+  it('does not crash or double-apply when a STALE reconcile carries FEWER messages', async () => {
     const user = userEvent.setup();
     useLiveStore
       .getState()
-      .applyFrames([surfaceFrame('1', a2uiSurface([createMessage, bindMessage, fieldMessage], 1))]);
+      .applyFrames([surfaceFrame('1', a2uiSurface([createMessage, bindMessage, fieldMessage], 3))]);
 
     render(<LiveA2uiSurfaceHarness />);
     const input = await screen.findByLabelText('Name');
@@ -179,11 +189,16 @@ describe('processor store survives a live-store reconcile whose surface differs 
       useLiveStore.getState().applyFrames([streamGapFrame('2')]);
     });
 
-    // A REST transcript that (for whatever authoritative reason) carries
-    // fewer applied messages than the client already streamed — the
-    // processor's appliedCount is now past the end of the new array, so
-    // `.slice(appliedCount)` is empty: nothing is reprocessed, nothing
-    // throws, and the already-built model (and its typed text) is untouched.
+    // A REST transcript race-reading BEHIND the live stream (G2 adversarial
+    // review, F1; coordinator design, 2026-10-01): the server's revision is
+    // per-surface and monotonic (`gact/a2ui.py`'s `_apply_staged_message`),
+    // so a snapshot genuinely behind what is already applied (revision 3,
+    // above) carries a lower revision and fewer messages -- `revision: 2`
+    // here is a genuine stale/duplicate read (`fieldMessage` not sent yet).
+    // The processor's revision gate (`surface.revision <= appliedRevision`)
+    // rejects it outright regardless of per-slot stamps, so nothing is
+    // reprocessed, nothing throws, and the already-built model (and its
+    // typed text) is untouched.
     act(() => {
       useLiveStore.getState().reconcileSnapshots({
         surfaces: { [SURFACE_ID]: a2uiSurface([createMessage, bindMessage], 2) },
@@ -217,7 +232,7 @@ describe('processor store survives a live-store reconcile whose surface differs 
     useLiveStore
       .getState()
       .applyFrames([
-        surfaceFrame('1', a2uiSurface([createMessage, bindMessage, submitMessage], 1)),
+        surfaceFrame('1', a2uiSurface([createMessage, bindMessage, submitMessage], 3)),
       ]);
 
     render(<LiveA2uiSurfaceHarness />);
@@ -228,7 +243,7 @@ describe('processor store survives a live-store reconcile whose surface differs 
       useLiveStore.getState().applyFrames([streamGapFrame('2')]);
       useLiveStore.getState().reconcileSnapshots({
         surfaces: {
-          [SURFACE_ID]: a2uiSurface([createMessage, bindMessage, submitMessage, extraMessage], 2),
+          [SURFACE_ID]: a2uiSurface([createMessage, bindMessage, submitMessage, extraMessage], 4),
         },
         revisions: {},
       });

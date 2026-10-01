@@ -681,7 +681,10 @@ const mapDataProperties = {
   idField: fieldNameSchema.optional(),
   detailField: fieldNameSchema.optional(),
   categoryField: fieldNameSchema.optional(),
-  selected: z.string().optional(),
+  // Holds a `MapPoint.id` value -- same bound as `pointSchema.id` (G2
+  // adversarial review, F4: the server declares `maxLength: 128` here too,
+  // catalog_bounded.py's `selected` field; this zod schema had none).
+  selected: z.string().max(A2UI_MAP_POINT_ID_MAX_CHARS).optional(),
   // clio-schemas 0.5.1: bind to `/selection/<key>` to share the selection.
   selection: CommonSchemas.DynamicValue.optional(),
   // A dataset column name; required when `selection` is bound (mirrors the chart's selectionField).
