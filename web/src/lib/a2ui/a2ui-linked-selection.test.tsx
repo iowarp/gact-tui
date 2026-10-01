@@ -148,6 +148,9 @@ function renderSurface(extra: ExtraComponents = NO_EXTRA) {
       <A2uiSurface surface={built.surface} />
     </QueryClientProvider>,
   );
+  // The map's locations list starts closed; these tests read and drive the
+  // map's selection through its pressed list rows.
+  fireEvent.click(screen.getByRole('button', { name: 'Locations list' }));
   return built;
 }
 

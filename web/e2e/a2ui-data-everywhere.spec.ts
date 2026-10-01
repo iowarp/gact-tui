@@ -98,14 +98,17 @@ test.afterEach(async ({ page }) => {
 
 /** Opens the workspace, publishes the linked earthquake surface, and waits for it to render. */
 async function openEarthquakeDemo(page: Page) {
+  // Publish before loading the page: the fixture serves the surface in its
+  // session snapshot, not as a live event, so a page that loaded first never
+  // sees it. (It used to work only because the flag leaked from an earlier
+  // test across `/__test/reset`, which now clears it.)
+  const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-data-demo`);
+  expect(published.ok()).toBe(true);
   await page.goto(workspaceUrl);
   await expect(
     page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
   ).toBeVisible();
   await expect(page.getByText('Live', { exact: true })).toBeVisible();
-
-  const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-data-demo`);
-  expect(published.ok()).toBe(true);
 
   // Detached surface (no owning message): scroll the virtualized transcript
   // to its end so it mounts, same pattern as a2ui-smoke.spec.ts.
@@ -148,7 +151,7 @@ function mapPointButton(page: Page, id: string) {
  * The map's GeoJSON point layer — its declared data AND how many of its
  * points the WebGL canvas has ACTUALLY painted, past the virtualization
  * threshold (#1533 MEDIUM 6) where points draw as one maplibre circle layer
- * rather than 500 DOM markers. A "500 labeled locations" list item only
+ * rather than 500 DOM markers. A "500 locations" header count only
  * proves the data resolved into React props; `renderedCount` (via the live
  * map's own `queryRenderedFeatures`) proves the canvas actually drew it —
  * exactly the coordinator's original ask (#1533 review), which caught TWO
@@ -221,6 +224,9 @@ async function mapPointsLayerData(page: Page): Promise<{
  * would do to find it — until the target row mounts, then returns it.
  */
 async function scrollToMapPointButton(page: Page, id: string) {
+  // The locations list starts closed; open it the way a reader would.
+  const toggle = page.getByRole('button', { name: 'Locations list' });
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
   const list = page.locator('[data-slot="a2ui-map-points-list"]');
   const target = mapPointButton(page, id);
   if (await target.count()) return target;
@@ -248,9 +254,9 @@ for (const theme of ['light', 'dark'] as const) {
     await openEarthquakeDemo(page);
     // 500 points is past the map's own virtualization threshold (#1533
     // MEDIUM 6): they draw as one GeoJSON layer, not 500 DOM markers, so
-    // "labeled locations" (driven by the resolved point count itself, not a
+    // "500 locations" (driven by the resolved point count itself, not a
     // rendering strategy) is what proves the whole referenced dataset loaded.
-    await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('500 locations')).toBeVisible({ timeout: 60_000 });
     // The DOM list proves the data resolved; this proves the map component
     // itself turned it into a real layer AND that the canvas actually
     // painted it (#1533 coordinator review — see `mapPointsLayerData`'s own
@@ -336,7 +342,7 @@ test('renders a chart, map, table, and metric from one referenced dataset', asyn
   // (the inline cap of 500 governs `points`, not a `dataUri` map). Past the
   // map's own virtualization threshold (#1533 MEDIUM 6), 500 points draw as
   // one GeoJSON layer rather than 500 DOM markers.
-  await expect(page.getByText('500 labeled locations')).toBeVisible();
+  await expect(page.getByText('500 locations')).toBeVisible();
   await expect
     .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
     .toBe(true);
@@ -392,9 +398,9 @@ test('data-table pages through the whole referenced dataset, page size and last 
   await openEarthquakeDemo(page);
   const table = page.getByRole('table');
 
-  // Default page size 50, 270 rows match magnitude >= 2.0: "1 - 50 of 270".
-  await expect(page.getByText(/1 - 50 of 270/u)).toBeVisible();
-  await expect(table.locator('tbody tr')).toHaveCount(50);
+  // Default page size 10, 270 rows match magnitude >= 2.0: "1 - 10 of 270".
+  await expect(page.getByText(/1 - 10 of 270/u)).toBeVisible();
+  await expect(table.locator('tbody tr')).toHaveCount(10);
 
   // Change the page size to 100 rows.
   await page.getByRole('combobox').first().click();
@@ -443,7 +449,7 @@ test('a column filter narrows results while the agent base filter still applies'
   await openEarthquakeDemo(page);
   const table = page.getByRole('table');
 
-  await expect(page.getByText(/1 - 50 of 270/u)).toBeVisible();
+  await expect(page.getByText(/1 - 10 of 270/u)).toBeVisible();
 
   // A real upward wheel scroll is what the app itself treats as the reader
   // taking over (`onWheel` -> `yieldUp` in `use-transcript-autoscroll.ts`),
@@ -460,7 +466,8 @@ test('a column filter narrows results while the agent base filter still applies'
   // Debounced (`SEARCH_DEBOUNCE_MS`), then a real network round trip: the
   // default 5s expect timeout is tight on this environment's documented cold
   // slowness (see the warm-up comment above `openEarthquakeDemo`).
-  await expect(page.getByText(/1 - 32 of 32/u)).toBeVisible({ timeout: 20_000 });
+  // 32 rows match; the default page shows the first 10 of them.
+  await expect(page.getByText(/1 - 10 of 32/u)).toBeVisible({ timeout: 20_000 });
 
   // Close the dropdown before querying by role: Radix correctly marks the
   // rest of the page `aria-hidden` while its portal-rendered menu is open
@@ -474,7 +481,7 @@ test('a column filter narrows results while the agent base filter still applies'
   // Every visible row is Eastern Sierra, and still within the agent's own
   // magnitude >= 2.0 base filter (never dropped by the viewer's own filter).
   const rows = table.locator('tbody tr');
-  await expect(rows).toHaveCount(32, { timeout: 20_000 });
+  await expect(rows).toHaveCount(10, { timeout: 20_000 });
   const placeCells = await rows.locator('td').allTextContents();
   expect(placeCells.some((text) => text.includes('Eastern Sierra'))).toBe(true);
   expect(placeCells.some((text) => /\b[01]\.\d\d\b/u.test(text))).toBe(false);
@@ -516,7 +523,7 @@ test('brushing the chart re-queries the range at full detail and the zone links 
   await openEarthquakeDemo(page);
   // Past the map's own virtualization threshold (#1533 MEDIUM 6), 500 points
   // draw as one GeoJSON layer rather than 500 DOM markers.
-  await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('500 locations')).toBeVisible({ timeout: 20_000 });
   await expect
     .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
     .toBe(true);
@@ -612,7 +619,7 @@ test('shift+dragging a rectangle on the map selects points and links the table',
   await openEarthquakeDemo(page);
   // Past the map's own virtualization threshold (#1533 MEDIUM 6), 500 points
   // draw as one GeoJSON layer rather than 500 DOM markers.
-  await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('500 locations')).toBeVisible({ timeout: 20_000 });
   await expect
     .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
     .toBe(true);

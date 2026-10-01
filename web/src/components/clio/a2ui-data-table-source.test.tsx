@@ -236,7 +236,7 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     // producer's own projection is preserved as written.
     expect(repository.artifactTableQuery).toHaveBeenCalledWith(
       'artifact_events01',
-      expect.objectContaining({ columns: ['station', 'magnitude'], limit: 50, offset: 0 }),
+      expect.objectContaining({ columns: ['station', 'magnitude'], limit: 10, offset: 0 }),
       expect.anything(),
     );
   });
@@ -343,15 +343,15 @@ describe('clio.data-table.v1 dataUri rendering', () => {
   });
 
   it('pages through a dataset larger than one page via offset, never truncating it', async () => {
-    const firstPage = Array.from({ length: 50 }, (_unused, index) => `S${index}`);
-    const secondPage = Array.from({ length: 20 }, (_unused, index) => `S${index + 50}`);
+    const firstPage = Array.from({ length: 10 }, (_unused, index) => `S${index}`);
+    const secondPage = Array.from({ length: 10 }, (_unused, index) => `S${index + 10}`);
     repository.artifactTableQuery
       .mockResolvedValueOnce({
         schema: [],
         columns: { station: firstPage },
         totalRows: 70,
         matchedRows: 70,
-        returnedRows: 50,
+        returnedRows: 10,
         truncated: false,
         downsample: { mode: 'none' },
       })
@@ -360,7 +360,7 @@ describe('clio.data-table.v1 dataUri rendering', () => {
         columns: { station: secondPage },
         totalRows: 70,
         matchedRows: 70,
-        returnedRows: 20,
+        returnedRows: 10,
         truncated: false,
         downsample: { mode: 'none' },
       });
@@ -377,15 +377,15 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     render(wrap(<A2uiSurface surface={surface} />));
 
     expect(await screen.findByText('S0')).toBeVisible();
-    expect(screen.queryByText('S50')).not.toBeInTheDocument();
+    expect(screen.queryByText('S10')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /go to next page/iu }));
 
-    await waitFor(() => expect(screen.getByText('S50')).toBeVisible());
+    await waitFor(() => expect(screen.getByText('S10')).toBeVisible());
     expect(screen.queryByText('S0')).not.toBeInTheDocument();
     expect(repository.artifactTableQuery).toHaveBeenLastCalledWith(
       'artifact_events01',
-      expect.objectContaining({ limit: 50, offset: 50 }),
+      expect.objectContaining({ limit: 10, offset: 10 }),
       expect.anything(),
     );
   });
@@ -584,10 +584,10 @@ describe('clio.data-table.v1 dataUri rendering', () => {
   it('resets the viewer\'s own page, sort, and filters when the producer points at a different dataset', async () => {
     repository.artifactTableQuery.mockResolvedValue({
       schema: [{ name: 'station', type: 'string' }],
-      columns: { station: Array.from({ length: 50 }, (_unused, index) => `S${index}`) },
+      columns: { station: Array.from({ length: 10 }, (_unused, index) => `S${index}`) },
       totalRows: 70,
       matchedRows: 70,
-      returnedRows: 50,
+      returnedRows: 10,
       truncated: false,
       downsample: { mode: 'none' },
     });
@@ -616,7 +616,7 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     await waitFor(() =>
       expect(repository.artifactTableQuery).toHaveBeenLastCalledWith(
         'artifact_events01',
-        expect.objectContaining({ offset: 50 }),
+        expect.objectContaining({ offset: 10 }),
         expect.anything(),
       ),
     );

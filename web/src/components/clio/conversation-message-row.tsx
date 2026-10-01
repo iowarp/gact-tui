@@ -69,6 +69,11 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const visibleResidualBlocks = residualBlocks.filter(
     (block) => block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
   );
+  // The final answer has begun once any answer text below the activity exists;
+  // the activity then folds away, as a finished thinking step does.
+  const answerStarted = visibleResidualBlocks.some(
+    (block) => block.type === 'text' && block.text.trim().length > 0,
+  );
   const executionMode = specialMessageExecutionMode(message);
 
   if (mcpAppResponse) {
@@ -271,6 +276,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 <div>
                   <ConversationTurn
                     activeMcpAppId={entities.activeMcpAppId}
+                    answerStarted={answerStarted}
                     artifacts={entities.artifacts}
                     interactions={entities.interactions}
                     iterations={turn.iterations}

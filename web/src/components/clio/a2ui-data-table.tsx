@@ -37,9 +37,14 @@ import {
 } from './selection-state';
 import { artifactIdFromDataUri, type TableDataQuery, useTableQueryRows } from './table-query-rows';
 
-/** Page sizes offered for a `dataUri` table, paging through the whole dataset server-side. */
-const DATA_TABLE_PAGE_SIZES = [25, 50, 100, 500] as const;
-const DEFAULT_DATA_TABLE_PAGE_SIZE = 50;
+/**
+ * Page sizes offered for a `dataUri` table, paging through the whole dataset
+ * server-side. The table sits inside the conversation, so it opens on a short
+ * page that keeps the surrounding messages in view; the reader picks a larger
+ * page when they want to scan.
+ */
+const DATA_TABLE_PAGE_SIZES = [10, 25, 50, 100, 500] as const;
+const DEFAULT_DATA_TABLE_PAGE_SIZE = 10;
 
 function columnKey(column: ClioDataColumn): string {
   return typeof column === 'string' ? column : column.key;
