@@ -10,6 +10,7 @@ import {
   type A2uiClientAction,
   type A2uiMessage,
   type Catalog,
+  type MessageProcessorOptions,
   type SurfaceModel,
 } from '@a2ui/web_core/v0_9';
 import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
@@ -201,25 +202,121 @@ export interface A2uiProcessorResult {
 interface ProcessorEntry {
   processor: MessageProcessor<ReactComponentImplementation>;
   catalogsKey: string;
-  appliedCount: number;
+  /**
+   * The exact message objects already folded into `processor`'s model, in
+   * order. Compared by VALUE against each new `surface.messages` snapshot —
+   * never by array length or index — because the server COMPACTS that array
+   * in place: a corrected `updateComponents` drops the `updateComponents`
+   * it supersedes (`gact/a2ui.py`'s `_apply_staged_message`, ~449-458), so
+   * the array a later revision carries is not a stable append-only log an
+   * index can safely replay against.
+   */
+  appliedMessages: A2uiMessage[];
   errorSubscribed: boolean;
   errorUnsubscribe: () => void;
 }
 
 const EMPTY_RESULT: A2uiProcessorResult = {};
 
+/** Cheap structural identity for one wire message (plain JSON, no cycles). */
+function fingerprintA2uiMessage(message: A2uiMessage): string {
+  return JSON.stringify(message);
+}
+
 /**
- * One `MessageProcessor` per surface id, incremental (`processMessages` runs
- * only on messages beyond the last applied index) and persistent across
- * revisions — the caller no longer remounts on `surface.revision`
+ * How many LEADING messages of `incoming` are value-identical to `applied`.
+ * Once the two streams disagree at some index, nothing after it can be
+ * trusted to still line up, so the scan stops at the first mismatch rather
+ * than at the shorter array's end.
+ */
+function commonAppliedPrefixLength(applied: A2uiMessage[], incoming: A2uiMessage[]): number {
+  const max = Math.min(applied.length, incoming.length);
+  let index = 0;
+  while (
+    index < max &&
+    fingerprintA2uiMessage(applied[index]) === fingerprintA2uiMessage(incoming[index])
+  ) {
+    index++;
+  }
+  return index;
+}
+
+function createProcessorEntry(
+  catalogs: Catalog<ReactComponentImplementation>[],
+  catalogsKey: string,
+  handleAction: (action: A2uiClientAction) => void | Promise<void>,
+  version: NonNullable<MessageProcessorOptions['version']>,
+): ProcessorEntry {
+  return {
+    processor: new MessageProcessor<ReactComponentImplementation>(catalogs, handleAction, {
+      version,
+    }),
+    catalogsKey,
+    appliedMessages: [],
+    errorSubscribed: false,
+    errorUnsubscribe: () => undefined,
+  };
+}
+
+/**
+ * Feeds `pending` into `entry.processor` ONE message at a time — never the
+ * whole batch through a single `processMessages` call — so a throw partway
+ * through leaves `entry.appliedMessages` reflecting EXACTLY what the model
+ * actually committed. A `createSurface` that lands before a sibling
+ * `updateComponents` throws is recorded as applied; the next revision then
+ * resumes right after it instead of resending `createSurface` into a model
+ * that already has it (`@a2ui/web_core`'s `Surface ${id} already exists.`,
+ * the defect this replaces).
+ */
+function applyPendingMessages(
+  entry: ProcessorEntry,
+  pending: A2uiMessage[],
+): A2uiProcessorFailure | undefined {
+  for (const message of pending) {
+    try {
+      entry.processor.processMessages([message]);
+    } catch (error) {
+      return {
+        code: 'processor_error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'The interactive surface could not be validated.',
+      };
+    }
+    entry.appliedMessages.push(message);
+  }
+  return undefined;
+}
+
+/**
+ * One `MessageProcessor` per surface id, persistent across revisions — the
+ * caller no longer remounts on `surface.revision`
  * (`docs/design/a2ui-compat-campaign-2026-09.md` S6 deletion: the
- * revision-keyed remount that wiped unsubmitted form state). `onError` is
- * wired exactly once per processor to `onValidationFailed`, so a component's
- * `surface.dispatchError` (the URL-scheme guard, `checks`, or any other
- * client-detected violation) reaches the server the same way a processor
- * throw during `processMessages` reaches the UI: one pipe, no duplicate
- * wiring. The processor also registers itself with the session-lifetime
- * registry store so the ONE metadata provider can aggregate
+ * revision-keyed remount that wiped unsubmitted form state). Each revision
+ * is reconciled against `entry.appliedMessages` **by value**, never by
+ * replaying `surface.messages.slice(someIndex)`:
+ * - a pure extension (everything already applied still matches the new
+ *   array's prefix) is applied incrementally, same as before;
+ * - a snapshot SHORTER than what's already applied (a post-gap REST
+ *   reconcile racing the live stream, `processor-store-reconcile.test.tsx`)
+ *   is never authoritative enough to regress an already-rendered surface, so
+ *   it's a no-op;
+ * - anything else — the new array disagrees with a message this processor
+ *   already applied, whether from server-side compaction rewriting it in
+ *   place or from a prior batch that threw partway through — rebuilds: a
+ *   fresh processor replays the FULL compacted stream from scratch. A
+ *   rebuild necessarily resets any in-progress local component state (e.g.
+ *   unsubmitted form input) for this surface; that is the honest cost of a
+ *   stream the processor cannot incrementally unwind, and it only happens on
+ *   a genuine divergence, not on every revision.
+ *
+ * `onError` is wired exactly once per processor to `onValidationFailed`, so a
+ * component's `surface.dispatchError` (the URL-scheme guard, `checks`, or any
+ * other client-detected violation) reaches the server the same way a
+ * processor throw during `processMessages` reaches the UI: one pipe, no
+ * duplicate wiring. The processor also registers itself with the
+ * session-lifetime registry store so the ONE metadata provider can aggregate
  * `getClientDataModel()` across every live `sendDataModel` surface (S6 item 3).
  *
  * All mutable state lives behind a ref and is only ever touched inside
@@ -258,39 +355,45 @@ export function useA2uiSurfaceModel(
       return;
     }
 
+    // `surface.protocol_version` is `typeof A2UI_VERSION` ('0.9.1' today), so
+    // this is always a real `MessageProcessorOptions['version']` member; the
+    // cast only exists because a plain template literal widens to `string`.
+    const version = `v${surface.protocol_version}` as NonNullable<MessageProcessorOptions['version']>;
     if (!entryRef.current || entryRef.current.catalogsKey !== catalogIds) {
       entryRef.current?.errorUnsubscribe();
-      const processor = new MessageProcessor<ReactComponentImplementation>(catalogs, handleAction, {
-        version: `v${surface.protocol_version}`,
-      });
-      entryRef.current = {
-        processor,
-        catalogsKey: catalogIds,
-        appliedCount: 0,
-        errorSubscribed: false,
-        errorUnsubscribe: () => undefined,
-      };
-      registerA2uiSurfaceProcessor(surface.session_id, surface.id, processor);
+      entryRef.current = createProcessorEntry(catalogs, catalogIds, handleAction, version);
+      registerA2uiSurfaceProcessor(surface.session_id, surface.id, entryRef.current.processor);
     }
-    const entry = entryRef.current;
+    let entry = entryRef.current;
 
-    try {
-      const pending = surface.messages.slice(entry.appliedCount) as A2uiMessage[];
-      if (pending.length > 0) {
-        entry.processor.processMessages(pending);
-        entry.appliedCount = surface.messages.length;
-      }
-    } catch (error) {
-      setResult({
-        failure: {
-          code: 'processor_error',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'The interactive surface could not be validated.',
-        },
-      });
+    const incoming = surface.messages as A2uiMessage[];
+    if (incoming.length < entry.appliedMessages.length) {
+      // Behind what this processor already rendered -- never discard an
+      // already-rendered surface (and whatever local state it holds) for a
+      // snapshot that carries less than we already applied. Wait for a
+      // revision that is a forward extension instead.
       return;
+    }
+    if (commonAppliedPrefixLength(entry.appliedMessages, incoming) < entry.appliedMessages.length) {
+      // Genuine divergence: the new stream disagrees with a message this
+      // processor already committed. Incremental replay cannot unwind an
+      // applied message, so rebuild fresh and replay the full compacted
+      // stream -- this is also what lets a surface that failed partway
+      // through an earlier batch recover instead of resending a
+      // `createSurface` the (old) model already has.
+      entry.errorUnsubscribe();
+      entry = createProcessorEntry(catalogs, catalogIds, handleAction, version);
+      entryRef.current = entry;
+      registerA2uiSurfaceProcessor(surface.session_id, surface.id, entry.processor);
+    }
+
+    const pending = incoming.slice(entry.appliedMessages.length);
+    if (pending.length > 0) {
+      const failure = applyPendingMessages(entry, pending);
+      if (failure) {
+        setResult({ failure });
+        return;
+      }
     }
 
     const model = entry.processor.model.getSurface(surface.id);

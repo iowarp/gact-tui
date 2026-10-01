@@ -455,12 +455,13 @@ describe('ClioA2UISurface actions', () => {
   });
 
   // S8 replay/degradation parity (gact-tui#409 item 3): the processor store
-  // (`processor-store.ts`'s `useA2uiSurfaceModel`) only ever applies NEW
-  // messages past `entry.appliedCount` — a refresh or a cursor reconnect that
-  // hands this component a brand-new `surface` object (new `messages` array
-  // reference) whose already-applied prefix is unchanged never reprocesses
-  // it, so the SurfaceModel's own dataModel (and any local, not-yet-submitted
-  // form state it holds) survives untouched.
+  // (`processor-store.ts`'s `useA2uiSurfaceModel`) only ever applies the
+  // messages past `entry.appliedMessages` (compared BY VALUE, G2) — a
+  // refresh or a cursor reconnect that hands this component a brand-new
+  // `surface` object (new `messages` array reference) whose already-applied
+  // prefix is unchanged, content-identical, never reprocesses it, so the
+  // SurfaceModel's own dataModel (and any local, not-yet-submitted form
+  // state it holds) survives untouched.
   it('keeps a mid-selection ChoicePicker choice across a refresh and a cursor reconnect', async () => {
     const user = userEvent.setup();
     const surfaceId = 'surface-choice-persist';
