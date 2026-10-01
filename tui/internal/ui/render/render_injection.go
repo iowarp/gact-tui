@@ -28,6 +28,7 @@ var injectionLabels = map[string]string{
 	"circuit_breaker": "Repeated-failure warning",
 	"result_spilled":  "Large result saved to a file",
 	"hook":            "Hook",
+	"summarization":   "Summarization",
 }
 
 // InjectionSource is the part's source ("" when absent).
