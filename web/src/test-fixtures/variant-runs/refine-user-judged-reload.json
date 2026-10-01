@@ -1,0 +1,406 @@
+{
+  "metadata": {
+    "producer": "Shaped after clio-agent feat/variant-self-refine-2: variant_events.emit_try / emit_selected rows as GET /v1/sessions/{sid}/trace?scope=variant returns them (SemanticEvent.to_dict full projection), variant_drafts._pause questions as GET /v1/sessions/{sid}/questions returns them, and the transcript messages of the two turns.",
+    "story": "Refine with the user as judge: two drafts, the user picks Draft 2 with a comment, Draft 3 is refined from it, the user accepts Draft 3."
+  },
+  "session_id": "sess_drafts",
+  "trace": {
+    "events": [
+      {
+        "schema_version": "1",
+        "event_id": "ev_1",
+        "event_type": "variant.try",
+        "session_id": "sess_drafts",
+        "workspace_id": "ws_1",
+        "trace_id": "tr_1",
+        "turn_id": "turn_1",
+        "span_id": "ev_1",
+        "parent_span_id": "",
+        "status": "running",
+        "summary": "main try",
+        "live_observed": true,
+        "detail_level": "full",
+        "occurred_at": "2026-10-01T12:00:01Z",
+        "actor": { "agent_id": "main", "role": "expert" },
+        "subject": {},
+        "blueprint": {},
+        "provider": {},
+        "payload": {
+          "variants_id": "var_9",
+          "agent_id": "main",
+          "origin": "draft_alternatives",
+          "variant": "refine",
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "try_index": 0,
+          "run_index": 0,
+          "scope": "main#run0",
+          "status": "running"
+        }
+      },
+      {
+        "schema_version": "1",
+        "event_id": "ev_2",
+        "event_type": "variant.try",
+        "session_id": "sess_drafts",
+        "workspace_id": "ws_1",
+        "trace_id": "tr_1",
+        "turn_id": "turn_1",
+        "span_id": "ev_2",
+        "parent_span_id": "",
+        "status": "running",
+        "summary": "main try",
+        "live_observed": true,
+        "detail_level": "full",
+        "occurred_at": "2026-10-01T12:00:01Z",
+        "actor": { "agent_id": "main", "role": "expert" },
+        "subject": {},
+        "blueprint": {},
+        "provider": {},
+        "payload": {
+          "variants_id": "var_9",
+          "agent_id": "main",
+          "origin": "draft_alternatives",
+          "variant": "refine",
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "try_index": 1,
+          "run_index": 1,
+          "scope": "main#run1",
+          "status": "running"
+        }
+      },
+      {
+        "schema_version": "1",
+        "event_id": "ev_3",
+        "event_type": "variant.try.delta",
+        "session_id": "sess_drafts",
+        "workspace_id": "ws_1",
+        "trace_id": "tr_1",
+        "turn_id": "turn_1",
+        "span_id": "ev_3",
+        "parent_span_id": "",
+        "status": "running",
+        "summary": "variant try delta",
+        "live_observed": true,
+        "detail_level": "full",
+        "occurred_at": "2026-10-01T12:00:02Z",
+        "actor": { "agent_id": "main", "role": "expert" },
+        "subject": {},
+        "blueprint": {},
+        "provider": {},
+        "payload": { "variants_id": "var_9", "try_index": 0, "kind": "text", "delta": "The mesh " }
+      },
+      {
+        "schema_version": "1",
+        "event_id": "ev_4",
+        "event_type": "variant.try",
+        "session_id": "sess_drafts",
+        "workspace_id": "ws_1",
+        "trace_id": "tr_1",
+        "turn_id": "turn_1",
+        "span_id": "ev_4",
+        "parent_span_id": "",
+        "status": "completed",
+        "summary": "main try",
+        "live_observed": true,
+        "detail_level": "full",
+        "occurred_at": "2026-10-01T12:00:09Z",
+        "actor": { "agent_id": "main", "role": "expert" },
+        "subject": {},
+        "blueprint": {},
+        "provider": {},
+        "payload": {
+          "variants_id": "var_9",
+          "agent_id": "main",
+          "origin": "draft_alternatives",
+          "variant": "refine",
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "try_index": 0,
+          "run_index": 0,
+          "scope": "main#run0",
+          "status": "completed",
+          "text": "The mesh converges at 2.1 million cells.",
+          "tokens": { "input": 1200, "output": 80, "total": 1280 }
+        }
+      },
+      {
+        "schema_version": "1",
+        "event_id": "ev_5",
+        "event_type": "variant.try",
+        "session_id": "sess_drafts",
+        "workspace_id": "ws_1",
+        "trace_id": "tr_1",
+        "turn_id": "turn_1",
+        "span_id": "ev_5",
+        "parent_span_id": "",
+        "status": "completed",
+        "summary": "main try",
+        "live_observed": true,
+        "detail_level": "full",
+        "occurred_at": "2026-10-01T12:00:10Z",
+        "actor": { "agent_id": "main", "role": "expert" },
+        "subject": {},
+        "blueprint": {},
+        "provider": {},
+        "payload": {
+          "variants_id": "var_9",
+          "agent_id": "main",
+          "origin": "draft_alternatives",
+          "variant": "refine",
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "try_index": 1,
+          "run_index": 1,
+          "scope": "main#run1",
+          "status": "completed",
+          "text": "Mesh study: the drag coefficient changes by less than 0.4% past 2.1M cells, so 2.1M is converged.",
+          "tokens": { "input": 1210, "output": 95, "total": 1305 }
+        }
+      },
+      {
+        "schema_version": "1",
+        "event_id": "ev_6",
+        "event_type": "variant.try",
+        "session_id": "sess_drafts",
+        "workspace_id": "ws_1",
+        "trace_id": "tr_1",
+        "turn_id": "turn_2",
+        "span_id": "ev_6",
+        "parent_span_id": "",
+        "status": "running",
+        "summary": "main try",
+        "live_observed": true,
+        "detail_level": "full",
+        "occurred_at": "2026-10-01T12:01:00Z",
+        "actor": { "agent_id": "main", "role": "expert" },
+        "subject": {},
+        "blueprint": {},
+        "provider": {},
+        "payload": {
+          "variants_id": "var_9",
+          "agent_id": "main",
+          "origin": "draft_alternatives",
+          "variant": "refine",
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "try_index": 2,
+          "run_index": 2,
+          "scope": "main#run2",
+          "status": "running",
+          "forked_from": 1,
+          "advice": "Add the cell count of the coarsest mesh too."
+        }
+      },
+      {
+        "schema_version": "1",
+        "event_id": "ev_7",
+        "event_type": "variant.try",
+        "session_id": "sess_drafts",
+        "workspace_id": "ws_1",
+        "trace_id": "tr_1",
+        "turn_id": "turn_2",
+        "span_id": "ev_7",
+        "parent_span_id": "",
+        "status": "completed",
+        "summary": "main try",
+        "live_observed": true,
+        "detail_level": "full",
+        "occurred_at": "2026-10-01T12:01:08Z",
+        "actor": { "agent_id": "main", "role": "expert" },
+        "subject": {},
+        "blueprint": {},
+        "provider": {},
+        "payload": {
+          "variants_id": "var_9",
+          "agent_id": "main",
+          "origin": "draft_alternatives",
+          "variant": "refine",
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "try_index": 2,
+          "run_index": 2,
+          "scope": "main#run2",
+          "status": "completed",
+          "forked_from": 1,
+          "advice": "Add the cell count of the coarsest mesh too.",
+          "text": "Mesh study (0.6M, 1.2M, 2.1M cells): drag changes by less than 0.4% past 2.1M cells, so 2.1M is converged.",
+          "tokens": { "input": 1500, "output": 110, "total": 1610 }
+        }
+      },
+      {
+        "schema_version": "1",
+        "event_id": "ev_8",
+        "event_type": "variant.selected",
+        "session_id": "sess_drafts",
+        "workspace_id": "ws_1",
+        "trace_id": "tr_1",
+        "turn_id": "turn_3",
+        "span_id": "ev_8",
+        "parent_span_id": "",
+        "status": "completed",
+        "summary": "main selected",
+        "live_observed": true,
+        "detail_level": "full",
+        "occurred_at": "2026-10-01T12:02:00Z",
+        "actor": { "agent_id": "main", "role": "expert" },
+        "subject": {},
+        "blueprint": {},
+        "provider": {},
+        "payload": {
+          "variants_id": "var_9",
+          "agent_id": "main",
+          "origin": "draft_alternatives",
+          "variant": "refine",
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "selected_index": 2,
+          "winning_index": 2,
+          "selected_scope": "main#run2",
+          "text": "Mesh study (0.6M, 1.2M, 2.1M cells): drag changes by less than 0.4% past 2.1M cells, so 2.1M is converged.",
+          "scores": [],
+          "pick": 2,
+          "comment": ""
+        }
+      }
+    ]
+  },
+  "questions": [
+    {
+      "id": "q_round1",
+      "session_id": "sess_drafts",
+      "prompt": "Which draft should continue the conversation? Add a comment to have it refined; pick without a comment to accept it.",
+      "status": "answered",
+      "kind": "choice",
+      "options": [
+        { "label": "Draft 1", "value": "main#run0", "description": "The mesh converges at 2.1 million cells." },
+        {
+          "label": "Draft 2",
+          "value": "main#run1",
+          "description": "Mesh study: the drag coefficient changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+        }
+      ],
+      "allow_freeform": true,
+      "answer": "Add the cell count of the coarsest mesh too.",
+      "selected_options": ["main#run1"],
+      "created_at": "2026-10-01T12:00:11Z",
+      "updated_at": "2026-10-01T12:00:40Z",
+      "metadata": {
+        "tool_name": "draft_alternatives",
+        "variants_id": "var_9",
+        "variant": {
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "rubric": "accurate and complete",
+          "refinable": true,
+          "candidates": [
+            { "id": "main#run0", "try_index": 0, "text": "The mesh converges at 2.1 million cells." },
+            {
+              "id": "main#run1",
+              "try_index": 1,
+              "text": "Mesh study: the drag coefficient changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "q_round2",
+      "session_id": "sess_drafts",
+      "prompt": "Which draft should continue the conversation?",
+      "status": "answered",
+      "kind": "choice",
+      "options": [
+        { "label": "Draft 1", "value": "main#run0", "description": "The mesh converges at 2.1 million cells." },
+        {
+          "label": "Draft 2",
+          "value": "main#run1",
+          "description": "Mesh study: the drag coefficient changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+        },
+        {
+          "label": "Draft 3",
+          "value": "main#run2",
+          "description": "Mesh study (0.6M, 1.2M, 2.1M cells): drag changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+        }
+      ],
+      "allow_freeform": true,
+      "answer": "",
+      "selected_options": ["main#run2"],
+      "created_at": "2026-10-01T12:01:09Z",
+      "updated_at": "2026-10-01T12:01:59Z",
+      "metadata": {
+        "tool_name": "draft_alternatives",
+        "variants_id": "var_9",
+        "variant": {
+          "strategy": "refine",
+          "judge": "user",
+          "n": 3,
+          "rubric": "accurate and complete",
+          "refinable": false,
+          "candidates": [
+            { "id": "main#run0", "try_index": 0, "text": "The mesh converges at 2.1 million cells." },
+            {
+              "id": "main#run1",
+              "try_index": 1,
+              "text": "Mesh study: the drag coefficient changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+            },
+            {
+              "id": "main#run2",
+              "try_index": 2,
+              "text": "Mesh study (0.6M, 1.2M, 2.1M cells): drag changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_user_1",
+      "session_id": "sess_drafts",
+      "run_id": "turn_1",
+      "role": "user",
+      "created_at": "2026-10-01T12:00:00Z",
+      "blocks": [{ "id": "u1", "type": "text", "text": "Is the mesh converged?" }]
+    },
+    {
+      "id": "msg_assistant_1",
+      "session_id": "sess_drafts",
+      "run_id": "turn_1",
+      "role": "assistant",
+      "created_at": "2026-10-01T12:00:00.5Z",
+      "blocks": [
+        {
+          "id": "inj_drafting",
+          "type": "injection",
+          "source": "variant_drafting",
+          "text": "Drafting up to 3 alternatives; you pick. Rubric: accurate and complete",
+          "call_id": ""
+        },
+        {
+          "id": "inj_advice",
+          "type": "injection",
+          "source": "variant_advice",
+          "text": "Add the cell count of the coarsest mesh too.",
+          "call_id": "",
+          "variants_id": "var_9",
+          "try_index": 2
+        },
+        {
+          "id": "a1",
+          "type": "text",
+          "text": "Mesh study (0.6M, 1.2M, 2.1M cells): drag changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+        }
+      ]
+    }
+  ]
+}

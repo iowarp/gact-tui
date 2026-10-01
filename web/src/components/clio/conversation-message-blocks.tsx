@@ -198,6 +198,8 @@ function MessageBlockView({
         </Plan>
       );
     case 'injection':
+      // A variant try's injection renders inside that try's tab, not the turn.
+      if (block.variants_id) return null;
       return block.source === 'summarization' ? (
         <SummarizationInjection block={block} label={INJECTION_LABELS.summarization} />
       ) : (
@@ -406,6 +408,8 @@ const INJECTION_LABELS: Record<string, string> = {
   result_spilled: 'Large result saved to a file',
   hook: 'Hook',
   summarization: 'Summarization',
+  variant_drafting: 'Drafting alternatives',
+  variant_advice: 'Advice for this draft',
 };
 
 /**
@@ -413,7 +417,7 @@ const INJECTION_LABELS: Record<string, string> = {
  * context). Collapsed to what it is; expanded to exactly the text the agent got,
  * so the user sees the same thing the agent saw.
  */
-function HarnessInjection({ block }: { block: InjectionBlock }) {
+export function HarnessInjection({ block }: { block: InjectionBlock }) {
   const [expanded, setExpanded] = useState(false);
   const label = INJECTION_LABELS[block.source] ?? humanizeProtocolValue(block.source);
   return (
