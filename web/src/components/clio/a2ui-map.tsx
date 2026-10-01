@@ -291,7 +291,7 @@ export function ClioScientificMap({
       run: async () => {
         const map = mapInstanceRef.current;
         if (!map) return;
-        downloadBlob(await mapPngBlob(map.getCanvas()), `${filenameStem}.png`);
+        downloadBlob(await mapPngBlob(map), `${filenameStem}.png`);
       },
     },
     ...(dataCapabilities?.exportFormats ?? [
@@ -355,7 +355,7 @@ export function ClioScientificMap({
         dense
         role="group"
       >
-        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5 pr-36">
+        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
           <MapIcon aria-hidden="true" className="size-4 text-primary" />
           <div className="min-w-0 flex-1">
             <FrameTitle className="truncate">{title}</FrameTitle>
@@ -364,9 +364,19 @@ export function ClioScientificMap({
             </FrameDescription>
           </div>
           {mapHeaderExtra}
+          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
         </FrameHeader>
-        <SurfaceToolbar capabilities={toolbarCapabilities} />
-        <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={title}>
+        <SurfaceFullScreenHost
+          fullscreen={fullscreen}
+          headerExtra={
+            <>
+              {mapHeaderExtra}
+              <SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} />
+            </>
+          }
+          onOpenChange={setFullscreen}
+          title={title}
+        >
           <FramePanel
             className={cn(
               'grid gap-0 p-0',

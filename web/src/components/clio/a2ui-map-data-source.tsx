@@ -78,6 +78,7 @@ export function ClioMapArtifactSource({
   // The same server-side filter controls the table gets, layered onto (never
   // replacing) the producer's own `dataQuery.filter` (owner ruling, #1533).
   const [filters, setFilters] = useState<ReadonlyMap<string, ClioColumnFilterValue>>(new Map());
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const handleFilterChange = useCallback(
     (key: string, value: ClioColumnFilterValue | undefined) => {
       setFilters((current) => {
@@ -116,6 +117,7 @@ export function ClioMapArtifactSource({
       fields={filterableFields}
       filters={filters}
       onFilterChange={handleFilterChange}
+      onOpenChange={setFiltersOpen}
     />
   ) : undefined;
   const buildReference = (): DataZoneReference => {
@@ -152,6 +154,11 @@ export function ClioMapArtifactSource({
   const currentExportQuery: ServerExportQuery = {
     aggregate: effectiveDataQuery?.aggregate,
     columns: columns.length ? columns : undefined,
+    // Mirrors the chart's own fix (#516 review item 16): without this, a
+    // producer-requested downsample (e.g. for a dense point layer) applied
+    // to what's actually drawn would silently NOT apply to its own "current
+    // view" export, returning a different row set than the map shows.
+    downsample: effectiveDataQuery?.downsample,
     filter: effectiveDataQuery?.filter,
     sort: effectiveDataQuery?.sort,
   };
@@ -199,7 +206,7 @@ export function ClioMapArtifactSource({
   const dataCapabilities: Pick<SurfaceCapabilities, 'exportFormats' | 'buildReference' | 'filters'> = {
     buildReference: rows ? buildReference : undefined,
     exportFormats: rows ? dataExportFormats : undefined,
-    filters: filterPopover,
+    filters: filterPopover ? { content: filterPopover, isOpen: filtersOpen } : undefined,
   };
   const reducedCaption =
     matchedRows !== undefined && returnedRows !== undefined && returnedRows < matchedRows

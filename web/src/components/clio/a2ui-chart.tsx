@@ -44,6 +44,7 @@ import { CHART_SPEC_RULES, checkChartSpec, describeChartSpecViolations } from '.
 import {
   bindChartZoom,
   withZoomBrush,
+  zoomComparableValue,
   zoomRangeFilterValue,
   type ChartZoomBinding,
   type ChartZoomRange,
@@ -66,7 +67,7 @@ import {
   type SelectionValue,
   type SelectionWriter,
 } from './selection-state';
-import { downloadBlob, downloadText, filenameStemFromTitle } from './surface-export';
+import { downloadBlob, downloadText, filenameStemFromTitle, resolveCardBackground } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities, type SurfaceExportFormat } from './surface-toolbar';
 import { downloadInlineRowsAsCsv, downloadServerTableExport } from './table-export-client';
@@ -226,6 +227,7 @@ export function ClioChart(props: ClioChartProps) {
   // #1533: the same server-side filter controls the table gets, plus
   // "zoom or brush re-queries at full detail").
   const [filters, setFilters] = useState<ReadonlyMap<string, ClioColumnFilterValue>>(new Map());
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [zoomRange, setZoomRange] = useState<ChartZoomRange | undefined>(undefined);
   const handleFilterChange = (key: string, value: ClioColumnFilterValue | undefined) => {
     setFilters((current) => {
@@ -267,11 +269,24 @@ export function ClioChart(props: ClioChartProps) {
   });
   const selectionState = useMemo(() => parseSelectionState(selection), [selection]);
 
-  // G0 rule 4: zoom/brush applies to every chart with a CONTINUOUS x scale —
-  // a nominal/ordinal axis (the box plot's categorical x, G3) has no
-  // meaningful "range" to brush, and attempting it there was the second half
-  // of the box plot's duplicate-signal bug (the first half, attaching to
-  // every layer unit instead of one, is `withZoomBrush`'s own fix).
+  // G0 rule 4: zoom/brush applies to every chart with a CONTINUOUS x scale.
+  // This only gates on a PRODUCER-declared `xType` of 'nominal'/'ordinal' —
+  // the box plot preset's catalog entry forbids declaring `xType` at all
+  // (`a2ui-chart-catalog.ts`), so `xType` is always `undefined` for one and
+  // this still evaluates `true`. `withZoomBrush` therefore DOES inject an
+  // interval param into the box plot's own first layer (whose x encoding is
+  // categorical, per `chart-assets/presets/boxplot.json`) — correction: an
+  // earlier version of this comment claimed that was excluded; it is not,
+  // and it is harmless. Vega-Lite accepts an interval selection on a
+  // discrete band scale (it just cannot be dragged into a non-empty range,
+  // so the signal always resolves empty), and nothing here reads it for a
+  // box plot: `zoomRangeFromSignal` only matters once a reset-zoom UI and a
+  // re-query are wired to the signal, which this component only does for a
+  // genuinely continuous x. The G3 duplicate-signal bug this preset
+  // originally hit was about the param being attached at the WRONG LEVEL of
+  // a layered spec (the composition's top level, which the compiler then
+  // pushes into every layer) — see `withOneUnitParam` in `chart-zoom.ts` for
+  // that actual fix, which applies regardless of x type.
   const continuousX = xType !== 'nominal' && xType !== 'ordinal';
   // Inline (no `dataUri`) rows have no server to filter/zoom through; this
   // viewer's own filters and brushed range apply CLIENT-SIDE instead, so
@@ -283,13 +298,12 @@ export function ClioChart(props: ClioChartProps) {
     if (filters.size) result = applyClientFilters(result, filters);
     if (zoomRange && xField) {
       result = result.filter((row) => {
-        const raw = row[xField];
-        const value = typeof raw === 'number' ? raw : Date.parse(String(raw));
-        return Number.isFinite(value) && value >= zoomRange.min && value <= zoomRange.max;
+        const value = zoomComparableValue(row[xField], xType);
+        return value !== undefined && value >= zoomRange.min && value <= zoomRange.max;
       });
     }
     return result;
-  }, [filters, props.dataUri, rows, xField, zoomRange]);
+  }, [filters, props.dataUri, rows, xField, xType, zoomRange]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<View | undefined>(undefined);
@@ -418,7 +432,25 @@ export function ClioChart(props: ClioChartProps) {
       viewRef.current = undefined;
       finalize?.();
     };
-  }, [componentId, embedSpec, hasRows, height, param, renderer, selectionField, xField, zoomParam]);
+    // `fullscreen` forces a full re-embed on every toggle: `SurfaceFullScreenHost`
+    // moves this view's own host node between two PORTAL targets (inline vs.
+    // dialog) rather than remounting the React tree, so this effect's deps
+    // alone would never re-run on that move and Vega's view stayed sized (and,
+    // once actually observed live, sometimes blank) for whichever container it
+    // was first embedded into. A clean re-embed is simpler and more robust
+    // than trying to make an imperative Vega view tolerate a silent DOM move.
+  }, [
+    componentId,
+    embedSpec,
+    fullscreen,
+    hasRows,
+    height,
+    param,
+    renderer,
+    selectionField,
+    xField,
+    zoomParam,
+  ]);
 
   // A selection written by another component on this surface shows here.
   useEffect(() => {
@@ -498,6 +530,12 @@ export function ClioChart(props: ClioChartProps) {
   const currentExportQuery = {
     aggregate: effectiveDataQuery?.aggregate,
     columns: columns.length ? columns : undefined,
+    // Without this, "CSV (current view)" silently exported a DIFFERENT row
+    // set than what the chart actually plots whenever the producer's own
+    // `dataQuery` requests a downsample (e.g. `per_entity_lttb`, a visually
+    // representative subset) -- the export route defaults to no downsampling
+    // at all when this is omitted (#516 review item 16).
+    downsample: effectiveDataQuery?.downsample,
     filter: effectiveDataQuery?.filter,
     sort: effectiveDataQuery?.sort,
   };
@@ -507,7 +545,8 @@ export function ClioChart(props: ClioChartProps) {
       label: 'PNG image',
       run: async () => {
         if (!viewRef.current) return;
-        downloadBlob(await chartPngBlob(viewRef.current), `${filenameStem}.png`);
+        const background = resolveCardBackground(containerRef.current);
+        downloadBlob(await chartPngBlob(viewRef.current, background), `${filenameStem}.png`);
       },
     },
     {
@@ -523,7 +562,8 @@ export function ClioChart(props: ClioChartProps) {
       label: 'JPG image',
       run: async () => {
         if (!viewRef.current) return;
-        downloadBlob(await chartJpegBlob(viewRef.current), `${filenameStem}.jpg`);
+        const background = resolveCardBackground(containerRef.current);
+        downloadBlob(await chartJpegBlob(viewRef.current, background), `${filenameStem}.jpg`);
       },
     },
     {
@@ -598,9 +638,19 @@ export function ClioChart(props: ClioChartProps) {
   const toolbarCapabilities: SurfaceCapabilities = {
     buildReference: hasRows ? buildReference : undefined,
     exportFormats: hasRows ? exportFormats : undefined,
-    filters: filterableFields.length ? (
-      <DataFilterPopover fields={filterableFields} filters={filters} onFilterChange={handleFilterChange} />
-    ) : undefined,
+    filters: filterableFields.length
+      ? {
+          content: (
+            <DataFilterPopover
+              fields={filterableFields}
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              onOpenChange={setFiltersOpen}
+            />
+          ),
+          isOpen: filtersOpen,
+        }
+      : undefined,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
   };
 
@@ -613,7 +663,7 @@ export function ClioChart(props: ClioChartProps) {
         dense
         role="group"
       >
-        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5 pr-36">
+        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
           <ChartLineIcon aria-hidden="true" className="size-4 text-primary" />
           <div className="min-w-0 flex-1">
             <FrameTitle className="truncate">{heading}</FrameTitle>
@@ -622,9 +672,18 @@ export function ClioChart(props: ClioChartProps) {
             </FrameDescription>
           </div>
           {chartHeaderExtra}
+          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
         </FrameHeader>
-        <SurfaceToolbar capabilities={toolbarCapabilities} />
-        <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={heading}>
+        <SurfaceFullScreenHost
+          fullscreen={fullscreen}
+          headerExtra={
+            // No `fullScreen` entry here: the dialog already has its own
+            // native "Exit full screen" button right next to this.
+            <SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} />
+          }
+          onOpenChange={setFullscreen}
+          title={heading}
+        >
           <FramePanel className="p-0">
             {failure ? (
               <p className="p-4 text-sm text-destructive">Chart unavailable: {failure}</p>

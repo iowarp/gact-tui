@@ -38,17 +38,20 @@ export function DataFilterPopover({
   filters,
   label = 'Filters',
   onFilterChange,
+  onOpenChange,
 }: {
   disabled?: boolean;
   fields: readonly DataFilterField[];
   filters: ReadonlyMap<string, ClioColumnFilterValue>;
   label?: string;
   onFilterChange: (column: string, value: ClioColumnFilterValue | undefined) => void;
+  /** Reports this popover's own open state back to the surface toolbar, so it stays revealed while Filters is open (#516 review item 12). */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const activeCount = filters.size;
   if (!fields.length) return null;
   return (
-    <Popover>
+    <Popover onOpenChange={onOpenChange}>
       <TooltipProvider delayDuration={150}>
         <Tooltip>
           <TooltipTrigger asChild>

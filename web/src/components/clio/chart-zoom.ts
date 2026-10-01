@@ -122,6 +122,26 @@ export function zoomRangeFilterValue(bound: number, xType: string | undefined): 
   return xType === 'temporal' ? new Date(bound).toISOString() : bound;
 }
 
+/**
+ * A row's raw x-field value as a comparable number against a brushed
+ * `ChartZoomRange`, using the declared x type to decide HOW to parse it --
+ * never `Date.parse` on a quantitative value (#516 review item 16): most
+ * numeric strings ("42.5") are not valid date text and `Date.parse` reads
+ * them as `NaN`, which silently drops every matching row from an inline
+ * chart's own client-side zoom filter instead of keeping it. `undefined`
+ * when the value cannot be read as either.
+ */
+export function zoomComparableValue(raw: unknown, xType: string | undefined): number | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  if (raw instanceof Date) return raw.getTime();
+  if (xType === 'temporal') {
+    const parsed = typeof raw === 'number' ? raw : Date.parse(String(raw));
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(value) ? value : undefined;
+}
+
 export const CHART_ZOOM_DEBOUNCE_MS = 300;
 
 export interface ChartZoomBinding {

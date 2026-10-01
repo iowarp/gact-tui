@@ -48,8 +48,9 @@ interface ScientificMapViewProps {
   onZoneSelect?: (pointIds: string[]) => void;
   /**
    * Hands the live maplibre `Map` instance up to the caller once it loads
-   * (G0: PNG export reads `map.getCanvas()` directly — see `map-export.ts`).
-   * Fires again after a full-screen toggle remounts this view: with
+   * (G0: PNG export reads the canvas via `map.once('render', ...)` +
+   * `map.triggerRepaint()` -- see `map-export.ts`). Fires again after a
+   * full-screen toggle remounts this view: with
    * `reuseMaps` that is the SAME underlying instance, reparented, not a new
    * one, so the caller's own captured reference stays valid throughout.
    */
@@ -351,11 +352,6 @@ export function ClioScientificMapView({
       ref={rootRef}
     >
       <Map
-        // Required for a reliable `canvas.toBlob()`/`toDataURL()` read (G0
-        // PNG export, `map-export.ts`'s `mapPngBlob`): a WebGL canvas's
-        // backbuffer is cleared after each paint by default, which can read
-        // back as a blank image without this.
-        canvasContextAttributes={{ preserveDrawingBuffer: true }}
         initialViewState={viewState}
         interactiveLayerIds={manyPoints ? [POINTS_LAYER_ID] : undefined}
         mapStyle={rasterStyle}

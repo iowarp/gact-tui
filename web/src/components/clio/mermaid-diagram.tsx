@@ -133,9 +133,7 @@ export function ClioMermaidDiagram({
     copyLabel: 'Copy source',
     exportFormats,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
-    onCopy: async () => {
-      await copyTextToClipboard(source);
-    },
+    onCopy: () => copyTextToClipboard(source),
   };
 
   return (
@@ -144,15 +142,25 @@ export function ClioMermaidDiagram({
       aria-label={accessibilityLabel || heading}
       className="group relative min-w-0 bg-card"
     >
-      <header className="flex items-center justify-between gap-3 pb-2 pr-36">
+      <header className="flex items-center justify-between gap-3 pb-2">
         <div className="flex min-w-0 items-center gap-2">
           <WorkflowIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
           <h3 className="truncate text-sm font-medium">{heading}</h3>
         </div>
         {diagramHeaderExtra}
+        <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
       </header>
-      <SurfaceToolbar capabilities={toolbarCapabilities} />
-      <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={heading}>
+      <SurfaceFullScreenHost
+        fullscreen={fullscreen}
+        headerExtra={
+          <>
+            {diagramHeaderExtra}
+            <SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} />
+          </>
+        }
+        onOpenChange={setFullscreen}
+        title={heading}
+      >
         <div className={fullscreen ? 'min-h-0 flex-1' : undefined}>
           {validationError ? (
             <div className="flex min-h-64 items-center justify-center gap-2 p-4 text-sm text-destructive">

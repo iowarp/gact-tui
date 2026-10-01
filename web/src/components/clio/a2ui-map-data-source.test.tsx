@@ -13,9 +13,12 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 // G0: `onMapInstance` is how `ClioScientificMap` captures the live maplibre
-// `Map` for PNG export (`map.getCanvas()`); the real `<Map>` needs a WebGL
-// canvas jsdom cannot provide (see `scientific-map-view.test.tsx`'s own doc
-// comment), so this stand-in hands back a real, plain `<canvas>` instead — a
+// `Map` for PNG export (`map.once('render', ...)` + `map.triggerRepaint()`,
+// `map-export.ts`'s `mapPngBlob` — #516 review item 14 replaced the previous
+// direct `map.getCanvas()` read); the real `<Map>` needs a WebGL canvas
+// jsdom cannot provide (see `scientific-map-view.test.tsx`'s own doc
+// comment), so this stand-in hands back a real, plain `<canvas>` plus fake
+// `once`/`triggerRepaint` that synchronously invoke the render listener — a
 // `react-map-gl`-dynamic-import style async factory + `react.useEffect`
 // (not a static top-level `useEffect` import) avoids referencing a binding
 // before `vi.mock`'s own hoisting makes it available, same as the
@@ -26,10 +29,19 @@ vi.mock('./scientific-map-view', async () => {
     ClioScientificMapView: ({
       onMapInstance,
     }: {
-      onMapInstance?: (map: { getCanvas: () => HTMLCanvasElement }) => void;
+      onMapInstance?: (map: {
+        getCanvas: () => HTMLCanvasElement;
+        once: (type: 'render', listener: () => void) => void;
+        triggerRepaint: () => void;
+      }) => void;
     }) => {
       react.useEffect(() => {
-        onMapInstance?.({ getCanvas: () => document.createElement('canvas') });
+        const canvas = document.createElement('canvas');
+        onMapInstance?.({
+          getCanvas: () => canvas,
+          once: (_type, listener) => listener(),
+          triggerRepaint: () => {},
+        });
       }, [onMapInstance]);
       return <div data-testid="map-canvas" />;
     },
@@ -564,6 +576,45 @@ describe('clio.map.v1 G0 toolbar — dataUri', () => {
         format: 'csv',
         scope: 'full',
       }),
+    );
+  });
+
+  it('includes the producer\'s own downsample request in the "current view" export, matching what the map actually draws (#516 review item 16)', async () => {
+    repository.artifactTableExport.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    const user = userEvent.setup();
+    render(
+      wrap(
+        <A2uiSurface
+          surface={buildSurface([
+            { id: 'root', component: 'Column', children: ['map'] },
+            {
+              id: 'map',
+              component: 'clio.map.v1',
+              dataQuery: { downsample: { mode: 'stride' } },
+              dataUri: 'artifact://artifact_stations01',
+              labelField: 'station',
+              latitudeField: 'lat',
+              longitudeField: 'lon',
+              title: 'Stations',
+            },
+          ])}
+        />,
+      ),
+    );
+    await screen.findByText('1 locations');
+    await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
+
+    await openDownloadMenu(user);
+    selectMenuItem(await screen.findByRole('menuitem', { name: 'CSV (current view)' }));
+    await waitFor(() =>
+      expect(repository.artifactTableExport).toHaveBeenCalledWith(
+        'artifact_stations01',
+        expect.objectContaining({
+          downsample: { mode: 'stride' },
+          format: 'csv',
+          scope: 'current',
+        }),
+      ),
     );
   });
 

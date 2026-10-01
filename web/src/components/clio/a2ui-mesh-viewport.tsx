@@ -167,6 +167,10 @@ export function ClioMeshViewport({
   const resetRef = useRef<(() => void) | undefined>(undefined);
   const lastCameraRef = useRef('');
   const setCameraRef = useRef(setCamera);
+  // Declared before the scene effect (not where it's first READ, further
+  // down) so the effect's dependency array below can force a fresh scene on
+  // every fullscreen toggle -- see that effect's own comment for why.
+  const [fullscreen, setFullscreen] = useSurfaceFullScreen();
 
   // Declared before the scene effect so a new scene starts from the current inputs.
   useEffect(() => {
@@ -255,7 +259,12 @@ export function ClioMeshViewport({
       sceneRef.current = undefined;
       scene.dispose();
     };
-  }, [group, instanceId, parsed, upAxis, webgl]);
+    // `fullscreen` forces a fresh scene (and WebGL context) on every toggle:
+    // `SurfaceFullScreenHost` moves this canvas between two portal targets
+    // (inline vs. dialog) rather than remounting the React tree, so this
+    // effect's other deps alone would never re-run on that move and the
+    // scene stayed bound to whichever container it was first created in.
+  }, [fullscreen, group, instanceId, parsed, upAxis, webgl]);
 
   // A camera written into the data model by the producer (or another view) moves this view.
   useEffect(() => {
@@ -310,8 +319,6 @@ export function ClioMeshViewport({
   const ariaSummary = legend
     ? `${heading}, colored by ${legend.field.label} from ${formatFieldValue(legend.min)} to ${formatFieldValue(legend.max)} ${legend.field.unit}`
     : `${heading}, geometry only`;
-
-  const [fullscreen, setFullscreen] = useSurfaceFullScreen();
 
   const exportFormats: SurfaceExportFormat[] = [
     {
@@ -378,7 +385,7 @@ export function ClioMeshViewport({
         dense
         role="group"
       >
-        <FrameHeader className="flex-row items-center gap-2 pr-36">
+        <FrameHeader className="flex-row items-center gap-2">
           <BoxIcon aria-hidden="true" className="size-4 text-primary" />
           <div className="min-w-0 flex-1">
             <FrameTitle className="truncate">{heading}</FrameTitle>
@@ -403,9 +410,21 @@ export function ClioMeshViewport({
           <HeaderAction disabled={!parsed} label="Reset view" onClick={() => resetRef.current?.()}>
             <RetryIcon aria-hidden="true" />
           </HeaderAction>
+          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
         </FrameHeader>
-        <SurfaceToolbar capabilities={toolbarCapabilities} />
-        <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={heading}>
+        <SurfaceFullScreenHost
+          fullscreen={fullscreen}
+          headerExtra={
+            <>
+              <HeaderAction disabled={!parsed} label="Reset view" onClick={() => resetRef.current?.()}>
+                <RetryIcon aria-hidden="true" />
+              </HeaderAction>
+              <SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} />
+            </>
+          }
+          onOpenChange={setFullscreen}
+          title={heading}
+        >
           <FramePanel className="p-0">
             {failure ? (
               <p className="p-4 text-sm text-destructive">3D view unavailable: {failure}</p>

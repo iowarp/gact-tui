@@ -14,6 +14,7 @@ import {
   bindChartZoom,
   withZoomBrush,
   zoomBrushParamName,
+  zoomComparableValue,
   zoomRangeFilterValue,
   zoomRangeFromSignal,
 } from './chart-zoom';
@@ -234,5 +235,34 @@ describe('zoomRangeFilterValue', () => {
   it('converts a temporal bound (epoch millis) to an ISO string', () => {
     const millis = Date.parse('2026-08-01T00:00:00.000Z');
     expect(zoomRangeFilterValue(millis, 'temporal')).toBe('2026-08-01T00:00:00.000Z');
+  });
+});
+
+describe('zoomComparableValue', () => {
+  it('reads a quantitative numeric string as a number, never as a date (#516 review item 16)', () => {
+    // The actual bug: `Date.parse("42.5")` is `NaN`, which silently dropped
+    // every row from an inline chart's own client-side zoom filter.
+    expect(zoomComparableValue('42.5', 'quantitative')).toBe(42.5);
+    expect(zoomComparableValue('42.5', undefined)).toBe(42.5);
+    expect(zoomComparableValue(42.5, 'quantitative')).toBe(42.5);
+  });
+
+  it('reads a temporal string as epoch millis', () => {
+    expect(zoomComparableValue('2026-08-01T00:00:00.000Z', 'temporal')).toBe(
+      Date.parse('2026-08-01T00:00:00.000Z'),
+    );
+  });
+
+  it('reads a real Date value by its own time, regardless of the declared type', () => {
+    const date = new Date('2026-08-01T00:00:00.000Z');
+    expect(zoomComparableValue(date, 'temporal')).toBe(date.getTime());
+    expect(zoomComparableValue(date, 'quantitative')).toBe(date.getTime());
+  });
+
+  it('returns undefined for an unparseable value, for either type', () => {
+    expect(zoomComparableValue('not-a-number', 'quantitative')).toBeUndefined();
+    expect(zoomComparableValue('not-a-date', 'temporal')).toBeUndefined();
+    expect(zoomComparableValue(null, 'quantitative')).toBeUndefined();
+    expect(zoomComparableValue(undefined, undefined)).toBeUndefined();
   });
 });

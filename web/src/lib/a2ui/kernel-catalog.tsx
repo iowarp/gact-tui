@@ -229,9 +229,7 @@ const Metric = createComponentImplementation(
     // is declared here — Reference this is scoped to data views that can
     // describe a zone, which a bare metric cannot.)
     const metricCapabilities: SurfaceCapabilities = {
-      onCopy: async () => {
-        await copyTextToClipboard(`${String(props.value)}${props.unit ? ` ${props.unit}` : ''}`);
-      },
+      onCopy: () => copyTextToClipboard(`${String(props.value)}${props.unit ? ` ${props.unit}` : ''}`),
     };
     return (
       <ReUIFrame

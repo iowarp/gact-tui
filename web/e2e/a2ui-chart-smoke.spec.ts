@@ -108,6 +108,50 @@ test('renders a clio.chart.v1 scatter preset over inline data', async ({ page })
   );
 });
 
+test('the chart still renders in full screen, and again after exiting (#1551/#516 review item 7)', async ({
+  page,
+}) => {
+  await page.goto(workspaceUrl);
+  await expect(
+    page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
+  ).toBeVisible();
+
+  const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-chart-demo`);
+  expect(published.ok()).toBe(true);
+
+  const surfaceSection = await revealSurface(page);
+  const chartFrame = surfaceSection.locator('[data-slot="a2ui-chart"]');
+  const chartView = chartFrame.locator('[data-slot="a2ui-chart-view"]');
+  await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
+  await expect(chartFrame.getByText('9 rows')).toBeVisible();
+  const inlineBox = await chartView.locator('canvas, svg').first().boundingBox();
+  expect(inlineBox?.width).toBeGreaterThan(0);
+  expect(inlineBox?.height).toBeGreaterThan(0);
+
+  // `SurfaceFullScreenHost` moves the view's own DOM node to a different
+  // portal target (inline vs. dialog) rather than remounting it -- the
+  // embed effect must re-run (not silently keep rendering into a
+  // now-elsewhere, possibly zero-sized node) for content to still be there.
+  await chartFrame.hover();
+  await chartFrame.getByRole('button', { name: 'Full screen' }).click();
+  const dialog = page.getByRole('dialog');
+  const dialogChartView = dialog.locator('[data-slot="a2ui-chart-view"]');
+  await expect(dialogChartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
+  const fullscreenBox = await dialogChartView.locator('canvas, svg').first().boundingBox();
+  expect(fullscreenBox?.width).toBeGreaterThan(0);
+  expect(fullscreenBox?.height).toBeGreaterThan(0);
+  await page.screenshot({
+    path: 'D:/Libraries/Documents/projects/clio_develop_workspace/temp/g0-shots/chart-fullscreen.png',
+  });
+
+  await dialog.getByRole('button', { name: 'Exit full screen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
+  const afterExitBox = await chartView.locator('canvas, svg').first().boundingBox();
+  expect(afterExitBox?.width).toBeGreaterThan(0);
+  expect(afterExitBox?.height).toBeGreaterThan(0);
+});
+
 test('links selection between clio.chart.v1 and clio.data-table.v1 sharing one path', async ({
   page,
 }) => {

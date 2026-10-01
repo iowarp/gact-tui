@@ -42,11 +42,21 @@ export function useSurfaceFullScreen(): [boolean, (open: boolean) => void] {
 export function SurfaceFullScreenHost({
   children,
   fullscreen,
+  headerExtra,
   onOpenChange,
   title,
 }: {
   children: ReactNode;
   fullscreen: boolean;
+  /**
+   * The component's own toolbar (and any other header control, e.g.
+   * mermaid's Render/Source toggle) -- rendered in the DIALOG's own header,
+   * next to "Exit full screen". Without this, every one of those controls
+   * (download, "Reference this", Filters, ...) lived only in the inline
+   * card's header, which the full-screen dialog covers entirely: there was
+   * no way to use them while actually full screen (#516 review item 7).
+   */
+  headerExtra?: ReactNode;
   onOpenChange: (open: boolean) => void;
   title: string;
 }) {
@@ -76,10 +86,13 @@ export function SurfaceFullScreenHost({
         >
           <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
             <DialogTitle className="min-w-0 truncate text-sm">{title}</DialogTitle>
-            <Button onClick={() => onOpenChange(false)} size="sm" type="button" variant="ghost">
-              <Minimize2Icon aria-hidden="true" />
-              Exit full screen
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {headerExtra}
+              <Button onClick={() => onOpenChange(false)} size="sm" type="button" variant="ghost">
+                <Minimize2Icon aria-hidden="true" />
+                Exit full screen
+              </Button>
+            </div>
           </div>
           <div
             className="min-h-0 overflow-auto overscroll-contain p-3"

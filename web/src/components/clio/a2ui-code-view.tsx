@@ -112,9 +112,7 @@ export function ClioA2UICodeView({
       },
     ],
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
-    onCopy: async () => {
-      await copyTextToClipboard(code);
-    },
+    onCopy: () => copyTextToClipboard(code),
   };
 
   return (

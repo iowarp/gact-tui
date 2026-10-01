@@ -90,6 +90,31 @@ export function rowsToJson(columns: readonly string[], rows: readonly Record<str
   return JSON.stringify(projected, null, 2);
 }
 
+/** Whether a CSS `background-color` computed value paints nothing (transparent, or `rgba(...,0)`). */
+function isTransparentColor(color: string): boolean {
+  if (!color || color === 'transparent') return true;
+  const alpha = /^rgba?\([^)]*,\s*([\d.]+)\s*\)$/u.exec(color)?.[1];
+  return alpha !== undefined && Number(alpha) === 0;
+}
+
+/**
+ * The nearest actual (non-transparent) background color behind `node`, by
+ * walking up its own ancestors -- the real color a viewer's eye would see
+ * behind the component, not an assumption about which element happens to set
+ * it. Falls back to the document's own background, then white, so an export
+ * composited onto this is never accidentally transparent (#516 review item
+ * 13: a dark theme's light-colored chart text is unreadable once exported
+ * transparent onto a typical white viewer).
+ */
+export function resolveCardBackground(node: Element | null): string {
+  for (let current = node; current; current = current.parentElement) {
+    const color = getComputedStyle(current).backgroundColor;
+    if (!isTransparentColor(color)) return color;
+  }
+  const documentBackground = getComputedStyle(document.documentElement).backgroundColor;
+  return isTransparentColor(documentBackground) ? '#ffffff' : documentBackground;
+}
+
 /** Copies `text` to the clipboard; resolves `false` (never throws) when the API is unavailable or denied. */
 export async function copyTextToClipboard(text: string): Promise<boolean> {
   try {

@@ -1,6 +1,6 @@
 import { TransportError } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +14,7 @@ vi.hoisted(() => {
 import type { View } from 'vega';
 import type { Result } from 'vega-embed';
 
-const repository = vi.hoisted(() => ({ artifactTableQuery: vi.fn() }));
+const repository = vi.hoisted(() => ({ artifactTableExport: vi.fn(), artifactTableQuery: vi.fn() }));
 const embedded = vi.hoisted(() => ({ views: [] as View[] }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -211,6 +211,48 @@ describe('ClioChart', () => {
     ).toBeInTheDocument();
   });
 
+  it('includes the producer\'s own downsample request in the "current view" CSV export, matching what the chart actually plots (#516 review item 16)', async () => {
+    repository.artifactTableQuery.mockResolvedValue({
+      schema: [],
+      columns: { t: [0, 1], v: [1, 2], run: ['a', 'a'] },
+      totalRows: 90_000,
+      matchedRows: 90_000,
+      returnedRows: 2,
+      truncated: false,
+      downsample: { mode: 'per_entity_lttb' },
+    });
+    repository.artifactTableExport.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    const user = userEvent.setup();
+    render(
+      wrap(
+        <ClioChart
+          {...PRESET}
+          componentId="ch2b"
+          dataQuery={{ downsample: DATA_QUERY_DOWNSAMPLE }}
+          dataUri="artifact://artifact_runs01"
+        />,
+      ),
+    );
+    await embeddedView();
+
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.click(screen.getByRole('menuitem', { name: /Download/ }));
+    const csvItem = await screen.findByRole('menuitem', { name: 'CSV (current view)' });
+    fireEvent.pointerMove(csvItem);
+    fireEvent.click(csvItem);
+
+    await waitFor(() =>
+      expect(repository.artifactTableExport).toHaveBeenCalledWith(
+        'artifact_runs01',
+        expect.objectContaining({
+          downsample: DATA_QUERY_DOWNSAMPLE,
+          format: 'csv',
+          scope: 'current',
+        }),
+      ),
+    );
+  });
+
   it('states a table-query refusal in words', async () => {
     repository.artifactTableQuery.mockRejectedValue(
       new TransportError('one or more requested columns do not exist', 400, 'columns_not_found', {
@@ -332,7 +374,9 @@ describe('ClioChart', () => {
 
     expect(await screen.findByText(/^Zoomed to t/u)).toBeInTheDocument();
     const resetButton = screen.getByRole('button', { name: /reset zoom/iu });
-    resetButton.click();
+    // `fireEvent` (not a bare DOM `.click()`) wraps the resulting state
+    // update in `act(...)` itself (#516 review item 16's act() warning).
+    fireEvent.click(resetButton);
     await waitFor(() => expect(screen.queryByText(/^Zoomed to t/u)).not.toBeInTheDocument());
   });
 

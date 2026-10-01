@@ -80,13 +80,16 @@ describe('ClioArtifactCard', () => {
       </QueryClientProvider>,
     );
 
-    const row = screen.getByRole('button', { name: 'Open lifecycle-report.md' });
-    expect(row).toHaveClass('w-full', 'shadow-none');
+    const openButton = screen.getByRole('button', { name: 'Open lifecycle-report.md' });
+    // The CARD (not the open-target button nested inside it, see the G0
+    // nested-interactive fix below) carries these layout classes.
+    const card = openButton.closest('.shadow-none');
+    expect(card).toHaveClass('w-full', 'shadow-none');
     expect(screen.getByText('text/markdown, 175 B')).toBeVisible();
     expect(screen.getByText('Output')).toBeVisible();
     expect(document.querySelector('[data-attachment-variant="grid"]')).toBeNull();
 
-    await user.click(row);
+    await user.click(openButton);
     expect(onOpen).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'artifact_report', session_relation: 'produced' }),
       expect.objectContaining({ shiftKey: false }),
@@ -106,7 +109,7 @@ describe('ClioArtifactCard', () => {
     );
   });
 
-  it('makes the complete artifact element the labeled canvas action', async () => {
+  it('opens via the labeled name button, not the whole card (G0: no nested-interactive a11y violation)', async () => {
     const user = userEvent.setup();
     const onOpen = renderCard();
 
