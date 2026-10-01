@@ -6,6 +6,8 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.25] — 2026-09-30
+
 ### Changed
 
 - Agent-built views take less room in the conversation. Tables open on 10 rows
