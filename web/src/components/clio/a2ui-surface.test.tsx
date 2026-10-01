@@ -318,13 +318,21 @@ describe('ClioA2UISurface actions', () => {
   it('keeps typed TextField text across an updateDataModel to another path and a server revision bump', async () => {
     const user = userEvent.setup();
     const surfaceId = 'surface-text-persist';
+    // Coordinator design (2026-10-01): `part_id` + `message_revisions`
+    // (parallel to `messages`, one stamp per slot, matching how a real
+    // server assigns a strictly-increasing revision to EVERY message in a
+    // batch, even within one tool call) -- without them this surface is
+    // treated as served by an older, unstamped server and gets the F1
+    // always-rebuild-fresh fallback, which (correctly, for THAT case)
+    // cannot preserve local state like typed input.
     const surface: A2UISurface = {
       id: surfaceId,
       session_id: 'sess_1',
       catalog_id: CLIO_A2UI_CATALOG_ID,
       protocol_version: '0.9.1',
-      revision: 1,
+      revision: 3,
       state: 'ready',
+      part_id: 'part-1',
       messages: [
         { version: 'v0.9.1', createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID } },
         { version: 'v0.9.1', updateDataModel: { surfaceId, path: '/name', value: '' } },
@@ -338,6 +346,7 @@ describe('ClioA2UISurface actions', () => {
           },
         },
       ],
+      message_revisions: [1, 2, 3],
     };
 
     const { update } = renderSurface(surface);
@@ -346,9 +355,11 @@ describe('ClioA2UISurface actions', () => {
     expect(input).toHaveValue('Alice');
 
     // An unrelated updateDataModel message arrives (same surface id, new
-    // message array reference) — must not disturb the typed text.
+    // message array reference, its own fresh stamp) — must not disturb the
+    // typed text.
     const withUnrelatedUpdate: A2UISurface = {
       ...surface,
+      revision: 4,
       messages: [
         ...surface.messages,
         {
@@ -356,12 +367,16 @@ describe('ClioA2UISurface actions', () => {
           updateDataModel: { surfaceId, path: '/unrelated', value: 'server-value' },
         },
       ],
+      message_revisions: [...surface.message_revisions!, 4],
     };
     update(withUnrelatedUpdate);
     expect(screen.getByLabelText('Name')).toHaveValue('Alice');
 
-    // A server a2ui.surface.upserted revision bump — SurfaceBoundary is keyed
-    // on surface.id only (the deleted `${id}:${revision}` remount wiped this).
+    // A server a2ui.surface.upserted revision bump with NO new content
+    // (a redundant/duplicate notification) — SurfaceBoundary is keyed on
+    // surface.id only (the deleted `${id}:${revision}` remount wiped this),
+    // and the revision gate (at-or-behind what is already applied) makes it
+    // a clean no-op regardless.
     update({ ...withUnrelatedUpdate, revision: 2 });
     expect(screen.getByLabelText('Name')).toHaveValue('Alice');
   });
@@ -465,13 +480,19 @@ describe('ClioA2UISurface actions', () => {
   it('keeps a mid-selection ChoicePicker choice across a refresh and a cursor reconnect', async () => {
     const user = userEvent.setup();
     const surfaceId = 'surface-choice-persist';
+    // Coordinator design (2026-10-01): `part_id` + `message_revisions`, same
+    // reason as the TextField test above -- without them, a refresh/
+    // reconnect's revision change is treated as an unstamped server and
+    // falls back to a full rebuild, which cannot preserve the local
+    // selection this test is about.
     const surface: A2UISurface = {
       id: surfaceId,
       session_id: 'sess_1',
       catalog_id: CLIO_A2UI_CATALOG_ID,
       protocol_version: '0.9.1',
-      revision: 1,
+      revision: 3,
       state: 'ready',
+      part_id: 'part-1',
       messages: [
         { version: 'v0.9.1', createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID } },
         { version: 'v0.9.1', updateDataModel: { surfaceId, path: '/billingPeriod', value: '' } },
@@ -494,6 +515,7 @@ describe('ClioA2UISurface actions', () => {
           },
         },
       ],
+      message_revisions: [1, 2, 3],
     };
 
     const { update } = renderSurface(surface);

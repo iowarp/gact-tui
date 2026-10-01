@@ -1,6 +1,6 @@
 import type { A2UISurface } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -38,34 +38,63 @@ afterEach(() => {
 const SURFACE_ID = 'surface-revision-recovery';
 const SESSION_ID = 'sess_1';
 
+// The REAL producer's createSurface shape (F4, coordinator design 2026-10-01):
+// `{surfaceId, catalogId}` only -- no `theme` injected to fake a difference.
+// The lifecycle key is `surface.part_id` now, never the message's own bytes.
 const createMessage = {
   version: 'v0.9.1',
   createSurface: { surfaceId: SURFACE_ID, catalogId: CLIO_A2UI_CATALOG_ID },
 };
 
+const textRoot = (text: string) => ({
+  version: 'v0.9.1',
+  updateComponents: {
+    surfaceId: SURFACE_ID,
+    components: [{ id: 'root', component: 'Text', text }],
+  },
+});
+
+const setStatus = (value: string) => ({
+  version: 'v0.9.1',
+  updateDataModel: { surfaceId: SURFACE_ID, path: '/status', value },
+});
+
+const statusTextRoot = {
+  version: 'v0.9.1',
+  updateComponents: {
+    surfaceId: SURFACE_ID,
+    components: [{ id: 'root', component: 'Text', text: { path: '/status' } }],
+  },
+};
+
 /**
- * A real `Grid` from the shipped kernel catalog (`kernel-catalog.tsx`'s
- * `gap: z.number().min(0).max(12).optional()`) — the exact client/server
- * schema drift behind #23 (G4 raises the server's bound to match; this
- * fixture keeps exercising the client's own, lower, long-standing cap so the
- * recovery path is proven against a REAL `MessageProcessor` throw, not a
- * synthetic one). The validation pass that rejects `root` runs before any
- * component in the SAME message is added, so `label` never renders either.
+ * Builds a surface carrying the modern, stamped protocol (coordinator
+ * design): `part_id` plus `message_revisions`, parallel to `messages`.
+ * `messageRevisions` defaults to a plain 1..N sequence -- correct whenever
+ * every message in the fixture is its own distinct slot; a scenario that
+ * re-stamps a MERGED slot (a component or data-model revert/fix landing on
+ * an id already in the array) passes its own `messageRevisions` explicitly.
  */
-function gridMessage(gap: number, text: string) {
+function a2uiSurface(
+  messages: unknown[],
+  revision: number,
+  options: { partId?: string; messageRevisions?: number[] } = {},
+): A2UISurface {
   return {
-    version: 'v0.9.1',
-    updateComponents: {
-      surfaceId: SURFACE_ID,
-      components: [
-        { id: 'root', component: 'Grid', gap, children: ['label'] },
-        { id: 'label', component: 'Text', text },
-      ],
-    },
+    id: SURFACE_ID,
+    session_id: SESSION_ID,
+    catalog_id: CLIO_A2UI_CATALOG_ID,
+    protocol_version: '0.9.1',
+    revision,
+    state: 'ready',
+    part_id: options.partId ?? 'part-1',
+    messages: messages as A2UISurface['messages'],
+    message_revisions: options.messageRevisions ?? messages.map((_, index) => index + 1),
   };
 }
 
-function a2uiSurface(messages: unknown[], revision: number): A2UISurface {
+/** F1 fallback fixture: an older server that predates `part_id`/`message_revisions` entirely. */
+function legacyA2uiSurface(messages: unknown[], revision: number): A2UISurface {
   return {
     id: SURFACE_ID,
     session_id: SESSION_ID,
@@ -90,113 +119,165 @@ function renderSurface(surface: A2UISurface) {
   return { ...utils, update: (next: A2UISurface) => utils.rerender(tree(next)) };
 }
 
-describe('A2UI surface revision recovery (G2, #23/#29)', () => {
-  it('renders once a corrected revision arrives after a batch that failed partway through', async () => {
-    const { update } = renderSurface(a2uiSurface([createMessage, gridMessage(15, 'Grid content')], 1));
+describe('A2UI surface revision recovery (G2 #23/#29; coordinator design 2026-10-01)', () => {
+  // P1: a data-model revert must render the REVERTED value, not get stuck on
+  // the value in between. Byte-identical content recurring (running, after
+  // done) is exactly what a content-fingerprint cache gets wrong -- the
+  // revert's message is identical to the FIRST `running` write, so a
+  // fingerprint-keyed cache wrongly treats it as "already applied" and skips
+  // it. Comparing the server's own per-slot revision stamp instead fixes it:
+  // each `updateDataModel` is its own slot with its own, never-reused stamp.
+  it('P1: a data-model revert (running -> done -> running) renders the reverted value', async () => {
+    const { update } = renderSurface(
+      a2uiSurface([createMessage, statusTextRoot, setStatus('running')], 3),
+    );
+    expect(await screen.findByText('running')).toBeVisible();
 
-    expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
-
-    // G2 merge-gate finding (gact-tui#513 comment 5937313752, reproduced
-    // against a real server): the server does NOT compact the invalid
-    // `updateComponents` away. A `GET .../a2ui/surfaces` on the real server
-    // showed the bad message and the fix PRESENT TOGETHER — revision 2
-    // appends the fix; it does not replace anything.
     update(
-      a2uiSurface([createMessage, gridMessage(15, 'Grid content'), gridMessage(8, 'Grid content')], 2),
+      a2uiSurface([createMessage, statusTextRoot, setStatus('running'), setStatus('done')], 4),
+    );
+    expect(await screen.findByText('done')).toBeVisible();
+
+    update(
+      a2uiSurface(
+        [
+          createMessage,
+          statusTextRoot,
+          setStatus('running'),
+          setStatus('done'),
+          setStatus('running'),
+        ],
+        5,
+      ),
+    );
+    expect(await screen.findByText('running')).toBeVisible();
+    expect(screen.queryByText('done')).not.toBeInTheDocument();
+  });
+
+  // P2: same defect, one layer down -- a COMPONENT revert through the single
+  // merged `updateComponents` slot (materialization, iowarp/clio-agent#1553:
+  // the server never keeps more than one `updateComponents` message per
+  // surface). The third write's merged content is byte-identical to the
+  // first's, so only the stamp -- not the bytes -- tells them apart.
+  it('P2: a component revert (A -> B -> A) through the merged slot renders the reverted value', async () => {
+    const { update } = renderSurface(
+      a2uiSurface([createMessage, textRoot('A')], 2, { messageRevisions: [1, 2] }),
+    );
+    expect(await screen.findByText('A')).toBeVisible();
+
+    update(a2uiSurface([createMessage, textRoot('B')], 3, { messageRevisions: [1, 3] }));
+    expect(await screen.findByText('B')).toBeVisible();
+
+    update(a2uiSurface([createMessage, textRoot('A')], 4, { messageRevisions: [1, 4] }));
+    expect(await screen.findByText('A')).toBeVisible();
+    expect(screen.queryByText('B')).not.toBeInTheDocument();
+  });
+
+  // P3 (F2/F3): a Grid fixed to gap 8, then "fixed" again to the
+  // client-rejected gap 15 (server-accepted at the 0.5.1 pin) -- the merged
+  // slot's stamp moves forward, so the WHOLE slot is re-applied component by
+  // component. `root` (the bad Grid) throws and is SKIPPED: its previous,
+  // still-good definition (gap 8) is left exactly as it was -- the failed
+  // sub-message's mutation pass never ran. `label` (untouched, always valid)
+  // still re-applies as a no-op. The surface renders its stale-but-valid
+  // state, with an inline notice AND a VALIDATION_FAILED report -- never the
+  // full failure card, since a renderable root remains throughout.
+  it('P3: a still-bad merged update is skipped, keeping the stale value, with an inline notice and a VALIDATION_FAILED report', async () => {
+    const good = {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [
+          { id: 'root', component: 'Grid', gap: 8, children: ['label'] },
+          { id: 'label', component: 'Text', text: 'Grid stable' },
+        ],
+      },
+    };
+    const bad = {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [
+          { id: 'root', component: 'Grid', gap: 15, children: ['label'] },
+          { id: 'label', component: 'Text', text: 'Grid stable' },
+        ],
+      },
+    };
+
+    const { update } = renderSurface(
+      a2uiSurface([createMessage, good], 2, { messageRevisions: [1, 2] }),
+    );
+    expect(await screen.findByText('Grid stable')).toBeVisible();
+
+    update(a2uiSurface([createMessage, bad], 3, { messageRevisions: [1, 3] }));
+
+    expect(await screen.findByText('Grid stable')).toBeVisible();
+    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
+    expect(await screen.findByText(/could not be validated and was skipped/iu)).toBeVisible();
+    await waitFor(() => expect(repository.a2uiAction).toHaveBeenCalled());
+    const lastCall = repository.a2uiAction.mock.calls.at(-1) as [string, { error?: { code?: string } }];
+    expect(lastCall[1].error?.code).toBe('VALIDATION_FAILED');
+  });
+
+  // P4b: a merged shape where ONE sibling (`b`) was never valid at all (an
+  // orphan reference `root` -> [a, b], `b` a bad Grid) -- `a` ("Alpha")
+  // still renders, `b` is skipped and reported, and the surface is never
+  // the full failure card, because `root` itself (and `a`) resolved fine.
+  it('P4b: an orphan bad component in a merged shape is skipped and reported; its siblings still render', async () => {
+    const dashboard = {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [
+          { id: 'root', component: 'Row', children: ['a', 'b'] },
+          { id: 'a', component: 'Text', text: 'Alpha' },
+          { id: 'b', component: 'Grid', gap: 15, children: [] },
+        ],
+      },
+    };
+
+    renderSurface(a2uiSurface([createMessage, dashboard], 2, { messageRevisions: [1, 2] }));
+
+    expect(await screen.findByText('Alpha')).toBeVisible();
+    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
+    expect(await screen.findByText(/could not be validated and was skipped/iu)).toBeVisible();
+  });
+
+  // P5 (F4): a REST reconcile delivering a RECREATED record -- a fresh
+  // `part_id` at revision 2 -- after the OLD lifecycle sat at revision 5.
+  // The revision number alone would say "stale, ignore" (2 <= 5); the
+  // part_id says otherwise, and it wins: a recreate always rebuilds,
+  // regardless of its revision number, since the server's counter restarts
+  // for it. Uses the real producer's createSurface shape throughout (no
+  // injected `theme` -- the OLD design needed one to force a content-hash
+  // difference; `part_id` makes that unnecessary).
+  it('P5: a recreated record (fresh part_id) rebuilds even at a LOWER revision than the old lifecycle', async () => {
+    const { update } = renderSurface(
+      a2uiSurface([createMessage, textRoot('Old surface')], 5, {
+        partId: 'part-1',
+        messageRevisions: [1, 5],
+      }),
+    );
+    expect(await screen.findByText('Old surface')).toBeVisible();
+
+    update(
+      a2uiSurface([createMessage, textRoot('Recreated surface')], 2, {
+        partId: 'part-2',
+        messageRevisions: [1, 2],
+      }),
     );
 
-    expect(await screen.findByText('Grid content')).toBeVisible();
-    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
-  });
-
-  it('never surfaces "already exists" once the surface recovers', async () => {
-    const { update } = renderSurface(a2uiSurface([createMessage, gridMessage(15, 'Grid content')], 1));
-    const firstFailure = await screen.findByText('Interactive surface unavailable');
-    expect(firstFailure).toBeVisible();
-    // The genuine validation failure, not a replay artifact.
+    expect(await screen.findByText('Recreated surface')).toBeVisible();
+    expect(screen.queryByText('Old surface')).not.toBeInTheDocument();
     expect(screen.queryByText(/already exists/iu)).not.toBeInTheDocument();
-
-    // Same real-server shape as above: the bad message is still there.
-    update(
-      a2uiSurface([createMessage, gridMessage(15, 'Grid content'), gridMessage(8, 'Grid content')], 2),
-    );
-
-    await screen.findByText('Grid content');
-    expect(screen.queryByText(/already exists/iu)).not.toBeInTheDocument();
-    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
   });
 
-  // G2 merge-gate finding (gact-tui#513 comment 5937313752): reproduces the
-  // EXACT shape pulled from a real server's `GET .../a2ui/surfaces` for this
-  // bug (a bare `root` Grid, no wrapper component) — the bad message defines
-  // `root` outright (not just one property of an already-good `root`), and
-  // the fix re-sends ONLY `root`, never resending the `label` that was
-  // always valid and never touched by either Grid message. A loop that
-  // stops on the first throw never reaches the fix; this must render.
-  it('renders a fix that re-sends only the failing component, with the bad one still in the stream', async () => {
-    const labelMessage = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [{ id: 'label', component: 'Text', text: 'Grid content' }],
-      },
-    };
-    const badGrid = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [{ id: 'root', component: 'Grid', gap: 15, children: ['label'] }],
-      },
-    };
-    const fixedGrid = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [{ id: 'root', component: 'Grid', gap: 8, children: ['label'] }],
-      },
-    };
-
-    const { update } = renderSurface(a2uiSurface([createMessage, labelMessage, badGrid], 1));
-    expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
-
-    update(a2uiSurface([createMessage, labelMessage, badGrid, fixedGrid], 2));
-
-    expect(await screen.findByText('Grid content')).toBeVisible();
-    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
-  });
-
-  it('applies an in-place, same-length compacted revision (a superseded update removed)', async () => {
-    const before = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [{ id: 'root', component: 'Text', text: 'Before' }],
-      },
-    };
-    const after = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [{ id: 'root', component: 'Text', text: 'After' }],
-      },
-    };
-
-    const { update } = renderSurface(a2uiSurface([createMessage, before], 1));
-    expect(await screen.findByText('Before')).toBeVisible();
-
-    // Same array length (2): the server dropped `before` (it redefines the
-    // same component id) and appended `after` in its place.
-    update(a2uiSurface([createMessage, after], 2));
-
-    expect(await screen.findByText('After')).toBeVisible();
-    expect(screen.queryByText('Before')).not.toBeInTheDocument();
-  });
-
-  // G2 adversarial review (F2): an ordinary same-id `updateComponents` must
-  // upsert onto the EXISTING model, never rebuild -- a rebuild would discard
-  // the surface's own data model (a bound `TextField`'s typed value lives
-  // there, not in the component's `properties`).
-  it('keeps typed TextField input across an in-place, same-id revision', async () => {
+  // F2 (unchanged from the prior design's own regression coverage): an
+  // ordinary same-id `updateComponents` must upsert onto the EXISTING
+  // model, never rebuild -- a rebuild would discard the surface's own data
+  // model (a bound `TextField`'s typed value lives there, not in the
+  // component's `properties`).
+  it('keeps typed TextField input across an in-place, same-id revision (merged slot re-stamped)', async () => {
     const user = userEvent.setup();
     const bindMessage = {
       version: 'v0.9.1',
@@ -210,110 +291,56 @@ describe('A2UI surface revision recovery (G2, #23/#29)', () => {
       },
     });
 
-    const { update } = renderSurface(a2uiSurface([createMessage, bindMessage, field('Name')], 1));
+    const { update } = renderSurface(
+      a2uiSurface([createMessage, bindMessage, field('Name')], 2, { messageRevisions: [1, 2, 2] }),
+    );
     const input = await screen.findByLabelText('Name');
     await user.type(input, 'Alice');
     expect(input).toHaveValue('Alice');
 
-    // The server compacts the old `field('Name')` away (same component id)
-    // and appends a relabeled one -- an ordinary agent edit, not a recreate.
-    update(a2uiSurface([createMessage, bindMessage, field('Full name')], 2));
+    // Same merged slot, relabeled -- an ordinary agent edit, not a recreate.
+    update(
+      a2uiSurface([createMessage, bindMessage, field('Full name')], 3, {
+        messageRevisions: [1, 2, 3],
+      }),
+    );
 
     expect(await screen.findByLabelText('Full name')).toHaveValue('Alice');
   });
 
-  it('applies a shrinking, compacted revision (several updates consolidated into one)', async () => {
-    const u1 = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [
-          { id: 'root', component: 'Row', children: ['a', 'b'] },
-          { id: 'a', component: 'Text', text: 'A before' },
-        ],
-      },
-    };
-    const u2 = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [{ id: 'b', component: 'Text', text: 'B before' }],
-      },
-    };
-    const u3 = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [
-          { id: 'root', component: 'Row', children: ['a', 'b'] },
-          { id: 'a', component: 'Text', text: 'A after' },
-          { id: 'b', component: 'Text', text: 'B after' },
-        ],
-      },
-    };
-
-    const { update } = renderSurface(a2uiSurface([createMessage, u1, u2], 1));
-    expect(await screen.findByText('A before')).toBeVisible();
-    expect(await screen.findByText('B before')).toBeVisible();
-
-    // `u3` redefines every id `u1`/`u2` touched, so the server consolidates
-    // both into it: the array shrinks from 3 messages to 2.
-    update(a2uiSurface([createMessage, u3], 2));
-
-    expect(await screen.findByText('A after')).toBeVisible();
-    expect(await screen.findByText('B after')).toBeVisible();
-    expect(screen.queryByText('A before')).not.toBeInTheDocument();
-    expect(screen.queryByText('B before')).not.toBeInTheDocument();
-  });
-
   it('ignores a revision at or behind what is already applied', async () => {
-    const { update } = renderSurface(a2uiSurface([createMessage, gridMessage(8, 'Original')], 2));
+    const { update } = renderSurface(
+      a2uiSurface([createMessage, textRoot('Original')], 2, { messageRevisions: [1, 2] }),
+    );
     expect(await screen.findByText('Original')).toBeVisible();
 
     // Same revision as already applied, carrying content that was NEVER
-    // applied before -- if the revision gate did not fire, the fingerprint
-    // diff alone would treat this as new and apply it.
-    update(a2uiSurface([createMessage, gridMessage(8, 'Should not render')], 2));
+    // applied before -- the revision gate must fire regardless of content.
+    update(
+      a2uiSurface([createMessage, textRoot('Should not render')], 2, {
+        messageRevisions: [1, 2],
+      }),
+    );
 
     expect(screen.queryByText('Should not render')).not.toBeInTheDocument();
     expect(screen.getByText('Original')).toBeVisible();
   });
 
-  it('rebuilds on a deleteSurface+createSurface delivered together in one reconcile', async () => {
-    const before = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [{ id: 'root', component: 'Text', text: 'Old surface' }],
-      },
-    };
-    const recreateMessage = {
-      version: 'v0.9.1',
-      createSurface: {
-        surfaceId: SURFACE_ID,
-        catalogId: CLIO_A2UI_CATALOG_ID,
-        theme: { accent: 'rebuilt' },
-      },
-    };
-    const after = {
-      version: 'v0.9.1',
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: [{ id: 'root', component: 'Text', text: 'Recreated surface' }],
-      },
-    };
+  // F1: a server that predates `message_revisions`/`part_id` (an older
+  // pinned clio-agent) cannot be incrementally trusted -- the client falls
+  // back to a full rebuild on each revision that moves forward, reporting
+  // the degradation visibly (console plus the existing local-notice door),
+  // never silently.
+  it('falls back to a full rebuild, with a visible typed degradation, against a server without revision stamps', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    const { update } = renderSurface(a2uiSurface([createMessage, before], 5));
-    expect(await screen.findByText('Old surface')).toBeVisible();
+    const { update } = renderSurface(legacyA2uiSurface([createMessage, textRoot('First')], 2));
+    expect(await screen.findByText('First')).toBeVisible();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[A2UI]'));
+    expect(await screen.findByText(/predates incremental A2UI updates/iu)).toBeVisible();
 
-    // The server replaces the whole record on a recreate: a fresh message
-    // history with a DIFFERENT `createSurface` and a revision counter that
-    // starts over -- deliberately lower than the old lifecycle's last
-    // revision here, delivered as one reconcile (e.g. a session resume).
-    update(a2uiSurface([recreateMessage, after], 1));
-
-    expect(await screen.findByText('Recreated surface')).toBeVisible();
-    expect(screen.queryByText('Old surface')).not.toBeInTheDocument();
-    expect(screen.queryByText(/already exists/iu)).not.toBeInTheDocument();
+    update(legacyA2uiSurface([createMessage, textRoot('Second')], 3));
+    expect(await screen.findByText('Second')).toBeVisible();
+    expect(screen.queryByText('First')).not.toBeInTheDocument();
   });
 });

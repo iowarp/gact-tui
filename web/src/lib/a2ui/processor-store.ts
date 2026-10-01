@@ -211,53 +211,41 @@ interface ProcessorEntry {
    * very first revision (always >= 1) is never mistaken for stale.
    *
    * Advanced once every message in a revision's pending set has been
-   * ATTEMPTED, whether or not all of them succeeded — a still-failing
-   * message is retried by fingerprint on the next revision that moves
-   * forward, not by re-running this same revision again (which would only
-   * ever reproduce the identical, deterministic failure). This is a
-   * progress marker for "nothing more to usefully do at this revision
-   * number", not a success marker; `hasRenderableRoot` is what decides
-   * whether the result is shown as a model or a failure.
+   * ATTEMPTED, whether or not all of them succeeded. This is a progress
+   * marker for "nothing more to usefully do at this revision number", not a
+   * success marker; `hasRenderableRoot` is what decides whether the result
+   * is shown as a model or a failure.
    */
   appliedRevision: number;
   /**
-   * Fingerprint of the `createSurface` message the current `processor` was
-   * built from. A different fingerprint on a later revision means this is a
-   * NEW surface lifecycle (a `deleteSurface` followed by a `createSurface`,
-   * delivered together in one reconcile) — authoritative regardless of the
-   * revision number, since a recreate starts the server's counter over.
-   * `undefined` only before the first message has ever been applied.
+   * The server's own `surface.part_id` (coordinator design, 2026-10-01): a
+   * fresh transcript part id the server mints on every `createSurface`
+   * (`gact/a2ui.py` ~412-421). A different part_id on a later reconcile
+   * means this is a NEW surface lifecycle (a `deleteSurface` plus a
+   * `createSurface`, delivered together, or a session resume) —
+   * authoritative regardless of the revision number, since a recreate
+   * starts the server's counter over. `undefined` only before the first
+   * message has ever been applied.
+   *
+   * Replaces the earlier `createFingerprint` (hashing the `createSurface`
+   * message's own content): two DIFFERENT createSurface lifecycles for the
+   * same surface id can carry byte-identical content (the same catalogId,
+   * no theme), which a content hash cannot tell apart but the server's own
+   * minted part_id always can.
    */
-  createFingerprint: string | undefined;
+  partId: string | undefined;
   /**
-   * Fingerprints of every message already folded into `processor`'s model
-   * for the CURRENT create lifecycle. Membership, not array position,
-   * decides what is new: the server COMPACTS `surface.messages` in place (a
-   * corrected `updateComponents` drops every earlier `updateComponents` it
-   * supersedes — `gact/a2ui.py`'s `_apply_staged_message`, ~449-458 — so a
-   * later revision's array is a filtered-then-appended set, not a stable
-   * append-only log an index or a prefix scan can safely replay against).
-   * Each fingerprint is computed and cached exactly once, when the message
-   * is applied, so a long-lived surface (inline chart data can be
-   * thousands of rows) never re-stringifies its own history on a later
-   * revision — only the current incoming array is fingerprinted, once each.
+   * True once this surface has warned about talking to a server that
+   * predates per-message revision stamps (`degradedProtocol`, below) --
+   * reported once per surface lifetime (not once per rebuilt entry, since
+   * the degraded path rebuilds `processor` on every revision by design), via
+   * a separate ref the caller keeps across entry rebuilds.
    */
-  appliedFingerprints: Set<string>;
   errorSubscribed: boolean;
   errorUnsubscribe: () => void;
 }
 
 const EMPTY_RESULT: A2uiProcessorResult = {};
-
-/** Cheap structural identity for one wire message (plain JSON, no cycles). */
-function fingerprintA2uiMessage(message: A2uiMessage): string {
-  return JSON.stringify(message);
-}
-
-/** The lifecycle-starting `createSurface` message, if `incoming` carries one. */
-function findCreateSurfaceMessage(incoming: A2uiMessage[]): A2uiMessage | undefined {
-  return incoming.find((message) => 'createSurface' in message);
-}
 
 function createProcessorEntry(
   catalogs: Catalog<ReactComponentImplementation>[],
@@ -271,73 +259,10 @@ function createProcessorEntry(
     }),
     catalogsKey,
     appliedRevision: -1,
-    createFingerprint: undefined,
-    appliedFingerprints: new Set(),
+    partId: undefined,
     errorSubscribed: false,
     errorUnsubscribe: () => undefined,
   };
-}
-
-interface PendingA2uiMessage {
-  message: A2uiMessage;
-  /** Computed once by the caller while filtering `incoming` -- never re-stringified here. */
-  fingerprint: string;
-}
-
-/**
- * Feeds `pending` into `entry.processor` ONE message at a time — never the
- * whole batch through a single `processMessages` call — so a throw partway
- * through leaves `entry.appliedFingerprints` reflecting EXACTLY what the
- * model actually committed. A `createSurface` that lands before a sibling
- * `updateComponents` throws is recorded as applied; the next revision then
- * resumes after it instead of resending `createSurface` into a model that
- * already has it (`@a2ui/web_core`'s `Surface ${id} already exists.`, the
- * defect this replaces).
- *
- * G2 merge-gate finding (gact-tui#513 comment 5937313752): a throwing
- * message does NOT stop the loop — every remaining message is still
- * attempted. The real server keeps a bad `updateComponents` in
- * `surface.messages` forever (it does not drop a superseded message the way
- * an earlier design assumed, `clio_agent/gact/a2ui.py`), so a later, good
- * message that fixes the same component arrives ALONGSIDE the still-present
- * bad one, not in its place. Stopping on the first throw meant that fix was
- * never even attempted. `processUpdateComponentsMessage` validates every
- * component in a message before mutating any of them, so a throw here never
- * leaves a half-applied component for a later message to build on top of —
- * each message either fully lands or fully doesn't.
- *
- * A failed message's fingerprint is deliberately NOT added to
- * `appliedFingerprints`: it is retried on every future reconcile for as long
- * as the server keeps it in the stream. That's cheap (one more
- * `processMessages` call and a caught throw) and harmless — the alternative,
- * treating a throw as "applied", would permanently hide a component the
- * server never actually fixed.
- *
- * Returns the LAST failure encountered, if any — the caller only surfaces it
- * when the resulting model still has no renderable root; otherwise a
- * subsequent, successful message already overrode whatever broke, and the
- * failure is moot.
- */
-function applyPendingMessages(
-  entry: ProcessorEntry,
-  pending: PendingA2uiMessage[],
-): A2uiProcessorFailure | undefined {
-  let failure: A2uiProcessorFailure | undefined;
-  for (const { message, fingerprint } of pending) {
-    try {
-      entry.processor.processMessages([message]);
-      entry.appliedFingerprints.add(fingerprint);
-    } catch (error) {
-      failure = {
-        code: 'processor_error',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'The interactive surface could not be validated.',
-      };
-    }
-  }
-  return failure;
 }
 
 /** The surface's own root component — the renderability bar `@a2ui/react`'s `A2uiSurface` itself uses (`ROOT_COMPONENT_ID`, `node-resolver.js`): no root means an indefinite `LoadingPlaceholder`, not a crash. */
@@ -345,51 +270,168 @@ function hasRenderableRoot(model: SurfaceModel<ReactComponentImplementation> | u
   return model?.componentsModel.get('root') !== undefined;
 }
 
+/** A human label for a component dict, for an inline notice/report -- never raw JSON. */
+function componentLabel(component: unknown): string {
+  if (component && typeof component === 'object') {
+    const record = component as Record<string, unknown>;
+    const type = typeof record.component === 'string' ? record.component : '';
+    const id = typeof record.id === 'string' ? record.id : '';
+    if (type || id) return `${type || 'Component'}${id ? ` (${id})` : ''}`;
+  }
+  return 'A component';
+}
+
+/**
+ * Splits an `updateComponents` message into one message per component (F3,
+ * coordinator design, 2026-10-01). `@a2ui/web_core`'s own
+ * `processUpdateComponentsMessage` validates EVERY component in a message
+ * before mutating ANY of them (atomic per call to `processMessages`), so a
+ * message naming several components -- a bad one among good ones -- either
+ * lands entirely or rejects entirely. Splitting makes each component its
+ * own atomic unit: a bad one is skipped and reported (`applyPendingMessages`
+ * below); its siblings, and every other pending message, still apply.
+ *
+ * Any other message type (`createSurface`/`updateDataModel`/`deleteSurface`)
+ * is returned as its own single-element array, unsplit -- there is nothing
+ * to split within one data-model write or one surface lifecycle event.
+ */
+function splitForPerComponentApply(message: A2uiMessage): A2uiMessage[] {
+  if (!('updateComponents' in message)) return [message];
+  const { surfaceId, components } = message.updateComponents;
+  return components.map(
+    (component) =>
+      ({
+        version: message.version,
+        updateComponents: { surfaceId, components: [component] },
+      }) as A2uiMessage,
+  );
+}
+
+/**
+ * Feeds `pending` into `entry.processor`, one component (or one whole
+ * non-`updateComponents` message) at a time — never a multi-component
+ * message through a single `processMessages` call, and never the whole
+ * `pending` array through one call either, so a throw never stops later
+ * work (F2/F3, coordinator design): every pending message, and every
+ * component within an `updateComponents` message, is attempted regardless
+ * of an earlier failure.
+ *
+ * G2 merge-gate finding (gact-tui#513 comment 5937313752) plus the
+ * coordinator's adversarial follow-up: the real server keeps a bad
+ * `updateComponents` in `surface.messages` forever (materialized into the
+ * ONE current-state slot, `clio_agent/gact/a2ui_component_fold.py`, never
+ * dropped), so a later, good change to a DIFFERENT component in that same
+ * merged message arrives folded in ALONGSIDE the still-bad one, not in its
+ * place -- the merged slot's stamp moves forward and the WHOLE slot is
+ * re-applied, component by component, every time. A bad component is
+ * skipped (its PREVIOUS value, if any, is left exactly as it was -- the
+ * failed sub-message's mutation pass never ran) and reported through
+ * `onValidationFailed`'s existing `VALIDATION_FAILED` door (no `path`, so
+ * the generic inline notice fires -- unlike a rendered component's own
+ * URL-scheme guard, a skipped component has no in-place replacement visual
+ * of its own) so the repair lane can act on it, same as any other
+ * client-detected violation.
+ *
+ * Returns the LAST failure encountered, if any — the caller only surfaces
+ * the full failure card when the resulting model still has no renderable
+ * root; otherwise a subsequent, successful message already overrode
+ * whatever broke, or the failure never touched an already-good root, and a
+ * full-card failure is moot (an inline notice already fired per component).
+ */
+function applyPendingMessages(
+  entry: ProcessorEntry,
+  pending: A2uiMessage[],
+  onValidationFailed: (error: { code: string; path?: string; message: string }) => void,
+): A2uiProcessorFailure | undefined {
+  let failure: A2uiProcessorFailure | undefined;
+  for (const message of pending) {
+    for (const part of splitForPerComponentApply(message)) {
+      try {
+        entry.processor.processMessages([part]);
+      } catch (error) {
+        const detail =
+          error instanceof Error
+            ? error.message
+            : 'The interactive surface could not be validated.';
+        failure = { code: 'processor_error', message: detail };
+        if ('updateComponents' in part) {
+          const [component] = part.updateComponents.components;
+          onValidationFailed({
+            code: 'VALIDATION_FAILED',
+            message: `${componentLabel(component)} could not be validated and was skipped: ${detail}`,
+          });
+        }
+      }
+    }
+  }
+  return failure;
+}
+
+/**
+ * F2 fallback (coordinator design): a server that predates per-message
+ * revision stamps (`surface.message_revisions` absent, or length-mismatched
+ * against `surface.messages` -- an older pinned clio-agent) cannot be
+ * incrementally trusted: there is no way to tell "this slot changed" from
+ * "this slot is unchanged" without the stamps this whole design replaces
+ * content-fingerprinting with. The caller falls back to tearing down and
+ * replaying the WHOLE stream fresh on every revision that moves forward --
+ * correct, if not as cheap as the stamped path. Reported once per surface
+ * lifetime (`reportedRef`, kept across entry rebuilds), never silently: a
+ * console warning plus the existing local-notice door
+ * (`onValidationFailed`, `code` deliberately NOT `VALIDATION_FAILED` so
+ * a2ui-surface.tsx's handler only shows the local notice and does not also
+ * POST a client-detected-violation report the server never asked for).
+ */
+function reportDegradedProtocol(
+  onValidationFailed: (error: { code: string; path?: string; message: string }) => void,
+): void {
+  const message =
+    'This workspace is served by an older version that predates incremental A2UI updates; the interactive surface rebuilds fully on every change instead of applying it directly.';
+  // eslint-disable-next-line no-console -- deliberate, typed degradation surface (no-silent-fallback)
+  console.warn(`[A2UI] ${message}`);
+  onValidationFailed({ code: 'a2ui_stamps_unavailable', message });
+}
+
 /**
  * One `MessageProcessor` per surface id, persistent across revisions — the
  * caller no longer remounts on `surface.revision`
  * (`docs/design/a2ui-compat-campaign-2026-09.md` S6 deletion: the
- * revision-keyed remount that wiped unsubmitted form state). Each revision
- * is reconciled against `entry`'s revision counter and fingerprint set,
- * never by replaying `surface.messages.slice(someIndex)` or rebuilding on
- * every change:
- * - a NEW create lifecycle (the incoming `createSurface` fingerprint
- *   differs from the one this processor was built from — a `deleteSurface`
- *   plus a `createSurface` delivered together in one reconcile) always
- *   rebuilds, regardless of its revision number, since a recreate starts
- *   the server's counter over;
+ * revision-keyed remount that wiped unsubmitted form state).
+ *
+ * Reconciliation (coordinator design, 2026-10-01 adversarial review of G2):
+ * applies BY REVISION, never by content bytes. `surface.message_revisions`
+ * stamps each slot in `surface.messages` (same index, same length) with the
+ * revision that produced its CURRENT content — the merged `updateComponents`
+ * slot (`a2ui_component_fold.py`) is re-stamped on every component change,
+ * however small; every other slot keeps the stamp it was created with. A
+ * slot is pending whenever `stamp > entry.appliedRevision`, full stop:
+ * - a NEW create lifecycle (`surface.part_id` differs from the one this
+ *   processor was built from) always rebuilds, regardless of revision
+ *   number, since a recreate starts the server's counter over;
  * - otherwise, a revision at or behind what is already applied (a post-gap
- *   REST reconcile racing the live stream, `processor-store-reconcile.
- *   test.tsx`) is never authoritative enough to regress an already-rendered
- *   surface, so it is a no-op;
- * - otherwise, every message in the new array NOT already applied — by
- *   fingerprint, not position, so a shrinking compaction (several earlier
- *   `updateComponents` replaced by one consolidating message) is still
- *   picked up — is applied, in order, as an UPSERT onto the EXISTING model
+ *   REST reconcile racing the live stream) is a no-op;
+ * - otherwise, every slot whose stamp moved forward is (re-)applied, in
+ *   stream order, as an UPSERT onto the EXISTING model
  *   (`updateComponents` on an existing component id replaces its
- *   properties in place, same as `@a2ui/web_core` already does for any
- *   repeat update). An ordinary same-id `updateComponents` therefore never
- *   rebuilds and never disturbs this surface's data model — a bound
- *   `TextField`'s typed input, a linked selection — because nothing is
- *   discarded; only unseen messages are folded in.
+ *   properties in place). The merged slot is re-applied WHOLESALE on every
+ *   bump — harmless, since an upsert of an already-current component is a
+ *   no-op, and it is exactly how a REVERT (A -> B -> A) renders correctly:
+ *   the third message's content is byte-identical to the first's, so a
+ *   content fingerprint would have wrongly treated it as "already applied"
+ *   and skipped it forever. Comparing the stamp instead of the bytes is the
+ *   whole fix.
  *
- * The server never produces an array that requires UNDOING an already-
- * applied message within one lifecycle, so an upsert-only replay is always
- * sufficient short of an actual recreate.
+ * `applyPendingMessages` splits a multi-component `updateComponents` slot
+ * into one apply per component (F3) so one bad component is skipped and
+ * reported without blocking its siblings or any other pending message
+ * (F2). The failure card only replaces the rendered surface when NO
+ * renderable root remains once the whole pending set has been tried
+ * (`hasRenderableRoot`) — a bad component that never touched an
+ * already-good root, or one a sibling message doesn't even reference yet,
+ * must not block rendering everything else.
  *
- * A message that throws (`applyPendingMessages`) does NOT stop that pass —
- * every other pending message is still attempted (G2 merge-gate finding,
- * gact-tui#513 comment 5937313752: the real server keeps a bad
- * `updateComponents` in the stream forever rather than dropping it once a
- * fix arrives, so the fix shows up ALONGSIDE the still-present bad message,
- * not in its place — a loop that stopped on the first throw never reached
- * it). The failure is only shown to the user when the surface STILL has no
- * renderable root (`hasRenderableRoot`) once every pending message has been
- * tried: a bad message that a later, good one overrides — or one that never
- * touched an already-good root in the first place — must not block
- * rendering. A missing root with NO failure (nothing has defined it yet) is
- * the ordinary "still loading" state and is left to `@a2ui/react`'s own
- * `LoadingPlaceholder`, not treated as an error.
+ * A server that predates `message_revisions` gets the degraded, always-
+ * rebuild-fresh fallback (`reportDegradedProtocol`), never silently.
  *
  * `onError` is wired exactly once per processor to `onValidationFailed`, so a
  * component's `surface.dispatchError` (the URL-scheme guard, `checks`, or any
@@ -412,6 +454,7 @@ export function useA2uiSurfaceModel(
   onValidationFailed: (error: { code: string; path?: string; message: string }) => void,
 ): A2uiProcessorResult {
   const entryRef = useRef<ProcessorEntry | undefined>(undefined);
+  const degradedProtocolReportedRef = useRef(false);
   const [result, setResult] = useState<A2uiProcessorResult>(EMPTY_RESULT);
   const catalogIds = catalogs.map((catalog) => catalog.id).join(',');
 
@@ -419,6 +462,7 @@ export function useA2uiSurfaceModel(
     return () => {
       entryRef.current?.errorUnsubscribe();
       entryRef.current = undefined;
+      degradedProtocolReportedRef.current = false;
       unregisterA2uiSurfaceProcessor(surface.session_id, surface.id);
     };
     // Torn down only when the surface identity itself changes.
@@ -447,47 +491,53 @@ export function useA2uiSurfaceModel(
     let entry = entryRef.current;
 
     const incoming = surface.messages as A2uiMessage[];
-    const incomingCreate = findCreateSurfaceMessage(incoming);
-    const incomingCreateFingerprint = incomingCreate
-      ? fingerprintA2uiMessage(incomingCreate)
-      : undefined;
-    const isRecreate =
-      incomingCreateFingerprint !== undefined &&
-      entry.createFingerprint !== undefined &&
-      incomingCreateFingerprint !== entry.createFingerprint;
+    const stamps = surface.message_revisions;
+    const hasRevisionStamps =
+      Array.isArray(stamps) && stamps.length === incoming.length && surface.part_id !== undefined;
 
-    if (isRecreate) {
-      // A new create lifecycle (deleteSurface + createSurface delivered
-      // together, e.g. in one reconcile) -- the server's revision counter
-      // restarts for it, so it is authoritative regardless of its number.
-      // Incremental replay cannot unwind the OLD lifecycle's applied
-      // messages, so rebuild fresh and replay the new one from scratch.
+    let pending: A2uiMessage[];
+
+    if (hasRevisionStamps) {
+      const isRecreate = entry.partId !== undefined && entry.partId !== surface.part_id;
+      if (isRecreate) {
+        // A new create lifecycle (deleteSurface + createSurface delivered
+        // together, e.g. in one reconcile) -- the server's revision counter
+        // restarts for it, so it is authoritative regardless of its number.
+        // Incremental replay cannot unwind the OLD lifecycle's applied
+        // messages, so rebuild fresh and replay the new one from scratch.
+        entry.errorUnsubscribe();
+        entry = createProcessorEntry(catalogs, catalogIds, handleAction, version);
+        entryRef.current = entry;
+        registerA2uiSurfaceProcessor(surface.session_id, surface.id, entry.processor);
+      } else if (entry.partId !== undefined && surface.revision <= entry.appliedRevision) {
+        // Same lifecycle, but at or behind what is already applied (a
+        // post-gap REST reconcile racing the live stream) -- never
+        // authoritative enough to regress an already-rendered surface.
+        return;
+      }
+      entry.partId = surface.part_id;
+      pending = incoming.filter((_, index) => stamps[index] > entry.appliedRevision);
+    } else {
+      if (!degradedProtocolReportedRef.current) {
+        degradedProtocolReportedRef.current = true;
+        reportDegradedProtocol(onValidationFailed);
+      }
+      if (entry.partId !== undefined && surface.revision <= entry.appliedRevision) {
+        return;
+      }
+      // No stamps to incrementally trust -- tear down and replay the WHOLE
+      // stream fresh. `entry.partId` is still tracked (from `surface.part_id`
+      // when the server sends one) purely so the no-op check above still
+      // skips a redundant rebuild at an unchanged revision.
       entry.errorUnsubscribe();
       entry = createProcessorEntry(catalogs, catalogIds, handleAction, version);
       entryRef.current = entry;
       registerA2uiSurfaceProcessor(surface.session_id, surface.id, entry.processor);
-    } else if (entry.createFingerprint !== undefined && surface.revision <= entry.appliedRevision) {
-      // Same lifecycle, but at or behind what is already applied (a
-      // post-gap REST reconcile racing the live stream, `processor-store-
-      // reconcile.test.tsx`) -- never authoritative enough to regress an
-      // already-rendered surface. Wait for a revision that moves forward.
-      return;
+      entry.partId = surface.part_id;
+      pending = incoming;
     }
-    entry.createFingerprint = incomingCreateFingerprint ?? entry.createFingerprint;
 
-    // Each incoming message is fingerprinted exactly once here; an already-
-    // applied one is looked up in the cached `appliedFingerprints` set, not
-    // re-stringified (a long-lived surface's inline data can be thousands of
-    // rows, and most revisions only ever add one new message).
-    const pending: PendingA2uiMessage[] = [];
-    for (const message of incoming) {
-      const fingerprint = fingerprintA2uiMessage(message);
-      if (!entry.appliedFingerprints.has(fingerprint)) pending.push({ message, fingerprint });
-    }
-    // A throw does not stop this pass -- every pending message is attempted,
-    // so a later, good message is never starved by an earlier bad one that
-    // the server kept in the stream alongside it (`applyPendingMessages`).
-    const failure = pending.length > 0 ? applyPendingMessages(entry, pending) : undefined;
+    const failure = pending.length > 0 ? applyPendingMessages(entry, pending, onValidationFailed) : undefined;
     entry.appliedRevision = surface.revision;
 
     const model = entry.processor.model.getSurface(surface.id);

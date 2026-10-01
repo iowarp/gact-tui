@@ -722,6 +722,10 @@ export interface A2UISurface {
   revision: number;
   state: A2UIState;
   messages: unknown[];
+  // Coordinator design (2026-10-01, iowarp/clio-agent#1553): parallel to
+  // `messages` (same length/order) -- see `a2uiSurfaceSchema` in
+  // `schemas.ts` and `processor-store.ts` (gact-tui) for the full contract.
+  message_revisions?: number[];
   error?: string;
 }
 

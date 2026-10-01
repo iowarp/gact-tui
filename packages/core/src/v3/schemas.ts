@@ -650,6 +650,14 @@ export const a2uiSurfaceSchema = z.object({
     'deleted',
   ]),
   messages: z.array(z.unknown()),
+  // Coordinator design (2026-10-01, iowarp/clio-agent#1553): parallel to
+  // `messages` (same length/order) -- the revision that produced each
+  // slot's CURRENT content. `processor-store.ts` applies by comparing this
+  // to its own `appliedRevision`, never by re-hashing a slot's content.
+  // Optional/absent (or length-mismatched) on an older server that predates
+  // this field -- `processor-store.ts` falls back to a full rebuild on each
+  // revision then, with a visible, typed degradation, never silently.
+  message_revisions: z.array(z.number().int().nonnegative()).optional(),
   error: z.string().optional(),
 });
 
