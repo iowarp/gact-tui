@@ -4,8 +4,10 @@ import { createElement, lazy, Suspense } from 'react';
 import { z } from 'zod';
 import guardRules from './chart-assets/guard_rules.json';
 import type { ChartDataQuery, ChartRow } from './chart-data';
+import { checkChartSpecSchemaRules } from './chart-spec-guard';
 import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
 import type { SelectionWriter } from './selection-state';
+import { geoJsonGeometrySchema } from './table-query-rows';
 
 // vega, vega-lite and vega-embed are only fetched once a surface contains a chart.
 const LazyChart = lazy(() =>
@@ -17,16 +19,19 @@ const fieldName = fieldNameSchema;
 // clio.chart.v1, clio.map.v1, and clio.data-table.v1 — never redefined here.
 const chartDataQuerySchema = dataQuerySchema;
 
-const allowedTopLevelKeys = new Set<string>(guardRules.allowedTopLevelKeys);
 const PRESET_NAMES = guardRules.presets as [string, ...string[]];
 const X_TYPES = guardRules.xTypes as [string, ...string[]];
 
 const chartShape = {
-  // The JSON Schema's `propertyNames` enum; the full guard runs in the renderer.
+  // The full guard (#1549 G4 review): agrees with the server's JSON Schema
+  // on the top-level key allowlist AND the deep url/usermeta/data/
+  // bind.element rules, instead of only the shallow top-level-key check —
+  // a spec the server's $defs/SpecNoForbiddenKeys etc. would reject (e.g.
+  // `data: {url: ...}` nested under `layer`) must fail here too.
   spec: z
     .record(z.unknown())
-    .refine((spec) => Object.keys(spec).every((key) => allowedTopLevelKeys.has(key)), {
-      message: 'spec has a top-level key outside the allowed set',
+    .refine((spec) => checkChartSpecSchemaRules(spec).length === 0, {
+      message: 'spec fails the chart spec guard (see checkChartSpec for the violation codes)',
     })
     .optional(),
   preset: z.enum(PRESET_NAMES).optional(),
@@ -36,8 +41,12 @@ const chartShape = {
   colorField: fieldName.optional(),
   facetField: fieldName.optional(),
   xType: z.enum(X_TYPES).optional(),
+  // A cell is a scalar OR a strictly-shaped GeoJSON Geometry object (#1549
+  // G4 — a geoshape mark can then draw real shapes from inline rows).
   data: z
-    .array(z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])))
+    .array(
+      z.record(z.union([z.string(), z.number(), z.boolean(), z.null(), geoJsonGeometrySchema])),
+    )
     .max(guardRules.maxInlineRows)
     .optional(),
   dataUri: z
