@@ -6,6 +6,7 @@ import type { A2UI_VERSION } from './protocol-versions.js';
 import type { ToolPresentation } from './tool-presentation-domain.js';
 import type { CapabilityNegotiation } from './capability-domain.js';
 import type { PendingCompaction } from './compaction-domain.js';
+import type { VariantRun } from './variant-domain.js';
 import type { UsageSnapshot } from './usage-domain.js';
 
 export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
@@ -755,6 +756,8 @@ export interface EntityState {
   infrastructure: Record<string, InfrastructureDependency>;
   /** Live compactions keyed by `compaction_id` (stream-only; see PendingCompaction). */
   compactions: Record<string, PendingCompaction>;
+  /** BestOfN / Refine runs keyed by `variants_id`: the tries' tabs and the selection. */
+  variant_runs: Record<string, VariantRun>;
   active_turns: Record<string, string>;
   responded_turns: Record<string, string>;
   revisions: Record<string, number>;

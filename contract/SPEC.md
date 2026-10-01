@@ -2745,6 +2745,9 @@ stream.live implemented
 subagent.upserted implemented
 tool.presentation.delta implemented
 tool.upserted implemented
+variant.selected implemented
+variant.try.delta implemented
+variant.try.upserted implemented
 # spec-only — canonical client state with no reference-backend publisher yet
 a2ui.action.consumed spec-only
 a2ui.action.delivered spec-only
@@ -2776,6 +2779,30 @@ the live stream, but reducers MUST ignore an unknown event without fabricating
 state. A dropped or malformed frame produces typed degradation/gap state and
 authoritative REST reconciliation; it is never silently reinterpreted as a
 known entity.
+
+#### Variant runs (Phase 9)
+
+A BestOfN / Refine run (the agent drafting alternatives, origin
+`draft_alternatives`, or a blueprint/subagent module run as variants, origin
+`module_variant`) is projected as one run keyed by `variants_id`:
+
+- `variant.try.upserted` (entity `<variants_id>:<try_index>`) — a try started
+  (`state: running`), ended (`completed` with `text`, `tokens`, and `score` when
+  LM-judged), or `failed` (`error`); optional `forked_from` and `advice` for a
+  Refine try. A scored try is upserted again with its `score`.
+- `variant.try.delta` (same entity) — the try's live `text` or `thinking`
+  stream. It never enters the turn's answer lane.
+- `variant.selected` (entity `<variants_id>`) — `selected_index`, the selected
+  `text`, `scores`, and for judge `user` the `pick` and `comment`.
+
+Every other semantic event a try emits carries `payload.variants_id` and
+`payload.try_index`; a client groups it under the try, not the turn. An
+injection block made inside a try carries the same two keys. A user-judged run
+asks a `choice` question whose `metadata.variant` lists the candidates; it is
+answered with exactly one `selected_options` draft id and an optional `answer`
+comment. Clients render the run as one tab per try and rebuild it after a
+reload from the durable semantic trace (`GET /v1/sessions/{id}/trace?scope=variant`)
+and the session's questions.
 
 **Known gap (S6 adversarial review, tracked for S8):** the official Basic
 catalog's `openUrl` function (`@a2ui/web_core`'s `OpenUrlImplementation`)

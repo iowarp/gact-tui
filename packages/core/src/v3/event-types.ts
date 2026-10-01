@@ -47,6 +47,9 @@ export const GACT_V3_EVENT_TYPES = [
   'task.upserted',
   'tool.upserted',
   'tool.presentation.delta',
+  'variant.selected',
+  'variant.try.delta',
+  'variant.try.upserted',
   'workspace.upserted',
 ] as const;
 

@@ -3,6 +3,19 @@ import { agentTaskRecordSchema, type AgentTaskRecord } from './agent-task-domain
 import type { AsyncProcess, ContextFile, ContextFrame, SessionDiff } from './domain.js';
 import { ExecutionProvenanceRepository } from './execution-provenance-repository.js';
 import { operationalRunStateSchema } from './schemas.js';
+import { TransportError } from './transport.js';
+import { variantTraceSchema, type VariantSemanticEvent } from './variant-schemas.js';
+
+/** Trace rows read back per session for variant runs (the route's own maximum). */
+const VARIANT_TRACE_LIMIT = 2_000;
+
+/**
+ * A session's durable variant events, or `unavailable` when the deployment
+ * keeps no semantic trace (ARC disabled: a typed 503 `arc_unavailable`).
+ */
+export type VariantTraceRead =
+  | { status: 'available'; events: VariantSemanticEvent[] }
+  | { status: 'unavailable'; reason: string };
 
 const sessionDiffSchema = z.object({
   path: z.string(),
@@ -141,6 +154,27 @@ export class SessionObservabilityRepository extends ExecutionProvenanceRepositor
       recordedAt: event.occurred_at,
       tools: event.payload.tools,
     };
+  }
+
+  /**
+   * The session's `variant.*` semantic events, oldest first -- what a variant
+   * run's block is rebuilt from after a reload (`variantRunsFromTrace`).
+   */
+  public async variantTrace(sessionId: string, signal?: AbortSignal): Promise<VariantTraceRead> {
+    try {
+      const value = await this.transport.request({
+        method: 'GET',
+        path: `/v1/sessions/${encodeURIComponent(sessionId)}/trace?scope=variant&limit=${VARIANT_TRACE_LIMIT}`,
+        decode: (input) => variantTraceSchema.parse(input),
+        signal,
+      });
+      return { status: 'available', events: value.events };
+    } catch (error) {
+      if (error instanceof TransportError && error.status === 503) {
+        return { status: 'unavailable', reason: error.message };
+      }
+      throw error;
+    }
   }
 
   public async sessionDiffs(sessionId: string, signal?: AbortSignal): Promise<SessionDiff[]> {

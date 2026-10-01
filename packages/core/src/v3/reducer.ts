@@ -27,6 +27,19 @@ import {
   reduceCompactionStarted,
   settleCompactions,
 } from './compaction-reducer.js';
+import {
+  appendVariantDelta,
+  attachVariantQuestion,
+  recordVariantActivity,
+  selectVariant,
+  upsertVariantTry,
+} from './variant-reducer.js';
+import {
+  variantSelectedSchema,
+  variantSemanticEventSchema,
+  variantTryDeltaSchema,
+  variantTryUpsertSchema,
+} from './variant-schemas.js';
 
 const MAX_CURSOR_HISTORY = 2_048;
 const MAX_GAP_HISTORY = 100;
@@ -51,6 +64,7 @@ export function createEntityState(): EntityState {
     a2ui_action_lifecycles: {},
     infrastructure: {},
     compactions: {},
+    variant_runs: {},
     active_turns: {},
     responded_turns: {},
     revisions: {},
@@ -462,7 +476,42 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     }
     case 'question.upserted': {
       const question = userQuestionSchema.parse(envelope.payload);
-      return { ...base, revisions, questions: { ...base.questions, [question.id]: question } };
+      return {
+        ...base,
+        revisions,
+        questions: { ...base.questions, [question.id]: question },
+        variant_runs: attachVariantQuestion(base.variant_runs, question) ?? base.variant_runs,
+      };
+    }
+    case 'variant.try.upserted': {
+      const payload = variantTryUpsertSchema.parse(envelope.payload);
+      return { ...base, revisions, variant_runs: upsertVariantTry(base.variant_runs, payload) };
+    }
+    case 'variant.try.delta': {
+      const delta = variantTryDeltaSchema.parse(envelope.payload);
+      const variantRuns = appendVariantDelta(base.variant_runs, delta);
+      if (!variantRuns) {
+        return recordMissingEntity(
+          base,
+          frame,
+          envelope,
+          `Variant try ${delta.id} is not resident for its delta`,
+        );
+      }
+      return { ...base, revisions, variant_runs: variantRuns };
+    }
+    case 'variant.selected': {
+      const selected = variantSelectedSchema.parse(envelope.payload);
+      return { ...base, revisions, variant_runs: selectVariant(base.variant_runs, selected) };
+    }
+    case 'semantic.event': {
+      // Only a variant try's own events are projected (into its tab); every
+      // other semantic row applies nothing here and banks no revision.
+      const event = variantSemanticEventSchema.safeParse(envelope.payload);
+      const variantRuns = event.success
+        ? recordVariantActivity(base.variant_runs, event.data)
+        : undefined;
+      return variantRuns ? { ...base, revisions, variant_runs: variantRuns } : base;
     }
     case 'task.upserted': {
       const task = taskSchema.parse(envelope.payload);
