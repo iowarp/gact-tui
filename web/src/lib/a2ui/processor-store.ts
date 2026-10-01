@@ -235,6 +235,21 @@ interface ProcessorEntry {
    */
   partId: string | undefined;
   /**
+   * M2 (adversarial re-review): the merged `updateComponents` slot is
+   * re-applied WHOLESALE on every component change to ANY id in it
+   * (`applyPendingMessages`'s own doc comment) -- so an UNCHANGED bad
+   * component is re-validated, and would be re-POSTed as a fresh
+   * `VALIDATION_FAILED`, on every unrelated sibling edit. The server grants
+   * one repair attempt per revision (S5), so that re-drives the agent on
+   * every unrelated change forever. Keyed by component id, valued by a
+   * fingerprint of the component definition last reported FOR that id in
+   * the CURRENT create lifecycle -- a POST fires only when the (id,
+   * definition) pair is new, i.e. the component is newly bad or its bad
+   * definition actually changed. A fresh `Map` per `createProcessorEntry`
+   * call already resets this on a recreate; nothing else to clear.
+   */
+  reportedFailures: Map<string, string>;
+  /**
    * True once this surface has warned about talking to a server that
    * predates per-message revision stamps (`degradedProtocol`, below) --
    * reported once per surface lifetime (not once per rebuilt entry, since
@@ -260,6 +275,7 @@ function createProcessorEntry(
     catalogsKey,
     appliedRevision: -1,
     partId: undefined,
+    reportedFailures: new Map(),
     errorSubscribed: false,
     errorUnsubscribe: () => undefined,
   };
@@ -279,6 +295,15 @@ function componentLabel(component: unknown): string {
     if (type || id) return `${type || 'Component'}${id ? ` (${id})` : ''}`;
   }
   return 'A component';
+}
+
+/** The component dict's own `id`, or a stable fallback for one with none (never thrown on). */
+function componentIdOf(component: unknown): string {
+  if (component && typeof component === 'object') {
+    const id = (component as Record<string, unknown>).id;
+    if (typeof id === 'string' && id) return id;
+  }
+  return '<no id>';
 }
 
 /**
@@ -337,6 +362,17 @@ function splitForPerComponentApply(message: A2uiMessage): A2uiMessage[] {
  * root; otherwise a subsequent, successful message already overrode
  * whatever broke, or the failure never touched an already-good root, and a
  * full-card failure is moot (an inline notice already fired per component).
+ *
+ * M2 (adversarial re-review): the merged slot is re-applied WHOLESALE on
+ * every change to ANY id in it, so an UNCHANGED bad component re-validates
+ * -- and would re-POST a fresh `VALIDATION_FAILED` -- on every unrelated
+ * sibling edit; the server grants one repair attempt per revision (S5), so
+ * that re-drives the agent on every unrelated change forever.
+ * `entry.reportedFailures` (component id -> last-reported definition) makes
+ * the POST fire only when the (id, definition) pair is new. The inline
+ * notice still fires every time (never suppressed) -- a `code` other than
+ * `VALIDATION_FAILED` on a duplicate tells `a2ui-surface.tsx`'s handler to
+ * show the local notice without re-POSTing anything.
  */
 function applyPendingMessages(
   entry: ProcessorEntry,
@@ -356,10 +392,16 @@ function applyPendingMessages(
         failure = { code: 'processor_error', message: detail };
         if ('updateComponents' in part) {
           const [component] = part.updateComponents.components;
-          onValidationFailed({
-            code: 'VALIDATION_FAILED',
-            message: `${componentLabel(component)} could not be validated and was skipped: ${detail}`,
-          });
+          const componentId = componentIdOf(component);
+          const definition = JSON.stringify(component);
+          const alreadyReported = entry.reportedFailures.get(componentId) === definition;
+          const noticeMessage = `${componentLabel(component)} could not be validated and was skipped: ${detail}`;
+          if (alreadyReported) {
+            onValidationFailed({ code: 'a2ui_component_failure_unchanged', message: noticeMessage });
+          } else {
+            entry.reportedFailures.set(componentId, definition);
+            onValidationFailed({ code: 'VALIDATION_FAILED', message: noticeMessage });
+          }
         }
       }
     }
@@ -385,8 +427,14 @@ function applyPendingMessages(
 function reportDegradedProtocol(
   onValidationFailed: (error: { code: string; path?: string; message: string }) => void,
 ): void {
+  // L1 (adversarial re-review): worded from what is actually missing on
+  // THIS surface row (no revision stamp, or no lifecycle id) -- never "an
+  // older version", which this condition does not actually establish (a
+  // row from a current server could in principle be missing one field
+  // without the other). Plainly states the concrete, user-visible cost:
+  // anything typed but not yet submitted is lost on every rebuild.
   const message =
-    'This workspace is served by an older version that predates incremental A2UI updates; the interactive surface rebuilds fully on every change instead of applying it directly.';
+    "This surface's data is missing what incremental updates need (a per-message revision stamp or a lifecycle id), so it rebuilds fully on every change -- any input you have not submitted yet is lost each time.";
   // eslint-disable-next-line no-console -- deliberate, typed degradation surface (no-silent-fallback)
   console.warn(`[A2UI] ${message}`);
   onValidationFailed({ code: 'a2ui_stamps_unavailable', message });
@@ -495,10 +543,24 @@ export function useA2uiSurfaceModel(
     const hasRevisionStamps =
       Array.isArray(stamps) && stamps.length === incoming.length && surface.part_id !== undefined;
 
+    // M1 (adversarial re-review): computed BEFORE branching on stamp
+    // availability, and checked in BOTH branches below. A recreate (a fresh
+    // `part_id`, the server's revision counter restarted for it) is
+    // authoritative regardless of its revision number OR whether this
+    // particular server happens to send stamps -- an older, stamp-less
+    // server (e.g. 0.9.4.24) still sends a fresh `part_id` on every
+    // `createSurface`. Computing this only inside the stamped branch meant
+    // the degraded branch's own "at or behind" check ran first and returned
+    // early, so a recreate delivered at a LOWER revision than the old
+    // lifecycle was never even noticed against a stamp-less server.
+    const isRecreate =
+      entry.partId !== undefined &&
+      surface.part_id !== undefined &&
+      entry.partId !== surface.part_id;
+
     let pending: A2uiMessage[];
 
     if (hasRevisionStamps) {
-      const isRecreate = entry.partId !== undefined && entry.partId !== surface.part_id;
       if (isRecreate) {
         // A new create lifecycle (deleteSurface + createSurface delivered
         // together, e.g. in one reconcile) -- the server's revision counter
@@ -522,13 +584,14 @@ export function useA2uiSurfaceModel(
         degradedProtocolReportedRef.current = true;
         reportDegradedProtocol(onValidationFailed);
       }
-      if (entry.partId !== undefined && surface.revision <= entry.appliedRevision) {
+      if (!isRecreate && entry.partId !== undefined && surface.revision <= entry.appliedRevision) {
         return;
       }
       // No stamps to incrementally trust -- tear down and replay the WHOLE
-      // stream fresh. `entry.partId` is still tracked (from `surface.part_id`
-      // when the server sends one) purely so the no-op check above still
-      // skips a redundant rebuild at an unchanged revision.
+      // stream fresh, whether this is a recreate or just a revision ahead.
+      // `entry.partId` is still tracked (from `surface.part_id` when the
+      // server sends one) purely so the no-op check above still skips a
+      // redundant rebuild at an unchanged revision of the SAME lifecycle.
       entry.errorUnsubscribe();
       entry = createProcessorEntry(catalogs, catalogIds, handleAction, version);
       entryRef.current = entry;

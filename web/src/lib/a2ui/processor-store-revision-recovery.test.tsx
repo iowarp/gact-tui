@@ -93,8 +93,14 @@ function a2uiSurface(
   };
 }
 
-/** F1 fallback fixture: an older server that predates `part_id`/`message_revisions` entirely. */
-function legacyA2uiSurface(messages: unknown[], revision: number): A2UISurface {
+/**
+ * F1 fallback fixture: a surface row missing `message_revisions` -- either
+ * an older server that predates it entirely (no `partId` given either), or
+ * M1's case: a server new enough to mint `part_id` on every `createSurface`
+ * but whose row is otherwise missing stamps (e.g. 0.9.4.24, between the two
+ * halves of this design landing).
+ */
+function legacyA2uiSurface(messages: unknown[], revision: number, partId?: string): A2UISurface {
   return {
     id: SURFACE_ID,
     session_id: SESSION_ID,
@@ -102,6 +108,7 @@ function legacyA2uiSurface(messages: unknown[], revision: number): A2UISurface {
     protocol_version: '0.9.1',
     revision,
     state: 'ready',
+    part_id: partId,
     messages: messages as A2UISurface['messages'],
   };
 }
@@ -337,10 +344,83 @@ describe('A2UI surface revision recovery (G2 #23/#29; coordinator design 2026-10
     const { update } = renderSurface(legacyA2uiSurface([createMessage, textRoot('First')], 2));
     expect(await screen.findByText('First')).toBeVisible();
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[A2UI]'));
-    expect(await screen.findByText(/predates incremental A2UI updates/iu)).toBeVisible();
+    // L1: worded from what is actually MISSING, never "an older version" --
+    // and plainly states unsubmitted input is lost on each change.
+    expect(
+      await screen.findByText(/missing what incremental updates need/iu),
+    ).toBeVisible();
+    expect(screen.getByText(/lost each time/iu)).toBeVisible();
 
     update(legacyA2uiSurface([createMessage, textRoot('Second')], 3));
     expect(await screen.findByText('Second')).toBeVisible();
     expect(screen.queryByText('First')).not.toBeInTheDocument();
+  });
+
+  // M1 (adversarial re-review): the stamp-less fallback branch used to check
+  // "revision <= appliedRevision" BEFORE noticing `part_id` had changed, so
+  // a recreate delivered at a LOWER revision than the old lifecycle (the
+  // server's counter restarts on recreate) was silently ignored as "stale"
+  // against a server new enough to mint `part_id` but still missing
+  // `message_revisions` (e.g. 0.9.4.24, between the two halves of this
+  // design landing).
+  it('M1: detects a recreate (fresh part_id) on the stamp-less fallback path, even at a LOWER revision', async () => {
+    const { update } = renderSurface(
+      legacyA2uiSurface([createMessage, textRoot('Old surface')], 5, 'part-1'),
+    );
+    expect(await screen.findByText('Old surface')).toBeVisible();
+
+    update(legacyA2uiSurface([createMessage, textRoot('Recreated surface')], 2, 'part-2'));
+
+    expect(await screen.findByText('Recreated surface')).toBeVisible();
+    expect(screen.queryByText('Old surface')).not.toBeInTheDocument();
+  });
+
+  // M2 (adversarial re-review): the merged slot is re-applied wholesale on
+  // every component change, so an UNCHANGED bad component re-validates --
+  // and would re-POST a fresh VALIDATION_FAILED -- on every unrelated
+  // sibling edit, re-driving the agent's one-repair-per-revision budget
+  // (S5) for nothing. One bad `root`, created once, followed by three
+  // unrelated edits to a sibling, must produce exactly ONE POST.
+  it('M2: an unchanged bad component is reported only once across unrelated edits', async () => {
+    const bad = {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [
+          { id: 'root', component: 'Row', children: ['a', 'b'] },
+          { id: 'a', component: 'Text', text: 'Alpha' },
+          { id: 'b', component: 'Grid', gap: 15, children: [] },
+        ],
+      },
+    };
+    const editA = (text: string) => ({
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [
+          { id: 'root', component: 'Row', children: ['a', 'b'] },
+          { id: 'a', component: 'Text', text },
+          { id: 'b', component: 'Grid', gap: 15, children: [] },
+        ],
+      },
+    });
+
+    const { update } = renderSurface(a2uiSurface([createMessage, bad], 2, { messageRevisions: [1, 2] }));
+    expect(await screen.findByText('Alpha')).toBeVisible();
+    await waitFor(() => expect(repository.a2uiAction).toHaveBeenCalledTimes(1));
+
+    update(a2uiSurface([createMessage, editA('Alpha 2')], 3, { messageRevisions: [1, 3] }));
+    expect(await screen.findByText('Alpha 2')).toBeVisible();
+
+    update(a2uiSurface([createMessage, editA('Alpha 3')], 4, { messageRevisions: [1, 4] }));
+    expect(await screen.findByText('Alpha 3')).toBeVisible();
+
+    update(a2uiSurface([createMessage, editA('Alpha 4')], 5, { messageRevisions: [1, 5] }));
+    expect(await screen.findByText('Alpha 4')).toBeVisible();
+
+    // The inline notice still fires every time `b` fails -- only the POST
+    // (the repair-lane-facing door) is deduplicated.
+    expect(await screen.findByText(/could not be validated and was skipped/iu)).toBeVisible();
+    expect(repository.a2uiAction).toHaveBeenCalledTimes(1);
   });
 });
