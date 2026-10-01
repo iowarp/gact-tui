@@ -1,11 +1,10 @@
 import {
-  variantRunsFromTrace,
+  variantRunListSchema,
+  variantRunsFromRecords,
   type Message,
   type PendingInteraction,
   type PendingInteractionResponse,
   type TransportFrame,
-  type UserQuestion,
-  type VariantSemanticEvent,
 } from '@clio/core/v3';
 import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -65,23 +64,22 @@ function tryDelta(index: number, delta: string): TransportFrame {
   );
 }
 
-function pickQuestion(refinable: boolean, status = 'pending'): TransportFrame {
-  return frame(
-    'question.upserted',
-    {
-      id: 'q_1',
-      session_id: 'sess_1',
-      prompt: 'Which draft should continue the conversation?',
-      status,
-      kind: 'choice',
+/** The unified interaction the server projects for a pick question (with its metadata). */
+function pickInteraction(refinable: boolean): PendingInteraction {
+  return {
+    id: 'question:q_1',
+    kind: 'question',
+    owner_session_id: 'sess_1',
+    attended_session_id: 'sess_1',
+    status: 'pending',
+    title: 'Question from agent',
+    prompt: 'Which draft should continue the conversation?',
+    source: { protocol: 'native', tool_name: 'draft_alternatives', invocation_id: 'call_draft' },
+    created_at: '2026-10-01T12:00:10Z',
+    payload: {
+      question_id: 'q_1',
+      question_kind: 'choice',
       allow_freeform: true,
-      options: [
-        { label: 'Draft 1', value: 'main#run0', description: 'Alpha one' },
-        { label: 'Draft 2', value: 'main#run1', description: 'Beta two' },
-      ],
-      selected_options: [],
-      created_at: '2026-10-01T12:00:10Z',
-      updated_at: '2026-10-01T12:00:10Z',
       metadata: {
         tool_name: 'draft_alternatives',
         variants_id: 'var_1',
@@ -98,24 +96,9 @@ function pickQuestion(refinable: boolean, status = 'pending'): TransportFrame {
         },
       },
     },
-    'q_1',
-  );
+    actions: ['answer', 'cancel'],
+  };
 }
-
-/** The unified interaction the server projects for that question. */
-const pickInteraction: PendingInteraction = {
-  id: 'question:q_1',
-  kind: 'question',
-  owner_session_id: 'sess_1',
-  attended_session_id: 'sess_1',
-  status: 'pending',
-  title: 'Question from agent',
-  prompt: 'Which draft should continue the conversation?',
-  source: { protocol: 'native', tool_name: 'draft_alternatives', invocation_id: 'call_draft' },
-  created_at: '2026-10-01T12:00:10Z',
-  payload: { question_id: 'q_1', question_kind: 'choice', allow_freeform: true },
-  actions: ['answer', 'cancel'],
-};
 
 const assistant: Message = {
   id: 'msg_a',
@@ -194,9 +177,9 @@ describe('VariantTabsBlock', () => {
     apply(
       tryUpsert(0, { state: 'completed', text: 'Alpha one' }),
       tryUpsert(1, { state: 'completed', text: 'Beta two' }),
-      pickQuestion(true),
     );
-    const { onInteractionResponse } = renderRuns({ interactions: [pickInteraction] });
+    const pick = pickInteraction(true);
+    const { onInteractionResponse } = renderRuns({ interactions: [pick] });
     expect(screen.getByRole('status')).toHaveTextContent('Waiting for your pick');
 
     await userEvent.click(screen.getByRole('tab', { name: /Draft 1/u }));
@@ -205,7 +188,7 @@ describe('VariantTabsBlock', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Refine Draft 1' }));
 
     expect(onInteractionResponse).toHaveBeenCalledTimes(1);
-    expect(onInteractionResponse).toHaveBeenCalledWith(pickInteraction, {
+    expect(onInteractionResponse).toHaveBeenCalledWith(pick, {
       action: 'answer',
       selected_options: ['main#run0'],
       answer: 'Shorter, please',
@@ -216,23 +199,23 @@ describe('VariantTabsBlock', () => {
     apply(
       tryUpsert(0, { state: 'completed', text: 'Alpha one' }),
       tryUpsert(1, { state: 'completed', text: 'Beta two' }),
-      pickQuestion(false),
     );
-    const { onInteractionResponse } = renderRuns({ interactions: [pickInteraction] });
+    const pick = pickInteraction(false);
+    const { onInteractionResponse } = renderRuns({ interactions: [pick] });
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: /Draft 2/u }));
     await userEvent.click(screen.getByRole('button', { name: 'Pick Draft 2' }));
-    expect(onInteractionResponse).toHaveBeenCalledWith(pickInteraction, {
+    expect(onInteractionResponse).toHaveBeenCalledWith(pick, {
       action: 'answer',
       selected_options: ['main#run1'],
     });
   });
 
   it('keeps the error in the tab when the pick is refused', async () => {
-    apply(tryUpsert(0, { state: 'completed', text: 'Alpha one' }), pickQuestion(false));
+    apply(tryUpsert(0, { state: 'completed', text: 'Alpha one' }));
     renderRuns({
-      interactions: [pickInteraction],
+      interactions: [pickInteraction(false)],
       onInteractionResponse: vi.fn(async () => {
         throw new Error('pick exactly one draft');
       }),
@@ -245,7 +228,6 @@ describe('VariantTabsBlock', () => {
     apply(
       tryUpsert(0, { state: 'completed', text: 'Alpha one' }),
       tryUpsert(1, { state: 'completed', text: 'Beta two' }),
-      pickQuestion(true),
       frame(
         'variant.selected',
         {
@@ -260,7 +242,7 @@ describe('VariantTabsBlock', () => {
         'var_1',
       ),
     );
-    renderRuns({ interactions: [pickInteraction] });
+    renderRuns({ interactions: [pickInteraction(true)] });
 
     expect(screen.getByRole('status')).toHaveTextContent('Draft 2 selected');
     const selected = screen.getByRole('tab', { selected: true });
@@ -284,11 +266,9 @@ function tryPayload(index: number): Record<string, unknown> {
 }
 
 describe('VariantTabsBlock after a reload', () => {
-  it('rebuilds the finished run read-only from the trace, the questions and the messages', async () => {
-    const runs = variantRunsFromTrace(
-      reloadFixture.trace.events as VariantSemanticEvent[],
-      reloadFixture.questions as unknown as UserQuestion[],
-      reloadFixture.session_id,
+  it('rebuilds the finished run read-only from the served records and the messages', async () => {
+    const runs = variantRunsFromRecords(
+      variantRunListSchema.parse(reloadFixture.variant_runs).runs,
     );
     act(() => useLiveStore.getState().hydrateVariantRuns(runs));
     const messages = reloadFixture.messages as Message[];
@@ -304,16 +284,89 @@ describe('VariantTabsBlock after a reload', () => {
       'Draft 3Your pickSelected',
     ]);
 
-    // The selected draft opens first, with the advice it was given as an injection.
+    // The selected draft opens first, with the advice it was given as an injection
+    // (once: its recorded step that carries the same advice is not repeated).
     const panel = within(block).getByRole('tabpanel');
     expect(panel).toHaveTextContent('Refined from Draft 2');
     expect(within(panel).getAllByText(/gave the agent: Advice for this draft/u)).toHaveLength(1);
     expect(panel).toHaveTextContent('1,610 tokens');
+    await userEvent.click(within(panel).getByRole('button', { name: '1 recorded step' }));
+    expect(within(panel).queryByText('Given to this try')).not.toBeInTheDocument();
     expect(within(block).queryByRole('button', { name: /Pick|Refine/u })).not.toBeInTheDocument();
 
     await userEvent.click(tabs[1]!);
     expect(within(block).getByRole('tabpanel')).toHaveTextContent(
       'Your comment: Add the cell count of the coarsest mesh too.',
     );
+
+    // A try's recorded steps: thinking, its tool call with the result, its text.
+    await userEvent.click(tabs[0]!);
+    const first = within(block).getByRole('tabpanel');
+    await userEvent.click(within(first).getByRole('button', { name: '3 recorded steps' }));
+    const steps = first.querySelector('[data-slot="variant-try-steps"]') as HTMLElement;
+    expect(steps).toHaveTextContent('read_file');
+    expect(within(steps).getByText(/Thinking|Thought/u)).toBeInTheDocument();
+    expect(steps).toHaveTextContent('The mesh converges at 2.1 million cells.');
+  });
+
+  it('brings back an LM-judged run with its scores', () => {
+    const runs = variantRunsFromRecords(
+      variantRunListSchema.parse({
+        session_id: 'sess_1',
+        runs: [
+          {
+            schema: 'clio.variant_run.v1',
+            variants_id: 'var_lm',
+            session_id: 'sess_1',
+            agent_id: 'main',
+            origin: 'draft_alternatives',
+            strategy: 'best_of_n',
+            judge: 'lm',
+            n: 2,
+            n_requested: 2,
+            rubric: 'clear',
+            threshold: 0.8,
+            status: 'selected',
+            turn_id: 'msg_user_1',
+            anchor_message_id: '',
+            question_id: '',
+            pick: null,
+            comment: '',
+            selected_index: 1,
+            tries: [0, 1].map((index) => ({
+              try_index: index,
+              scope: `main#run${index}`,
+              state: 'completed',
+              text: index ? 'Beta' : 'Alpha',
+              score: index ? 0.9 : 0.4,
+              tokens: { input: 1, output: 1, total: 2 },
+              advice: '',
+              forked_from: null,
+              error: '',
+              turn_id: 'msg_user_1',
+              anchor_message_id: '',
+              steps: [],
+            })),
+          },
+        ],
+      }).runs,
+    );
+    act(() => useLiveStore.getState().hydrateVariantRuns(runs));
+    const user: Message = {
+      id: 'msg_user_1',
+      session_id: 'sess_1',
+      role: 'user',
+      created_at: '2026-10-01T11:59:59Z',
+      blocks: [],
+    };
+    const answer: Message = { ...assistant, id: 'msg_answer', run_id: undefined };
+    // No anchor message yet: the turn's user message places it at the answer after it.
+    renderRuns({ message: answer, messages: [user, answer] });
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      'Draft 1Score 0.4',
+      'Draft 2Score 0.9Selected',
+    ]);
+    expect(screen.getByText('Best of 2 · judged by the model')).toBeInTheDocument();
   });
 });

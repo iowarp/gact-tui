@@ -21,15 +21,15 @@ export function VariantRunsForMessage({ message }: { message: Message }) {
   const interactions = navigation?.interactions ?? NO_INTERACTIONS;
   const onResponse = navigation?.onInteractionResponse;
   const runs = useMemo(
-    () => variantRunsForMessage(Object.values(variantRuns ?? {}), message, messages, interactions),
-    [interactions, message, messages, variantRuns],
+    () => variantRunsForMessage(Object.values(variantRuns ?? {}), message, messages),
+    [message, messages, variantRuns],
   );
   if (runs.length === 0) return null;
   return (
     <div className="my-2 flex min-w-0 flex-col gap-3" data-slot="variant-runs">
       {runs.map((run) => {
         const view = variantRunView(run, interactions, messages);
-        const interaction = view.interaction;
+        const interaction = view.pick?.interaction;
         return (
           <VariantTabsBlock
             key={run.variants_id}

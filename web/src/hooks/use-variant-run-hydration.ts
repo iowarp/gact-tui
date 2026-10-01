@@ -1,4 +1,3 @@
-import { variantRunsFromTrace, type VariantRuns } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
@@ -9,10 +8,9 @@ import { useRepository } from './use-repository';
 
 /**
  * Rebuilds the session's variant runs (the draft tabs) after a reload, the
- * same way the transcript snapshot rebuilds its messages: the durable
- * `variant.*` trace and the session's pick questions are folded with the live
- * reducer's own functions and merged under whatever the stream already wrote.
- * A deployment without a semantic trace still gets every pick question's drafts.
+ * same way the transcript snapshot rebuilds its messages: clio-core serves
+ * every run (LM- and user-judged, each try with its own steps), merged under
+ * whatever the live stream already wrote. A failure is said, never hidden.
  */
 export function useVariantRunHydration({
   enabled,
@@ -25,15 +23,7 @@ export function useVariantRunHydration({
   const { settings } = useConnectionSettings();
   const hydration = useQuery({
     queryKey: queryKeys.key('variant-runs', settings.endpoint, sessionId),
-    queryFn: async ({ signal }): Promise<VariantRuns> => {
-      const [trace, questions] = await Promise.all([
-        repository.variantTrace(sessionId, signal),
-        repository.questions(sessionId, signal),
-      ]);
-      // No semantic trace on this deployment: the pick questions still carry their drafts.
-      const events = trace.status === 'available' ? trace.events : [];
-      return variantRunsFromTrace(events, questions, sessionId);
-    },
+    queryFn: ({ signal }) => repository.variantRuns(sessionId, signal),
     enabled: enabled && Boolean(sessionId),
     staleTime: Number.POSITIVE_INFINITY,
   });

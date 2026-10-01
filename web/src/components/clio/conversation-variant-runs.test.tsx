@@ -1,11 +1,10 @@
 import {
-  variantRunsFromTrace,
+  variantRunListSchema,
+  variantRunsFromRecords,
   type Message,
   type PendingInteraction,
   type ToolInvocation,
   type TransportFrame,
-  type UserQuestion,
-  type VariantSemanticEvent,
 } from '@clio/core/v3';
 import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -60,11 +59,7 @@ describe('ClioConversation variant runs', () => {
       useLiveStore
         .getState()
         .hydrateVariantRuns(
-          variantRunsFromTrace(
-            reloadFixture.trace.events as VariantSemanticEvent[],
-            reloadFixture.questions as unknown as UserQuestion[],
-            reloadFixture.session_id,
-          ),
+          variantRunsFromRecords(variantRunListSchema.parse(reloadFixture.variant_runs).runs),
         ),
     );
     renderConversation(
@@ -87,6 +82,11 @@ describe('ClioConversation variant runs', () => {
     expect(advice).toHaveLength(1);
     expect(block).toContainElement(advice[0]!);
     expect(document.getElementById('message-msg_user_1')).not.toContainElement(block);
+    // The advice was injected in the resumed turn: its stamped block lands in the
+    // try's tab, never in that turn's own lane.
+    const resumed = document.getElementById('message-msg_assistant_2')!;
+    expect(within(resumed).queryByText(/gave the agent: Advice for this draft/u)).toBeNull();
+    expect(resumed).toHaveTextContent('Mesh study (0.6M, 1.2M, 2.1M cells)');
   });
 
   it('answers a pending pick in the tabs block, never as a plain choice card', async () => {
@@ -144,39 +144,6 @@ describe('ClioConversation variant runs', () => {
           },
           'var_1:1',
         ),
-        frame(
-          'question.upserted',
-          {
-            id: 'q_1',
-            session_id: 'sess_1',
-            prompt: 'Which draft should continue the conversation?',
-            status: 'pending',
-            kind: 'choice',
-            allow_freeform: true,
-            options: [
-              { label: 'Draft 1', value: 'main#run0', description: 'Alpha' },
-              { label: 'Draft 2', value: 'main#run1', description: 'Beta' },
-            ],
-            created_at: '2026-10-01T12:00:10Z',
-            updated_at: '2026-10-01T12:00:10Z',
-            metadata: {
-              tool_name: 'draft_alternatives',
-              variants_id: 'var_1',
-              variant: {
-                strategy: 'best_of_n',
-                judge: 'user',
-                n: 2,
-                rubric: 'clear',
-                refinable: false,
-                candidates: [
-                  { id: 'main#run0', try_index: 0, text: 'Alpha' },
-                  { id: 'main#run1', try_index: 1, text: 'Beta' },
-                ],
-              },
-            },
-          },
-          'q_1',
-        ),
       ]),
     );
     const interaction: PendingInteraction = {
@@ -192,6 +159,21 @@ describe('ClioConversation variant runs', () => {
       payload: {
         question_id: 'q_1',
         question_kind: 'choice',
+        metadata: {
+          tool_name: 'draft_alternatives',
+          variants_id: 'var_1',
+          variant: {
+            strategy: 'best_of_n',
+            judge: 'user',
+            n: 2,
+            rubric: 'clear',
+            refinable: false,
+            candidates: [
+              { id: 'main#run0', try_index: 0, text: 'Alpha' },
+              { id: 'main#run1', try_index: 1, text: 'Beta' },
+            ],
+          },
+        },
         allow_freeform: true,
         options: [
           { label: 'Draft 1', value: 'main#run0', description: 'Alpha' },

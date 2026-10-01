@@ -4,9 +4,9 @@ import { RecordingTransport } from './recording-transport.test-helper.js';
 import { ClioRepository } from './repository.js';
 import { messageBlockSchema } from './schemas.js';
 import { TransportError, type TransportFrame } from './transport.js';
-import type { EntityState, UserQuestion } from './domain.js';
-import { mergeVariantRuns, variantRunsFromTrace } from './variant-reducer.js';
-import type { VariantSemanticEvent } from './variant-schemas.js';
+import type { EntityState } from './domain.js';
+import { mergeVariantRuns, variantRunsFromRecords } from './variant-reducer.js';
+import { variantRunRecordSchema } from './variant-schemas.js';
 
 let cursor = 0;
 
@@ -173,18 +173,6 @@ describe('variant run reducer', () => {
     expect(plain.variant_runs).toBe(stamped.variant_runs);
   });
 
-  it('joins a pick question to its run and seeds tries it never saw run', () => {
-    const state = reduce([frame('question.upserted', pickQuestion('q_1', 'pending'), 'q_1')]);
-    const run = state.variant_runs.var_1!;
-    expect(run).toMatchObject({ agent_id: 'main', origin: 'draft_alternatives', judge: 'user' });
-    expect(run.tries.map((item) => [item.try_index, item.scope, item.state, item.text])).toEqual([
-      [0, 'main#run0', 'completed', 'First'],
-      [1, 'main#run1', 'completed', 'Second'],
-    ]);
-    expect(run.questions).toMatchObject([{ id: 'q_1', status: 'pending', refinable: true }]);
-    expect(state.questions.q_1!.status).toBe('pending');
-  });
-
   it('keeps the variant stamp on an injection block made inside a try', () => {
     expect(
       messageBlockSchema.parse({
@@ -200,123 +188,128 @@ describe('variant run reducer', () => {
   });
 });
 
-function pickQuestion(id: string, status: UserQuestion['status']): Record<string, unknown> {
+/** One run exactly as `GET /v1/sessions/{sid}/variant-runs` serves it. */
+function record(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    id,
+    schema: 'clio.variant_run.v1',
+    variants_id: 'var_1',
     session_id: 'sess_1',
-    prompt: 'Which draft should continue the conversation?',
-    status,
-    kind: 'choice',
-    allow_freeform: true,
-    options: [
-      { label: 'Draft 1', value: 'main#run0', description: 'First' },
-      { label: 'Draft 2', value: 'main#run1', description: 'Second' },
-    ],
-    selected_options: status === 'answered' ? ['main#run1'] : [],
-    answer: status === 'answered' ? 'tighter please' : undefined,
-    created_at: '2026-10-01T12:00:05Z',
-    updated_at: '2026-10-01T12:00:05Z',
-    metadata: {
-      tool_name: 'draft_alternatives',
-      variants_id: 'var_1',
-      variant: {
-        strategy: 'refine',
-        judge: 'user',
-        n: 3,
-        rubric: 'clear and short',
-        refinable: true,
-        candidates: [
-          { id: 'main#run0', try_index: 0, text: 'First' },
-          { id: 'main#run1', try_index: 1, text: 'Second' },
+    agent_id: 'main',
+    origin: 'draft_alternatives',
+    strategy: 'refine',
+    judge: 'user',
+    n: 3,
+    n_requested: 3,
+    rubric: 'clear and short',
+    threshold: null,
+    status: 'selected',
+    turn_id: 'msg_user_1',
+    anchor_message_id: 'msg_assistant_1',
+    question_id: 'q_2',
+    pick: 2,
+    comment: '',
+    selected_index: 2,
+    tries: [
+      {
+        try_index: 0,
+        scope: 'main#run0',
+        state: 'completed',
+        text: 'First',
+        score: null,
+        tokens: { input: 5, output: 2, total: 7 },
+        advice: '',
+        forked_from: null,
+        error: '',
+        turn_id: 'msg_user_1',
+        anchor_message_id: 'msg_assistant_1',
+        steps: [
+          {
+            role: 'assistant',
+            parts: [
+              { type: 'thinking', text: 'Check the mesh.' },
+              { type: 'tool_call', id: 'c1', name: 'read_file', input: { path: 'mesh.log' } },
+            ],
+          },
+          {
+            role: 'tool',
+            parts: [
+              {
+                type: 'tool_result',
+                id: 'c1',
+                name: 'read_file',
+                is_error: false,
+                content: [{ type: 'text', text: 'cells=2.1M' }, { type: 'hologram' }],
+              },
+            ],
+          },
         ],
       },
-    },
+      {
+        try_index: 2,
+        scope: 'main#run2',
+        state: 'completed',
+        text: 'Refined',
+        score: null,
+        tokens: { input: 9, output: 3, total: 12 },
+        advice: 'tighter please',
+        forked_from: 0,
+        error: '',
+        turn_id: 'msg_user_2',
+        anchor_message_id: 'msg_assistant_2',
+        steps: [],
+      },
+    ],
+    ...overrides,
   };
 }
 
 describe('variant runs after a reload', () => {
-  const trace: VariantSemanticEvent[] = [
-    {
-      event_type: 'variant.try',
-      turn_id: 'turn_1',
-      session_id: 'sess_1',
-      status: 'running',
-      summary: '',
-      payload: {
-        ...RUN,
-        judge: 'user',
-        strategy: 'refine',
-        try_index: 0,
-        scope: 'main#run0',
-        status: 'running',
-      },
-    },
-    {
-      event_type: 'variant.try.delta',
-      turn_id: 'turn_1',
-      status: 'running',
-      summary: '',
-      payload: { variants_id: 'var_1', try_index: 0, kind: 'text', delta: 'Fir' },
-    },
-    {
-      event_type: 'variant.try',
-      turn_id: 'turn_1',
-      status: 'completed',
-      summary: '',
-      payload: {
-        ...RUN,
-        judge: 'user',
-        strategy: 'refine',
-        try_index: 0,
-        scope: 'main#run0',
-        status: 'completed',
-        text: 'First',
-        tokens: { input: 5, output: 2, total: 7 },
-      },
-    },
-    {
-      event_type: 'variant.try',
-      turn_id: 'turn_2',
-      status: 'completed',
-      summary: '',
-      payload: {
-        ...RUN,
-        judge: 'user',
-        strategy: 'refine',
-        try_index: 2,
-        scope: 'main#run2',
-        status: 'completed',
-        text: 'Refined',
-        forked_from: 1,
-        advice: 'tighter please',
-      },
-    },
-  ];
-
-  it('rebuilds tries, advice and the questions from the durable trace', () => {
-    const questions = [pickQuestion('q_1', 'answered')].map(
-      (question) => question as unknown as UserQuestion,
-    );
-    const runs = variantRunsFromTrace(trace, questions, 'sess_1');
+  it('reads the served runs with their steps and selection', async () => {
+    const transport = new RecordingTransport([{ session_id: 'sess 1', runs: [record()] }]);
+    const runs = await new ClioRepository(transport).variantRuns('sess 1');
+    expect(transport.requests[0]!.path).toBe('/v1/sessions/sess%201/variant-runs');
     const run = runs.var_1!;
-    expect(run.run_id).toBe('turn_1');
-    expect(run.tries.map((item) => [item.try_index, item.text, item.advice])).toEqual([
-      [0, 'First', undefined],
-      [1, 'Second', undefined],
-      [2, 'Refined', 'tighter please'],
+    expect(run).toMatchObject({
+      run_id: 'msg_user_1',
+      anchor_message_id: 'msg_assistant_1',
+      status: 'selected',
+      rubric: 'clear and short',
+      selection: { selected_index: 2, selected_scope: 'main#run2', text: 'Refined', pick: 2 },
+    });
+    expect(run.tries.map((item) => [item.try_index, item.advice, item.forked_from])).toEqual([
+      [0, undefined, undefined],
+      [2, 'tighter please', 0],
     ]);
-    expect(run.tries[0]!.tokens).toEqual({ input: 5, output: 2, total: 7 });
-    expect(run.questions[0]).toMatchObject({ status: 'answered', answer: 'tighter please' });
+    expect(run.tries[0]!.steps[1]!.parts[0]).toEqual({
+      type: 'tool_result',
+      id: 'c1',
+      name: 'read_file',
+      is_error: false,
+      content: [
+        { type: 'text', text: 'cells=2.1M' },
+        { type: 'unknown', original_type: 'hologram' },
+      ],
+    });
   });
 
-  it('lets the live stream win while the trace fills what it never saw', () => {
+  it('rejects a typed server failure instead of an empty list', async () => {
+    const transport = new RecordingTransport([
+      new TransportError('variant record seg_9 is unreadable', 500, 'variant_record_unreadable'),
+    ]);
+    await expect(new ClioRepository(transport).variantRuns('sess_1')).rejects.toMatchObject({
+      status: 500,
+      code: 'variant_record_unreadable',
+    });
+  });
+
+  it('lets the live stream win while the record fills what it never saw', () => {
     const live = reduce([
       frame(
         'variant.try.upserted',
         {
           id: 'var_1:2',
           ...RUN,
-          run_id: 'turn_2',
+          run_id: 'msg_user_2',
           try_index: 2,
           scope: 'main#run2',
           state: 'running',
@@ -325,31 +318,17 @@ describe('variant runs after a reload', () => {
       ),
       deltaFrame(2, 'Refined live'),
     ]).variant_runs;
-    const persisted = variantRunsFromTrace(trace.slice(0, 3), [], 'sess_1');
+    const persisted = variantRunsFromRecords([
+      variantRunRecordSchema.parse(
+        record({ status: 'running', selected_index: null, pick: null, comment: null }),
+      ),
+    ]);
     const merged = mergeVariantRuns(live, persisted).var_1!;
-    expect(merged.run_id).toBe('turn_1');
+    expect(merged).toMatchObject({ run_id: 'msg_user_1', anchor_message_id: 'msg_assistant_1' });
     expect(merged.tries.map((item) => [item.try_index, item.state, item.text])).toEqual([
       [0, 'completed', 'First'],
       [2, 'running', 'Refined live'],
     ]);
-  });
-
-  it('reads the variant trace and reports a deployment without one as unavailable', async () => {
-    const transport = new RecordingTransport([
-      { events: trace },
-      new TransportError('ARC memory is not enabled for this deployment', 503, 'arc_unavailable'),
-    ]);
-    const repository = new ClioRepository(transport);
-    await expect(repository.variantTrace('sess 1')).resolves.toMatchObject({
-      status: 'available',
-      events: { length: 4 },
-    });
-    await expect(repository.variantTrace('sess 1')).resolves.toEqual({
-      status: 'unavailable',
-      reason: 'ARC memory is not enabled for this deployment',
-    });
-    expect(transport.requests[0]!.path).toBe(
-      '/v1/sessions/sess%201/trace?scope=variant&limit=2000',
-    );
+    expect(merged.tries[0]!.steps).toHaveLength(2);
   });
 });

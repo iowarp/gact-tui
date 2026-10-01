@@ -29,7 +29,6 @@ import {
 } from './compaction-reducer.js';
 import {
   appendVariantDelta,
-  attachVariantQuestion,
   recordVariantActivity,
   selectVariant,
   upsertVariantTry,
@@ -476,12 +475,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     }
     case 'question.upserted': {
       const question = userQuestionSchema.parse(envelope.payload);
-      return {
-        ...base,
-        revisions,
-        questions: { ...base.questions, [question.id]: question },
-        variant_runs: attachVariantQuestion(base.variant_runs, question) ?? base.variant_runs,
-      };
+      return { ...base, revisions, questions: { ...base.questions, [question.id]: question } };
     }
     case 'variant.try.upserted': {
       const payload = variantTryUpsertSchema.parse(envelope.payload);

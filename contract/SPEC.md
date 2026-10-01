@@ -2798,11 +2798,13 @@ A BestOfN / Refine run (the agent drafting alternatives, origin
 Every other semantic event a try emits carries `payload.variants_id` and
 `payload.try_index`; a client groups it under the try, not the turn. An
 injection block made inside a try carries the same two keys. A user-judged run
-asks a `choice` question whose `metadata.variant` lists the candidates; it is
-answered with exactly one `selected_options` draft id and an optional `answer`
-comment. Clients render the run as one tab per try and rebuild it after a
-reload from the durable semantic trace (`GET /v1/sessions/{id}/trace?scope=variant`)
-and the session's questions.
+asks a `choice` question whose `metadata.variant` lists the candidates (the
+question's interaction carries it as `payload.metadata`); it is answered with
+exactly one `selected_options` draft id and an optional `answer` comment.
+Clients render the run as one tab per try and, after a reload, rebuild it from
+`GET /v1/sessions/{id}/variant-runs` (`clio.variant_run.v1` records served from
+clio-core: every run, LM- and user-judged, each try with its own steps and the
+`anchor_message_id` of the turn it belongs to).
 
 **Known gap (S6 adversarial review, tracked for S8):** the official Basic
 catalog's `openUrl` function (`@a2ui/web_core`'s `OpenUrlImplementation`)

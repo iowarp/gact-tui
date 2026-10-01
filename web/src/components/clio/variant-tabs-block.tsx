@@ -21,6 +21,7 @@ import type { VariantRunView, VariantTabView } from '@/lib/variant-runs';
 import { HarnessInjection } from './conversation-message-blocks';
 import { respondFromControl } from './interaction-control';
 import { ResponseErrorNotice } from './pending-interaction-notices';
+import { VariantTrySteps } from './variant-try-steps';
 
 export type VariantPick = (candidateId: string, comment: string) => Promise<void>;
 
@@ -142,10 +143,12 @@ function PickPanel({
 function TryPanel({
   tab,
   refinable,
+  sessionId,
   onPick,
 }: {
   tab: VariantTabView;
   refinable: boolean;
+  sessionId: string;
   onPick?: VariantPick;
 }) {
   return (
@@ -181,6 +184,7 @@ function TryPanel({
         <p className="text-sm text-muted-foreground">{tab.label} produced no text.</p>
       ) : null}
       <TryActivity tab={tab} />
+      <VariantTrySteps advice={tab.advice} sessionId={sessionId} steps={tab.steps} />
       {tab.tokens !== undefined ? (
         <p className="text-xs text-muted-foreground">{tab.tokens.toLocaleString()} tokens</p>
       ) : null}
@@ -204,7 +208,7 @@ export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPic
   const [active, setActive] = useState(String(view.defaultTab));
   // A new pick question or a selection moves the reader to the tab it is
   // about; a try merely finishing never pulls them off the tab they chose.
-  const focusKey = `${view.question?.id ?? ''}:${view.tabs.find((tab) => tab.selected)?.tryIndex ?? ''}`;
+  const focusKey = `${view.pick?.interaction.id ?? ''}:${view.tabs.find((tab) => tab.selected)?.tryIndex ?? ''}`;
   const [shownFocusKey, setShownFocusKey] = useState(focusKey);
   if (shownFocusKey !== focusKey) {
     setShownFocusKey(focusKey);
@@ -213,7 +217,7 @@ export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPic
   const current = view.tabs.some((tab) => String(tab.tryIndex) === active)
     ? active
     : String(view.defaultTab);
-  const canPick = Boolean(onPick && view.question && view.interaction);
+  const canPick = Boolean(onPick && view.pick);
   return (
     <Frame
       aria-label={view.title}
@@ -232,8 +236,8 @@ export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPic
         </span>
       </FrameHeader>
       <FramePanel className="min-w-0">
-        {view.question?.prompt ? (
-          <p className="mb-2 text-sm text-foreground">{view.question.prompt}</p>
+        {view.pick?.prompt ? (
+          <p className="mb-2 text-sm text-foreground">{view.pick.prompt}</p>
         ) : null}
         <Tabs onValueChange={setActive} value={current}>
           <TabsList
@@ -257,6 +261,7 @@ export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPic
               <TryPanel
                 onPick={canPick ? onPick : undefined}
                 refinable={view.refinable}
+                sessionId={view.sessionId}
                 tab={tab}
               />
             </TabsContent>

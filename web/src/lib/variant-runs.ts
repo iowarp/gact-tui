@@ -1,10 +1,11 @@
-import type {
-  Message,
-  MessageBlock,
-  PendingInteraction,
-  VariantQuestion,
-  VariantRun,
-  VariantTry,
+import {
+  variantQuestionMetadataSchema,
+  type Message,
+  type MessageBlock,
+  type PendingInteraction,
+  type VariantCandidate,
+  type VariantRun,
+  type VariantTry,
 } from '@clio/core/v3';
 
 /** The tool a main agent drafts alternatives with; its pick question renders as the tabs. */
@@ -19,56 +20,87 @@ export function isVariantPickInteraction(interaction: PendingInteraction): boole
   );
 }
 
-function interactionQuestionId(interaction: PendingInteraction): string {
-  return interaction.payload?.question_id ?? interaction.id;
+/** A waiting pick, read straight from its interaction's `payload.metadata.variant`. */
+export interface VariantPickQuestion {
+  interaction: PendingInteraction;
+  variantsId: string;
+  prompt?: string;
+  rubric?: string;
+  refinable: boolean;
+  candidates: VariantCandidate[];
 }
 
-function isAssistant(message: Message): boolean {
-  return message.role === 'assistant';
+/** The pick question an interaction carries, or `undefined` when it is not one. */
+export function variantPickQuestion(
+  interaction: PendingInteraction,
+): VariantPickQuestion | undefined {
+  if (interaction.kind !== 'question') return undefined;
+  const parsed = variantQuestionMetadataSchema.safeParse(interaction.payload?.metadata);
+  if (!parsed.success) return undefined;
+  return {
+    interaction,
+    variantsId: parsed.data.variants_id,
+    prompt: interaction.prompt,
+    rubric: parsed.data.variant.rubric,
+    refinable: parsed.data.variant.refinable,
+    candidates: parsed.data.variant.candidates,
+  };
+}
+
+/** The run's waiting pick: its newest pending, answerable pick interaction. */
+function waitingPick(
+  run: VariantRun,
+  interactions: readonly PendingInteraction[],
+): VariantPickQuestion | undefined {
+  return interactions
+    .filter(
+      (interaction) =>
+        interaction.status === 'pending' && (interaction.actions ?? []).includes('answer'),
+    )
+    .sort((left, right) => left.created_at.localeCompare(right.created_at))
+    .map(variantPickQuestion)
+    .findLast((question) => question?.variantsId === run.variants_id);
 }
 
 /**
- * The message a run's block belongs to: the first assistant message of the
- * turn the run started in; for a run known only from its pick question, the
- * message holding the tool call that asked it; failing both, the latest
- * assistant message of its session, so a waiting pick is never out of sight.
+ * The message a run's block belongs to:
+ * 1. the server's `anchor_message_id` (the assistant message of the run's
+ *    turn; the first try's when the run itself has none yet);
+ * 2. otherwise its turn (`run_id`: the user message id): the assistant message
+ *    carrying that turn, or the first assistant message after that user message;
+ *    a turn whose answer is not loaded yet places the block nowhere for now;
+ * 3. only a run carrying neither (recorded outside any turn) falls back to the
+ *    latest assistant message of its session.
  */
 export function variantRunAnchorId(
   run: VariantRun,
   messages: readonly Message[],
-  interactions: readonly PendingInteraction[],
 ): string | undefined {
-  const session = messages.filter(
-    (message) => isAssistant(message) && message.session_id === run.session_id,
-  );
-  if (run.run_id) {
-    const turn = session.find(
-      (message) => message.turn_id === run.run_id || message.run_id === run.run_id,
+  const session = messages.filter((message) => message.session_id === run.session_id);
+  const anchor =
+    run.anchor_message_id ?? run.tries.find((item) => item.anchor_message_id)?.anchor_message_id;
+  if (anchor && session.some((message) => message.id === anchor)) return anchor;
+  const turn = run.run_id ?? run.tries.find((item) => item.run_id)?.run_id;
+  if (turn) {
+    const answer = session.find(
+      (message) =>
+        message.role === 'assistant' && (message.turn_id === turn || message.run_id === turn),
     );
-    if (turn) return turn.id;
+    if (answer) return answer.id;
+    const asked = session.findIndex((message) => message.id === turn);
+    if (asked < 0) return undefined;
+    return session.slice(asked + 1).find((message) => message.role === 'assistant')?.id;
   }
-  const questionIds = new Set(run.questions.map((question) => question.id));
-  const toolIds = new Set(
-    interactions.flatMap((interaction) =>
-      questionIds.has(interactionQuestionId(interaction)) && interaction.source.invocation_id
-        ? [interaction.source.invocation_id]
-        : [],
-    ),
-  );
-  const asked = session.find((message) =>
-    message.blocks.some((block) => block.type === 'tool' && toolIds.has(block.tool_id)),
-  );
-  return (asked ?? session.at(-1))?.id;
+  return session.findLast((message) => message.role === 'assistant')?.id;
 }
 
-/** Runs whose block belongs at this message, oldest first. */
+/** Runs whose block belongs at this message. */
 export function variantRunsForMessage(
   runs: readonly VariantRun[],
   message: Message,
   messages: readonly Message[],
-  interactions: readonly PendingInteraction[],
 ): VariantRun[] {
-  if (!isAssistant(message)) return [];
+  if (message.role !== 'assistant') return [];
   const known = messages.some((candidate) => candidate.id === message.id)
     ? messages
     : [...messages, message];
@@ -76,7 +108,7 @@ export function variantRunsForMessage(
     (run) =>
       run.session_id === message.session_id &&
       run.tries.length > 0 &&
-      variantRunAnchorId(run, known, interactions) === message.id,
+      variantRunAnchorId(run, known) === message.id,
   );
 }
 
@@ -108,11 +140,15 @@ export interface VariantTabView {
   error?: string;
   /** The tab this try was refined from. */
   forkedFromLabel?: string;
+  /** The Refine advice the try was given. */
+  advice?: string;
   /** What the try was given (Refine advice), shown as an injection inside the tab. */
   injections: VariantInjection[];
   activity: VariantTry['activity'];
+  /** The try's own recorded steps (after a reload). */
+  steps: VariantTry['steps'];
   selected: boolean;
-  /** The user picked this try in some round. */
+  /** The user picked this try (to accept it, or to refine it with a comment). */
   userPick: boolean;
   /** The comment the user sent with that pick. */
   comment?: string;
@@ -122,16 +158,15 @@ export interface VariantTabView {
 
 export interface VariantRunView {
   variantsId: string;
+  sessionId: string;
   title: string;
   /** How the run chooses: `Best of 3 · you pick`. */
   method: string;
   status: string;
   tabs: VariantTabView[];
   defaultTab: number;
-  /** The question waiting for a pick; absent once the run is decided. */
-  question?: VariantQuestion;
-  /** The interaction that answers `question`; absent while it is not loaded. */
-  interaction?: PendingInteraction;
+  /** The pick waiting for the user; absent once the run is decided. */
+  pick?: VariantPickQuestion;
   refinable: boolean;
 }
 
@@ -151,28 +186,15 @@ function methodLabel(run: VariantRun): string {
   return judge ? `${strategy} · ${judge}` : strategy;
 }
 
-function statusLabel(run: VariantRun, noun: string, question?: VariantQuestion): string {
+function statusLabel(run: VariantRun, noun: string, pick?: VariantPickQuestion): string {
   if (run.selection) return `${noun} ${run.selection.selected_index + 1} selected`;
-  if (question) return 'Waiting for your pick';
+  if (pick) return 'Waiting for your pick';
+  if (run.status === 'failed') return 'The run failed';
   const running = run.tries.filter((item) => item.state === 'running').length;
   if (running > 0) return `${running} of ${run.tries.length} running`;
   if (run.tries.every((item) => item.state === 'failed')) return 'Every try failed';
+  if (run.status === 'awaiting_pick') return 'Waiting for your pick';
   return run.judge === 'user' ? 'Waiting for the drafts' : 'Judging the tries';
-}
-
-/** The pending pick question's interaction, matched by its question id. */
-function pickInteraction(
-  question: VariantQuestion | undefined,
-  interactions: readonly PendingInteraction[],
-): PendingInteraction | undefined {
-  if (!question) return undefined;
-  return interactions.find(
-    (interaction) =>
-      interaction.kind === 'question' &&
-      interaction.status === 'pending' &&
-      interactionQuestionId(interaction) === question.id &&
-      (interaction.actions ?? []).includes('answer'),
-  );
 }
 
 /** The tabs block's presentation of one run: tabs, badges, the pick it waits for. */
@@ -182,15 +204,17 @@ export function variantRunView(
   messages: readonly Message[],
 ): VariantRunView {
   const noun = tryNoun(run);
-  const pending = run.questions.findLast((item) => item.status === 'pending');
-  const question = run.selection ? undefined : pending;
-  const interaction = pickInteraction(question, interactions);
+  const pick = run.selection ? undefined : waitingPick(run, interactions);
   const injections = variantInjections(messages, run.variants_id);
-  const picks = new Map<string, string | undefined>();
-  for (const answered of run.questions) {
-    if (answered.status !== 'answered') continue;
-    for (const option of answered.selected_options) picks.set(option, answered.answer?.trim());
-  }
+  // A Refine try forked from a pick: the user picked that try with a comment
+  // (its advice). The final pick is the selection's.
+  const refinedFrom = new Map(
+    run.judge === 'user'
+      ? run.tries.flatMap((item) =>
+          item.forked_from === undefined ? [] : [[item.forked_from, item.advice] as const],
+        )
+      : [],
+  );
   const tabs = run.tries.map((item): VariantTabView => {
     const given = injections.get(item.try_index) ?? [];
     const advice =
@@ -206,9 +230,8 @@ export function variantRunView(
             },
           ]
         : [];
-    const pickedInRound = picks.has(item.scope);
-    const selectedPick = run.selection?.pick === item.try_index;
-    const candidate = question?.candidates.find(
+    const finalPick = run.selection?.pick === item.try_index;
+    const candidate = pick?.candidates.find(
       (candidateItem) => candidateItem.try_index === item.try_index,
     );
     return {
@@ -222,18 +245,22 @@ export function variantRunView(
       error: item.error,
       forkedFromLabel:
         item.forked_from === undefined ? undefined : `${noun} ${item.forked_from + 1}`,
+      advice: item.advice,
       injections: [...advice, ...given],
       activity: item.activity,
+      steps: item.steps,
       selected: run.selection?.selected_index === item.try_index,
-      userPick: pickedInRound || selectedPick,
+      userPick: finalPick || refinedFrom.has(item.try_index),
       comment:
-        (selectedPick ? run.selection?.comment : undefined) || picks.get(item.scope) || undefined,
-      candidateId: interaction ? candidate?.id : undefined,
+        (finalPick ? run.selection?.comment : undefined) ||
+        refinedFrom.get(item.try_index) ||
+        undefined,
+      candidateId: candidate?.id,
     };
   });
   // A pick opens on the newest refined draft (what the comment asked for),
   // otherwise on the first draft offered.
-  const candidates = question?.candidates ?? [];
+  const candidates = pick?.candidates ?? [];
   const refined = candidates.filter(
     (candidate) =>
       run.tries.find((item) => item.try_index === candidate.try_index)?.forked_from !== undefined,
@@ -246,16 +273,16 @@ export function variantRunView(
     0;
   return {
     variantsId: run.variants_id,
+    sessionId: run.session_id,
     title:
       run.origin === 'draft_alternatives'
         ? 'Alternative drafts'
         : `${run.agent_id || 'Agent'} tries`,
     method: methodLabel(run),
-    status: statusLabel(run, noun, question),
+    status: statusLabel(run, noun, pick),
     tabs,
     defaultTab,
-    question,
-    interaction,
-    refinable: question?.refinable ?? false,
+    pick,
+    refinable: pick?.refinable ?? false,
   };
 }
