@@ -58,6 +58,36 @@ export function mergeFilters(
   return merged;
 }
 
+/**
+ * The viewer's own column filters applied CLIENT-SIDE, for INLINE rows (no
+ * `dataUri`, so there is no server to filter through) — G0: "Full screen,
+ * Reference this and Filters on inline-data views too: inline rows filter
+ * client-side, dataUri views on the server." Mirrors the server's own
+ * `contains` (case-insensitive substring) and `range` (inclusive both ends)
+ * semantics (`table_query.py::_filter_mask`), so the two codepaths read the
+ * same way to the viewer regardless of which one ran.
+ */
+export function applyClientFilters<T extends QueryRow>(
+  rows: readonly T[],
+  userFilters: ReadonlyMap<string, ClioColumnFilterValue>,
+): T[] {
+  if (!userFilters.size) return [...rows];
+  return rows.filter((row) =>
+    [...userFilters.entries()].every(([column, value]) => {
+      const cell = row[column];
+      if (value.kind === 'text') {
+        if (!value.contains) return true;
+        return typeof cell === 'string' && cell.toLowerCase().includes(value.contains.toLowerCase());
+      }
+      const numeric = typeof cell === 'number' ? cell : Number(cell);
+      if (!Number.isFinite(numeric)) return false;
+      if (value.min !== undefined && numeric < value.min) return false;
+      if (value.max !== undefined && numeric > value.max) return false;
+      return true;
+    }),
+  );
+}
+
 /** A short, reader-facing description of one merged filter entry, for a zone reference's "active filters" line. */
 export function describeQueryFilter(filter: NonNullable<TableDataQuery['filter']>[number]): string {
   switch (filter.op) {

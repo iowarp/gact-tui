@@ -87,6 +87,53 @@ describe('withZoomBrush', () => {
     const { spec } = withZoomBrush(base, { pointParam: 'sel', xField: 'depth' });
     expect((spec!.params as unknown[]).length).toBe(1);
   });
+
+  it('G3: attaches the brush to the FIRST layer only, never the top of a layered spec', () => {
+    const base = {
+      layer: [
+        { data: { name: 'source' }, mark: 'point' },
+        { data: { name: 'source' }, mark: 'rule' },
+      ],
+    };
+    const { param, spec } = withZoomBrush(base, { pointParam: 'sel', xField: 'depth' });
+
+    expect(param).toBe('sel_zoom');
+    expect(spec).not.toHaveProperty('params');
+    const layers = spec!.layer as Array<Record<string, unknown>>;
+    expect(layers[0]!.params).toEqual([
+      { name: 'sel_zoom', select: { encodings: ['x'], type: 'interval' } },
+    ]);
+    expect(layers[1]).not.toHaveProperty('params');
+  });
+
+  it('attaches the brush to the first sub-view of a concatenated spec', () => {
+    const base = {
+      hconcat: [
+        { data: { name: 'source' }, mark: 'point' },
+        { data: { name: 'source' }, mark: 'bar' },
+      ],
+    };
+    const { spec } = withZoomBrush(base, { pointParam: 'sel', xField: 'depth' });
+
+    const views = spec!.hconcat as Array<Record<string, unknown>>;
+    expect(views[0]!.params).toEqual([
+      { name: 'sel_zoom', select: { encodings: ['x'], type: 'interval' } },
+    ]);
+    expect(views[1]).not.toHaveProperty('params');
+  });
+
+  it('a layered spec with the brush attached compiles and runs without a duplicate-signal error', async () => {
+    const base = {
+      layer: [
+        { data: { name: 'source' }, encoding: { x: { field: 'depth', type: 'quantitative' } }, mark: 'point' },
+        { data: { name: 'source' }, encoding: { x: { field: 'depth', type: 'quantitative' } }, mark: 'rule' },
+      ],
+    };
+    const { spec } = withZoomBrush(base, { pointParam: 'sel', xField: 'depth' });
+
+    const vega = compile(spec as unknown as Parameters<typeof compile>[0]).spec;
+    expect(() => parse(vega, undefined, { ast: true })).not.toThrow();
+  });
 });
 
 describe('zoomBrushParamName', () => {
