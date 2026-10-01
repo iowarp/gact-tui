@@ -12,6 +12,7 @@ import { expressionInterpreter } from 'vega-interpreter';
 import { compile } from 'vega-lite';
 import guardCases from '@/test-fixtures/chart/guard_cases.json';
 import { prepareChartSpec } from './chart-embed';
+import { withDefaultProjectionFit } from './chart-projection-fit';
 
 /**
  * The Altair-gallery fixtures (clio-schemas #1549 G4 review) proved they
@@ -20,16 +21,20 @@ import { prepareChartSpec } from './chart-embed';
  * review live-verified that a geoshape mark whose shape channel is a
  * geojson-typed field draws NOTHING (every coordinate NaN) when
  * `projection.fit` is left to the renderer's own data-driven auto-fit — a
- * real bug in the installed vega/vega-lite/vega-embed versions, worked
- * around by setting `projection.fit` to inline GeoJSON explicitly (the
- * choropleth fixture now does). This file runs every gallery fixture through
- * a REAL headless vega `View`, built from `prepareChartSpec` exactly as the
- * renderer embeds a chart, and asserts real marks are drawn at real (never
- * NaN) coordinates — the same way `chart-zoom.test.ts` / `chart-
- * selection.test.ts` already drive a real view for their own assertions,
- * rather than only inspecting the compiled Vega spec or a non-empty `d`
- * string (a NaN path has a non-empty, but meaningless, `d`). Does not touch
- * `chart-embed.ts` itself.
+ * real bug in the installed vega/vega-lite/vega-embed versions. The gallery
+ * fixture itself carries no `fit` (owner ruling,
+ * `feedback_affordances_are_renderer_defaults.md`: this is a renderer
+ * default, not the agent's job) — `withDefaultProjectionFit` computes one
+ * from the geometry cells actually present in the rows, exactly as the real
+ * embed path does (`a2ui-chart.tsx`). This file runs every gallery fixture
+ * through a REAL headless vega `View`, built from `prepareChartSpec` +
+ * `withDefaultProjectionFit` exactly as the renderer embeds a chart, and
+ * asserts real marks are drawn at real (never NaN) coordinates — the same
+ * way `chart-zoom.test.ts` / `chart-selection.test.ts` already drive a real
+ * view for their own assertions, rather than only inspecting the compiled
+ * Vega spec or a non-empty `d` string (a NaN path has a non-empty, but
+ * meaningless, `d`). Does not touch `chart-embed.ts` or `chart-zoom.ts`
+ * themselves.
  */
 
 type GalleryCase = (typeof guardCases.cases)[number] & {
@@ -67,9 +72,11 @@ const GALLERY_CASES = guardCases.cases.filter((testCase): testCase is GalleryCas
 async function renderGalleryCaseToSvg(testCase: GalleryCase): Promise<string> {
   const rows = testCase.data ?? SYNTHETIC_ROWS[testCase.name];
   if (!rows) throw new Error(`no rows given or synthesized for gallery case ${testCase.name}`);
-  const prepared = prepareChartSpec(testCase.spec as Record<string, unknown>, {
+  const clonedRows = rows.map((row) => ({ ...row }));
+  const defaulted = withDefaultProjectionFit(testCase.spec as Record<string, unknown>, clonedRows);
+  const prepared = prepareChartSpec(defaulted, {
     height: 240,
-    rows: rows.map((row) => ({ ...row })),
+    rows: clonedRows,
     width: 320,
   });
   const vegaSpec = compile(prepared as unknown as Parameters<typeof compile>[0]).spec;
