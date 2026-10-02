@@ -45,8 +45,12 @@ export function createGalleryRepository(base: Repository): Repository {
             if (filter.op === 'eq') return value === filter.value;
             if (filter.op === 'in') return filter.value.includes(value);
             if (filter.op === 'isnull') return (value == null) === (filter.value ?? true);
-            if (filter.op === 'range') return (filter.value[0] == null || Number(value) >= Number(filter.value[0])) &&
-              (filter.value[1] == null || Number(value) <= Number(filter.value[1]));
+            if (filter.op === 'range') {
+              const comparable = typeof value === 'string' ? value : Number(value);
+              const low = filter.value[0] == null ? null : typeof comparable === 'string' ? String(filter.value[0]) : Number(filter.value[0]);
+              const high = filter.value[1] == null ? null : typeof comparable === 'string' ? String(filter.value[1]) : Number(filter.value[1]);
+              return (low == null || comparable >= low) && (high == null || comparable <= high);
+            }
             return true;
           }));
           const sorted = [...filtered];
@@ -65,7 +69,10 @@ export function createGalleryRepository(base: Repository): Repository {
           const columns = Object.fromEntries(names.map((name) => [name, page.map((row) => row[name as keyof typeof row] ?? null)]));
           return Promise.resolve({
             artifact_id: artifactId,
-            schema: Object.keys(galleryStormTracks[0]!).map((name) => ({ name, type: ['lat', 'lon'].includes(name) ? 'double' : 'string' })),
+            schema: Object.keys(galleryStormTracks[0]!).map((name) => ({
+              name,
+              type: ['lat', 'lon', 'wind_kt'].includes(name) ? 'double' : name === 'time' ? 'timestamp[s, tz=UTC]' : 'string',
+            })),
             columns, totalRows: galleryStormTracks.length, matchedRows: filtered.length,
             returnedRows: page.length, truncated: page.length < filtered.length,
             downsample: { mode: 'none' }, rowKey: { column: '__row', values: page.map((row) => galleryStormTracks.indexOf(row)) },

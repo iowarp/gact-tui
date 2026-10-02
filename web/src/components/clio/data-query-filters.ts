@@ -13,7 +13,10 @@ import type { ClioColumnFilterValue } from './data-table-column-filter';
  */
 
 /** A column's sampled kind, from the first non-null value the current page/rows hold — a fallback for when no server `schema` is available (inline rows/points, never a `dataUri` query). */
-export function columnKindFromRows(rows: readonly QueryRow[] | undefined, key: string): 'number' | 'text' {
+export function columnKindFromRows(
+  rows: readonly QueryRow[] | undefined,
+  key: string,
+): 'number' | 'text' {
   const sample = rows?.find((row) => row[key] !== null && row[key] !== undefined)?.[key];
   return typeof sample === 'number' ? 'number' : 'text';
 }
@@ -53,6 +56,30 @@ export function mergeFilters(
       merged.push({ column, op: 'contains', value: value.contains });
     } else if (value.kind === 'range' && (value.min !== undefined || value.max !== undefined)) {
       merged.push({ column, op: 'range', value: [value.min ?? null, value.max ?? null] });
+    } else if (value.kind === 'year' && (value.min !== undefined || value.max !== undefined)) {
+      const fraction = { s: '', ms: '.999', us: '.999999', ns: '.999999999', text: '' }[
+        value.precision
+      ];
+      merged.push({
+        column,
+        op: 'range',
+        value: [
+          value.min === undefined ? null : `${value.min}-01-01T00:00:00Z`,
+          value.max === undefined ? null : `${value.max}-12-31T23:59:59${fraction}Z`,
+        ],
+      });
+    } else if (value.kind === 'date' && (value.min || value.max)) {
+      const fraction = { s: '', ms: '.999', us: '.999999', ns: '.999999999', text: '' }[
+        value.precision
+      ];
+      merged.push({
+        column,
+        op: 'range',
+        value: [
+          value.min ? `${value.min}T00:00:00Z` : null,
+          value.max ? `${value.max}T23:59:59${fraction}Z` : null,
+        ],
+      });
     }
   }
   return merged;
@@ -77,7 +104,24 @@ export function applyClientFilters<T extends QueryRow>(
       const cell = row[column];
       if (value.kind === 'text') {
         if (!value.contains) return true;
-        return typeof cell === 'string' && cell.toLowerCase().includes(value.contains.toLowerCase());
+        return (
+          typeof cell === 'string' && cell.toLowerCase().includes(value.contains.toLowerCase())
+        );
+      }
+      if (value.kind === 'year') {
+        const year = typeof cell === 'string' ? Number(cell.slice(0, 4)) : NaN;
+        return (
+          Number.isInteger(year) &&
+          (value.min === undefined || year >= value.min) &&
+          (value.max === undefined || year <= value.max)
+        );
+      }
+      if (value.kind === 'date') {
+        if (typeof cell !== 'string') return false;
+        const parsed = new Date(cell);
+        if (Number.isNaN(parsed.getTime())) return false;
+        const day = parsed.toISOString().slice(0, 10);
+        return (!value.min || day >= value.min) && (!value.max || day <= value.max);
       }
       const numeric = typeof cell === 'number' ? cell : Number(cell);
       if (!Number.isFinite(numeric)) return false;
@@ -93,7 +137,17 @@ export function describeQueryFilter(filter: NonNullable<TableDataQuery['filter']
   switch (filter.op) {
     case 'range': {
       const [min, max] = (filter.value as [unknown, unknown] | undefined) ?? [null, null];
-      if (min !== null && max !== null) return `${filter.column} from ${String(min)} to ${String(max)}`;
+      const firstYear =
+        typeof min === 'string' ? min.match(/^(\d{4})-01-01T00:00:00Z$/)?.[1] : undefined;
+      const lastYear =
+        typeof max === 'string' ? max.match(/^(\d{4})-12-31T23:59:59(?:\.9+)?Z$/)?.[1] : undefined;
+      if (firstYear || lastYear) {
+        if (firstYear && lastYear)
+          return firstYear === lastYear ? `Year ${firstYear}` : `Years ${firstYear} to ${lastYear}`;
+        return firstYear ? `From year ${firstYear}` : `Through year ${lastYear}`;
+      }
+      if (min !== null && max !== null)
+        return `${filter.column} from ${String(min)} to ${String(max)}`;
       if (min !== null) return `${filter.column} ≥ ${String(min)}`;
       if (max !== null) return `${filter.column} ≤ ${String(max)}`;
       return `${filter.column} in range`;

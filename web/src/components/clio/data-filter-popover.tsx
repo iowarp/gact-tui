@@ -1,6 +1,8 @@
 import { ListFilterIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Badge as ReUIBadge } from '@/components/reui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Popover,
   PopoverContent,
@@ -20,7 +22,113 @@ import {
 export interface DataFilterField {
   key: string;
   label: string;
-  kind: 'number' | 'text';
+  kind: 'number' | 'text' | 'year' | 'date';
+  precision?: 's' | 'ms' | 'us' | 'ns' | 'text';
+}
+
+function YearRangeFilter({
+  field,
+  value,
+  onChange,
+}: {
+  field: DataFilterField;
+  value: ClioColumnFilterValue | undefined;
+  onChange: (value: ClioColumnFilterValue | undefined) => void;
+}) {
+  const current = value?.kind === 'year' ? value : undefined;
+  const [from, setFrom] = useState(current?.min?.toString() ?? '');
+  const [to, setTo] = useState(current?.max?.toString() ?? '');
+  const commit = (nextFrom: string, nextTo: string) => {
+    if ((nextFrom && nextFrom.length !== 4) || (nextTo && nextTo.length !== 4)) return;
+    onChange(
+      nextFrom || nextTo
+        ? {
+            kind: 'year',
+            min: nextFrom ? Number(nextFrom) : undefined,
+            max: nextTo ? Number(nextTo) : undefined,
+            precision: field.precision ?? 'text',
+          }
+        : undefined,
+    );
+  };
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Input
+        aria-label={`From year for ${field.label}`}
+        inputMode="numeric"
+        maxLength={4}
+        onChange={(event) => {
+          const next = event.target.value.replace(/\D/g, '').slice(0, 4);
+          setFrom(next);
+          commit(next, to);
+        }}
+        placeholder="From year"
+        value={from}
+      />
+      <Input
+        aria-label={`To year for ${field.label}`}
+        inputMode="numeric"
+        maxLength={4}
+        onChange={(event) => {
+          const next = event.target.value.replace(/\D/g, '').slice(0, 4);
+          setTo(next);
+          commit(from, next);
+        }}
+        placeholder="To year"
+        value={to}
+      />
+    </div>
+  );
+}
+
+function DateRangeFilter({
+  field,
+  value,
+  onChange,
+}: {
+  field: DataFilterField;
+  value: ClioColumnFilterValue | undefined;
+  onChange: (value: ClioColumnFilterValue | undefined) => void;
+}) {
+  const current = value?.kind === 'date' ? value : undefined;
+  const [from, setFrom] = useState(current?.min ?? '');
+  const [to, setTo] = useState(current?.max ?? '');
+  const commit = (nextFrom: string, nextTo: string) => {
+    onChange(
+      nextFrom || nextTo
+        ? {
+            kind: 'date',
+            min: nextFrom || undefined,
+            max: nextTo || undefined,
+            precision: field.precision ?? 'text',
+          }
+        : undefined,
+    );
+  };
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Input
+        aria-label={`From date for ${field.label}`}
+        className="min-w-0"
+        onChange={(event) => {
+          setFrom(event.target.value);
+          commit(event.target.value, to);
+        }}
+        type="date"
+        value={from}
+      />
+      <Input
+        aria-label={`To date for ${field.label}`}
+        className="min-w-0"
+        onChange={(event) => {
+          setTo(event.target.value);
+          commit(from, event.target.value);
+        }}
+        type="date"
+        value={to}
+      />
+    </div>
+  );
 }
 
 /**
@@ -77,7 +185,9 @@ export function DataFilterPopover({
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent side="bottom">{activeCount ? `${label}, ${activeCount} active` : label}</TooltipContent>
+          <TooltipContent side="bottom">
+            {activeCount ? `${label}, ${activeCount} active` : label}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <PopoverContent align="end" className="w-72">
@@ -91,7 +201,19 @@ export function DataFilterPopover({
             return (
               <div className="grid gap-1" key={field.key}>
                 <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
-                {field.kind === 'text' ? (
+                {field.kind === 'year' ? (
+                  <YearRangeFilter
+                    field={field}
+                    onChange={(next) => onFilterChange(field.key, next)}
+                    value={value}
+                  />
+                ) : field.kind === 'date' ? (
+                  <DateRangeFilter
+                    field={field}
+                    onChange={(next) => onFilterChange(field.key, next)}
+                    value={value}
+                  />
+                ) : field.kind === 'text' ? (
                   <ClioTextColumnFilter
                     columnLabel={field.label}
                     onChange={(contains) =>
@@ -105,7 +227,9 @@ export function DataFilterPopover({
                     onChange={({ min, max }) =>
                       onFilterChange(
                         field.key,
-                        min !== undefined || max !== undefined ? { kind: 'range', min, max } : undefined,
+                        min !== undefined || max !== undefined
+                          ? { kind: 'range', min, max }
+                          : undefined,
                       )
                     }
                     value={value?.kind === 'range' ? { max: value.max, min: value.min } : {}}

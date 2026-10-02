@@ -5,7 +5,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const repository = vi.hoisted(() => ({ artifactTableExport: vi.fn(), artifactTableQuery: vi.fn() }));
+const repository = vi.hoisted(() => ({
+  artifactTableExport: vi.fn(),
+  artifactTableQuery: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -121,7 +124,9 @@ describe('clio.data-table.v1 schema', () => {
   it('requires columns alongside dataQuery.aggregate', () => {
     const result = dataTableComponentSchema.safeParse({
       dataUri: 'artifact://artifact_events01',
-      dataQuery: { aggregate: { groupBy: ['station'], metrics: [{ column: 'magnitude', fn: 'max' }] } },
+      dataQuery: {
+        aggregate: { groupBy: ['station'], metrics: [{ column: 'magnitude', fn: 'max' }] },
+      },
     });
     expect(result.success).toBe(false);
   });
@@ -154,7 +159,10 @@ describe('mergeFilters', () => {
   it('layers a text and a range filter onto the producer base filter, never replacing it', () => {
     const merged = mergeFilters(
       [{ column: 'status', op: 'eq', value: 'reviewed' }],
-      new Map<string, { kind: 'text'; contains: string } | { kind: 'range'; min?: number; max?: number }>([
+      new Map<
+        string,
+        { kind: 'text'; contains: string } | { kind: 'range'; min?: number; max?: number }
+      >([
         ['place', { kind: 'text', contains: 'california' }],
         ['magnitude', { kind: 'range', min: 3, max: undefined }],
       ]),
@@ -176,11 +184,33 @@ describe('mergeFilters', () => {
     );
     expect(merged).toEqual([]);
   });
+
+  it('turns a chosen date range into the exact timestamp bounds used by a referenced view', () => {
+    const merged = mergeFilters(
+      undefined,
+      new Map([
+        [
+          'observed_at',
+          { kind: 'date' as const, min: '2026-10-01', max: '2026-10-02', precision: 'us' as const },
+        ],
+      ]),
+    );
+    expect(merged).toEqual([
+      {
+        column: 'observed_at',
+        op: 'range',
+        value: ['2026-10-01T00:00:00Z', '2026-10-02T23:59:59.999999Z'],
+      },
+    ]);
+  });
 });
 
 describe('columnKindFromRows', () => {
   it('reads number vs. text from the first non-null sampled value', () => {
-    const rows = [{ magnitude: null, place: 'CA' }, { magnitude: 4.2, place: 'NV' }];
+    const rows = [
+      { magnitude: null, place: 'CA' },
+      { magnitude: 4.2, place: 'NV' },
+    ];
     expect(columnKindFromRows(rows, 'magnitude')).toBe('number');
     expect(columnKindFromRows(rows, 'place')).toBe('text');
   });
@@ -188,9 +218,9 @@ describe('columnKindFromRows', () => {
 
 describe('resolveEffectiveSort', () => {
   it("uses the viewer's own override when set", () => {
-    expect(resolveEffectiveSort({ column: 'magnitude', desc: false }, [
-      { column: 'time', desc: true },
-    ])).toEqual([{ column: 'magnitude', desc: false }]);
+    expect(
+      resolveEffectiveSort({ column: 'magnitude', desc: false }, [{ column: 'time', desc: true }]),
+    ).toEqual([{ column: 'magnitude', desc: false }]);
   });
 
   it("falls back to the producer's own base sort, unchanged, once the override is cleared", () => {
@@ -266,7 +296,13 @@ describe('clio.data-table.v1 dataUri rendering', () => {
       },
     ]);
 
-    render(wrap(<WithComposer><A2uiSurface surface={surface} /></WithComposer>));
+    render(
+      wrap(
+        <WithComposer>
+          <A2uiSurface surface={surface} />
+        </WithComposer>,
+      ),
+    );
     await screen.findByRole('table');
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
@@ -429,7 +465,7 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     expect(lastRequest).not.toHaveProperty('sort.direction');
   });
 
-  it('shows and sends the producer\'s own base sort until the viewer overrides it', async () => {
+  it("shows and sends the producer's own base sort until the viewer overrides it", async () => {
     repository.artifactTableQuery.mockResolvedValue({
       schema: [{ name: 'station', type: 'string' }],
       columns: { station: ['MTA1'] },
@@ -516,7 +552,7 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     expect(screen.queryByLabelText('Loading data table')).not.toBeInTheDocument();
   });
 
-  it('keeps a way to clear the viewer\'s own filters when the query fails', async () => {
+  it("keeps a way to clear the viewer's own filters when the query fails", async () => {
     repository.artifactTableQuery.mockRejectedValue(
       new TransportError('the artifact is not in this workspace.', 404, 'not_found'),
     );
@@ -537,7 +573,7 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     expect(screen.queryByRole('button', { name: /clear/iu })).not.toBeInTheDocument();
   });
 
-  it('offers to clear the viewer\'s own filters once they may be the reason a query fails', async () => {
+  it("offers to clear the viewer's own filters once they may be the reason a query fails", async () => {
     repository.artifactTableQuery.mockResolvedValueOnce({
       schema: [{ name: 'station', type: 'string' }],
       columns: { station: ['MTA1'] },
@@ -581,7 +617,7 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     expect(screen.queryByText(/Table unavailable/u)).not.toBeInTheDocument();
   });
 
-  it('resets the viewer\'s own page, sort, and filters when the producer points at a different dataset', async () => {
+  it("resets the viewer's own page, sort, and filters when the producer points at a different dataset", async () => {
     repository.artifactTableQuery.mockResolvedValue({
       schema: [{ name: 'station', type: 'string' }],
       columns: { station: Array.from({ length: 10 }, (_unused, index) => `S${index}`) },
@@ -650,4 +686,3 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     );
   });
 });
-

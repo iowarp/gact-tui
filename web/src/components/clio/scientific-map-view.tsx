@@ -232,6 +232,14 @@ export function ClioScientificMapView({
   // attached either a new or pooled map. Capturing it in state makes "the map
   // is ready" a real reactive dependency every effect below can observe.
   const [mapInstance, setMapInstance] = useState<MapLibreMap | undefined>(undefined);
+  useEffect(() => {
+    if (!mapInstance || !points.length) return;
+    if (viewState.bounds) {
+      mapInstance.fitBounds(viewState.bounds, { ...viewState.fitBoundsOptions, duration: 0 });
+    } else if (viewState.longitude !== undefined && viewState.latitude !== undefined) {
+      mapInstance.jumpTo({ center: [viewState.longitude, viewState.latitude], zoom: viewState.zoom ?? 8 });
+    }
+  }, [mapInstance, points.length, viewState]);
   const handleMapInstance = useCallback(
     (map: MapLibreMap) => {
       setMapError(undefined);
@@ -244,6 +252,7 @@ export function ClioScientificMapView({
   const dragBoxRef = useRef<DragBox | null>(null);
   const lastBoxDragAt = useRef(0);
   const manyPoints = !geometry && points.length > MANY_POINTS_THRESHOLD;
+  const denseTrajectories = Boolean(geometrySelectionByPoints && points.length > 1_000);
   const categoryColors = useMemo(() => mapCategoryColors(points), [points]);
   const valueExtent = useMemo(() => mapValueExtent(points), [points]);
   const resolvedHighlightedIds = useMemo(
@@ -286,12 +295,39 @@ export function ClioScientificMapView({
     const previousCursor = canvas.style.cursor;
     const owner = Symbol('clio-map-geometry-owner');
     const ensureGeometryLayers = () => {
-      if (!map.isStyleLoaded()) return;
+      // Raster tile requests can fail while the base style and its layer are
+      // already usable. `isStyleLoaded()` remains false in that case and would
+      // hide every data overlay even though the map itself is visible.
+      if (!map.getLayer('openStreetMap')) return;
       pointsLayerOwners.set(map, owner);
       if (!map.getSource(GEOMETRY_SOURCE_ID)) map.addSource(GEOMETRY_SOURCE_ID, {
         type: 'geojson', data: styledGeometryRef.current ?? geometry,
       });
       const color: ExpressionSpecification = ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, ['get', 'color']];
+      const lineWidth: ExpressionSpecification = denseTrajectories
+        ? ['interpolate', ['linear'], ['zoom'], 1, ['case', ['get', 'highlighted'], 5, 1], 5, ['case', ['get', 'highlighted'], 5, 3]]
+        : ['case', ['get', 'highlighted'], 5, 3];
+      const lineOpacity: ExpressionSpecification | number = denseTrajectories
+        ? ['interpolate', ['linear'], ['zoom'], 1, ['case', ['get', 'highlighted'], 1, 0.35], 5, ['case', ['get', 'highlighted'], 1, 0.9]]
+        : 1;
+      const pointOpacity: ExpressionSpecification | number = denseTrajectories
+        ? ['step', ['zoom'], ['case', ['get', 'highlighted'], 1, 0], 4, 1]
+        : 1;
+      const setPaintIfChanged = (
+        layerId: string,
+        property: 'line-width' | 'line-opacity' | 'circle-opacity' | 'circle-stroke-opacity',
+        value: ExpressionSpecification | number,
+      ) => {
+        // A reused map can lose its style while an idle callback is queued.
+        if (!map.getLayer(layerId)) return;
+        try {
+          if (JSON.stringify(map.getPaintProperty(layerId, property)) !== JSON.stringify(value)) {
+            map.setPaintProperty(layerId, property, value);
+          }
+        } catch {
+          // The new style's load event will install the layer and its paint.
+        }
+      };
       if (!map.getLayer(GEOMETRY_LAYER_IDS[0])) map.addLayer({
         id: GEOMETRY_LAYER_IDS[0], type: 'fill', source: GEOMETRY_SOURCE_ID,
         filter: ['==', ['geometry-type'], 'Polygon'],
@@ -300,13 +336,30 @@ export function ClioScientificMapView({
       if (!map.getLayer(GEOMETRY_LAYER_IDS[1])) map.addLayer({
         id: GEOMETRY_LAYER_IDS[1], type: 'line', source: GEOMETRY_SOURCE_ID,
         filter: ['==', ['geometry-type'], 'LineString'],
-        paint: { 'line-color': color, 'line-width': ['case', ['get', 'highlighted'], 5, 3] },
+        paint: {
+          'line-color': color,
+          'line-width': lineWidth,
+          'line-opacity': lineOpacity,
+        },
       });
       if (!map.getLayer(GEOMETRY_LAYER_IDS[2])) map.addLayer({
         id: GEOMETRY_LAYER_IDS[2], type: 'circle', source: GEOMETRY_SOURCE_ID,
         filter: ['==', ['geometry-type'], 'Point'],
-        paint: { 'circle-color': color, 'circle-radius': ['case', ['get', 'highlighted'], 7, ['get', 'endpoint'], 6, 4], 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 },
+        paint: {
+          'circle-color': color,
+          'circle-radius': ['case', ['get', 'highlighted'], 7, ['get', 'endpoint'], 6, 4],
+          'circle-opacity': pointOpacity,
+          'circle-stroke-color': '#fff',
+          'circle-stroke-width': 1,
+          'circle-stroke-opacity': pointOpacity,
+        },
       });
+      // A pooled map can already own these layer IDs from a previous sparse
+      // view. Keep its paint in sync when the new view is dense.
+      setPaintIfChanged(GEOMETRY_LAYER_IDS[1], 'line-width', lineWidth);
+      setPaintIfChanged(GEOMETRY_LAYER_IDS[1], 'line-opacity', lineOpacity);
+      setPaintIfChanged(GEOMETRY_LAYER_IDS[2], 'circle-opacity', pointOpacity);
+      setPaintIfChanged(GEOMETRY_LAYER_IDS[2], 'circle-stroke-opacity', pointOpacity);
     };
     const updateCursor = (event: MapLayerMouseEvent) => {
       const layers = GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id));
@@ -330,7 +383,7 @@ export function ClioScientificMapView({
         if (map.getSource(GEOMETRY_SOURCE_ID)) map.removeSource(GEOMETRY_SOURCE_ID);
       } catch { /* Pooled map style was already removed. */ }
     };
-  }, [geometry, mapInstance]);
+  }, [geometry, mapInstance, denseTrajectories]);
   useEffect(() => {
     if (!styledGeometry || !mapInstance) return;
     (mapInstance.getSource(GEOMETRY_SOURCE_ID) as GeoJSONSource | undefined)?.setData(styledGeometry);
@@ -371,7 +424,7 @@ export function ClioScientificMapView({
     // layer is removed only by the view that last claimed it.
     const owner = Symbol('clio-map-points-owner');
     const ensurePointsLayer = () => {
-      if (!map.isStyleLoaded()) return;
+      if (!map.getLayer('openStreetMap')) return;
       pointsLayerOwners.set(map, owner);
       if (!map.getSource(POINTS_SOURCE_ID)) {
         map.addSource(POINTS_SOURCE_ID, {
@@ -397,9 +450,8 @@ export function ClioScientificMapView({
     ensurePointsLayer();
     map.on('load', ensurePointsLayer);
     map.on('style.load', ensurePointsLayer);
-    // A reused instance can be handed over while its basemap tiles are still loading:
-    // `isStyleLoaded()` is false then, and 'load'/'style.load' already fired long ago,
-    // so nothing above would ever retry. 'idle' fires once the map settles.
+    // A reused instance can be handed over before the base layer is installed.
+    // Retry when the map settles as well as when the style loads.
     map.on('idle', ensurePointsLayer);
     return () => {
       map.off('load', ensurePointsLayer);
@@ -639,7 +691,7 @@ export function ClioScientificMapView({
           className="absolute inset-x-3 bottom-3 rounded-md border border-destructive/30 bg-background/95 px-3 py-2 text-xs text-destructive shadow-sm"
           role="alert"
         >
-          Map background unavailable. Station coordinates remain listed beside the map.
+          {mapError.startsWith('layers.') ? 'Map data layer unavailable' : 'Map background unavailable'}: {mapError}
         </p>
       ) : null}
     </div>

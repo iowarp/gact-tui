@@ -10,7 +10,9 @@ import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
  */
 export type ClioColumnFilterValue =
   | { kind: 'text'; contains: string }
-  | { kind: 'range'; min?: number; max?: number };
+  | { kind: 'range'; min?: number; max?: number }
+  | { kind: 'year'; min?: number; max?: number; precision: 's' | 'ms' | 'us' | 'ns' | 'text' }
+  | { kind: 'date'; min?: string; max?: string; precision: 's' | 'ms' | 'us' | 'ns' | 'text' };
 
 /** Debounced free-text "contains" filter for a string-like column. */
 export function ClioTextColumnFilter({

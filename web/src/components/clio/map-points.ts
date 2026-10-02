@@ -71,14 +71,19 @@ export function pointsFromRows(
     const latitude = toFiniteNumber(row[fields.latitudeField]);
     const longitude = toFiniteNumber(row[fields.longitudeField]);
     const label = toText(row[fields.labelField]);
-    if (latitude === undefined || longitude === undefined || !label) return;
+    if (latitude === undefined || Math.abs(latitude) > 90 || longitude === undefined || !label) return;
+    // Longitude outside the canonical range occurs in some track archives.
+    // Normalizing it keeps the map bounds and the rendered point together.
+    const normalizedLongitude = longitude >= -180 && longitude <= 180
+      ? longitude
+      : ((longitude + 180) % 360 + 360) % 360 - 180;
     const id = fields.idField ? toText(row[fields.idField]) : undefined;
     points.push({
       id: id ?? `row-${index}`,
       rowIndex: index,
       label,
       latitude,
-      longitude,
+      longitude: normalizedLongitude,
       detail: fields.detailField ? toText(row[fields.detailField]) : undefined,
       category: fields.categoryField ? toText(row[fields.categoryField]) : undefined,
       value: fields.valueField ? toFiniteNumber(row[fields.valueField]) : undefined,

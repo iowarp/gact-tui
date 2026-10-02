@@ -61,6 +61,7 @@ const ClioScientificMapView = lazy(() =>
 const MAP_LIST_ROW_HEIGHT = 48;
 const MAP_LIST_CHROME_HEIGHT = 64;
 const DEFAULT_MAP_HEIGHT = 416;
+const MAX_INLINE_CATEGORY_LEGEND = 12;
 
 interface ClioMapProps {
   accessibility?: A2UIAccessibility;
@@ -154,6 +155,7 @@ export function ClioScientificMap({
   // (`pointSelectValue` returns `undefined`), which would otherwise fail
   // perfectly silently: every click does nothing, with no visible reason.
   const unsupportedSelectionField =
+    points.length > 0 &&
     selectionField !== undefined &&
     !isSelectablePointField(selectionField) &&
     !points.some((point) => point.selectionValue !== undefined);
@@ -555,31 +557,46 @@ export function ClioScientificMap({
               )}
               ref={canvasRef}
               style={{
-                height: fullscreen ? 'calc(100dvh - 9rem)' : 'var(--a2ui-map-height, 26rem)',
+                height: fullscreen
+                  ? 'calc(100dvh - 9rem)'
+                  : points.length
+                    ? 'var(--a2ui-map-height, 26rem)'
+                    : '7rem',
               }}
             >
-              <Suspense
-                fallback={
-                  <Skeleton
-                    aria-label={`Loading ${title} map`}
-                    className="size-full rounded-none"
+              {points.length === 0 ? (
+                <div
+                  className="flex size-full items-center justify-center px-4 text-center text-sm text-muted-foreground"
+                  role="status"
+                >
+                  {dataCapabilities?.filters
+                    ? 'No locations match the current filters. Adjust Filters to see them.'
+                    : 'No locations to show.'}
+                </div>
+              ) : (
+                <Suspense
+                  fallback={
+                    <Skeleton
+                      aria-label={`Loading ${title} map`}
+                      className="size-full rounded-none"
+                    />
+                  }
+                >
+                  <ClioScientificMapView
+                    boxSelectMode={boxSelectMode}
+                    geometry={geometry}
+                    geometryBounds={geometryBounds}
+                    geometrySelectionByPoints={geometrySelectionByPoints}
+                    highlightedIds={highlightedIds}
+                    onClearSelection={clearSelection}
+                    onMapInstance={handleMapInstance}
+                    onSelect={setSelectedId}
+                    onZoneSelect={handleZoneSelect}
+                    points={points}
+                    selectedId={selectedId}
                   />
-                }
-              >
-                <ClioScientificMapView
-                  boxSelectMode={boxSelectMode}
-                  geometry={geometry}
-                  geometryBounds={geometryBounds}
-                  geometrySelectionByPoints={geometrySelectionByPoints}
-                  highlightedIds={highlightedIds}
-                  onClearSelection={clearSelection}
-                  onMapInstance={handleMapInstance}
-                  onSelect={setSelectedId}
-                  onZoneSelect={handleZoneSelect}
-                  points={points}
-                  selectedId={selectedId}
-                />
-              </Suspense>
+                </Suspense>
+              )}
               {/* A visible, non-virtualized count: a large point count is drawn as
                   one GeoJSON layer and the list is usually closed, so an "N of M"
                   zone selection would otherwise have no on-screen indication at
@@ -709,6 +726,19 @@ export function ClioScientificMap({
                 <span className="col-span-3">Grey: no value</span>
               ) : null}
             </div>
+          ) : categoryColors.size > MAX_INLINE_CATEGORY_LEGEND ? (
+            <div
+              aria-label="Map colour summary"
+              className="border-t px-3 py-2 text-xs text-muted-foreground"
+              data-slot="a2ui-map-legend"
+            >
+              {categoryColors.size.toLocaleString()}{' '}
+              {geometrySelectionByPoints ? 'tracks' : 'categories'} on the map. Colours repeat;
+              filter to compare them.
+              {geometrySelectionByPoints && points.length > 1_000
+                ? ' Zoom in for observations.'
+                : ''}
+            </div>
           ) : categoryColors.size > 0 ? (
             <div
               aria-label="Map category colours"
@@ -761,8 +791,8 @@ export function ClioScientificMap({
           ) : null}
           {unsupportedSelectionField ? (
             <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-              This map's points have no “{selectionField}” value to select by — inline points
-              support only id, label, or category. Selecting a point here does nothing.
+              These points have no “{selectionField}” value to select by. Selecting a point here
+              does nothing.
             </p>
           ) : null}
         </SurfaceFullScreenHost>

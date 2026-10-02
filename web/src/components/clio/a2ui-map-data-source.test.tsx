@@ -103,13 +103,17 @@ async function mapSurface(): Promise<HTMLElement> {
   return document.querySelector('[data-slot="a2ui-map"]') as HTMLElement;
 }
 
-/** The point count moved from the map body into its secondary toolbar details. */
+/** The count sits in the optional locations list footer. */
 async function expectMapCount(user: ReturnType<typeof userEvent.setup>, count: string) {
   const dialog = screen.queryByRole('dialog');
   const toolbarScope = dialog ?? (await mapSurface());
   await user.click(within(toolbarScope).getByRole('button', { name: 'More' }));
-  expect(await screen.findByRole('menuitem', { name: count })).toBeVisible();
-  await user.keyboard('{Escape}');
+  await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Show locations list' }));
+  await waitFor(() =>
+    expect(document.querySelector('[data-slot="a2ui-map-points-pagination"]')).toHaveTextContent(
+      count,
+    ),
+  );
 }
 
 /** A composer stand-in, inside the provider, so "Reference this" has somewhere real to attach to. */
@@ -200,6 +204,27 @@ describe('clio.map.v1 schema', () => {
     expect(withFields.success).toBe(true);
   });
 
+  it('accepts distinct filter fields on referenced maps only', () => {
+    const base = {
+      dataUri: 'artifact://artifact_stations01',
+      latitudeField: 'lat',
+      longitudeField: 'lon',
+      labelField: 'station',
+    };
+    expect(
+      mapComponentSchema.safeParse({ ...base, filterFields: ['campaign', 'temperature'] }).success,
+    ).toBe(true);
+    expect(
+      mapComponentSchema.safeParse({ ...base, filterFields: ['campaign', 'campaign'] }).success,
+    ).toBe(false);
+    expect(
+      mapComponentSchema.safeParse({
+        points: [{ id: 's1', label: 'Station 1', latitude: 1, longitude: 2 }],
+        filterFields: ['campaign'],
+      }).success,
+    ).toBe(false);
+  });
+
   it('refuses dataQuery without dataUri', () => {
     const result = mapComponentSchema.safeParse({
       points: [{ id: 's1', label: 'Station 1', latitude: 1, longitude: 2 }],
@@ -236,19 +261,25 @@ describe('pointsFromRows', () => {
     expect(points).toEqual([
       {
         id: 'row-0',
+        rowIndex: 0,
         label: 'GNSS01',
         latitude: 34.1,
         longitude: -118.3,
         detail: 'LA',
         category: undefined,
+        value: undefined,
+        selectionValue: undefined,
       },
       {
         id: 'row-1',
+        rowIndex: 1,
         label: 'GNSS02',
         latitude: 37.9,
         longitude: -122.6,
         detail: 'Mount Tam',
         category: undefined,
+        value: undefined,
+        selectionValue: undefined,
       },
     ]);
   });
@@ -283,6 +314,37 @@ describe('pointsFromRows', () => {
 });
 
 describe('clio.map.v1 dataUri rendering', () => {
+  it('explains an empty filtered view without claiming its row key is missing', async () => {
+    repository.artifactTableQuery.mockResolvedValue({
+      schema: [],
+      columns: { lat: [], lon: [], station: [], __row: [] },
+      totalRows: 1,
+      matchedRows: 0,
+      returnedRows: 0,
+      truncated: false,
+      downsample: { mode: 'none' },
+    });
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['map'] },
+      {
+        id: 'map',
+        component: 'clio.map.v1',
+        dataUri: 'artifact://artifact_stations01',
+        latitudeField: 'lat',
+        longitudeField: 'lon',
+        labelField: 'station',
+        selectionField: '__row',
+      },
+    ]);
+    render(wrap(<A2uiSurface surface={surface} />));
+    expect(
+      await screen.findByText(
+        'No locations match the current filters. Adjust Filters to see them.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/points have no.*__row/)).not.toBeInTheDocument();
+  });
+
   it('draws every referenced point once the table query resolves', async () => {
     const user = userEvent.setup();
     repository.artifactTableQuery.mockResolvedValue({
@@ -310,8 +372,12 @@ describe('clio.map.v1 dataUri rendering', () => {
 
     await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'More' }));
-    expect(await screen.findByRole('menuitem', { name: '2 locations' })).toBeVisible();
-    await user.keyboard('{Escape}');
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Show locations list' }));
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="a2ui-map-points-pagination"]')).toHaveTextContent(
+        '2 locations',
+      ),
+    );
     expect(repository.artifactTableQuery).toHaveBeenCalledWith(
       'artifact_stations01',
       expect.objectContaining({ columns: expect.arrayContaining(['lat', 'lon', 'station']) }),

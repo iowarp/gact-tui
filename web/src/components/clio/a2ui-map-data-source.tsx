@@ -27,6 +27,7 @@ export interface ClioMapArtifactSourceProps extends MapFieldNames {
   valueUnit?: string;
   dataUri: string;
   dataQuery?: TableDataQuery;
+  filterFields?: string[];
   selected?: string;
   action?: () => void;
   actionLabel?: string;
@@ -52,6 +53,7 @@ export function ClioMapArtifactSource({
   idField,
   trackField,
   orderField,
+  filterFields,
   detailField,
   categoryField,
   valueField,
@@ -62,7 +64,9 @@ export function ClioMapArtifactSource({
   ...rest
 }: ClioMapArtifactSourceProps) {
   const autoSelection = useAutoDatasetSelection(dataUri);
-  const effectiveSelectionField = selectionField ?? (autoSelection.active && !rest.setSelection && !dataQuery?.aggregate ? '__row' : undefined);
+  const effectiveSelectionField =
+    selectionField ??
+    (autoSelection.active && !rest.setSelection && !dataQuery?.aggregate ? '__row' : undefined);
   const effectiveSelection = rest.setSelection ? rest.selection : autoSelection.selection;
   const effectiveSetSelection = rest.setSelection ?? autoSelection.setSelection;
   const columns = useMemo(() => {
@@ -73,6 +77,7 @@ export function ClioMapArtifactSource({
       idField,
       trackField,
       orderField,
+      ...(filterFields ?? []),
       detailField,
       categoryField,
       valueField,
@@ -86,6 +91,7 @@ export function ClioMapArtifactSource({
     idField,
     trackField,
     orderField,
+    filterFields,
     labelField,
     latitudeField,
     longitudeField,
@@ -120,14 +126,34 @@ export function ClioMapArtifactSource({
   const filterableFields = useMemo<DataFilterField[]>(() => {
     const seen = new Set<string>();
     const fields: DataFilterField[] = [];
-    for (const key of [categoryField, trackField, valueField, detailField]) {
+    for (const key of filterFields ?? [categoryField, trackField, valueField, detailField]) {
       if (!key || seen.has(key)) continue;
       seen.add(key);
+      if (filterFields?.includes(key)) {
+        const type = schema?.find((column) => column.name === key)?.type;
+        const precision = type?.match(/^timestamp\[(ns|us|ms|s)/)?.[1];
+        const sample = rows?.find((row) => row[key] !== null && row[key] !== undefined)?.[key];
+        if (precision || (typeof sample === 'string' && /^\d{4}-\d{2}-\d{2}/.test(sample))) {
+          const years = new Set(
+            rows
+              ?.map((row) => String(row[key] ?? '').slice(0, 4))
+              .filter((year) => /^\d{4}$/.test(year)),
+          );
+          const kind = filters.get(key)?.kind === 'year' || years.size > 1 ? 'year' : 'date';
+          fields.push({
+            key,
+            kind,
+            label: kind === 'year' ? 'Year' : 'Date',
+            precision: (precision as DataFilterField['precision']) ?? 'text',
+          });
+          continue;
+        }
+      }
       const kind = columnKindFromSchema(schema, key) ?? columnKindFromRows(rows, key);
       fields.push({ key, kind, label: key.replaceAll('_', ' ') });
     }
     return fields;
-  }, [categoryField, trackField, valueField, detailField, rows, schema]);
+  }, [categoryField, trackField, valueField, detailField, filterFields, filters, rows, schema]);
   const filterPopover = filterableFields.length ? (
     <DataFilterPopover
       fields={filterableFields}
@@ -137,13 +163,21 @@ export function ClioMapArtifactSource({
     />
   ) : undefined;
   const selection = parseSelectionState(effectiveSelection);
-  const selectedValues = effectiveSelectionField && selection?.field === effectiveSelectionField ? selection.values : [];
+  const selectedValues =
+    effectiveSelectionField && selection?.field === effectiveSelectionField ? selection.values : [];
   const selectedRows =
     selectedValues.length && rows && effectiveSelectionField
-      ? rows.filter((row) => selectionIncludes(selection, effectiveSelectionField, row[effectiveSelectionField]))
+      ? rows.filter((row) =>
+          selectionIncludes(selection, effectiveSelectionField, row[effectiveSelectionField]),
+        )
       : [];
   const visibleSelectedValues = effectiveSelectionField
-    ? selectedRows.map((row) => row[effectiveSelectionField]).filter((value): value is string | number => typeof value === 'string' || typeof value === 'number')
+    ? selectedRows
+        .map((row) => row[effectiveSelectionField])
+        .filter(
+          (value): value is string | number =>
+            typeof value === 'string' || typeof value === 'number',
+        )
     : [];
   const buildReference = (): DataZoneReference => {
     const total = matchedRows ?? rows?.length ?? 0;
@@ -165,7 +199,9 @@ export function ClioMapArtifactSource({
       query: {
         dataQuery: effectiveDataQuery,
         dataUri,
-        ...(visibleSelectedValues.length ? { selection: { field: effectiveSelectionField, values: visibleSelectedValues } } : {}),
+        ...(visibleSelectedValues.length
+          ? { selection: { field: effectiveSelectionField, values: visibleSelectedValues } }
+          : {}),
       },
       zoneDescription: visibleSelectedValues.length
         ? `${visibleSelectedValues.length.toLocaleString()} selected ${visibleSelectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`
@@ -274,9 +310,10 @@ export function ClioMapArtifactSource({
     ],
   );
   const geometry = useMemo(
-    () => rows && points && trackField && orderField
-      ? trajectoriesFromRows(rows, points, trackField, orderField)
-      : undefined,
+    () =>
+      rows && points && trackField && orderField
+        ? trajectoriesFromRows(rows, points, trackField, orderField)
+        : undefined,
     [rows, points, trackField, orderField],
   );
 
@@ -311,7 +348,11 @@ export function ClioMapArtifactSource({
         valueLabel={valueLabel ?? valueField}
         valueUnit={valueUnit}
       />
-      {reducedCaption ? <p className="text-xs text-muted-foreground">{geometry ? `${reducedCaption} Trajectories may be incomplete.` : reducedCaption}</p> : null}
+      {reducedCaption ? (
+        <p className="text-xs text-muted-foreground">
+          {geometry ? `${reducedCaption} Trajectories may be incomplete.` : reducedCaption}
+        </p>
+      ) : null}
     </div>
   );
 }

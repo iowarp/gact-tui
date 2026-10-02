@@ -155,7 +155,7 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
     }
     case 'clio.data-table.v1': return root({ id: 'demo', component: name, columns: ['id', 'region', 'depth', 'magnitude'], rows: chartRows });
     case 'clio.map.v1': return variant === 'storm-tracks'
-      ? root({ id: 'demo', component: name, title: 'Synthetic Atlantic storm tracks', dataUri: 'artifact://artifact_gallery_storm_tracks', latitudeField: 'lat', longitudeField: 'lon', labelField: 'label', idField: 'observation_id', trackField: 'storm', orderField: 'time' })
+      ? root({ id: 'demo', component: name, title: 'Synthetic Atlantic storm tracks', dataUri: 'artifact://artifact_gallery_storm_tracks', latitudeField: 'lat', longitudeField: 'lon', labelField: 'label', idField: 'observation_id', trackField: 'storm', orderField: 'time', filterFields: ['storm', 'time', 'wind_kt'] })
       : root({ id: 'demo', component: name, title: 'Field sites', selection: { path: '/selection/sites' }, selectionField: 'id', points: [
       { id: 'berkeley', label: 'Berkeley', latitude: 37.8715, longitude: -122.273, category: 'Field site', detail: 'Northern California' },
       { id: 'fresno', label: 'Fresno', latitude: 36.7378, longitude: -119.7871, category: 'Lab', detail: 'Central Valley' },

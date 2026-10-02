@@ -42,6 +42,7 @@ const mapDataProperties = {
   idField: fieldNameSchema.optional(),
   trackField: fieldNameSchema.optional(),
   orderField: fieldNameSchema.optional(),
+  filterFields: z.array(fieldNameSchema).min(1).max(12).refine((fields) => new Set(fields).size === fields.length, 'filterFields must be distinct').optional(),
   detailField: fieldNameSchema.optional(),
   categoryField: fieldNameSchema.optional(),
   valueField: fieldNameSchema.optional(),
@@ -81,6 +82,9 @@ function checkMapComponent(value: MapShape, context: z.RefinementCtx): void {
   if (value.orderField && !value.trackField) {
     context.addIssue({ code: 'custom', message: 'orderField requires trackField' });
   }
+  if (value.filterFields && !value.dataUri) {
+    context.addIssue({ code: 'custom', message: 'filterFields requires dataUri' });
+  }
   if (isBoundToPath(value.selection) && !value.selectionField) {
     context.addIssue({ code: 'custom', message: 'selectionField is required when selection is bound' });
   }
@@ -114,6 +118,7 @@ export const ClioMapCatalogComponent = createComponentImplementation(
               idField={props.idField}
               trackField={props.trackField}
               orderField={props.orderField}
+              filterFields={props.filterFields as string[] | undefined}
               labelField={props.labelField!}
               latitudeField={props.latitudeField!}
               longitudeField={props.longitudeField!}
