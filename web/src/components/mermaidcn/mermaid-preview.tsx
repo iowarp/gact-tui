@@ -15,7 +15,7 @@ import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { sanitizeMermaidSvg } from '@/components/clio/mermaid-security';
 import { Mermaid, type MermaidConfig } from './mermaid';
-import { ZoomPan } from './zoom-pan';
+import { ZoomPan, zoomScrollHint } from './zoom-pan';
 
 export interface MermaidPreviewProps {
   chart: string;
@@ -119,7 +119,7 @@ export function MermaidPreview({
       controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
         <div className="flex min-h-9 items-center justify-between gap-2 border-b px-2 py-1">
           <span className="hidden text-xs text-muted-foreground sm:inline">
-            Scroll to zoom, drag to pan
+            {zoomScrollHint()}
           </span>
           <div className="ml-auto flex items-center gap-0.5">
             <Button

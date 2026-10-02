@@ -52,6 +52,39 @@ function iteration(overrides: Partial<ConversationIteration> = {}): Conversation
   };
 }
 
+describe('ConversationTurn Activity folding', () => {
+  function activityHeader() {
+    return screen.getByRole('button', { name: /Activity/u });
+  }
+
+  it('stays open while the agent works, then folds when the answer starts', () => {
+    const { rerender } = render(
+      <ConversationTurn iterations={[iteration()]} mode="chain" subagents={{}} />,
+    );
+    expect(activityHeader()).toHaveAttribute('aria-expanded', 'true');
+
+    rerender(
+      <ConversationTurn answerStarted iterations={[iteration()]} mode="chain" subagents={{}} />,
+    );
+
+    expect(activityHeader()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens a finished turn folded, and keeps the reader open once they open it', () => {
+    const { rerender } = render(
+      <ConversationTurn answerStarted iterations={[iteration()]} mode="chain" subagents={{}} />,
+    );
+    expect(activityHeader()).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(activityHeader());
+    rerender(
+      <ConversationTurn answerStarted iterations={[iteration()]} mode="chain" subagents={{}} />,
+    );
+
+    expect(activityHeader()).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
 describe('ConversationTurn incomplete state', () => {
   it('shows the interrupted state of a cancelled turn in full mode', () => {
     render(

@@ -1022,6 +1022,9 @@ const server = createServer(async (request, response) => {
     questionPending = true;
     mcpV2UiDemo = false;
     a2uiMapDemo = false;
+    // Every spec shares this server: a demo left on by one spec file (the
+    // linked earthquake surface) otherwise leaks into every spec after it.
+    a2uiDataDemo = false;
     attachmentsEnabled = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;

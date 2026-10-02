@@ -37,7 +37,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ZoomPan } from '@/components/mermaidcn/zoom-pan';
+import { ZoomPan, zoomScrollHint } from '@/components/mermaidcn/zoom-pan';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
@@ -465,7 +465,7 @@ export function ImageResourceView({
         controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
           <div className="flex min-h-10 items-center gap-1 border-b bg-background/90 px-2 backdrop-blur-sm">
             <span className="mr-auto hidden text-xs text-muted-foreground sm:inline">
-              Scroll to zoom, drag to pan
+              {zoomScrollHint()}
             </span>
             <Button aria-label="Zoom out" onClick={zoomOut} size="icon-sm" variant="ghost">
               <ZoomOutIcon aria-hidden="true" />

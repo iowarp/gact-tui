@@ -16,7 +16,6 @@ import {
   DateTimeInput,
   Card,
   Divider,
-  Icon,
   List,
   Modal,
   Row,
@@ -65,6 +64,8 @@ import { ClioTimeSeriesFallbackCatalogComponent } from '@/components/clio/a2ui-t
 import { ClioWorkflowCatalogComponent } from '@/components/clio/a2ui-workflow-catalog';
 import { useArtifactText } from '@/components/clio/artifact-text-query';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
+import { resolvedCardAction } from './kernel-catalog-card-actions';
+import { KernelIcon } from './kernel-catalog-icon';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
@@ -526,7 +527,7 @@ const ActionCard = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props, context }) => (
+  ({ context, props }) => (
     <Alert
       {...a2uiAccessibilityProps(props.accessibility)}
       variant={props.severity === 'critical' ? 'destructive' : 'default'}
@@ -537,7 +538,7 @@ const ActionCard = createComponentImplementation(
         {props.actions.map((item) => (
           <Button
             key={item.label}
-            onClick={() => void context.dispatchAction(item.action)}
+            onClick={() => void resolvedCardAction(item.action, context)()}
             size="sm"
             variant={item.tone === 'destructive' ? 'destructive' : 'outline'}
           >
@@ -563,7 +564,7 @@ const Approval = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props, context }) => (
+  ({ context, props }) => (
     <div {...a2uiAccessibilityProps(props.accessibility)} role="group">
       <Confirmation approval={{ id: props.title }} state="approval-requested">
         <ShieldAlertIcon aria-hidden="true" className="size-4 text-warning" />
@@ -577,7 +578,7 @@ const Approval = createComponentImplementation(
             {props.actions.map((item) => (
               <ConfirmationAction
                 key={item.label}
-                onClick={() => void context.dispatchAction(item.action)}
+                onClick={() => void resolvedCardAction(item.action, context)()}
                 variant={item.tone === 'destructive' ? 'destructive' : 'outline'}
               >
                 {item.label}
@@ -640,7 +641,7 @@ const AudioPlayer = createComponentImplementation(AudioPlayerApi, ({ props, cont
 const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   Text,
   Image,
-  Icon,
+  KernelIcon,
   Video,
   AudioPlayer,
   Row,

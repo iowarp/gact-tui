@@ -65,6 +65,8 @@ tmp
 # NOTE: *.md is matched only at the repo root via the leading slash so that
 # docker/*.conf / *.sh stay in context; docker/README.md is excluded below.
 /*.md
+# ...except the user changelog, which the desktop What's new dialog bundles.
+!/CHANGELOG.md
 notes
 docs
 

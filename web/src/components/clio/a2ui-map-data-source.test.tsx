@@ -244,7 +244,7 @@ describe('clio.map.v1 dataUri rendering', () => {
     render(wrap(<A2uiSurface surface={surface} />));
 
     await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
-    expect(await screen.findByText('2 labeled locations')).toBeVisible();
+    expect(await screen.findByText('2 locations')).toBeVisible();
     expect(repository.artifactTableQuery).toHaveBeenCalledWith(
       'artifact_stations01',
       expect.objectContaining({ columns: expect.arrayContaining(['lat', 'lon', 'station']) }),
@@ -278,7 +278,7 @@ describe('clio.map.v1 dataUri rendering', () => {
     ]);
 
     render(wrap(<A2uiSurface surface={surface} />));
-    await screen.findByText('1 labeled locations');
+    await screen.findByText('1 locations');
     await waitFor(() => expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1));
 
     await user.click(screen.getByRole('button', { name: /^filters/iu }));
@@ -327,7 +327,7 @@ describe('clio.map.v1 dataUri rendering', () => {
     ]);
 
     render(wrap(<WithComposer><A2uiSurface surface={surface} /></WithComposer>));
-    await screen.findByText('1 labeled locations');
+    await screen.findByText('1 locations');
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
@@ -413,6 +413,7 @@ describe('clio.map.v1 dataUri rendering', () => {
 
     // Map -> table: clicking the second map point selects its event_id, and the
     // table highlights the matching row.
+    fireEvent.click(screen.getByRole('button', { name: 'Locations list' }));
     fireEvent.click(screen.getByRole('button', { name: /GNSS02/u }));
     expect(surface.dataModel.get('/selection/events')).toEqual({
       field: 'event_id',

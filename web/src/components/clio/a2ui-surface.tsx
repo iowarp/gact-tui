@@ -7,7 +7,7 @@ import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangleIcon, BoxesIcon, Loader2Icon } from 'lucide-react';
+import { AlertTriangleIcon, Loader2Icon } from 'lucide-react';
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
@@ -16,6 +16,7 @@ import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
 import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
+import { ClioA2UISurfaceCard } from './a2ui-surface-card';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
@@ -297,6 +298,14 @@ function ClioA2UISurfaceContent({
           ? '[--a2ui-tabs-content-padding:0]'
           : 'p-3 [--a2ui-tabs-content-padding:0]'
       }
+      // The one marker every surface host shares, framed or bare, inline or
+      // full screen: `ClioA2UISurfaceCard`'s full-screen dialog (and
+      // `pending-a2ui-response.tsx`'s own) portals this div's subtree
+      // directly, bypassing each host's own `id`/`data-slot` wrapper, so a
+      // CSS patch scoped to those misses the dialog (#1549 G9 #25). This
+      // div is the thing being moved in every case, so index.css scopes its
+      // catalog-wide patches (ChoicePicker, TextField/Label) here instead.
+      data-slot="a2ui-surface-root"
     >
       <MarkdownContext.Provider value={renderMarkdown}>
         <A2uiUrlViolationProvider value={reportUrlViolation}>
@@ -342,7 +351,7 @@ function ClioA2UISurfaceContent({
         className={cn(
           'scroll-m-8 min-w-0 focus:outline-2 focus:outline-offset-2 focus:outline-primary',
           viewport === 'fullscreen' &&
-            'min-h-full [&_[data-slot=a2ui-map]]:h-[calc(100dvh-7rem)] [&_[data-slot=a2ui-map]>[data-slot=frame]]:h-full',
+            'min-h-full [--a2ui-map-height:calc(100dvh-12rem)]',
         )}
         id={a2uiSurfaceDomId(surface.id)}
         tabIndex={-1}
@@ -353,27 +362,21 @@ function ClioA2UISurfaceContent({
     );
   }
   return (
-    <section
-      aria-label={`Generated UI, ${surfaceKind}`}
-      className="scroll-m-8 overflow-hidden rounded-xl border bg-card focus:outline-2 focus:outline-offset-2 focus:outline-primary"
-      id={a2uiSurfaceDomId(surface.id)}
-      tabIndex={-1}
-    >
-      <div className="flex items-center gap-2 border-b bg-muted px-3 py-2 text-xs">
-        <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
-        <span className="font-medium">Generated UI</span>
-        <span className="text-muted-foreground">{surfaceKind}</span>
-        {surfaceBusy ? (
+    <ClioA2UISurfaceCard
+      domId={a2uiSurfaceDomId(surface.id)}
+      kind={surfaceKind}
+      status={
+        surfaceBusy ? (
           <ClioStatus
-            className="ml-auto"
             label={isPending ? 'Sending action' : surface.state.replaceAll('_', ' ')}
             value={isPending ? 'running' : surfaceStatusValue(surface.state)}
           />
-        ) : null}
-      </div>
+        ) : undefined
+      }
+    >
       {renderedSurface}
       {surfaceFeedback}
-    </section>
+    </ClioA2UISurfaceCard>
   );
 }
 
