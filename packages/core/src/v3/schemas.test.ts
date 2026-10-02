@@ -37,19 +37,50 @@ describe('forward-compatible wire enums', () => {
     });
   });
 
-  it('retains a compacted context as its own message block', () => {
+  it('decodes a compaction summary as a summarization injection block', () => {
     expect(
       messageBlockSchema.parse({
-        id: 'compact_1',
-        type: 'compaction',
-        summary: '- Preserved evidence',
-        auto: false,
+        id: 'part_summary',
+        type: 'injection',
+        source: 'summarization',
+        text: '- Preserved evidence',
+        trigger: 'manual',
+        compaction_id: 'cmp_1',
       }),
     ).toEqual({
-      id: 'compact_1',
-      type: 'compaction',
-      summary: '- Preserved evidence',
-      auto: false,
+      id: 'part_summary',
+      type: 'injection',
+      source: 'summarization',
+      text: '- Preserved evidence',
+      trigger: 'manual',
+      compaction_id: 'cmp_1',
+    });
+  });
+
+  it('decodes a failed compaction as a notice block with its typed code', () => {
+    expect(
+      messageBlockSchema.parse({
+        id: 'part_notice',
+        type: 'notice',
+        source: 'compaction_failed',
+        text: 'No language model is bound.',
+        code: 'compaction_unavailable',
+        trigger: 'auto',
+        compaction_id: 'cmp_1',
+        agent_id: 'main',
+        sequence: 4,
+        added_later: true,
+      }),
+    ).toEqual({
+      id: 'part_notice',
+      type: 'notice',
+      source: 'compaction_failed',
+      text: 'No language model is bound.',
+      code: 'compaction_unavailable',
+      trigger: 'auto',
+      compaction_id: 'cmp_1',
+      agent_id: 'main',
+      sequence: 4,
     });
   });
 

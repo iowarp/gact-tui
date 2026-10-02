@@ -164,6 +164,9 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 	case gact.PartTypeInjection:
 		return render.InjectionRow(p, wrapW, t.FgMuted, t.Secondary)
 
+	case gact.PartTypeNotice:
+		return render.NoticeRow(p, wrapW, t.Danger, t.FgMuted)
+
 	case partTypeRuntimeProvenance:
 		return t.renderRuntimeProvenancePart(p, wrapW)
 

@@ -2710,6 +2710,9 @@ a2ui.surface.deleted implemented
 a2ui.surface.upserted implemented
 approval.resolved implemented
 approval.upserted implemented
+compaction.completed implemented
+compaction.failed implemented
+compaction.started implemented
 infrastructure.dependency.changed implemented
 message.accepted implemented
 message.block.completed implemented
@@ -2753,6 +2756,20 @@ run.upserted spec-only
 task.upserted spec-only
 workspace.upserted spec-only
 ```
+
+The `compaction.*` events make a context compaction visible while it runs.
+Every payload carries `session_id`, `compaction_id`, `scope`,
+`trigger` (`"auto"` | `"manual"`) and `turn_id` (`""` when it ran between
+turns); `compaction.completed` adds `message_id`, `part_id` and
+`replaced_count`, and `compaction.failed` adds `error: {code, message}` and
+`part_id` (the failure notice below, or `""` with code
+`compaction_failure_unrecorded` when it could not be recorded). The
+durable record is an `injection` block with `source: "summarization"`, `text`
+= the summary, and optional `trigger`/`compaction_id`: part of the open turn's
+assistant message mid-turn, or its own assistant message between turns. It
+replaces the retired `compaction` part type. A failure is recorded the same
+way as a `notice` block with `source: "compaction_failed"`, `text`, `code`,
+`trigger` and `compaction_id`.
 
 Decoders MAY accept an unknown future `type` so one new event cannot take down
 the live stream, but reducers MUST ignore an unknown event without fabricating

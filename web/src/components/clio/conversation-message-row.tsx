@@ -31,6 +31,11 @@ import { subagentsForTool } from './subagent-tool-link';
 import type { ConversationMessageRowProps } from './conversation-types';
 import { specialMessageExecutionMode } from './conversation-message-projection';
 import { McpAppResponseMessageRow } from './conversation-message-projections';
+import { ClioCompactionProgress } from './conversation-summarization';
+import type {
+  ConversationIteration,
+  ConversationTurnCompactionRecord,
+} from './conversation-turn-model';
 import { useConversationTurn } from './use-conversation-turn';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
@@ -46,6 +51,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   displayMode,
   onDisplayModeChange,
   mcpAppResponse,
+  messageCompactions,
   ...entities
 }: ConversationMessageRowProps) {
   const emptyResponseErrorCode =
@@ -65,7 +71,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const cancellablePendingSteer =
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
   const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
-  const { linkedSubagentIds, residualBlocks } = turn;
+  const { compactionRecords, linkedSubagentIds, residualBlocks } = turn;
   const visibleResidualBlocks = residualBlocks.filter(
     (block) => block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
   );
@@ -268,21 +274,32 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               </Alert>
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
-                <div>
-                  <ConversationTurn
-                    activeMcpAppId={entities.activeMcpAppId}
-                    artifacts={entities.artifacts}
-                    interactions={entities.interactions}
-                    iterations={turn.iterations}
-                    mcpAppRepository={entities.mcpAppRepository}
-                    messageSessionId={message.session_id}
-                    mode={displayMode}
-                    onOpenSubagent={entities.onOpenSubagent}
-                    onOpenArtifact={entities.onOpenArtifact}
-                    onInteractionResponse={entities.onInteractionResponse}
-                    subagents={entities.subagents}
-                  />
-                </div>
+                {turnSegments(turn.iterations, compactionRecords).map((segment) =>
+                  segment.kind === 'record' ? (
+                    <MessageBlockSequence
+                      blocks={[segment.block]}
+                      key={segment.block.id}
+                      messageSessionId={message.session_id}
+                      {...entities}
+                    />
+                  ) : (
+                    <div key={segment.iterations[0]?.id}>
+                      <ConversationTurn
+                        activeMcpAppId={entities.activeMcpAppId}
+                        artifacts={entities.artifacts}
+                        interactions={entities.interactions}
+                        iterations={segment.iterations}
+                        mcpAppRepository={entities.mcpAppRepository}
+                        messageSessionId={message.session_id}
+                        mode={displayMode}
+                        onOpenSubagent={entities.onOpenSubagent}
+                        onOpenArtifact={entities.onOpenArtifact}
+                        onInteractionResponse={entities.onInteractionResponse}
+                        subagents={entities.subagents}
+                      />
+                    </div>
+                  ),
+                )}
                 <MessageBlockSequence
                   blocks={visibleResidualBlocks}
                   messageSessionId={message.session_id}
@@ -297,12 +314,42 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 {...entities}
               />
             )}
+            {messageCompactions?.map((compaction) => (
+              <ClioCompactionProgress compaction={compaction} key={compaction.compaction_id} />
+            ))}
           </MessageContent>
         </Message>
       </m.div>
     </div>
   );
 }, conversationMessageRowPropsEqual);
+
+type TurnSegment =
+  | { kind: 'iterations'; iterations: ConversationIteration[] }
+  | { kind: 'record'; block: ConversationTurnCompactionRecord['block'] };
+
+/** Splits a turn's iterations at the compaction records made inside it. */
+function turnSegments(
+  iterations: readonly ConversationIteration[],
+  records: readonly ConversationTurnCompactionRecord[],
+): TurnSegment[] {
+  const segments: TurnSegment[] = [];
+  let start = 0;
+  for (const record of records) {
+    if (record.afterIteration > start) {
+      segments.push({
+        kind: 'iterations',
+        iterations: iterations.slice(start, record.afterIteration),
+      });
+      start = record.afterIteration;
+    }
+    segments.push({ kind: 'record', block: record.block });
+  }
+  if (start < iterations.length) {
+    segments.push({ kind: 'iterations', iterations: iterations.slice(start) });
+  }
+  return segments;
+}
 
 interface MessageEntityRefs {
   artifacts: Set<string>;
@@ -397,6 +444,7 @@ export function conversationMessageRowPropsEqual(
     left.activeMcpAppId !== right.activeMcpAppId ||
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
+    left.messageCompactions !== right.messageCompactions ||
     !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||

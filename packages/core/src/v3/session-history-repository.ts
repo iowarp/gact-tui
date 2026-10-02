@@ -105,10 +105,17 @@ export class SessionHistoryRepository {
     });
   }
 
-  public compactSession(sessionId: string, signal?: AbortSignal) {
+  /**
+   * Compacts a session's context. `scope` names one agent's working context
+   * (the context panel's selected agent); without it the service compacts the
+   * session's main conversation. Progress and the resulting summary arrive on
+   * the live stream as `compaction.*` events and a `summarization` injection.
+   */
+  public compactSession(sessionId: string, scope?: string, signal?: AbortSignal) {
+    const query = scope ? `?scope=${encodeURIComponent(scope)}` : '';
     return this.transport.request({
       method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/compact`,
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/compact${query}`,
       body: {},
       decode: (value) => compactResultSchema.passthrough().parse(value),
       signal,

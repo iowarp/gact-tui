@@ -13,6 +13,7 @@ import (
 func TestInjectionLabelNamesKnownSourcesAndHumanizesTheRest(t *testing.T) {
 	cases := map[string]string{
 		"result_spilled": "Large result saved to a file",
+		"summarization":  "Summarization",
 		"earlier_turns":  "Earlier turns",
 		"":               "Harness data",
 	}
