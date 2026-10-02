@@ -28,6 +28,34 @@
   flex-shrink: 0;
 }
 
+.gallery-skill-content,
+.gallery-skill-content [data-slot="scroll-area-viewport"],
+.gallery-skill-content [data-slot="scroll-area-viewport"] > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.gallery-skill-content pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.gallery-skill-content [data-slot="scroll-area-viewport"] > div > div,
+.gallery-skill-content .language-json {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.gallery-skill-content [data-slot="scroll-area-viewport"] > div {
+  display: block !important;
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+}
+
 .gallery-page [data-slot="a2ui-mesh-viewport"] [role="img"] {
   height: clamp(20rem, 48vw, 34rem);
 }

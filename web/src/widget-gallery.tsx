@@ -121,6 +121,12 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
       { id: 'map', component: 'clio.map.v1', title: 'Field sites', points: linkedRows.map((row) => ({ id: row.id, label: row.site, latitude: row.latitude, longitude: row.longitude, category: row.region, detail: `${row.magnitude.toFixed(1)} magnitude` })), selection: { path: '/selection/sites' }, selectionField: 'id' },
       { id: 'table', component: 'clio.data-table.v1', columns: ['id', 'region', 'depth', 'magnitude'], rows: linkedRows, selection: { path: '/selection/sites' }, selectionField: 'id' },
     ];
+    case 'linked-regions': return [
+      { id: 'root', component: 'Column', children: ['scatter', 'boxplot', 'table'] },
+      { id: 'scatter', component: 'clio.chart.v1', title: 'Earthquake depth and magnitude', preset: 'scatter', data: chartRows, xField: 'depth', yField: 'magnitude', entityField: 'id', colorField: 'region', height: 300, selection: { path: '/selection/events' }, selectionField: 'id' },
+      { id: 'boxplot', component: 'clio.chart.v1', title: 'Magnitude by region', preset: 'boxplot', data: chartRows, xField: 'region', yField: 'magnitude', entityField: 'id', colorField: 'region', height: 300, selection: { path: '/selection/events' }, selectionField: 'id' },
+      { id: 'table', component: 'clio.data-table.v1', columns: ['id', 'region', 'depth', 'magnitude'], rows: chartRows, selection: { path: '/selection/events' }, selectionField: 'id' },
+    ];
     case 'report-review': return [
       { id: 'root', component: 'Column', children: ['metrics', 'progress', 'warning', 'decision'] },
       { id: 'metrics', component: 'Grid', columns: 2, children: ['reviewed', 'state'] },
@@ -207,7 +213,7 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
 export function A2uiDemo({ name, variant }: { name: ComponentName; variant: string }) {
   const [lastAction, setLastAction] = useState('');
   const surface = useMemo(() => {
-    const workspaceOnly = name.startsWith('clio.') || name === 'Frame' || name === 'Grid' || name === 'linked';
+    const workspaceOnly = name.startsWith('clio.') || name === 'Frame' || name === 'Grid' || name.startsWith('linked');
     const catalogId = workspaceOnly ? CLIO_WORKSPACE_CATALOG_ROW.catalogId : BASIC_CATALOG_ROW.catalogId;
     const catalog = new Catalog(catalogId, [...KERNEL_COMPONENTS.values()], [...KERNEL_FUNCTIONS.values()]);
     const processor = new MessageProcessor([catalog], async () => undefined, { version: workspaceOnly ? 'v0.9.1' : 'v0.9' });
@@ -241,6 +247,11 @@ export function A2uiDemo({ name, variant }: { name: ComponentName; variant: stri
 /** A small three-view example showing one selection shared by chart, map, and table. */
 export function LinkedViewsDemo() {
   return <A2uiDemo name="linked" variant="scatter" />;
+}
+
+/** Two charts and a table using the same earthquake rows. */
+export function LinkedChartDemo() {
+  return <A2uiDemo name="linked-regions" variant="scatter" />;
 }
 
 /** A combined status, progress, warning, and next-action surface. */
@@ -303,7 +314,7 @@ export function WidgetGallery() {
       })}
     </nav>
     <div className="min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{labels[active] ?? active}</h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => openSkill(active)} type="button">Skill</button></div></header>
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{labels[active] ?? active}</h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => openSkill(active)} type="button">Contract</button></div></header>
       {active === 'clio.chart.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Chart example">{['scatter', 'boxplot', 'heatmap', 'trajectories', 'spectra'].map((item) => <button aria-pressed={variant === item} className={`shrink-0 rounded-md px-3 py-1.5 text-xs capitalize ${variant === item ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item} onClick={() => { setVariant(item); setReference(undefined); }} type="button">{item}</button>)}</div> : null}
       {active === 'clio.map.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Map example">{[{ id: 'sites', label: 'Sites' }, { id: 'storm-tracks', label: 'Storm tracks' }].map((item) => <button aria-pressed={variant === item.id} className={`shrink-0 rounded-md px-3 py-1.5 text-xs ${variant === item.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item.id} onClick={() => { setVariant(item.id); setReference(undefined); }} type="button">{item.label}</button>)}</div> : null}
       {active === 'clio.callout.v1' ? <p className="text-sm text-muted-foreground">A short notice for a result, warning, or next step that deserves attention.</p> : null}

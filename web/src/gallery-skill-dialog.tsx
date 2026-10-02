@@ -57,8 +57,6 @@ function componentGuide(name: string): string {
     '',
     `\`load_skill("${catalog.skill}", file="catalog.json#/components/${name}")\``,
     '',
-    'The renderer supplies applicable selection, filter, zoom, reference, export, and full-screen actions. The agent provides the data and configuration.',
-    '',
     '## Fields',
     '',
     ...properties,
@@ -100,18 +98,6 @@ function catalogGuide(): string {
   ].join('\n');
 }
 
-const overview = [
-  '# How CLIO builds interactive views',
-  '',
-  'Ask CLIO for an answer you can explore, such as a comparison, forecast, map, or draft. The agent chooses a suitable component from its available catalogs and supplies the content. The workspace renders the view inline.',
-  '',
-  '1. **Choose a component.** The presentation skill explains when charts, maps, tables, drafts, guides, and other views help.',
-  '2. **Read its contract.** The catalog skill lists available components. Each widget has a validated schema for its data and options.',
-  '3. **Explore the result.** Try the controls in this gallery. Selection, filters, zoom, export, and reference actions are supplied by the renderer where they apply.',
-  '',
-  'The **Standard agent** tab shows the marketplace agent definition and its base instructions. The **Presentation skill** tab shows its A2UI guidance. The **Catalog skills** tab shows component descriptions. Open **Skill** beside a widget for its specific fields and full schema.',
-].join('\n');
-
 function withoutFrontmatter(body: string, heading: string): string {
   const content = body.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '').trimStart();
   return `# ${heading}\n\n${content.replace(/^# [^\n]+\r?\n+/, '')}`;
@@ -125,14 +111,17 @@ export function GallerySkillDialog({
   name: string | null;
   onClose: () => void;
 }) {
-  const [section, setSection] = useState<
-    'overview' | 'component' | 'schema' | 'agent' | 'presentation' | 'catalogs'
+  const [requestedSection, setSection] = useState<
+    'component' | 'schema' | 'agent' | 'presentation' | 'catalogs'
   >('component');
+  const section = name === 'general'
+    ? (requestedSection === 'agent' || requestedSection === 'presentation' || requestedSection === 'catalogs' ? requestedSection : 'agent')
+    : (requestedSection === 'component' || requestedSection === 'schema' ? requestedSection : 'component');
   const [presentation, setPresentation] = useState('');
   const [agent, setAgent] = useState('');
   const [loadError, setLoadError] = useState('');
   useEffect(() => {
-    if (!name || presentation) return;
+    if (name !== 'general' || presentation) return;
     const controller = new AbortController();
     fetch(new URL('gallery-skills/present-interactive-analysis.md', window.location.href), {
       signal: controller.signal,
@@ -150,7 +139,7 @@ export function GallerySkillDialog({
     return () => controller.abort();
   }, [name, presentation]);
   useEffect(() => {
-    if (!name || agent) return;
+    if (name !== 'general' || agent) return;
     const controller = new AbortController();
     const paths = ['base-agent/AGENT.md', 'base-agent/experts/base.md'];
     Promise.all(
@@ -177,13 +166,8 @@ export function GallerySkillDialog({
       });
     return () => controller.abort();
   }, [name, agent]);
-  useEffect(() => {
-    setSection(name === 'general' ? 'overview' : 'component');
-  }, [name]);
   const content =
-    section === 'overview'
-      ? overview
-      : section === 'component'
+    section === 'component'
         ? componentGuide(name ?? '')
         : section === 'schema'
           ? componentSchema(name ?? '')
@@ -199,11 +183,11 @@ export function GallerySkillDialog({
       }}
       open={name !== null}
     >
-      <DialogContent className="grid max-h-[min(820px,calc(100dvh-2rem))] grid-rows-[auto_auto_minmax(0,1fr)] sm:max-w-3xl">
+      <DialogContent className="gallery-skill-dialog grid min-w-0 max-h-[min(820px,calc(100dvh-2rem))] w-[calc(100vw-2rem)] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{name === 'general' ? 'A2UI skills' : `${name} skill`}</DialogTitle>
+          <DialogTitle>{name === 'general' ? 'Agent guidance' : `${name} contract`}</DialogTitle>
           <DialogDescription>
-            Explore the agent guidance and exact contracts behind these interactive views.
+            {name === 'general' ? 'The standard marketplace agent, CLIO presentation skill, and component catalogs.' : 'Fields and validation for this component.'}
           </DialogDescription>
         </DialogHeader>
         <div
@@ -211,15 +195,6 @@ export function GallerySkillDialog({
           className="gallery-tab-scroll flex gap-1 overflow-x-auto border-b pb-2"
           role="tablist"
         >
-          <button
-            aria-selected={section === 'overview'}
-            className={`shrink-0 rounded-md px-3 py-1.5 text-xs ${section === 'overview' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-            onClick={() => setSection('overview')}
-            role="tab"
-            type="button"
-          >
-            How it works
-          </button>
           {name !== 'general' ? (
             <button
               aria-selected={section === 'component'}
@@ -242,7 +217,7 @@ export function GallerySkillDialog({
               Full schema
             </button>
           ) : null}
-          <button
+          {name === 'general' ? <button
             aria-selected={section === 'agent'}
             className={`shrink-0 rounded-md px-3 py-1.5 text-xs ${section === 'agent' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             onClick={() => setSection('agent')}
@@ -250,8 +225,8 @@ export function GallerySkillDialog({
             type="button"
           >
             Standard agent
-          </button>
-          <button
+          </button> : null}
+          {name === 'general' ? <button
             aria-selected={section === 'presentation'}
             className={`shrink-0 rounded-md px-3 py-1.5 text-xs ${section === 'presentation' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             onClick={() => setSection('presentation')}
@@ -259,8 +234,8 @@ export function GallerySkillDialog({
             type="button"
           >
             Presentation skill
-          </button>
-          <button
+          </button> : null}
+          {name === 'general' ? <button
             aria-selected={section === 'catalogs'}
             className={`shrink-0 rounded-md px-3 py-1.5 text-xs ${section === 'catalogs' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             onClick={() => setSection('catalogs')}
@@ -268,9 +243,9 @@ export function GallerySkillDialog({
             type="button"
           >
             Catalog skills
-          </button>
+          </button> : null}
         </div>
-        <ScrollArea className="min-h-0 pr-3">
+        <ScrollArea className="gallery-skill-content min-h-0 min-w-0 pr-3">
           <Suspense fallback={<p className="text-sm text-muted-foreground">Loading guide…</p>}>
             <MarkdownText mode="static">{content}</MarkdownText>
           </Suspense>
