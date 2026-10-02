@@ -20,6 +20,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { probeConnection, useConnectionAvailabilities } from './use-connection-availability';
+import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL } from '@/lib/context-mode';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -80,6 +81,22 @@ describe('connection availability probing', () => {
       state: 'degraded',
       label: 'Limited',
       detail: 'The service responded, but its health status could not be verified.',
+    });
+  });
+
+  it('names History mode instead of reporting a ready service', async () => {
+    mocks.repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      overall_status: 'degraded',
+      context_mode: 'history',
+    });
+
+    await expect(
+      probeConnection({ endpoint: 'http://127.0.0.1:8788' }, new AbortController().signal),
+    ).resolves.toEqual({
+      state: 'degraded',
+      label: HISTORY_MODE_LABEL,
+      detail: HISTORY_MODE_DETAIL,
     });
   });
 });
