@@ -31,6 +31,7 @@ import {
 import { canvasAvailable, embedChart, prepareChartSpec, type ChartRenderer } from './chart-embed';
 import { chartJpegBlob, chartPngBlob, chartSvgText } from './chart-export';
 import { withDefaultProjectionFit } from './chart-projection-fit';
+import { withSeriesLegend } from './chart-series-legend';
 import { bindChartSelection, translateChartSelectionValues, viewHasSignal, type ChartSelectionBinding } from './chart-selection';
 import { CHART_SPEC_RULES } from './chart-spec-guard';
 import {
@@ -424,13 +425,20 @@ export function ClioChart(props: ClioChartProps) {
     // — #1549 G4 review): a geoshape mark needs projection.fit to actually
     // draw, and the agent should never have to know that. See
     // chart-projection-fit.ts; an agent-authored fit always wins.
+    const seriesLegend = withSeriesLegend(
+      embedSpec,
+      embeddedRows ?? [],
+      preset,
+      entityField,
+      colorField,
+    );
     const prepared = withDefaultProjectionFit(
-      prepareChartSpec(embedSpec, {
+      prepareChartSpec(seriesLegend.spec, {
         height: chartHeight,
         rows: cloneRows(embeddedRows ?? []),
         // Vega lays legends outside the plot width. Leave room inside the
         // surface so categorical and continuous legends remain readable.
-        width: Math.max(220, measuredWidth - (colorField ? 112 : 0)),
+        width: Math.max(220, measuredWidth - (colorField || seriesLegend.visible ? 112 : 0)),
       }),
       embeddedRows ?? [],
     );
@@ -624,6 +632,7 @@ export function ClioChart(props: ClioChartProps) {
     // than trying to make an imperative Vega view tolerate a silent DOM move.
   }, [
     colorField,
+    preset,
     componentId,
     darkTheme,
     embedSpec,
