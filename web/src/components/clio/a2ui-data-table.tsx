@@ -244,6 +244,7 @@ export function ClioSelectableDataTable({
         query: {
           columns: keys,
           rowCount: filteredRows.length,
+          rows: selectedFilteredValues.length ? selectedFilteredRows : orderedRows,
           ...(selectedFilteredValues.length && keyColumn
             ? { selection: { field: keyColumn, values: selectedFilteredValues } }
             : {}),
