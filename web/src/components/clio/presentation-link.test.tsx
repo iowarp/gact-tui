@@ -58,12 +58,12 @@ describe('presentation navigation', () => {
         />
         <section
           id={a2uiSurfaceDomId('surface-1')}
-          aria-label="Generated UI, Input"
+          aria-label="Interactive surface, Input"
           tabIndex={-1}
         />
       </PresentationNavigation.Provider>,
     );
-    const surface = screen.getByLabelText('Generated UI, Input');
+    const surface = screen.getByLabelText('Interactive surface, Input');
     const scrollIntoView = vi.fn();
     surface.scrollIntoView = scrollIntoView;
 

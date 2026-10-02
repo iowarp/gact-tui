@@ -34,6 +34,9 @@ export interface ParsedFeaMesh {
   lengthUnit?: string;
   cells: number;
   bounds: MeshBounds;
+  baseColors?: Float32Array;
+  sourceFormat?: string;
+  warnings?: string[];
 }
 
 interface ClioExtras {

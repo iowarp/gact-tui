@@ -112,7 +112,10 @@ export class MeshViewportScene {
     const colors = geometry.getAttribute('color') as THREE.BufferAttribute;
     const color = view.color;
     if (!color) {
-      for (let v = 0; v < colors.count; v += 1) colors.setXYZ(v, NEUTRAL.r, NEUTRAL.g, NEUTRAL.b);
+      for (let v = 0; v < colors.count; v += 1) {
+        const base = data.baseColors;
+        colors.setXYZ(v, base?.[v * 3] ?? NEUTRAL.r, base?.[v * 3 + 1] ?? NEUTRAL.g, base?.[v * 3 + 2] ?? NEUTRAL.b);
+      }
     } else {
       const span = color.max > color.min ? color.max - color.min : 1;
       const paint = (vertex: number, cell: number) => {
@@ -240,6 +243,7 @@ export class MeshViewportScene {
     this.material.dispose();
     this.edgeMaterial.dispose();
     this.renderer.dispose();
+    this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
   }
 

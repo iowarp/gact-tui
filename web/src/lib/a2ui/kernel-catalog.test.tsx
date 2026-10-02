@@ -3,10 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
-import {
-  resolvedCardAction,
-  type CardActionDispatchContext,
-} from './kernel-catalog-card-actions';
+import { resolvedCardAction, type CardActionDispatchContext } from './kernel-catalog-card-actions';
 
 vi.mock('@/components/clio/scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="professional-map-renderer" />,
@@ -89,6 +86,30 @@ function buildSurface(components: Record<string, unknown>[], extraMessages: A2ui
 }
 
 describe('CLIO A2UI kernel catalog', () => {
+  it('renders a titled Frame as plain typography without a nested panel', () => {
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['frame'] },
+      {
+        id: 'frame',
+        component: 'Frame',
+        child: 'body',
+        title: 'Daily station changes',
+        description: 'Three stations reported movement',
+        accessibility: { label: 'Station summary' },
+      },
+      { id: 'body', component: 'Text', text: 'North moved 2 mm' },
+    ]);
+
+    const { container } = render(<A2uiSurface surface={surface} />);
+
+    const frame = screen.getByRole('group', { name: 'Station summary' });
+    expect(within(frame).getByText('Daily station changes')).toBeVisible();
+    expect(within(frame).getByText('Three stations reported movement')).toBeVisible();
+    expect(within(frame).getByText('North moved 2 mm')).toBeVisible();
+    expect(frame.querySelector('[data-slot="frame-panel"]')).toBeNull();
+    expect(container.querySelector('[data-slot="a2ui-surface-card"]')).toBeNull();
+  });
+
   it('renders the shared data-grid component instead of a JSON representation', async () => {
     const surface = buildSurface([
       { id: 'root', component: 'Column', children: ['table'] },
@@ -163,6 +184,7 @@ describe('CLIO A2UI kernel catalog', () => {
   });
 
   it('renders bounded interactive map locations without exposing map configuration', async () => {
+    const user = userEvent.setup();
     const surface = buildSurface([
       { id: 'root', component: 'Column', children: ['map'] },
       {
@@ -196,12 +218,15 @@ describe('CLIO A2UI kernel catalog', () => {
     const { container } = render(<A2uiSurface surface={surface} />);
 
     expect(await screen.findByTestId('professional-map-renderer')).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="frame-panel"]')).toBeNull();
     expect(screen.getByLabelText('Accessible station map')).toHaveAttribute(
       'aria-description',
       'Two bounded EarthScope locations',
     );
-    expect(screen.getByText('2 locations')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Show the locations list' }));
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('menuitem', { name: '2 locations' })).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Show locations list' }));
+    await user.keyboard('{Escape}');
     const second = screen.getByRole('button', { name: /Station 2/ });
     fireEvent.click(second);
     expect(second).toHaveAttribute('aria-pressed', 'true');
@@ -422,7 +447,9 @@ describe('CLIO A2UI kernel catalog', () => {
     // action-card/approval click handlers do, to prove the defensive branch
     // itself: it must never call a non-function, and it must report through
     // `dispatchError` rather than silently doing nothing.
-    function fakeContext(): CardActionDispatchContext & { dispatchError: ReturnType<typeof vi.fn> } {
+    function fakeContext(): CardActionDispatchContext & {
+      dispatchError: ReturnType<typeof vi.fn>;
+    } {
       const dispatchError = vi.fn().mockResolvedValue(undefined);
       return { dataContext: { surface: { dispatchError } }, dispatchError };
     }
@@ -523,18 +550,24 @@ describe('CLIO A2UI kernel catalog', () => {
       ['clio.code.v1', { language: 'python' }],
       ['clio.diff.v1', { path: 'a/b.py' }],
       ['clio.mermaid.v1', {}],
-    ] as const)('still rejects %s when neither the inline value nor dataUri is given', (name, props) => {
-      const schema = KERNEL_COMPONENTS.get(name)!.schema;
-      expect(schema.safeParse(props).success).toBe(false);
-    });
+    ] as const)(
+      'still rejects %s when neither the inline value nor dataUri is given',
+      (name, props) => {
+        const schema = KERNEL_COMPONENTS.get(name)!.schema;
+        expect(schema.safeParse(props).success).toBe(false);
+      },
+    );
 
     it.each([
       ['clio.code.v1', { code: 'x', dataUri: 'artifact://artifact_1', language: 'python' }],
       ['clio.diff.v1', { path: 'a/b.py', diff: 'x', dataUri: 'artifact://artifact_1' }],
       ['clio.mermaid.v1', { source: 'x', dataUri: 'artifact://artifact_1' }],
-    ] as const)('still rejects %s when both the inline value and dataUri are given', (name, props) => {
-      const schema = KERNEL_COMPONENTS.get(name)!.schema;
-      expect(schema.safeParse(props).success).toBe(false);
-    });
+    ] as const)(
+      'still rejects %s when both the inline value and dataUri are given',
+      (name, props) => {
+        const schema = KERNEL_COMPONENTS.get(name)!.schema;
+        expect(schema.safeParse(props).success).toBe(false);
+      },
+    );
   });
 });

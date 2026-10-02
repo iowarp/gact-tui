@@ -255,7 +255,12 @@ export function useTableQueryRows({
   const queried = useMemo(
     () =>
       query.data
-        ? columnarToRows(query.data.columns as Record<string, QueryCell[]>, query.data.returnedRows)
+        ? columnarToRows(query.data.columns as Record<string, QueryCell[]>, query.data.returnedRows).map(
+            (row, index) =>
+              query.data?.rowKey?.values[index] === undefined
+                ? row
+                : { ...row, [query.data.rowKey.column]: query.data.rowKey.values[index]! },
+          )
         : undefined,
     [query.data],
   );

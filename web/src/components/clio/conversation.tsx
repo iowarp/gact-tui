@@ -13,8 +13,10 @@ import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import type { ClioConversationProps } from './conversation-types';
 import {
+  foldA2UIRevisionBlocks,
   isProjectedQuestionResumeEnvelope,
   mcpAppResponsesForMessages,
+  projectA2UIActionMessages,
 } from './conversation-message-projection';
 import { PresentationNavigation } from './presentation-navigation';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
@@ -64,11 +66,11 @@ function ConversationBody({
   );
   const messages = useMemo(
     () =>
-      sourceMessages.filter(
+      foldA2UIRevisionBlocks(projectA2UIActionMessages(sourceMessages.filter(
         (message) =>
           !isProjectionOnlyA2UIMessage(message) &&
           !isProjectedQuestionResumeEnvelope(message, entities.interactions),
-      ),
+      ))),
     [entities.interactions, sourceMessages],
   );
   const { mode: defaultDisplayMode } = useConversationDisplay();

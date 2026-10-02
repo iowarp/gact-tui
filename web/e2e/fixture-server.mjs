@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import {
   behavior,
   compactionCheckpoint,
@@ -20,6 +21,7 @@ import {
   earthquakeCsv,
   runEarthquakeTableQuery,
 } from './a2ui-data-demo-fixture.mjs';
+import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -32,6 +34,15 @@ let questionPending = true;
 let mcpV2UiDemo = false;
 let a2uiMapDemo = false;
 let a2uiDataDemo = false;
+let a2uiAutoDemo = false;
+let a2uiContinuousMapDemo = false;
+let a2uiGeojsonDemo = false;
+let a2uiBoxplotDemo = false;
+let a2uiComposedDemo = false;
+let a2uiMeshDemo = false;
+let a2uiRasterDemo = false;
+let meshDemoFormat = 'obj';
+let meshDemoRevision = 1;
 let attachmentsEnabled = false;
 let mcpAppGeneration = 1;
 let mcpAppToolCalls = 0;
@@ -44,10 +55,7 @@ let streamStarted = false;
 let nextCursor = 1;
 let queuedMessages = [];
 const streamClients = new Set();
-const artifactPng = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X8wNAAAAAElFTkSuQmCC',
-  'base64',
-);
+const artifactPng = readFileSync(new URL('../public/gallery-sample.png', import.meta.url));
 
 const mcpAppHtml = `<!doctype html>
 <html lang="en">
@@ -190,6 +198,17 @@ const artifactRecord = {
 const earthquakeArtifactId = 'artifact_earthquakes01';
 const earthquakeArtifactUri = `artifact://${earthquakeArtifactId}`;
 const earthquakeCsvBytes = Buffer.from(earthquakeCsv(), 'utf8');
+const geojsonArtifactId = 'artifact_geojson_demo';
+const geojsonDemo = {
+  type: 'FeatureCollection',
+  features: [
+    { type: 'Feature', id: 'west', properties: { name: 'Western region', group: 'Region', score: 42 }, geometry: { type: 'Polygon', coordinates: [[[-121, 36], [-116, 36], [-116, 40], [-121, 40], [-121, 36]]] } },
+    { type: 'Feature', id: 'east', properties: { name: 'Eastern region', group: 'Region', score: 75 }, geometry: { type: 'Polygon', coordinates: [[[-114, 36], [-109, 36], [-109, 40], [-114, 40], [-114, 36]]] } },
+    { type: 'Feature', id: 'route', properties: { name: 'Cross-region route', group: 'Route', score: 55 }, geometry: { type: 'LineString', coordinates: [[-119, 37], [-117, 38], [-112, 38], [-110, 39]] } },
+    { type: 'Feature', id: 'station', properties: { name: 'Field station', group: 'Site', score: 30 }, geometry: { type: 'Point', coordinates: [-115, 35.5] } },
+  ],
+};
+const geojsonDemoBytes = Buffer.from(JSON.stringify(geojsonDemo), 'utf8');
 
 const earthquakeArtifactRecord = {
   workspace_id: workspaceId,
@@ -236,8 +255,9 @@ function earthquakeDataSurface() {
     part_id: 'part_earthquake_data',
     catalog_id: catalogId,
     protocol_version: '0.9.1',
-    revision: 1,
+    revision: 2,
     state: 'ready',
+    message_revisions: [1, 2],
     messages: [
       { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
       {
@@ -310,6 +330,159 @@ function earthquakeDataSurface() {
           ],
         },
       },
+    ],
+  };
+}
+
+/** The same data without producer-authored selection wiring exercises the renderer's auto-link. */
+function earthquakeAutoSelectionSurface() {
+  const surface = earthquakeDataSurface();
+  surface.id = 'surface_earthquake_auto_selection';
+  surface.message_id = 'message_earthquake_auto_selection';
+  surface.part_id = 'part_earthquake_auto_selection';
+  surface.messages[0].createSurface.surfaceId = surface.id;
+  surface.messages[1].updateComponents.surfaceId = surface.id;
+  for (const component of surface.messages[1].updateComponents.components) {
+    delete component.selection;
+    delete component.selectionField;
+    if (a2uiContinuousMapDemo && component.id === 'map') {
+      delete component.categoryField;
+      component.valueField = 'magnitude';
+      component.valueUnit = 'Mw';
+      component.title = 'Magnitude across epicenters';
+    }
+  }
+  return surface;
+}
+
+function geojsonDemoSurface() {
+  const surfaceId = 'surface_geojson_demo';
+  const catalogId = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
+  return {
+    id: surfaceId, session_id: sessionId, run_id: 'run_geojson_demo',
+    message_id: 'message_geojson_demo', part_id: 'part_geojson_demo', catalog_id: catalogId,
+    protocol_version: '0.9.1', revision: 1, state: 'ready', message_revisions: [1, 1],
+    messages: [
+      { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
+      { version: 'v0.9.1', updateComponents: { surfaceId, components: [
+        { id: 'root', component: 'Column', children: ['map'] },
+        { id: 'map', component: 'clio.map.v1', title: 'Regions, route and station', geojsonUri: `artifact://${geojsonArtifactId}`, labelField: 'name', categoryField: 'group' },
+      ] } },
+    ],
+  };
+}
+
+function boxplotDemoSurface() {
+  const surfaceId = 'surface_boxplot_demo';
+  const catalogId = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
+  const data = Array.from({ length: 24 }, (_, index) => ({
+    id: `observation-${index + 1}`,
+    country: ['Canada', 'Mexico', 'United States'][index % 3],
+    latitude: 18 + (index % 3) * 10 + ((index * 7) % 9),
+  }));
+  return {
+    id: surfaceId, session_id: sessionId, run_id: 'run_boxplot_demo',
+    message_id: 'message_boxplot_demo', part_id: 'part_boxplot_demo', catalog_id: catalogId,
+    protocol_version: '0.9.1', revision: 1, state: 'ready', message_revisions: [1, 1],
+    messages: [
+      { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
+      { version: 'v0.9.1', updateComponents: { surfaceId, components: [
+        { id: 'root', component: 'Column', children: ['chart'] },
+        { id: 'chart', component: 'clio.chart.v1', title: 'Latitude by country', preset: 'boxplot', xField: 'country', yField: 'latitude', entityField: 'id', data },
+      ] } },
+    ],
+  };
+}
+
+function composedDemoSurface() {
+  const surface = boxplotDemoSurface();
+  const surfaceId = 'surface_composed_demo';
+  surface.id = surfaceId;
+  surface.message_id = 'message_composed_demo';
+  surface.part_id = 'part_composed_demo';
+  surface.messages[0].createSurface.surfaceId = surfaceId;
+  surface.messages[1].updateComponents.surfaceId = surfaceId;
+  const chart = surface.messages[1].updateComponents.components.find((component) => component.id === 'chart');
+  const rows = chart.data;
+  surface.messages[1].updateComponents.components = [
+    { id: 'root', component: 'Frame', title: 'Latitude explorer', child: 'tabs' },
+    { id: 'tabs', component: 'Tabs', tabs: [{ title: 'Explore', child: 'grid' }, { title: 'Rows', child: 'table' }] },
+    { id: 'grid', component: 'Grid', columns: 2, gap: 4, children: ['chart', 'map'] },
+    chart,
+    { id: 'map', component: 'clio.map.v1', title: 'Regions, route and station', geojsonUri: `artifact://${geojsonArtifactId}`, labelField: 'name', categoryField: 'group' },
+    { id: 'table', component: 'clio.data-table.v1', columns: ['id', 'country', 'latitude'], rows },
+  ];
+  return surface;
+}
+
+const modelObjId = 'artifact_model_obj';
+const modelMtlId = 'artifact_model_mtl';
+const modelObjBytes = Buffer.from('mtllib sample.mtl\no Pyramid\nv -1 0 -1\nv 1 0 -1\nv 1 0 1\nv -1 0 1\nv 0 1.8 0\nusemtl Blue\nf 1 2 5\nf 2 3 5\nf 3 4 5\nf 4 1 5\nf 1 4 3\nf 1 3 2\n');
+const modelMtlBytes = Buffer.from('newmtl Blue\nKd 0.12 0.48 0.82\n');
+const galleryTerrainGlb = makeGalleryTerrainGlb();
+const triangleBin = Buffer.alloc(44);
+new Float32Array(triangleBin.buffer, triangleBin.byteOffset, 9).set([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+new Uint16Array(triangleBin.buffer, triangleBin.byteOffset + 36, 3).set([0, 1, 2]);
+const triangleGltf = (uri) => ({
+  asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }],
+  meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] }],
+  buffers: [{ byteLength: triangleBin.length, ...(uri ? { uri } : {}) }],
+  bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 36 }, { buffer: 0, byteOffset: 36, byteLength: 6 }],
+  accessors: [
+    { bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 0] },
+    { bufferView: 1, componentType: 5123, count: 3, type: 'SCALAR' },
+  ],
+});
+const triangleGlbJson = Buffer.from(JSON.stringify(triangleGltf()));
+const triangleGlbJsonPadded = Buffer.concat([triangleGlbJson, Buffer.alloc((4 - triangleGlbJson.length % 4) % 4, 32)]);
+const triangleGlb = Buffer.alloc(12 + 8 + triangleGlbJsonPadded.length + 8 + triangleBin.length);
+triangleGlb.write('glTF', 0); triangleGlb.writeUInt32LE(2, 4); triangleGlb.writeUInt32LE(triangleGlb.length, 8);
+triangleGlb.writeUInt32LE(triangleGlbJsonPadded.length, 12); triangleGlb.write('JSON', 16);
+triangleGlbJsonPadded.copy(triangleGlb, 20);
+const triangleGlbBinOffset = 20 + triangleGlbJsonPadded.length;
+triangleGlb.writeUInt32LE(triangleBin.length, triangleGlbBinOffset); triangleGlb.write('BIN\0', triangleGlbBinOffset + 4);
+triangleBin.copy(triangleGlb, triangleGlbBinOffset + 8);
+const modelTriangle = {
+  // A self-contained triangle 3MF (the ZIP contains _rels/.rels and 3D/3dmodel.model).
+  '3mf': Buffer.from('UEsDBBQAAAAIAG6/QV2vG3e9sQAAAAIBAAALAAAAX3JlbHMvLnJlbHNlz0FqwzAQheGriNlXI8dQSrCcTQhkG5wDCHksi0oaISnBuX0JpdCQ7f/ggzccthjEnUr1nDR0UoGgZHn2yWm4TqePLziMw4WCaZ5TXX2uYoshVQ1ra3mPWO1K0VTJmdIWw8IlmlYlF4fZ2G/jCHdKfWL5b8CrKc6zhkJBgZgemd7s6G3hykuTliP2czTpthjbbsUnhzvV9ai6Z+eZAojJFEdNA/bHvyh/JxwHfDkz/gBQSwMEFAAAAAgAbr9BXbih+u/mAAAAkgEAABAAAAAzRC8zZG1vZGVsLm1vZGVsdY9NasMwEIWvImZfj+UQKEVSdj1BewBHnthT9BMk2Tg9fbBciDfdPAa+eW/mqcvqnVgoZY5Bg2xaEBRsHDiMGr6/Pt/e4WKUjwM5MQcuGjw7x54KJRCrdyFrmEq5fyBmO5Hvc+PZppjjrTQ2ejwNvg/zrbdlThxGtDERdq08Y9uBUYlynJOlbFS8/pAtggcNEkR53ElDvQxGecqTUQulwnV3m2gVq4YWxKPq76Z4RPJ/tLvkC+EruyTuw+iOo1hk9SxdNS0nDV11HXZx/xH3Gkbhodp1ZjcYxYW82Pnecov4Y1irmidQSwECFAAUAAAACABuv0Fdrxt3vbEAAAACAQAACwAAAAAAAAAAAAAAgAEAAAAAX3JlbHMvLnJlbHNQSwECFAAUAAAACABuv0FduKH67+YAAACSAQAAEAAAAAAAAAAAAAAAgAHaAAAAM0QvM2Rtb2RlbC5tb2RlbFBLBQYAAAAAAgACAHcAAADuAQAAAAA=', 'base64'),
+  glb: triangleGlb,
+  gltf: Buffer.from(JSON.stringify(triangleGltf(`data:application/octet-stream;base64,${triangleBin.toString('base64')}`))),
+  stl: Buffer.from('solid Triangle\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid Triangle\n'),
+  ply: Buffer.from('ply\nformat ascii 1.0\nelement vertex 3\nproperty float x\nproperty float y\nproperty float z\nelement face 1\nproperty list uchar int vertex_indices\nend_header\n0 0 0\n1 0 0\n0 1 0\n3 0 1 2\n'),
+  vtk: Buffer.from('# vtk DataFile Version 3.0\nTriangle\nASCII\nDATASET POLYDATA\nPOINTS 3 float\n0 0 0 1 0 0 0 1 0\nPOLYGONS 1 4\n3 0 1 2\n'),
+  vtp: Buffer.from('<VTKFile type="PolyData"><PolyData><Piece NumberOfPoints="3" NumberOfPolys="1"><Points><DataArray format="ascii" NumberOfComponents="3">0 0 0 1 0 0 0 1 0</DataArray></Points><Polys><DataArray Name="connectivity" format="ascii">0 1 2</DataArray><DataArray Name="offsets" format="ascii">3</DataArray></Polys></Piece></PolyData></VTKFile>'),
+};
+
+function meshDemoSurface() {
+  const surfaceId = 'surface_mesh_demo';
+  const catalogId = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
+  return {
+    id: surfaceId, session_id: sessionId, run_id: 'run_mesh_demo', message_id: 'message_mesh_demo', part_id: 'part_mesh_demo',
+    catalog_id: catalogId, protocol_version: '0.9.1', revision: meshDemoRevision, state: 'ready', message_revisions: [1, meshDemoRevision],
+    messages: [
+      { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
+      { version: 'v0.9.1', updateComponents: { surfaceId, components: [
+        { id: 'root', component: 'Column', children: ['mesh'] },
+        { id: 'mesh', component: 'clio.mesh-viewport.v1', title: meshDemoFormat === 'obj' ? 'Pyramid model' : `${meshDemoFormat.toUpperCase()} triangle`, meshUri: `artifact://${meshDemoFormat === 'obj' ? modelObjId : `artifact_model_${meshDemoFormat}`}`, format: meshDemoFormat, ...(meshDemoFormat === 'obj' ? { materialUri: `artifact://${modelMtlId}` } : {}) },
+      ] } },
+    ],
+  };
+}
+
+const rasterArtifactId = 'artifact_raster_demo';
+
+function rasterDemoSurface() {
+  const surfaceId = 'surface_raster_demo';
+  const catalogId = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
+  return {
+    id: surfaceId, session_id: sessionId, run_id: 'run_raster_demo', message_id: 'message_raster_demo', part_id: 'part_raster_demo',
+    catalog_id: catalogId, protocol_version: '0.9.1', revision: 1, state: 'ready', message_revisions: [1, 1],
+    messages: [
+      { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
+      { version: 'v0.9.1', updateComponents: { surfaceId, components: [
+        { id: 'root', component: 'Column', children: ['raster'] },
+        { id: 'raster', component: 'clio.raster-viewport.v1', title: 'Temperature field', rasterUri: `artifact://${rasterArtifactId}`, colormap: 'viridis', unit: '°C' },
+      ] } },
     ],
   };
 }
@@ -610,8 +783,9 @@ function earthScopeMapSurface() {
     part_id: 'part_earthscope_map',
     catalog_id: 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1',
     protocol_version: '0.9.1',
-    revision: 1,
+    revision: 2,
     state: 'ready',
+    message_revisions: [1, 2],
     messages: [
       {
         version: 'v0.9.1',
@@ -1018,6 +1192,8 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
+    session.state = 'running';
+    session.updated_at = observedAt;
     permissionPending = true;
     questionPending = true;
     mcpV2UiDemo = false;
@@ -1025,6 +1201,15 @@ const server = createServer(async (request, response) => {
     // Every spec shares this server: a demo left on by one spec file (the
     // linked earthquake surface) otherwise leaks into every spec after it.
     a2uiDataDemo = false;
+    a2uiAutoDemo = false;
+    a2uiContinuousMapDemo = false;
+    a2uiGeojsonDemo = false;
+    a2uiBoxplotDemo = false;
+    a2uiComposedDemo = false;
+    a2uiMeshDemo = false;
+    a2uiRasterDemo = false;
+    meshDemoFormat = 'obj';
+    meshDemoRevision = 1;
     attachmentsEnabled = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;
@@ -1039,6 +1224,12 @@ const server = createServer(async (request, response) => {
     seedResources();
     response.writeHead(204, commonHeaders());
     response.end();
+    return;
+  }
+  if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
+    session.state = 'failed';
+    session.updated_at = new Date().toISOString();
+    sendJson(response, { state: session.state });
     return;
   }
 
@@ -1167,6 +1358,65 @@ const server = createServer(async (request, response) => {
       messages: linkedSelectionDemoMessages(),
     });
     sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-auto-selection-demo') {
+    const surface = earthquakeAutoSelectionSurface();
+    a2uiAutoDemo = true;
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surface.id }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-continuous-map-demo') {
+    a2uiAutoDemo = true;
+    a2uiContinuousMapDemo = true;
+    const surface = earthquakeAutoSelectionSurface();
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surface.id }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-geojson-demo') {
+    a2uiGeojsonDemo = true;
+    const surface = geojsonDemoSurface();
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surface.id }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-boxplot-demo') {
+    a2uiBoxplotDemo = true;
+    const surface = boxplotDemoSurface();
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surface.id }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-composed-demo') {
+    a2uiComposedDemo = true;
+    const surface = composedDemoSurface();
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surface.id }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-mesh-demo') {
+    meshDemoFormat = Object.hasOwn(modelTriangle, url.searchParams.get('format')) ? url.searchParams.get('format') : 'obj';
+    meshDemoRevision += 1;
+    a2uiMeshDemo = true;
+    const surface = meshDemoSurface();
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surface.id }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-raster-demo') {
+    a2uiRasterDemo = true;
+    const surface = rasterDemoSurface();
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surface.id }, 202);
     return;
   }
 
@@ -1387,8 +1637,15 @@ const server = createServer(async (request, response) => {
           : []),
       ],
       surfaces: [
+        ...(a2uiBoxplotDemo ? [boxplotDemoSurface()] : []),
+        ...(a2uiComposedDemo ? [composedDemoSurface()] : []),
+        ...(a2uiMeshDemo ? [meshDemoSurface()] : []),
+        ...(a2uiRasterDemo ? [rasterDemoSurface()] : []),
+        ...(a2uiGeojsonDemo ? [geojsonDemoSurface()] : []),
         ...(a2uiMapDemo ? [earthScopeMapSurface()] : []),
-        ...(a2uiDataDemo ? [earthquakeDataSurface()] : []),
+        ...(a2uiDataDemo
+          ? [a2uiAutoDemo ? earthquakeAutoSelectionSurface() : earthquakeDataSurface()]
+          : []),
       ],
     });
     return;
@@ -1534,6 +1791,24 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/references/resolve`) {
+    const uri = url.searchParams.get('uri');
+    if (uri === 'artifact://artifact_plot') {
+      sendJson(response, {
+        uri,
+        kind: 'artifact',
+        workspace_id: workspaceId,
+        name: artifactRecord.name,
+        media_type: 'image/png',
+        size_bytes: artifactPng.length,
+        artifact_id: 'artifact_plot',
+        fetch_path: '/v1/artifacts/artifact_plot/bytes',
+      });
+      return;
+    }
+    sendJson(response, { detail: 'Reference is not present in this demo session.' }, 404);
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/artifacts/artifact_plot') {
     sendJson(response, { artifact: artifactRecord, resolved: artifactRecord.versions[0] });
     return;
@@ -1560,6 +1835,51 @@ const server = createServer(async (request, response) => {
     });
     response.end(earthquakeCsvBytes);
     return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/artifacts/${geojsonArtifactId}/bytes`) {
+    response.writeHead(200, { ...commonHeaders('application/geo+json'), 'Content-Length': String(geojsonDemoBytes.length) });
+    response.end(geojsonDemoBytes);
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/artifacts/${modelObjId}/bytes`) {
+    response.writeHead(200, { ...commonHeaders('model/obj'), 'Content-Length': String(modelObjBytes.length) });
+    response.end(modelObjBytes);
+    return;
+  }
+  if (request.method === 'POST' && url.pathname === `/v1/artifacts/${rasterArtifactId}/raster-query`) {
+    const body = await readJson(request);
+    const width = Math.min(768, Number(body.width) || 512);
+    const height = Math.min(768, Number(body.height) || 512);
+    const extent = body.extent ?? [0, 0, 100, 100];
+    const values = [];
+    for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+      const gx = extent[0] + (x + 0.5) / width * (extent[2] - extent[0]);
+      const gy = extent[1] + (y + 0.5) / height * (extent[3] - extent[1]);
+      const hot = Math.exp(-((gx - 32) ** 2 + (gy - 38) ** 2) / 180);
+      const cool = Math.exp(-((gx - 70) ** 2 + (gy - 64) ** 2) / 220);
+      values.push(Math.round((16 + 18 * hot - 9 * cool + gx * 0.04) * 100) / 100);
+    }
+    sendJson(response, { width, height, extent, sourceBounds: [0, 0, 100, 100], sourceShape: [100, 100], xLabel: 'Easting', yLabel: 'Northing', min: values.reduce((a, b) => Math.min(a, b), Infinity), max: values.reduce((a, b) => Math.max(a, b), -Infinity), values });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/artifacts/${modelMtlId}/bytes`) {
+    response.writeHead(200, { ...commonHeaders('text/plain'), 'Content-Length': String(modelMtlBytes.length) });
+    response.end(modelMtlBytes);
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/artifacts/artifact_gallery_terrain_glb/bytes') {
+    response.writeHead(200, { ...commonHeaders('model/gltf-binary'), 'Content-Length': String(galleryTerrainGlb.length) });
+    response.end(galleryTerrainGlb);
+    return;
+  }
+  if (request.method === 'GET' && url.pathname.startsWith('/v1/artifacts/artifact_model_') && url.pathname.endsWith('/bytes')) {
+    const format = url.pathname.slice('/v1/artifacts/artifact_model_'.length, -'/bytes'.length);
+    const bytes = modelTriangle[format];
+    if (bytes) {
+      response.writeHead(200, { ...commonHeaders('application/octet-stream'), 'Content-Length': String(bytes.length) });
+      response.end(bytes);
+      return;
+    }
   }
   if (
     request.method === 'POST' &&
@@ -1935,6 +2255,7 @@ const server = createServer(async (request, response) => {
   sendJson(response, { error: 'not_found', path: url.pathname }, 404);
 });
 
-server.listen(port, '127.0.0.1', () => {
-  process.stdout.write(`CLIO Playwright fixture listening on http://127.0.0.1:${port}\n`);
+const host = process.env['CLIO_FIXTURE_HOST'] ?? '127.0.0.1';
+server.listen(port, host, () => {
+  process.stdout.write(`CLIO Playwright fixture listening on http://${host}:${port}\n`);
 });

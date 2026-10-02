@@ -8,8 +8,7 @@ import type {
   WorkspaceReference,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { AtSignIcon, CornerDownRightIcon, PaperclipIcon } from 'lucide-react';
-import { AddIcon } from '@/lib/icon-vocabulary';
+import { CornerDownRightIcon } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -31,10 +30,6 @@ import {
   PromptInputCommandGroup,
   PromptInputCommandItem,
   PromptInputCommandList,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuItem,
-  PromptInputActionMenuTrigger,
   PromptInputFooter,
   PromptInputHeader,
   PromptInputSubmit,
@@ -69,8 +64,10 @@ import { focusEditorAtOffset } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { messageTextWithAnnotations, type ComposerAnnotation } from '@/lib/composer-annotations';
-import { modelTransportLabel } from './provider-transport-state';
-import type { ClioModelOption } from '@/lib/model-options';
+import { composerModelLabel } from './composer-model-label';
+import { setModelImageInput } from '@/lib/model-image-input';
+import { useRegionCaptureAnnotation } from './use-region-capture-annotation';
+import { ComposerAddContextButton } from './composer-add-context-button';
 
 const focusComposerEditor = focusEditorAtOffset;
 
@@ -102,6 +99,8 @@ export interface ClioComposerProps {
     aliases?: readonly string[];
   }>;
   disabled?: boolean;
+  /** Keep the draft editable while the first session catalog is registering. */
+  catalogPreparing?: boolean;
   contextReferences?: boolean;
   workspaceId?: string;
   commands?: CommandDefinition[];
@@ -174,6 +173,7 @@ export function ClioComposer({
   confirmationPolicy = 'ask',
   modelOptions = [],
   disabled,
+  catalogPreparing = false,
   contextReferences = false,
   workspaceId = '',
   commands = [],
@@ -211,6 +211,9 @@ export function ClioComposer({
     provider,
     model,
   );
+  useEffect(() => {
+    setModelImageInput(Boolean(selectedOption?.modalities?.includes('image')));
+  }, [selectedOption?.modalities]);
   const [behaviorSelection, setBehaviorSelection] = useState<{
     behavior: MessageBehavior;
     authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
@@ -300,13 +303,29 @@ export function ClioComposer({
   const nextDeliveryRef = useRef<MessageDelivery | 'queued'>('start');
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
+  const latestInputRef = useRef(input);
+  useEffect(() => { latestInputRef.current = input; }, [input]);
   const setInput = useCallback(
     (nextValue: string) => {
+      latestInputRef.current = nextValue;
       if (value === undefined) setInternalInput(nextValue);
       onValueChange?.(nextValue);
     },
     [onValueChange, value],
   );
+  useEffect(() => {
+    const useDraft = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      if (typeof detail?.text !== 'string') return;
+      setInput(input ? `${input}\n\n${detail.text}` : detail.text);
+      window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
+    };
+    window.addEventListener('clio:use-message-draft', useDraft);
+    return () => {
+      window.removeEventListener('clio:use-message-draft', useDraft);
+    };
+  }, [input, setInput]);
+  useRegionCaptureAnnotation(annotations, onAnnotationsChange);
   const inputRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
@@ -514,7 +533,7 @@ export function ClioComposer({
               restoreFocusAfterSubmitRef.current = true;
               try {
                 await onCommand({ commandId: command.id, input: parts.join(' ') });
-                setInput('');
+                if (latestInputRef.current.trim() === trimmed) setInput('');
               } catch (error) {
                 // PromptInput swallows a rejected submit so the draft survives;
                 // without this the refusal would never reach the person.
@@ -563,9 +582,10 @@ export function ClioComposer({
               restoreInputFocusWhenReady();
             }
             nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
-            setInput('');
+            if (latestInputRef.current.trim() === trimmed) setInput('');
             setSelectedReferences([]);
             onAnnotationsChange?.([]);
+            window.dispatchEvent(new Event('clio:message-sent'));
           }
         }}
       >
@@ -581,6 +601,8 @@ export function ClioComposer({
           </PromptInputHeader>
         ) : null}
         <ClioComposerAttachments
+          annotations={annotations}
+          onRemoveCapture={(gone) => onAnnotationsChange?.(annotations.filter((item) => item !== gone))}
           onPrepareFiles={onPrepareFiles}
           resources={resources}
           uploadFailure={uploadFailure}
@@ -595,7 +617,7 @@ export function ClioComposer({
           </div>
         ) : null}
         <ClioComposerAnnotations
-          annotations={annotations}
+          annotations={annotations.filter((annotation) => annotation.kind !== 'region-capture')}
           onRemove={(gone) => onAnnotationsChange?.(annotations.filter((item) => item !== gone))}
         />
         <ComposerInlineReferenceEditor
@@ -699,6 +721,9 @@ export function ClioComposer({
             />
           </PromptInputTools>
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            {catalogPreparing && state !== 'running' ? (
+              <span className="text-xs text-muted-foreground" role="status">Preparing views…</span>
+            ) : null}
             {state === 'running' ? (
               <PromptInputButton
                 aria-label="Steer current work"
@@ -718,7 +743,7 @@ export function ClioComposer({
               <ClioStatus value={state} />
             ) : null}
             <PromptInputSubmit
-              disabled={disabled && state !== 'running'}
+              disabled={(disabled || catalogPreparing) && state !== 'running'}
               onStop={onStop}
               status={chatStatus(state)}
             />
@@ -727,69 +752,4 @@ export function ClioComposer({
       </PromptInput>
     </div>
   );
-}
-
-function ComposerAddContextButton({
-  attachments: attachmentEnabled,
-  contextReferences,
-  onOpenFileUpload,
-  onOpenReferences,
-}: {
-  attachments: boolean;
-  contextReferences: boolean;
-  onOpenFileUpload: () => void;
-  onOpenReferences: () => void;
-}) {
-  if (!contextReferences) {
-    return (
-      <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
-        <AddIcon aria-hidden="true" />
-      </PromptInputButton>
-    );
-  }
-  return (
-    <PromptInputActionMenu>
-      <PromptInputActionMenuTrigger aria-label="Add context" title="Add context">
-        <AddIcon aria-hidden="true" />
-      </PromptInputActionMenuTrigger>
-      <PromptInputActionMenuContent>
-        {attachmentEnabled ? (
-          <PromptInputActionMenuItem
-            aria-label="Attach a new file"
-            onSelect={onOpenFileUpload}
-            title="Attach a new file"
-          >
-            <PaperclipIcon aria-hidden="true" />
-            Attach
-          </PromptInputActionMenuItem>
-        ) : null}
-        <PromptInputActionMenuItem
-          aria-label="Reference existing context"
-          onSelect={onOpenReferences}
-          title="Reference existing context"
-        >
-          <AtSignIcon aria-hidden="true" />
-          Reference
-        </PromptInputActionMenuItem>
-      </PromptInputActionMenuContent>
-    </PromptInputActionMenu>
-  );
-}
-
-/** The model button's text: provider, the half it is reached through when
- * there are two ("Codex · Direct / Luna"), and the model. */
-function composerModelLabel(option: ClioModelOption): string {
-  const half = modelTransportLabel(option);
-  const provider = half ? `${option.providerName} · ${half}` : option.providerName;
-  return `${provider} / ${compactModelName(option.providerId, option.id, option.label)}`;
-}
-
-function compactModelName(provider: string, modelId: string, label: string): string {
-  if (provider === 'codex') {
-    const familyName = modelId.match(/(?:^|[-_.])(luna|sol|terra)$/i)?.[1];
-    if (familyName)
-      return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;
-  }
-  if (provider === 'claude_code' && /sonnet/i.test(modelId)) return 'Sonnet';
-  return label;
 }

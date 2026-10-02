@@ -45,9 +45,7 @@ test('renders the Basic login-form example: text input works and the required ch
   // Wait for the live session stream to actually be connected before
   // publishing — an event fired before the client's SSE connection is open
   // has no subscriber and is lost (this fixture has no replay).
-  await expect(
-    page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
   await expect(page.getByText('Live', { exact: true })).toBeVisible();
 
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-login-form`);
@@ -58,12 +56,11 @@ test('renders the Basic login-form example: text input works and the required ch
   // so it renders detached, past every seeded message — scroll the
   // conversation to its end so the virtualizer mounts it. The deferred host
   // (`DeferredA2UISurface`) always mounts a wrapper labelled exactly
-  // "Generated UI surface" before its content is ready, so the wait targets
-  // the rendered section's own label ("Generated UI, <kind>") — a bare
-  // `^="Generated UI"` prefix would match the still-empty wrapper too.
+  // empty surface wrapper before its content is ready, so the wait targets
+  // the rendered section's own label ("Interactive surface, <kind>").
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toBeVisible();
-  const surfaceSection = page.locator('[aria-label^="Generated UI,"]');
+  const surfaceSection = page.locator('[aria-label^="Interactive surface,"]');
   await expect
     .poll(async () => {
       await conversation.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));

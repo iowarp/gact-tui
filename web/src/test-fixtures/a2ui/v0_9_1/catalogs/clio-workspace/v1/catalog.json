@@ -180,6 +180,228 @@
       "minLength": 1,
       "type": "string"
     },
+    "GeoJsonGeometry": {
+      "description": "A GeoJSON Geometry object (RFC 7946 §3.1), strictly shaped: Point/MultiPoint/LineString/MultiLineString/Polygon/MultiPolygon carry coordinates; GeometryCollection carries geometries. Never a Feature/FeatureCollection, never a bare coordinate array.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "coordinates": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 2,
+              "type": "array"
+            },
+            "type": {
+              "const": "Point"
+            }
+          },
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "coordinates": {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 3,
+                "minItems": 2,
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "MultiPoint"
+            }
+          },
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "coordinates": {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 3,
+                "minItems": 2,
+                "type": "array"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            "type": {
+              "const": "LineString"
+            }
+          },
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "coordinates": {
+              "items": {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 3,
+                  "minItems": 2,
+                  "type": "array"
+                },
+                "minItems": 2,
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "MultiLineString"
+            }
+          },
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "coordinates": {
+              "items": {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 3,
+                  "minItems": 2,
+                  "type": "array"
+                },
+                "minItems": 4,
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "Polygon"
+            }
+          },
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "coordinates": {
+              "items": {
+                "items": {
+                  "items": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "maxItems": 3,
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "minItems": 4,
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "MultiPolygon"
+            }
+          },
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "geometries": {
+              "items": {
+                "$ref": "#/$defs/GeoJsonGeometry"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "GeometryCollection"
+            }
+          },
+          "required": [
+            "type",
+            "geometries"
+          ],
+          "type": "object"
+        }
+      ],
+      "type": "object"
+    },
+    "GuideStep": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "description": "Instruction that stays true at any scale. State fixed per-unit amounts here when needed; do not repeat the starting total or count.",
+          "type": "string"
+        },
+        "durationSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "quantity": {
+          "description": "Amount for the guide's baseAmount; the viewer rescales it with the control.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "quantityUnit": {
+          "description": "Unit beside the scaled amount at quantity 1; use a singular countable label.",
+          "type": "string"
+        },
+        "quantityUnitPlural": {
+          "description": "Optional label at other quantities, such as eggs or tubes; omit for invariant units.",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "warning": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "type": "object"
+    },
     "IconSvgPath": {
       "additionalProperties": false,
       "properties": {
@@ -222,6 +444,10 @@
           "maximum": 180,
           "minimum": -180,
           "type": "number"
+        },
+        "value": {
+          "description": "Optional numeric value for continuous colour.",
+          "type": "number"
         }
       },
       "required": [
@@ -229,6 +455,37 @@
         "label",
         "latitude",
         "longitude"
+      ],
+      "type": "object"
+    },
+    "MessageDraftVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "cc": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "label": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "to": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "body"
       ],
       "type": "object"
     },
@@ -374,10 +631,27 @@
           "then": {
             "properties": {
               "value": {
-                "type": [
-                  "string",
-                  "number",
-                  "boolean"
+                "anyOf": [
+                  {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean"
+                    ]
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^/",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path"
+                    ],
+                    "type": "object"
+                  }
                 ]
               }
             },
@@ -397,16 +671,33 @@
           "then": {
             "properties": {
               "value": {
-                "items": {
-                  "type": [
-                    "string",
-                    "number",
-                    "boolean"
-                  ]
-                },
-                "maxItems": 10000,
-                "minItems": 1,
-                "type": "array"
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "maxItems": 10000,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^/",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path"
+                    ],
+                    "type": "object"
+                  }
+                ]
               }
             },
             "required": [
@@ -425,17 +716,34 @@
           "then": {
             "properties": {
               "value": {
-                "items": {
-                  "type": [
-                    "string",
-                    "number",
-                    "boolean",
-                    "null"
-                  ]
-                },
-                "maxItems": 2,
-                "minItems": 2,
-                "type": "array"
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^/",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path"
+                    ],
+                    "type": "object"
+                  }
+                ]
               }
             },
             "required": [
@@ -454,9 +762,26 @@
           "then": {
             "properties": {
               "value": {
-                "type": [
-                  "boolean",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^/",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path"
+                    ],
+                    "type": "object"
+                  }
                 ]
               }
             }
@@ -473,8 +798,25 @@
           "then": {
             "properties": {
               "value": {
-                "minLength": 1,
-                "type": "string"
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^/",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path"
+                    ],
+                    "type": "object"
+                  }
+                ]
               }
             },
             "required": [
@@ -675,6 +1017,62 @@
       ],
       "type": "object"
     },
+    "WeatherDay": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "high": {
+          "type": "number"
+        },
+        "low": {
+          "type": "number"
+        },
+        "precipitationChance": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "date",
+        "condition",
+        "high",
+        "low"
+      ],
+      "type": "object"
+    },
+    "WeatherHour": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "type": "string"
+        },
+        "precipitationChance": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "time": {
+          "description": "ISO 8601 local date-time with an explicit UTC offset or Z.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d+)?)?(?:Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "time",
+        "condition",
+        "temperature"
+      ],
+      "type": "object"
+    },
     "WorkflowEdge": {
       "additionalProperties": false,
       "properties": {
@@ -732,6 +1130,9 @@
         },
         {
           "$ref": "#/components/Column"
+        },
+        {
+          "$ref": "#/components/DateTimeInput"
         },
         {
           "$ref": "#/components/Divider"
@@ -803,16 +1204,28 @@
           "$ref": "#/components/clio.mesh-viewport.v1"
         },
         {
+          "$ref": "#/components/clio.message-draft.v1"
+        },
+        {
           "$ref": "#/components/clio.metric.v1"
         },
         {
           "$ref": "#/components/clio.progress.v1"
         },
         {
+          "$ref": "#/components/clio.raster-viewport.v1"
+        },
+        {
           "$ref": "#/components/clio.slider.v1"
         },
         {
           "$ref": "#/components/clio.status.v1"
+        },
+        {
+          "$ref": "#/components/clio.steps.v1"
+        },
+        {
+          "$ref": "#/components/clio.weather.v1"
         },
         {
           "$ref": "#/components/clio.workflow.v1"
@@ -1081,6 +1494,52 @@
         }
       ],
       "description": "A vertical layout container for child components.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "DateTimeInput": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Checkable"
+        },
+        {
+          "properties": {
+            "component": {
+              "const": "DateTimeInput"
+            },
+            "enableDate": {
+              "type": "boolean"
+            },
+            "enableTime": {
+              "type": "boolean"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "max": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "min": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "value"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "A date, time, or date-time input with an ISO 8601 value; enable the needed parts.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1756,14 +2215,21 @@
               "const": "clio.chart.v1"
             },
             "data": {
-              "description": "Inline rows (at most 10000) — this array rides the surface's own wire message, so it is capped for transfer size; for a larger or growing dataset use dataUri instead, unbounded and paged/downsampled by the viewer.",
+              "description": "Inline rows (at most 10000) — this array rides the surface's own wire message, so it is capped for transfer size; for a larger or growing dataset use dataUri instead, unbounded and paged/downsampled by the viewer. A cell is a scalar OR a strictly-shaped GeoJSON Geometry object ($defs/GeoJsonGeometry), so a geoshape mark can draw real shapes from inline rows.",
               "items": {
                 "additionalProperties": {
-                  "type": [
-                    "string",
-                    "number",
-                    "boolean",
-                    "null"
+                  "anyOf": [
+                    {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    {
+                      "$ref": "#/$defs/GeoJsonGeometry"
+                    }
                   ]
                 },
                 "type": "object"
@@ -1849,6 +2315,13 @@
                   "config",
                   "autosize",
                   "description",
+                  "columns",
+                  "spacing",
+                  "padding",
+                  "align",
+                  "bounds",
+                  "center",
+                  "projection",
                   "data"
                 ]
               },
@@ -2391,6 +2864,14 @@
               "$ref": "#/$defs/FieldName",
               "description": "Dataset column holding each point's detail text."
             },
+            "geojsonUri": {
+              "description": "Artifact URI of a GeoJSON FeatureCollection. Geometry is read by reference and drawn as points, lines, and polygons; feature properties supply labelField, categoryField, or valueField when named.",
+              "not": {
+                "pattern": "\\s"
+              },
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
             "idField": {
               "$ref": "#/$defs/FieldName",
               "description": "Dataset column holding each point's stable id."
@@ -2430,6 +2911,15 @@
             },
             "title": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "valueField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Numeric dataset column used for a continuous colour scale and legend."
+            },
+            "valueUnit": {
+              "description": "Unit shown beside a continuous-colour legend's values.",
+              "maxLength": 40,
+              "type": "string"
             }
           },
           "required": [
@@ -2438,12 +2928,21 @@
           "type": "object"
         },
         {
-          "description": "Exactly one of points or dataUri is required.",
+          "description": "Exactly one of points, dataUri, or geojsonUri is required.",
           "oneOf": [
             {
               "not": {
-                "required": [
-                  "dataUri"
+                "anyOf": [
+                  {
+                    "required": [
+                      "dataUri"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "geojsonUri"
+                    ]
+                  }
                 ]
               },
               "required": [
@@ -2452,12 +2951,40 @@
             },
             {
               "not": {
-                "required": [
-                  "points"
+                "anyOf": [
+                  {
+                    "required": [
+                      "points"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "geojsonUri"
+                    ]
+                  }
                 ]
               },
               "required": [
                 "dataUri"
+              ]
+            },
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "points"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "dataUri"
+                    ]
+                  }
+                ]
+              },
+              "required": [
+                "geojsonUri"
               ]
             }
           ]
@@ -2474,6 +3001,14 @@
               "latitudeField",
               "longitudeField",
               "labelField"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "categoryField",
+              "valueField"
             ]
           }
         },
@@ -2583,8 +3118,27 @@
             "field": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
             },
+            "format": {
+              "enum": [
+                "glb",
+                "gltf",
+                "obj",
+                "stl",
+                "ply",
+                "fbx",
+                "3mf",
+                "vtk",
+                "vtp",
+                "drc"
+              ],
+              "type": "string"
+            },
             "frame": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+            },
+            "materialUri": {
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
             },
             "meshUri": {
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
@@ -2625,7 +3179,52 @@
           "type": "object"
         }
       ],
-      "description": "An orbitable 3D view of one registered mesh artifact, colored by a field.",
+      "description": "An orbitable 3D view of a registered standard mesh or a CLIO FEA mesh with optional result fields.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "clio.message-draft.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "component": {
+              "const": "clio.message-draft.v1"
+            },
+            "kind": {
+              "enum": [
+                "email",
+                "slack",
+                "text"
+              ],
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "versions": {
+              "items": {
+                "$ref": "#/$defs/MessageDraftVersion"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "component",
+            "kind",
+            "versions"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Editable alternatives for an email, chat message, or text, with copy and open actions.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2710,6 +3309,59 @@
       "type": "object",
       "unevaluatedProperties": false
     },
+    "clio.raster-viewport.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "band": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "colormap": {
+              "enum": [
+                "viridis",
+                "magma",
+                "plasma",
+                "cividis",
+                "turbo",
+                "grayscale"
+              ],
+              "type": "string"
+            },
+            "component": {
+              "const": "clio.raster-viewport.v1"
+            },
+            "rasterUri": {
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "unit": {
+              "type": "string"
+            },
+            "variable": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "component",
+            "rasterUri"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "An interactive viewport for a registered two-dimensional grid, with sampled values, colour scale, and region reference.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
     "clio.slider.v1": {
       "allOf": [
         {
@@ -2732,6 +3384,9 @@
             "min": {
               "type": "number"
             },
+            "range": {
+              "type": "boolean"
+            },
             "step": {
               "type": "number"
             },
@@ -2739,7 +3394,19 @@
               "type": "string"
             },
             "value": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+              "oneOf": [
+                {
+                  "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+                },
+                {
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "type": "array"
+                }
+              ]
             }
           },
           "required": [
@@ -2752,7 +3419,7 @@
           "type": "object"
         }
       ],
-      "description": "A fractional-step numeric control for a physical parameter, with a typed value box.",
+      "description": "A fractional-step numeric control, or a two-value range, with typed value boxes.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2791,6 +3458,131 @@
         }
       ],
       "description": "A single labeled state, e.g. a running step.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "clio.steps.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "baseAmount": {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            "component": {
+              "const": "clio.steps.v1"
+            },
+            "progress": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue"
+            },
+            "scaleLabel": {
+              "type": "string"
+            },
+            "steps": {
+              "items": {
+                "$ref": "#/$defs/GuideStep"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "type": "array"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "component",
+            "title",
+            "steps"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "An interactive protocol or recipe with checkable steps, timers, and scaled quantities.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "clio.weather.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "component": {
+              "const": "clio.weather.v1"
+            },
+            "condition": {
+              "type": "string"
+            },
+            "daily": {
+              "items": {
+                "$ref": "#/$defs/WeatherDay"
+              },
+              "maxItems": 45,
+              "type": "array"
+            },
+            "hourly": {
+              "items": {
+                "$ref": "#/$defs/WeatherHour"
+              },
+              "maxItems": 240,
+              "type": "array"
+            },
+            "location": {
+              "type": "string"
+            },
+            "observedAt": {
+              "description": "ISO 8601 local date-time with an explicit UTC offset or Z.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d+)?)?(?:Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "temperature": {
+              "type": "number"
+            },
+            "temperatureUnit": {
+              "enum": [
+                "C",
+                "F"
+              ],
+              "type": "string"
+            },
+            "timeZone": {
+              "type": "string"
+            },
+            "windSpeed": {
+              "type": "number"
+            },
+            "windUnit": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "component",
+            "location",
+            "timeZone",
+            "observedAt",
+            "condition",
+            "temperature",
+            "temperatureUnit",
+            "source"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Current weather and hourly or daily forecasts for a field site or location.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2885,7 +3677,7 @@
       "unevaluatedProperties": false
     }
   },
-  "description": "The 32 CLIO scientific-agent A2UI 0.9.1 components, in official catalog-file style.",
+  "description": "CLIO scientific-agent A2UI components, including interactive data views and widgets.",
   "functions": {
     "and": {
       "description": "Performs a logical AND operation on a list of boolean values.",

@@ -75,12 +75,17 @@ export function maplibreWorkerPlugin(): Plugin {
         this.emitFile({ type: 'asset', fileName: `assets/${name}`, source });
       }
     },
-    // Dev server: serve the same files at the same path. Registered directly
-    // (not returned) so it runs ahead of vite's internal middleware — there
-    // is no real file at this path in the source tree to conflict with.
+    // Dev server: maplibre-gl's prebundled entry uses a URL beside itself in
+    // `/node_modules/.vite/deps/`, while an unbundled entry and production
+    // chunks use `/assets/`. Serve both paths ahead of vite's internal
+    // middleware; neither has a real source-tree file to conflict with.
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const name = req.url?.startsWith('/assets/') ? req.url.slice('/assets/'.length) : undefined;
+        const pathname = req.url?.split('?')[0];
+        const prefix = ['/assets/', '/node_modules/.vite/deps/'].find((candidate) =>
+          pathname?.startsWith(candidate),
+        );
+        const name = prefix ? pathname?.slice(prefix.length) : undefined;
         const file = name && (WORKER_FILE_NAMES as readonly string[]).includes(name)
           ? readWorkerFiles().get(name)
           : undefined;

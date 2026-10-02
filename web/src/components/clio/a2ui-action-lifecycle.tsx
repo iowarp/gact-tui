@@ -31,31 +31,34 @@ function lifecycleStatusValue(status: A2UIActionLifecycle['status']): ClioStatus
 }
 
 function lifecycleLabel(lifecycle: A2UIActionLifecycle): string {
+  const name = lifecycle.action_name === 'approval.respond'
+    ? 'Decision'
+    : lifecycle.action_name === 'agent.submit' ? 'Selection' : lifecycle.action_name;
   switch (lifecycle.status) {
     case 'received':
-      return `${lifecycle.action_name} received by the agent`;
+      return `${name} received by the agent`;
     case 'delivered':
-      return `${lifecycle.action_name} delivered to the agent's turn`;
+      return `${name} delivered to the agent's turn`;
     case 'consumed':
-      return `${lifecycle.action_name} applied`;
+      return `${name} recorded`;
     case 'failed':
       return lifecycle.reason
-        ? `${lifecycle.action_name} failed: ${lifecycle.reason}`
-        : `${lifecycle.action_name} failed`;
+        ? `${name} failed: ${lifecycle.reason}`
+        : `${name} failed`;
     case 'duplicate':
-      return `${lifecycle.action_name} ignored as a duplicate`;
+      return `${name} ignored as a duplicate`;
     case 'unknown':
-      return `${lifecycle.action_name} status unknown`;
+      return `${name} status unknown`;
     default: {
       const unhandled: never = lifecycle.status;
       void unhandled;
-      return `${lifecycle.action_name} status unknown`;
+      return `${name} status unknown`;
     }
   }
 }
 
 export function ClioA2UIActionLifecycle({ lifecycle }: { lifecycle?: A2UIActionLifecycle }) {
-  if (!lifecycle) return null;
+  if (!lifecycle || lifecycle.action_name === 'VALIDATION_FAILED') return null;
   return (
     <div aria-live="polite" className="border-t px-4 py-2 text-xs">
       <ClioStatus label={lifecycleLabel(lifecycle)} value={lifecycleStatusValue(lifecycle.status)} />

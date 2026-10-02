@@ -23,7 +23,15 @@ interface HeldDraft {
 }
 
 function emptyDraft(sessionId: string): HeldDraft {
-  return { annotations: EMPTY_ANNOTATIONS, references: EMPTY_REFERENCES, sessionId, value: '' };
+  let value = '';
+  if (typeof window !== 'undefined') {
+    try {
+      value = window.sessionStorage.getItem(`clio:composer-draft:${sessionId}`) ?? '';
+    } catch {
+      // Private browsing can deny storage; the in-memory draft still works.
+    }
+  }
+  return { annotations: EMPTY_ANNOTATIONS, references: EMPTY_REFERENCES, sessionId, value };
 }
 
 /**
@@ -52,7 +60,16 @@ export function useComposerDraft(sessionId: string): ComposerDraft {
       })),
     [sessionId],
   );
-  const onValueChange = useCallback((value: string) => patch({ value }), [patch]);
+  const onValueChange = useCallback((value: string) => {
+    patch({ value });
+    try {
+      const key = `clio:composer-draft:${sessionId}`;
+      if (value) window.sessionStorage.setItem(key, value);
+      else window.sessionStorage.removeItem(key);
+    } catch {
+      // The current tab retains the draft even if browser storage is unavailable.
+    }
+  }, [patch, sessionId]);
   const onReferencesChange = useCallback(
     (references: readonly InlineReferenceSelection[]) => patch({ references }),
     [patch],

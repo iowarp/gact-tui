@@ -15,9 +15,8 @@ function fakeMap(canvas: HTMLCanvasElement) {
   let renderListener: (() => void) | undefined;
   return {
     getCanvas: vi.fn().mockReturnValue(canvas),
-    once: vi.fn((type: 'render', listener: () => void) => {
-      expect(type).toBe('render');
-      renderListener = listener;
+    once: vi.fn((type: 'render' | 'remove', listener: () => void) => {
+      if (type === 'render') renderListener = listener;
     }),
     triggerRepaint: vi.fn(() => {
       // Simulates the browser firing the render callback once the forced
@@ -52,8 +51,8 @@ describe('mapPngBlob', () => {
     let renderListener: (() => void) | undefined;
     const map = {
       getCanvas: vi.fn().mockReturnValue(canvas),
-      once: vi.fn((_type: 'render', listener: () => void) => {
-        renderListener = listener;
+      once: vi.fn((type: 'render' | 'remove', listener: () => void) => {
+        if (type === 'render') renderListener = listener;
       }),
       triggerRepaint: vi.fn(),
     };
@@ -80,5 +79,16 @@ describe('mapPngBlob', () => {
 
     await expect(mapPngBlob(map)).rejects.toThrow(/PNG export failed/u);
     toBlobSpy.mockRestore();
+  });
+
+  it('rejects when the WebGL context is lost before a render', async () => {
+    const canvas = document.createElement('canvas');
+    const map = fakeMap(canvas);
+    map.triggerRepaint.mockImplementation(() => undefined);
+    const pending = mapPngBlob(map);
+
+    canvas.dispatchEvent(new Event('webglcontextlost'));
+
+    await expect(pending).rejects.toThrow(/graphics context was lost/u);
   });
 });

@@ -21,7 +21,8 @@ import { SelectionActionsProvider } from './selection-actions';
  * toolbar this component owns, not the renderers underneath it.
  */
 
-const SAMPLE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60"><text>diagram</text></svg>';
+const SAMPLE_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60"><text>diagram</text></svg>';
 
 vi.mock('@/components/mermaidcn/mermaid-preview', () => ({
   MermaidPreview: ({
@@ -109,12 +110,20 @@ describe('ClioMermaidDiagram', () => {
     expect(screen.getByText(SOURCE)).toBeInTheDocument(); // the mocked MermaidPreview's own chart text
     expect(screen.queryByText('Mermaid source')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('radio', { name: 'Show Mermaid source' }));
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Diagram view' }));
+    const sourceOption = screen.getByRole('menuitemradio', { name: 'Mermaid source' });
+    fireEvent.pointerMove(sourceOption);
+    fireEvent.click(sourceOption);
 
     expect(screen.getByText('Mermaid source')).toBeInTheDocument();
     expect(document.querySelector('[data-code]')).toHaveAttribute('data-code', SOURCE);
 
-    await user.click(screen.getByRole('radio', { name: 'Show rendered diagram' }));
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Diagram view' }));
+    const renderOption = screen.getByRole('menuitemradio', { name: 'Rendered diagram' });
+    fireEvent.pointerMove(renderOption);
+    fireEvent.click(renderOption);
     expect(screen.queryByText('Mermaid source')).not.toBeInTheDocument();
   });
 
@@ -136,9 +145,11 @@ describe('ClioMermaidDiagram', () => {
     ) {
       callback(new Blob(['png-bytes'], { type: 'image/png' }));
     });
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
-      (() => ({ drawImage: vi.fn(), fillRect: vi.fn(), fillStyle: '' })) as unknown as typeof HTMLCanvasElement.prototype.getContext,
-    );
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => ({
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: '',
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext);
     class FakeImage {
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
@@ -154,8 +165,12 @@ describe('ClioMermaidDiagram', () => {
     // Not `.toBeEnabled()`: a Radix menu item is a `div[role=menuitem]`, not a
     // form control, so jest-dom's form-control disabled check never applies —
     // Radix's own `data-disabled` attribute is the real signal here.
-    expect(await screen.findByRole('menuitem', { name: 'SVG image' })).not.toHaveAttribute('data-disabled');
-    expect(screen.getByRole('menuitem', { name: 'PNG image' })).not.toHaveAttribute('data-disabled');
+    expect(await screen.findByRole('menuitem', { name: 'SVG image' })).not.toHaveAttribute(
+      'data-disabled',
+    );
+    expect(screen.getByRole('menuitem', { name: 'PNG image' })).not.toHaveAttribute(
+      'data-disabled',
+    );
     selectMenuItem(screen.getByRole('menuitem', { name: 'SVG image' }));
     expect(await capturedBlobs.at(-1)!.text()).toBe(SAMPLE_SVG);
 
@@ -170,7 +185,7 @@ describe('ClioMermaidDiagram', () => {
     await waitFor(() => expect(capturedBlobs.at(-1)?.type).toBe('image/png'));
   });
 
-  it('copies the Mermaid source to the clipboard through the toolbar\'s one copy affordance', async () => {
+  it("copies the Mermaid source to the clipboard through the toolbar's one copy affordance", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     // `Object.defineProperty`, not `Object.assign`: `userEvent.setup()` (used
@@ -212,7 +227,11 @@ describe('ClioMermaidDiagram', () => {
     render(
       wrap(
         <ComposerHarness>
-          <ClioMermaidDiagram dataUri="artifact://artifact_pipeline01" source={SOURCE} title="Pipeline" />
+          <ClioMermaidDiagram
+            dataUri="artifact://artifact_pipeline01"
+            source={SOURCE}
+            title="Pipeline"
+          />
         </ComposerHarness>,
       ),
     );

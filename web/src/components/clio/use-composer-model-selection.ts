@@ -65,5 +65,7 @@ export function useComposerModelSelection(
       authoritativeModel: model,
     });
 
-  return { selectedOption, selectedTransport, selectModel };
+  // The default model can resolve to one half of a multi-transport provider
+  // without a local picker action. Send the transport shown in the chip.
+  return { selectedOption, selectedTransport: selectedOption?.transport ?? selectedTransport, selectModel };
 }

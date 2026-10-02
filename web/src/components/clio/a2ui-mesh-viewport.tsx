@@ -1,14 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { BoxIcon, Link2Icon } from 'lucide-react';
+import { Link2Icon } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
-import { Button } from '@/components/ui/button';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
@@ -26,7 +19,8 @@ import { formatFieldValue } from './mesh-viewport-colormap';
 import { MeshLegend, type MeshLegendState } from './mesh-viewport-legend';
 import { composeSnapshot } from './mesh-viewport-snapshot';
 import { parsedMeshCache } from './mesh-viewport-cache';
-import { parseFeaMesh, type MeshField, type ParsedFeaMesh } from './mesh-viewport-mesh';
+import { type MeshField, type ParsedFeaMesh } from './mesh-viewport-mesh';
+import { parseMeshArtifact, type MeshFormat } from './mesh-viewport-formats';
 import { MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
 import {
   joinMeshSyncGroup,
@@ -39,7 +33,11 @@ import {
 } from './mesh-viewport-sync';
 import { downloadBlob, downloadBytes, filenameStemFromTitle } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
-import { SurfaceToolbar, type SurfaceCapabilities, type SurfaceExportFormat } from './surface-toolbar';
+import {
+  SurfaceToolbar,
+  type SurfaceCapabilities,
+  type SurfaceExportFormat,
+} from './surface-toolbar';
 
 export interface ClioMeshViewportProps {
   accessibility?: A2UIAccessibility;
@@ -47,7 +45,9 @@ export interface ClioMeshViewportProps {
   camera?: unknown;
   setCamera?: (value: MeshCameraState) => void;
   field?: string;
+  format?: MeshFormat;
   frame?: number;
+  materialUri?: string;
   meshUri: string;
   showField?: boolean;
   syncGroup?: string;
@@ -85,8 +85,11 @@ const STAGE_LABEL: Record<string, string> = {
   optimized: 'After optimization',
 };
 
-/** Every `clio.fea-mesh.v1` export is glTF binary (`mesh-viewport-mesh.ts` always loads it with `GLTFLoader`). */
-const MESH_MIME_TYPE = 'model/gltf-binary';
+const MESH_MIME_TYPE: Record<MeshFormat, string> = {
+  glb: 'model/gltf-binary', gltf: 'model/gltf+json', obj: 'model/obj', stl: 'model/stl',
+  ply: 'application/octet-stream', fbx: 'application/octet-stream', '3mf': 'model/3mf',
+  vtk: 'application/octet-stream', vtp: 'application/xml', drc: 'application/octet-stream',
+};
 
 /** An orbitable view of one registered mesh, colored, thresholded, and stepped by its fields. */
 export function ClioMeshViewport({
@@ -94,7 +97,9 @@ export function ClioMeshViewport({
   camera,
   setCamera,
   field,
+  format,
   frame = 0,
+  materialUri,
   meshUri,
   showField,
   syncGroup,
@@ -108,18 +113,22 @@ export function ClioMeshViewport({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const artifactId = artifactIdFromMeshUri(meshUri);
+  const materialArtifactId = materialUri ? artifactIdFromMeshUri(materialUri) : undefined;
   // The raw bytes are parsed and dropped; only the parsed mesh is kept, in the
   // byte-budgeted LRU (`mesh-viewport-cache.ts`), never in the query cache.
   const mesh = useQuery({
     enabled: Boolean(artifactId),
-    queryKey: queryKeys.key('artifact-mesh', settings.endpoint, artifactId),
+    queryKey: queryKeys.key('artifact-mesh', settings.endpoint, artifactId, format, materialArtifactId),
     queryFn: async ({ signal }) => {
-      const key = `${settings.endpoint}|${artifactId}`;
+      const key = `${settings.endpoint}|${artifactId}|${format ?? 'auto'}|${materialArtifactId ?? ''}`;
       const cached = parsedMeshCache.get(key);
       if (cached) return cached;
-      const parsedMesh = await parseFeaMesh(
-        await repository.readArtifactBytes(artifactId!, undefined, signal),
-      );
+      if (materialUri && !materialArtifactId) throw new Error('materialUri must name a registered artifact.');
+      const [bytes, materialBytes] = await Promise.all([
+        repository.readArtifactBytes(artifactId!, undefined, signal),
+        materialArtifactId ? repository.readArtifactBytes(materialArtifactId, undefined, signal) : Promise.resolve(undefined),
+      ]);
+      const parsedMesh = await parseMeshArtifact(bytes, format, materialBytes);
       parsedMeshCache.set(key, parsedMesh);
       return parsedMesh;
     },
@@ -192,6 +201,7 @@ export function ClioMeshViewport({
     if (!node || !parsed || !webgl) return;
     const scene = new MeshViewportScene(node);
     sceneRef.current = scene;
+    (node as HTMLDivElement & { __clioMeshCapture?: () => HTMLCanvasElement }).__clioMeshCapture = () => scene.capture();
     scene.setMesh(parsed, edgeColorForTheme());
     let userMoved = false;
     let writeTimer = 0;
@@ -257,6 +267,7 @@ export function ClioMeshViewport({
       applyRef.current = undefined;
       resetRef.current = undefined;
       sceneRef.current = undefined;
+      delete (node as HTMLDivElement & { __clioMeshCapture?: unknown }).__clioMeshCapture;
       scene.dispose();
     };
     // `fullscreen` forces a fresh scene (and WebGL context) on every toggle:
@@ -347,7 +358,8 @@ export function ClioMeshViewport({
       run: async () => {
         if (!artifactId) return;
         const bytes = await repository.readArtifactBytes(artifactId);
-        downloadBytes(bytes, MESH_MIME_TYPE, `${filenameStemFromTitle(heading)}.glb`);
+        const extension = (parsed?.sourceFormat ?? format ?? 'glb') as MeshFormat;
+        downloadBytes(bytes, MESH_MIME_TYPE[extension], `${filenameStemFromTitle(heading)}.${extension}`);
       },
     },
   ];
@@ -361,7 +373,7 @@ export function ClioMeshViewport({
       filters: [],
       previewColumns: [],
       previewRows: [],
-      query: { field, frame: frameIndex, meshUri, thresholdField, thresholdMax, thresholdMin },
+      query: { field, frame: frameIndex, meshUri, format: parsed?.sourceFormat ?? format, materialUri, thresholdField, thresholdMax, thresholdMin },
       zoneDescription: `the current view — ${[colorLabel, frameLabel].filter(Boolean).join(', ')}`,
     });
   };
@@ -370,6 +382,21 @@ export function ClioMeshViewport({
     buildReference: parsed ? buildReference : undefined,
     exportFormats,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
+    overflowContent: (
+      <>
+        <DropdownMenuItem disabled={!parsed} onSelect={() => resetRef.current?.()}>
+          <RetryIcon aria-hidden="true" />
+          Reset view
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="max-w-72 whitespace-normal text-xs text-muted-foreground"
+          disabled
+          onSelect={(event) => event.preventDefault()}
+        >
+          {description}
+        </DropdownMenuItem>
+      </>
+    ),
   };
 
   return (
@@ -378,19 +405,14 @@ export function ClioMeshViewport({
       data-slot="a2ui-mesh-viewport"
       style={typeof weight === 'number' ? { flex: `${weight}`, minHeight: 0 } : undefined}
     >
-      <Frame
+      <section
         {...a2uiAccessibilityProps(accessibility)}
         aria-label={a2uiAccessibilityLabel(accessibility) ?? `${heading} 3D view`}
-        className="group"
-        dense
+        className="group relative min-w-0"
         role="group"
       >
-        <FrameHeader className="flex-row items-center gap-2">
-          <BoxIcon aria-hidden="true" className="size-4 text-primary" />
-          <div className="min-w-0 flex-1">
-            <FrameTitle className="truncate">{heading}</FrameTitle>
-            <FrameDescription>{description}</FrameDescription>
-          </div>
+        <div className="mb-2 flex min-w-0 items-start gap-3">
+          <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{heading}</h3>
           {syncGroup ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -407,31 +429,26 @@ export function ClioMeshViewport({
               </TooltipContent>
             </Tooltip>
           ) : null}
-          <HeaderAction disabled={!parsed} label="Reset view" onClick={() => resetRef.current?.()}>
-            <RetryIcon aria-hidden="true" />
-          </HeaderAction>
           <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
-        </FrameHeader>
+        </div>
         <SurfaceFullScreenHost
           fullscreen={fullscreen}
           headerExtra={
-            <>
-              <HeaderAction disabled={!parsed} label="Reset view" onClick={() => resetRef.current?.()}>
-                <RetryIcon aria-hidden="true" />
-              </HeaderAction>
-              <SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} />
-            </>
+            <SurfaceToolbar
+              capabilities={{ ...toolbarCapabilities, fullScreen: undefined }}
+              floating={false}
+            />
           }
           onOpenChange={setFullscreen}
           title={heading}
         >
-          <FramePanel className="p-0">
+          <div className="min-w-0">
             {failure ? (
               <p className="p-4 text-sm text-destructive">3D view unavailable: {failure}</p>
             ) : (
               <div
                 aria-label={ariaSummary}
-                className="relative h-80 min-h-64 overflow-hidden"
+                className={fullscreen ? 'relative h-[calc(100dvh-6rem)] min-h-64 overflow-hidden' : 'relative h-80 min-h-64 overflow-hidden'}
                 onPointerLeave={() => setProbe(undefined)}
                 onPointerMove={onPointerMove}
                 ref={canvasRef}
@@ -456,56 +473,30 @@ export function ClioMeshViewport({
             )}
             {thresholdNeedsCells ? (
               <p
-                className="border-t px-3 py-2 text-xs text-muted-foreground"
+                className="mt-2 border-t py-2 text-xs text-muted-foreground"
                 data-reason="threshold_field_per_node"
               >
                 {`“${thresholdNeedsCells.label}” is per-node; a threshold needs per-element values, so the threshold is off.`}
               </p>
             ) : null}
             {missing.length ? (
-              <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+              <p className="mt-2 border-t py-2 text-xs text-muted-foreground">
                 This mesh has no {missing.join(' or ')} result, so that part of the view is off.
               </p>
             ) : null}
+            {parsed?.warnings?.map((warning) => (
+              <p className="mt-2 border-t py-2 text-xs text-muted-foreground" key={warning}>{warning}</p>
+            ))}
             {snapshotError ? (
-              <p className="border-t px-3 py-2 text-xs text-destructive">
+              <p className="mt-2 border-t py-2 text-xs text-destructive">
                 The image was not saved: {snapshotError}
               </p>
             ) : null}
             {legend ? <MeshLegend legend={legend} /> : null}
-          </FramePanel>
+          </div>
         </SurfaceFullScreenHost>
-      </Frame>
+      </section>
     </div>
-  );
-}
-
-function HeaderAction({
-  children,
-  disabled,
-  label,
-  onClick,
-}: {
-  children: React.ReactNode;
-  disabled: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          aria-label={label}
-          disabled={disabled}
-          onClick={onClick}
-          size="icon-xs"
-          variant="ghost"
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
   );
 }
 

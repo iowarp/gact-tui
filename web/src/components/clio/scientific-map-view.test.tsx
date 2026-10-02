@@ -7,8 +7,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  * cannot get from jsdom, so the rectangle-selection gesture (pointer capture,
  * pixel math, the drag-distance threshold) is tested against a light stand-in
  * that exposes the one surface this component actually uses: a forwarded
- * `MapRef` (`getMap().unproject(...)`, `boxZoom.disable()`) and an `onLoad`
- * callback. `a2ui-map-data-source.test.tsx` mocks this component out
+ * `MapRef` (`getMap().unproject(...)`, `boxZoom.disable()`) and the `useMap`
+ * provider hook. This deliberately models a reused map where `onLoad` does
+ * not fire again. `a2ui-map-data-source.test.tsx` mocks this component out
  * entirely for the same reason; this file is the map view's own coverage.
  */
 /**
@@ -23,8 +24,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const fakeMap = vi.hoisted(() => {
   const sources = new Map<string, { type: string; data?: unknown; setData: (data: unknown) => void }>();
   const layers = new Map<string, { id: string; type: string; source: string; paint?: unknown }>();
-  return {
+  const canvas = {
+    style: { cursor: '' },
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
+  const map = {
     boxZoom: { disable: vi.fn() },
+    getCanvas: vi.fn(() => canvas),
+    queryRenderedFeatures: vi.fn((): unknown[] => []),
     unproject: vi.fn((point: [number, number]) => ({ lat: point[1] / 10, lng: point[0] / 10 })),
     isStyleLoaded: vi.fn(() => true),
     getSource: vi.fn((id: string) => sources.get(id)),
@@ -49,6 +57,7 @@ const fakeMap = vi.hoisted(() => {
     __sources: sources,
     __layers: layers,
   };
+  return { ...map, mapRef: { getMap: () => map } };
 });
 const capturedMapProps = vi.hoisted(() => ({ current: undefined as Record<string, unknown> | undefined }));
 
@@ -57,17 +66,11 @@ vi.mock('react-map-gl/maplibre', async () => {
   const MapMock = react.forwardRef(function MapMock(
     props: {
       children?: ReactNode;
-      onLoad?: (event: { target: typeof fakeMap }) => void;
     } & Record<string, unknown>,
     ref: React.Ref<unknown>,
   ) {
     capturedMapProps.current = props;
     react.useImperativeHandle(ref, () => ({ getMap: () => fakeMap }));
-    react.useEffect(() => {
-      props.onLoad?.({ target: fakeMap });
-      // Intentionally fires once, mirroring maplibre's own single 'load' event.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
     return react.createElement('div', { 'data-testid': 'fake-map' }, props.children);
   });
   return {
@@ -76,6 +79,7 @@ vi.mock('react-map-gl/maplibre', async () => {
     Marker: (props: { children?: ReactNode }) => props.children,
     NavigationControl: () => null,
     Popup: (props: { children?: ReactNode }) => props.children,
+    useMap: () => ({ current: fakeMap.mapRef }),
   };
 });
 
@@ -109,7 +113,7 @@ afterEach(() => {
 });
 
 describe('ClioScientificMapView zone selection', () => {
-  it('disables the default shift+drag box-zoom once the map loads', () => {
+  it('disables the default shift+drag box-zoom for a provider-supplied map', () => {
     render(<ClioScientificMapView onSelect={vi.fn()} points={POINTS} />);
     expect(fakeMap.boxZoom.disable).toHaveBeenCalledTimes(1);
   });
@@ -204,8 +208,13 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
   }
 
   it('draws a single GeoJSON layer instead of one marker per point once past the threshold', () => {
+    const onMapInstance = vi.fn();
     const { container } = render(
-      <ClioScientificMapView onSelect={vi.fn()} points={manyPoints(151)} />,
+      <ClioScientificMapView
+        onMapInstance={onMapInstance}
+        onSelect={vi.fn()}
+        points={manyPoints(151)}
+      />,
     );
 
     // No per-point DOM marker buttons — the whole point set is one layer,
@@ -219,6 +228,8 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     const layer = fakeMap.__layers.get('clio-map-points-circles');
     expect(layer).toMatchObject({ id: 'clio-map-points-circles', source: 'clio-map-points', type: 'circle' });
     expect(capturedMapProps.current?.interactiveLayerIds).toEqual(['clio-map-points-circles']);
+    expect(capturedMapProps.current?.onLoad).toBeUndefined();
+    expect(onMapInstance).toHaveBeenCalledWith(expect.objectContaining({ getLayer: expect.any(Function) }));
   });
 
   it('still renders one marker per point below the threshold', () => {
@@ -255,6 +266,24 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: false } });
 
     expect(onSelect).toHaveBeenCalledWith('p42');
+  });
+
+  it('shows a pointer over a rendered event and clears it off the map layer', () => {
+    render(<ClioScientificMapView onSelect={vi.fn()} points={manyPoints(151)} />);
+
+    const mouseMove = fakeMap.on.mock.calls.find(([event]) => event === 'mousemove')?.[1] as
+      | ((event: { point: { x: number; y: number } }) => void)
+      | undefined;
+    expect(mouseMove).toBeDefined();
+    fakeMap.queryRenderedFeatures.mockReturnValueOnce([{}]);
+    mouseMove?.({ point: { x: 10, y: 20 } });
+    expect(fakeMap.getCanvas().style.cursor).toBe('pointer');
+
+    const mouseLeave = fakeMap.getCanvas().addEventListener.mock.calls.find(
+      ([type]) => type === 'mouseleave',
+    )?.[1] as (() => void) | undefined;
+    mouseLeave?.();
+    expect(fakeMap.getCanvas().style.cursor).toBe('');
   });
 
   it('ignores a layer click that is really a shift+drag zone release', () => {

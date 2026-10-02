@@ -1,5 +1,6 @@
 import type { ComposerMessagePart, ComposerRepository, WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
+import { sha256 } from '@noble/hashes/sha2.js';
 import {
   RESOURCE_READY_POLL_ATTEMPTS,
   RESOURCE_READY_POLL_BASE_MS,
@@ -45,7 +46,11 @@ async function uploadFingerprint(name: string, mediaType: string, blob: Blob): P
   fingerprintInput.set(prefix, 0);
   fingerprintInput.set(first, prefix.byteLength);
   fingerprintInput.set(last, prefix.byteLength + first.byteLength);
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', fingerprintInput));
+  // WebCrypto is unavailable on a LAN HTTP origin, which is a supported CLIO
+  // workspace address. The same SHA-256 input must produce the same resume ID.
+  const digest = globalThis.crypto?.subtle
+    ? new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', fingerprintInput))
+    : sha256(fingerprintInput);
   return `browser-${Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 }
 

@@ -15,6 +15,7 @@ export const fieldNameSchema = z.string().min(1).max(128);
 const distinct = (values: readonly unknown[]) =>
   new Set(values.map((value) => JSON.stringify(value))).size === values.length;
 const queryScalar = z.union([z.string(), z.number(), z.boolean()]);
+const queryBinding = z.object({ path: z.string().startsWith('/') }).strict();
 
 /**
  * `$defs/QueryFilter`: one predicate whose `value` rule depends on `op`. All
@@ -30,6 +31,7 @@ export const queryFilterSchema = z
   })
   .strict()
   .superRefine(({ op, value }, context) => {
+    if (queryBinding.safeParse(value).success) return;
     const valueRule = {
       eq: queryScalar,
       in: z.array(queryScalar).min(1).max(10_000),

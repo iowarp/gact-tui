@@ -66,7 +66,7 @@ test.afterEach(async ({ page }) => {
 async function revealSurface(page: Page) {
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toBeVisible();
-  const surfaceSection = page.locator('[aria-label^="Generated UI,"]');
+  const surfaceSection = page.locator('[aria-label^="Interactive surface,"]');
   await expect
     .poll(async () => {
       await conversation.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
@@ -78,9 +78,7 @@ async function revealSurface(page: Page) {
 
 test('renders a clio.chart.v1 scatter preset over inline data', async ({ page }) => {
   await page.goto(workspaceUrl);
-  await expect(
-    page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
   await expect(page.getByText('Live', { exact: true })).toBeVisible();
 
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-chart-demo`);
@@ -96,7 +94,9 @@ test('renders a clio.chart.v1 scatter preset over inline data', async ({ page })
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
   // Wait past "Loading rows…" so the card's final (taller) height is what
   // gets captured, not a mid-load layout.
-  await expect(surfaceSection.locator('[data-slot="a2ui-chart"]').getByText('9 rows')).toBeVisible();
+  await expect(
+    surfaceSection.locator('[data-slot="a2ui-chart"]').getByText('9 rows'),
+  ).toBeVisible();
 
   // Screenshot the surface card itself, not the whole page — the seeded
   // transcript around it (pending interactions, the input footer) is noise
@@ -112,9 +112,7 @@ test('the chart still renders in full screen, and again after exiting (#1551/#51
   page,
 }) => {
   await page.goto(workspaceUrl);
-  await expect(
-    page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
 
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-chart-demo`);
   expect(published.ok()).toBe(true);
@@ -156,20 +154,18 @@ test('links selection between clio.chart.v1 and clio.data-table.v1 sharing one p
   page,
 }) => {
   await page.goto(workspaceUrl);
-  await expect(
-    page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
   await expect(page.getByText('Live', { exact: true })).toBeVisible();
 
-  const published = await page.request.post(
-    `${fixtureEndpoint}/__test/a2ui-linked-selection-demo`,
-  );
+  const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-linked-selection-demo`);
   expect(published.ok()).toBe(true);
 
   const surfaceSection = await revealSurface(page);
   const chartView = surfaceSection.locator('[data-slot="a2ui-chart-view"]');
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
-  await expect(surfaceSection.locator('[data-slot="a2ui-chart"]').getByText('9 rows')).toBeVisible();
+  await expect(
+    surfaceSection.locator('[data-slot="a2ui-chart"]').getByText('9 rows'),
+  ).toBeVisible();
 
   // Click a table row (a real DOM element; the chart's own canvas marks are
   // not a reliable pixel click target headless) — its selection write goes

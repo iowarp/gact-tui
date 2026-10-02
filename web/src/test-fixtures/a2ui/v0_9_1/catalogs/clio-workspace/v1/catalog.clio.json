@@ -26,6 +26,9 @@
     "Column": {
       "kernel": "Column"
     },
+    "DateTimeInput": {
+      "kernel": "DateTimeInput"
+    },
     "Divider": {
       "kernel": "Divider"
     },
@@ -95,17 +98,29 @@
     "clio.mesh-viewport.v1": {
       "kernel": "clio.mesh-viewport.v1"
     },
+    "clio.message-draft.v1": {
+      "kernel": "clio.message-draft.v1"
+    },
     "clio.metric.v1": {
       "kernel": "clio.metric.v1"
     },
     "clio.progress.v1": {
       "kernel": "clio.progress.v1"
     },
+    "clio.raster-viewport.v1": {
+      "kernel": "clio.raster-viewport.v1"
+    },
     "clio.slider.v1": {
       "kernel": "clio.slider.v1"
     },
     "clio.status.v1": {
       "kernel": "clio.status.v1"
+    },
+    "clio.steps.v1": {
+      "kernel": "clio.steps.v1"
+    },
+    "clio.weather.v1": {
+      "kernel": "clio.weather.v1"
     },
     "clio.workflow.v1": {
       "kernel": "clio.workflow.v1"

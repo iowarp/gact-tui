@@ -13,13 +13,14 @@ import { useRepository } from '@/hooks/use-repository';
 import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
 import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
+import { AutoDatasetSelectionProvider } from '@/lib/a2ui/auto-dataset-selection';
 import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
 import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
-import { ClioA2UISurfaceCard } from './a2ui-surface-card';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
+import { A2uiRegionCaptureProvider } from './a2ui-region-capture';
 
 function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
@@ -114,7 +115,6 @@ const LEGACY_LOCAL_ACTIONS = new Set(['artifact.open', 'data.select', 'workflow.
 
 function ClioA2UISurfaceContent({
   actionLifecycle,
-  chrome,
   onLocalAction,
   onRemoteAction,
   surface,
@@ -129,7 +129,6 @@ function ClioA2UISurfaceContent({
    * all wire it). Rendered by the footer, `a2ui-action-lifecycle.tsx`.
    */
   actionLifecycle?: A2UIActionLifecycle;
-  chrome: 'framed' | 'bare';
   onLocalAction?: A2UILocalActionHandler;
   onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
@@ -142,7 +141,8 @@ function ClioA2UISurfaceContent({
     catalogs,
     isLoading: catalogsLoading,
   } = useA2uiCatalogRegistry(surface.session_id);
-  const [validationPostFailure, setValidationPostFailure] = useState<string>();
+  const [validationPostFailure, setValidationPostFailure] = useState<{ revision: number; message: string }>();
+  const [validationNotice, setValidationNotice] = useState<{ revision: number; message: string }>();
   const [localNotice, setLocalNotice] = useState<string>();
   const [localActionPending, setLocalActionPending] = useState(false);
   const [localActionStatus, setLocalActionStatus] = useState<string>();
@@ -191,7 +191,7 @@ function ClioA2UISurfaceContent({
       // 11); a local resolution problem (e.g. openArtifact's own failure,
       // dispatched the same way) is worded in this card and never posted.
       if (validationError.code !== 'VALIDATION_FAILED') {
-        setLocalNotice(validationError.message);
+        setValidationNotice({ revision: surface.revision, message: validationError.message });
         return;
       }
       // A render-time report (the Image/Video/AudioPlayer URL-scheme guard)
@@ -203,7 +203,7 @@ function ClioA2UISurfaceContent({
       // worded here too — a blocked click must never look like it silently
       // did nothing (S8 gact-tui#409 item 1, adversarial finding).
       if (!validationError.path) {
-        setLocalNotice(validationError.message);
+        setValidationNotice({ revision: surface.revision, message: validationError.message });
       }
       setValidationPostFailure(undefined);
       try {
@@ -219,12 +219,13 @@ function ClioA2UISurfaceContent({
       } catch (postError) {
         // S5 has not landed the error door server-side yet (a 404 today);
         // never an unhandled rejection — worded in the card, typed locally.
-        setValidationPostFailure(
-          postError instanceof Error ? postError.message : 'The request could not be completed.',
-        );
+        setValidationPostFailure({
+          revision: surface.revision,
+          message: postError instanceof Error ? postError.message : 'The request could not be completed.',
+        });
       }
     },
-    [repository, surface.id, surface.session_id],
+    [repository, surface.id, surface.revision, surface.session_id],
   );
   const { model, failure } = useA2uiSurfaceModel(
     surface,
@@ -244,7 +245,6 @@ function ClioA2UISurfaceContent({
     [model],
   );
   const surfaceKind = a2uiSurfaceKind(surface.messages);
-  const surfaceBusy = isPending || localActionPending || surface.state !== 'ready';
   const unresolvedCatalogId =
     failure && !catalogsLoading && registry.get(surface.catalog_id) === undefined
       ? surface.catalog_id
@@ -293,13 +293,12 @@ function ClioA2UISurfaceContent({
   }
   const renderedSurface = (
     <div
-      className={
-        chrome === 'bare'
-          ? '[--a2ui-tabs-content-padding:0]'
-          : 'p-3 [--a2ui-tabs-content-padding:0]'
-      }
+      className={cn(
+        'min-w-0 [--a2ui-tabs-content-padding:0]',
+        viewport === 'fullscreen' && 'min-h-full [--a2ui-map-height:calc(100dvh-12rem)]',
+      )}
       // The one marker every surface host shares, framed or bare, inline or
-      // full screen: `ClioA2UISurfaceCard`'s full-screen dialog (and
+      // full screen: the surface host's dialog (and
       // `pending-a2ui-response.tsx`'s own) portals this div's subtree
       // directly, bypassing each host's own `id`/`data-slot` wrapper, so a
       // CSS patch scoped to those misses the dialog (#1549 G9 #25). This
@@ -310,7 +309,11 @@ function ClioA2UISurfaceContent({
       <MarkdownContext.Provider value={renderMarkdown}>
         <A2uiUrlViolationProvider value={reportUrlViolation}>
           <A2uiReferenceSessionProvider value={surface.session_id}>
-            <A2uiSurface surface={model} />
+            <AutoDatasetSelectionProvider>
+              <A2uiRegionCaptureProvider surface={surface}>
+                <A2uiSurface surface={model} />
+              </A2uiRegionCaptureProvider>
+            </AutoDatasetSelectionProvider>
           </A2uiReferenceSessionProvider>
         </A2uiUrlViolationProvider>
       </MarkdownContext.Provider>
@@ -320,7 +323,7 @@ function ClioA2UISurfaceContent({
     <>
       <ClioA2UIActionLifecycle lifecycle={actionLifecycle} />
       {localActionPending || localActionStatus ? (
-        <div aria-live="polite" className="border-t px-4 py-2 text-xs">
+        <div aria-live="polite" className="py-2 text-xs">
           <ClioStatus
             label={
               localActionPending
@@ -331,65 +334,52 @@ function ClioA2UISurfaceContent({
           />
         </div>
       ) : null}
-      {localNotice ? (
-        <p className="border-t px-4 py-2 text-xs text-destructive">{localNotice}</p>
+      {localNotice ? <p className="py-2 text-xs text-destructive">{localNotice}</p> : null}
+      {validationNotice?.revision === surface.revision ? (
+        <p className="py-2 text-xs text-destructive">{validationNotice.message}</p>
       ) : null}
-      {validationPostFailure ? (
-        <p className="border-t px-4 py-2 text-xs text-destructive">
-          The service could not record the rendering problem: {validationPostFailure}
+      {validationPostFailure?.revision === surface.revision ? (
+        <p className="py-2 text-xs text-destructive">
+          The service could not record the rendering problem: {validationPostFailure.message}
         </p>
       ) : null}
-      {error ? (
-        <p className="border-t px-4 py-2 text-xs text-destructive">{error.message}</p>
-      ) : null}
+      {error ? <p className="py-2 text-xs text-destructive">{error.message}</p> : null}
     </>
   );
-  if (chrome === 'bare') {
-    return (
-      <section
-        aria-label={`Generated UI, ${surfaceKind}`}
-        className={cn(
-          'scroll-m-8 min-w-0 focus:outline-2 focus:outline-offset-2 focus:outline-primary',
-          viewport === 'fullscreen' &&
-            'min-h-full [--a2ui-map-height:calc(100dvh-12rem)]',
-        )}
-        id={a2uiSurfaceDomId(surface.id)}
-        tabIndex={-1}
-      >
-        {renderedSurface}
-        {surfaceFeedback}
-      </section>
-    );
-  }
+  const statusNotice =
+    isPending || surface.state !== 'ready' ? (
+      <div aria-live="polite" className="mb-2 flex items-center text-xs">
+        <ClioStatus
+          label={isPending ? 'Sending action' : surface.state.replaceAll('_', ' ')}
+          value={isPending ? 'running' : surfaceStatusValue(surface.state)}
+        />
+      </div>
+    ) : null;
+  const provenance = `Generated UI · ${surfaceKind} · revision ${surface.revision} · state ${surface.state.replaceAll('_', ' ')}`;
   return (
-    <ClioA2UISurfaceCard
-      domId={a2uiSurfaceDomId(surface.id)}
-      kind={surfaceKind}
-      status={
-        surfaceBusy ? (
-          <ClioStatus
-            label={isPending ? 'Sending action' : surface.state.replaceAll('_', ' ')}
-            value={isPending ? 'running' : surfaceStatusValue(surface.state)}
-          />
-        ) : undefined
-      }
+    <section
+      aria-description={provenance}
+      aria-label={`Interactive surface, ${surfaceKind}`}
+      className="scroll-m-8 min-w-0 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+      id={a2uiSurfaceDomId(surface.id)}
+      tabIndex={-1}
+      title={provenance}
     >
+      {statusNotice}
       {renderedSurface}
       {surfaceFeedback}
-    </ClioA2UISurfaceCard>
+    </section>
   );
 }
 
 export function ClioA2UISurface({
   actionLifecycle,
-  chrome = 'framed',
   onLocalAction,
   onRemoteAction,
   surface,
   viewport = 'inline',
 }: {
   actionLifecycle?: A2UIActionLifecycle;
-  chrome?: 'framed' | 'bare';
   onLocalAction?: A2UILocalActionHandler;
   onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
@@ -399,7 +389,6 @@ export function ClioA2UISurface({
     <SurfaceBoundary key={surface.id}>
       <ClioA2UISurfaceContent
         actionLifecycle={actionLifecycle}
-        chrome={chrome}
         onLocalAction={onLocalAction}
         onRemoteAction={onRemoteAction}
         surface={surface}

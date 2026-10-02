@@ -127,7 +127,8 @@ function ReferenceImage({
         id: 'original',
         label: 'Original image',
         run: () => {
-          if (objectUrl) downloadUrl(objectUrl, imageDownloadFilename(name, state.resolution?.media_type));
+          if (objectUrl)
+            downloadUrl(objectUrl, imageDownloadFilename(name, state.resolution?.media_type));
         },
       },
     ],
@@ -137,7 +138,12 @@ function ReferenceImage({
   return (
     <div className="group relative" data-slot="a2ui-media-image">
       <SurfaceToolbar capabilities={capabilities} />
-      <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={name}>
+      <SurfaceFullScreenHost
+        fullscreen={fullscreen}
+        headerExtra={<SurfaceToolbar capabilities={capabilities} floating={false} />}
+        onOpenChange={setFullscreen}
+        title={name}
+      >
         <img
           alt={label ?? ''}
           className={fullscreen ? 'max-h-full max-w-full object-contain' : 'max-w-full rounded-md'}

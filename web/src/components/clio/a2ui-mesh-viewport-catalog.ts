@@ -13,6 +13,8 @@ const LazyMeshViewport = lazy(() =>
 export const meshViewportSchema = z
   .object({
     meshUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u),
+    format: z.enum(['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', 'vtk', 'vtp', 'drc']).optional(),
+    materialUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
     title: CommonSchemas.DynamicString.optional(),
     field: CommonSchemas.DynamicString.optional(),
     showField: CommonSchemas.DynamicBoolean.optional(),
@@ -46,6 +48,8 @@ export const ClioMeshViewportCatalogComponent = createComponentImplementation(
         field: props.field,
         frame: props.frame,
         meshUri: props.meshUri,
+        format: props.format,
+        materialUri: props.materialUri,
         showField: props.showField,
         syncGroup: props.syncGroup,
         thresholdField: props.thresholdField,

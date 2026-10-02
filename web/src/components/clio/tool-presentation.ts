@@ -9,7 +9,18 @@ export interface ToolPresentation {
 
 /** Labels and summaries are authored by the provider's presentation contract. */
 export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
-  return { title: tool.title || tool.name, kind: 'tool' };
+  return {
+    title: isA2uiCatalogLookup(tool) ? 'Inspect component schema' : tool.title || tool.name,
+    kind: 'tool',
+  };
+}
+
+export function isA2uiCatalogLookup(tool: ToolInvocation): boolean {
+  if (tool.name !== 'load_skill') return false;
+  const subject = tool.presentation?.blocks.find(
+    (block) => block.id === tool.presentation?.subject,
+  );
+  return (subject?.label || subject?.text || '').startsWith('a2ui-catalog-');
 }
 
 export function getToolSummary(tool: ToolInvocation): string | undefined {
@@ -51,7 +62,9 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
 
 /** Compact operation label with the same qualifying subject used by the transcript row. */
 export function getToolActivityTitle(tool: ToolInvocation): string {
-  const action = tool.presentation?.action || tool.title || tool.name;
+  const action = isA2uiCatalogLookup(tool)
+    ? 'Inspect component schema'
+    : tool.presentation?.action || tool.title || tool.name;
   const subject = tool.presentation?.blocks.find(
     (block) =>
       block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),

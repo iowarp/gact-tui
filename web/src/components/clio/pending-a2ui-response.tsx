@@ -1,4 +1,9 @@
-import type { A2UIActionLifecycle, A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
+import type {
+  A2UIActionLifecycle,
+  A2UISurface,
+  PendingInteraction,
+  PendingInteractionResponse,
+} from '@clio/core/v3';
 import {
   AlertTriangleIcon,
   GripHorizontalIcon,
@@ -262,7 +267,6 @@ export function PendingA2UIResponse({
       {createPortal(
         <A2UISurfaceBody
           actionLifecycle={actionLifecycle}
-          chrome="bare"
           interaction={interaction}
           onLocalAction={onLocalAction}
           onRefetchSurface={onRefetchSurface}
@@ -279,7 +283,6 @@ export function PendingA2UIResponse({
 /** Distinguishes a pending read from a missing or cross-session surface. */
 function A2UISurfaceBody({
   actionLifecycle,
-  chrome = 'framed',
   interaction,
   onLocalAction,
   onRefetchSurface,
@@ -288,7 +291,6 @@ function A2UISurfaceBody({
   viewport = 'inline',
 }: {
   actionLifecycle?: A2UIActionLifecycle;
-  chrome?: 'framed' | 'bare';
   interaction: PendingInteraction;
   onLocalAction?: A2UILocalActionHandler;
   onRefetchSurface?: () => void;
@@ -329,7 +331,6 @@ function A2UISurfaceBody({
   return (
     <ClioA2UISurface
       actionLifecycle={actionLifecycle}
-      chrome={chrome}
       onLocalAction={onLocalAction}
       onRemoteAction={(message) =>
         onResponse(interaction, {

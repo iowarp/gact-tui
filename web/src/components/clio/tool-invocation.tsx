@@ -9,7 +9,7 @@ import { ActivityRow } from './activity-row';
 import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
 import { PresentationLink } from './presentation-link';
-import { getToolHeaderMetadata, getToolStatus } from './tool-presentation';
+import { getToolHeaderMetadata, getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
 import { withWorkflowPresentation, workflowDescriptor } from './workflow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 
@@ -51,8 +51,13 @@ export function ClioToolInvocation({
           icon={workflow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />}
           title={
             <span className="flex w-full min-w-0 items-center gap-1" data-slot="tool-action-label">
+              <span className="mr-1 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {workflow ? 'Workflow' : 'Tool'}
+              </span>
               <span className="shrink-0">
-                {presentedTool.presentation?.action || tool.title || tool.name}
+                {isA2uiCatalogLookup(presentedTool)
+                  ? 'Inspect component schema'
+                  : presentedTool.presentation?.action || tool.title || tool.name}
               </span>
               {subject ? (
                 <>

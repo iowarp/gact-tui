@@ -1,6 +1,6 @@
 import type { A2UISurface } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -83,6 +83,18 @@ function renderSurface(surface: A2UISurface) {
 }
 
 describe('ClioA2UISurface actions', () => {
+  it('renders the surface flush without a generated-UI card wrapper', async () => {
+    renderSurface(actionSurface('surface-flush', {}));
+
+    const surface = await screen.findByRole('region', { name: 'Interactive surface, Text' });
+    expect(surface).toHaveAttribute('id', 'a2ui-surface-surface-surface-flush');
+    expect(surface).not.toHaveClass('rounded-xl', 'border', 'bg-card');
+    expect(screen.queryByText('Generated UI')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Open generated UI full screen' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('renders a service-reported surface failure instead of a busy surface', () => {
     const surface = actionSurface('artifact.open', {});
     surface.state = 'failed';
@@ -115,6 +127,36 @@ describe('ClioA2UISurface actions', () => {
     const badge = (await screen.findByText('pending action')).closest('[data-slot="badge"]');
     expect(badge).not.toBeNull();
     expect(badge!.className).toContain('text-action');
+  });
+
+  it('shows a local action pending status once, inline with the surface', async () => {
+    const user = userEvent.setup();
+    let resolveAction!: (status: string) => void;
+    const onLocalAction = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveAction = resolve;
+        }),
+    );
+    const surface = actionSurface('data.select', {});
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={client}>
+        <A2uiSessionRegistryOwner sessionId={surface.session_id}>
+          <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} />
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Open result' }));
+
+    expect(onLocalAction).toHaveBeenCalledOnce();
+    expect(await screen.findByText('Applying action in this workspace')).toBeVisible();
+    expect(screen.getAllByText('Applying action in this workspace')).toHaveLength(1);
+
+    resolveAction('Selection applied');
+    expect(await screen.findByText('Selection applied')).toBeVisible();
   });
 
   it('contains an invalid historical surface without throwing through React', async () => {
@@ -381,15 +423,10 @@ describe('ClioA2UISurface actions', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Alice');
   });
 
-  it('scopes the TextField input/label styles to a marker present in both the inline and full-screen hosts (#1549 G9 #25)', async () => {
-    // The existing ChoicePicker CSS patch (web/src/index.css) is scoped to
-    // `[id^='a2ui-surface-']`, which the full-screen dialog never reaches:
-    // `ClioA2UISurfaceCard` keeps that id on the fixed inline section and
-    // portals `children` straight into the dialog, bypassing it entirely.
-    // The new TextField/Label styles (and that patch) scope instead to a
-    // `data-slot="a2ui-surface-root"` marker this file places directly on
-    // `renderedSurface` -- the one div common to every host -- so this
-    // proves the marker travels with the surface into the dialog too.
+  it('scopes TextField input and label styles to the inline surface root (#1549 G9 #25)', async () => {
+    // The catalog-wide ChoicePicker and TextField styles use the root marker
+    // that travels with the rendered A2UI component tree. Full-screen mode
+    // belongs to each data-view toolbar; plain input surfaces stay inline.
     const surfaceId = 'surface-text-styled';
     const surface: A2UISurface = {
       id: surfaceId,
@@ -413,11 +450,7 @@ describe('ClioA2UISurface actions', () => {
     renderSurface(surface);
     const inlineInput = await screen.findByLabelText('Name');
     expect(inlineInput.closest('[data-slot="a2ui-surface-root"]')).not.toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open generated UI full screen' }));
-    const dialog = screen.getByRole('dialog');
-    const fullscreenInput = within(dialog).getByLabelText('Name');
-    expect(fullscreenInput.closest('[data-slot="a2ui-surface-root"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open generated UI full screen' })).toBeNull();
   });
 
   it('disables a Button with a failing required check until input satisfies it', async () => {

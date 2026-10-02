@@ -24,7 +24,7 @@ describe('ClioA2UIActionLifecycle', () => {
   it.each([
     ['received', 'form.submit received by the agent'],
     ['delivered', "form.submit delivered to the agent's turn"],
-    ['consumed', 'form.submit applied'],
+    ['consumed', 'form.submit recorded'],
     ['duplicate', 'form.submit ignored as a duplicate'],
   ] as const)('renders words for the %s state', (status, expectedText) => {
     render(<ClioA2UIActionLifecycle lifecycle={lifecycle({ status })} />);
@@ -43,5 +43,12 @@ describe('ClioA2UIActionLifecycle', () => {
   it('never encodes status as a dot or colour alone', () => {
     render(<ClioA2UIActionLifecycle lifecycle={lifecycle({ status: 'failed' })} />);
     expect(screen.getByText(/form\.submit failed/u)).toBeVisible();
+  });
+
+  it('names approval and selection actions for a human reader', () => {
+    render(<ClioA2UIActionLifecycle lifecycle={lifecycle({ action_name: 'approval.respond', status: 'consumed' })} />);
+    render(<ClioA2UIActionLifecycle lifecycle={lifecycle({ action_name: 'agent.submit', status: 'consumed' })} />);
+    expect(screen.getByText('Decision recorded')).toBeVisible();
+    expect(screen.getByText('Selection recorded')).toBeVisible();
   });
 });

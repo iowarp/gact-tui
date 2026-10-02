@@ -9,12 +9,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // Vega (which probes a canvas for text metrics at import) estimates quietly.
 vi.hoisted(() => {
   HTMLCanvasElement.prototype.getContext = () => null;
+  const measure = HTMLElement.prototype.getBoundingClientRect;
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    if (this.getAttribute('data-slot') === 'a2ui-chart-view') {
+      return new DOMRect(0, 0, 640, 320);
+    }
+    return measure.call(this);
+  };
 });
 
 import type { View } from 'vega';
 import type { Result } from 'vega-embed';
 
-const repository = vi.hoisted(() => ({ artifactTableExport: vi.fn(), artifactTableQuery: vi.fn() }));
+const repository = vi.hoisted(() => ({
+  artifactTableExport: vi.fn(),
+  artifactTableQuery: vi.fn(),
+}));
 const embedded = vi.hoisted(() => ({ views: [] as View[] }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -92,6 +102,7 @@ afterEach(() => {
 
 describe('ClioChart', () => {
   it('draws a preset over inline rows as the named dataset "source"', async () => {
+    const user = userEvent.setup();
     const { container } = render(
       wrap(<ClioChart {...PRESET} componentId="ch1" data={ROWS} title="Loss" />),
     );
@@ -100,8 +111,24 @@ describe('ClioChart', () => {
     await waitFor(() => expect(container.querySelector('svg')).not.toBeNull());
     expect(view.data('source')).toHaveLength(4);
     expect(screen.getByText('Loss')).toBeInTheDocument();
-    expect(screen.getByText(/v over t, one line per run\. · 4 rows/u)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(
+      screen.getByRole('menuitem', { name: /v over t, one line per run\. · 4 rows/u }),
+    ).toBeInTheDocument();
     expect(container.querySelector('[data-renderer="svg"]')).not.toBeNull();
+  });
+
+  it('presents a chart title as plain typography without nested Frame panels', async () => {
+    const { container } = render(
+      wrap(<ClioChart {...PRESET} componentId="ch-content-first" data={ROWS} title="Loss" />),
+    );
+
+    await embeddedView();
+
+    const chart = container.querySelector('[data-slot="a2ui-chart"]');
+    expect(screen.getByRole('heading', { name: 'Loss' })).toBeVisible();
+    expect(chart?.querySelector('[data-slot="frame"]')).toBeNull();
+    expect(chart?.querySelector('[data-slot="frame-panel"]')).toBeNull();
   });
 
   it('draws the geoshape gallery fixture through the real embed path, no NaN coordinates (#1549 G4 review)', async () => {
@@ -329,8 +356,8 @@ describe('ClioChart', () => {
 
   it('selects a value via the keyboard-operable control, writing it as a real click would (#1533 #506 LOW)', async () => {
     // A brush/lasso drag has no keyboard equivalent, but a point selection
-    // does: a reui <Select> beside the chart lists the entity field's own
-    // distinct values, keyboard-navigable by construction (Radix Select).
+    // does: the chart's shared overflow lists the entity field's own distinct
+    // values in a keyboard-navigable radio submenu.
     const user = userEvent.setup();
     const setSelection = vi.fn();
     render(
@@ -338,9 +365,9 @@ describe('ClioChart', () => {
     );
     await embeddedView();
 
-    const trigger = await screen.findByRole('combobox', { name: 'Select a run by keyboard' });
-    await user.click(trigger);
-    const option = await screen.findByRole('option', { name: 'b' });
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Select a run by keyboard' }));
+    const option = await screen.findByRole('menuitemradio', { name: 'b' });
 
     // The chart -> data-model write is debounced by production design
     // (CHART_SELECTION_WRITE_DEBOUNCE_MS, chart-selection.ts), through a real
@@ -357,7 +384,8 @@ describe('ClioChart', () => {
     // popover open above is unaffected either way).
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      await user.click(option);
+      fireEvent.pointerMove(option);
+      fireEvent.click(option);
       await vi.advanceTimersByTimeAsync(CHART_SELECTION_WRITE_DEBOUNCE_MS);
     } finally {
       vi.useRealTimers();
@@ -381,67 +409,62 @@ describe('ClioChart', () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(setSelection).not.toHaveBeenCalled();
 
-    // Its own echo is not re-applied: the chart's store keeps the external state.
+    // The latest shared selection remains visible even when this chart was its source.
     rerender(
       wrap(<ClioChart {...props} selection={{ field: 'run', values: ['b'], source: 'ch1' }} />),
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(view.signal('sel')).toMatchObject({ run: ['a'] });
+    expect(view.signal('sel')).toMatchObject({ run: ['b'] });
   });
 
-  it('re-queries the brushed x range at full detail and offers a reset control', async () => {
-    repository.artifactTableQuery.mockImplementation((_id: string, request: { filter?: Array<{ column: string; op: string }> }) => {
-      const zoomed = (request.filter ?? []).some((entry) => entry.column === 't' && entry.op === 'range');
-      return Promise.resolve(
-        zoomed
-          ? {
-              columns: { run: ['a'], t: [0.4], v: [1.8] },
-              downsample: { mode: 'none' },
-              matchedRows: 1,
-              returnedRows: 1,
-              schema: [],
-              totalRows: 4,
-              truncated: false,
-            }
-          : {
-              columns: { run: ['a', 'a', 'b', 'b'], t: [0, 1, 0, 1], v: [1.5, 1.2, 2, 2.4] },
-              downsample: { mode: 'none' },
-              matchedRows: 4,
-              returnedRows: 4,
-              schema: [],
-              totalRows: 4,
-              truncated: false,
-            },
-      );
-    });
-    render(wrap(<ClioChart {...PRESET} componentId="ch9" dataUri="artifact://artifact_runs01" />));
+  it('box-selects rows independently and exposes manual zoom reset without refetching', async () => {
+    const user = userEvent.setup();
+    const setSelection = vi.fn();
+    repository.artifactTableQuery.mockImplementation(
+      () =>
+        Promise.resolve({
+          columns: { run: ['a', 'a', 'b', 'b'], t: [0, 1, 0, 1], v: [1.5, 1.2, 2, 2.4] },
+          downsample: { mode: 'none' },
+          matchedRows: 4,
+          returnedRows: 4,
+          schema: [],
+          totalRows: 4,
+          truncated: false,
+        }),
+    );
+    render(
+      wrap(
+        <ClioChart
+          {...PRESET}
+          componentId="ch9"
+          dataUri="artifact://artifact_runs01"
+          selection={{ field: 'run', source: 'table', values: ['a'] }}
+          setSelection={setSelection}
+        />,
+      ),
+    );
     const view = await embeddedView();
+    await waitFor(() => expect(() => view.signal('sel_box')).not.toThrow());
     await waitFor(() => expect(() => view.signal('sel_zoom')).not.toThrow());
+    await waitFor(() => expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1));
 
-    // What a real drag over the x axis produces: the pixel-space `<param>_x`
-    // signal, which vega-lite inverts through the x scale (chart-zoom.test.ts
-    // pins the exact resolved shape against the installed vega-lite).
-    view.signal('sel_zoom_x', [0, view.width()]);
+    view.signal('sel_box_x', [0, view.width()]);
+    view.signal('sel_box_y', [0, view.height()]);
     await view.runAsync();
 
-    await waitFor(
-      () =>
-        expect(repository.artifactTableQuery).toHaveBeenCalledWith(
-          'artifact_runs01',
-          expect.objectContaining({
-            filter: expect.arrayContaining([expect.objectContaining({ column: 't', op: 'range' })]),
-          }),
-          expect.anything(),
-        ),
-      { timeout: 2000 },
+    await waitFor(() =>
+      expect(setSelection).toHaveBeenCalledWith({ field: 'run', values: ['a', 'b'], source: 'ch9' }),
     );
+    expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/^Zoomed to/u)).not.toBeInTheDocument();
 
-    expect(await screen.findByText(/^Zoomed to t/u)).toBeInTheDocument();
-    const resetButton = screen.getByRole('button', { name: /reset zoom/iu });
-    // `fireEvent` (not a bare DOM `.click()`) wraps the resulting state
-    // update in `act(...)` itself (#516 review item 16's act() warning).
-    fireEvent.click(resetButton);
-    await waitFor(() => expect(screen.queryByText(/^Zoomed to t/u)).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Reset zoom' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Zoom to selection' }));
+    const resetZoom = await screen.findByRole('button', { name: 'Reset zoom' });
+    expect(resetZoom).toBeVisible();
+    await user.click(resetZoom);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Reset zoom' })).not.toBeInTheDocument());
+    expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1);
   });
 
   it("layers the viewer's own filter onto the producer's dataQuery, never replacing it", async () => {
@@ -523,7 +546,7 @@ describe('ClioChart', () => {
     // reached via the expand control and sent with the message.
     const attached = screen.getByRole('list', { name: 'Attached selections' });
     expect(attached).toHaveTextContent('Loss over time');
-    expect(attached).toHaveTextContent('the whole view (4 rows)');
+    expect(attached).toHaveTextContent('the filtered current view (4 rows)');
     expect(attached.textContent).not.toContain('artifact_runs01');
 
     await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));

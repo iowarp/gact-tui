@@ -5,6 +5,87 @@ type McpAppBlock = Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>
 
 export type SpecialMessageExecutionMode = 'plan' | 'deep_research';
 
+/** Keep a revised surface at its first transcript position, once per session. */
+export function foldA2UIRevisionBlocks(messages: readonly DomainMessage[]): DomainMessage[] {
+  const placed = new Set<string>();
+  return messages.map((message) => ({
+    ...message,
+    blocks: message.blocks.filter((block) => {
+      if (block.type !== 'a2ui') return true;
+      const key = `${message.session_id}\u0000${block.surface_id}`;
+      if (placed.has(key)) return false;
+      placed.add(key);
+      return true;
+    }),
+  }));
+}
+
+function actionContextFromText(text: string): Record<string, unknown> | undefined {
+  const json = /Structured context:\s*(\{[^\n]*\})/u.exec(text)?.[1];
+  if (!json) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(json);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function actionChoiceLabel(context: Record<string, unknown>): string {
+  if (typeof context.approved === 'boolean') {
+    return context.approved ? 'Approval given' : 'Approval declined';
+  }
+  const selectedId = context.selected_id;
+  const selectedName = context.equipment ?? context.name ?? context.label;
+  if ((typeof selectedId === 'string' || typeof selectedId === 'number') &&
+    String(selectedId).length <= 60) {
+    const name = typeof selectedName === 'string' && selectedName.length <= 60
+      ? `${selectedName} (${selectedId})`
+      : String(selectedId);
+    return `Selected: ${name}`;
+  }
+  const entries = Object.entries(context);
+  if (entries.length !== 1) return 'Choice sent';
+  const [key, value] = entries[0]!;
+  const readableValue = Array.isArray(value)
+    ? value.length <= 5 && value.every((item) => typeof item === 'string' || typeof item === 'number')
+      ? value.join(', ')
+      : undefined
+    : typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+  if (!readableValue || readableValue.length > 100) return 'Choice sent';
+  const readableKey = key.replaceAll('_', ' ');
+  return `${readableKey[0]?.toUpperCase() ?? ''}${readableKey.slice(1)}: ${readableValue}`;
+}
+
+/** Keep protocol receipts out of the conversation and name choices plainly. */
+export function projectA2UIActionMessages(messages: readonly DomainMessage[]): DomainMessage[] {
+  return messages
+    .filter((message) =>
+      !(message.role === 'assistant' && !message.turn_id &&
+        message.id.startsWith('msg_a2ui_a2ui_action_')),
+    )
+    .map((message) => {
+      if (message.role !== 'user') return message;
+      const context = message.metadata?.a2ui_action_context;
+      const text = message.blocks.filter((block) => block.type === 'text').map((block) => block.text).join('\n');
+      if (!message.metadata?.a2ui_action && !text.startsWith('A2UI event: ')) return message;
+      const choices = context && typeof context === 'object' && !Array.isArray(context)
+        ? context as Record<string, unknown>
+        : actionContextFromText(text);
+      const label = choices ? actionChoiceLabel(choices) : 'Action sent';
+      return {
+        ...message,
+        blocks: message.blocks.map((block) =>
+          block.type === 'text'
+            ? { ...block, text: label }
+            : block,
+        ),
+      };
+    });
+}
+
 /** Return the non-default execution mode recorded when a human message was submitted. */
 export function specialMessageExecutionMode(
   message: DomainMessage,

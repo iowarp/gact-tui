@@ -1,6 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
@@ -127,6 +127,7 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.sessions(workspaceId, signal),
     enabled: Boolean(workspaceId),
     placeholderData: reloadSessions,
+    refetchIntervalInBackground: true,
     refetchInterval: (query) => {
       const current = query.state.data?.find((item) => item.id === sessionId);
       return current && isSessionActive(current.state) ? ACTIVE_SESSION_POLL_MS : false;
@@ -151,7 +152,39 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.transcript(sessionId, signal),
     enabled: Boolean(sessionId),
     placeholderData: reloadTranscript,
+    // A provider can finish without emitting visible stream chunks. Keep the
+    // active transcript current even if the SSE completion frame is missed.
+    refetchIntervalInBackground: true,
+    refetchInterval: () => {
+      const current = sessions.data?.find((item) => item.id === sessionId);
+      return current && isSessionActive(current.state) ? 5_000 : false;
+    },
   });
+  const { refetch: refetchTranscript } = transcript;
+  const previousSessionState = useRef<{ sessionId: string; active: boolean } | null>(null);
+  const terminalReconciliation = useRef('');
+  useEffect(() => {
+    const current = sessions.data?.find((item) => item.id === sessionId);
+    if (!current) return;
+    const wasActive =
+      previousSessionState.current?.sessionId === sessionId &&
+      previousSessionState.current.active;
+    const active = isSessionActive(current.state);
+    previousSessionState.current = { sessionId, active };
+    // A terminal session snapshot can arrive even if its final stream frame did not.
+    // Reconcile the transcript before active-session polling stops.
+    const completionKey = `${sessionId}:${current.updated_at}:${current.message_count ?? 0}`;
+    const missingMessages =
+      !active && (current.message_count ?? 0) > (transcript.data?.messages.length ?? 0);
+    if (
+      (wasActive && !active) ||
+      current.state === 'failed' ||
+      (missingMessages && terminalReconciliation.current !== completionKey)
+    ) {
+      terminalReconciliation.current = completionKey;
+      void refetchTranscript();
+    }
+  }, [refetchTranscript, sessionId, sessions.data, transcript.data?.messages.length]);
   const sessionArtifacts = useQuery({
     queryKey: queryKeys.key('session-artifacts', settings.endpoint, sessionId),
     queryFn: ({ signal }) => repository.sessionArtifacts(sessionId, signal),

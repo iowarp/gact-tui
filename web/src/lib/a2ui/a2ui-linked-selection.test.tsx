@@ -1,6 +1,7 @@
 import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // jsdom has no 2D canvas: charts draw with Vega's SVG renderer, and Vega
@@ -140,7 +141,7 @@ function buildSurface(extra: ExtraComponents = NO_EXTRA) {
   return { surface, toServer };
 }
 
-function renderSurface(extra: ExtraComponents = NO_EXTRA) {
+async function renderSurface(extra: ExtraComponents = NO_EXTRA) {
   const built = buildSurface(extra);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -150,7 +151,11 @@ function renderSurface(extra: ExtraComponents = NO_EXTRA) {
   );
   // The map's locations list starts closed; these tests read and drive the
   // map's selection through its pressed list rows.
-  fireEvent.click(screen.getByRole('button', { name: 'Show the locations list' }));
+  const user = userEvent.setup();
+  const map = screen.getByRole('group', { name: 'Locations map' });
+  await user.click(within(map).getByRole('button', { name: 'More' }));
+  const listToggle = screen.getByRole('menuitemcheckbox', { name: 'Show locations list' });
+  await user.click(listToggle);
   return built;
 }
 
@@ -183,7 +188,7 @@ afterEach(() => {
 
 describe('linked selection on one surface', () => {
   it('carries a table click to the chart and the map without a server call', async () => {
-    const { surface, toServer } = renderSurface();
+    const { surface, toServer } = await renderSurface();
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const view = await chartView();
 
@@ -212,7 +217,7 @@ describe('linked selection on one surface', () => {
   }, 20_000);
 
   it('carries a chart selection to the table and the map', async () => {
-    const { surface, toServer } = renderSurface();
+    const { surface, toServer } = await renderSurface();
     const view = await chartView();
 
     // What a click on run "a" does inside Vega-Lite.
@@ -239,7 +244,7 @@ describe('linked selection on one surface', () => {
   }, 20_000);
 
   it('carries a map click to the chart', async () => {
-    const { surface } = renderSurface();
+    const { surface } = await renderSurface();
     const view = await chartView();
 
     fireEvent.click(screen.getByRole('button', { name: /Run B/u }));
@@ -258,7 +263,7 @@ describe('linked selection on one surface', () => {
   }, 20_000);
 
   it('follows a selection the producer writes into the data model', async () => {
-    const { surface } = renderSurface();
+    const { surface } = await renderSurface();
     const view = await chartView();
 
     act(() => {
@@ -271,7 +276,7 @@ describe('linked selection on one surface', () => {
   }, 20_000);
 
   it('writes a selectData call to its path, where every bound component follows it', async () => {
-    const { surface, toServer } = renderSurface(selectDataButton({}));
+    const { surface, toServer } = await renderSurface(selectDataButton({}));
     const view = await chartView();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select run a' }));
@@ -289,7 +294,7 @@ describe('linked selection on one surface', () => {
   }, 20_000);
 
   it('refuses a selectData call aimed at another surface and writes nothing', async () => {
-    const { surface } = renderSurface(selectDataButton({ surfaceId: 'elsewhere' }));
+    const { surface } = await renderSurface(selectDataButton({ surfaceId: 'elsewhere' }));
     const onError = vi.fn();
     surface.onError.subscribe(onError);
 

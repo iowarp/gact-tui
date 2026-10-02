@@ -115,6 +115,7 @@ export function MermaidPreview({
       ariaLabel="Interactive Mermaid diagram"
       className={cn('min-h-0', className)}
       error={renderError}
+      fitPadding={0.8}
       imageSrc={imageSrc}
       controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
         <div className="flex min-h-9 items-center justify-between gap-2 border-b px-2 py-1">

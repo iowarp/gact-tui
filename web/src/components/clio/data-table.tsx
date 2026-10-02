@@ -7,9 +7,7 @@ import type {
   Updater,
 } from '@tanstack/react-table';
 import { useTable } from '@tanstack/react-table';
-import { Table2Icon } from 'lucide-react';
 import { useMemo } from 'react';
-import { Badge as ReUIBadge } from '@/components/reui/badge';
 import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
 import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
 import {
@@ -28,6 +26,7 @@ import {
 import { ClioDataGridTable } from './data-grid-table';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 export type ClioDataColumn = string | { key: string; label: string };
 export type ClioDataRow = Record<string, unknown>;
@@ -84,7 +83,7 @@ function ClioColumnValueCell<TData extends ClioDataRow>({
       className={cn('block truncate text-xs', typeof value === 'number' && 'tabular-nums')}
       title={exactCell(value)}
     >
-      {formatCell(value)}
+      {formatCell(value, column.id)}
     </span>
   );
 }
@@ -112,6 +111,10 @@ export interface ClioDataTableServerControl {
   onFilterChange: (column: string, value: ClioColumnFilterValue | undefined) => void;
   /** Which filter control a column gets; `undefined` disables filtering for it. */
   columnKind: (key: string) => 'number' | 'text' | undefined;
+  /** Optional server-backed view of the exact rows selected across pages. */
+  selectedOnly?: boolean;
+  selectedCount?: number;
+  onSelectedOnlyChange?: (selectedOnly: boolean) => void;
 }
 
 /**
@@ -131,6 +134,10 @@ export function ClioDataTable({
   description,
   onRowClick,
   selectedRows,
+  externalSelection = false,
+  selectedOnly = false,
+  selectedCount = 0,
+  onSelectedOnlyChange,
   server,
   capabilities,
 }: {
@@ -141,6 +148,11 @@ export function ClioDataTable({
   onRowClick?: (row: ClioDataRow, interaction: { index: number; shiftKey: boolean }) => void;
   /** Indexes (into `rows`) to highlight as selected. */
   selectedRows?: ReadonlySet<number>;
+  /** Marks rows selected from a sibling view with a stronger visual cue. */
+  externalSelection?: boolean;
+  selectedOnly?: boolean;
+  selectedCount?: number;
+  onSelectedOnlyChange?: (selectedOnly: boolean) => void;
   /** Present for a `dataUri` table: pages, sorts, and filters over the whole dataset server-side. */
   server?: ClioDataTableServerControl;
   /** Download / "Reference this" affordances the caller declares; full screen is always added here. */
@@ -154,6 +166,9 @@ export function ClioDataTable({
         const title =
           typeof definition === 'string' ? definition.replaceAll('_', ' ') : definition.label;
         const kind = server?.columnKind(key);
+        const sample = rows.find((row) => row[key] !== null && row[key] !== undefined)?.[key];
+        const isTime = typeof sample === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:/u.test(sample);
+        const size = isTime ? 220 : /(?:^|_)(?:id|year)(?:$|_)/iu.test(key) ? 108 : typeof sample === 'number' ? 104 : 160;
         const filterValue = server?.filters.get(key);
         const filterNode =
           kind === 'text' ? (
@@ -182,12 +197,14 @@ export function ClioDataTable({
           id: key,
           accessorFn: (row: ClioDataRow) => row[key],
           enableSorting: Boolean(server),
+          size,
+          minSize: isTime ? 190 : 80,
           header: ClioColumnHeaderCell,
           cell: ClioColumnValueCell,
           meta: { autoSize: true, headerFilter: filterNode, headerTitle: title },
         };
       }),
-    [columnDefinitions, server],
+    [columnDefinitions, rows, server],
   );
   const data = useMemo(() => [...rows], [rows]);
   const rowSelection = useMemo(
@@ -242,7 +259,26 @@ export function ClioDataTable({
   const toolbarCapabilities: SurfaceCapabilities = {
     ...capabilities,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
+    overflowContent: (
+      <DropdownMenuItem
+        className="text-xs text-muted-foreground"
+        disabled
+        onSelect={(event) => event.preventDefault()}
+      >
+        {`${(server ? server.totalRows : rows.length).toLocaleString()} rows`}
+      </DropdownMenuItem>
+    ),
   };
+  const selectedOnlyAction = selectedCount > 0 && onSelectedOnlyChange ? (
+    <button
+      aria-pressed={selectedOnly}
+      className={cn('shrink-0 rounded-md px-2 py-1 text-xs transition-colors hover:bg-muted', selectedOnly ? 'bg-primary/15 text-primary' : 'text-muted-foreground')}
+      onClick={() => onSelectedOnlyChange(!selectedOnly)}
+      type="button"
+    >
+      {selectedOnly ? 'Show all' : `Show selected (${selectedCount.toLocaleString()})`}
+    </button>
+  ) : null;
 
   return (
     <DataGrid<DataGridFeatures, ClioDataRow>
@@ -252,20 +288,26 @@ export function ClioDataTable({
       table={table}
       tableLayout={{ columnsResizable: true, dense: true, headerSticky: true, width: 'fixed' }}
     >
-      <DataGridContainer className="group relative overflow-hidden rounded-xl border">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b bg-muted/40 px-3 py-2">
-          <Table2Icon aria-hidden="true" className="size-3.5 text-primary" />
-          <ReUIBadge radius="full" variant="primary-light">
-            {label}, {(server ? server.totalRows : rows.length).toLocaleString()} rows
-          </ReUIBadge>
-          <div className="ms-auto">
-            <SurfaceToolbar capabilities={toolbarCapabilities} />
-          </div>
+      <DataGridContainer
+        className={cn(
+          'group relative overflow-hidden rounded-xl border',
+          externalSelection && '[&_tr[aria-selected=true]]:bg-primary/20 [&_tr[aria-selected=true]]:shadow-[inset_3px_0_0_var(--primary)]',
+        )}
+      >
+        <div className="flex min-w-0 items-start gap-3 px-3 py-2">
+          <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{label}</h3>
+          {selectedOnlyAction}
+          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
         </div>
         {/* Only the scrollable rows + pagination move into the full-screen
             dialog (same convention as `clio.chart.v1`'s `FramePanel`): the
             header above, with the toolbar's own full-screen toggle, stays put. */}
-        <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={label}>
+        <SurfaceFullScreenHost
+          fullscreen={fullscreen}
+          headerExtra={<div className="flex items-center gap-2">{selectedOnlyAction}<SurfaceToolbar capabilities={toolbarCapabilities} floating={false} /></div>}
+          onOpenChange={setFullscreen}
+          title={label}
+        >
           <div
             aria-description={description}
             aria-label={`${label} columns`}
@@ -286,10 +328,29 @@ export function ClioDataTable({
   );
 }
 
-function formatCell(value: unknown): string {
+function formatCell(value: unknown, key: string): string {
   if (value === undefined || value === null || value === '') return 'Unavailable';
   if (typeof value === 'number' && Number.isFinite(value)) {
+    if (/(?:^|_)(?:id|year)(?:$|_)/iu.test(key) && Number.isInteger(value)) return String(value);
+    // CSV readers can expose binary float noise (for example -0.360000014
+    // for a depth reported as -0.36). Keep the exact value in the cell title,
+    // but display the short decimal when it is numerically indistinguishable.
+    for (let digits = 0; digits <= 4; digits += 1) {
+      const rounded = Number(value.toFixed(digits));
+      if (Math.abs(value - rounded) <= Math.max(1e-7, Math.abs(value) * 1e-7)) {
+        return new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(rounded);
+      }
+    }
     return new Intl.NumberFormat(undefined, { maximumSignificantDigits: 9 }).format(value);
+  }
+  if (typeof value === 'string') {
+    const timestamp = /^(\d{4}-\d\d-\d\d)T(\d\d:\d\d:\d\d)(?:\.\d+)?(Z|[+-]\d\d:\d\d)$/u.exec(value);
+    if (timestamp) {
+      const zone = timestamp[3] === 'Z' || timestamp[3] === '+00:00' || timestamp[3] === '-00:00'
+        ? 'UTC'
+        : `UTC${timestamp[3]}`;
+      return `${timestamp[1]} ${timestamp[2]} ${zone}`;
+    }
   }
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);

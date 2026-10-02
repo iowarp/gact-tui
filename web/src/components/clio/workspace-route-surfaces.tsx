@@ -68,9 +68,11 @@ export function WorkspaceActionAlerts({
 
 /** Keep recoverable transcript failures visible without replacing the conversation. */
 export function WorkspaceTranscriptAlerts({
+  sessionFailed,
   streamError,
   transcriptError,
 }: {
+  sessionFailed?: boolean;
   streamError?: string;
   transcriptError?: string;
 }) {
@@ -84,6 +86,16 @@ export function WorkspaceTranscriptAlerts({
   const updateInFlight = useUpdateFlowStore((state) => isUpdateInFlight(state.step));
   return (
     <>
+      {sessionFailed ? (
+        <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
+          <AlertTriangleIcon aria-hidden="true" />
+          <AlertTitle>The response failed</AlertTitle>
+          <AlertDescription>
+            The agent stopped before completing this turn. Retry the failed response below, or send a
+            new message to continue.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {streamError && !updateInFlight ? (
         <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />

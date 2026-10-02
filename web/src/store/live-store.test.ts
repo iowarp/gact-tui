@@ -61,14 +61,18 @@ function restMessage(id: string) {
   };
 }
 
-function restSession(id: string, state: 'running' | 'completed' | 'queued') {
+function restSession(
+  id: string,
+  state: 'running' | 'completed' | 'queued' | 'failed',
+  updatedAt = '2026-08-27T12:00:00Z',
+) {
   return {
     id,
     workspace_id: 'ws_1',
     title: id,
     state,
     created_at: '2026-08-27T12:00:00Z',
-    updated_at: '2026-08-27T12:00:00Z',
+    updated_at: updatedAt,
     mode: 'edit' as const,
     edit_mode: 'diff' as const,
     routing_mode: 'auto' as const,
@@ -111,6 +115,18 @@ describe('live store snapshot merges', () => {
     const sessions = useLiveStore.getState().entities.sessions;
     expect(sessions.sess_1?.state).toBe('completed');
     expect(sessions.sess_2?.state).toBe('queued');
+  });
+
+  it('settles a running stream-owned session from a newer failed REST snapshot', () => {
+    useLiveStore.getState().applyFrames([
+      streamedFrame('12', 'session.upserted', 'sess_1', restSession('sess_1', 'running')),
+    ]);
+
+    useLiveStore.getState().mergeSnapshots({
+      sessions: { sess_1: restSession('sess_1', 'failed', '2026-08-27T12:00:15Z') },
+    });
+
+    expect(useLiveStore.getState().entities.sessions.sess_1?.state).toBe('failed');
   });
 
   it('keeps a stream-owned row whose entity id contains colons', () => {

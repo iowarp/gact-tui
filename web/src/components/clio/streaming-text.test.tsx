@@ -6,6 +6,12 @@ import { splitStreamingText } from './streaming-text-model';
 afterEach(cleanup);
 
 describe('ClioStreamingText', () => {
+  it('does not render a lone cursor before the first response text arrives', () => {
+    const { container } = render(<ClioStreamingText active text="" />);
+
+    expect(container.querySelector('[data-slot="stream-cursor"]')).not.toBeInTheDocument();
+  });
+
   it('shows the authoritative text immediately while animating only its trailing chunk', () => {
     const text = 'A received streaming response remains authoritative and visible without delay.';
     const { container } = render(<ClioStreamingText active text={text} />);

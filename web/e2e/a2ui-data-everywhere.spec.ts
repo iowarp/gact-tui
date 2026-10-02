@@ -105,16 +105,14 @@ async function openEarthquakeDemo(page: Page) {
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-data-demo`);
   expect(published.ok()).toBe(true);
   await page.goto(workspaceUrl);
-  await expect(
-    page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
   await expect(page.getByText('Live', { exact: true })).toBeVisible();
 
   // Detached surface (no owning message): scroll the virtualized transcript
   // to its end so it mounts, same pattern as a2ui-smoke.spec.ts.
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toBeVisible();
-  const surfaceSection = page.locator('[aria-label^="Generated UI,"]');
+  const surfaceSection = page.locator('[aria-label^="Interactive surface,"]');
   await expect
     .poll(
       async () => {
@@ -195,20 +193,31 @@ async function mapPointsLayerData(page: Page): Promise<{
     // as "not ready yet" (falsy/empty), not thrown, or the very first poll
     // tick fails the whole assertion instead of waiting out its timeout.
     const map = (element as unknown as { __clioMap?: import('maplibre-gl').Map }).__clioMap;
-    const empty = { hasLayer: false, featureCount: 0, highlightedCount: 0, renderedCount: 0, renderedHighlightedCount: 0 };
+    const empty = {
+      hasLayer: false,
+      featureCount: 0,
+      highlightedCount: 0,
+      renderedCount: 0,
+      renderedHighlightedCount: 0,
+    };
     if (!map) return empty;
     const hasLayer = Boolean(map.getLayer('clio-map-points-circles'));
     const rendered = map.queryRenderedFeatures(undefined, { layers: ['clio-map-points-circles'] });
     const renderedCount = rendered.length;
-    const renderedHighlightedCount = rendered.filter((feature) => feature.properties?.['highlighted'] === true).length;
-    const source = map.getSource('clio-map-points') as import('maplibre-gl').GeoJSONSource | undefined;
+    const renderedHighlightedCount = rendered.filter(
+      (feature) => feature.properties?.['highlighted'] === true,
+    ).length;
+    const source = map.getSource('clio-map-points') as
+      | import('maplibre-gl').GeoJSONSource
+      | undefined;
     if (!source) return { ...empty, hasLayer, renderedCount, renderedHighlightedCount };
     const data = await source.getData();
     const features = 'features' in data ? data.features : [];
     return {
       hasLayer,
       featureCount: features.length,
-      highlightedCount: features.filter((feature) => feature.properties?.['highlighted'] === true).length,
+      highlightedCount: features.filter((feature) => feature.properties?.['highlighted'] === true)
+        .length,
       renderedCount,
       renderedHighlightedCount,
     };
@@ -234,7 +243,7 @@ async function scrollToMapPointButton(page: Page, id: string) {
   const target = mapPointButton(page, id);
   if (await target.count()) return target;
   const totalHeight = await list.evaluate((element) => element.scrollHeight);
-  const step = Math.max(await list.evaluate((element) => element.clientHeight) || 256, 256) * 6;
+  const step = Math.max((await list.evaluate((element) => element.clientHeight)) || 256, 256) * 6;
   for (let top = 0; top <= totalHeight; top += step) {
     await list.evaluate((element, value) => {
       element.scrollTop = value;
@@ -244,8 +253,7 @@ async function scrollToMapPointButton(page: Page, id: string) {
   return target;
 }
 
-const screenshotDir =
-  'D:/Libraries/Documents/projects/clio_develop_workspace/temp/a2ui-data-shots';
+const screenshotDir = 'D:/Libraries/Documents/projects/clio_develop_workspace/temp/a2ui-data-shots';
 
 for (const theme of ['light', 'dark'] as const) {
   test(`captures the linked demo in ${theme} theme`, async ({ page }) => {
@@ -281,7 +289,7 @@ for (const theme of ['light', 'dark'] as const) {
     // (832x32491 — the container's own virtualized extent, not the
     // element's). Scrolling the surface's own top edge to the viewport's top
     // and taking a plain viewport screenshot sidesteps both.
-    const surface = page.locator('[aria-label^="Generated UI,"]').last();
+    const surface = page.locator('[aria-label^="Interactive surface,"]').last();
     await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
     await page.screenshot({ path: `${screenshotDir}/earthquake-demo-${theme}.png` });
   });
@@ -304,7 +312,7 @@ test('a detached surface never overlaps the subagent card in the message before 
   // the gap; this proves it holds for the actual card+artifact+surface
   // sequence the bug was found in, not just in principle.
   const card = page.getByLabel('Open child conversation Station evidence specialist');
-  const surface = page.locator('[aria-label^="Generated UI,"]').last();
+  const surface = page.locator('[aria-label^="Interactive surface,"]').last();
   await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
   const cardBox = await card.boundingBox();
   const surfaceBox = await surface.boundingBox();
@@ -580,11 +588,13 @@ test('brushing the chart re-queries the range at full detail and the zone links 
     .poll(async () => (await mapPointsLayerData(page)).highlightedCount, { timeout: 20_000 })
     .toBeGreaterThan(0);
   await expect
-    .poll(async () => (await mapPointsLayerData(page)).renderedHighlightedCount, { timeout: 20_000 })
+    .poll(async () => (await mapPointsLayerData(page)).renderedHighlightedCount, {
+      timeout: 20_000,
+    })
     .toBeGreaterThan(0);
 
   await page.setViewportSize({ height: 1400, width: 1280 });
-  const surface = page.locator('[aria-label^="Generated UI,"]').last();
+  const surface = page.locator('[aria-label^="Interactive surface,"]').last();
   await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
   await page.screenshot({ path: `${exploreShotsDir}/chart-brush-zone-linked.png` });
 

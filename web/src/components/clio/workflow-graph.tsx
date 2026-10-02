@@ -1,16 +1,7 @@
 import type { AsyncProcess, SubagentRun, ToolInvocation } from '@clio/core/v3';
-import {
-  Controls,
-  Handle,
-  Position,
-  ReactFlow,
-  type Edge,
-  type NodeProps,
-} from '@xyflow/react';
+import { Controls, Handle, Position, ReactFlow, type Edge, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { NetworkIcon } from 'lucide-react';
 import { useMemo, useRef } from 'react';
-import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import { ClioStatus } from './status';
@@ -61,47 +52,38 @@ export function ClioWorkflowGraph({
   if (!graph.edges.length) return null;
 
   return (
-    <Frame spacing="sm" variant="ghost">
-      <FrameHeader>
-        <div className="flex items-start gap-3">
-          <NetworkIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-          <div>
-            <FrameTitle>Delegation map</FrameTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Select a child to open its conversation. Shift-click keeps the parent here and opens
-              the child in the canvas.
-            </p>
-          </div>
-        </div>
-      </FrameHeader>
-      <FramePanel>
-        <div
-          aria-label="Child-agent delegation topology"
-          className="min-h-72 overflow-hidden rounded-lg border bg-background/55"
-          ref={containerRef}
-          role="img"
-          style={{ height: graphHeight }}
+    <section className="min-w-0 space-y-2">
+      <h3 className="text-sm font-medium">Delegation map</h3>
+      <div
+        aria-label="Child-agent delegation topology"
+        className="min-h-72 overflow-hidden rounded-lg border bg-background/55"
+        ref={containerRef}
+        role="img"
+        style={{ height: graphHeight }}
+      >
+        <ReactFlow<WorkflowNode, Edge>
+          edges={graph.edges}
+          elementsSelectable
+          fitView
+          fitViewOptions={{ maxZoom: 1, padding: 0.16 }}
+          maxZoom={1.5}
+          minZoom={0.25}
+          nodeTypes={nodeTypes}
+          nodes={graph.nodes}
+          nodesConnectable={false}
+          nodesDraggable={false}
+          panOnDrag
+          proOptions={{ hideAttribution: true }}
+          zoomOnDoubleClick={false}
         >
-          <ReactFlow<WorkflowNode, Edge>
-            edges={graph.edges}
-            elementsSelectable
-            fitView
-            fitViewOptions={{ maxZoom: 1, padding: 0.16 }}
-            maxZoom={1.5}
-            minZoom={0.25}
-            nodeTypes={nodeTypes}
-            nodes={graph.nodes}
-            nodesConnectable={false}
-            nodesDraggable={false}
-            panOnDrag
-            proOptions={{ hideAttribution: true }}
-            zoomOnDoubleClick={false}
-          >
-            <Controls aria-label="Delegation map controls" showInteractive={false} />
-          </ReactFlow>
-        </div>
-      </FramePanel>
-    </Frame>
+          <Controls aria-label="Delegation map controls" showInteractive={false} />
+        </ReactFlow>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Select a child to open its conversation. Shift-click keeps the parent here and opens the
+        child in the canvas.
+      </p>
+    </section>
   );
 }
 
@@ -141,47 +123,38 @@ export function ClioWorkflowExecutionGraph({
   if (!descriptor || graph.nodes.length < 2) return null;
 
   return (
-    <Frame spacing="sm" variant="ghost">
-      <FrameHeader>
-        <div className="flex min-w-0 items-start gap-3">
-          <NetworkIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-          <div className="min-w-0">
-            <FrameTitle>Workflow execution</FrameTitle>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {descriptor.steps.length} ordered {descriptor.steps.length === 1 ? 'step' : 'steps'}
-              {descriptor.request ? ` · ${descriptor.request}` : ''}
-            </p>
-          </div>
-        </div>
-      </FrameHeader>
-      <FramePanel>
-        <div
-          aria-label={`Workflow execution graph: ${descriptor.label}`}
-          className="min-h-72 overflow-hidden rounded-lg border bg-background/55"
-          ref={containerRef}
-          role="img"
-          style={{ height }}
+    <section className="min-w-0 space-y-2">
+      <h3 className="text-sm font-medium">Workflow execution</h3>
+      <div
+        aria-label={`Workflow execution graph: ${descriptor.label}`}
+        className="min-h-72 overflow-hidden rounded-lg border bg-background/55"
+        ref={containerRef}
+        role="img"
+        style={{ height }}
+      >
+        <ReactFlow<WorkflowNode, Edge>
+          edges={graph.edges}
+          elementsSelectable
+          fitView
+          fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
+          maxZoom={1.5}
+          minZoom={0.25}
+          nodeTypes={nodeTypes}
+          nodes={graph.nodes}
+          nodesConnectable={false}
+          nodesDraggable={false}
+          panOnDrag
+          proOptions={{ hideAttribution: true }}
+          zoomOnDoubleClick={false}
         >
-          <ReactFlow<WorkflowNode, Edge>
-            edges={graph.edges}
-            elementsSelectable
-            fitView
-            fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
-            maxZoom={1.5}
-            minZoom={0.25}
-            nodeTypes={nodeTypes}
-            nodes={graph.nodes}
-            nodesConnectable={false}
-            nodesDraggable={false}
-            panOnDrag
-            proOptions={{ hideAttribution: true }}
-            zoomOnDoubleClick={false}
-          >
-            <Controls aria-label="Workflow execution graph controls" showInteractive={false} />
-          </ReactFlow>
-        </div>
-      </FramePanel>
-    </Frame>
+          <Controls aria-label="Workflow execution graph controls" showInteractive={false} />
+        </ReactFlow>
+      </div>
+      <p className="text-xs leading-5 text-muted-foreground">
+        {descriptor.steps.length} ordered {descriptor.steps.length === 1 ? 'step' : 'steps'}
+        {descriptor.request ? ` · ${descriptor.request}` : ''}
+      </p>
+    </section>
   );
 }
 
@@ -232,4 +205,3 @@ function WorkflowNodeCard({ data }: NodeProps<WorkflowNode>) {
     </div>
   );
 }
-

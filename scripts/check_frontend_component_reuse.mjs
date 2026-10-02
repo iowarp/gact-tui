@@ -80,9 +80,11 @@ const requiredImports = {
   // (docs/design/a2ui-compat-campaign-2026-09.md S6): the registry-driven
   // catalog wiring lives beside the DOM-free registry it feeds, not under
   // components/clio.
+  // G16 deliberately removed the nested ReUI Frame here: the generated
+  // surface already owns its visual boundary, and Frame/Grid now use type
+  // hierarchy without adding another card around every child.
   'web/src/lib/a2ui/kernel-catalog.tsx': [
     '@/components/ai-elements/confirmation',
-    '@/components/reui/frame',
     '@/components/clio/a2ui-artifact',
     '@/components/clio/a2ui-code-view',
   ],

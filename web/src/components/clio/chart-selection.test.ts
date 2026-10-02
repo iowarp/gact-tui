@@ -114,18 +114,22 @@ describe('chart selection wiring (vega-lite store format)', () => {
     binding.dispose();
   });
 
-  it('ignores its own echo coming back through the data model', async () => {
+  it('restores its own selection into a freshly embedded view without echoing', async () => {
+    vi.useFakeTimers();
     const view = await headlessView();
+    const write = vi.fn();
     const binding = bindChartSelection(view, {
       componentId: 'chart',
       param: 'sel',
       field: 'run',
-      write: vi.fn(),
+      write,
     });
 
     await binding.apply({ field: 'run', values: ['a'], source: 'chart' });
+    await vi.runAllTimersAsync();
 
-    expect(view.data(selectionStoreName('sel'))).toEqual([]);
+    expect(view.signal('sel')).toMatchObject({ run: ['a'] });
+    expect(write).not.toHaveBeenCalled();
     binding.dispose();
   });
 

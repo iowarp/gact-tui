@@ -73,12 +73,26 @@ export function DeferredA2UISurface({
       return;
     }
 
+    const updateProximity = (intersecting = false) => {
+      const rect = host.getBoundingClientRect();
+      // A virtualized transcript can move the reserved host through a CSS
+      // transform without the viewport observer reporting the new position.
+      // Check its actual screen bounds on scroll too; otherwise a visible
+      // completed surface can remain an empty 68px placeholder.
+      setNearViewport(intersecting || (rect.top < window.innerHeight + 800 && rect.bottom > -800));
+    };
     const observer = new IntersectionObserver(
-      ([entry]) => setNearViewport(entry?.isIntersecting ?? false),
+      ([entry]) => updateProximity(entry?.isIntersecting ?? false),
       { rootMargin: '800px 0px' },
     );
     observer.observe(host);
-    return () => observer.disconnect();
+    updateProximity();
+    window.addEventListener('scroll', onScroll, true);
+    function onScroll() { updateProximity(); }
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', onScroll, true);
+    };
   }, [live, surface.id]);
 
   useLayoutEffect(() => {
@@ -98,7 +112,7 @@ export function DeferredA2UISurface({
   // The label belongs on this wrapper only while it IS the accessible
   // content — an empty reserved-height placeholder before the surface has
   // scrolled near. Once mounted, `ClioA2UISurface` renders its own labeled
-  // `<section aria-label="Generated UI, …">`; a `<section>` with a name
+  // `<section aria-label="Interactive surface, …">`; a named `<section>`
   // carries an implicit `role="region"`, so its `aria-label` is valid, but
   // a bare `<div>` has no role at all — carrying the SAME kind of label
   // here unconditionally put `aria-label` on a role-less div once mounted

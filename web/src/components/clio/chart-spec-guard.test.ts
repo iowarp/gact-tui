@@ -28,7 +28,7 @@ import { compile } from 'vega-lite';
  */
 const CLIO_SCHEMAS_CHART_HASHES: Record<string, string> = {
   'guard_rules.json': '5dfdf33ce061c686d0e74586751cc622098759513f3450b572d400b56479abe7',
-  'presets/boxplot.json': '6473a35c14bbde0d5c62e60b1647d608f7cc730b3eeee4a4cc3b2e382eef90bd',
+  'presets/boxplot.json': '97d9abfe03358a121400f5f063de9c46891962da7a388a718fd2c9231915c6d0',
   'presets/heatmap.json': 'd39995019b3b8269841dd74abe458fb71d14377b4f1335c6370045364dc498ed',
   'presets/scatter.json': '8212912d8324c53ec725fc3c277ef6c471aea245ad5b32043d336bef7c0c870f',
   'presets/spectra.json': '1723d96636ed662137ed58e760cf2c494e71711eba701cd83d7d9fea8d176b90',

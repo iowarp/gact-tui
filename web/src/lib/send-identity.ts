@@ -7,6 +7,17 @@ export interface SendIdentity {
   idempotencyKey: string;
 }
 
+function newSendId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // randomUUID is restricted to secure contexts. The workspace can be served
+  // over an HTTP LAN origin during local review; getRandomValues still works.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 /**
  * Hands out one identity per logical send.
  *
@@ -18,7 +29,7 @@ export interface SendIdentity {
 export class SendIdentities {
   private pending?: { fingerprint: string; identity: SendIdentity };
 
-  public constructor(private readonly newId: () => string = () => crypto.randomUUID()) {}
+  public constructor(private readonly newId: () => string = newSendId) {}
 
   /** The identity for a send, reused while `fingerprint` keeps matching. */
   public forSend(fingerprint: string): SendIdentity {

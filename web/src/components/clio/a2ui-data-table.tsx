@@ -1,16 +1,10 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
-import { Table2Icon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
 import { useRepository } from '@/hooks/use-repository';
+import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
+import { BoundDataQuery } from './bound-data-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   a2uiAccessibilityDescription,
@@ -19,7 +13,12 @@ import {
 } from './a2ui-accessibility';
 import { refinedStrictObject } from './a2ui-refined-schema';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
-import { columnKindFromRows, columnKindFromSchema, describeQueryFilter, mergeFilters } from './data-query-filters';
+import {
+  columnKindFromRows,
+  columnKindFromSchema,
+  describeQueryFilter,
+  mergeFilters,
+} from './data-query-filters';
 import {
   ClioDataTable,
   type ClioDataColumn,
@@ -122,10 +121,10 @@ export function ClioSelectableDataTable({
   server,
   setSelection,
 }: ClioSelectableDataTableProps) {
+  const [localSelectedOnly, setLocalSelectedOnly] = useState(false);
   const state = useMemo(() => parseSelectionState(selection), [selection]);
   const keys = useMemo(() => columns.map(columnKey), [columns]);
-  const keyColumn =
-    selectionField ?? (state && keys.includes(state.field) ? state.field : keys[0]);
+  const keyColumn = selectionField ?? (state && keys.includes(state.field) ? state.field : keys[0]);
   const heading = a2uiAccessibilityLabel(accessibility) ?? 'Data table';
   // The G0 default for a table used directly with inline rows (no dataUri,
   // so no server route to export through and no live page/filter to
@@ -143,8 +142,16 @@ export function ClioSelectableDataTable({
     // regardless, so this is a type-level widening only, not a runtime risk.
     const exportRows = rows as unknown as QueryRow[];
     const exportFormats: SurfaceExportFormat[] = [
-      { id: 'csv', label: 'CSV data', run: () => downloadInlineRowsAsCsv(keys, exportRows, filenameStem) },
-      { id: 'json', label: 'JSON data', run: () => downloadInlineRowsAsJson(keys, exportRows, filenameStem) },
+      {
+        id: 'csv',
+        label: 'CSV data',
+        run: () => downloadInlineRowsAsCsv(keys, exportRows, filenameStem),
+      },
+      {
+        id: 'json',
+        label: 'JSON data',
+        run: () => downloadInlineRowsAsJson(keys, exportRows, filenameStem),
+      },
       // No Parquet entry here: this repo has no client-side Parquet encoder
       // for inline rows — only the server's table-export route produces one,
       // and inline rows (no dataUri) never reach the server.
@@ -154,22 +161,35 @@ export function ClioSelectableDataTable({
         componentLabel: heading,
         datasetLabel: 'inline data',
         filters: [],
-        previewColumns: keys.slice(0, 5),
-        previewRows: rows.slice(0, 5),
-        query: { columns: keys, rowCount: rows.length },
-        zoneDescription: `the whole table (${rows.length.toLocaleString()} rows)`,
+        previewColumns: keys.slice(0, state?.values.length ? 12 : 5),
+        previewRows: state?.values.length && keyColumn
+          ? rows.filter((row) => selectionIncludes(state, keyColumn, row[keyColumn])).slice(0, 5)
+          : rows.slice(0, 5),
+        query: {
+          columns: keys,
+          rowCount: rows.length,
+          ...(state?.values.length ? { selection: { field: state.field, values: state.values } } : {}),
+        },
+        zoneDescription: state?.values.length
+          ? `${state.values.length.toLocaleString()} selected ${state.values.length === 1 ? 'row' : 'rows'} of ${rows.length.toLocaleString()}`
+          : `the filtered current view (${rows.length.toLocaleString()} rows)`,
       });
     return { buildReference, exportFormats };
-  }, [heading, keys, rows]);
-  const toolbarCapabilities = capabilities ?? inlineCapabilities;
+  }, [heading, keyColumn, keys, rows, state]);
+  const toolbarCapabilities: SurfaceCapabilities = { ...(capabilities ?? inlineCapabilities), captureComponentId: componentId };
+  const selectedOnly = server ? Boolean(server.selectedOnly) : localSelectedOnly;
+  const visibleRows = useMemo(() => {
+    if (server || !selectedOnly || !state?.values.length || keyColumn === undefined) return rows;
+    return rows.filter((row) => selectionIncludes(state, keyColumn, row[keyColumn]));
+  }, [keyColumn, rows, selectedOnly, server, state]);
   const selectedRows = useMemo(() => {
     if (!state || keyColumn === undefined) return undefined;
     const selected = new Set<number>();
-    rows.forEach((row, index) => {
+    visibleRows.forEach((row, index) => {
       if (selectionIncludes(state, keyColumn, row[keyColumn])) selected.add(index);
     });
     return selected;
-  }, [keyColumn, rows, state]);
+  }, [keyColumn, visibleRows, state]);
 
   // The last plain (non-shift) row click, so a following shift-click can
   // select every row between the two — a table "zone" (#1533 item 4), the
@@ -185,7 +205,10 @@ export function ClioSelectableDataTable({
     }
     if (interaction.shiftKey && rangeAnchorRef.current !== undefined && setSelection) {
       const [start, end] = [rangeAnchorRef.current, interaction.index].sort((a, b) => a - b);
-      const values = rows.slice(start, end + 1).map((candidate) => candidate[keyColumn]).filter(isSelectionValue);
+      const values = visibleRows
+        .slice(start, end + 1)
+        .map((candidate) => candidate[keyColumn])
+        .filter(isSelectionValue);
       setSelection({ field: keyColumn, values, source: componentId });
       action?.();
       return;
@@ -194,8 +217,7 @@ export function ClioSelectableDataTable({
     const value = row[keyColumn];
     if (isSelectionValue(value)) {
       // Clicking the one selected row again clears the selection.
-      const onlyThis =
-        state?.values.length === 1 && selectionIncludes(state, keyColumn, value);
+      const onlyThis = state?.values.length === 1 && selectionIncludes(state, keyColumn, value);
       setSelection?.({ field: keyColumn, values: onlyThis ? [] : [value], source: componentId });
     }
     action?.();
@@ -208,8 +230,12 @@ export function ClioSelectableDataTable({
       description={a2uiAccessibilityDescription(accessibility)}
       label={heading}
       onRowClick={setSelection || action ? selectRow : undefined}
-      rows={rows}
+      rows={visibleRows}
       selectedRows={selectedRows}
+      selectedOnly={selectedOnly && Boolean(state?.values.length)}
+      selectedCount={state?.values.length ?? 0}
+      onSelectedOnlyChange={server ? server.onSelectedOnlyChange : setLocalSelectedOnly}
+      externalSelection={Boolean(state?.values.length && state.source && state.source !== componentId)}
       server={server}
     />
   );
@@ -270,9 +296,25 @@ function ClioDataTableArtifactSource({
   selectionField,
   setSelection,
 }: ClioDataTableArtifactSourceProps) {
+  const autoSelection = useAutoDatasetSelection(dataUri);
+  const effectiveSelectionField = selectionField ?? (autoSelection.active && !setSelection && !dataQuery?.aggregate ? '__row' : undefined);
+  const effectiveSelection = setSelection ? selection : autoSelection.selection;
+  const effectiveSetSelection = setSelection ?? autoSelection.setSelection;
   const repository = useRepository();
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_DATA_TABLE_PAGE_SIZE);
+  const [selectedOnly, setSelectedOnly] = useState(false);
+  const selectionState = useMemo(() => parseSelectionState(effectiveSelection), [effectiveSelection]);
+  const selectedValues = useMemo(() => effectiveSelectionField && selectionState?.field === effectiveSelectionField
+    ? selectionState.values : [], [effectiveSelectionField, selectionState]);
+  const selectedValuesKey = JSON.stringify(selectedValues);
+  const activeSelectedOnly = selectedOnly && selectedValues.length > 0 && selectedValues.length <= 10_000;
+  const [lastSelectedValuesKey, setLastSelectedValuesKey] = useState(selectedValuesKey);
+  if (selectedValuesKey !== lastSelectedValuesKey) {
+    setLastSelectedValuesKey(selectedValuesKey);
+    if (selectedOnly) setPageIndex(0);
+    if (!selectedValues.length) setSelectedOnly(false);
+  }
   // The viewer's own sort override — a single key, since only one header is
   // ever clicked at a time. `undefined` means "no override": the producer's
   // own `dataQuery.sort` (already a list; multiple keys apply in order)
@@ -307,12 +349,17 @@ function ClioDataTableArtifactSource({
   const effectiveDataQuery = useMemo<TableDataQuery>(
     () => ({
       ...dataQuery,
-      filter: mergeFilters(dataQuery?.filter, filters),
+      filter: [
+        ...mergeFilters(dataQuery?.filter, filters),
+        ...(activeSelectedOnly && effectiveSelectionField
+          ? [{ column: effectiveSelectionField, op: 'in' as const, value: selectedValues }]
+          : []),
+      ],
       limit: pageSize,
       offset: pageIndex * pageSize,
       sort: effectiveSort,
     }),
-    [dataQuery, effectiveSort, filters, pageIndex, pageSize],
+    [activeSelectedOnly, dataQuery, effectiveSelectionField, effectiveSort, filters, pageIndex, pageSize, selectedValues],
   );
   const { rows, loading, error, matchedRows, schema } = useTableQueryRows({
     columns: requestColumns,
@@ -330,20 +377,14 @@ function ClioDataTableArtifactSource({
     return rows?.[0] ? Object.keys(rows[0]) : undefined;
   }, [columns, rows, schema]);
 
-  const handlePaginationChange = useCallback(
-    (next: { pageIndex: number; pageSize: number }) => {
-      setPageSize(next.pageSize);
-      setPageIndex(next.pageIndex);
-    },
-    [],
-  );
-  const handleSortChange = useCallback(
-    (next: { column: string; desc: boolean } | undefined) => {
-      setSortOverride(next);
-      setPageIndex(0);
-    },
-    [],
-  );
+  const handlePaginationChange = useCallback((next: { pageIndex: number; pageSize: number }) => {
+    setPageSize(next.pageSize);
+    setPageIndex(next.pageIndex);
+  }, []);
+  const handleSortChange = useCallback((next: { column: string; desc: boolean } | undefined) => {
+    setSortOverride(next);
+    setPageIndex(0);
+  }, []);
   const handleFilterChange = useCallback(
     (column: string, value: ClioColumnFilterValue | undefined) => {
       setFilters((current) => {
@@ -375,6 +416,12 @@ function ClioDataTableArtifactSource({
       pageSizeOptions: DATA_TABLE_PAGE_SIZES,
       sort: effectiveSort[0],
       totalRows: matchedRows ?? rows?.length ?? 0,
+      selectedOnly: activeSelectedOnly,
+      selectedCount: selectedValues.length,
+      onSelectedOnlyChange: (next) => {
+        setSelectedOnly(next);
+        setPageIndex(0);
+      },
     }),
     [
       columnKind,
@@ -387,17 +434,16 @@ function ClioDataTableArtifactSource({
       pageIndex,
       pageSize,
       rows,
+      activeSelectedOnly,
+      selectedValues.length,
     ],
   );
 
   if (error) {
     return (
-      <Frame dense role="group">
-        <FrameHeader className="flex-row items-center gap-2">
-          <Table2Icon aria-hidden="true" className="size-4 text-primary" />
-          <FrameTitle>Data table</FrameTitle>
-        </FrameHeader>
-        <FramePanel className="gap-2">
+      <div className="min-w-0 space-y-2" role="group">
+        <h3 className="text-sm font-medium">Data table</h3>
+        <div className="space-y-2">
           <p className="text-sm text-destructive">Table unavailable: {error}</p>
           {filters.size > 0 ? (
             <p className="text-xs text-muted-foreground">
@@ -416,44 +462,51 @@ function ClioDataTableArtifactSource({
               .
             </p>
           ) : null}
-        </FramePanel>
-      </Frame>
+        </div>
+      </div>
     );
   }
   if (loading || !rows || !renderColumns) {
     return (
-      <Frame dense role="group">
-        <FrameHeader className="flex-row items-center gap-2">
-          <Table2Icon aria-hidden="true" className="size-4 text-primary" />
-          <FrameTitle>Data table</FrameTitle>
-          <FrameDescription>Loading rows…</FrameDescription>
-        </FrameHeader>
-        <FramePanel className="p-0">
-          <Skeleton aria-label="Loading data table" className="h-48 w-full rounded-none" />
-        </FramePanel>
-      </Frame>
+      <div className="min-w-0 space-y-2" role="group">
+        <h3 className="text-sm font-medium">Data table</h3>
+        <p className="text-xs text-muted-foreground">Loading rows…</p>
+        <Skeleton aria-label="Loading data table" className="h-48 w-full rounded-none" />
+      </div>
     );
   }
   const heading = a2uiAccessibilityLabel(accessibility) ?? 'Data table';
   const buildReference = (): DataZoneReference => {
+    const selectionState = parseSelectionState(effectiveSelection);
+    const selectedValues =
+      effectiveSelectionField && selectionState?.field === effectiveSelectionField ? selectionState.values : [];
+    const selectedRows =
+      selectedValues.length && effectiveSelectionField
+        ? rows.filter((row) => selectionIncludes(selectionState, effectiveSelectionField, row[effectiveSelectionField]))
+        : [];
     const total = matchedRows ?? rows.length;
     const start = pageIndex * pageSize + 1;
     const end = start + rows.length - 1;
-    const previewColumns = renderColumns.slice(0, 5).map(columnKey);
+    const previewColumns = renderColumns.slice(0, selectedValues.length ? 12 : 5).map(columnKey);
     const sortSuffix = effectiveSort[0]
       ? `, sorted by ${effectiveSort[0].column} ${effectiveSort[0].desc ? 'desc' : 'asc'}`
       : '';
-    const zoneDescription =
-      start === 1 && end === total
-        ? `the whole view (${total.toLocaleString()} rows)${sortSuffix}`
-        : `rows ${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}${sortSuffix}`;
+    const zoneDescription = selectedValues.length
+      ? `${selectedValues.length.toLocaleString()} selected ${selectedValues.length === 1 ? 'row' : 'rows'} of ${total.toLocaleString()}${sortSuffix}`
+      : start === 1 && end === total
+        ? `the filtered current view (${total.toLocaleString()} rows)${sortSuffix}`
+        : `filtered rows ${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}${sortSuffix}`;
     return buildZoneReference({
       componentLabel: heading,
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
       filters: (effectiveDataQuery.filter ?? []).map(describeQueryFilter),
       previewColumns,
-      previewRows: rows.slice(0, 5),
-      query: { dataQuery: effectiveDataQuery, dataUri },
+      previewRows: selectedValues.length ? selectedRows.slice(0, 5) : rows.slice(0, 5),
+      query: {
+        dataQuery: effectiveDataQuery,
+        dataUri,
+        ...(selectedValues.length ? { selection: { field: effectiveSelectionField, values: selectedValues } } : {}),
+      },
       zoneDescription,
     });
   };
@@ -507,10 +560,10 @@ function ClioDataTableArtifactSource({
       columns={renderColumns}
       componentId={componentId}
       rows={rows as ClioDataRow[]}
-      selection={selection}
-      selectionField={selectionField}
+      selection={effectiveSelection}
+      selectionField={effectiveSelectionField}
       server={server}
-      setSelection={setSelection}
+      setSelection={effectiveSetSelection}
     />
   );
 }
@@ -520,7 +573,10 @@ const dataTableDataProperties = {
     .array(z.union([z.string(), z.object({ key: z.string(), label: z.string() }).strict()]))
     .optional(),
   rows: z.array(z.record(z.unknown())).optional(),
-  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  dataUri: z
+    .string()
+    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+    .optional(),
   dataQuery: dataQuerySchema.optional(),
   // clio-schemas 0.5.1: a DynamicValue (a plain string, the old form, still parses).
   selection: CommonSchemas.DynamicValue.optional(),
@@ -545,7 +601,10 @@ function checkDataTableComponent(value: DataTableShape, context: z.RefinementCtx
     context.addIssue({ code: 'custom', message: 'dataQuery applies only to dataUri' });
   }
   if (isBoundToPath(value.selection) && !value.selectionField) {
-    context.addIssue({ code: 'custom', message: 'selectionField is required when selection is bound' });
+    context.addIssue({
+      code: 'custom',
+      message: 'selectionField is required when selection is bound',
+    });
   }
 }
 
@@ -565,17 +624,19 @@ export const ClioDataTableCatalogComponent = createComponentImplementation(
       : undefined;
     if (props.dataUri) {
       return (
-        <ClioDataTableArtifactSource
+        <BoundDataQuery dataContext={context.dataContext} query={props.dataQuery as TableDataQuery | undefined}>
+          {(resolvedQuery) => <ClioDataTableArtifactSource
           accessibility={props.accessibility}
           action={props.action ? () => void props.action?.() : undefined}
           columns={props.columns as ClioDataColumn[] | undefined}
           componentId={context.componentModel.id}
-          dataQuery={props.dataQuery as TableDataQuery | undefined}
-          dataUri={props.dataUri}
+          dataQuery={resolvedQuery}
+          dataUri={props.dataUri!}
           selection={props.selection}
           selectionField={props.selectionField}
           setSelection={setSelection}
-        />
+          />}
+        </BoundDataQuery>
       );
     }
     return (

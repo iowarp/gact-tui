@@ -1,4 +1,4 @@
-import { ChartLineIcon, ChevronDownIcon, QuoteIcon } from 'lucide-react';
+import { CameraIcon, ChartLineIcon, ChevronDownIcon, QuoteIcon } from 'lucide-react';
 import { MarkdownText } from '@/components/ai-elements/markdown';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,6 +37,15 @@ function annotationCard(
   if (annotation.kind === 'data-zone-quote') {
     return {
       icon: ChartLineIcon,
+      label: annotation.title,
+      markdown: annotation.markdown,
+      preview: annotation.summary,
+      removeName: annotation.title,
+    };
+  }
+  if (annotation.kind === 'region-capture') {
+    return {
+      icon: CameraIcon,
       label: annotation.title,
       markdown: annotation.markdown,
       preview: annotation.summary,

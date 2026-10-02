@@ -1,17 +1,20 @@
 import { MapPinIcon } from 'lucide-react';
-import type { GeoJSONSource, MapLibreMap } from 'maplibre-gl';
+import type { FeatureCollection } from 'geojson';
+import type { ExpressionSpecification, GeoJSONSource, MapLibreMap } from 'maplibre-gl';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map, {
   Marker,
   NavigationControl,
   Popup,
+  useMap,
   type MapLayerMouseEvent,
   type MapRef,
   type ViewState,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { cn } from '@/lib/utils';
+import { mapCategoryColors, mapPointColor, mapValueExtent } from './map-category-palette';
 
 export interface ScientificMapPoint {
   id: string;
@@ -27,19 +30,25 @@ export interface ScientificMapPoint {
    * and for a dataUri map with no `selectionField`.
    */
   selectionValue?: string | number;
+  value?: number;
 }
 
 interface ScientificMapViewProps {
   points: readonly ScientificMapPoint[];
+  geometry?: FeatureCollection;
+  geometryBounds?: [[number, number], [number, number]];
+  /** When active, an ordinary drag selects a 2D rectangle instead of panning. */
+  boxSelectMode?: boolean;
   selectedId?: string;
   /**
    * Every point a bound selection currently names (a zone can hold many),
    * for the linked-highlight look; defaults to just `selectedId` when unset,
    * so callers with no shared selection (the "one point at a time" case)
    * need not pass it at all.
-   */
+  */
   highlightedIds?: ReadonlySet<string>;
   onSelect: (pointId: string) => void;
+  onClearSelection?: () => void;
   /**
    * Shift+drag a rectangle to select every point inside it (#1533 item 4:
    * "drag a rectangle on the map"). Replaces maplibre's default shift+drag
@@ -71,27 +80,35 @@ interface ScientificMapViewProps {
 const MANY_POINTS_THRESHOLD = 150;
 const POINTS_SOURCE_ID = 'clio-map-points';
 const POINTS_LAYER_ID = 'clio-map-points-circles';
+const GEOMETRY_SOURCE_ID = 'clio-map-geometry';
+const GEOMETRY_LAYER_IDS = ['clio-map-geometry-fill', 'clio-map-geometry-line', 'clio-map-geometry-points'] as const;
 /** Which mounted view last claimed the points layer on a (possibly pooled) map instance. */
 const pointsLayerOwners = new WeakMap<MapLibreMap, symbol>();
 /** Paint-expression colors; maplibre evaluates these itself and cannot read CSS custom properties. */
-const POINT_COLOR = '#1d4ed8';
 const POINT_HIGHLIGHTED_COLOR = '#ea580c';
 
 interface PointFeatureProperties {
   id: string;
   highlighted: boolean;
+  color: string;
 }
 
 function pointsToGeoJson(
   points: readonly ScientificMapPoint[],
   highlightedIds: ReadonlySet<string>,
+  categoryColors: ReadonlyMap<string, string>,
+  valueExtent?: [number, number],
 ) {
   return {
     type: 'FeatureCollection' as const,
     features: points.map((point) => ({
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: [point.longitude, point.latitude] },
-      properties: { id: point.id, highlighted: highlightedIds.has(point.id) } satisfies PointFeatureProperties,
+      properties: {
+        id: point.id,
+        highlighted: highlightedIds.has(point.id),
+        color: mapPointColor(point, categoryColors, valueExtent),
+      } satisfies PointFeatureProperties,
     })),
   };
 }
@@ -99,11 +116,11 @@ function pointsToGeoJson(
 type PointsGeoJson = ReturnType<typeof pointsToGeoJson>;
 
 /**
- * Test-only hook: an e2e assertion needs to see the map's ACTUAL declared
+ * Read-only mounted map handle for capture and e2e inspection. An e2e assertion needs to see the map's ACTUAL declared
  * layer/source state, which no DOM query can ever observe — a "500 labeled
  * locations" list item proves the data resolved into React props, never
  * that the map component turned it into a real maplibre layer. Never read
- * by app code. See `a2ui-data-everywhere.spec.ts`'s `mapPointsLayerData`
+ * by general app code; the region capture uses it to request a fresh frame. See `a2ui-data-everywhere.spec.ts`'s `mapPointsLayerData`
  * helper (and its doc comment, which also covers why a live WebGL-paint
  * assertion is not reliable in that harness).
  */
@@ -137,11 +154,11 @@ const rasterStyle = {
   layers: [{ id: 'openStreetMap', type: 'raster' as const, source: 'openStreetMap' }],
 };
 
-function initialView(points: readonly ScientificMapPoint[]): Partial<ViewState> & {
+function initialView(points: readonly ScientificMapPoint[], geometryBounds?: [[number, number], [number, number]]): Partial<ViewState> & {
   bounds?: [[number, number], [number, number]];
   fitBoundsOptions?: { padding: number; maxZoom: number };
 } {
-  if (points.length === 1) {
+  if (points.length === 1 && !geometryBounds) {
     return {
       longitude: points[0]!.longitude,
       latitude: points[0]!.latitude,
@@ -150,10 +167,10 @@ function initialView(points: readonly ScientificMapPoint[]): Partial<ViewState> 
   }
   const longitudes = points.map((point) => point.longitude);
   const latitudes = points.map((point) => point.latitude);
-  let west = Math.min(...longitudes);
-  let east = Math.max(...longitudes);
-  let south = Math.min(...latitudes);
-  let north = Math.max(...latitudes);
+  let west = geometryBounds?.[0][0] ?? Math.min(...longitudes);
+  let east = geometryBounds?.[1][0] ?? Math.max(...longitudes);
+  let south = geometryBounds?.[0][1] ?? Math.min(...latitudes);
+  let north = geometryBounds?.[1][1] ?? Math.max(...latitudes);
   if (west === east) [west, east] = [west - 0.01, east + 0.01];
   if (south === north) [south, north] = [south - 0.01, north + 0.01];
   return {
@@ -165,15 +182,33 @@ function initialView(points: readonly ScientificMapPoint[]): Partial<ViewState> 
   };
 }
 
+/** Get the map instance from the provider, including maps returned from the reuse pool. */
+function MapInstanceReporter({ onMapInstance }: { onMapInstance: (map: MapLibreMap) => void }) {
+  const mapRef = useMap().current;
+  useEffect(() => {
+    const map = mapRef?.getMap();
+    if (!map) return;
+    // `onLoad` only fires for a newly created map. A pooled map may already be
+    // loaded when the new React view attaches, so report it from the provider.
+    map.boxZoom.disable();
+    onMapInstance(map);
+  }, [mapRef, onMapInstance]);
+  return null;
+}
+
 export function ClioScientificMapView({
+  boxSelectMode = false,
+  geometry,
+  geometryBounds,
   highlightedIds,
   onMapInstance,
   onSelect,
+  onClearSelection,
   onZoneSelect,
   points,
   selectedId,
 }: ScientificMapViewProps) {
-  const viewState = useMemo(() => initialView(points), [points]);
+  const viewState = useMemo(() => initialView(points, geometryBounds), [points, geometryBounds]);
   const selected = points.find((point) => point.id === selectedId);
   const [mapError, setMapError] = useState<string>();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -189,25 +224,112 @@ export function ClioScientificMapView({
   // window before the import resolves, at which point NOTHING re-triggers
   // it (a ref becoming non-null is not itself reactive). Confirmed directly
   // against `@vis.gl/react-maplibre`'s own source (`components/map.tsx`).
-  // `onLoad` is called imperatively by the library once the instance truly
-  // exists, sidestepping the ref-timing gap entirely; capturing it in state
-  // makes "the map is ready" a real reactive dependency every effect below
-  // can depend on, instead of a point-in-time ref read.
+  // The child `MapInstanceReporter` reads the provider after react-map-gl has
+  // attached either a new or pooled map. Capturing it in state makes "the map
+  // is ready" a real reactive dependency every effect below can observe.
   const [mapInstance, setMapInstance] = useState<MapLibreMap | undefined>(undefined);
+  const handleMapInstance = useCallback(
+    (map: MapLibreMap) => {
+      setMapError(undefined);
+      setMapInstance(map);
+      onMapInstance?.(map);
+    },
+    [onMapInstance],
+  );
   const [dragBox, setDragBox] = useState<DragBox | null>(null);
-  const manyPoints = points.length > MANY_POINTS_THRESHOLD;
+  const lastBoxDragAt = useRef(0);
+  const manyPoints = !geometry && points.length > MANY_POINTS_THRESHOLD;
+  const categoryColors = useMemo(() => mapCategoryColors(points), [points]);
+  const valueExtent = useMemo(() => mapValueExtent(points), [points]);
   const resolvedHighlightedIds = useMemo(
     () => highlightedIds ?? new Set(selectedId ? [selectedId] : []),
     [highlightedIds, selectedId],
   );
   const pointsGeoJson = useMemo(
-    () => (manyPoints ? pointsToGeoJson(points, resolvedHighlightedIds) : undefined),
-    [manyPoints, points, resolvedHighlightedIds],
+    () => (manyPoints ? pointsToGeoJson(points, resolvedHighlightedIds, categoryColors, valueExtent) : undefined),
+    [manyPoints, points, resolvedHighlightedIds, categoryColors, valueExtent],
   );
   const pointsGeoJsonRef = useRef<PointsGeoJson | undefined>(pointsGeoJson);
   useEffect(() => {
     pointsGeoJsonRef.current = pointsGeoJson;
   }, [pointsGeoJson]);
+  const styledGeometry = useMemo<FeatureCollection | undefined>(() => {
+    if (!geometry) return undefined;
+    const byId = new globalThis.Map(points.map((point) => [point.id, point]));
+    return {
+      type: 'FeatureCollection',
+      features: geometry.features.map((feature) => {
+        const point = byId.get(String(feature.id));
+        return {
+          ...feature,
+          properties: {
+            ...feature.properties,
+            id: String(feature.id),
+            color: point ? mapPointColor(point, categoryColors, valueExtent) : '#64748b',
+            highlighted: resolvedHighlightedIds.has(String(feature.id)),
+          },
+        };
+      }),
+    };
+  }, [geometry, points, categoryColors, valueExtent, resolvedHighlightedIds]);
+  const styledGeometryRef = useRef(styledGeometry);
+  useEffect(() => { styledGeometryRef.current = styledGeometry; }, [styledGeometry]);
+  useEffect(() => {
+    if (!geometry || !mapInstance) return undefined;
+    const map = mapInstance;
+    const canvas = map.getCanvas();
+    const previousCursor = canvas.style.cursor;
+    const owner = Symbol('clio-map-geometry-owner');
+    const ensureGeometryLayers = () => {
+      if (!map.isStyleLoaded()) return;
+      pointsLayerOwners.set(map, owner);
+      if (!map.getSource(GEOMETRY_SOURCE_ID)) map.addSource(GEOMETRY_SOURCE_ID, {
+        type: 'geojson', data: styledGeometryRef.current ?? geometry,
+      });
+      const color: ExpressionSpecification = ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, ['get', 'color']];
+      if (!map.getLayer(GEOMETRY_LAYER_IDS[0])) map.addLayer({
+        id: GEOMETRY_LAYER_IDS[0], type: 'fill', source: GEOMETRY_SOURCE_ID,
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: { 'fill-color': color, 'fill-opacity': 0.42, 'fill-outline-color': '#f8fafc' },
+      });
+      if (!map.getLayer(GEOMETRY_LAYER_IDS[1])) map.addLayer({
+        id: GEOMETRY_LAYER_IDS[1], type: 'line', source: GEOMETRY_SOURCE_ID,
+        filter: ['==', ['geometry-type'], 'LineString'],
+        paint: { 'line-color': color, 'line-width': ['case', ['get', 'highlighted'], 5, 3] },
+      });
+      if (!map.getLayer(GEOMETRY_LAYER_IDS[2])) map.addLayer({
+        id: GEOMETRY_LAYER_IDS[2], type: 'circle', source: GEOMETRY_SOURCE_ID,
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: { 'circle-color': color, 'circle-radius': ['case', ['get', 'highlighted'], 7, 5], 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 },
+      });
+    };
+    const updateCursor = (event: MapLayerMouseEvent) => {
+      const layers = GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id));
+      canvas.style.cursor = layers.length && map.queryRenderedFeatures(event.point, { layers }).length ? 'pointer' : previousCursor;
+    };
+    ensureGeometryLayers();
+    map.on('load', ensureGeometryLayers);
+    map.on('style.load', ensureGeometryLayers);
+    map.on('idle', ensureGeometryLayers);
+    map.on('mousemove', updateCursor);
+    return () => {
+      map.off('load', ensureGeometryLayers);
+      map.off('style.load', ensureGeometryLayers);
+      map.off('idle', ensureGeometryLayers);
+      map.off('mousemove', updateCursor);
+      canvas.style.cursor = previousCursor;
+      if (pointsLayerOwners.get(map) !== owner) return;
+      pointsLayerOwners.delete(map);
+      try {
+        for (const id of GEOMETRY_LAYER_IDS) if (map.getLayer(id)) map.removeLayer(id);
+        if (map.getSource(GEOMETRY_SOURCE_ID)) map.removeSource(GEOMETRY_SOURCE_ID);
+      } catch { /* Pooled map style was already removed. */ }
+    };
+  }, [geometry, mapInstance]);
+  useEffect(() => {
+    if (!styledGeometry || !mapInstance) return;
+    (mapInstance.getSource(GEOMETRY_SOURCE_ID) as GeoJSONSource | undefined)?.setData(styledGeometry);
+  }, [styledGeometry, mapInstance]);
   // Test-only hook (see `MapDebugSurface`).
   useEffect(() => {
     if (mapInstance && rootRef.current) (rootRef.current as MapDebugSurface).__clioMap = mapInstance;
@@ -224,6 +346,19 @@ export function ClioScientificMapView({
   useEffect(() => {
     if (!manyPoints || !mapInstance) return undefined;
     const map = mapInstance;
+    const canvas = map.getCanvas();
+    const previousCursor = canvas.style.cursor;
+    const updatePointCursor = (event: MapLayerMouseEvent) => {
+      const hit = map.getLayer(POINTS_LAYER_ID)
+        ? map.queryRenderedFeatures(event.point, { layers: [POINTS_LAYER_ID] }).length > 0
+        : false;
+      canvas.style.cursor = hit ? 'pointer' : previousCursor;
+    };
+    const clearPointCursor = () => {
+      canvas.style.cursor = previousCursor;
+    };
+    map.on('mousemove', updatePointCursor);
+    canvas.addEventListener('mouseleave', clearPointCursor);
     // With `reuseMaps`, a view that moves (a surface opened full screen is
     // portaled to a new host, which remounts it) hands its pooled instance to
     // the new view before its own cleanup has run. That late cleanup must not
@@ -245,7 +380,7 @@ export function ClioScientificMapView({
           type: 'circle',
           source: POINTS_SOURCE_ID,
           paint: {
-            'circle-color': ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, POINT_COLOR],
+            'circle-color': ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, ['get', 'color']],
             'circle-opacity': 0.85,
             'circle-radius': ['case', ['get', 'highlighted'], 6, 4],
             'circle-stroke-color': '#ffffff',
@@ -265,6 +400,9 @@ export function ClioScientificMapView({
       map.off('load', ensurePointsLayer);
       map.off('style.load', ensurePointsLayer);
       map.off('idle', ensurePointsLayer);
+      map.off('mousemove', updatePointCursor);
+      canvas.removeEventListener('mouseleave', clearPointCursor);
+      clearPointCursor();
       if (pointsLayerOwners.get(map) !== owner) return;
       pointsLayerOwners.delete(map);
       // Best-effort: with `reuseMaps`, this instance may already be back in
@@ -289,10 +427,11 @@ export function ClioScientificMapView({
     // modifier state; the rectangle gesture above already handled the
     // selection, so a held Shift here must never also select the one point
     // under the cursor.
-    if (event.originalEvent.shiftKey) return;
+    if (boxSelectMode || event.originalEvent.shiftKey || performance.now() - lastBoxDragAt.current < 350) return;
     const feature = event.features?.[0];
     const id = feature?.properties?.id;
     if (typeof id === 'string') onSelect(id);
+    else onClearSelection?.();
   };
 
   const containerPoint = (event: ReactPointerEvent<HTMLDivElement>): { x: number; y: number } => {
@@ -300,13 +439,14 @@ export function ClioScientificMapView({
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
   const handlePointerDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!onZoneSelect || !event.shiftKey || event.button !== 0) return;
+    if (!onZoneSelect || (!boxSelectMode && !event.shiftKey) || event.button !== 0) return;
     // Takes over shift+drag from maplibre's default box-zoom (disabled below)
     // before it ever reaches the map canvas.
     event.preventDefault();
     event.stopPropagation();
     const point = containerPoint(event);
     setDragBox({ startX: point.x, startY: point.y, x: point.x, y: point.y });
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
   const handlePointerMoveCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!dragBox) return;
@@ -322,29 +462,38 @@ export function ClioScientificMapView({
       Math.abs(dragBox.x - dragBox.startX) > ZONE_DRAG_THRESHOLD_PX ||
       Math.abs(dragBox.y - dragBox.startY) > ZONE_DRAG_THRESHOLD_PX;
     if (map && moved) {
+      lastBoxDragAt.current = performance.now();
       const corner1 = map.unproject([dragBox.startX, dragBox.startY]);
       const corner2 = map.unproject([dragBox.x, dragBox.y]);
       const west = Math.min(corner1.lng, corner2.lng);
       const east = Math.max(corner1.lng, corner2.lng);
       const south = Math.min(corner1.lat, corner2.lat);
       const north = Math.max(corner1.lat, corner2.lat);
-      const ids = points
-        .filter(
-          (candidate) =>
-            candidate.longitude >= west &&
-            candidate.longitude <= east &&
-            candidate.latitude >= south &&
-            candidate.latitude <= north,
-        )
-        .map((candidate) => candidate.id);
+      const ids = geometry
+        ? [...new Set(map.queryRenderedFeatures(
+            [[Math.min(dragBox.startX, dragBox.x), Math.min(dragBox.startY, dragBox.y)],
+              [Math.max(dragBox.startX, dragBox.x), Math.max(dragBox.startY, dragBox.y)]],
+            { layers: GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id)) },
+          ).map((feature) => feature.properties?.id).filter((id): id is string => typeof id === 'string'))]
+        : points
+          .filter(
+            (candidate) =>
+              candidate.longitude >= west &&
+              candidate.longitude <= east &&
+              candidate.latitude >= south &&
+              candidate.latitude <= north,
+          )
+          .map((candidate) => candidate.id);
       onZoneSelect?.(ids);
     }
     setDragBox(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   return (
     <div
-      className="relative size-full"
+      className={cn('relative size-full', boxSelectMode && 'cursor-crosshair')}
       data-slot="a2ui-map-surface"
       onPointerDownCapture={handlePointerDownCapture}
       onPointerMoveCapture={handlePointerMoveCapture}
@@ -353,28 +502,22 @@ export function ClioScientificMapView({
     >
       <Map
         initialViewState={viewState}
-        interactiveLayerIds={manyPoints ? [POINTS_LAYER_ID] : undefined}
+        interactiveLayerIds={geometry ? [...GEOMETRY_LAYER_IDS] : manyPoints ? [POINTS_LAYER_ID] : undefined}
         mapStyle={rasterStyle}
         maxPitch={0}
         maxZoom={16}
         minZoom={1}
-        onClick={manyPoints ? handleLayerClick : undefined}
+        onClick={handleLayerClick}
         onError={(event) =>
           setMapError(event.error?.message || 'The map tiles could not be loaded.')
         }
-        onLoad={(event) => {
-          setMapError(undefined);
-          // Shift+drag now draws a selection rectangle instead (see above).
-          event.target.boxZoom.disable();
-          setMapInstance(event.target);
-          onMapInstance?.(event.target);
-        }}
         ref={mapRef}
         reuseMaps
         style={{ height: '100%', width: '100%' }}
       >
         <NavigationControl position="top-right" showCompass={false} />
-        {manyPoints
+        <MapInstanceReporter onMapInstance={handleMapInstance} />
+        {manyPoints || geometry
           ? null
           : points.map((point) => {
               const highlighted = resolvedHighlightedIds.has(point.id);
@@ -384,9 +527,10 @@ export function ClioScientificMapView({
                     aria-label={`Select ${point.label}`}
                     aria-pressed={highlighted}
                     className={cn(
-                      'group grid size-8 place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'group grid size-8 cursor-pointer place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       highlighted && 'scale-110 border-primary bg-primary text-primary-foreground',
                     )}
+                    style={highlighted ? undefined : { color: mapPointColor(point, categoryColors, valueExtent) }}
                     onClick={(event) => {
                       event.stopPropagation();
                       onSelect(point.id);

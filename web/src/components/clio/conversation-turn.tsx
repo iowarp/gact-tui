@@ -231,6 +231,13 @@ function ActivityChain({
   );
 }
 
+function plainActivitySummary(summary: string): string {
+  return summary
+    .replace(/\*\*(.*?)\*\*/gu, '$1')
+    .replace(/__(.*?)__/gu, '$1')
+    .replace(/`([^`]+)`/gu, '$1');
+}
+
 function IterationSummary({
   iteration,
   onOpenSubagent,
@@ -259,6 +266,7 @@ function IterationSummary({
 }) {
   const [manualOpen, setManualOpen] = useState(false);
   const open = iteration.streaming || manualOpen;
+  const summary = plainActivitySummary(iteration.summary);
   const appEvents = iteration.activity.filter(
     (entry): entry is McpAppActivityEntry => entry.kind === 'mcp_app',
   );
@@ -275,7 +283,7 @@ function IterationSummary({
       ? clioStatusLabel(primaryTool.state)
       : undefined;
   const disclosureLabel = [
-    `${open ? 'Collapse' : 'Expand'} activity: ${iteration.summary}`,
+    `${open ? 'Collapse' : 'Expand'} activity: ${summary}`,
     tool?.title,
     toolSummary,
     toolState,
@@ -296,10 +304,11 @@ function IterationSummary({
               className="group flex w-full min-w-0 items-start gap-2 rounded-md py-0.5 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-sm text-foreground">{iteration.summary}</span>
-                {tool ? (
+                <span className="block text-sm text-foreground">{summary}</span>
+                {tool && !open ? (
                   <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />
+                    <span className="shrink-0 font-medium">Tool</span>
                     <span className="truncate">{tool.title}</span>
                     {toolSummary ? <span className="min-w-0 truncate">{toolSummary}</span> : null}
                     {toolState ? <span className="shrink-0">{toolState}</span> : null}

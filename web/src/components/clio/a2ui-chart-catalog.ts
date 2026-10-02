@@ -5,8 +5,9 @@ import { z } from 'zod';
 import guardRules from './chart-assets/guard_rules.json';
 import type { ChartDataQuery, ChartRow } from './chart-data';
 import { checkChartSpecSchemaRules } from './chart-spec-guard';
+import { BoundDataQuery } from './bound-data-query';
 import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
-import type { SelectionWriter } from './selection-state';
+import { isBoundToPath, type SelectionWriter } from './selection-state';
 import { geoJsonGeometrySchema } from './table-query-rows';
 
 // vega, vega-lite and vega-embed are only fetched once a surface contains a chart.
@@ -151,14 +152,21 @@ export const ClioChartCatalogComponent = createComponentImplementation(
   { name: 'clio.chart.v1', schema: chartComponentSchema },
   ({ props, context }) =>
     createElement(
-      Suspense,
-      { fallback: createElement('div', { className: 'h-80 animate-pulse rounded-lg bg-muted' }) },
-      createElement(LazyChart, {
+      BoundDataQuery,
+      {
+        dataContext: context.dataContext,
+        query: props.dataQuery as ChartDataQuery | undefined,
+        // This catalog adapter is a .ts file and passes a render function as children.
+        // oxlint-disable-next-line react/no-children-prop
+        children: (resolvedQuery: ChartDataQuery | undefined) => createElement(
+          Suspense,
+          { fallback: createElement('div', { className: 'h-80 animate-pulse rounded-lg bg-muted' }) },
+          createElement(LazyChart, {
         accessibility: props.accessibility,
         colorField: props.colorField,
         componentId: context.componentModel.id,
         data: props.data as ChartRow[] | undefined,
-        dataQuery: props.dataQuery as ChartDataQuery | undefined,
+        dataQuery: resolvedQuery,
         dataUri: props.dataUri,
         entityField: props.entityField,
         facetField: props.facetField,
@@ -168,13 +176,17 @@ export const ClioChartCatalogComponent = createComponentImplementation(
         selection: props.selection,
         selectionField: props.selectionField,
         selectionParam: props.selectionParam,
-        setSelection: props.setSelection as unknown as SelectionWriter | undefined,
+        setSelection: isBoundToPath(context.componentModel.properties.selection)
+          ? (props.setSelection as unknown as SelectionWriter)
+          : undefined,
         spec: props.spec,
         title: props.title,
         weight: props.weight,
         xField: props.xField,
         xType: props.xType,
         yField: props.yField,
-      }),
+          }),
+        ),
+      },
     ),
 );

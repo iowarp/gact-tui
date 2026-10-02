@@ -1,6 +1,6 @@
 import { flexRender } from '@tanstack/react-table';
 import type { Header, Row } from '@tanstack/react-table';
-import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
+import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import {
   type DataGridFeatures,
   type DataGridTableInstance,
@@ -130,7 +130,7 @@ function ClioDataGridHeaderCell<TData extends object>({
           aria-valuenow={Math.round(column.getSize())}
           aria-valuetext={`${Math.round(column.getSize())} pixels wide`}
           className={cn(
-            'absolute inset-y-0 -end-2 z-10 flex w-5 cursor-col-resize touch-none select-none justify-center',
+            'absolute inset-y-0 end-0 z-10 flex w-5 cursor-col-resize touch-none select-none justify-center',
             'before:w-px before:bg-border',
             column.getIsResizing() && 'before:w-0.5 before:bg-primary',
           )}
@@ -185,6 +185,9 @@ function ClioDataGridRow<TData extends object>({ row }: { row: Row<DataGridFeatu
           row.getIsSelected() && 'bg-primary/10',
           props.tableClassNames?.bodyRow,
         )}
+        onMouseDown={(event: MouseEvent<HTMLTableRowElement>) => {
+          if (interactive && event.shiftKey) event.preventDefault();
+        }}
         onClick={interactive ? activate : undefined}
         onKeyDown={onKeyDown}
         tabIndex={interactive ? 0 : undefined}

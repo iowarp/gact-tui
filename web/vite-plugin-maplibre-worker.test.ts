@@ -97,6 +97,37 @@ describe('maplibreWorkerPlugin', () => {
     expect(res.end).toHaveBeenCalledWith(readFileSync(join(maplibreDistDir, 'maplibre-gl-shared.mjs')));
   });
 
+  it('dev: serves optimized-dependency worker URLs beside Vite’s prebundled maplibre entry', () => {
+    const plugin = maplibreWorkerPlugin();
+    const { server, middleware } = makeFakeServer();
+    plugin.configureServer?.(server);
+
+    const res = { setHeader: vi.fn(), end: vi.fn() };
+    const next = vi.fn();
+    middleware({ url: '/node_modules/.vite/deps/maplibre-gl-worker.mjs?v=optimized' }, res, next);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/javascript');
+    expect(res.end).toHaveBeenCalledWith(readFileSync(join(maplibreDistDir, 'maplibre-gl-worker.mjs')));
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('dev: serves the optimized worker’s shared sibling at the matching URL', () => {
+    const plugin = maplibreWorkerPlugin();
+    const { server, middleware } = makeFakeServer();
+    plugin.configureServer?.(server);
+
+    const res = { setHeader: vi.fn(), end: vi.fn() };
+    const next = vi.fn();
+    middleware(
+      { url: '/node_modules/.vite/deps/maplibre-gl-shared.mjs?v=optimized' },
+      res,
+      next,
+    );
+
+    expect(res.end).toHaveBeenCalledWith(readFileSync(join(maplibreDistDir, 'maplibre-gl-shared.mjs')));
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('dev: falls through to the next middleware for any other asset path', () => {
     const plugin = maplibreWorkerPlugin();
     const { server, middleware } = makeFakeServer();

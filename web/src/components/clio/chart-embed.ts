@@ -3,6 +3,7 @@ import embed, { type Result, type VisualizationSpec } from 'vega-embed';
 import { expressionInterpreter } from 'vega-interpreter';
 import { Handler } from 'vega-tooltip';
 import { DATA_SOURCE_NAME, isJsonObject } from './chart-spec-guard';
+import { CATEGORY_COLORS } from './map-category-palette';
 
 /**
  * Vega-Lite embedding for `clio.chart.v1`, locked down to the chart contract:
@@ -133,7 +134,7 @@ export function embedChart(
   return embed(element, spec as VisualizationSpec, {
     actions: false,
     ast: true,
-    config: { background: 'transparent' },
+    config: { background: 'transparent', range: { category: [...CATEGORY_COLORS] } },
     defaultStyle: false,
     expr: expressionInterpreter,
     loader: refusingLoader(),

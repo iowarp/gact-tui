@@ -229,6 +229,7 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
   }
 
   const assignment = getChildAgentAssignment(subagent);
+  const interactive = Boolean(subagent.child_session_id && onOpen);
 
   const openFromPointer = (event: MouseEvent<HTMLElement>) => {
     onOpen?.(subagent, event.shiftKey ? 'canvas' : 'conversation');
@@ -242,22 +243,24 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
   return (
     <div title={assignment.detail}>
       <SubAgentDispatch
-        aria-label={`Open child conversation ${subagent.title}`}
+        aria-label={interactive
+          ? `Open child conversation ${subagent.title}`
+          : `Child conversation unavailable for ${subagent.title}`}
         className={
-          subagent.child_session_id && onOpen
+          interactive
             ? 'cursor-pointer outline-none transition-colors hover:border-primary/60 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/50'
-            : undefined
+            : 'cursor-default'
         }
-        onClick={subagent.child_session_id && onOpen ? openFromPointer : undefined}
-        onKeyDown={subagent.child_session_id && onOpen ? openFromKeyboard : undefined}
+        onClick={interactive ? openFromPointer : undefined}
+        onKeyDown={interactive ? openFromKeyboard : undefined}
         onMouseDown={
-          subagent.child_session_id && onOpen
+          interactive
             ? (event) => {
                 if (event.shiftKey) event.preventDefault();
               }
             : undefined
         }
-        role={subagent.child_session_id && onOpen ? 'button' : undefined}
+        role={interactive ? 'button' : undefined}
         run={{
           id: subagent.id,
           agent: subagent.title,
@@ -269,11 +272,11 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
             ? compactText(subagent.result, SUBAGENT_RESULT_TRUNCATE_CHARS)
             : undefined,
         }}
-        tabIndex={subagent.child_session_id && onOpen ? 0 : undefined}
+        tabIndex={interactive ? 0 : undefined}
         title={
-          subagent.child_session_id && onOpen
+          interactive
             ? 'Open child conversation. Shift-click to open it in the canvas.'
-            : undefined
+            : 'This run has no linked child conversation to open.'
         }
       />
     </div>

@@ -494,6 +494,45 @@ describe('useWorkspaceData requested session lookup', () => {
   });
 });
 
+describe('useWorkspaceData transcript recovery', () => {
+  it('fetches the completed answer when the initial transcript missed the final stream frame', async () => {
+    mocks.repository.sessions.mockResolvedValue([
+      {
+        id: 'sess_1',
+        workspace_id: 'ws_1',
+        title: 'Station review',
+        state: 'completed',
+        updated_at: '2026-10-02T04:30:00Z',
+        message_count: 2,
+      },
+    ]);
+    const snapshot = (ids: string[]): TranscriptSnapshot => ({
+      messages: ids.map((id) => ({
+        id,
+        session_id: 'sess_1',
+        role: id === 'assistant' ? 'assistant' : 'user',
+        created_at: '2026-10-02T04:30:00Z',
+        blocks: [],
+      })) as TranscriptSnapshot['messages'],
+      tools: [],
+      tasks: [],
+      subagents: [],
+      artifacts: [],
+      surfaces: [],
+    });
+    mocks.repository.transcript
+      .mockResolvedValueOnce(snapshot(['user']))
+      .mockResolvedValue(snapshot(['user', 'assistant']));
+
+    renderWorkspaceData();
+
+    await waitFor(() => expect(mocks.repository.transcript).toHaveBeenCalledTimes(2));
+    expect(mocks.mergeSnapshots).toHaveBeenCalledWith(
+      expect.objectContaining({ messages: expect.objectContaining({ assistant: expect.anything() }) }),
+    );
+  });
+});
+
 describe('useWorkspaceData background polls', () => {
   it('does not re-render the workspace when a poll returns the same data', async () => {
     mocks.repository.pendingApprovals.mockResolvedValue([approval]);

@@ -8,7 +8,7 @@ import type { SelectionTarget } from './selection-actions';
  * Annotations travel as part of the message text, so the service needs no new
  * message part to receive them and the transcript shows exactly what was sent.
  */
-export type ComposerAnnotation = TextQuoteAnnotation | DataZoneQuoteAnnotation;
+export type ComposerAnnotation = TextQuoteAnnotation | DataZoneQuoteAnnotation | RegionCaptureAnnotation;
 
 export interface TextQuoteAnnotation {
   id: string;
@@ -29,6 +29,16 @@ export interface DataZoneQuoteAnnotation {
   /** One plain-language line for the card itself, e.g. "the whole view (500 rows)". */
   summary: string;
   /** The full reference block — see `data-zone-reference.ts`'s `buildZoneReference`. */
+  markdown: string;
+}
+
+/** A labelled surface screenshot with its structured context kept out of the editable draft. */
+export interface RegionCaptureAnnotation {
+  id: string;
+  kind: 'region-capture';
+  filename: string;
+  title: string;
+  summary: string;
   markdown: string;
 }
 
@@ -59,7 +69,7 @@ function quoted(text: string): string {
 
 /** The Markdown a submission quotes for one annotation, whatever its kind. */
 function annotationBody(annotation: ComposerAnnotation): string {
-  return annotation.kind === 'data-zone-quote' ? annotation.markdown : annotation.text;
+  return annotation.kind === 'text-quote' ? annotation.text : annotation.markdown;
 }
 
 /**

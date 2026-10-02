@@ -38,6 +38,8 @@ export interface DataZoneReference {
   summary: string;
   /** The full reference block, ready to quote into the composer. */
   markdown: string;
+  /** The same machine-readable current view embedded in markdown. */
+  query?: unknown;
 }
 
 function previewTable(columns: readonly string[], rows: readonly Record<string, unknown>[]): string {
@@ -62,6 +64,7 @@ export function buildZoneReference(input: DataZoneReferenceInput): DataZoneRefer
   sections.push(['```json', JSON.stringify(input.query, null, 2), '```'].join('\n'));
   return {
     markdown: sections.join('\n\n'),
+    query: input.query,
     summary: input.zoneDescription,
     title: input.componentLabel,
   };

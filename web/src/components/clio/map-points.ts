@@ -2,6 +2,22 @@ import type { ScientificMapPoint } from './scientific-map-view';
 import type { SelectionValue } from './selection-state';
 import type { QueryRow } from './table-query-rows';
 
+const SELECTABLE_POINT_FIELDS = ['id', 'label', 'category'] as const;
+type SelectablePointField = (typeof SELECTABLE_POINT_FIELDS)[number];
+
+export function isSelectablePointField(field: string): field is SelectablePointField {
+  return (SELECTABLE_POINT_FIELDS as readonly string[]).includes(field);
+}
+
+/** Prefer the data column's selection value over the point's display identity. */
+export function pointSelectValue(point: ScientificMapPoint, field: string): SelectionValue | undefined {
+  if (point.selectionValue !== undefined) return point.selectionValue;
+  if (field === 'id') return point.id;
+  if (field === 'label') return point.label;
+  if (field === 'category') return point.category;
+  return undefined;
+}
+
 /**
  * Shared between `a2ui-map.tsx` (the renderer, both the inline-`points` and
  * `dataUri` paths) and `a2ui-map-data-source.tsx` (the `dataUri` data-fetch
@@ -30,6 +46,7 @@ export interface MapFieldNames {
   idField?: string;
   detailField?: string;
   categoryField?: string;
+  valueField?: string;
   /** A dataset column read into each point's `selectionValue` (a bound selection's key). */
   selectionField?: string;
 }
@@ -60,6 +77,7 @@ export function pointsFromRows(
       longitude,
       detail: fields.detailField ? toText(row[fields.detailField]) : undefined,
       category: fields.categoryField ? toText(row[fields.categoryField]) : undefined,
+      value: fields.valueField ? toFiniteNumber(row[fields.valueField]) : undefined,
       selectionValue: fields.selectionField
         ? toSelectionValue(row[fields.selectionField])
         : undefined,

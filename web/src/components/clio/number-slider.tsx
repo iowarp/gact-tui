@@ -12,9 +12,10 @@ import { effectiveStep, snapToStep, stepDecimals, type SliderRange } from './num
 export interface ClioNumberSliderProps extends SliderRange {
   accessibility?: A2UIAccessibility;
   label?: string;
+  rangeMode?: boolean;
   unit?: string;
-  value?: number;
-  setValue?: (value: number) => void;
+  value?: number | [number, number];
+  setValue?: (value: number | [number, number]) => void;
   weight?: number;
 }
 
@@ -24,6 +25,7 @@ export function ClioNumberSlider({
   label = '',
   max,
   min,
+  rangeMode = false,
   setValue,
   step,
   unit,
@@ -37,12 +39,23 @@ export function ClioNumberSlider({
     typeof value === 'number' && Number.isFinite(value) ? value : min,
     range,
   );
+  const pair: [number, number] = Array.isArray(value)
+    ? [snapToStep(value[0], range), snapToStep(value[1], range)].sort((a, b) => a - b) as [number, number]
+    : [min, max];
   const fieldId = useId();
+  const upperFieldId = useId();
 
   const write = (next: number | null) => {
     if (next === null || !Number.isFinite(next)) return;
     const snapped = snapToStep(next, range);
     if (snapped !== current) setValue?.(snapped);
+  };
+  const writeBound = (index: 0 | 1, next: number | null) => {
+    if (next === null || !Number.isFinite(next)) return;
+    const updated = [...pair] as [number, number];
+    updated[index] = snapToStep(next, range);
+    updated.sort((a, b) => a - b);
+    if (updated[0] !== pair[0] || updated[1] !== pair[1]) setValue?.(updated);
   };
 
   return (
@@ -65,14 +78,14 @@ export function ClioNumberSlider({
             id={fieldId}
             max={max}
             min={min}
-            onValueCommitted={write}
+            onValueCommitted={rangeMode ? (next) => writeBound(0, next) : write}
             size="sm"
             step={stepInUse}
-            value={current}
+            value={rangeMode ? pair[0] : current}
           >
             <NumberFieldGroup>
               <NumberFieldInput
-                aria-label={label}
+                aria-label={rangeMode ? `${label} minimum` : label}
                 className="font-mono text-xs"
                 onKeyDown={(event) => {
                   // The field commits when it loses focus; Enter commits as well.
@@ -81,6 +94,30 @@ export function ClioNumberSlider({
               />
             </NumberFieldGroup>
           </NumberField>
+          {rangeMode ? (
+            <>
+              <span aria-hidden="true" className="text-xs text-muted-foreground">–</span>
+              <NumberField
+                className="w-24 gap-0"
+                format={{ minimumFractionDigits: decimals, maximumFractionDigits: decimals }}
+                id={upperFieldId}
+                max={max}
+                min={min}
+                onValueCommitted={(next) => writeBound(1, next)}
+                size="sm"
+                step={stepInUse}
+                value={pair[1]}
+              >
+                <NumberFieldGroup>
+                  <NumberFieldInput
+                    aria-label={`${label} maximum`}
+                    className="font-mono text-xs"
+                    onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                  />
+                </NumberFieldGroup>
+              </NumberField>
+            </>
+          ) : null}
           {unit ? <span className="text-xs text-muted-foreground">{unit}</span> : null}
         </div>
       </div>
@@ -88,11 +125,13 @@ export function ClioNumberSlider({
         aria-label={label}
         max={max}
         min={min}
-        onValueChange={([next]) => {
-          if (typeof next === 'number') setValue?.(snapToStep(next, range));
+        onValueChange={(next) => {
+          if (rangeMode && next.length === 2) {
+            setValue?.([snapToStep(next[0]!, range), snapToStep(next[1]!, range)]);
+          } else if (typeof next[0] === 'number') setValue?.(snapToStep(next[0], range));
         }}
         step={stepInUse}
-        value={[current]}
+        value={rangeMode ? pair : [current]}
       />
     </div>
   );

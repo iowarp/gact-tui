@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ClioDataTable, type ClioDataRow, type ClioDataTableServerControl } from './data-table';
@@ -73,6 +73,26 @@ describe('ClioDataTable', () => {
     await user.keyboard('{Enter}');
 
     expect(selected).toEqual([{ station: 'MTA1' }]);
+  });
+
+  it('prevents text selection during shift-click multi-row selection', () => {
+    const selected: Array<{ row: ClioDataRow; shiftKey: boolean }> = [];
+    const { container } = render(
+      <ClioDataTable
+        columns={['station']}
+        onRowClick={(row, context) => selected.push({ row, shiftKey: context.shiftKey })}
+        rows={[{ station: 'MTA1' }, { station: 'MTA2' }]}
+      />,
+    );
+
+    const row = container.querySelector('tbody tr');
+    expect(row).not.toBeNull();
+    const mouseDown = createEvent.mouseDown(row!, { shiftKey: true });
+    fireEvent(row!, mouseDown);
+    fireEvent.click(row!, { shiftKey: true });
+
+    expect(mouseDown.defaultPrevented).toBe(true);
+    expect(selected).toEqual([{ row: { station: 'MTA1' }, shiftKey: true }]);
   });
 
   // Regression for #1533: a server-driven column's header dropdown (filter +

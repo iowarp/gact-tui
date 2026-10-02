@@ -54,9 +54,7 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
   page,
 }) => {
   await page.goto(workspaceUrl);
-  await expect(
-    page.getByRole('heading', { name: 'EarthScope NDP evidence review' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
   await expect(page.getByText('Live', { exact: true })).toBeVisible();
 
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-login-form`);
@@ -64,7 +62,7 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
 
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toBeVisible();
-  const surfaceSection = page.locator('[aria-label^="Generated UI,"]');
+  const surfaceSection = page.locator('[aria-label^="Interactive surface,"]');
   await expect
     .poll(async () => {
       await conversation.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));

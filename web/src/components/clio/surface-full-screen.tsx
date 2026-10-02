@@ -3,15 +3,14 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 /**
- * Per-COMPONENT full screen (G0: every data view, not only the whole
- * "Generated UI" surface `a2ui-surface-card.tsx` already full-screens).
+ * Per-component full screen for each data view.
  *
  * Portals `children` into whichever host is current (inline or the dialog)
- * instead of re-rendering a second copy — the same technique
- * `ClioA2UISurfaceCard` uses one level up, for the same reason: a chart's
- * Vega view, a map's maplibre canvas, or any other imperative, expensive-to-
+ * instead of re-rendering a second copy: a chart's Vega view, a map's
+ * maplibre canvas, or any other imperative, expensive-to-
  * recreate child must MOVE, not remount, when the view goes full screen.
  *
  * Both host elements are created up front with a lazy `useState` initializer
@@ -86,13 +85,25 @@ export function SurfaceFullScreenHost({
         >
           <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
             <DialogTitle className="min-w-0 truncate text-sm">{title}</DialogTitle>
-            <div className="flex shrink-0 items-center gap-2">
-              {headerExtra}
-              <Button onClick={() => onOpenChange(false)} size="sm" type="button" variant="ghost">
-                <Minimize2Icon aria-hidden="true" />
-                Exit full screen
-              </Button>
-            </div>
+            <TooltipProvider delayDuration={150}>
+              <div className="group flex shrink-0 items-center gap-2">
+                {headerExtra}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      aria-label="Exit full screen"
+                      onClick={() => onOpenChange(false)}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Minimize2Icon aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Exit full screen</TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
           </div>
           <div
             className="min-h-0 overflow-auto overscroll-contain p-3"

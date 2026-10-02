@@ -79,10 +79,30 @@ function mergeEntityMap(
   current: Record<string, unknown>,
   snapshot: Record<string, unknown>,
   streamOwned: ReadonlySet<string>,
+  mapKey: string,
 ): Record<string, unknown> {
   const merged: Record<string, unknown> = {};
   for (const [id, entity] of Object.entries(snapshot)) {
-    merged[id] = streamOwned.has(id) && id in current ? current[id] : entity;
+    const previous = current[id];
+    // A dropped terminal stream frame must not pin a session at "running"
+    // forever. The session REST read is authoritative once it reports a newer
+    // terminal state, even when an earlier stream revision owns the row.
+    const terminalSessionSnapshot =
+      mapKey === 'sessions' &&
+      typeof entity === 'object' &&
+      entity !== null &&
+      typeof previous === 'object' &&
+      previous !== null &&
+      'state' in entity &&
+      'state' in previous &&
+      ['completed', 'failed', 'cancelled', 'interrupted'].includes(String(entity.state)) &&
+      ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(
+        String(previous.state),
+      ) &&
+      'updated_at' in entity &&
+      'updated_at' in previous &&
+      String(entity.updated_at) >= String(previous.updated_at);
+    merged[id] = streamOwned.has(id) && id in current && !terminalSessionSnapshot ? previous : entity;
   }
   for (const [id, entity] of Object.entries(current)) {
     if (!(id in merged) && streamOwned.has(id)) merged[id] = entity;
@@ -156,6 +176,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
               (Reflect.get(state.entities, key) ?? {}) as Record<string, unknown>,
               value as Record<string, unknown>,
               streamOwned,
+              key,
             ),
           );
         } else {

@@ -162,6 +162,10 @@ export function runEarthquakeTableQuery(request) {
         type: typeof EARTHQUAKE_ROWS[0][name] === 'number' ? 'double' : 'string',
       })),
       columns: columnsOut,
+      rowKey: {
+        column: '__row',
+        values: page.map((row) => EARTHQUAKE_ROWS.indexOf(row)),
+      },
       totalRows: EARTHQUAKE_ROWS.length,
       matchedRows,
       returnedRows: page.length,

@@ -67,6 +67,7 @@ afterEach(() => {
 
 describe('ClioMeshViewport', () => {
   it('reads the mesh through the artifact byte route and describes it in words', async () => {
+    const user = userEvent.setup();
     repository.readArtifactBytes.mockResolvedValue(SURFACE);
     render(wrap(<ClioMeshViewport field="S_MISES" meshUri="artifact://artifact_surface" />));
 
@@ -79,7 +80,10 @@ describe('ClioMeshViewport', () => {
     );
     // The stage from the file names the view when the producer gave no title.
     expect(await screen.findByText('Before optimization')).toBeInTheDocument();
-    expect(screen.getByText('20 surface triangles, units mm')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(
+      screen.getByRole('menuitem', { name: '20 surface triangles, units mm' }),
+    ).toBeInTheDocument();
     // jsdom has no WebGL: the failure is stated, never left as a blank canvas.
     expect(screen.getByText(/cannot draw 3D graphics/i)).toBeInTheDocument();
   });
@@ -91,6 +95,7 @@ describe('ClioMeshViewport', () => {
   });
 
   it('names the frame and the threshold result for a cells export', async () => {
+    const user = userEvent.setup();
     repository.readArtifactBytes.mockResolvedValue(BRICKS);
     render(
       wrap(
@@ -104,7 +109,9 @@ describe('ClioMeshViewport', () => {
         />,
       ),
     );
-    expect(await screen.findByText(/^Cycle 2, /)).toBeInTheDocument();
+    await screen.findByRole('button', { name: 'More' });
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(await screen.findByRole('menuitem', { name: /^Cycle 2, / })).toBeInTheDocument();
   });
 
   it('states that a per-node field cannot threshold a cells export, instead of ignoring it', async () => {
@@ -147,9 +154,9 @@ describe('ClioMeshViewport', () => {
         'data-disabled',
         '',
       );
-      expect(
-        screen.getByRole('menuitem', { name: 'Original file' }),
-      ).not.toHaveAttribute('data-disabled');
+      expect(screen.getByRole('menuitem', { name: 'Original file' })).not.toHaveAttribute(
+        'data-disabled',
+      );
     });
 
     it('downloads the original mesh artifact bytes, named for the component title', async () => {
@@ -178,7 +185,9 @@ describe('ClioMeshViewport', () => {
 
       // The parse query reads the bytes once (with a fetch path + abort
       // signal); "Original file" reads them again, plainly, for the raw download.
-      await waitFor(() => expect(repository.readArtifactBytes).toHaveBeenCalledWith('artifact_surface'));
+      await waitFor(() =>
+        expect(repository.readArtifactBytes).toHaveBeenCalledWith('artifact_surface'),
+      );
       await waitFor(() => expect(capturedBlobs).toHaveLength(1));
       expect(downloadedName).toBe('Impeller.glb');
       expect(capturedBlobs[0]!.type).toBe('model/gltf-binary');
@@ -207,7 +216,11 @@ describe('ClioMeshViewport', () => {
       repository.readArtifactBytes.mockResolvedValue(SURFACE);
       render(
         wrapWithComposer(
-          <ClioMeshViewport field="S_MISES" meshUri="artifact://artifact_surface" title="Impeller" />,
+          <ClioMeshViewport
+            field="S_MISES"
+            meshUri="artifact://artifact_surface"
+            title="Impeller"
+          />,
         ),
       );
 

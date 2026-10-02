@@ -5,8 +5,10 @@ import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { ClioConversation } from './conversation';
 import {
+  foldA2UIRevisionBlocks,
   isProjectedQuestionResumeEnvelope,
   mcpAppResponseForMessage,
+  projectA2UIActionMessages,
 } from './conversation-message-projection';
 
 vi.mock('@tanstack/react-virtual', () => ({
@@ -35,6 +37,81 @@ Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
 afterEach(cleanup);
 
 describe('conversation message projections', () => {
+  it('shows an approval choice without protocol receipts or raw JSON', () => {
+    const messages: Message[] = [
+      {
+        id: 'msg_a2ui_a2ui_action_event_receipt',
+        session_id: 'session_1',
+        role: 'assistant',
+        created_at: '2026-10-02T00:00:00Z',
+        blocks: [{ id: 'receipt', type: 'unknown', original_type: 'a2ui_action', raw: {} }],
+      },
+      {
+        id: 'choice',
+        session_id: 'session_1',
+        role: 'user',
+        created_at: '2026-10-02T00:00:01Z',
+        metadata: { a2ui_action: 'event_1', a2ui_action_context: { approved: false } },
+        blocks: [{ id: 'text', type: 'text', text: 'A2UI event: approval.respond\n\nStructured context: {"approved":false}' }],
+      },
+    ];
+    const projected = projectA2UIActionMessages(messages);
+    expect(projected).toHaveLength(1);
+    expect(projected[0]?.blocks).toMatchObject([{ type: 'text', text: 'Approval declined' }]);
+  });
+
+  it('shows a selected value without the protocol event envelope', () => {
+    const projected = projectA2UIActionMessages([{
+      id: 'choice',
+      session_id: 'session_1',
+      role: 'user',
+      created_at: '2026-10-02T00:00:01Z',
+      blocks: [{ id: 'text', type: 'text', text: 'A2UI event: agent.submit\n\nStructured context: {"selected_visit":["FV-104"]}' }],
+    }]);
+    expect(projected[0]?.blocks).toMatchObject([{ type: 'text', text: 'Selected visit: FV-104' }]);
+  });
+
+  it('names a selected item when its action also carries follow-up details', () => {
+    const projected = projectA2UIActionMessages([{
+      id: 'choice',
+      session_id: 'session_1',
+      role: 'user',
+      created_at: '2026-10-02T00:00:01Z',
+      metadata: {
+        a2ui_action: 'event_2',
+        a2ui_action_context: {
+          selected_id: 'EQ-204',
+          equipment: 'Air compressor',
+          deadline: 'Saturday, October 3, 2026',
+          status: 'In progress',
+        },
+      },
+      blocks: [{ id: 'text', type: 'text', text: 'A2UI event: agent.submit' }],
+    }]);
+    expect(projected[0]?.blocks).toMatchObject([{ type: 'text', text: 'Selected: Air compressor (EQ-204)' }]);
+  });
+
+  it('keeps a revised surface in its original message only', () => {
+    const make = (id: string, sessionId: string, surfaceId: string): Message => ({
+      id,
+      session_id: sessionId,
+      role: 'assistant',
+      created_at: '2026-10-02T00:00:00Z',
+      blocks: [
+        { id: `${id}-text`, type: 'text', text: id },
+        { id: `${id}-surface`, type: 'a2ui', surface_id: surfaceId },
+      ],
+    });
+    const rows = foldA2UIRevisionBlocks([
+      make('original', 'session_1', 'pancakes'),
+      make('revision', 'session_1', 'pancakes'),
+      make('another-session', 'session_2', 'pancakes'),
+    ]);
+    expect(rows[0]?.blocks.map((block) => block.type)).toEqual(['text', 'a2ui']);
+    expect(rows[1]?.blocks.map((block) => block.type)).toEqual(['text']);
+    expect(rows[2]?.blocks.map((block) => block.type)).toEqual(['text', 'a2ui']);
+  });
+
   it('recognizes a native answer envelope already owned by a projected interaction', () => {
     const envelope: Message = {
       id: 'message_resume',

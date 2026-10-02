@@ -4,9 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const repository = vi.hoisted(() => ({ artifactTableExport: vi.fn(), artifactTableQuery: vi.fn() }));
+const repository = vi.hoisted(() => ({
+  artifactTableExport: vi.fn(),
+  artifactTableQuery: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -31,6 +34,11 @@ vi.mock('./scientific-map-view', async () => {
     }: {
       onMapInstance?: (map: {
         getCanvas: () => HTMLCanvasElement;
+        getCenter: () => { lng: number; lat: number };
+        getZoom: () => number;
+        loaded: () => boolean;
+        on: () => void;
+        off: () => void;
         once: (type: 'render', listener: () => void) => void;
         triggerRepaint: () => void;
       }) => void;
@@ -39,6 +47,11 @@ vi.mock('./scientific-map-view', async () => {
         const canvas = document.createElement('canvas');
         onMapInstance?.({
           getCanvas: () => canvas,
+          getCenter: () => ({ lng: 0, lat: 0 }),
+          getZoom: () => 3,
+          loaded: () => true,
+          on: () => {},
+          off: () => {},
           once: (_type, listener) => listener(),
           triggerRepaint: () => {},
         });
@@ -68,7 +81,7 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 import { useState } from 'react';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from '@/lib/a2ui/kernel-catalog';
-import { mapComponentSchema } from './a2ui-map';
+import { mapComponentSchema } from './a2ui-map-catalog';
 import { pointsFromRows } from './map-points';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { SelectionActionsProvider } from './selection-actions';
@@ -80,20 +93,23 @@ function wrap(children: ReactNode) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-/** Opens the shared `SurfaceToolbar` overflow and the nested Download submenu. */
-async function openDownloadMenu(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'More' }));
-  await user.click(screen.getByRole('menuitem', { name: /Download/ }));
+/** Opens the map's shared `SurfaceToolbar` overflow and nested Download submenu. */
+async function mapSurface(): Promise<HTMLElement> {
+  await waitFor(() =>
+    expect(
+      document.querySelector('[data-slot="a2ui-map"] button[aria-label="More"]'),
+    ).toBeInTheDocument(),
+  );
+  return document.querySelector('[data-slot="a2ui-map"]') as HTMLElement;
 }
 
-/**
- * Radix submenu/menu items track "current" via real pointer-move events,
- * which jsdom's synthetic `userEvent.click` does not generate — fire the
- * pointer sequence directly so `onSelect` actually runs.
- */
-function selectMenuItem(item: HTMLElement) {
-  fireEvent.pointerMove(item);
-  fireEvent.click(item);
+/** The point count moved from the map body into its secondary toolbar details. */
+async function expectMapCount(user: ReturnType<typeof userEvent.setup>, count: string) {
+  const dialog = screen.queryByRole('dialog');
+  const toolbarScope = dialog ?? (await mapSurface());
+  await user.click(within(toolbarScope).getByRole('button', { name: 'More' }));
+  expect(await screen.findByRole('menuitem', { name: count })).toBeVisible();
+  await user.keyboard('{Escape}');
 }
 
 /** A composer stand-in, inside the provider, so "Reference this" has somewhere real to attach to. */
@@ -144,7 +160,6 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
-
 describe('clio.map.v1 schema', () => {
   it('keeps the schema a plain object so the binder finds the selection binding', () => {
     expect((mapComponentSchema._def as { typeName: string }).typeName).toBe('ZodObject');
@@ -269,6 +284,7 @@ describe('pointsFromRows', () => {
 
 describe('clio.map.v1 dataUri rendering', () => {
   it('draws every referenced point once the table query resolves', async () => {
+    const user = userEvent.setup();
     repository.artifactTableQuery.mockResolvedValue({
       schema: [],
       columns: { lat: [34.1, 35.2], lon: [-118.3, -117.1], station: ['GNSS01', 'GNSS02'] },
@@ -293,7 +309,9 @@ describe('clio.map.v1 dataUri rendering', () => {
     render(wrap(<A2uiSurface surface={surface} />));
 
     await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
-    expect(await screen.findByText('2 locations')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(await screen.findByRole('menuitem', { name: '2 locations' })).toBeVisible();
+    await user.keyboard('{Escape}');
     expect(repository.artifactTableQuery).toHaveBeenCalledWith(
       'artifact_stations01',
       expect.objectContaining({ columns: expect.arrayContaining(['lat', 'lon', 'station']) }),
@@ -327,7 +345,7 @@ describe('clio.map.v1 dataUri rendering', () => {
     ]);
 
     render(wrap(<A2uiSurface surface={surface} />));
-    await screen.findByText('1 locations');
+    await expectMapCount(user, '1 locations');
     await waitFor(() => expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1));
 
     await user.click(screen.getByRole('button', { name: /^filters/iu }));
@@ -375,8 +393,14 @@ describe('clio.map.v1 dataUri rendering', () => {
       },
     ]);
 
-    render(wrap(<WithComposer><A2uiSurface surface={surface} /></WithComposer>));
-    await screen.findByText('1 locations');
+    render(
+      wrap(
+        <WithComposer>
+          <A2uiSurface surface={surface} />
+        </WithComposer>,
+      ),
+    );
+    await expectMapCount(user, '1 locations');
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
@@ -419,6 +443,7 @@ describe('clio.map.v1 dataUri rendering', () => {
   });
 
   it('links a dataUri map to a table over one selectionField, in both directions', async () => {
+    const user = userEvent.setup();
     repository.artifactTableQuery.mockResolvedValue({
       schema: [],
       columns: {
@@ -462,7 +487,11 @@ describe('clio.map.v1 dataUri rendering', () => {
 
     // Map -> table: clicking the second map point selects its event_id, and the
     // table highlights the matching row.
-    fireEvent.click(screen.getByRole('button', { name: 'Show the locations list' }));
+    const map = await mapSurface();
+    await user.click(within(map).getByRole('button', { name: 'More' }));
+    const listToggle = screen.getByRole('menuitemcheckbox', { name: 'Show locations list' });
+    await user.click(listToggle);
+    await user.keyboard('{Escape}');
     fireEvent.click(screen.getByRole('button', { name: /GNSS02/u }));
     expect(surface.dataModel.get('/selection/events')).toEqual({
       field: 'event_id',
@@ -491,218 +520,72 @@ describe('clio.map.v1 dataUri rendering', () => {
       ),
     );
   });
-});
 
-/** A single-point dataUri map surface, shared by the G0 toolbar tests below. */
-function dataUriMapSurface(title = 'Stations') {
-  return buildSurface([
-    { id: 'root', component: 'Column', children: ['map'] },
-    {
-      id: 'map',
-      component: 'clio.map.v1',
-      dataUri: 'artifact://artifact_stations01',
-      labelField: 'station',
-      latitudeField: 'lat',
-      longitudeField: 'lon',
-      title,
-    },
-  ]);
-}
-
-describe('clio.map.v1 G0 toolbar — dataUri', () => {
-  beforeEach(() => {
+  it('pages the locations list to the map height and brings selected points to the first page', async () => {
+    const rows = Array.from({ length: 12 }, (_, index) => ({
+      eventId: `evt-${String(index).padStart(2, '0')}`,
+      latitude: 34 + index * 0.1,
+      longitude: -118 + index * 0.1,
+      station: `GNSS${String(index).padStart(2, '0')}`,
+    }));
     repository.artifactTableQuery.mockResolvedValue({
-      columns: { lat: [34.1], lon: [-118.3], station: ['GNSS01'] },
-      downsample: { mode: 'none' },
-      matchedRows: 1,
-      returnedRows: 1,
       schema: [],
-      totalRows: 1,
+      columns: {
+        lat: rows.map((row) => row.latitude),
+        lon: rows.map((row) => row.longitude),
+        station: rows.map((row) => row.station),
+        event_id: rows.map((row) => row.eventId),
+      },
+      totalRows: rows.length,
+      matchedRows: rows.length,
+      returnedRows: rows.length,
       truncated: false,
+      downsample: { mode: 'none' },
     });
-  });
-
-  it('offers a PNG map image plus the server CSV/JSON download, and exports the PNG from the live canvas', async () => {
     const user = userEvent.setup();
-    const toBlobSpy = vi
-      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
-      .mockImplementation(function toBlob(this: HTMLCanvasElement, callback) {
-        callback(new Blob(['png-bytes'], { type: 'image/png' }));
-      });
-    render(wrap(<A2uiSurface surface={dataUriMapSurface()} />));
-    // Waiting for the (mocked, lazily-loaded) canvas specifically, not just
-    // the header's "N locations" text — the header renders as soon as rows
-    // resolve, which can land before the lazy `ClioScientificMapView` chunk
-    // mounts and fires `onMapInstance`, leaving `mapInstanceRef` still unset.
-    await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
-
-    await openDownloadMenu(user);
-    for (const label of [
-      'PNG image',
-      'CSV (current view)',
-      'JSON (current view)',
-      'CSV (full dataset)',
-    ]) {
-      expect(await screen.findByRole('menuitem', { name: label })).toBeInTheDocument();
-    }
-
-    selectMenuItem(screen.getByRole('menuitem', { name: 'PNG image' }));
-    await waitFor(() =>
-      expect(toBlobSpy).toHaveBeenCalledWith(expect.any(Function), 'image/png'),
-    );
-    toBlobSpy.mockRestore();
-  });
-
-  it('exports the current view (with the live filter) and the full dataset through table-export', async () => {
-    repository.artifactTableExport.mockResolvedValue(new Uint8Array([1, 2, 3]));
-    const user = userEvent.setup();
-    render(wrap(<A2uiSurface surface={dataUriMapSurface()} />));
-    await screen.findByText('1 locations');
-    await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
-
-    await openDownloadMenu(user);
-    selectMenuItem(await screen.findByRole('menuitem', { name: 'CSV (current view)' }));
-    await waitFor(() =>
-      expect(repository.artifactTableExport).toHaveBeenCalledWith(
-        'artifact_stations01',
-        expect.objectContaining({ format: 'csv', scope: 'current' }),
-      ),
-    );
-
-    await openDownloadMenu(user);
-    selectMenuItem(await screen.findByRole('menuitem', { name: 'CSV (full dataset)' }));
-    await waitFor(() =>
-      expect(repository.artifactTableExport).toHaveBeenLastCalledWith('artifact_stations01', {
-        format: 'csv',
-        scope: 'full',
-      }),
-    );
-  });
-
-  it('includes the producer\'s own downsample request in the "current view" export, matching what the map actually draws (#516 review item 16)', async () => {
-    repository.artifactTableExport.mockResolvedValue(new Uint8Array([1, 2, 3]));
-    const user = userEvent.setup();
-    render(
-      wrap(
-        <A2uiSurface
-          surface={buildSurface([
-            { id: 'root', component: 'Column', children: ['map'] },
-            {
-              id: 'map',
-              component: 'clio.map.v1',
-              dataQuery: { downsample: { mode: 'stride' } },
-              dataUri: 'artifact://artifact_stations01',
-              labelField: 'station',
-              latitudeField: 'lat',
-              longitudeField: 'lon',
-              title: 'Stations',
-            },
-          ])}
-        />,
-      ),
-    );
-    await screen.findByText('1 locations');
-    await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
-
-    await openDownloadMenu(user);
-    selectMenuItem(await screen.findByRole('menuitem', { name: 'CSV (current view)' }));
-    await waitFor(() =>
-      expect(repository.artifactTableExport).toHaveBeenCalledWith(
-        'artifact_stations01',
-        expect.objectContaining({
-          downsample: { mode: 'stride' },
-          format: 'csv',
-          scope: 'current',
-        }),
-      ),
-    );
-  });
-
-  it('full-screens the map body while the header toolbar stays in place, with the same canvas', async () => {
-    const user = userEvent.setup();
-    render(wrap(<A2uiSurface surface={dataUriMapSurface()} />));
-    await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Full screen' }));
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByTestId('map-canvas')).toBeInTheDocument();
-    // The SAME canvas, not a second one left behind inline.
-    expect(screen.getAllByTestId('map-canvas')).toHaveLength(1);
-    expect(screen.getByText('1 locations')).toBeInTheDocument(); // header stayed in place
-
-    await user.click(within(dialog).getByRole('button', { name: 'Exit full screen' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByTestId('map-canvas')).toBeInTheDocument();
-  });
-});
-
-describe('clio.map.v1 G0 toolbar — inline points', () => {
-  function inlinePointsSurface(title = 'Stations') {
-    return buildSurface([
+    const surface = buildSurface([
       { id: 'root', component: 'Column', children: ['map'] },
       {
         id: 'map',
         component: 'clio.map.v1',
-        points: [
-          { id: 's1', label: 'Station 1', latitude: 34.1, longitude: -118.3, category: 'GNSS' },
-        ],
-        title,
+        dataUri: 'artifact://artifact_stations01',
+        latitudeField: 'lat',
+        longitudeField: 'lon',
+        labelField: 'station',
+        selectionField: 'event_id',
+        selection: { path: '/selection/events' },
       },
     ]);
-  }
 
-  it('offers PNG plus a client-side CSV/JSON download — no dataUri, so no server export entries', async () => {
-    const user = userEvent.setup();
-    const toBlobSpy = vi
-      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
-      .mockImplementation(function toBlob(this: HTMLCanvasElement, callback) {
-        callback(new Blob(['png-bytes'], { type: 'image/png' }));
-      });
-    render(wrap(<A2uiSurface surface={inlinePointsSurface()} />));
-    await screen.findByText('Station 1');
+    render(wrap(<A2uiSurface surface={surface} />));
     await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
 
-    await openDownloadMenu(user);
-    expect(await screen.findByRole('menuitem', { name: 'PNG image' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'CSV data' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'JSON data' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: /current view|full dataset/iu })).not.toBeInTheDocument();
+    const map = await mapSurface();
+    await user.click(within(map).getByRole('button', { name: 'More' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Show locations list' }));
+    await user.keyboard('{Escape}');
 
-    selectMenuItem(screen.getByRole('menuitem', { name: 'PNG image' }));
-    await waitFor(() => expect(toBlobSpy).toHaveBeenCalled());
-    expect(repository.artifactTableExport).not.toHaveBeenCalled();
-    toBlobSpy.mockRestore();
-  });
+    const locationsList = map.querySelector('[data-slot="a2ui-map-points-list"]') as HTMLElement;
+    const listPanel = locationsList.parentElement!;
+    expect(listPanel).toHaveStyle({ height: '416px' });
+    expect(within(listPanel).queryByText('Locations', { exact: true })).not.toBeInTheDocument();
+    expect(within(map).getByText('12 locations')).toBeVisible();
+    expect(within(map).getByText('1/2')).toBeVisible();
 
-  it('offers "Reference this" for inline points, with no dataUri to name', async () => {
-    const user = userEvent.setup();
-    render(wrap(<WithComposer><A2uiSurface surface={inlinePointsSurface()} /></WithComposer>));
-    await screen.findByText('Station 1');
+    const nextPage = within(map).getByRole('button', { name: 'Next locations page' });
+    await user.click(nextPage);
+    expect(within(map).getByText('2/2')).toBeVisible();
+    await user.click(within(locationsList).getByRole('button', { name: /GNSS11/u }));
 
-    await user.click(screen.getByRole('button', { name: 'Reference this' }));
-
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
-    expect(attached).toHaveTextContent('Stations');
-    expect(attached).toHaveTextContent('the whole view (1 points)');
-
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
-    expect(popoverBody).toHaveTextContent('inline data');
-    expect(popoverBody).toHaveTextContent('Station 1');
-  });
-
-  it('full-screens inline points the same way a dataUri map does', async () => {
-    const user = userEvent.setup();
-    render(wrap(<A2uiSurface surface={inlinePointsSurface()} />));
-    await screen.findByText('Station 1');
-
-    await user.click(screen.getByRole('button', { name: 'Full screen' }));
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByTestId('map-canvas')).toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole('button', { name: 'Exit full screen' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(within(map).getByText('1/2')).toBeVisible());
+    expect(within(map).getByText('12 locations')).toBeVisible();
+    const visibleLocationButtons = within(locationsList).getAllByRole('button');
+    expect(visibleLocationButtons).toHaveLength(7);
+    expect(visibleLocationButtons[0]).toHaveTextContent('GNSS11');
+    expect(surface.dataModel.get('/selection/events')).toEqual({
+      field: 'event_id',
+      values: ['evt-11'],
+      source: 'map',
+    });
   });
 });

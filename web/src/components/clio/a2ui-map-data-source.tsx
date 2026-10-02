@@ -1,8 +1,7 @@
-import { MapIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
+import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import type { A2UIAccessibility } from './a2ui-accessibility';
 import { ClioScientificMap } from './a2ui-map';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
@@ -15,7 +14,7 @@ import {
 } from './data-query-filters';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
-import type { SelectionWriter } from './selection-state';
+import { parseSelectionState, selectionIncludes, type SelectionWriter } from './selection-state';
 import { filenameStemFromTitle } from './surface-export';
 import type { SurfaceCapabilities, SurfaceExportFormat } from './surface-toolbar';
 import { artifactIdFromDataUri, useTableQueryRows, type TableDataQuery } from './table-query-rows';
@@ -24,6 +23,7 @@ import { downloadServerTableExport, type ServerExportQuery } from './table-expor
 export interface ClioMapArtifactSourceProps extends MapFieldNames {
   accessibility?: A2UIAccessibility;
   title?: string;
+  valueUnit?: string;
   dataUri: string;
   dataQuery?: TableDataQuery;
   selected?: string;
@@ -51,10 +51,16 @@ export function ClioMapArtifactSource({
   idField,
   detailField,
   categoryField,
+  valueField,
+  valueUnit,
   selectionField,
   title = 'Locations',
   ...rest
 }: ClioMapArtifactSourceProps) {
+  const autoSelection = useAutoDatasetSelection(dataUri);
+  const effectiveSelectionField = selectionField ?? (autoSelection.active && !rest.setSelection && !dataQuery?.aggregate ? '__row' : undefined);
+  const effectiveSelection = rest.setSelection ? rest.selection : autoSelection.selection;
+  const effectiveSetSelection = rest.setSelection ?? autoSelection.setSelection;
   const columns = useMemo(() => {
     const names = [
       latitudeField,
@@ -63,17 +69,19 @@ export function ClioMapArtifactSource({
       idField,
       detailField,
       categoryField,
-      selectionField,
+      valueField,
+      effectiveSelectionField,
     ];
-    return [...new Set(names.filter((name): name is string => Boolean(name)))];
+    return [...new Set(names.filter((name): name is string => Boolean(name) && name !== '__row'))];
   }, [
     categoryField,
+    valueField,
     detailField,
     idField,
     labelField,
     latitudeField,
     longitudeField,
-    selectionField,
+    effectiveSelectionField,
   ]);
   // The same server-side filter controls the table gets, layered onto (never
   // replacing) the producer's own `dataQuery.filter` (owner ruling, #1533).
@@ -104,14 +112,14 @@ export function ClioMapArtifactSource({
   const filterableFields = useMemo<DataFilterField[]>(() => {
     const seen = new Set<string>();
     const fields: DataFilterField[] = [];
-    for (const key of [categoryField, detailField]) {
+    for (const key of [categoryField, valueField, detailField]) {
       if (!key || seen.has(key)) continue;
       seen.add(key);
       const kind = columnKindFromSchema(schema, key) ?? columnKindFromRows(rows, key);
       fields.push({ key, kind, label: key.replaceAll('_', ' ') });
     }
     return fields;
-  }, [categoryField, detailField, rows, schema]);
+  }, [categoryField, valueField, detailField, rows, schema]);
   const filterPopover = filterableFields.length ? (
     <DataFilterPopover
       fields={filterableFields}
@@ -120,6 +128,12 @@ export function ClioMapArtifactSource({
       onOpenChange={setFiltersOpen}
     />
   ) : undefined;
+  const selection = parseSelectionState(effectiveSelection);
+  const selectedValues = effectiveSelectionField && selection?.field === effectiveSelectionField ? selection.values : [];
+  const selectedRows =
+    selectedValues.length && rows && effectiveSelectionField
+      ? rows.filter((row) => selectionIncludes(selection, effectiveSelectionField, row[effectiveSelectionField]))
+      : [];
   const buildReference = (): DataZoneReference => {
     const total = matchedRows ?? rows?.length ?? 0;
     const shown = returnedRows ?? rows?.length ?? 0;
@@ -127,6 +141,7 @@ export function ClioMapArtifactSource({
       idField,
       labelField,
       categoryField,
+      valueField,
       latitudeField,
       longitudeField,
     ].filter((name): name is string => Boolean(name));
@@ -135,12 +150,17 @@ export function ClioMapArtifactSource({
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
       filters: (effectiveDataQuery?.filter ?? []).map(describeQueryFilter),
       previewColumns,
-      previewRows: (rows ?? []).slice(0, 5),
-      query: { dataQuery: effectiveDataQuery, dataUri },
-      zoneDescription:
-        shown < total
-          ? `${shown.toLocaleString()} of ${total.toLocaleString()} points`
-          : `the whole view (${total.toLocaleString()} points)`,
+      previewRows: selectedValues.length ? selectedRows : (rows ?? []).slice(0, 5),
+      query: {
+        dataQuery: effectiveDataQuery,
+        dataUri,
+        ...(selectedValues.length ? { selection: { field: effectiveSelectionField, values: selectedValues } } : {}),
+      },
+      zoneDescription: selectedValues.length
+        ? `${selectedValues.length.toLocaleString()} selected ${selectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`
+        : shown < total
+          ? `the filtered current view (${shown.toLocaleString()} of ${total.toLocaleString()} points)`
+          : `the filtered current view (${total.toLocaleString()} points)`,
     });
   };
   // G0 data export (mirrors `a2ui-chart.tsx`'s csv/csv-full pair): the
@@ -203,7 +223,10 @@ export function ClioMapArtifactSource({
         }),
     },
   ];
-  const dataCapabilities: Pick<SurfaceCapabilities, 'exportFormats' | 'buildReference' | 'filters'> = {
+  const dataCapabilities: Pick<
+    SurfaceCapabilities,
+    'exportFormats' | 'buildReference' | 'filters'
+  > = {
     buildReference: rows ? buildReference : undefined,
     exportFormats: rows ? dataExportFormats : undefined,
     filters: filterPopover ? { content: filterPopover, isOpen: filtersOpen } : undefined,
@@ -217,50 +240,42 @@ export function ClioMapArtifactSource({
       rows
         ? pointsFromRows(rows, {
             categoryField,
+            valueField,
             detailField,
             idField,
             labelField,
             latitudeField,
             longitudeField,
-            selectionField,
+            selectionField: effectiveSelectionField,
           })
         : undefined,
     [
       categoryField,
+      valueField,
       detailField,
       idField,
       labelField,
       latitudeField,
       longitudeField,
       rows,
-      selectionField,
+      effectiveSelectionField,
     ],
   );
 
   if (error) {
     return (
-      <Frame dense role="group">
-        <FrameHeader className="flex-row items-center gap-2">
-          <MapIcon aria-hidden="true" className="size-4 text-primary" />
-          <FrameTitle>{title}</FrameTitle>
-        </FrameHeader>
-        <FramePanel>
-          <p className="text-sm text-destructive">Map unavailable: {error}</p>
-        </FramePanel>
-      </Frame>
+      <div className="min-w-0 space-y-2" role="group">
+        <h3 className="text-sm font-medium">{title}</h3>
+        <p className="text-sm text-destructive">Map unavailable: {error}</p>
+      </div>
     );
   }
   if (loading || !points) {
     return (
-      <Frame dense role="group">
-        <FrameHeader className="flex-row items-center gap-2">
-          <MapIcon aria-hidden="true" className="size-4 text-primary" />
-          <FrameTitle>{title}</FrameTitle>
-        </FrameHeader>
-        <FramePanel className="p-0">
-          <Skeleton aria-label={`Loading ${title} map`} className="h-[26rem] w-full rounded-none" />
-        </FramePanel>
-      </Frame>
+      <div className="min-w-0 space-y-2" role="group">
+        <h3 className="text-sm font-medium">{title}</h3>
+        <Skeleton aria-label={`Loading ${title} map`} className="h-[26rem] w-full rounded-none" />
+      </div>
     );
   }
   return (
@@ -269,8 +284,12 @@ export function ClioMapArtifactSource({
         {...rest}
         dataCapabilities={dataCapabilities}
         points={points}
-        selectionField={selectionField}
+        selection={effectiveSelection}
+        selectionField={effectiveSelectionField}
+        setSelection={effectiveSetSelection}
         title={title}
+        valueLabel={valueField}
+        valueUnit={valueUnit}
       />
       {reducedCaption ? <p className="text-xs text-muted-foreground">{reducedCaption}</p> : null}
     </div>

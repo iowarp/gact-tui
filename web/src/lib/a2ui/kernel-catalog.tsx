@@ -36,13 +36,6 @@ import {
   ConfirmationRequest,
   ConfirmationTitle,
 } from '@/components/ai-elements/confirmation';
-import {
-  Frame as ReUIFrame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -56,9 +49,13 @@ import { A2uiMedia } from '@/components/clio/a2ui-media';
 import { refinedStrictObject } from '@/components/clio/a2ui-refined-schema';
 import { ClioChartCatalogComponent } from '@/components/clio/a2ui-chart-catalog';
 import { ClioDataTableCatalogComponent } from '@/components/clio/a2ui-data-table';
-import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map';
+import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map-catalog';
+import { ClioMessageDraftCatalogComponent } from '@/components/clio/a2ui-message-draft';
+import { ClioWeatherCatalogComponent } from '@/components/clio/a2ui-weather';
+import { ClioStepsCatalogComponent } from '@/components/clio/a2ui-steps';
 import { ClioMermaidCatalogComponent } from '@/components/clio/a2ui-mermaid-catalog';
 import { ClioMeshViewportCatalogComponent } from '@/components/clio/a2ui-mesh-viewport-catalog';
+import { ClioRasterViewportCatalogComponent } from '@/components/clio/a2ui-raster-viewport-catalog';
 import { ClioSliderCatalogComponent } from '@/components/clio/a2ui-slider-catalog';
 import { ClioTimeSeriesFallbackCatalogComponent } from '@/components/clio/a2ui-time-series-fallback';
 import { ClioWorkflowCatalogComponent } from '@/components/clio/a2ui-workflow-catalog';
@@ -138,9 +135,9 @@ const Grid = createComponentImplementation(
   ({ props, buildChild }) => (
     <div
       {...a2uiAccessibilityProps(props.accessibility)}
-      className="grid gap-3"
+      className="a2ui-grid grid gap-3"
       role="group"
-      style={{ gridTemplateColumns: `repeat(${props.columns ?? 2}, minmax(0, 1fr))` }}
+      style={{ ['--a2ui-grid-columns' as string]: props.columns ?? 2 }}
     >
       {props.children.map((child) => (
         <div key={childRefId(child)}>{buildChild(childRefId(child), childRefBasePath(child))}</div>
@@ -163,15 +160,21 @@ const Frame = createComponentImplementation(
       .strict(),
   },
   ({ props, buildChild }) => (
-    <ReUIFrame {...a2uiAccessibilityProps(props.accessibility)} role="group" spacing="sm">
+    <div
+      {...a2uiAccessibilityProps(props.accessibility)}
+      className="min-w-0 space-y-2"
+      role="group"
+    >
       {props.title || props.description ? (
-        <FrameHeader>
-          {props.title ? <FrameTitle>{props.title}</FrameTitle> : null}
-          {props.description ? <FrameDescription>{props.description}</FrameDescription> : null}
-        </FrameHeader>
+        <div className="space-y-0.5">
+          {props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null}
+          {props.description ? (
+            <p className="text-sm text-muted-foreground">{props.description}</p>
+          ) : null}
+        </div>
       ) : null}
-      <FramePanel>{buildChild(props.child)}</FramePanel>
-    </ReUIFrame>
+      {buildChild(props.child)}
+    </div>
   ),
 );
 
@@ -190,21 +193,23 @@ const Status = createComponentImplementation(
       .strict(),
   },
   ({ props }) => (
-    <ReUIFrame {...a2uiAccessibilityProps(props.accessibility)} dense role="group" spacing="sm">
-      <FramePanel className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">{props.label}</span>
-        <ClioStatus
-          detail={props.detail}
-          label={props.state.replaceAll('_', ' ')}
-          value={a2uiStatusValue(props.state)}
-        />
-        {props.elapsedMs !== undefined ? (
-          <span className="font-mono text-xs text-muted-foreground">
-            {Math.round(props.elapsedMs / 1000)}s
-          </span>
-        ) : null}
-      </FramePanel>
-    </ReUIFrame>
+    <div
+      {...a2uiAccessibilityProps(props.accessibility)}
+      className="flex min-w-0 flex-wrap items-center gap-2"
+      role="group"
+    >
+      <span className="text-sm font-medium">{props.label}</span>
+      <ClioStatus
+        detail={props.detail}
+        label={props.state.replaceAll('_', ' ')}
+        value={a2uiStatusValue(props.state)}
+      />
+      {props.elapsedMs !== undefined ? (
+        <span className="font-mono text-xs text-muted-foreground">
+          {Math.round(props.elapsedMs / 1000)}s
+        </span>
+      ) : null}
+    </div>
   ),
 );
 
@@ -229,34 +234,29 @@ const Metric = createComponentImplementation(
     // is declared here — Reference this is scoped to data views that can
     // describe a zone, which a bare metric cannot.)
     const metricCapabilities: SurfaceCapabilities = {
-      onCopy: () => copyTextToClipboard(`${String(props.value)}${props.unit ? ` ${props.unit}` : ''}`),
+      onCopy: () =>
+        copyTextToClipboard(`${String(props.value)}${props.unit ? ` ${props.unit}` : ''}`),
     };
     return (
-      <ReUIFrame
+      <div
         {...a2uiAccessibilityProps(props.accessibility)}
-        className="group"
-        dense
+        className="group relative min-w-0 rounded-lg border p-4"
         role="group"
-        spacing="sm"
       >
-        <FramePanel>
-          <SurfaceToolbar capabilities={metricCapabilities} />
-          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-            {props.label}
-          </p>
-          <p className="mt-2 font-mono text-2xl font-semibold">
-            {String(props.value)}
-            {props.unit ? (
-              <span className="ml-1 text-sm text-muted-foreground">{props.unit}</span>
-            ) : null}
-          </p>
-          {props.trend || props.detail ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {[props.trend, props.detail].filter(Boolean).join(', ')}
-            </p>
+        <SurfaceToolbar capabilities={metricCapabilities} />
+        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{props.label}</p>
+        <p className="mt-2 font-mono text-2xl font-semibold">
+          {String(props.value)}
+          {props.unit ? (
+            <span className="ml-1 text-sm text-muted-foreground">{props.unit}</span>
           ) : null}
-        </FramePanel>
-      </ReUIFrame>
+        </p>
+        {props.trend || props.detail ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {[props.trend, props.detail].filter(Boolean).join(', ')}
+          </p>
+        ) : null}
+      </div>
     );
   },
 );
@@ -280,28 +280,24 @@ const ClioProgress = createComponentImplementation(
     const determinate = props.value !== undefined && props.max !== undefined && props.max > 0;
     const state = props.state ?? 'running';
     return (
-      <ReUIFrame {...a2uiAccessibilityProps(props.accessibility)} dense role="group" spacing="sm">
-        <FramePanel>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-sm font-medium">{props.label}</span>
-            <ClioStatus label={state.replaceAll('_', ' ')} value={a2uiStatusValue(state)} />
-          </div>
-          {determinate ? (
-            <Progress
-              aria-label={props.label}
-              value={Math.min(100, Math.max(0, (props.value! / props.max!) * 100))}
-            />
-          ) : (
-            <div
-              aria-label={`${props.label} indeterminate`}
-              className="clio-activity-beam h-1.5 overflow-hidden rounded-full bg-muted"
-            />
-          )}
-          {props.detail ? (
-            <p className="mt-2 text-xs text-muted-foreground">{props.detail}</p>
-          ) : null}
-        </FramePanel>
-      </ReUIFrame>
+      <div {...a2uiAccessibilityProps(props.accessibility)} className="min-w-0" role="group">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="text-sm font-medium">{props.label}</span>
+          <ClioStatus label={state.replaceAll('_', ' ')} value={a2uiStatusValue(state)} />
+        </div>
+        {determinate ? (
+          <Progress
+            aria-label={props.label}
+            value={Math.min(100, Math.max(0, (props.value! / props.max!) * 100))}
+          />
+        ) : (
+          <div
+            aria-label={`${props.label} indeterminate`}
+            className="clio-activity-beam h-1.5 overflow-hidden rounded-full bg-muted"
+          />
+        )}
+        {props.detail ? <p className="mt-2 text-xs text-muted-foreground">{props.detail}</p> : null}
+      </div>
     );
   },
 );
@@ -389,7 +385,10 @@ function ClioCodeArtifactSource({
 
 const codeDataProperties = {
   code: CommonSchemas.DynamicString.optional(),
-  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  dataUri: z
+    .string()
+    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+    .optional(),
   language: z.string(),
   title: CommonSchemas.DynamicString.optional(),
   accessibility,
@@ -481,14 +480,23 @@ function ClioDiffArtifactSource({
     return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
   }
   return (
-    <ClioDiffView accessibility={accessibility} action={action} diff={text} path={path} status={status} />
+    <ClioDiffView
+      accessibility={accessibility}
+      action={action}
+      diff={text}
+      path={path}
+      status={status}
+    />
   );
 }
 
 const diffDataProperties = {
   path: z.string(),
   diff: CommonSchemas.DynamicString.optional(),
-  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  dataUri: z
+    .string()
+    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+    .optional(),
   status: CommonSchemas.DynamicString.optional(),
   action: CommonSchemas.Action.optional(),
   accessibility,
@@ -687,7 +695,11 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   ClioChartCatalogComponent,
   ClioMermaidCatalogComponent,
   ClioMapCatalogComponent,
+  ClioMessageDraftCatalogComponent,
+  ClioWeatherCatalogComponent,
+  ClioStepsCatalogComponent,
   ClioMeshViewportCatalogComponent,
+  ClioRasterViewportCatalogComponent,
   ClioSliderCatalogComponent,
   ClioWorkflowCatalogComponent,
   ClioArtifactCatalogComponent,

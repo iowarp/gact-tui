@@ -152,7 +152,10 @@ export function bindChartSelection(
 
   return {
     apply: async (state) => {
-      if (disposed || state.source === componentId) return;
+      // A view can be re-embedded (full screen, resize, theme) while its
+      // component-owned selection remains in React state. Restore that state
+      // into the fresh Vega view even when this component was its source.
+      if (disposed) return;
       const key = selectionKey(state.field, state.values);
       if (key === lastKey) return;
       lastKey = key;

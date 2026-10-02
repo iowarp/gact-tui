@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./scientific-map-view', () => ({
@@ -31,8 +32,11 @@ const POINTS = [
 ];
 
 /** The locations list starts closed; these tests select points through it. */
-function openLocationsList() {
-  fireEvent.click(screen.getByRole('button', { name: 'Show the locations list' }));
+async function openLocationsList() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'More' }));
+  const listToggle = screen.getByRole('menuitemcheckbox', { name: 'Show locations list' });
+  await user.click(listToggle);
 }
 
 function pressed(label: RegExp) {
@@ -40,15 +44,17 @@ function pressed(label: RegExp) {
 }
 
 describe('clio.map.v1 layout', () => {
-  it('keeps the locations list closed until the reader asks for it', () => {
+  it('keeps the locations list closed until the reader asks for it', async () => {
     render(<ClioScientificMap points={POINTS} />);
-    const toggle = screen.getByRole('button', { name: 'Show the locations list' });
-    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    const toggle = screen.getByRole('menuitemcheckbox', { name: 'Show locations list' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
     expect(screen.queryByRole('button', { name: /Parkfield/u })).not.toBeInTheDocument();
 
-    fireEvent.click(toggle);
+    await user.click(toggle);
 
-    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('button', { name: /Parkfield/u })).toBeInTheDocument();
   });
 
@@ -76,9 +82,9 @@ describe('clio.map.v1 layout', () => {
 });
 
 describe('clio.map.v1 selection', () => {
-  it('keeps its own selection, starting at `selected`, when the selection is not bound', () => {
+  it('keeps its own selection, starting at `selected`, when the selection is not bound', async () => {
     render(<ClioScientificMap points={POINTS} selected="PBO2" />);
-    openLocationsList();
+    await openLocationsList();
     expect(pressed(/Parkfield/u)).toBe('true');
 
     fireEvent.click(screen.getByRole('button', { name: /Cholame/u }));
@@ -87,17 +93,17 @@ describe('clio.map.v1 selection', () => {
     expect(pressed(/Parkfield/u)).toBe('false');
   });
 
-  it('writes a click to the bound selection, with itself as the source', () => {
+  it('writes a click to the bound selection, with itself as the source', async () => {
     const setSelection = vi.fn();
     render(<ClioScientificMap componentId="map" points={POINTS} setSelection={setSelection} />);
-    openLocationsList();
+    await openLocationsList();
 
     fireEvent.click(screen.getByRole('button', { name: /Parkfield/u }));
 
     expect(setSelection).toHaveBeenCalledWith({ field: 'id', values: ['PBO2'], source: 'map' });
   });
 
-  it('highlights every point the bound selection names, by id, label or category', () => {
+  it('highlights every point the bound selection names, by id, label or category', async () => {
     const setSelection = vi.fn();
     const { rerender } = render(
       <ClioScientificMap
@@ -107,7 +113,7 @@ describe('clio.map.v1 selection', () => {
         setSelection={setSelection}
       />,
     );
-    openLocationsList();
+    await openLocationsList();
     expect(pressed(/Parkfield/u)).toBe('true');
     expect(pressed(/Cholame/u)).toBe('true');
     expect(pressed(/Mount Tam/u)).toBe('false');
@@ -136,7 +142,7 @@ describe('clio.map.v1 selection', () => {
     ]);
   });
 
-  it('ignores a selection written for a different field even when values coincide', () => {
+  it('ignores a selection written for a different field even when values coincide', async () => {
     // A selection keyed by "category" with value "PBO2" must never highlight
     // this map's "id"-keyed point of the same string — the two columns are
     // unrelated, and matching on value alone (ignoring `state.field`) would
@@ -149,7 +155,7 @@ describe('clio.map.v1 selection', () => {
         setSelection={vi.fn()}
       />,
     );
-    openLocationsList();
+    await openLocationsList();
     expect(POINTS.map((point) => pressed(new RegExp(point.label, 'u')))).toEqual([
       'false',
       'false',
@@ -157,14 +163,26 @@ describe('clio.map.v1 selection', () => {
     ]);
   });
 
-  it("prefers a dataUri point's own selectionValue over its synthetic id/label/category", () => {
+  it("prefers a dataUri point's own selectionValue over its synthetic id/label/category", async () => {
     // A producer's dataset can have a real column literally named "id" for
     // `selectionField` (the earthquake fixture does this) — its value must
     // win over this point's synthetic display id, which happens to collide.
     const setSelection = vi.fn();
     const datasetPoints = [
-      { id: 'synthetic-0', label: 'Station A', latitude: 1, longitude: 1, selectionValue: 'real-42' },
-      { id: 'synthetic-1', label: 'Station B', latitude: 2, longitude: 2, selectionValue: 'real-43' },
+      {
+        id: 'synthetic-0',
+        label: 'Station A',
+        latitude: 1,
+        longitude: 1,
+        selectionValue: 'real-42',
+      },
+      {
+        id: 'synthetic-1',
+        label: 'Station B',
+        latitude: 2,
+        longitude: 2,
+        selectionValue: 'real-43',
+      },
     ];
     render(
       <ClioScientificMap
@@ -175,7 +193,7 @@ describe('clio.map.v1 selection', () => {
         setSelection={setSelection}
       />,
     );
-    openLocationsList();
+    await openLocationsList();
     expect(pressed(/Station A/u)).toBe('true');
     expect(pressed(/Station B/u)).toBe('false');
 
@@ -192,9 +210,7 @@ describe('clio.map.v1 selection', () => {
         setSelection={vi.fn()}
       />,
     );
-    expect(
-      screen.getByText(/have no.*magnitude.*value to select by/iu),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/have no.*magnitude.*value to select by/iu)).toBeInTheDocument();
   });
 });
 

@@ -1,23 +1,19 @@
-import { ChartLineIcon } from 'lucide-react';
-import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
+import { cn } from '@/lib/utils';
 import type { View } from 'vega';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
+import { MousePointerSquareDashedIcon, ZoomInIcon } from 'lucide-react';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   a2uiAccessibilityLabel,
   a2uiAccessibilityProps,
@@ -33,23 +29,25 @@ import {
 import {
   canvasAvailable,
   embedChart,
-  isSingleViewSpec,
   prepareChartSpec,
   type ChartRenderer,
 } from './chart-embed';
 import { chartJpegBlob, chartPngBlob, chartSvgText } from './chart-export';
-import { ChartPresetError, renderChartPreset } from './chart-presets';
 import { withDefaultProjectionFit } from './chart-projection-fit';
 import { bindChartSelection, viewHasSignal, type ChartSelectionBinding } from './chart-selection';
-import { CHART_SPEC_RULES, checkChartSpec, describeChartSpecViolations } from './chart-spec-guard';
+import { CHART_SPEC_RULES } from './chart-spec-guard';
 import {
-  bindChartZoom,
-  withZoomBrush,
-  zoomComparableValue,
-  zoomRangeFilterValue,
-  type ChartZoomBinding,
-  type ChartZoomRange,
-} from './chart-zoom';
+  bindChartBoxSelection,
+  chartBoxSelectionValues,
+  clearManualChartZoom,
+  zoomChartToRows,
+  withManualChartZoom,
+  withChartBoxSelection,
+  withChartPointSelection,
+  type ChartAxisType,
+} from './chart-box-selection';
+import { chartAxisType, cloneRows, describeChart, isContinuousAxis } from './chart-view-helpers';
+import { buildSpec, distinctFieldValues } from './chart-spec-build';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
 import { dataViewFlexStyle } from './data-view-layout';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
@@ -62,15 +60,23 @@ import {
 } from './data-query-filters';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import {
-  isSelectionValue,
   parseSelectionState,
-  selectionKey,
+  type SelectionState,
   type SelectionValue,
   type SelectionWriter,
 } from './selection-state';
-import { downloadBlob, downloadText, filenameStemFromTitle, resolveCardBackground } from './surface-export';
+import {
+  downloadBlob,
+  downloadText,
+  filenameStemFromTitle,
+  resolveCardBackground,
+} from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
-import { SurfaceToolbar, type SurfaceCapabilities, type SurfaceExportFormat } from './surface-toolbar';
+import {
+  SurfaceToolbar,
+  type SurfaceCapabilities,
+  type SurfaceExportFormat,
+} from './surface-toolbar';
 import { downloadInlineRowsAsCsv, downloadServerTableExport } from './table-export-client';
 
 export interface ClioChartProps {
@@ -99,58 +105,8 @@ export interface ClioChartProps {
   weight?: number;
 }
 
-/**
- * Every distinct value `field` takes across `rows`, or `[]` past
- * `MAX_KEYBOARD_SELECTABLE_CANDIDATES` — see `selectionCandidates` in
- * `ClioChart` for why a keyboard-select control omits itself past that cap
- * rather than rendering an unbounded, unvirtualized option list.
- */
-function distinctFieldValues(
-  rows: readonly ChartRow[] | undefined,
-  field: string | undefined,
-): SelectionValue[] {
-  if (!field || !rows) return [];
-  const seen = new Set<SelectionValue>();
-  for (const row of rows) {
-    const raw = row[field];
-    if (isSelectionValue(raw)) seen.add(raw);
-  }
-  return seen.size > MAX_KEYBOARD_SELECTABLE_CANDIDATES ? [] : [...seen];
-}
-
 /** Default plot height when the producer names none. Unit: CSS pixels. */
 const DEFAULT_CHART_HEIGHT = 320;
-/** See `selectionCandidates` below for why the keyboard-select control caps out here. */
-const MAX_KEYBOARD_SELECTABLE_CANDIDATES = 200;
-
-type BuiltSpec =
-  | { spec: Record<string, unknown>; error?: undefined }
-  | { spec?: undefined; error: string };
-
-type ChartDefinition = Pick<
-  ClioChartProps,
-  'spec' | 'preset' | 'xField' | 'yField' | 'entityField' | 'colorField' | 'facetField' | 'xType'
->;
-
-function buildSpec(definition: ChartDefinition, param: string): BuiltSpec {
-  const { preset, spec, ...fields } = definition;
-  if (preset) {
-    try {
-      return { spec: renderChartPreset(preset, { ...fields, selectionParam: param }) };
-    } catch (error) {
-      if (error instanceof ChartPresetError) return { error: error.message };
-      throw error;
-    }
-  }
-  if (!spec) return { error: 'the chart names neither a preset nor a spec.' };
-  const violations = checkChartSpec(spec);
-  if (violations.length) {
-    return {
-      error: `the spec breaks the chart rules: ${describeChartSpecViolations(violations)}.`,
-    };
-  }
-  return { spec };
-}
 
 function isDarkTheme(): boolean {
   return document.documentElement.classList.contains('dark');
@@ -162,13 +118,19 @@ export function ClioChart(props: ClioChartProps) {
     accessibility,
     componentId,
     height = DEFAULT_CHART_HEIGHT,
-    selection,
     title,
     weight,
   } = props;
   const { colorField, entityField, facetField, preset, xField, xType, yField } = props;
+  const autoSelection = useAutoDatasetSelection(props.dataUri);
+  const autoActive = autoSelection.active && !props.setSelection;
+  const [localSelection, setLocalSelection] = useState<SelectionState>();
+  const setSelection = props.setSelection ?? autoSelection.setSelection ?? setLocalSelection;
+  const selection = props.setSelection
+    ? props.selection
+    : autoSelection.active ? autoSelection.selection : props.selection ?? localSelection;
   const param = props.selectionParam ?? CHART_SPEC_RULES.defaultSelectionParam;
-  const selectionField = props.selectionField ?? entityField;
+  const selectionField = props.selectionField ?? (autoActive && !props.dataQuery?.aggregate ? '__row' : entityField);
   // The binder hands a static `spec` over by reference, so this rebuilds only when it changes.
   const rawSpec = props.spec;
   const built = useMemo(
@@ -211,7 +173,7 @@ export function ClioChart(props: ClioChartProps) {
         colorField,
         facetField,
         selectionField,
-      ]),
+      ]).filter((name) => name !== '__row'),
     [
       built.spec,
       colorField,
@@ -223,13 +185,11 @@ export function ClioChart(props: ClioChartProps) {
       yField,
     ],
   );
-  // This viewer's own per-column filters and brushed zoom range, both layered
-  // onto — never replacing — the producer's `dataQuery.filter` (owner ruling,
-  // #1533: the same server-side filter controls the table gets, plus
-  // "zoom or brush re-queries at full detail").
+  // This viewer's own per-column filters are layered onto — never replacing —
+  // the producer's `dataQuery.filter`. Box selection changes linked selection
+  // state only; it never filters or zooms the chart.
   const [filters, setFilters] = useState<ReadonlyMap<string, ClioColumnFilterValue>>(new Map());
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [zoomRange, setZoomRange] = useState<ChartZoomRange | undefined>(undefined);
   const handleFilterChange = (key: string, value: ClioColumnFilterValue | undefined) => {
     setFilters((current) => {
       const next = new Map(current);
@@ -240,21 +200,9 @@ export function ClioChart(props: ClioChartProps) {
   };
   const effectiveDataQuery = useMemo<ChartDataQuery | undefined>(() => {
     const merged = mergeFilters(props.dataQuery?.filter, filters);
-    let zoomed: NonNullable<ChartDataQuery['filter']> = merged;
-    if (zoomRange && xField) {
-      const rangeEntry: NonNullable<ChartDataQuery['filter']>[number] = {
-        column: xField,
-        op: 'range',
-        value: [
-          zoomRangeFilterValue(zoomRange.min, xType),
-          zoomRangeFilterValue(zoomRange.max, xType),
-        ],
-      };
-      zoomed = [...merged, rangeEntry];
-    }
-    if (!zoomed.length) return props.dataQuery;
-    return { ...props.dataQuery, filter: zoomed };
-  }, [filters, props.dataQuery, xField, xType, zoomRange]);
+    if (!merged.length) return props.dataQuery;
+    return { ...props.dataQuery, filter: merged };
+  }, [filters, props.dataQuery]);
   const {
     rows,
     loading,
@@ -270,62 +218,74 @@ export function ClioChart(props: ClioChartProps) {
   });
   const selectionState = useMemo(() => parseSelectionState(selection), [selection]);
 
-  // G0 rule 4: zoom/brush applies to every chart with a CONTINUOUS x scale.
-  // This only gates on a PRODUCER-declared `xType` of 'nominal'/'ordinal' —
-  // the box plot preset's catalog entry forbids declaring `xType` at all
-  // (`a2ui-chart-catalog.ts`), so `xType` is always `undefined` for one and
-  // this still evaluates `true`. `withZoomBrush` therefore DOES inject an
-  // interval param into the box plot's own first layer (whose x encoding is
-  // categorical, per `chart-assets/presets/boxplot.json`) — correction: an
-  // earlier version of this comment claimed that was excluded; it is not,
-  // and it is harmless. Vega-Lite accepts an interval selection on a
-  // discrete band scale (it just cannot be dragged into a non-empty range,
-  // so the signal always resolves empty), and nothing here reads it for a
-  // box plot: `zoomRangeFromSignal` only matters once a reset-zoom UI and a
-  // re-query are wired to the signal, which this component only does for a
-  // genuinely continuous x. The G3 duplicate-signal bug this preset
-  // originally hit was about the param being attached at the WRONG LEVEL of
-  // a layered spec (the composition's top level, which the compiler then
-  // pushes into every layer) — see `withOneUnitParam` in `chart-zoom.ts` for
-  // that actual fix, which applies regardless of x type.
-  const continuousX = xType !== 'nominal' && xType !== 'ordinal';
-  // Inline (no `dataUri`) rows have no server to filter/zoom through; this
-  // viewer's own filters and brushed range apply CLIENT-SIDE instead, so
-  // "Filters" and zoom/brush are built-in defaults there too (G0 point 5),
-  // not only for `dataUri` charts.
+  // Inline (no `dataUri`) rows have no server to filter through; this viewer's
+  // own per-column filters apply client-side. Box selection stays independent.
   const displayRows = useMemo(() => {
     if (props.dataUri || !rows) return rows;
-    let result = rows;
-    if (filters.size) result = applyClientFilters(result, filters);
-    if (zoomRange && xField) {
-      result = result.filter((row) => {
-        const value = zoomComparableValue(row[xField], xType);
-        return value !== undefined && value >= zoomRange.min && value <= zoomRange.max;
-      });
-    }
-    return result;
-  }, [filters, props.dataUri, rows, xField, xType, zoomRange]);
+    return filters.size ? applyClientFilters(rows, filters) : rows;
+  }, [filters, props.dataUri, rows]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<View | undefined>(undefined);
   const bindingRef = useRef<ChartSelectionBinding | undefined>(undefined);
-  const zoomBindingRef = useRef<ChartZoomBinding | undefined>(undefined);
+  const boxSelectionBindingRef = useRef<{ dispose: () => void } | undefined>(undefined);
+  const dataRefreshCountRef = useRef(0);
   const rowsRef = useRef(displayRows);
   const selectionRef = useRef(selectionState);
-  const setSelectionRef = useRef(props.setSelection);
+  const setSelectionRef = useRef(setSelection);
   const [embedError, setEmbedError] = useState('');
+  const [zoomActive, setZoomActive] = useState(false);
   const [linkable, setLinkable] = useState(true);
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
+  const [boxSelectMode, setBoxSelectMode] = useState(false);
+  const chartHeight = fullscreen
+    ? Math.max(height, Math.min(preset === 'boxplot' ? 640 : Number.POSITIVE_INFINITY, window.innerHeight - 180))
+    : height;
+  const boxplotWidthLimit = preset === 'boxplot' && xField && displayRows
+    ? Math.min(960, Math.max(360, new Set(displayRows.map((row) => row[xField])).size * 180))
+    : undefined;
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const measure = () => setMeasuredWidth(Math.floor(node.getBoundingClientRect().width));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fullscreen, boxplotWidthLimit]);
   const renderer = useMemo<ChartRenderer>(() => (canvasAvailable() ? 'canvas' : 'svg'), []);
-  const spec = built.spec;
+  const spec = useMemo(
+    () => built.spec ? withChartPointSelection(built.spec, param, selectionField) : undefined,
+    [built.spec, param, selectionField],
+  );
   const hasRows = rows !== undefined;
-  const singleView = spec ? isSingleViewSpec(spec) : false;
+  const boxSelectionInjection = useMemo(
+    () =>
+      spec
+        ? withChartBoxSelection(spec, { pointParam: param, xField, yField, active: boxSelectMode })
+        : { param: undefined, spec },
+    [boxSelectMode, param, spec, xField, yField],
+  );
+  const boxSelectionParam = spec ? boxSelectionInjection.param : undefined;
+  const xAxisType = chartAxisType(spec, 'x') ?? (xType as ChartAxisType | undefined);
+  const yAxisType = chartAxisType(spec, 'y');
+  const supportsManualZoom =
+    Boolean(spec && xField && yField) && isContinuousAxis(xAxisType) && isContinuousAxis(yAxisType);
   const zoomInjection = useMemo(
-    () => (spec && continuousX ? withZoomBrush(spec, { pointParam: param, xField }) : { spec }),
-    [continuousX, param, spec, xField],
+    () =>
+      boxSelectionInjection.spec && supportsManualZoom
+        ? withManualChartZoom(boxSelectionInjection.spec, {
+            pointParam: param,
+            xField,
+            yField,
+          })
+        : { param: undefined, spec: boxSelectionInjection.spec },
+    [boxSelectionInjection.spec, param, supportsManualZoom, xField, yField],
   );
   const embedSpec = zoomInjection.spec;
-  const zoomParam = zoomInjection.param;
+  const zoomParam = spec && supportsManualZoom ? zoomInjection.param : undefined;
   const filterableFields = useMemo<DataFilterField[]>(() => {
     const seen = new Set<string>();
     const fields: DataFilterField[] = [];
@@ -356,22 +316,54 @@ export function ClioChart(props: ClioChartProps) {
     const value = selectionCandidates.find((candidate) => String(candidate) === raw);
     if (value !== undefined) void bindingRef.current?.select([value]);
   };
+  const resetChartZoom = () => {
+    const view = viewRef.current;
+    if (!view || !zoomParam) return;
+    // Vega-Lite stores scale-bound interval extents in the selection store.
+    // Clearing the signal alone is overwritten by that store on the next run.
+    clearManualChartZoom(view, zoomParam);
+    setZoomActive(false);
+  };
+  const selectedZoomRows = useMemo(() => {
+    if (!selectionField || selectionState?.field !== selectionField || !displayRows) return [];
+    const values = new Set(selectionState.values);
+    return displayRows.filter((row) => values.has(row[selectionField] as SelectionValue));
+  }, [displayRows, selectionField, selectionState]);
+  const zoomToSelection = () => {
+    const view = viewRef.current;
+    if (!view || !zoomParam || !xField || !yField || !selectedZoomRows.length) return;
+    void zoomChartToRows(view, zoomParam, selectedZoomRows, xField, yField, xAxisType, yAxisType)
+      .then((applied) => {
+        if (applied) setZoomActive(true);
+        else setEmbedError('Zoom unavailable: selected rows have no numeric x and y values.');
+      })
+      .catch((error: unknown) => setEmbedError(error instanceof Error ? error.message : String(error)));
+  };
 
   useEffect(() => {
-    setSelectionRef.current = props.setSelection;
-  }, [props.setSelection]);
+    setSelectionRef.current = setSelection;
+  }, [setSelection]);
   useEffect(() => {
     rowsRef.current = displayRows;
     const view = viewRef.current;
     if (!view || !displayRows) return;
+    dataRefreshCountRef.current += 1;
     view.data('source', cloneRows(displayRows));
-    void view.runAsync();
+    const finishRefresh = () => {
+      dataRefreshCountRef.current = Math.max(0, dataRefreshCountRef.current - 1);
+    };
+    void view.runAsync().then(finishRefresh, (error: unknown) => {
+      finishRefresh();
+      if (viewRef.current === view) {
+        setEmbedError(error instanceof Error ? error.message : String(error));
+      }
+    });
   }, [displayRows]);
 
   // One embedded view per chart definition; rows and the selection only update it.
   useEffect(() => {
     const node = containerRef.current;
-    if (!node || !embedSpec || !hasRows) return;
+    if (!node || !embedSpec || !hasRows || measuredWidth <= 0) return;
     let cancelled = false;
     let finalize: (() => void) | undefined;
     setEmbedError('');
@@ -389,9 +381,9 @@ export function ClioChart(props: ClioChartProps) {
     // chart-projection-fit.ts; an agent-authored fit always wins.
     const prepared = withDefaultProjectionFit(
       prepareChartSpec(embedSpec, {
-        height,
+        height: chartHeight,
         rows: cloneRows(embeddedRows ?? []),
-        width: node.clientWidth || undefined,
+        width: measuredWidth,
       }),
       embeddedRows ?? [],
     );
@@ -404,17 +396,54 @@ export function ClioChart(props: ClioChartProps) {
         finalize = result.finalize;
         const view = result.view;
         viewRef.current = view;
+        // Region capture reads the same rendered Vega view and row set that
+        // this component uses, so its box context can name enclosed rows.
+        (node as HTMLDivElement & { __clioChart?: { view: View; rows: () => readonly ChartRow[]; xField?: string; yField?: string } }).__clioChart = {
+          view,
+          rows: () => rowsRef.current ?? [],
+          xField,
+          yField,
+        };
+        setZoomActive(false);
+        const zoomListener = (_name: string, value: unknown) => {
+          if (!value || typeof value !== 'object') return setZoomActive(false);
+          const domains = value as Record<string, unknown>;
+          setZoomActive(Array.isArray(domains.x) && Array.isArray(domains.y));
+        };
+        if (zoomParam && viewHasSignal(view, zoomParam)) {
+          view.addSignalListener(zoomParam, zoomListener);
+          const previousFinalize = finalize;
+          finalize = () => {
+            view.removeSignalListener(zoomParam, zoomListener);
+            previousFinalize?.();
+          };
+        }
         if (rowsRef.current && rowsRef.current !== embeddedRows) {
           view.data('source', cloneRows(rowsRef.current));
           await view.runAsync();
         }
         const canLink = viewHasSignal(view, param);
         setLinkable(canLink);
-        if (zoomParam && xField && viewHasSignal(view, zoomParam)) {
-          zoomBindingRef.current = bindChartZoom(view, {
-            onRangeChange: setZoomRange,
-            param: zoomParam,
-            xField,
+        if (boxSelectionParam && selectionField && viewHasSignal(view, boxSelectionParam)) {
+          boxSelectionBindingRef.current = bindChartBoxSelection(view, {
+            param: boxSelectionParam,
+            read: (signal) =>
+              chartBoxSelectionValues(signal, {
+                rows: rowsRef.current ?? [],
+                selectionField,
+                xField: xField!,
+                xType: xAxisType,
+                yField: yField!,
+                yType: yAxisType,
+              }),
+            shouldIgnoreSignal: () => dataRefreshCountRef.current > 0,
+            write: (values) => {
+              // The shared state echoes this chart's own source back unchanged.
+              // Update Vega's point selection here so a box also highlights
+              // the individual marks, including on standalone inline charts.
+              void bindingRef.current?.select(values);
+              setSelectionRef.current?.({ field: selectionField, source: componentId, values });
+            },
           });
         }
         if (!canLink) return;
@@ -435,9 +464,10 @@ export function ClioChart(props: ClioChartProps) {
       cancelled = true;
       bindingRef.current?.dispose();
       bindingRef.current = undefined;
-      zoomBindingRef.current?.dispose();
-      zoomBindingRef.current = undefined;
+      boxSelectionBindingRef.current?.dispose();
+      boxSelectionBindingRef.current = undefined;
       viewRef.current = undefined;
+      delete (node as HTMLDivElement & { __clioChart?: unknown }).__clioChart;
       finalize?.();
     };
     // `fullscreen` forces a full re-embed on every toggle: `SurfaceFullScreenHost`
@@ -452,11 +482,16 @@ export function ClioChart(props: ClioChartProps) {
     embedSpec,
     fullscreen,
     hasRows,
-    height,
+    chartHeight,
+    measuredWidth,
     param,
     renderer,
     selectionField,
     xField,
+    xAxisType,
+    yAxisType,
+    yField,
+    boxSelectionParam,
     zoomParam,
   ]);
 
@@ -466,51 +501,7 @@ export function ClioChart(props: ClioChartProps) {
     if (selectionState) void bindingRef.current?.apply(selectionState);
   }, [selectionState]);
 
-  // Brushing an x range is a "zone" (#1533 item 4): once the re-query (or,
-  // for inline data, the client-side filter) for that range resolves, the
-  // zone's own selectionField values replace the shared selection, so linked
-  // map/table views follow the brushed range - not just this chart's own
-  // view of it. `displayRows` is already narrowed to the zoomed range for
-  // inline data; a `dataUri` chart's `rows` already came back narrowed from
-  // the server, and IS `displayRows` in that case (see `displayRows` above).
-  const zoneKeyRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (!zoomRange || !selectionField || !displayRows) return;
-    const values = displayRows.map((row) => row[selectionField]).filter(isSelectionValue);
-    const key = selectionKey(selectionField, values);
-    if (key === zoneKeyRef.current) return;
-    zoneKeyRef.current = key;
-    setSelectionRef.current?.({ field: selectionField, source: componentId, values });
-  }, [componentId, displayRows, selectionField, zoomRange]);
-
-  const clearZoom = () => {
-    setZoomRange(undefined);
-    zoneKeyRef.current = undefined;
-    const view = viewRef.current;
-    if (view && zoomParam) {
-      view.signal(zoomParam, {});
-      void view.runAsync();
-    }
-  };
-
   const failure = built.error || dataError || embedError;
-
-  // A single plot follows the panel's width (re-attached when the plot area reappears).
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node || !singleView || typeof ResizeObserver === 'undefined') return;
-    let lastWidth = node.clientWidth;
-    const observer = new ResizeObserver(() => {
-      const width = node.clientWidth;
-      const view = viewRef.current;
-      if (!view || !width || width === lastWidth) return;
-      lastWidth = width;
-      view.width(width);
-      void view.runAsync();
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [failure, hasRows, singleView]);
 
   const heading = title || 'Chart';
   const description = describeChart(spec, displayRows, loading, note);
@@ -518,16 +509,23 @@ export function ClioChart(props: ClioChartProps) {
   const buildReference = (): DataZoneReference => {
     const shownRows = (displayRows ?? []).length;
     const totalRows = matchedRows ?? shownRows;
-    const zoneDescription = zoomRange
-      ? `${shownRows.toLocaleString()} of ${totalRows.toLocaleString()} rows — ${xField} ${formatZoomBound(zoomRange.min, xType)}–${formatZoomBound(zoomRange.max, xType)}`
-      : `the whole view (${totalRows.toLocaleString()} rows)`;
+    const selectedValues =
+      selectionField && selectionState?.field === selectionField ? selectionState.values : [];
+    const selected = selectedValues.length > 0;
+    const zoneDescription = selected
+      ? `${selectedValues.length.toLocaleString()} selected ${selectedValues.length === 1 ? 'row' : 'rows'} of ${totalRows.toLocaleString()}`
+      : `the filtered current view (${totalRows.toLocaleString()} rows)`;
     return buildZoneReference({
       componentLabel: heading,
       datasetLabel: artifactIdFromDataUri(props.dataUri) ?? props.dataUri ?? 'inline data',
       filters: (effectiveDataQuery?.filter ?? []).map(describeQueryFilter),
       previewColumns: columns.slice(0, 5),
-      previewRows: (displayRows ?? []).slice(0, 5),
-      query: { dataQuery: effectiveDataQuery, dataUri: props.dataUri },
+      previewRows: selected ? selectedZoomRows : (displayRows ?? []).slice(0, 5),
+      query: {
+        dataQuery: effectiveDataQuery,
+        dataUri: props.dataUri,
+        ...(selected ? { selection: { field: selectionField, values: selectedValues } } : {}),
+      },
       zoneDescription: note ? `${zoneDescription} — ${note.replace(/\.$/u, '')}` : zoneDescription,
     });
   };
@@ -552,7 +550,8 @@ export function ClioChart(props: ClioChartProps) {
       id: 'png',
       label: 'PNG image',
       run: async () => {
-        if (!viewRef.current) return;
+        if (!viewRef.current)
+          throw new Error('Chart image is unavailable until the chart finishes rendering.');
         const background = resolveCardBackground(containerRef.current);
         downloadBlob(await chartPngBlob(viewRef.current, background), `${filenameStem}.png`);
       },
@@ -561,7 +560,8 @@ export function ClioChart(props: ClioChartProps) {
       id: 'svg',
       label: 'SVG image',
       run: async () => {
-        if (!viewRef.current) return;
+        if (!viewRef.current)
+          throw new Error('Chart SVG is unavailable until the chart finishes rendering.');
         downloadText(await chartSvgText(viewRef.current), 'image/svg+xml', `${filenameStem}.svg`);
       },
     },
@@ -569,7 +569,8 @@ export function ClioChart(props: ClioChartProps) {
       id: 'jpg',
       label: 'JPG image',
       run: async () => {
-        if (!viewRef.current) return;
+        if (!viewRef.current)
+          throw new Error('Chart image is unavailable until the chart finishes rendering.');
         const background = resolveCardBackground(containerRef.current);
         downloadBlob(await chartJpegBlob(viewRef.current, background), `${filenameStem}.jpg`);
       },
@@ -611,39 +612,57 @@ export function ClioChart(props: ClioChartProps) {
         ]
       : []),
   ];
-  // Component-specific view-state controls (not a G0 download/select/zoom/
-  // full-screen/reference affordance, so not part of the shared
-  // `SurfaceToolbar` overflow) rendered inline in the chart's own header, as
-  // before this redesign.
-  const chartHeaderExtra = (
+  const chartOverflowContent = (
     <>
       {linkable && selectionField && selectionCandidates.length > 0 ? (
-        <Select onValueChange={handleSelectCandidate} value={selectedCandidate}>
-          <SelectTrigger
-            aria-label={`Select a ${selectionField} by keyboard`}
-            className="text-xs"
-            size="sm"
-          >
-            <SelectValue placeholder={`Select ${selectionField}…`} />
-          </SelectTrigger>
-          <SelectContent>
-            {selectionCandidates.map((candidate) => (
-              <SelectItem key={String(candidate)} value={String(candidate)}>
-                {String(candidate)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Select a {selectionField} by keyboard</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup onValueChange={handleSelectCandidate} value={selectedCandidate}>
+              {selectionCandidates.map((candidate) => (
+                <DropdownMenuRadioItem key={String(candidate)} value={String(candidate)}>
+                  {String(candidate)}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
       ) : null}
-      {zoomRange ? (
-        <Button className="gap-1 text-xs" onClick={clearZoom} size="sm" variant="ghost">
-          <CloseIcon aria-hidden="true" className="size-3.5" />
-          Reset zoom
-        </Button>
+      {description ? (
+        <DropdownMenuItem
+          className="max-w-72 whitespace-normal text-xs text-muted-foreground"
+          disabled
+          onSelect={(event) => event.preventDefault()}
+        >
+          {description}
+        </DropdownMenuItem>
       ) : null}
     </>
   );
+  const renderZoomActions = () =>
+    zoomParam ? (
+      <div className="flex shrink-0 items-center gap-1">
+        {selectedZoomRows.length ? <Button aria-label="Zoom to selection" onClick={zoomToSelection} size="sm" variant="outline"><ZoomInIcon aria-hidden="true" className="size-3.5" />Zoom to selection</Button> : null}
+        {zoomActive ? <ChartZoomResetButton onClick={resetChartZoom} /> : null}
+      </div>
+    ) : null;
+  const renderBoxSelectAction = () =>
+    boxSelectionParam ? (
+      <Button
+        aria-label="Box select chart rows"
+        aria-pressed={boxSelectMode}
+        className="shrink-0 gap-1.5"
+        onClick={() => setBoxSelectMode((active) => !active)}
+        size="sm"
+        title="Drag a box to select rows; turn off to return to ordinary chart interaction"
+        variant={boxSelectMode ? 'secondary' : 'ghost'}
+      >
+        <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
+        Box select
+      </Button>
+    ) : null;
   const toolbarCapabilities: SurfaceCapabilities = {
+    captureComponentId: componentId,
     buildReference: hasRows ? buildReference : undefined,
     exportFormats: hasRows ? exportFormats : undefined,
     filters: filterableFields.length
@@ -660,99 +679,89 @@ export function ClioChart(props: ClioChartProps) {
         }
       : undefined,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
+    overflowContent: chartOverflowContent,
+    selectionHint:
+      linkable && selectionField ? (
+        <span>
+          {zoomParam
+            ? 'Choose Box select or hold Shift and drag to select rows. Zoom to selection is deliberate; use Alt+drag to pan or Ctrl+wheel to adjust zoom.'
+            : 'Choose Box select or hold Shift and drag to select matching rows.'}
+        </span>
+      ) : undefined,
   };
 
   return (
-    <div className="min-w-0" data-slot="a2ui-chart" style={dataViewFlexStyle(weight)}>
-      <Frame
-        {...a2uiAccessibilityProps(accessibility)}
-        aria-label={label}
-        className="group"
-        dense
-        role="group"
-      >
-        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
-          <ChartLineIcon aria-hidden="true" className="size-4 text-primary" />
-          <div className="min-w-0 flex-1">
-            <FrameTitle className="truncate">{heading}</FrameTitle>
-            <FrameDescription className="truncate" title={description}>
-              {description}
-            </FrameDescription>
+    <section
+      {...a2uiAccessibilityProps(accessibility)}
+      aria-label={label}
+      className="group relative min-w-0"
+      data-slot="a2ui-chart"
+      data-a2ui-component-id={componentId}
+      role="group"
+      style={dataViewFlexStyle(weight)}
+    >
+      <div className="mb-2 flex min-w-0 items-start gap-3">
+        <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug" title={heading}>{heading}</h3>
+        {renderBoxSelectAction()}
+        {renderZoomActions()}
+        <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+      </div>
+      <SurfaceFullScreenHost
+        fullscreen={fullscreen}
+        headerExtra={
+          <div className="flex items-center gap-2">
+            {renderBoxSelectAction()}
+            {renderZoomActions()}
+            {/* The dialog already has its own "Exit full screen" button. */}
+            <SurfaceToolbar
+              capabilities={{ ...toolbarCapabilities, fullScreen: undefined }}
+              floating={false}
+            />
           </div>
-          {chartHeaderExtra}
-          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
-        </FrameHeader>
-        <SurfaceFullScreenHost
-          fullscreen={fullscreen}
-          headerExtra={
-            // No `fullScreen` entry here: the dialog already has its own
-            // native "Exit full screen" button right next to this.
-            <SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} />
-          }
-          onOpenChange={setFullscreen}
-          title={heading}
-        >
-          <FramePanel className="p-0">
-            {failure ? (
-              <p className="p-4 text-sm text-destructive">Chart unavailable: {failure}</p>
-            ) : (
+        }
+        onOpenChange={setFullscreen}
+        title={heading}
+      >
+        <div className="min-w-0">
+          {failure ? (
+            <p className="p-4 text-sm text-destructive">Chart unavailable: {failure}</p>
+          ) : (
+            <div
+              aria-label={`${heading}: ${description}`}
+                className={cn('relative min-w-0 overflow-x-auto', boxplotWidthLimit && 'flex justify-center', boxSelectMode && 'cursor-crosshair')}
+              role="img"
+              style={{ minHeight: chartHeight }}
+            >
+              {!hasRows || !spec ? (
+                <div className="absolute inset-0 animate-pulse bg-muted motion-reduce:animate-none" />
+              ) : null}
+              {/* Vega owns this node's children; React never renders into it. */}
               <div
-                aria-label={`${heading}: ${description}`}
-                className="relative min-w-0 overflow-x-auto"
-                role="img"
-                style={{ minHeight: height }}
-              >
-                {!hasRows || !spec ? (
-                  <div className="absolute inset-0 animate-pulse bg-muted motion-reduce:animate-none" />
-                ) : null}
-                {/* Vega owns this node's children; React never renders into it. */}
-                <div data-renderer={renderer} data-slot="a2ui-chart-view" ref={containerRef} />
-              </div>
-            )}
-            {!failure && zoomRange ? (
-              <p
-                className="border-t px-3 py-2 text-xs text-muted-foreground"
-                data-slot="a2ui-chart-zoom-caption"
-              >
-                Zoomed to {xField} {formatZoomBound(zoomRange.min, xType)}–
-                {formatZoomBound(zoomRange.max, xType)}.
-              </p>
-            ) : null}
-            {!failure && note ? (
-              <p className="border-t px-3 py-2 text-xs text-muted-foreground">{note}</p>
-            ) : null}
-            {!failure && !linkable && selection !== undefined ? (
-              <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-                This chart has no “{param}” selection, so it neither follows nor shares the linked
-                selection.
-              </p>
-            ) : null}
-          </FramePanel>
-        </SurfaceFullScreenHost>
-      </Frame>
-    </div>
+                data-renderer={renderer}
+                data-slot="a2ui-chart-view"
+                ref={containerRef}
+                style={boxplotWidthLimit ? { width: `min(100%, ${boxplotWidthLimit}px)` } : undefined}
+              />
+            </div>
+          )}
+          {!failure && note ? <p className="py-2 text-xs text-muted-foreground">{note}</p> : null}
+          {!failure && !linkable && selection !== undefined ? (
+            <p className="py-2 text-xs text-muted-foreground">
+              This chart has no “{param}” selection, so it neither follows nor shares the linked
+              selection.
+            </p>
+          ) : null}
+        </div>
+      </SurfaceFullScreenHost>
+    </section>
   );
 }
 
-/** Vega stamps its own id onto each tuple, so it gets copies, never the data model's rows. */
-function cloneRows(rows: readonly ChartRow[]): ChartRow[] {
-  return rows.map((row) => ({ ...row }));
-}
-
-/** A brushed bound, reader-facing: a date for a temporal axis, else a short number. */
-function formatZoomBound(bound: number, xType: string | undefined): string {
-  if (xType === 'temporal') return new Date(bound).toLocaleDateString();
-  return new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4 }).format(bound);
-}
-
-function describeChart(
-  spec: Record<string, unknown> | undefined,
-  rows: readonly ChartRow[] | undefined,
-  loading: boolean,
-  note: string,
-): string {
-  if (loading) return 'Loading rows…';
-  const summary = spec && typeof spec.description === 'string' ? spec.description : '';
-  const count = rows ? `${rows.length.toLocaleString()} rows` : '';
-  return [summary, count].filter(Boolean).join(' · ') || (note ? note : 'No rows');
+function ChartZoomResetButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button aria-label="Reset zoom" className="shrink-0" onClick={onClick} size="sm" variant="outline">
+      <RetryIcon aria-hidden="true" className="size-3.5" />
+      Reset zoom
+    </Button>
+  );
 }

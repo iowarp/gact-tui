@@ -39,7 +39,7 @@ export function ClioStreamingText({ text, active, className, ...props }: ClioStr
           {trailingText}
         </m.span>
       ) : null}
-      {active ? (
+      {active && text.length > 0 ? (
         <span
           aria-hidden="true"
           data-slot="stream-cursor"

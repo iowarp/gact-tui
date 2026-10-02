@@ -1,6 +1,8 @@
 import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
+import { CameraIcon, ChevronDownIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { MarkdownText } from '@/components/ai-elements/markdown';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -22,6 +24,10 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import type { ComposerAnnotation, RegionCaptureAnnotation } from '@/lib/composer-annotations';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RemoveIcon } from '@/lib/icon-vocabulary';
 import {
   readAttachmentBytes,
   type ResourceUploadProgress,
@@ -51,11 +57,15 @@ export interface ResourceUploadFailure {
 
 /** Adaptive AI Elements attachment tray backed by PromptInput file state. */
 export function ClioComposerAttachments({
+  annotations = [],
+  onRemoveCapture,
   onPrepareFiles,
   resources = [],
   uploadFailure,
   uploadProgress,
 }: {
+  annotations?: readonly ComposerAnnotation[];
+  onRemoveCapture?: (annotation: RegionCaptureAnnotation) => void;
   onPrepareFiles?: (
     files: readonly UploadableFilePart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
@@ -66,6 +76,15 @@ export function ClioComposerAttachments({
   uploadProgress?: ResourceUploadProgress;
 }) {
   const attachments = usePromptInputAttachments();
+  const captureByFilename = new Map(annotations.filter((annotation): annotation is RegionCaptureAnnotation => annotation.kind === 'region-capture').map((annotation) => [annotation.filename, annotation]));
+  useEffect(() => {
+    const addCapture = (event: Event) => {
+      const file = (event as CustomEvent<{ file?: File }>).detail?.file;
+      if (file) attachments.add([file]);
+    };
+    window.addEventListener('clio:add-region-capture', addCapture);
+    return () => window.removeEventListener('clio:add-region-capture', addCapture);
+  }, [attachments]);
   const [previewId, setPreviewId] = useState<string>();
   const preparingAttachmentIds = useRef(new Set<string>());
   const preparationControllers = useRef(new Map<string, AbortController>());
@@ -174,6 +193,7 @@ export function ClioComposerAttachments({
         >
           {attachments.files.map((file) => {
             const filename = file.filename ?? 'Attachment';
+            const capture = captureByFilename.get(filename);
             const mediaCategory = getMediaCategory(file);
             const visual = mediaCategory === 'image' || mediaCategory === 'video';
             const prepared = preparedResources[file.id];
@@ -187,6 +207,28 @@ export function ClioComposerAttachments({
                   attachmentFailures[file.id] ?? uploadFailure,
                   Boolean(onPrepareFiles),
                 );
+            if (capture) {
+              return (
+                <div className="flex min-w-0 w-full items-center gap-2 rounded-lg border bg-muted/40 px-2 py-2" key={file.id}>
+                  <button aria-label={`Open ${filename}`} className="size-14 shrink-0 overflow-hidden rounded border bg-background" onClick={() => setPreviewId(file.id)} type="button">
+                    <Attachment className="size-full" data={file}><AttachmentPreview /></Attachment>
+                  </button>
+                  <CameraIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] font-medium text-muted-foreground">{capture.title}</p>
+                    <p className="truncate text-xs text-foreground">{capture.summary}</p>
+                  </div>
+                  <ResourcePipelineSummaryIcon stages={stages} />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button aria-label={`Show the full ${capture.title} reference`} className="size-6 shrink-0" size="icon" title="Show details" type="button" variant="ghost"><ChevronDownIcon aria-hidden="true" className="size-3.5" /></Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] overflow-y-auto text-xs"><MarkdownText mode="static">{capture.markdown}</MarkdownText></PopoverContent>
+                  </Popover>
+                  <Button aria-label={`Remove ${capture.title}`} className="size-6 shrink-0" onClick={() => { attachments.remove(file.id); onRemoveCapture?.(capture); }} size="icon" title="Remove" type="button" variant="ghost"><RemoveIcon aria-hidden="true" className="size-3.5" /></Button>
+                </div>
+              );
+            }
             return (
               <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
                 <AttachmentHoverCardTrigger asChild>

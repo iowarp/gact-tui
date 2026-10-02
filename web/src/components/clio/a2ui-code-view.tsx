@@ -116,10 +116,19 @@ export function ClioA2UICodeView({
   };
 
   return (
-    <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title={heading}>
+    <SurfaceFullScreenHost
+      fullscreen={fullscreen}
+      headerExtra={<SurfaceToolbar capabilities={capabilities} floating={false} />}
+      onOpenChange={setFullscreen}
+      title={heading}
+    >
       <CodeBlock
         {...a2uiAccessibilityProps(accessibility)}
-        className={fullscreen ? 'flex h-full flex-col [&>div:last-child]:min-h-0 [&>div:last-child]:flex-1' : undefined}
+        className={
+          fullscreen
+            ? 'flex h-full flex-col [&>div:last-child]:min-h-0 [&>div:last-child]:flex-1'
+            : undefined
+        }
         code={code}
         language={codeLanguage(language)}
         showLineNumbers
@@ -130,7 +139,7 @@ export function ClioA2UICodeView({
             <CodeBlockFilename>{heading}</CodeBlockFilename>
           </CodeBlockTitle>
           <CodeBlockActions>
-            <SurfaceToolbar capabilities={capabilities} />
+            {!fullscreen ? <SurfaceToolbar capabilities={capabilities} /> : null}
           </CodeBlockActions>
         </CodeBlockHeader>
       </CodeBlock>

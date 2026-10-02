@@ -18,19 +18,64 @@
 
 interface RepaintableMap {
   getCanvas(): HTMLCanvasElement;
-  once(type: 'render', listener: () => void): unknown;
+  once(type: 'render' | 'remove', listener: () => void): unknown;
+  off?(type: 'render' | 'remove', listener: () => void): unknown;
   triggerRepaint(): void;
 }
 
 /** The map's current rendering as a PNG `Blob`. */
 export function mapPngBlob(map: RepaintableMap): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    map.once('render', () => {
-      map.getCanvas().toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('PNG export failed: canvas returned no image data.'));
-      }, 'image/png');
-    });
-    map.triggerRepaint();
+    const canvas = map.getCanvas();
+    let settled = false;
+    const cleanup = () => {
+      map.off?.('render', onRender);
+      map.off?.('remove', onRemove);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+    const fail = (reason: string) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(reason));
+    };
+    const onRemove = () => fail('PNG export stopped because the map was closed.');
+    const onContextLost = () =>
+      fail('PNG export stopped because the map graphics context was lost.');
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden')
+        fail('PNG export stopped because the page became hidden.');
+    };
+    const onRender = () => {
+      if (settled) return;
+      try {
+        canvas.toBlob((blob) => {
+          if (settled) return;
+          if (!blob) {
+            fail('PNG export failed: canvas returned no image data.');
+            return;
+          }
+          settled = true;
+          cleanup();
+          resolve(blob);
+        }, 'image/png');
+      } catch (error) {
+        fail(`PNG export failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    };
+    if (document.visibilityState === 'hidden') {
+      fail('PNG export is unavailable while the page is hidden.');
+      return;
+    }
+    canvas.addEventListener('webglcontextlost', onContextLost);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    map.once('remove', onRemove);
+    map.once('render', onRender);
+    try {
+      map.triggerRepaint();
+    } catch (error) {
+      fail(`PNG export failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   });
 }

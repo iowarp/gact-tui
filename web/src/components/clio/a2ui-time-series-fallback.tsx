@@ -1,7 +1,5 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
-import { ChartNoAxesCombinedIcon } from 'lucide-react';
 import { z } from 'zod';
-import { Frame, FrameDescription, FrameHeader, FrameTitle } from '@/components/reui/frame';
 
 /**
  * `clio.time-series.v1` was retired when charts moved to the unified,
@@ -18,14 +16,9 @@ import { Frame, FrameDescription, FrameHeader, FrameTitle } from '@/components/r
 export const ClioTimeSeriesFallbackCatalogComponent = createComponentImplementation(
   { name: 'clio.time-series.v1', schema: z.object({}).passthrough() },
   () => (
-    <Frame role="group" spacing="sm">
-      <FrameHeader>
-        <ChartNoAxesCombinedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <FrameTitle>This chart type is no longer supported</FrameTitle>
-          <FrameDescription>Ask the agent to redraw it to see it again.</FrameDescription>
-        </div>
-      </FrameHeader>
-    </Frame>
+    <div className="min-w-0 space-y-1" role="group">
+      <h3 className="text-sm font-medium">This chart type is no longer supported</h3>
+      <p className="text-sm text-muted-foreground">Ask the agent to redraw it to see it again.</p>
+    </div>
   ),
 );

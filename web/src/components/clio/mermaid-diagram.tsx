@@ -1,4 +1,4 @@
-import { AlertTriangleIcon, Code2Icon, EyeIcon, WorkflowIcon } from 'lucide-react';
+import { AlertTriangleIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   CodeBlock,
@@ -8,14 +8,29 @@ import {
 } from '@/components/ai-elements/code-block';
 import type { MermaidConfig } from '@/components/mermaidcn/mermaid';
 import { MermaidPreview } from '@/components/mermaidcn/mermaid-preview';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from '@/components/ui/dropdown-menu';
 import { artifactIdFromDataUri } from './table-query-rows';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import { svgIntrinsicSize, svgToPngBlob } from './mermaid-export';
 import { validateMermaidSource } from './mermaid-security';
-import { copyTextToClipboard, downloadBlob, downloadText, filenameStemFromTitle } from './surface-export';
+import {
+  copyTextToClipboard,
+  downloadBlob,
+  downloadText,
+  filenameStemFromTitle,
+} from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
-import { SurfaceToolbar, type SurfaceCapabilities, type SurfaceExportFormat } from './surface-toolbar';
+import {
+  SurfaceToolbar,
+  type SurfaceCapabilities,
+  type SurfaceExportFormat,
+} from './surface-toolbar';
 
 type MermaidView = 'render' | 'source';
 
@@ -103,60 +118,47 @@ export function ClioMermaidDiagram({
       zoneDescription: 'the whole diagram',
     });
 
-  // Not a G0 download/select/zoom/full-screen/reference affordance (it's the
-  // diagram's own render/source view switch), so it stays in this
-  // component's own header rather than the shared `SurfaceToolbar` overflow.
-  const diagramHeaderExtra = (
-    <ToggleGroup
-      aria-label="Diagram view"
-      onValueChange={(value) => {
-        if (value === 'render' || value === 'source') setView(value);
-      }}
-      size="sm"
-      spacing={0}
-      type="single"
-      value={view}
-      variant="outline"
-    >
-      <ToggleGroupItem aria-label="Show rendered diagram" value="render">
-        <EyeIcon aria-hidden="true" data-icon="inline-start" />
-        Render
-      </ToggleGroupItem>
-      <ToggleGroupItem aria-label="Show Mermaid source" value="source">
-        <Code2Icon aria-hidden="true" data-icon="inline-start" />
-        Source
-      </ToggleGroupItem>
-    </ToggleGroup>
-  );
   const toolbarCapabilities: SurfaceCapabilities = {
     buildReference,
     copyLabel: 'Copy source',
     exportFormats,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
     onCopy: () => copyTextToClipboard(source),
+    overflowContent: (
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>Diagram view</DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          <DropdownMenuRadioGroup
+            onValueChange={(value) => {
+              if (value === 'render' || value === 'source') setView(value);
+            }}
+            value={view}
+          >
+            <DropdownMenuRadioItem value="render">Rendered diagram</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="source">Mermaid source</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    ),
   };
 
   return (
     <section
       aria-description={accessibilityDescription}
       aria-label={accessibilityLabel || heading}
-      className="group relative min-w-0 bg-card"
+      className="group relative min-w-0"
     >
-      <header className="flex items-center justify-between gap-3 pb-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <WorkflowIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-          <h3 className="truncate text-sm font-medium">{heading}</h3>
-        </div>
-        {diagramHeaderExtra}
+      <header className="mb-2 flex min-w-0 items-start gap-3">
+        <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{heading}</h3>
         <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
       </header>
       <SurfaceFullScreenHost
         fullscreen={fullscreen}
         headerExtra={
-          <>
-            {diagramHeaderExtra}
-            <SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} />
-          </>
+          <SurfaceToolbar
+            capabilities={{ ...toolbarCapabilities, fullScreen: undefined }}
+            floating={false}
+          />
         }
         onOpenChange={setFullscreen}
         title={heading}

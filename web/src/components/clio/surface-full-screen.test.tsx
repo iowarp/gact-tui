@@ -16,8 +16,7 @@ import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-scre
  * `null` on the component's first effect pass.
  *
  * Toggling full screen itself is NOT asserted to preserve the child's own
- * instance/local state: `ClioA2UISurfaceCard`'s own doc comment (one level
- * up, the whole "Generated UI" card) documents the same trade-off —
+ * instance/local state: switching a portal's container is a real remount —
  * switching a portal's container is a real remount, so a view's own local
  * state (a chart's pan/zoom, a table's page) starts fresh; only what lives in
  * the surface's shared data model (selection, agent data — passed back in as
@@ -71,7 +70,11 @@ describe('SurfaceFullScreenHost', () => {
           <button onClick={() => setFullscreen(!fullscreen)} type="button">
             Toggle
           </button>
-          <SurfaceFullScreenHost fullscreen={fullscreen} onOpenChange={setFullscreen} title="Probe title">
+          <SurfaceFullScreenHost
+            fullscreen={fullscreen}
+            onOpenChange={setFullscreen}
+            title="Probe title"
+          >
             <div data-slot="probe">content</div>
           </SurfaceFullScreenHost>
         </>

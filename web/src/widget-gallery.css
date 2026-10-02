@@ -1,0 +1,33 @@
+.gallery-nav-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
+}
+
+.gallery-nav-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.gallery-nav-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gallery-nav-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.gallery-tab-scroll {
+  scrollbar-width: none;
+}
+
+.gallery-tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.gallery-tab-scroll [role="tab"] {
+  flex-shrink: 0;
+}
+
+.gallery-page [data-slot="a2ui-mesh-viewport"] [role="img"] {
+  height: clamp(20rem, 48vw, 34rem);
+}

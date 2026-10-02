@@ -1,5 +1,13 @@
-import { CheckIcon, CopyIcon, DownloadIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  CheckIcon,
+  CameraIcon,
+  CopyIcon,
+  DownloadIcon,
+  LoaderCircleIcon,
+  Maximize2Icon,
+  Minimize2Icon,
+} from 'lucide-react';
+import { type ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +24,7 @@ import { MoreIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { DataReferenceThisButton } from './data-reference-this-button';
 import type { DataZoneReference } from './data-zone-reference';
+import { A2uiRegionCaptureContext } from './a2ui-region-capture';
 
 /**
  * The ONE shared affordance framework (G0): a per-component capability
@@ -39,11 +48,9 @@ import type { DataZoneReference } from './data-zone-reference';
  * reorders or restyles them:
  *   [Filters?] [Reference this?] [Full screen?] [More ▾?]
  * with the overflow menu always ordered Download ▸, Selection, Copy.
- * Component-specific state controls that are not a G0 download/select/
- * zoom/full-screen/reference affordance (a view-mode toggle, a "reset zoom"
- * button, a keyboard selection fallback) are NOT part of this shared
- * surface — a component renders those itself, in its own header, same as
- * before this redesign.
+ * Component-specific secondary actions and details (a view-mode toggle, a
+ * reset action, row counts) join the same overflow menu through
+ * `overflowContent`; they do not create another header or toolbar.
  *
  * `floating` (default `true`) picks the layout: a header-less component gets
  * the original `position: absolute` corner overlay; a component with its own
@@ -75,6 +82,8 @@ export interface SurfaceFullScreenControl {
 }
 
 export interface SurfaceCapabilities {
+  /** Preserve the protocol component identity when a full-screen toolbar is portalled outside it. */
+  captureComponentId?: string;
   /** The download menu, nested in the overflow. Omit entirely when the component has nothing to export. */
   exportFormats?: readonly SurfaceExportFormat[];
   /**
@@ -102,6 +111,8 @@ export interface SurfaceCapabilities {
   filters?: { content: ReactNode; isOpen?: boolean };
   /** A short description of the surface's selection/linking affordance, shown as an informational row in the overflow (e.g. "Shift+drag to select an area"). */
   selectionHint?: ReactNode;
+  /** Component-specific secondary actions and details, placed after downloads in the shared overflow. */
+  overflowContent?: ReactNode;
 }
 
 /** Whether `capabilities` would render anything at all (callers use this to skip an empty toolbar wrapper). */
@@ -112,9 +123,10 @@ export function hasToolbarContent(capabilities: SurfaceCapabilities | undefined)
     capabilities.exportFormats?.length ||
       capabilities.onCopy ||
       capabilities.buildReference ||
-      capabilities.fullScreen ||
+      (capabilities.fullScreen && !capabilities.fullScreen.isOpen) ||
       capabilities.filters ||
-      capabilities.selectionHint,
+      capabilities.selectionHint ||
+      capabilities.overflowContent,
   );
 }
 
@@ -171,8 +183,15 @@ function exportFailureReason(error: unknown): string {
   return 'the export failed for an unknown reason';
 }
 
-function DownloadSubmenu({ formats }: { formats: readonly SurfaceExportFormat[] }) {
-  const [busy, setBusy] = useState(false);
+function DownloadSubmenu({
+  formats,
+  busy,
+  setBusy,
+}: {
+  formats: readonly SurfaceExportFormat[];
+  busy: boolean;
+  setBusy: (busy: boolean) => void;
+}) {
   if (!formats.length) return null;
   const run = (format: SurfaceExportFormat) => {
     setBusy(true);
@@ -197,7 +216,11 @@ function DownloadSubmenu({ formats }: { formats: readonly SurfaceExportFormat[] 
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
         {formats.map((format) => (
-          <DropdownMenuItem disabled={format.disabled || busy} key={format.id} onSelect={() => run(format)}>
+          <DropdownMenuItem
+            disabled={format.disabled || busy}
+            key={format.id}
+            onSelect={() => run(format)}
+          >
             {format.label}
           </DropdownMenuItem>
         ))}
@@ -272,7 +295,9 @@ export interface SurfaceToolbarProps {
 
 /** Renders every affordance `capabilities` declares, in the same order and shape everywhere. */
 export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbarProps) {
+  const capture = useContext(A2uiRegionCaptureContext);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // The hover-reveal classes below only ever activate under a `.group`
@@ -291,12 +316,21 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
     }
   });
   if (!hasToolbarContent(capabilities)) return null;
-  const { buildReference, copyLabel, exportFormats, filters, fullScreen, onCopy, selectionHint } = capabilities;
-  const hasOverflow = Boolean(exportFormats?.length || selectionHint || onCopy);
+  const {
+    buildReference,
+    copyLabel,
+    exportFormats,
+    filters,
+    fullScreen,
+    onCopy,
+    overflowContent,
+    selectionHint,
+  } = capabilities;
+  const hasOverflow = Boolean(exportFormats?.length || overflowContent || selectionHint || onCopy);
   // Stays revealed (and clickable) while one of its own menus/popovers is
   // open, even if the pointer or focus has moved off the surface in the
   // meantime (e.g. a Filters popover opened upward, or a long "More" menu).
-  const forceRevealed = menuOpen || Boolean(filters?.isOpen);
+  const forceRevealed = menuOpen || downloadBusy || Boolean(filters?.isOpen);
   return (
     <div
       ref={rootRef}
@@ -327,14 +361,50 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
         // whole class is dropped silently, which is exactly how this toolbar
         // was found still fading out from under an open menu (#516 review
         // item 12).
-        forceRevealed && '[@media(hover:hover)]:opacity-100! [@media(hover:hover)]:pointer-events-auto!',
+        forceRevealed &&
+          '[@media(hover:hover)]:opacity-100! [@media(hover:hover)]:pointer-events-auto!',
       )}
       data-slot="surface-toolbar"
     >
       <TooltipProvider delayDuration={150}>
         {filters?.content}
+        {capture ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button
+                  aria-label="Capture labelled regions"
+                  disabled={!capture.allowed}
+                  onClick={() => {
+                    const container = rootRef.current?.closest<HTMLElement>('[data-slot^="a2ui-"]')
+                      ?? rootRef.current?.closest<HTMLElement>('[data-slot="dialog-content"]')
+                      ?? rootRef.current?.closest<HTMLElement>('.group');
+                    if (!container) return;
+                    // Capture the rendered chart itself. The full-screen dialog
+                    // has substantial empty space and its size changes when the
+                    // host returns inline; chart-relative boxes stay aligned.
+                    const element = container.querySelector<HTMLElement>('[data-slot="a2ui-chart-view"]')
+                      ?? container.querySelector<HTMLElement>('[data-slot="a2ui-map-surface"]')
+                      ?? container.querySelector<HTMLElement>('[data-slot="a2ui-raster-surface"]')
+                      ?? container.querySelector('canvas')?.closest<HTMLElement>('[role="img"]')
+                      ?? container;
+                    const title = container.querySelector('h1,h2,h3,h4')?.textContent?.trim()
+                      || container.getAttribute('data-slot')?.replaceAll('-', ' ')
+                      || 'Interactive surface';
+                    const componentId = capabilities?.captureComponentId ?? container.dataset.a2uiComponentId
+                      ?? container.querySelector<HTMLElement>('[data-a2ui-component-id]')?.dataset.a2uiComponentId;
+                    capture.start({ element, title, componentId, reference: buildReference });
+                  }}
+                  size="icon-sm"
+                  variant="ghost"
+                ><CameraIcon aria-hidden="true" className="size-3.5" /></Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{capture.allowed ? 'Capture labelled regions' : 'Choose a model that accepts images to capture a region'}</TooltipContent>
+          </Tooltip>
+        ) : null}
         {buildReference ? <DataReferenceThisButton buildReference={buildReference} /> : null}
-        {fullScreen ? (
+        {fullScreen && !fullScreen.isOpen ? (
           <ToolbarIconButton
             aria-pressed={fullScreen.isOpen}
             icon={
@@ -353,15 +423,30 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button aria-label="More" size="icon-sm" variant="ghost">
-                    <MoreIcon aria-hidden="true" className="size-3.5" />
+                  <Button
+                    aria-label={downloadBusy ? 'Downloading' : 'More'}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    {downloadBusy ? (
+                      <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
+                    ) : (
+                      <MoreIcon aria-hidden="true" className="size-3.5" />
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom">More</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end">
-              {exportFormats?.length ? <DownloadSubmenu formats={exportFormats} /> : null}
+              {exportFormats?.length ? (
+                <DownloadSubmenu
+                  formats={exportFormats}
+                  busy={downloadBusy}
+                  setBusy={setDownloadBusy}
+                />
+              ) : null}
+              {overflowContent}
               {selectionHint ? (
                 // A disabled `DropdownMenuItem`, not a bare `<div>` (#516
                 // review item 16): a plain div sits outside the menu's roving

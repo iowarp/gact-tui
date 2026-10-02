@@ -405,6 +405,7 @@ export function queryInvalidationKeysForEvent({
   }
   if (eventName === 'message.completed') {
     keys.push(
+      queryKeys.transcript(endpoint, sessionId),
       queryKeys.sessions(endpoint, workspaceId),
       queryKeys.sessions(endpoint, 'all'),
       // Artifact lifecycle records are emitted as semantic events on current

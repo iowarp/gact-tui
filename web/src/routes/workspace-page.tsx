@@ -31,6 +31,7 @@ import {
   WorkspaceLiveStatusStrip,
 } from '@/components/clio/workspace-live-projections';
 import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
+import { useA2uiCatalogRegistry } from '@/lib/a2ui/processor-store';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
@@ -59,6 +60,7 @@ export function WorkspacePage() {
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
   const repository = useRepository();
+  const a2uiCatalog = useA2uiCatalogRegistry(sessionId);
   const composerDraft = useComposerDraft(sessionId);
   const [composerFocusKey, setComposerFocusKey] = useState(0);
   const focusComposerForAnswer = useCallback(() => setComposerFocusKey((key) => key + 1), []);
@@ -412,6 +414,7 @@ export function WorkspacePage() {
         />
       ) : (
         <ClioComposer
+          catalogPreparing={a2uiCatalog.isLoading}
           workSummary={
             variant === 'docked' ? (
               <SessionWorkSummary
@@ -710,6 +713,10 @@ export function WorkspacePage() {
       >
         <section className="relative flex h-full min-w-0 flex-col bg-background">
           <WorkspaceTranscriptAlerts
+            sessionFailed={
+              session?.state === 'failed' &&
+              transcript.data?.messages.at(-1)?.stop_reason !== 'error'
+            }
             streamError={streamError}
             transcriptError={messageCount > 0 ? transcriptError : undefined}
           />

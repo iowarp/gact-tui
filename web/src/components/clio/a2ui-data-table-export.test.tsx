@@ -12,7 +12,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  * selection/linking tests stay in the source file.
  */
 
-const repository = vi.hoisted(() => ({ artifactTableExport: vi.fn(), artifactTableQuery: vi.fn() }));
+const repository = vi.hoisted(() => ({
+  artifactTableExport: vi.fn(),
+  artifactTableQuery: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -234,7 +237,13 @@ describe('clio.data-table.v1 inline rows (G0)', () => {
   it('offers a client-side CSV/JSON download; never Parquet (no client-side encoder for inline rows)', async () => {
     const user = userEvent.setup();
     const createUrl = vi.spyOn(URL, 'createObjectURL');
-    render(<ClioSelectableDataTable columns={['station', 'magnitude']} componentId="table" rows={ROWS} />);
+    render(
+      <ClioSelectableDataTable
+        columns={['station', 'magnitude']}
+        componentId="table"
+        rows={ROWS}
+      />,
+    );
 
     await openDownloadMenu(user);
     expect(await screen.findByRole('menuitem', { name: 'CSV data' })).toBeInTheDocument();
@@ -246,9 +255,12 @@ describe('clio.data-table.v1 inline rows (G0)', () => {
     expect((createUrl.mock.calls.at(-1)![0] as Blob).type).toBe('text/csv');
   });
 
-  it('shows no download menu or "Reference this" for an empty inline table', () => {
+  it('shows the row count but no download or reference action for an empty inline table', async () => {
+    const user = userEvent.setup();
     render(<ClioSelectableDataTable columns={['station']} componentId="table" rows={[]} />);
-    expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('menuitem', { name: '0 rows' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Download/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reference this' })).not.toBeInTheDocument();
   });
 
