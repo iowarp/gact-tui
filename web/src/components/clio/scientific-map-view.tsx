@@ -53,14 +53,14 @@ interface ScientificMapViewProps {
    * need not pass it at all.
   */
   highlightedIds?: ReadonlySet<string>;
-  onSelect: (pointId: string, additive?: boolean) => void;
+  onSelect: (pointId: string, additive?: boolean, wholeTrack?: boolean) => void;
   onClearSelection?: () => void;
   /**
    * Shift+drag a rectangle to select every point inside it (#1533 item 4:
    * "drag a rectangle on the map"). Replaces maplibre's default shift+drag
    * box-zoom for this view — see the `boxZoom.disable()` call below.
    */
-  onZoneSelect?: (pointIds: string[]) => void;
+  onZoneSelect?: (pointIds: string[], wholeTracks?: boolean, additive?: boolean) => void;
   /**
    * Hands the live maplibre `Map` instance up to the caller once it loads
    * (G0: PNG export reads the canvas via `map.once('render', ...)` +
@@ -503,7 +503,7 @@ export function ClioScientificMapView({
       ? nearestProjectedGeometryId(map, event.point, points, geometry)
       : undefined;
     const id = feature?.properties?.id ?? projected;
-    if (typeof id === 'string') onSelect(id, event.originalEvent.shiftKey);
+    if (typeof id === 'string') onSelect(id, event.originalEvent.shiftKey, event.originalEvent.ctrlKey || event.originalEvent.metaKey);
     else onClearSelection?.();
   };
 
@@ -513,7 +513,7 @@ export function ClioScientificMapView({
   };
   const handleMouseDownCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
     suppressHandledClick.current = false;
-    if (!onZoneSelect || (!boxSelectMode && !event.shiftKey) || event.button !== 0) return;
+    if (!onZoneSelect || (!boxSelectMode && !event.shiftKey && !event.ctrlKey && !event.metaKey) || event.button !== 0) return;
     // MapLibre listens for mouse events separately from pointer events. Take
     // ownership of the mouse gesture before its canvas can begin a pan.
     event.preventDefault();
@@ -565,8 +565,8 @@ export function ClioScientificMapView({
               candidate.latitude <= north,
           )
           .map((candidate) => candidate.id);
-      onZoneSelect?.(ids);
-    } else if (map && (boxSelectMode || event.shiftKey)) {
+      onZoneSelect?.(ids, event.ctrlKey || event.metaKey, event.shiftKey);
+    } else if (map && (boxSelectMode || event.shiftKey || event.ctrlKey || event.metaKey)) {
       // A tap in rectangle mode is still a point click. DOM markers sit above
       // their projected coordinate, so compare with the icon's visual centre.
       const feature = map.queryRenderedFeatures([point.x, point.y], {
@@ -581,10 +581,10 @@ export function ClioScientificMapView({
       const id = feature?.properties?.id;
       if (typeof id === 'string') {
         suppressHandledClick.current = true;
-        onSelect(id, event.shiftKey);
+        onSelect(id, event.shiftKey, event.ctrlKey || event.metaKey);
       } else if (hit) {
         suppressHandledClick.current = true;
-        onSelect(hit.id, event.shiftKey);
+        onSelect(hit.id, event.shiftKey, event.ctrlKey || event.metaKey);
       } else if (!event.shiftKey) {
         suppressHandledClick.current = true;
         onClearSelection?.();
@@ -668,7 +668,7 @@ export function ClioScientificMapView({
                     style={{ backgroundColor: mapPointColor(point, categoryColors, valueExtent) }}
                     onClick={(event) => {
                       event.stopPropagation();
-                      onSelect(point.id, event.shiftKey);
+                      onSelect(point.id, event.shiftKey, event.ctrlKey || event.metaKey);
                     }}
                     type="button"
                   >

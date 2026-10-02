@@ -151,7 +151,7 @@ describe('ClioScientificMapView zone selection', () => {
     expect(fakeMap.unproject).toHaveBeenCalledWith([0, 0]);
     expect(fakeMap.unproject).toHaveBeenCalledWith([100, 100]);
     expect(onZoneSelect).toHaveBeenCalledTimes(1);
-    expect(onZoneSelect).toHaveBeenCalledWith(expect.arrayContaining(['inside-1', 'inside-2']));
+    expect(onZoneSelect).toHaveBeenCalledWith(expect.arrayContaining(['inside-1', 'inside-2']), false, true);
     expect(onZoneSelect.mock.calls[0]![0]).not.toContain('outside');
   });
 
@@ -213,7 +213,7 @@ describe('ClioScientificMapView zone selection', () => {
     fireEvent.click(surface, { clientX: 30, clientY: 4, shiftKey: true });
 
     expect(onSelect).toHaveBeenCalledTimes(1);
-    expect(onSelect).toHaveBeenCalledWith('inside-1', true);
+    expect(onSelect).toHaveBeenCalledWith('inside-1', true, false);
   });
 
   it('does nothing when the surface has no onZoneSelect (e.g. selection is unbound)', () => {
@@ -297,7 +297,7 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
       | undefined;
     onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: false } });
 
-    expect(onSelect).toHaveBeenCalledWith('p42', false);
+    expect(onSelect).toHaveBeenCalledWith('p42', false, undefined);
   });
 
   it('shows a pointer over a rendered event and clears it off the map layer', () => {
@@ -318,7 +318,7 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     expect(fakeMap.getCanvas().style.cursor).toBe('');
   });
 
-  it('passes Shift through on a point click so the parent can add its track', () => {
+  it('passes Shift through on a point click so the parent can add the point', () => {
     const onSelect = vi.fn();
     render(<ClioScientificMapView onSelect={onSelect} points={manyPoints(151)} />);
 
@@ -327,7 +327,17 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
       | undefined;
     onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: true } });
 
-    expect(onSelect).toHaveBeenCalledWith('p42', true);
+    expect(onSelect).toHaveBeenCalledWith('p42', true, undefined);
+  });
+
+  it('passes Ctrl+Shift through so the parent can add the entire track', () => {
+    const onSelect = vi.fn();
+    render(<ClioScientificMapView onSelect={onSelect} points={manyPoints(151)} />);
+    const onClick = capturedMapProps.current?.onClick as
+      | ((event: { originalEvent: { shiftKey: boolean; ctrlKey: boolean }; features?: Array<{ properties?: { id?: string } }> }) => void)
+      | undefined;
+    onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: true, ctrlKey: true } });
+    expect(onSelect).toHaveBeenCalledWith('p42', true, true);
   });
 
   it('highlights every id a bound zone selection names, not just one', () => {

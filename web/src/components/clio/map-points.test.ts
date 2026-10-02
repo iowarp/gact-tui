@@ -9,13 +9,15 @@ const points: ScientificMapPoint[] = [
 ];
 
 describe('map trajectory selection', () => {
-  it('selects every observation of a clicked track', () => {
-    expect(mapClickSelectionValues(points, 'a2', '__row', [], false)).toEqual([10, 11]);
+  it('selects one observation on click and its track on Ctrl-click', () => {
+    expect(mapClickSelectionValues(points, 'a2', '__row', [], false)).toEqual([11]);
+    expect(mapClickSelectionValues(points, 'a2', '__row', [], false, true)).toEqual([10, 11]);
   });
 
-  it('Shift-click adds and then removes a whole track', () => {
+  it('Shift-click toggles a point while Ctrl+Shift-click toggles a whole track', () => {
     expect(mapClickSelectionValues(points, 'b1', '__row', [10, 11], true)).toEqual([10, 11, 20]);
-    expect(mapClickSelectionValues(points, 'a1', '__row', [10, 11, 20], true)).toEqual([20]);
+    expect(mapClickSelectionValues(points, 'a1', '__row', [10, 11, 20], true)).toEqual([11, 20]);
+    expect(mapClickSelectionValues(points, 'a1', '__row', [10, 11, 20], true, true)).toEqual([20]);
   });
 
   it('keeps individual points individual when no track is supplied', () => {

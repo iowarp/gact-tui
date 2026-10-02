@@ -20,17 +20,18 @@ export function pointSelectValue(point: ScientificMapPoint, field: string): Sele
   return undefined;
 }
 
-/** Clicking any observation selects its track; Shift toggles that entire track. */
+/** A point click selects one observation; Ctrl selects its track. Shift toggles either. */
 export function mapClickSelectionValues(
   points: readonly ScientificMapPoint[],
   id: string,
   field: string,
   previous: readonly SelectionValue[],
   additive: boolean,
+  wholeTrack = false,
 ): SelectionValue[] {
   const point = points.find((candidate) => candidate.id === id);
   if (!point) return [];
-  const group = point.track
+  const group = wholeTrack && point.track
     ? points.filter((candidate) => candidate.track === point.track)
     : [point];
   const values = [...new Set(group.map((candidate) => pointSelectValue(candidate, field)))].filter(

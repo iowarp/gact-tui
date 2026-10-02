@@ -24,9 +24,11 @@ import type { DataZoneReference } from './data-zone-reference';
 export function DataReferenceThisButton({
   buildReference,
   disabled,
+  onReferenced,
 }: {
   buildReference: () => DataZoneReference;
   disabled?: boolean;
+  onReferenced?: () => void;
 }) {
   const registry = useContext(SelectionActionsContext);
   if (!registry) return null;
@@ -46,6 +48,7 @@ export function DataReferenceThisButton({
                 title: reference.title,
               };
               for (const action of registry.actionsFor(target)) action.run(target);
+              onReferenced?.();
             }}
             size="icon-sm"
             variant="ghost"

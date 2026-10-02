@@ -188,10 +188,10 @@ export function ClioScientificMap({
     () => boundIds ?? new Set(selectedId !== undefined ? [selectedId] : []),
     [boundIds, selectedId],
   );
-  const setSelectedId = (id: string, additive = false) => {
+  const setSelectedId = (id: string, additive = false, wholeTrack = false) => {
     setLocalId(id);
     const previous = additive && state?.field === field ? state.values : [];
-    const next = mapClickSelectionValues(points, id, field, previous, additive);
+    const next = mapClickSelectionValues(points, id, field, previous, additive, wholeTrack);
     if (next.length || previous.length) {
       writeSelection({ field, values: next, ...(componentId ? { source: componentId } : {}) });
     }
@@ -202,15 +202,23 @@ export function ClioScientificMap({
   };
   // Drag a rectangle to select every point inside it; clicking empty map space
   // clears both the linked selection and any locally selected point.
-  const handleZoneSelect = (ids: string[]) => {
+  const handleZoneSelect = (ids: string[], wholeTracks = false, additive = false) => {
     setLocalId(undefined);
-    const values = ids
+    const selectedIds = wholeTracks
+      ? points.filter((point) => ids.some((id) => {
+          const hit = points.find((candidate) => candidate.id === id);
+          return hit && (hit.id === point.id || (hit.track && hit.track === point.track));
+        })).map((point) => point.id)
+      : ids;
+    const values = selectedIds
       .map((id) => {
         const point = points.find((candidate) => candidate.id === id);
         return point ? pointSelectValue(point, field) : undefined;
       })
       .filter(isSelectionValue);
-    writeSelection({ field, values, ...(componentId ? { source: componentId } : {}) });
+    const previous = additive && state?.field === field ? state.values : [];
+    const merged = additive ? [...new Set([...previous, ...values])] : values;
+    writeSelection({ field, values: merged, ...(componentId ? { source: componentId } : {}) });
   };
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [mapHeight, setMapHeight] = useState(DEFAULT_MAP_HEIGHT);
@@ -428,6 +436,7 @@ export function ClioScientificMap({
   const toolbarCapabilities: SurfaceCapabilities = {
     captureComponentId: componentId,
     buildReference: dataCapabilities?.buildReference ?? buildInlineReference,
+    onReferenced: () => setBoxSelectMode(false),
     exportFormats,
     filters: dataCapabilities?.filters,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
@@ -463,7 +472,7 @@ export function ClioScientificMap({
           </Button>
         </TooltipTrigger>
         <TooltipContent align="end" side="bottom">
-          Box select. Drag a rectangle to select points. Click again to pan the map.
+          Box select points. Hold Ctrl while dragging to select tracks. Shift adds or removes selections.
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -640,7 +649,7 @@ export function ClioScientificMap({
                               'h-full w-full justify-start gap-2 px-2 py-1 text-left',
                               isSelected(point.id) && 'border-primary/50 bg-primary/10',
                             )}
-                            onClick={(event) => setSelectedId(point.id, event.shiftKey)}
+                            onClick={(event) => setSelectedId(point.id, event.shiftKey, event.ctrlKey || event.metaKey)}
                             variant="ghost"
                           >
                             <MapPinIcon

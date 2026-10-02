@@ -345,12 +345,12 @@ describe('ClioChart', () => {
     const view = await embeddedView();
     await waitFor(() => expect(() => view.signal('sel_tuple_fields')).not.toThrow());
 
-    // What a click on run "b" does inside Vega-Lite.
-    view.signal('sel_tuple', { unit: '', fields: view.signal('sel_tuple_fields'), values: ['b'] });
+    // What a click on the first point of run "b" does inside Vega-Lite.
+    view.signal('sel_tuple', { unit: '', fields: view.signal('sel_tuple_fields'), values: [2] });
     await view.runAsync();
 
     await waitFor(() =>
-      expect(setSelection).toHaveBeenCalledWith({ field: 'run', values: ['b'], source: 'ch1' }),
+      expect(setSelection).toHaveBeenCalledWith({ field: '__row', values: [2], source: 'ch1' }),
     );
   });
 
@@ -391,7 +391,7 @@ describe('ClioChart', () => {
       vi.useRealTimers();
     }
 
-    expect(setSelection).toHaveBeenCalledWith({ field: 'run', values: ['b'], source: 'ch1' });
+    expect(setSelection).toHaveBeenCalledWith({ field: '__row', values: [2, 3], source: 'ch1' });
   });
 
   it('shows a selection another component wrote, and does not write it back', async () => {
@@ -402,19 +402,19 @@ describe('ClioChart', () => {
     await waitFor(() => expect(() => view.signal('sel_tuple_fields')).not.toThrow());
 
     rerender(
-      wrap(<ClioChart {...props} selection={{ field: 'run', values: ['a'], source: 'table' }} />),
+      wrap(<ClioChart {...props} selection={{ field: '__row', values: [0], source: 'table' }} />),
     );
 
-    await waitFor(() => expect(view.signal('sel')).toMatchObject({ run: ['a'] }));
+    await waitFor(() => expect(view.signal('sel')).toMatchObject({ __row: [0] }));
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(setSelection).not.toHaveBeenCalled();
 
     // The latest shared selection remains visible even when this chart was its source.
     rerender(
-      wrap(<ClioChart {...props} selection={{ field: 'run', values: ['b'], source: 'ch1' }} />),
+      wrap(<ClioChart {...props} selection={{ field: '__row', values: [2], source: 'ch1' }} />),
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(view.signal('sel')).toMatchObject({ run: ['b'] });
+    expect(view.signal('sel')).toMatchObject({ __row: [2] });
   });
 
   it('box-selects rows independently and exposes manual zoom reset without refetching', async () => {
@@ -424,6 +424,7 @@ describe('ClioChart', () => {
       () =>
         Promise.resolve({
           columns: { run: ['a', 'a', 'b', 'b'], t: [0, 1, 0, 1], v: [1.5, 1.2, 2, 2.4] },
+          rowKey: { column: '__row', values: [0, 1, 2, 3] },
           downsample: { mode: 'none' },
           matchedRows: 4,
           returnedRows: 4,
@@ -438,7 +439,7 @@ describe('ClioChart', () => {
           {...PRESET}
           componentId="ch9"
           dataUri="artifact://artifact_runs01"
-          selection={{ field: 'run', source: 'table', values: ['a'] }}
+          selection={{ field: '__row', source: 'table', values: [0, 1] }}
           setSelection={setSelection}
         />,
       ),
@@ -453,7 +454,7 @@ describe('ClioChart', () => {
     await view.runAsync();
 
     await waitFor(() =>
-      expect(setSelection).toHaveBeenCalledWith({ field: 'run', values: ['a', 'b'], source: 'ch9' }),
+      expect(setSelection).toHaveBeenCalledWith({ field: '__row', values: [0, 1, 2, 3], source: 'ch9' }),
     );
     expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/^Zoomed to/u)).not.toBeInTheDocument();

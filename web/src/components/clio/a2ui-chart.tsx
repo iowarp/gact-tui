@@ -36,6 +36,7 @@ import { CHART_SPEC_RULES } from './chart-spec-guard';
 import {
   bindChartBoxSelection,
   chartBoxSelectionValues,
+  chartClickSelectionValues,
   clearManualChartZoom,
   zoomChartToRows,
   withManualChartZoom,
@@ -141,12 +142,18 @@ export function ClioChart(props: ClioChartProps) {
       ? autoSelection.selection
       : (props.selection ?? autoInlineSelection.selection ?? localSelection);
   const param = props.selectionParam ?? CHART_SPEC_RULES.defaultSelectionParam;
-  const selectionField =
-    props.selectionField ?? (autoActive && !props.dataQuery?.aggregate ? '__row' : entityField);
   const selectsSeries = preset === 'trajectories' || preset === 'spectra';
+  const inlineRows = useMemo(
+    () => props.data && selectsSeries
+      ? props.data.map((row, index) => ({ ...row, __row: row.__row ?? index }))
+      : props.data,
+    [props.data, selectsSeries],
+  );
+  const selectionField = props.selectionField ??
+    (selectsSeries || (autoActive && !props.dataQuery?.aggregate) ? '__row' : entityField);
   // Series geometry stays grouped by the entity even when automatic linking
   // uses __row to share exact observations with maps and tables.
-  const markSelectionField = selectsSeries && entityField ? entityField : selectionField;
+  const markSelectionField = selectionField;
   // The binder hands a static `spec` over by reference, so this rebuilds only when it changes.
   const rawSpec = props.spec;
   const built = useMemo(
@@ -157,7 +164,7 @@ export function ClioChart(props: ClioChartProps) {
           // Presets use this slot for both the line grouping and point
           // selection. Series keep their entity here; the renderer translates
           // entity clicks to exact shared row keys when linking by __row.
-          entityField: markSelectionField,
+          entityField: selectsSeries ? entityField : markSelectionField,
           facetField,
           preset,
           spec: rawSpec,
@@ -167,7 +174,7 @@ export function ClioChart(props: ClioChartProps) {
         },
         param,
       ),
-    [colorField, facetField, markSelectionField, param, preset, rawSpec, xField, xType, yField],
+    [colorField, entityField, facetField, markSelectionField, param, preset, rawSpec, selectsSeries, xField, xType, yField],
   );
   // `dataQuery` is rebuilt on every binder pass; key its projection by content.
   const queryColumnsKey = JSON.stringify(props.dataQuery?.columns ?? []);
@@ -219,7 +226,7 @@ export function ClioChart(props: ClioChartProps) {
     schema,
   } = useChartRows({
     columns,
-    data: props.data,
+    data: inlineRows,
     dataQuery: effectiveDataQuery,
     dataUri: props.dataUri,
   });
@@ -242,6 +249,8 @@ export function ClioChart(props: ClioChartProps) {
   const dataRefreshCountRef = useRef(0);
   const rowsRef = useRef(displayRows);
   const selectionRef = useRef(selectionState);
+  const wholeCurveBrushRef = useRef(false);
+  const additiveBrushRef = useRef(false);
   const setSelectionRef = useRef(setSelection);
   const [embedError, setEmbedError] = useState('');
   const [darkTheme, setDarkTheme] = useState(isDarkTheme);
@@ -330,8 +339,8 @@ export function ClioChart(props: ClioChartProps) {
   // flat, unvirtualized list stops being a reasonable "keyboard access"
   // affordance once a field is closer to a unique row id than a category.
   const selectionCandidates = useMemo(
-    () => distinctFieldValues(rows, markSelectionField),
-    [rows, markSelectionField],
+    () => distinctFieldValues(rows, selectsSeries ? entityField : markSelectionField),
+    [entityField, markSelectionField, rows, selectsSeries],
   );
   const selectedMarkValues = useMemo(() => {
     if (!selectionState || !selectionField || !markSelectionField) return [];
@@ -340,12 +349,17 @@ export function ClioChart(props: ClioChartProps) {
     );
   }, [markSelectionField, rows, selectionField, selectionState]);
   const selectedCandidate =
-    markSelectionField && selectedMarkValues.length === 1
+    markSelectionField && selectedMarkValues.length === 1 && !selectsSeries
       ? String(selectedMarkValues[0])
       : '';
   const handleSelectCandidate = (raw: string) => {
     const value = selectionCandidates.find((candidate) => String(candidate) === raw);
-    if (value !== undefined) void bindingRef.current?.select([value]);
+    if (value === undefined) return;
+    const values = selectsSeries && entityField && selectionField
+      ? translateChartSelectionValues(rows ?? [], entityField, selectionField, [value])
+      : [value];
+    void bindingRef.current?.select(values);
+    if (selectionField) setSelectionRef.current?.({ field: selectionField, source: componentId, values });
   };
   const resetChartZoom = () => {
     const view = viewRef.current;
@@ -487,11 +501,19 @@ export function ClioChart(props: ClioChartProps) {
               // The shared state echoes this chart's own source back unchanged.
               // Update Vega's point selection here so a box also highlights
               // the individual marks, including on standalone inline charts.
-              const markValues = selectionField && markSelectionField
-                ? translateChartSelectionValues(rowsRef.current ?? [], selectionField, markSelectionField, values)
+              const markValues = wholeCurveBrushRef.current && entityField && selectionField
+                ? translateChartSelectionValues(
+                    rowsRef.current ?? [], entityField, selectionField,
+                    translateChartSelectionValues(rowsRef.current ?? [], selectionField, entityField, values),
+                  )
                 : values;
-              void bindingRef.current?.select(markValues);
-              setSelectionRef.current?.({ field: selectionField, source: componentId, values });
+              const previous = additiveBrushRef.current && selectionRef.current?.field === selectionField
+                ? selectionRef.current.values : [];
+              const merged = additiveBrushRef.current
+                ? [...new Set([...previous, ...markValues])]
+                : markValues;
+              void bindingRef.current?.select(merged);
+              setSelectionRef.current?.({ field: selectionField, source: componentId, values: merged });
             },
           });
         } else if (boxSelectMode) {
@@ -514,6 +536,16 @@ export function ClioChart(props: ClioChartProps) {
           },
         });
         bindingRef.current = binding;
+        const handleBrushPointerDown = (event: ScenegraphEvent) => {
+          wholeCurveBrushRef.current = Boolean(event.ctrlKey || event.metaKey);
+          additiveBrushRef.current = Boolean(event.shiftKey);
+        };
+        view.addEventListener('pointerdown', handleBrushPointerDown);
+        const previousFinalizeForBrush = finalize;
+        finalize = () => {
+          view.removeEventListener('pointerdown', handleBrushPointerDown);
+          previousFinalizeForBrush?.();
+        };
         if (selectsSeries && selectionField && markSelectionField) {
           // Vega-Lite's line selection only receives clicks on the thin path on
           // some renderers. The visible point marks need the same series action.
@@ -521,29 +553,26 @@ export function ClioChart(props: ClioChartProps) {
           const handleSeriesClick = (event: ScenegraphEvent, item: unknown) => {
             if (!('clientX' in event) || !('clientY' in event)) return;
             const plot = node.querySelector('canvas, svg')?.getBoundingClientRect();
-            const value = plot && xField && yField
+            const hit = plot && xField && yField && entityField
               ? nearestChartSeriesValue(
                   view,
                   rowsRef.current ?? [],
                   { x: event.clientX - plot.left, y: event.clientY - plot.top },
-                  xField, yField, markSelectionField, xAxisType,
+                  xField, yField, entityField, xAxisType, selectionField,
                 )
-              : chartMarkSelectionValue(item, markSelectionField);
-            if (value === undefined) return;
+              : undefined;
+            const fallback = chartMarkSelectionValue(item, markSelectionField);
+            if (!hit && fallback === undefined) return;
+            const wholeCurve = Boolean(event.ctrlKey || event.metaKey || hit?.kind === 'line');
+            const targets = wholeCurve && hit && entityField
+              ? translateChartSelectionValues(rowsRef.current ?? [], entityField, selectionField, [hit.series])
+              : hit?.point !== undefined ? [hit.point] : fallback !== undefined ? [fallback] : [];
+            if (!targets.length) return;
             const current = selectionRef.current;
             const previous = current?.field === selectionField
-              ? translateChartSelectionValues(
-                  rowsRef.current ?? [], selectionField, markSelectionField, current.values,
-                )
+              ? current.values
               : [];
-            const markValues = event.shiftKey
-              ? previous.includes(value)
-                ? previous.filter((entry) => entry !== value)
-                : [...previous, value]
-              : [value];
-            const values = translateChartSelectionValues(
-              rowsRef.current ?? [], markSelectionField, selectionField, markValues,
-            );
+            const values = chartClickSelectionValues(previous, targets, Boolean(event.shiftKey));
             const next = { field: selectionField, source: componentId, values };
             selectionRef.current = next;
             // Run after Vega-Lite's own click handler so the same selection
@@ -551,7 +580,7 @@ export function ClioChart(props: ClioChartProps) {
             if (pendingClick !== undefined) window.clearTimeout(pendingClick);
             pendingClick = window.setTimeout(() => {
               pendingClick = undefined;
-              void binding.select(markValues);
+              void binding.select(values);
               setSelectionRef.current?.(next);
             }, 0);
           };
@@ -599,6 +628,7 @@ export function ClioChart(props: ClioChartProps) {
     componentId,
     darkTheme,
     embedSpec,
+    entityField,
     fullscreen,
     hasRows,
     chartHeight,
@@ -642,13 +672,16 @@ export function ClioChart(props: ClioChartProps) {
       ? [...new Set(selectedZoomRows.map((row) => row[selectionField]).filter(isSelectionValue))]
       : [];
     const selected = selectedValues.length > 0;
-    const selectedCurves = markSelectionField
-      ? new Set(selectedZoomRows.map((row) => row[markSelectionField]).filter(isSelectionValue)).size
+    const selectedCurves = entityField
+      ? new Set(selectedZoomRows.map((row) => row[entityField]).filter(isSelectionValue)).size
       : 0;
+    const completeCurves = Boolean(selectsSeries && entityField && selectedCurves &&
+      (displayRows ?? []).filter((row) => selectedZoomRows.some((selectedRow) =>
+        selectedRow[entityField] === row[entityField])).length === selectedZoomRows.length);
     const zoneDescription = selected
-      ? selectsSeries && selectedCurves
+      ? completeCurves
         ? `${selectedCurves.toLocaleString()} selected ${selectedCurves === 1 ? 'curve' : 'curves'} containing ${selectedZoomRows.length.toLocaleString()} of ${totalRows.toLocaleString()} rows`
-        : `${selectedZoomRows.length.toLocaleString()} selected ${selectedZoomRows.length === 1 ? 'row' : 'rows'} of ${totalRows.toLocaleString()}`
+        : `${selectedZoomRows.length.toLocaleString()} selected ${selectsSeries ? (selectedZoomRows.length === 1 ? 'point' : 'points') : (selectedZoomRows.length === 1 ? 'row' : 'rows')} of ${totalRows.toLocaleString()}`
       : `the filtered current view (${totalRows.toLocaleString()} rows)`;
     return buildZoneReference({
       componentLabel: heading,
@@ -752,7 +785,7 @@ export function ClioChart(props: ClioChartProps) {
     <>
       {linkable && markSelectionField && selectionCandidates.length > 0 ? (
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Select a {markSelectionField} by keyboard</DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger>Select a {selectsSeries ? entityField : markSelectionField} by keyboard</DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup onValueChange={handleSelectCandidate} value={selectedCandidate}>
               {selectionCandidates.map((candidate) => (
@@ -798,7 +831,7 @@ export function ClioChart(props: ClioChartProps) {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label={selectsSeries ? 'Box select chart curves' : 'Box select chart rows'}
+              aria-label={selectsSeries ? 'Box select chart points' : 'Box select chart rows'}
               aria-pressed={boxSelectMode}
               className={cn(
                 'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100',
@@ -816,7 +849,7 @@ export function ClioChart(props: ClioChartProps) {
           </TooltipTrigger>
           <TooltipContent align="end" side="bottom">
             {selectsSeries
-              ? 'Box select. Drag across curves to select whole curves. Click again to exit.'
+              ? 'Box select points. Hold Ctrl and drag to select whole curves. Shift adds to the selection.'
               : 'Box select. Drag a rectangle to select rows. Click again to exit.'}
           </TooltipContent>
         </Tooltip>
@@ -825,6 +858,7 @@ export function ClioChart(props: ClioChartProps) {
   const toolbarCapabilities: SurfaceCapabilities = {
     captureComponentId: componentId,
     buildReference: hasRows && (!boxSelectMode || boxReady) ? buildReference : undefined,
+    onReferenced: () => setBoxSelectMode(false),
     exportFormats: hasRows ? exportFormats : undefined,
     filters: filterableFields.length
       ? {
@@ -845,7 +879,7 @@ export function ClioChart(props: ClioChartProps) {
       linkable && selectionField ? (
         <span>
           {zoomParam
-            ? 'Choose Box select or hold Shift and drag to select rows. Zoom to selection is deliberate; use Alt+drag to pan or Ctrl+wheel to adjust zoom.'
+            ? 'Click a point to select it. Ctrl-click selects its curve. Shift adds or removes. Drag to select points; Ctrl-drag selects curves. Alt+drag pans and Ctrl+wheel zooms.'
             : 'Choose Box select or hold Shift and drag to select matching rows.'}
         </span>
       ) : undefined,

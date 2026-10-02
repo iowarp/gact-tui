@@ -4,6 +4,7 @@ import {
   chartZoomParamName,
   chartBoxSelectionParamName,
   chartBoxSelectionValues,
+  chartClickSelectionValues,
   clearManualChartZoom,
   withManualChartZoom,
   withChartBoxSelection,
@@ -23,6 +24,11 @@ afterEach(() => {
 });
 
 describe('series selection targets', () => {
+  it('keeps point clicks precise and Ctrl+Shift additions at curve granularity', () => {
+    expect(chartClickSelectionValues([2], [3], false)).toEqual([3]);
+    expect(chartClickSelectionValues([2], [3, 4, 5], true)).toEqual([2, 3, 4, 5]);
+    expect(chartClickSelectionValues([2, 3, 4, 5], [3, 4, 5], true)).toEqual([2]);
+  });
   it('adds Shift toggle to a preset selection and makes line dots easier to click', () => {
     const preset = renderChartPreset('trajectories', {
       entityField: 'id', selectionParam: 'sel', xField: 'day', yField: 'value',
@@ -47,13 +53,17 @@ describe('series selection targets', () => {
       scale: () => (value: number) => value,
     } as never;
     const rows = [
-      { id: 'A', x: 0, y: 10 }, { id: 'A', x: 20, y: 10 },
-      { id: 'B', x: 0, y: 40 }, { id: 'B', x: 20, y: 40 },
+      { id: 'A', __row: 0, x: 0, y: 10 }, { id: 'A', __row: 1, x: 20, y: 10 },
+      { id: 'B', __row: 2, x: 0, y: 40 }, { id: 'B', __row: 3, x: 20, y: 40 },
     ];
-    expect(nearestChartSeriesValue(view, rows, { x: 20, y: 45 }, 'x', 'y', 'id', 'quantitative'))
-      .toBe('B');
+    expect(nearestChartSeriesValue(view, rows, { x: 30, y: 45 }, 'x', 'y', 'id', 'quantitative', '__row'))
+      .toEqual({ series: 'B', point: 3, kind: 'point' });
+    expect(nearestChartSeriesValue(view, rows, { x: 20, y: 15 }, 'x', 'y', 'id', 'quantitative', '__row'))
+      .toEqual({ series: 'A', point: 1, kind: 'point' });
     expect(nearestChartSeriesValue(view, rows, { x: 20, y: 15 }, 'x', 'y', 'id', 'quantitative'))
-      .toBe('A');
+      .toEqual({ series: 'A', kind: 'point' });
+    expect(nearestChartSeriesValue(view, rows, { x: 20, y: 15 }, 'x', 'y', 'id', 'quantitative', '__row'))
+      .not.toBeUndefined();
     expect(nearestChartSeriesValue(view, rows, { x: 20, y: 90 }, 'x', 'y', 'id', 'quantitative'))
       .toBeUndefined();
   });
@@ -94,7 +104,7 @@ describe('withChartBoxSelection', () => {
       select: {
         clear: 'dblclick',
         encodings: ['x', 'y'],
-        on: '[pointerdown[event.shiftKey], window:pointerup] > window:pointermove!',
+        on: '[pointerdown[event.shiftKey || event.ctrlKey || event.metaKey], window:pointerup] > window:pointermove!',
         type: 'interval',
       },
       },

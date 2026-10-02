@@ -107,7 +107,7 @@ export function withChartPointSelection(
       next.params = node.params.map((entry) => {
         if (!isJsonObject(entry) || entry.name !== param || !isJsonObject(entry.select)) return entry;
         found = true;
-        return { ...entry, select: { ...entry.select, toggle: entry.select.toggle ?? 'event.shiftKey' } };
+        return { ...entry, select: { ...entry.select, fields: [field], toggle: entry.select.toggle ?? 'event.shiftKey' } };
       });
     }
     for (const key of NESTED_LIST_KEYS) {
@@ -176,7 +176,8 @@ export function nearestChartSeriesValue(
   yField: string,
   seriesField: string,
   xType: ChartAxisType,
-): SelectionValue | undefined {
+  pointField?: string,
+): { series: SelectionValue; point?: SelectionValue; kind: 'point' | 'line' } | undefined {
   try {
     const [originX, originY] = view.origin();
     const xScale = view.scale('x') as (value: unknown) => number;
@@ -184,7 +185,7 @@ export function nearestChartSeriesValue(
     const targetX = cursor.x - originX;
     const targetY = cursor.y - originY;
     let nearest = 12;
-    let value: SelectionValue | undefined;
+    let value: { series: SelectionValue; point?: SelectionValue; kind: 'point' | 'line' } | undefined;
     const bySeries = new Map<SelectionValue, Array<{ x: number; y: number }>>();
     for (const row of rows) {
       const series = row[seriesField];
@@ -201,7 +202,8 @@ export function nearestChartSeriesValue(
       const distance = Math.hypot(x - targetX, y - targetY);
       if (distance <= nearest) {
         nearest = distance;
-        value = series;
+        const point = pointField ? row[pointField] : undefined;
+        value = { series, ...(isSelectionValue(point) ? { point } : {}), kind: 'point' };
       }
     }
     if (value !== undefined) return value;
@@ -219,7 +221,7 @@ export function nearestChartSeriesValue(
         const distance = Math.hypot(targetX - (a.x + portion * dx), targetY - (a.y + portion * dy));
         if (distance <= nearest) {
           nearest = distance;
-          value = series;
+          value = { series, kind: 'line' };
         }
       }
     }
@@ -227,6 +229,18 @@ export function nearestChartSeriesValue(
   } catch {
     return undefined;
   }
+}
+
+/** Apply a point or whole-series click to the shared row-key selection. */
+export function chartClickSelectionValues(
+  previous: readonly SelectionValue[],
+  targets: readonly SelectionValue[],
+  additive: boolean,
+): SelectionValue[] {
+  if (!additive) return [...targets];
+  return targets.every((target) => previous.includes(target))
+    ? previous.filter((entry) => !targets.includes(entry))
+    : [...new Set([...previous, ...targets])];
 }
 
 /** Add a 2D interval brush to the first plot unit without changing its scales. */
@@ -250,7 +264,7 @@ export function withChartBoxSelection(
         encodings: ['x', 'y'],
         on: active
           ? '[pointerdown[!event.altKey], window:pointerup] > window:pointermove!'
-          : '[pointerdown[event.shiftKey], window:pointerup] > window:pointermove!',
+          : '[pointerdown[event.shiftKey || event.ctrlKey || event.metaKey], window:pointerup] > window:pointermove!',
         type: 'interval',
       },
     }),

@@ -97,6 +97,7 @@ export interface SurfaceCapabilities {
   copyLabel?: string;
   /** "Reference this" (G0's model affordance): present whenever the component can describe a zone. Primary (always visible when declared, never buried in the overflow). */
   buildReference?: () => DataZoneReference;
+  onReferenced?: () => void;
   /** Primary (always visible when declared). */
   fullScreen?: SurfaceFullScreenControl;
   /**
@@ -403,7 +404,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
             <TooltipContent side="bottom">{capture.allowed ? 'Capture labelled regions' : 'Choose a model that accepts images to capture a region'}</TooltipContent>
           </Tooltip>
         ) : null}
-        {buildReference ? <DataReferenceThisButton buildReference={buildReference} /> : null}
+        {buildReference ? <DataReferenceThisButton buildReference={buildReference} onReferenced={capabilities.onReferenced} /> : null}
         {fullScreen && !fullScreen.isOpen ? (
           <ToolbarIconButton
             aria-pressed={fullScreen.isOpen}
