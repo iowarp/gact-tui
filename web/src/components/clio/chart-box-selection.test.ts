@@ -7,6 +7,10 @@ import {
   clearManualChartZoom,
   withManualChartZoom,
   withChartBoxSelection,
+  withChartLinePointTargets,
+  withChartPointSelection,
+  chartMarkSelectionValue,
+  nearestChartSeriesValue,
 } from './chart-box-selection';
 import type { ChartRow } from './chart-data';
 import { renderChartPreset } from './chart-presets';
@@ -16,6 +20,43 @@ import type { TopLevelSpec } from 'vega-lite';
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('series selection targets', () => {
+  it('adds Shift toggle to a preset selection and makes line dots easier to click', () => {
+    const preset = renderChartPreset('trajectories', {
+      entityField: 'id', selectionParam: 'sel', xField: 'day', yField: 'value',
+    });
+    const spec = withChartLinePointTargets(withChartPointSelection(preset, 'sel', 'id'));
+    expect((spec.mark as Record<string, unknown>).point).toEqual({ filled: true, size: 100 });
+    expect((spec.params as Array<Record<string, unknown>>)[0]?.select).toMatchObject({
+      toggle: 'event.shiftKey', fields: ['id'],
+    });
+  });
+
+  it('reads a series key from nested Vega line and point scenegraph items', () => {
+    expect(chartMarkSelectionValue({ datum: { id: 'storm-a' } }, 'id')).toBe('storm-a');
+    expect(chartMarkSelectionValue({ datum: { values: [{ datum: { id: 'storm-b' } }] } }, 'id'))
+      .toBe('storm-b');
+    expect(chartMarkSelectionValue({ datum: { unrelated: 2 } }, 'id')).toBeUndefined();
+  });
+
+  it('uses plotted coordinates to distinguish series even when a Vega line item is stale', () => {
+    const view = {
+      origin: () => [10, 5] as [number, number],
+      scale: () => (value: number) => value,
+    } as never;
+    const rows = [
+      { id: 'A', x: 0, y: 10 }, { id: 'A', x: 20, y: 10 },
+      { id: 'B', x: 0, y: 40 }, { id: 'B', x: 20, y: 40 },
+    ];
+    expect(nearestChartSeriesValue(view, rows, { x: 20, y: 45 }, 'x', 'y', 'id', 'quantitative'))
+      .toBe('B');
+    expect(nearestChartSeriesValue(view, rows, { x: 20, y: 15 }, 'x', 'y', 'id', 'quantitative'))
+      .toBe('A');
+    expect(nearestChartSeriesValue(view, rows, { x: 20, y: 90 }, 'x', 'y', 'id', 'quantitative'))
+      .toBeUndefined();
+  });
 });
 
 describe('withChartBoxSelection', () => {

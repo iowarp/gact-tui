@@ -31,6 +31,8 @@ const fakeMap = vi.hoisted(() => {
   };
   const map = {
     boxZoom: { disable: vi.fn() },
+    fitBounds: vi.fn(),
+    project: vi.fn(([lng, lat]: [number, number]) => ({ x: lng * 10, y: lat * 10 })),
     getCanvas: vi.fn(() => canvas),
     queryRenderedFeatures: vi.fn((): unknown[] => []),
     unproject: vi.fn((point: [number, number]) => ({ lat: point[1] / 10, lng: point[0] / 10 })),
@@ -46,7 +48,7 @@ const fakeMap = vi.hoisted(() => {
       sources.set(id, record);
     }),
     removeSource: vi.fn((id: string) => sources.delete(id)),
-    getLayer: vi.fn((id: string) => layers.get(id)),
+    getLayer: vi.fn((id: string) => id === 'openStreetMap' ? { id } : layers.get(id)),
     addLayer: vi.fn((spec: { id: string; type: string; source: string; paint?: unknown }) => {
       layers.set(spec.id, spec);
     }),
@@ -84,6 +86,7 @@ vi.mock('react-map-gl/maplibre', async () => {
 });
 
 import { ClioScientificMapView, type ScientificMapPoint } from './scientific-map-view';
+import { nearestProjectedGeometryId } from './map-points';
 
 const POINTS: ScientificMapPoint[] = [
   { id: 'inside-1', label: 'Inside one', latitude: 2, longitude: 3 },
@@ -113,6 +116,19 @@ afterEach(() => {
 });
 
 describe('ClioScientificMapView zone selection', () => {
+  it('can hit a rendered trajectory dot or segment when the map hit index is stale', () => {
+    const geometry = { type: 'FeatureCollection' as const, features: [
+      { type: 'Feature' as const, id: 'inside-1', properties: {}, geometry: {
+        type: 'LineString' as const, coordinates: [[3, 2], [6, 4]],
+      } },
+    ] };
+    expect(nearestProjectedGeometryId(fakeMap as never, { x: 30, y: 20 }, POINTS, geometry))
+      .toBe('inside-1');
+    expect(nearestProjectedGeometryId(fakeMap as never, { x: 45, y: 30 }, [], geometry))
+      .toBe('inside-1');
+    expect(nearestProjectedGeometryId(fakeMap as never, { x: 150, y: 150 }, POINTS, geometry))
+      .toBeUndefined();
+  });
   it('disables the default shift+drag box-zoom for a provider-supplied map', () => {
     render(<ClioScientificMapView onSelect={vi.fn()} points={POINTS} />);
     expect(fakeMap.boxZoom.disable).toHaveBeenCalledTimes(1);
@@ -128,9 +144,9 @@ describe('ClioScientificMapView zone selection', () => {
 
     // Bounds unproject to lng [0,10] / lat [0,10] — both "inside" points, not
     // the one at (50, 50).
-    fireEvent.pointerDown(surface, { button: 0, clientX: 0, clientY: 0, shiftKey: true });
-    fireEvent.pointerMove(surface, { clientX: 100, clientY: 100, shiftKey: true });
-    fireEvent.pointerUp(surface, { clientX: 100, clientY: 100, shiftKey: true });
+    fireEvent.mouseDown(surface, { button: 0, clientX: 0, clientY: 0, shiftKey: true });
+    fireEvent.mouseMove(surface, { clientX: 100, clientY: 100, shiftKey: true });
+    fireEvent.mouseUp(surface, { clientX: 100, clientY: 100, shiftKey: true });
 
     expect(fakeMap.unproject).toHaveBeenCalledWith([0, 0]);
     expect(fakeMap.unproject).toHaveBeenCalledWith([100, 100]);
@@ -147,10 +163,10 @@ describe('ClioScientificMapView zone selection', () => {
     stubContainerRect(surface);
 
     expect(container.querySelector('[data-slot="a2ui-map-zone-drag"]')).toBeNull();
-    fireEvent.pointerDown(surface, { button: 0, clientX: 0, clientY: 0, shiftKey: true });
-    fireEvent.pointerMove(surface, { clientX: 50, clientY: 40, shiftKey: true });
+    fireEvent.mouseDown(surface, { button: 0, clientX: 0, clientY: 0, shiftKey: true });
+    fireEvent.mouseMove(surface, { clientX: 50, clientY: 40, shiftKey: true });
     expect(container.querySelector('[data-slot="a2ui-map-zone-drag"]')).not.toBeNull();
-    fireEvent.pointerUp(surface, { clientX: 50, clientY: 40, shiftKey: true });
+    fireEvent.mouseUp(surface, { clientX: 50, clientY: 40, shiftKey: true });
     expect(container.querySelector('[data-slot="a2ui-map-zone-drag"]')).toBeNull();
   });
 
@@ -162,9 +178,9 @@ describe('ClioScientificMapView zone selection', () => {
     const surface = container.querySelector('[data-slot="a2ui-map-surface"]')!;
     stubContainerRect(surface);
 
-    fireEvent.pointerDown(surface, { button: 0, clientX: 0, clientY: 0 });
-    fireEvent.pointerMove(surface, { clientX: 100, clientY: 100 });
-    fireEvent.pointerUp(surface, { clientX: 100, clientY: 100 });
+    fireEvent.mouseDown(surface, { button: 0, clientX: 0, clientY: 0 });
+    fireEvent.mouseMove(surface, { clientX: 100, clientY: 100 });
+    fireEvent.mouseUp(surface, { clientX: 100, clientY: 100 });
 
     expect(onZoneSelect).not.toHaveBeenCalled();
     expect(container.querySelector('[data-slot="a2ui-map-zone-drag"]')).toBeNull();
@@ -178,10 +194,26 @@ describe('ClioScientificMapView zone selection', () => {
     const surface = container.querySelector('[data-slot="a2ui-map-surface"]')!;
     stubContainerRect(surface);
 
-    fireEvent.pointerDown(surface, { button: 0, clientX: 20, clientY: 20, shiftKey: true });
-    fireEvent.pointerUp(surface, { clientX: 21, clientY: 21, shiftKey: true });
+    fireEvent.mouseDown(surface, { button: 0, clientX: 20, clientY: 20, shiftKey: true });
+    fireEvent.mouseUp(surface, { clientX: 21, clientY: 21, shiftKey: true });
 
     expect(onZoneSelect).not.toHaveBeenCalled();
+  });
+
+  it('Shift-clicks one point without toggling it a second time on the click echo', () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <ClioScientificMapView onSelect={onSelect} onZoneSelect={vi.fn()} points={POINTS} />,
+    );
+    const surface = container.querySelector('[data-slot="a2ui-map-surface"]')!;
+    stubContainerRect(surface);
+
+    fireEvent.mouseDown(surface, { button: 0, clientX: 30, clientY: 4, shiftKey: true });
+    fireEvent.mouseUp(surface, { clientX: 30, clientY: 4, shiftKey: true });
+    fireEvent.click(surface, { clientX: 30, clientY: 4, shiftKey: true });
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith('inside-1', true);
   });
 
   it('does nothing when the surface has no onZoneSelect (e.g. selection is unbound)', () => {
@@ -189,9 +221,9 @@ describe('ClioScientificMapView zone selection', () => {
     const surface = container.querySelector('[data-slot="a2ui-map-surface"]')!;
     stubContainerRect(surface);
 
-    fireEvent.pointerDown(surface, { button: 0, clientX: 0, clientY: 0, shiftKey: true });
-    fireEvent.pointerMove(surface, { clientX: 100, clientY: 100, shiftKey: true });
-    fireEvent.pointerUp(surface, { clientX: 100, clientY: 100, shiftKey: true });
+    fireEvent.mouseDown(surface, { button: 0, clientX: 0, clientY: 0, shiftKey: true });
+    fireEvent.mouseMove(surface, { clientX: 100, clientY: 100, shiftKey: true });
+    fireEvent.mouseUp(surface, { clientX: 100, clientY: 100, shiftKey: true });
 
     expect(container.querySelector('[data-slot="a2ui-map-zone-drag"]')).toBeNull();
   });
@@ -241,8 +273,8 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     expect(fakeMap.__layers.has('clio-map-points-circles')).toBe(false);
   });
 
-  it('does not add the layer while the style is still loading, but does once it settles', () => {
-    fakeMap.isStyleLoaded.mockReturnValueOnce(false);
+  it('waits for the base layer, then retries when the style loads', () => {
+    fakeMap.getLayer.mockReturnValueOnce(undefined);
     render(<ClioScientificMapView onSelect={vi.fn()} points={manyPoints(151)} />);
 
     expect(fakeMap.__layers.has('clio-map-points-circles')).toBe(false);
@@ -265,7 +297,7 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
       | undefined;
     onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: false } });
 
-    expect(onSelect).toHaveBeenCalledWith('p42');
+    expect(onSelect).toHaveBeenCalledWith('p42', false);
   });
 
   it('shows a pointer over a rendered event and clears it off the map layer', () => {
@@ -286,7 +318,7 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     expect(fakeMap.getCanvas().style.cursor).toBe('');
   });
 
-  it('ignores a layer click that is really a shift+drag zone release', () => {
+  it('passes Shift through on a point click so the parent can add its track', () => {
     const onSelect = vi.fn();
     render(<ClioScientificMapView onSelect={onSelect} points={manyPoints(151)} />);
 
@@ -295,7 +327,7 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
       | undefined;
     onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: true } });
 
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(onSelect).toHaveBeenCalledWith('p42', true);
   });
 
   it('highlights every id a bound zone selection names, not just one', () => {

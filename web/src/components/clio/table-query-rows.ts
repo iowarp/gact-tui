@@ -108,6 +108,8 @@ export interface TableQueryRows {
   note: string;
   /** Rows the query matched before `limit`/downsample, when the server reported it. */
   matchedRows: number | undefined;
+  /** Source rows before filters, to distinguish a filtered empty view from an empty dataset. */
+  totalRows: number | undefined;
   /** Rows actually returned by this response. */
   returnedRows: number | undefined;
   /** The queried columns' own server-reported types — authoritative over sampling a page for kind. */
@@ -272,6 +274,7 @@ export function useTableQueryRows({
       error: '',
       note: '',
       matchedRows: data.length,
+      totalRows: data.length,
       returnedRows: data.length,
       schema: undefined,
       rowKey: undefined,
@@ -284,6 +287,7 @@ export function useTableQueryRows({
       error: 'the data source is not a registered artifact id.',
       note: '',
       matchedRows: undefined,
+      totalRows: undefined,
       returnedRows: undefined,
       schema: undefined,
       rowKey: undefined,
@@ -296,6 +300,7 @@ export function useTableQueryRows({
       error: tableQueryErrorMessage(query.error),
       note: '',
       matchedRows: undefined,
+      totalRows: undefined,
       returnedRows: undefined,
       schema: undefined,
       rowKey: undefined,
@@ -307,6 +312,7 @@ export function useTableQueryRows({
     error: '',
     note: query.data ? describeResult(query.data, (dataQuery?.offset ?? 0) > 0) : '',
     matchedRows: query.data ? (query.data.matchedRows ?? query.data.totalRows) : undefined,
+    totalRows: query.data?.totalRows,
     returnedRows: query.data?.returnedRows,
     rowKey: query.data?.rowKey,
     schema: query.data?.schema as readonly QueryColumnSchema[] | undefined,

@@ -1,5 +1,6 @@
 import type { ScientificMapPoint } from './scientific-map-view';
 import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
+import type { MapLibreMap } from 'maplibre-gl';
 import type { SelectionValue } from './selection-state';
 import type { QueryRow } from './table-query-rows';
 
@@ -17,6 +18,70 @@ export function pointSelectValue(point: ScientificMapPoint, field: string): Sele
   if (field === 'label') return point.label;
   if (field === 'category') return point.category;
   return undefined;
+}
+
+/** Clicking any observation selects its track; Shift toggles that entire track. */
+export function mapClickSelectionValues(
+  points: readonly ScientificMapPoint[],
+  id: string,
+  field: string,
+  previous: readonly SelectionValue[],
+  additive: boolean,
+): SelectionValue[] {
+  const point = points.find((candidate) => candidate.id === id);
+  if (!point) return [];
+  const group = point.track
+    ? points.filter((candidate) => candidate.track === point.track)
+    : [point];
+  const values = [...new Set(group.map((candidate) => pointSelectValue(candidate, field)))].filter(
+    (value): value is SelectionValue => typeof value === 'string' || typeof value === 'number',
+  );
+  if (!additive) return values;
+  return values.every((value) => previous.includes(value))
+    ? previous.filter((value) => !values.includes(value))
+    : [...new Set([...previous, ...values])];
+}
+
+/** Find a visible dot or line segment when MapLibre's feature hit index is briefly stale. */
+export function nearestProjectedGeometryId(
+  map: Pick<MapLibreMap, 'project'>,
+  cursor: { x: number; y: number },
+  points: readonly ScientificMapPoint[],
+  geometry: FeatureCollection,
+): string | undefined {
+  let closest = 14;
+  let selected: string | undefined;
+  for (const point of points) {
+    const pixel = map.project([point.longitude, point.latitude]);
+    const distance = Math.hypot(pixel.x - cursor.x, pixel.y - cursor.y);
+    if (distance <= closest) {
+      closest = distance;
+      selected = point.id;
+    }
+  }
+  if (selected) return selected;
+  closest = 8;
+  for (const feature of geometry.features) {
+    if (feature.geometry.type !== 'LineString' || feature.id === undefined) continue;
+    const coordinates = feature.geometry.coordinates;
+    for (let index = 1; index < coordinates.length; index += 1) {
+      const start = coordinates[index - 1]!;
+      const end = coordinates[index]!;
+      const a = map.project([start[0]!, start[1]!]);
+      const b = map.project([end[0]!, end[1]!]);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const portion = dx || dy
+        ? Math.max(0, Math.min(1, ((cursor.x - a.x) * dx + (cursor.y - a.y) * dy) / (dx * dx + dy * dy)))
+        : 0;
+      const distance = Math.hypot(cursor.x - (a.x + portion * dx), cursor.y - (a.y + portion * dy));
+      if (distance <= closest) {
+        closest = distance;
+        selected = String(feature.id);
+      }
+    }
+  }
+  return selected;
 }
 
 /**

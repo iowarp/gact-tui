@@ -25,7 +25,7 @@ import {
 } from './a2ui-accessibility';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import { mapPngBlob } from './map-export';
-import { isSelectablePointField, pointSelectValue } from './map-points';
+import { isSelectablePointField, mapClickSelectionValues, pointSelectValue } from './map-points';
 import {
   CONTINUOUS_HIGH_COLOR,
   CONTINUOUS_LOW_COLOR,
@@ -96,6 +96,8 @@ interface ClioMapProps {
    * inline-data views too").
    */
   dataCapabilities?: Pick<SurfaceCapabilities, 'exportFormats' | 'buildReference' | 'filters'>;
+  /** The source had rows, but the current query or local controls removed them all. */
+  emptyFiltered?: boolean;
   valueLabel?: string;
   valueUnit?: string;
 }
@@ -112,6 +114,7 @@ export function ClioScientificMap({
   actionLabel = 'Use selected location',
   componentId,
   dataCapabilities,
+  emptyFiltered = false,
   valueLabel = 'Value',
   valueUnit,
   selection,
@@ -185,12 +188,12 @@ export function ClioScientificMap({
     () => boundIds ?? new Set(selectedId !== undefined ? [selectedId] : []),
     [boundIds, selectedId],
   );
-  const setSelectedId = (id: string) => {
+  const setSelectedId = (id: string, additive = false) => {
     setLocalId(id);
-    const point = points.find((candidate) => candidate.id === id);
-    const value = point ? pointSelectValue(point, field) : undefined;
-    if (value !== undefined) {
-      writeSelection({ field, values: [value], ...(componentId ? { source: componentId } : {}) });
+    const previous = additive && state?.field === field ? state.values : [];
+    const next = mapClickSelectionValues(points, id, field, previous, additive);
+    if (next.length || previous.length) {
+      writeSelection({ field, values: next, ...(componentId ? { source: componentId } : {}) });
     }
   };
   const clearSelection = () => {
@@ -569,7 +572,7 @@ export function ClioScientificMap({
                   className="flex size-full items-center justify-center px-4 text-center text-sm text-muted-foreground"
                   role="status"
                 >
-                  {dataCapabilities?.filters
+                  {emptyFiltered
                     ? 'No locations match the current filters. Adjust Filters to see them.'
                     : 'No locations to show.'}
                 </div>
@@ -637,7 +640,7 @@ export function ClioScientificMap({
                               'h-full w-full justify-start gap-2 px-2 py-1 text-left',
                               isSelected(point.id) && 'border-primary/50 bg-primary/10',
                             )}
-                            onClick={() => setSelectedId(point.id)}
+                            onClick={(event) => setSelectedId(point.id, event.shiftKey)}
                             variant="ghost"
                           >
                             <MapPinIcon

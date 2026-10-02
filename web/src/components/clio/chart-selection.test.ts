@@ -13,8 +13,20 @@ import {
   bindChartSelection,
   selectionFromSignal,
   selectionStoreName,
+  translateChartSelectionValues,
   viewHasSignal,
 } from './chart-selection';
+
+describe('series to row selection translation', () => {
+  const rows = [
+    { __row: 1, storm: 'Aster' }, { __row: 2, storm: 'Aster' },
+    { __row: 3, storm: 'Boreal' },
+  ];
+  it('expands one entity to exact shared row keys and reverses the link', () => {
+    expect(translateChartSelectionValues(rows, 'storm', '__row', ['Aster'])).toEqual([1, 2]);
+    expect(translateChartSelectionValues(rows, '__row', 'storm', [2, 3])).toEqual(['Aster', 'Boreal']);
+  });
+});
 import { renderChartPreset } from './chart-presets';
 
 /**

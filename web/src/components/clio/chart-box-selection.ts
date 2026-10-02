@@ -1,4 +1,5 @@
 import { isSelectionValue } from './selection-state';
+import type { SelectionValue } from './selection-state';
 import type { ChartRow } from './chart-data';
 import type { View } from 'vega';
 
@@ -99,19 +100,133 @@ export function withChartPointSelection(
   field: string | undefined,
 ): Record<string, unknown> {
   if (!field) return spec;
-  const hasParam = (node: Record<string, unknown>): boolean => {
-    if (Array.isArray(node.params) && node.params.some((entry) => isJsonObject(entry) && entry.name === param)) return true;
+  const withToggle = (node: Record<string, unknown>): { node: Record<string, unknown>; found: boolean } => {
+    let found = false;
+    const next: Record<string, unknown> = { ...node };
+    if (Array.isArray(node.params)) {
+      next.params = node.params.map((entry) => {
+        if (!isJsonObject(entry) || entry.name !== param || !isJsonObject(entry.select)) return entry;
+        found = true;
+        return { ...entry, select: { ...entry.select, toggle: entry.select.toggle ?? 'event.shiftKey' } };
+      });
+    }
     for (const key of NESTED_LIST_KEYS) {
       const children = node[key];
-      if (Array.isArray(children) && children.some((child) => isJsonObject(child) && hasParam(child))) return true;
+      if (Array.isArray(children)) {
+        next[key] = children.map((child) => {
+          if (!isJsonObject(child)) return child;
+          const result = withToggle(child);
+          found ||= result.found;
+          return result.node;
+        });
+      }
     }
-    return isJsonObject(node.spec) && hasParam(node.spec);
+    if (isJsonObject(node.spec)) {
+      const result = withToggle(node.spec);
+      found ||= result.found;
+      next.spec = result.node;
+    }
+    return { node: next, found };
   };
-  if (hasParam(spec)) return spec;
+  const existing = withToggle(spec);
+  if (existing.found) return existing.node;
   return withOneUnitParam(spec, {
     name: param,
     select: { clear: 'dblclick', fields: [field], on: 'click', toggle: 'event.shiftKey', type: 'point' },
   });
+}
+
+/** Give line and spectra points a forgiving click target while preserving their geometry. */
+export function withChartLinePointTargets(spec: Record<string, unknown>): Record<string, unknown> {
+  const mark = spec.mark;
+  if (!isJsonObject(mark) || mark.type !== 'line' || mark.point !== true) return spec;
+  return { ...spec, mark: { ...mark, point: { filled: true, size: 100 } } };
+}
+
+/** Resolve a series key from a Vega line or point scenegraph item. */
+export function chartMarkSelectionValue(item: unknown, field: string): SelectionValue | undefined {
+  const visited = new Set<object>();
+  const find = (value: unknown, depth: number): SelectionValue | undefined => {
+    if (depth > 5 || !value || typeof value !== 'object' || visited.has(value)) return undefined;
+    visited.add(value);
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const found = find(entry, depth + 1);
+        if (found !== undefined) return found;
+      }
+      return undefined;
+    }
+    const record = value as Record<string, unknown>;
+    if (isSelectionValue(record[field])) return record[field];
+    for (const key of ['datum', 'values', 'items']) {
+      const found = find(record[key], depth + 1);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  };
+  return find(item, 0);
+}
+
+/** Hit the plotted coordinates directly; Vega's line item can report the wrong series. */
+export function nearestChartSeriesValue(
+  view: Pick<View, 'origin' | 'scale'>,
+  rows: readonly ChartRow[],
+  cursor: { x: number; y: number },
+  xField: string,
+  yField: string,
+  seriesField: string,
+  xType: ChartAxisType,
+): SelectionValue | undefined {
+  try {
+    const [originX, originY] = view.origin();
+    const xScale = view.scale('x') as (value: unknown) => number;
+    const yScale = view.scale('y') as (value: unknown) => number;
+    const targetX = cursor.x - originX;
+    const targetY = cursor.y - originY;
+    let nearest = 12;
+    let value: SelectionValue | undefined;
+    const bySeries = new Map<SelectionValue, Array<{ x: number; y: number }>>();
+    for (const row of rows) {
+      const series = row[seriesField];
+      if (!isSelectionValue(series)) continue;
+      const rawX = row[xField];
+      const xInput = xType === 'temporal' && typeof rawX === 'string' ? new Date(rawX) : rawX;
+      const x = xScale(xInput);
+      const y = yScale(row[yField]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      const point = { x, y };
+      const group = bySeries.get(series) ?? [];
+      group.push(point);
+      bySeries.set(series, group);
+      const distance = Math.hypot(x - targetX, y - targetY);
+      if (distance <= nearest) {
+        nearest = distance;
+        value = series;
+      }
+    }
+    if (value !== undefined) return value;
+    nearest = 8;
+    for (const [series, group] of bySeries) {
+      group.sort((a, b) => a.x - b.x);
+      for (let index = 1; index < group.length; index += 1) {
+        const a = group[index - 1]!;
+        const b = group[index]!;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const portion = dx || dy
+          ? Math.max(0, Math.min(1, ((targetX - a.x) * dx + (targetY - a.y) * dy) / (dx * dx + dy * dy)))
+          : 0;
+        const distance = Math.hypot(targetX - (a.x + portion * dx), targetY - (a.y + portion * dy));
+        if (distance <= nearest) {
+          nearest = distance;
+          value = series;
+        }
+      }
+    }
+    return value;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Add a 2D interval brush to the first plot unit without changing its scales. */

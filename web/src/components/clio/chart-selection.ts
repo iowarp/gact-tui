@@ -1,4 +1,5 @@
 import type { View } from 'vega';
+import type { ChartRow } from './chart-data';
 import {
   isSelectionValue,
   selectionKey,
@@ -6,6 +7,21 @@ import {
   type SelectionValue,
   type SelectionWriter,
 } from './selection-state';
+
+/** Map selected entity values to exact row keys, or row keys back to entities. */
+export function translateChartSelectionValues(
+  rows: readonly ChartRow[],
+  fromField: string,
+  toField: string,
+  values: readonly SelectionValue[],
+): SelectionValue[] {
+  if (fromField === toField) return [...values];
+  const selected = new Set(values);
+  return [...new Set(rows
+    .filter((row) => selected.has(row[fromField] as SelectionValue))
+    .map((row) => row[toField])
+    .filter(isSelectionValue))];
+}
 
 /**
  * Links a Vega-Lite point selection to a bound `SelectionState`.

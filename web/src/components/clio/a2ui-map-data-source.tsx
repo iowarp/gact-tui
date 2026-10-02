@@ -117,7 +117,7 @@ export function ClioMapArtifactSource({
     if (!merged.length) return dataQuery;
     return { ...dataQuery, filter: merged };
   }, [dataQuery, filters]);
-  const { rows, loading, error, matchedRows, returnedRows, schema } = useTableQueryRows({
+  const { rows, loading, error, matchedRows, totalRows, returnedRows, schema } = useTableQueryRows({
     columns,
     data: undefined,
     dataQuery: effectiveDataQuery,
@@ -190,6 +190,14 @@ export function ClioMapArtifactSource({
       latitudeField,
       longitudeField,
     ].filter((name): name is string => Boolean(name));
+    const selectedTracks = trackField && visibleSelectedValues.length
+      ? new Set<unknown>(selectedRows.map((row) => row[trackField]).filter((value) => value !== undefined && value !== null))
+      : undefined;
+    const wholeTracks = selectedTracks && rows?.every((row) =>
+      !selectedTracks.has(row[trackField!]) || selectedRows.includes(row));
+    const selectedDescription = wholeTracks && selectedTracks?.size
+      ? `${selectedTracks.size.toLocaleString()} selected ${selectedTracks.size === 1 ? 'track' : 'tracks'} containing ${visibleSelectedValues.length.toLocaleString()} of ${total.toLocaleString()} points`
+      : `${visibleSelectedValues.length.toLocaleString()} selected ${visibleSelectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`;
     return buildZoneReference({
       componentLabel: title,
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
@@ -204,7 +212,7 @@ export function ClioMapArtifactSource({
           : {}),
       },
       zoneDescription: visibleSelectedValues.length
-        ? `${visibleSelectedValues.length.toLocaleString()} selected ${visibleSelectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`
+        ? selectedDescription
         : shown < total
           ? `the filtered current view (${shown.toLocaleString()} of ${total.toLocaleString()} points)`
           : `the filtered current view (${total.toLocaleString()} points)`,
@@ -294,6 +302,13 @@ export function ClioMapArtifactSource({
             latitudeField,
             longitudeField,
             selectionField: effectiveSelectionField,
+          }).map((point) => {
+            const value = trackField && point.rowIndex !== undefined
+              ? rows[point.rowIndex]?.[trackField]
+              : undefined;
+            return typeof value === 'string' || typeof value === 'number'
+              ? { ...point, track: String(value) }
+              : point;
           })
         : undefined,
     [
@@ -338,6 +353,12 @@ export function ClioMapArtifactSource({
       <ClioScientificMap
         {...rest}
         dataCapabilities={dataCapabilities}
+        emptyFiltered={Boolean(
+          !points.length && (
+            (totalRows !== undefined && totalRows > 0 && matchedRows === 0) ||
+            (effectiveDataQuery?.filter?.length ?? 0) > 0
+          )
+        )}
         points={points}
         geometry={geometry}
         geometrySelectionByPoints={Boolean(geometry)}

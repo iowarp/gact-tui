@@ -15,6 +15,7 @@ import Map, {
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { cn } from '@/lib/utils';
 import { mapCategoryColors, mapPointColor, mapValueExtent } from './map-category-palette';
+import { nearestProjectedGeometryId } from './map-points';
 
 export interface ScientificMapPoint {
   id: string;
@@ -33,6 +34,8 @@ export interface ScientificMapPoint {
   value?: number;
   /** Index of this observation in a queried table, used to form ordered tracks. */
   rowIndex?: number;
+  /** Renderer-derived track identity. A click can select its visible observations together. */
+  track?: string;
 }
 
 interface ScientificMapViewProps {
@@ -50,7 +53,7 @@ interface ScientificMapViewProps {
    * need not pass it at all.
   */
   highlightedIds?: ReadonlySet<string>;
-  onSelect: (pointId: string) => void;
+  onSelect: (pointId: string, additive?: boolean) => void;
   onClearSelection?: () => void;
   /**
    * Shift+drag a rectangle to select every point inside it (#1533 item 4:
@@ -251,6 +254,7 @@ export function ClioScientificMapView({
   const [dragBox, setDragBox] = useState<DragBox | null>(null);
   const dragBoxRef = useRef<DragBox | null>(null);
   const lastBoxDragAt = useRef(0);
+  const suppressHandledClick = useRef(false);
   const manyPoints = !geometry && points.length > MANY_POINTS_THRESHOLD;
   const denseTrajectories = Boolean(geometrySelectionByPoints && points.length > 1_000);
   const categoryColors = useMemo(() => mapCategoryColors(points), [points]);
@@ -480,21 +484,26 @@ export function ClioScientificMapView({
     source?.setData(pointsGeoJson);
   }, [manyPoints, mapInstance, pointsGeoJson]);
   const handleLayerClick = (event: MapLayerMouseEvent) => {
-    // A shift+drag's release also fires a synthetic click at the same
-    // modifier state; the rectangle gesture above already handled the
-    // selection, so a held Shift here must never also select the one point
-    // under the cursor.
-    if (boxSelectMode || event.originalEvent.shiftKey || performance.now() - lastBoxDragAt.current < 350) return;
+    // A shift+drag's release also fires a synthetic click. The rectangle
+    // gesture above already handled selection, so ignore that echo.
+    if (boxSelectMode || performance.now() - lastBoxDragAt.current < 350) return;
     // A pooled MapLibre instance can render our imperative geometry layers
     // before react-map-gl refreshes its interactive layer list. Ask the live
     // map for the hit in that case, so a visible line is always clickable.
+    const map = mapRef.current?.getMap();
     const feature = event.features?.[0] ?? (geometry
       ? mapRef.current?.getMap().queryRenderedFeatures(event.point, {
           layers: GEOMETRY_LAYER_IDS.filter((id) => mapRef.current?.getMap().getLayer(id)),
         })[0]
       : undefined);
-    const id = feature?.properties?.id;
-    if (typeof id === 'string') onSelect(id);
+    // MapLibre can draw a freshly swapped GeoJSON source before its hit index
+    // catches up. Project the same data as a fallback so visible dots and
+    // segments remain selectable during that interval.
+    const projected = map && geometry
+      ? nearestProjectedGeometryId(map, event.point, points, geometry)
+      : undefined;
+    const id = feature?.properties?.id ?? projected;
+    if (typeof id === 'string') onSelect(id, event.originalEvent.shiftKey);
     else onClearSelection?.();
   };
 
@@ -503,6 +512,7 @@ export function ClioScientificMapView({
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
   const handleMouseDownCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    suppressHandledClick.current = false;
     if (!onZoneSelect || (!boxSelectMode && !event.shiftKey) || event.button !== 0) return;
     // MapLibre listens for mouse events separately from pointer events. Take
     // ownership of the mouse gesture before its canvas can begin a pan.
@@ -556,15 +566,29 @@ export function ClioScientificMapView({
           )
           .map((candidate) => candidate.id);
       onZoneSelect?.(ids);
-    } else if (map && boxSelectMode) {
+    } else if (map && (boxSelectMode || event.shiftKey)) {
       // A tap in rectangle mode is still a point click. DOM markers sit above
       // their projected coordinate, so compare with the icon's visual centre.
+      const feature = map.queryRenderedFeatures([point.x, point.y], {
+        layers: geometry
+          ? GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id))
+          : manyPoints && map.getLayer(POINTS_LAYER_ID) ? [POINTS_LAYER_ID] : [],
+      })[0];
       const hit = points.find((candidate) => {
         const projected = map.project([candidate.longitude, candidate.latitude]);
         return Math.hypot(projected.x - point.x, projected.y - (geometrySelectionByPoints ? 0 : 16) - point.y) <= 18;
       });
-      if (hit) onSelect(hit.id);
-      else onClearSelection?.();
+      const id = feature?.properties?.id;
+      if (typeof id === 'string') {
+        suppressHandledClick.current = true;
+        onSelect(id, event.shiftKey);
+      } else if (hit) {
+        suppressHandledClick.current = true;
+        onSelect(hit.id, event.shiftKey);
+      } else if (!event.shiftKey) {
+        suppressHandledClick.current = true;
+        onClearSelection?.();
+      }
     }
     dragBoxRef.current = null;
     setDragBox(null);
@@ -602,6 +626,12 @@ export function ClioScientificMapView({
       onMouseDownCapture={handleMouseDownCapture}
       onMouseMoveCapture={handleMouseMoveCapture}
       onMouseUpCapture={handleMouseUpCapture}
+      onClickCapture={(event) => {
+        if (!suppressHandledClick.current) return;
+        suppressHandledClick.current = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
       ref={rootRef}
     >
       <Map
@@ -638,7 +668,7 @@ export function ClioScientificMapView({
                     style={{ backgroundColor: mapPointColor(point, categoryColors, valueExtent) }}
                     onClick={(event) => {
                       event.stopPropagation();
-                      onSelect(point.id);
+                      onSelect(point.id, event.shiftKey);
                     }}
                     type="button"
                   >
