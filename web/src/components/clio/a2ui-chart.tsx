@@ -161,9 +161,8 @@ export function ClioChart(props: ClioChartProps) {
       buildSpec(
         {
           colorField,
-          // Presets use this slot for both the line grouping and point
-          // selection. Series keep their entity here; the renderer translates
-          // entity clicks to exact shared row keys when linking by __row.
+          // Series use the entity for line geometry; point selection stays
+          // keyed to the exact row supplied by the renderer.
           entityField: selectsSeries ? entityField : markSelectionField,
           facetField,
           preset,
@@ -333,7 +332,7 @@ export function ClioChart(props: ClioChartProps) {
   }, [colorField, entityField, rows, schema, xField, yField]);
   // A keyboard-operable equivalent to clicking a point (#1533 #506 LOW): an
   // arbitrary brush/lasso drag has no sensible keyboard equivalent, but
-  // choosing one of `selectionField`'s own distinct values does. Capped, and
+  // choosing a distinct row value or series entity does. Capped, and
   // omitted past the cap, for the same reason the map's own point list now
   // virtualizes instead of rendering one control per row (MEDIUM 6) — a
   // flat, unvirtualized list stops being a reasonable "keyboard access"
@@ -547,8 +546,8 @@ export function ClioChart(props: ClioChartProps) {
           previousFinalizeForBrush?.();
         };
         if (selectsSeries && selectionField && markSelectionField) {
-          // Vega-Lite's line selection only receives clicks on the thin path on
-          // some renderers. The visible point marks need the same series action.
+          // Vega-Lite's line hit can report a stale series, so resolve the
+          // closest plotted point or path against the current rows.
           let pendingClick: number | undefined;
           const handleSeriesClick = (event: ScenegraphEvent, item: unknown) => {
             if (!('clientX' in event) || !('clientY' in event)) return;
