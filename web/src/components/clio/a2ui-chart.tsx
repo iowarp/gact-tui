@@ -61,6 +61,7 @@ import {
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import {
   parseSelectionState,
+  selectionForField,
   type SelectionState,
   type SelectionValue,
   type SelectionWriter,
@@ -216,7 +217,10 @@ export function ClioChart(props: ClioChartProps) {
     dataQuery: effectiveDataQuery,
     dataUri: props.dataUri,
   });
-  const selectionState = useMemo(() => parseSelectionState(selection), [selection]);
+  const selectionState = useMemo(
+    () => selectionForField(parseSelectionState(selection), selectionField),
+    [selection, selectionField],
+  );
 
   // Inline (no `dataUri`) rows have no server to filter through; this viewer's
   // own per-column filters apply client-side. Box selection stays independent.
@@ -652,7 +656,7 @@ export function ClioChart(props: ClioChartProps) {
   const renderZoomActions = () =>
     zoomParam ? (
       <div className="flex shrink-0 items-center gap-1">
-        {selectedZoomRows.length ? <Button aria-label="Zoom to selection" onClick={zoomToSelection} size="sm" variant="outline"><ZoomInIcon aria-hidden="true" className="size-3.5" />Zoom to selection</Button> : null}
+        {selectedZoomRows.length ? <Button aria-label="Zoom to selection" onClick={zoomToSelection} size="icon-sm" title="Zoom to selection" variant="ghost"><ZoomInIcon aria-hidden="true" className="size-3.5" /></Button> : null}
         {zoomActive ? <ChartZoomResetButton onClick={resetChartZoom} /> : null}
       </div>
     ) : null;
@@ -661,14 +665,13 @@ export function ClioChart(props: ClioChartProps) {
       <Button
         aria-label="Box select chart rows"
         aria-pressed={boxSelectMode}
-        className="shrink-0 gap-1.5"
+        className={cn('shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100', boxSelectMode && 'opacity-100')}
         onClick={() => setBoxSelectMode((active) => !active)}
         size="sm"
-        title="Drag a box to select rows; turn off to return to ordinary chart interaction"
+        title="Box select — drag a rectangle to select rows; turn off to return to ordinary chart interaction"
         variant={boxSelectMode ? 'secondary' : 'ghost'}
       >
         <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
-        Box select
       </Button>
     ) : null;
   const toolbarCapabilities: SurfaceCapabilities = {
@@ -769,9 +772,8 @@ export function ClioChart(props: ClioChartProps) {
 
 function ChartZoomResetButton({ onClick }: { onClick: () => void }) {
   return (
-    <Button aria-label="Reset zoom" className="shrink-0" onClick={onClick} size="sm" variant="outline">
+    <Button aria-label="Reset zoom" className="shrink-0" onClick={onClick} size="icon-sm" title="Reset zoom" variant="ghost">
       <RetryIcon aria-hidden="true" className="size-3.5" />
-      Reset zoom
     </Button>
   );
 }

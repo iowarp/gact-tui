@@ -58,8 +58,12 @@ export function ClioTextColumnFilter({
       aria-label={`Filter ${columnLabel}, contains`}
       className="h-8"
       onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => onChangeRef.current(draft)}
       onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onChangeRef.current(draft);
+        event.stopPropagation();
+      }}
       placeholder="Contains…"
       value={draft}
     />
@@ -112,9 +116,15 @@ export function ClioRangeColumnFilter({
       <Input
         aria-label={`Filter ${columnLabel}, minimum`}
         className="h-8 w-20"
-        onChange={(event) => setDraft((current) => ({ ...current, min: parse(event.target.value) }))}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, min: parse(event.target.value) }))
+        }
+        onBlur={() => onChangeRef.current(draft)}
         onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onChangeRef.current(draft);
+          event.stopPropagation();
+        }}
         placeholder="Min"
         type="number"
         value={draft.min ?? ''}
@@ -125,9 +135,15 @@ export function ClioRangeColumnFilter({
       <Input
         aria-label={`Filter ${columnLabel}, maximum`}
         className="h-8 w-20"
-        onChange={(event) => setDraft((current) => ({ ...current, max: parse(event.target.value) }))}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, max: parse(event.target.value) }))
+        }
+        onBlur={() => onChangeRef.current(draft)}
         onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onChangeRef.current(draft);
+          event.stopPropagation();
+        }}
         placeholder="Max"
         type="number"
         value={draft.max ?? ''}

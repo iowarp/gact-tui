@@ -303,6 +303,7 @@ export function ClioComposer({
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
+  const lastInsertedDraftRef = useRef<{ sourceKey: string; text: string } | undefined>(undefined);
   useEffect(() => { latestInputRef.current = input; }, [input]);
   const setInput = useCallback(
     (nextValue: string) => {
@@ -314,9 +315,15 @@ export function ClioComposer({
   );
   useEffect(() => {
     const useDraft = (event: Event) => {
-      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      const detail = (event as CustomEvent<{ text?: string; sourceKey?: string }>).detail;
       if (typeof detail?.text !== 'string') return;
-      setInput(input ? `${input}\n\n${detail.text}` : detail.text);
+      const current = latestInputRef.current;
+      const previous = lastInsertedDraftRef.current;
+      const replacePrevious = previous && detail.sourceKey === previous.sourceKey && current.includes(previous.text);
+      setInput(replacePrevious
+        ? current.replace(previous.text, detail.text)
+        : current ? `${current}\n\n${detail.text}` : detail.text);
+      if (detail.sourceKey) lastInsertedDraftRef.current = { sourceKey: detail.sourceKey, text: detail.text };
       window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
     };
     window.addEventListener('clio:use-message-draft', useDraft);

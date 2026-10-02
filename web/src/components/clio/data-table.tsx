@@ -7,7 +7,7 @@ import type {
   Updater,
 } from '@tanstack/react-table';
 import { useTable } from '@tanstack/react-table';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
 import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
 import {
@@ -24,6 +24,7 @@ import {
   type ClioColumnFilterValue,
 } from './data-table-column-filter';
 import { ClioDataGridTable } from './data-grid-table';
+import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -139,6 +140,10 @@ export function ClioDataTable({
   selectedCount = 0,
   onSelectedOnlyChange,
   server,
+  inlineFilters,
+  onInlineFilterChange,
+  inlineSort,
+  onInlineSortChange,
   capabilities,
 }: {
   columns: readonly ClioDataColumn[];
@@ -155,27 +160,63 @@ export function ClioDataTable({
   onSelectedOnlyChange?: (selectedOnly: boolean) => void;
   /** Present for a `dataUri` table: pages, sorts, and filters over the whole dataset server-side. */
   server?: ClioDataTableServerControl;
+  inlineFilters?: ReadonlyMap<string, ClioColumnFilterValue>;
+  onInlineFilterChange?: (column: string, value: ClioColumnFilterValue | undefined) => void;
+  inlineSort?: { column: string; desc: boolean };
+  onInlineSortChange?: (sort: { column: string; desc: boolean } | undefined) => void;
   /** Download / "Reference this" affordances the caller declares; full screen is always added here. */
   capabilities?: SurfaceCapabilities;
 }) {
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterFields = useMemo<DataFilterField[]>(
+    () =>
+      columnDefinitions.map((definition) => {
+        const key = typeof definition === 'string' ? definition : definition.key;
+        const label =
+          typeof definition === 'string' ? definition.replaceAll('_', ' ') : definition.label;
+        const sample = rows.find((row) => row[key] !== null && row[key] !== undefined)?.[key];
+        return {
+          key,
+          label,
+          kind: server?.columnKind(key) ?? (typeof sample === 'number' ? 'number' : 'text'),
+        };
+      }),
+    [columnDefinitions, rows, server],
+  );
   const columns = useMemo<ColumnDef<DataGridFeatures, ClioDataRow, unknown>[]>(
     () =>
       columnDefinitions.map((definition) => {
         const key = typeof definition === 'string' ? definition : definition.key;
         const title =
           typeof definition === 'string' ? definition.replaceAll('_', ' ') : definition.label;
-        const kind = server?.columnKind(key);
+        const kind =
+          server?.columnKind(key) ??
+          (onInlineFilterChange
+            ? typeof rows.find((row) => row[key] !== null && row[key] !== undefined)?.[key] ===
+              'number'
+              ? 'number'
+              : 'text'
+            : undefined);
         const sample = rows.find((row) => row[key] !== null && row[key] !== undefined)?.[key];
         const isTime = typeof sample === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:/u.test(sample);
-        const size = isTime ? 220 : /(?:^|_)(?:id|year)(?:$|_)/iu.test(key) ? 108 : typeof sample === 'number' ? 104 : 160;
-        const filterValue = server?.filters.get(key);
+        const size = isTime
+          ? 220
+          : /(?:^|_)(?:id|year)(?:$|_)/iu.test(key)
+            ? 108
+            : typeof sample === 'number'
+              ? 104
+              : 160;
+        const filterValue = server?.filters.get(key) ?? inlineFilters?.get(key);
         const filterNode =
           kind === 'text' ? (
             <ClioTextColumnFilter
               columnLabel={title}
               onChange={(contains) =>
-                server!.onFilterChange(key, contains ? { kind: 'text', contains } : undefined)
+                (server?.onFilterChange ?? onInlineFilterChange)?.(
+                  key,
+                  contains ? { kind: 'text', contains } : undefined,
+                )
               }
               value={filterValue?.kind === 'text' ? filterValue.contains : ''}
             />
@@ -183,7 +224,7 @@ export function ClioDataTable({
             <ClioRangeColumnFilter
               columnLabel={title}
               onChange={({ min, max }) =>
-                server!.onFilterChange(
+                (server?.onFilterChange ?? onInlineFilterChange)?.(
                   key,
                   min !== undefined || max !== undefined ? { kind: 'range', min, max } : undefined,
                 )
@@ -196,7 +237,7 @@ export function ClioDataTable({
         return {
           id: key,
           accessorFn: (row: ClioDataRow) => row[key],
-          enableSorting: Boolean(server),
+          enableSorting: true,
           size,
           minSize: isTime ? 190 : 80,
           header: ClioColumnHeaderCell,
@@ -204,7 +245,7 @@ export function ClioDataTable({
           meta: { autoSize: true, headerFilter: filterNode, headerTitle: title },
         };
       }),
-    [columnDefinitions, rows, server],
+    [columnDefinitions, inlineFilters, onInlineFilterChange, rows, server],
   );
   const data = useMemo(() => [...rows], [rows]);
   const rowSelection = useMemo(
@@ -217,10 +258,10 @@ export function ClioDataTable({
     () => (server ? { pageIndex: server.pageIndex, pageSize: server.pageSize } : undefined),
     [server],
   );
-  const sorting = useMemo<SortingState>(
-    () => (server?.sort ? [{ desc: server.sort.desc, id: server.sort.column }] : []),
-    [server],
-  );
+  const sorting = useMemo<SortingState>(() => {
+    const sort = server?.sort ?? inlineSort;
+    return sort ? [{ desc: sort.desc, id: sort.column }] : [];
+  }, [inlineSort, server]);
 
   const table = useTable({
     columns,
@@ -250,14 +291,38 @@ export function ClioDataTable({
             sorting,
           },
         }
-      : selectedRows
-        ? { state: { rowSelection } }
-        : {}),
+      : onInlineSortChange
+        ? {
+            manualSorting: true,
+            onSortingChange: (updater: Updater<SortingState>) => {
+              const next = typeof updater === 'function' ? updater(sorting) : updater;
+              const first = next[0];
+              onInlineSortChange(first ? { column: first.id, desc: first.desc } : undefined);
+            },
+            state: { rowSelection, sorting },
+          }
+        : selectedRows
+          ? { state: { rowSelection } }
+          : {}),
     // Row ids are the row's index in `rows` (TanStack's default), matching `selectedRows`.
   });
 
   const toolbarCapabilities: SurfaceCapabilities = {
     ...capabilities,
+    filters:
+      (server || onInlineFilterChange) && filterFields.length
+        ? {
+            content: (
+              <DataFilterPopover
+                fields={filterFields}
+                filters={server?.filters ?? inlineFilters ?? new Map()}
+                onFilterChange={server?.onFilterChange ?? onInlineFilterChange!}
+                onOpenChange={setFiltersOpen}
+              />
+            ),
+            isOpen: filtersOpen,
+          }
+        : undefined,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
     overflowContent: (
       <DropdownMenuItem
@@ -269,16 +334,20 @@ export function ClioDataTable({
       </DropdownMenuItem>
     ),
   };
-  const selectedOnlyAction = selectedCount > 0 && onSelectedOnlyChange ? (
-    <button
-      aria-pressed={selectedOnly}
-      className={cn('shrink-0 rounded-md px-2 py-1 text-xs transition-colors hover:bg-muted', selectedOnly ? 'bg-primary/15 text-primary' : 'text-muted-foreground')}
-      onClick={() => onSelectedOnlyChange(!selectedOnly)}
-      type="button"
-    >
-      {selectedOnly ? 'Show all' : `Show selected (${selectedCount.toLocaleString()})`}
-    </button>
-  ) : null;
+  const selectedOnlyAction =
+    selectedCount > 0 && onSelectedOnlyChange ? (
+      <button
+        aria-pressed={selectedOnly}
+        className={cn(
+          'shrink-0 rounded-md px-2 py-1 text-xs transition-colors hover:bg-muted',
+          selectedOnly ? 'bg-primary/15 text-primary' : 'text-muted-foreground',
+        )}
+        onClick={() => onSelectedOnlyChange(!selectedOnly)}
+        type="button"
+      >
+        {selectedOnly ? 'Show all' : `Show selected (${selectedCount.toLocaleString()})`}
+      </button>
+    ) : null;
 
   return (
     <DataGrid<DataGridFeatures, ClioDataRow>
@@ -291,11 +360,14 @@ export function ClioDataTable({
       <DataGridContainer
         className={cn(
           'group relative overflow-hidden rounded-xl border',
-          externalSelection && '[&_tr[aria-selected=true]]:bg-primary/20 [&_tr[aria-selected=true]]:shadow-[inset_3px_0_0_var(--primary)]',
+          externalSelection &&
+            '[&_tr[aria-selected=true]]:bg-primary/20 [&_tr[aria-selected=true]]:shadow-[inset_3px_0_0_var(--primary)]',
         )}
       >
         <div className="flex min-w-0 items-start gap-3 px-3 py-2">
-          <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{label}</h3>
+          <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
+            {label}
+          </h3>
           {selectedOnlyAction}
           <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
         </div>
@@ -304,7 +376,12 @@ export function ClioDataTable({
             header above, with the toolbar's own full-screen toggle, stays put. */}
         <SurfaceFullScreenHost
           fullscreen={fullscreen}
-          headerExtra={<div className="flex items-center gap-2">{selectedOnlyAction}<SurfaceToolbar capabilities={toolbarCapabilities} floating={false} /></div>}
+          headerExtra={
+            <div className="flex items-center gap-2">
+              {selectedOnlyAction}
+              <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+            </div>
+          }
           onOpenChange={setFullscreen}
           title={label}
         >
@@ -344,11 +421,14 @@ function formatCell(value: unknown, key: string): string {
     return new Intl.NumberFormat(undefined, { maximumSignificantDigits: 9 }).format(value);
   }
   if (typeof value === 'string') {
-    const timestamp = /^(\d{4}-\d\d-\d\d)T(\d\d:\d\d:\d\d)(?:\.\d+)?(Z|[+-]\d\d:\d\d)$/u.exec(value);
+    const timestamp = /^(\d{4}-\d\d-\d\d)T(\d\d:\d\d:\d\d)(?:\.\d+)?(Z|[+-]\d\d:\d\d)$/u.exec(
+      value,
+    );
     if (timestamp) {
-      const zone = timestamp[3] === 'Z' || timestamp[3] === '+00:00' || timestamp[3] === '-00:00'
-        ? 'UTC'
-        : `UTC${timestamp[3]}`;
+      const zone =
+        timestamp[3] === 'Z' || timestamp[3] === '+00:00' || timestamp[3] === '-00:00'
+          ? 'UTC'
+          : `UTC${timestamp[3]}`;
       return `${timestamp[1]} ${timestamp[2]} ${zone}`;
     }
   }

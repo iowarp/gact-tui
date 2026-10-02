@@ -5,6 +5,9 @@ import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9
 import { ArrowUpRight, Search } from 'lucide-react';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from '@/lib/a2ui/kernel-catalog';
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
+import { SelectionActionsContext } from '@/lib/selection-actions-context';
+import { createSelectionActionRegistry } from '@/lib/selection-actions';
+import type { DataSurfaceZoneSelection } from '@/lib/selection-actions';
 import { A2UI_BASIC_EXAMPLES, BASIC_CATALOG_ROW, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 
 type ComponentName = string;
@@ -106,6 +109,26 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
       { id: 'map', component: 'clio.map.v1', title: 'Field sites', points: linkedRows.map((row) => ({ id: row.id, label: row.site, latitude: row.latitude, longitude: row.longitude, category: row.region, detail: `${row.magnitude.toFixed(1)} magnitude` })), selection: { path: '/selection/sites' }, selectionField: 'id' },
       { id: 'table', component: 'clio.data-table.v1', columns: ['id', 'region', 'depth', 'magnitude'], rows: linkedRows, selection: { path: '/selection/sites' }, selectionField: 'id' },
     ];
+    case 'report-review': return [
+      { id: 'root', component: 'Column', children: ['metrics', 'progress', 'warning', 'decision'] },
+      { id: 'metrics', component: 'Grid', columns: 2, children: ['reviewed', 'state'] },
+      { id: 'reviewed', component: 'clio.metric.v1', label: 'Records reviewed', value: 68, unit: 'of 100' },
+      { id: 'state', component: 'clio.status.v1', label: 'Quality check', state: 'running', detail: 'Two sites need attention' },
+      { id: 'progress', component: 'clio.progress.v1', label: 'Report readiness', value: 68, max: 100, state: 'running', detail: '68 records checked' },
+      { id: 'warning', component: 'clio.callout.v1', title: 'Review flagged sites', severity: 'warning', body: 'Two stations have incomplete observations. Confirm their records before publishing.' },
+      { id: 'decision', component: 'clio.action-card.v1', title: 'Choose the next step', body: 'Open the flagged records or continue the review.', severity: 'info', actions: [
+        { label: 'Open flagged records', action: action('gallery.open-flagged-records') },
+        { label: 'Continue review', action: action('gallery.continue-review') },
+      ] },
+    ];
+    case 'report-ready': return [
+      { id: 'root', component: 'Column', children: ['state', 'approval'] },
+      { id: 'state', component: 'clio.status.v1', label: 'Report quality check', state: 'completed', detail: 'All 100 records checked' },
+      { id: 'approval', component: 'clio.approval.v1', title: 'Publish the report?', reason: 'The checked results will be available to the team.', risk: 'low', actions: [
+        { label: 'Approve', action: action('gallery.approve') },
+        { label: 'Keep reviewing', action: action('gallery.keep-reviewing') },
+      ] },
+    ];
     case 'Frame': return [{ id: 'root', component: name, title: 'Station summary', description: 'Three recent observations', child: 'demo' }, { id: 'demo', component: 'Text', text: 'Berkeley moved 2 mm this week.' }];
     case 'Grid': return [{ id: 'root', component: name, columns: 3, children: ['one', 'two', 'three'] }, ...['Berkeley', 'Fresno', 'Reno'].map((text, index) => ({ id: ['one', 'two', 'three'][index]!, component: 'Text', text }))];
     case 'clio.chart.v1': {
@@ -133,11 +156,17 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
       { label: 'Direct', to: ['collaborator@example.org'], subject: 'Field data review', body: 'Hi Morgan,\n\nThe review needs two more days. I will send the checked results Friday.\n\nThanks,\nAlex' },
       { label: 'Warm', to: ['collaborator@example.org'], subject: 'An update on the field data', body: 'Hi Morgan,\n\nI am checking a few more records before sharing the results. Thank you for your patience.\n\nAlex' },
     ] });
-    case 'clio.steps.v1': return root({ id: 'demo', component: name, title: 'Prepare field samples', baseAmount: 2, scaleLabel: 'Samples', steps: [
-      { id: 'label', title: 'Label collection tubes', detail: 'Write the site, time, and sample ID.' },
-      { id: 'mix', title: 'Mix buffer', quantity: 20, quantityUnit: 'mL' },
-      { id: 'incubate', title: 'Incubate samples', durationSeconds: 180, warning: 'Keep the lid closed during incubation.' },
-      { id: 'record', title: 'Record observations' },
+    case 'clio.steps.v1': return root({ id: 'demo', component: name, title: 'Simple tomato pasta', baseAmount: 2, scaleLabel: 'Servings', ingredients: [
+      { name: 'Dried pasta', quantity: 180, unit: 'g' },
+      { name: 'Olive oil', quantity: 1, unit: 'tbsp' },
+      { name: 'Garlic', quantity: 2, unit: 'clove', unitPlural: 'cloves' },
+      { name: 'Crushed tomatoes', quantity: 400, unit: 'g' },
+    ], steps: [
+      { id: 'prep', title: 'Prep', detail: 'Mince garlic and bring salted water to a boil.' },
+      { id: 'sauce', title: 'Start the sauce', detail: 'Warm oil, add garlic until fragrant, then stir in tomatoes.' },
+      { id: 'simmer', title: 'Simmer sauce', durationSeconds: 900, detail: 'Stir occasionally until slightly thickened.' },
+      { id: 'pasta', title: 'Cook pasta', detail: 'Cook until al dente and reserve a splash of water.' },
+      { id: 'serve', title: 'Combine and serve', detail: 'Toss pasta with sauce, adding reserved water as needed.' },
     ] });
     case 'clio.metric.v1': return root({ id: 'demo', component: name, label: 'Events reviewed', value: 500, unit: 'events', trend: 'up' });
     case 'clio.status.v1': return root({ id: 'demo', component: name, label: 'Quality review', state: 'running', detail: 'Checking station coverage' });
@@ -200,6 +229,11 @@ export function LinkedViewsDemo() {
   return <A2uiDemo name="linked" variant="scatter" />;
 }
 
+/** A combined status, progress, warning, and next-action surface. */
+export function ReportReviewDemo() {
+  return <A2uiDemo name="report-review" variant="scatter" />;
+}
+
 function catalogDescription(name: string): string {
   const file = CLIO_WORKSPACE_CATALOG_ROW.file as { components?: Record<string, { description?: string }> };
   return file.components?.[name]?.description ?? '';
@@ -221,29 +255,40 @@ export function WidgetGallery() {
   const [showContract, setShowContract] = useState(false);
   const [showExample, setShowExample] = useState(false);
   const [composer, setComposer] = useState('');
+  const [reference, setReference] = useState<DataSurfaceZoneSelection>();
+  const selectionActions = useMemo(() => createSelectionActionRegistry(), []);
+  useEffect(() => selectionActions.register({
+    id: 'gallery-reference-preview',
+    label: 'Reference this',
+    icon: ArrowUpRight,
+    order: 10,
+    kinds: ['data-surface-zone'],
+    run: (target) => { if (target.kind === 'data-surface-zone') setReference(target); },
+  }), [selectionActions]);
   useEffect(() => {
     const useDraft = (event: Event) => setComposer((event as CustomEvent<{ text: string }>).detail.text);
     window.addEventListener('clio:use-message-draft', useDraft);
     return () => window.removeEventListener('clio:use-message-draft', useDraft);
   }, []);
   const activeGroup = groups.find((group) => group.names.includes(active));
-  return <section className="grid gap-7 lg:grid-cols-[14rem_minmax(0,1fr)]">
-    <label className="block space-y-1.5 text-xs text-muted-foreground lg:hidden"><span>Component</span><select aria-label="Choose a component" className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground" onChange={(event) => { setActive(event.target.value); setShowContract(false); }} value={active}>{groups.map((group) => <optgroup key={group.title} label={group.title}>{group.names.map((name) => <option key={name} value={name}>{labels[name] ?? name}</option>)}</optgroup>)}</select></label>
+  return <SelectionActionsContext.Provider value={selectionActions}><section className="grid gap-7 lg:grid-cols-[14rem_minmax(0,1fr)]">
+    <label className="block space-y-1.5 text-xs text-muted-foreground lg:hidden"><span>Component</span><select aria-label="Choose a component" className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground" onChange={(event) => { setActive(event.target.value); setShowContract(false); setReference(undefined); }} value={active}>{groups.map((group) => <optgroup key={group.title} label={group.title}>{group.names.map((name) => <option key={name} value={name}>{labels[name] ?? name}</option>)}</optgroup>)}</select></label>
     <nav aria-label="Components" className="gallery-nav-scroll hidden space-y-5 lg:sticky lg:top-6 lg:block lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
       <label className="flex items-center gap-2 rounded-md border px-3"><Search aria-hidden className="size-4 text-muted-foreground" /><input aria-label="Find a component" className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Find a component" value={query} /></label>
       {groups.map((group) => {
         const names = group.names.filter((name) => `${labels[name] ?? name} ${name}`.toLowerCase().includes(query.toLowerCase()));
-        return names.length ? <div className="space-y-1" key={group.title}><p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{group.title}</p>{names.map((name) => <button aria-current={active === name ? 'page' : undefined} className={`block w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors ${active === name ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`} key={name} onClick={() => { setActive(name); setShowContract(false); }} type="button">{labels[name] ?? name}</button>)}</div> : null;
+        return names.length ? <div className="space-y-1" key={group.title}><p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{group.title}</p>{names.map((name) => <button aria-current={active === name ? 'page' : undefined} className={`block w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors ${active === name ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`} key={name} onClick={() => { setActive(name); setShowContract(false); setReference(undefined); }} type="button">{labels[name] ?? name}</button>)}</div> : null;
       })}
     </nav>
     <div className="min-w-0 space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{labels[active] ?? active}</h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button></div></header>
-      {active === 'clio.chart.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Chart example">{['scatter', 'boxplot', 'heatmap', 'trajectories', 'spectra'].map((item) => <button aria-pressed={variant === item} className={`shrink-0 rounded-md px-3 py-1.5 text-xs capitalize ${variant === item ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item} onClick={() => setVariant(item)} type="button">{item}</button>)}</div> : null}
+      {active === 'clio.chart.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Chart example">{['scatter', 'boxplot', 'heatmap', 'trajectories', 'spectra'].map((item) => <button aria-pressed={variant === item} className={`shrink-0 rounded-md px-3 py-1.5 text-xs capitalize ${variant === item ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item} onClick={() => { setVariant(item); setReference(undefined); }} type="button">{item}</button>)}</div> : null}
       {active === 'clio.callout.v1' ? <p className="text-sm text-muted-foreground">A short notice for a result, warning, or next step that deserves attention.</p> : null}
       <div className="min-h-56 overflow-x-auto"><div className={active === 'clio.chart.v1' ? 'min-w-[540px] sm:min-w-0' : active === 'clio.artifact.v1' ? 'max-w-2xl' : undefined}><A2uiDemo key={`${active}:${variant}`} name={active} variant={variant} /></div></div>
+      {reference ? <aside aria-label="Reference preview" className="space-y-2 rounded-md border p-3 text-sm"><div className="flex items-start justify-between gap-3"><div><p className="font-medium">Reference preview</p><p className="text-xs text-muted-foreground">{reference.summary}</p></div><button aria-label="Close reference preview" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setReference(undefined)} type="button">Close</button></div><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-sm bg-muted/30 p-2 text-xs">{reference.markdown}</pre></aside> : null}
       {active === 'clio.message-draft.v1' && composer ? <label className="block space-y-2 text-sm"><span className="text-muted-foreground">Composer</span><textarea className="min-h-32 w-full rounded-md border bg-background p-3" onChange={(event) => setComposer(event.target.value)} value={composer} /></label> : null}
       {showContract ? <aside className="space-y-2 rounded-md bg-muted/50 p-4 text-sm"><p>{catalogDescription(active) || 'A layout or control building block in the A2UI Basic catalog.'}</p><p className="font-mono text-xs text-muted-foreground">{active}</p></aside> : null}
       {showExample ? <pre className="max-h-96 overflow-auto rounded-md border bg-muted/20 p-4 text-xs">{JSON.stringify(examplePayload(active, variant), null, 2)}</pre> : null}
     </div>
-  </section>;
+  </section></SelectionActionsContext.Provider>;
 }

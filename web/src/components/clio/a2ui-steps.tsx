@@ -23,11 +23,21 @@ const stepSchema = z
     warning: z.string().optional(),
   })
   .strict();
+const ingredientSchema = z
+  .object({
+    name: z.string().min(1),
+    quantity: z.number().min(0),
+    unit: z.string().optional(),
+    unitPlural: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .strict();
 // oxlint-disable-next-line react/only-export-components
 export const stepsSchema = z
   .object({
     title: z.string().min(1),
     steps: z.array(stepSchema).min(1).max(100),
+    ingredients: z.array(ingredientSchema).max(100).optional(),
     scaleLabel: z.string().optional(),
     baseAmount: z.number().positive().optional(),
     progress: CommonSchemas.DynamicValue.optional(),
@@ -77,10 +87,25 @@ function timerLabel(seconds: number): string {
   return remainder === 0 ? `${minutes} min timer` : `${minutes} min ${remainder} sec timer`;
 }
 
+function quantityUnit(amount: number, singular?: string, plural?: string): string {
+  if (!singular) return '';
+  if (Math.abs(amount) === 1) return singular;
+  if (plural) return plural;
+  // Common recipe words read naturally without requiring a second property.
+  // Explicit `unitPlural` / `quantityUnitPlural` still wins for irregular units.
+  if (/^(?:g|kg|mg|µg|ml|l|oz|lb|tsp|tbsp|cm|mm|m|km|medium|small|large)$/i.test(singular)) {
+    return singular;
+  }
+  if (singular.endsWith('s')) return singular;
+  if (singular.endsWith('y')) return `${singular.slice(0, -1)}ies`;
+  return `${singular}s`;
+}
+
 /** Procedure with progress persisted through its bound data model and session storage. */
 export function ClioSteps({
   title,
   steps,
+  ingredients = [],
   scaleLabel = 'Amount',
   baseAmount = 1,
   progress,
@@ -147,7 +172,7 @@ export function ClioSteps({
             </p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            {steps.some((step) => step.quantity !== undefined) ? (
+            {ingredients.length > 0 || steps.some((step) => step.quantity !== undefined) ? (
               <label className="flex shrink-0 items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
                 {scaleLabel}
                 <Input
@@ -167,6 +192,38 @@ export function ClioSteps({
             {!fullscreen ? <SurfaceToolbar capabilities={capabilities} floating={false} /> : null}
           </div>
         </div>
+        {ingredients.length > 0 ? (
+          <div className="space-y-2 border-b border-border/60 pb-4">
+            <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Ingredients
+            </h4>
+            <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+              {ingredients.map((ingredient, index) => {
+                const scaled = (ingredient.quantity * amount) / baseAmount;
+                const unit = quantityUnit(scaled, ingredient.unit, ingredient.unitPlural);
+                return (
+                  <li
+                    className="flex min-w-0 items-baseline justify-between gap-3 text-sm"
+                    key={`${ingredient.name}-${index}`}
+                  >
+                    <span className="min-w-0">
+                      {ingredient.name}
+                      {ingredient.note ? (
+                        <span className="text-muted-foreground"> · {ingredient.note}</span>
+                      ) : null}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(
+                        scaled,
+                      )}{' '}
+                      {unit}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
         <ol className="space-y-1">
           {steps.map((step, index) => {
             const checked = local.completed.includes(step.id);
@@ -212,9 +269,11 @@ export function ClioSteps({
                           {new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(
                             (step.quantity * amount) / baseAmount,
                           )}{' '}
-                          {Math.abs((step.quantity * amount) / baseAmount) === 1
-                            ? step.quantityUnit ?? ''
-                            : step.quantityUnitPlural ?? step.quantityUnit ?? ''}
+                          {quantityUnit(
+                            (step.quantity * amount) / baseAmount,
+                            step.quantityUnit,
+                            step.quantityUnitPlural,
+                          )}
                         </span>
                       ) : null}
                     </div>

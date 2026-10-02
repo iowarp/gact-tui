@@ -37,6 +37,9 @@ export function ClioToolInvocation({
   );
   const status = getToolStatus(presentedTool);
   const headerMetadata = getToolHeaderMetadata(presentedTool);
+  const actionLabel = isA2uiCatalogLookup(presentedTool)
+    ? 'Inspect component schema'
+    : presentedTool.presentation?.action || tool.title || tool.name;
   const summaryInHeader =
     Boolean(headerMetadata) && headerMetadata === presentedTool.presentation?.summary?.trim();
   return (
@@ -54,11 +57,7 @@ export function ClioToolInvocation({
               <span className="mr-1 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {workflow ? 'Workflow' : 'Tool'}
               </span>
-              <span className="shrink-0">
-                {isA2uiCatalogLookup(presentedTool)
-                  ? 'Inspect component schema'
-                  : presentedTool.presentation?.action || tool.title || tool.name}
-              </span>
+              <span className="shrink-0">{actionLabel}</span>
               {subject ? (
                 <>
                   <span aria-hidden="true">(</span>
@@ -89,7 +88,7 @@ export function ClioToolInvocation({
                 variant="ghost"
                 size="icon-sm"
                 className="size-5"
-                aria-label={`Technical details for ${tool.title || tool.name}`}
+                aria-label={`Technical details for ${actionLabel}`}
                 title="Technical details"
               >
                 <InfoIcon className="size-4" />
@@ -103,7 +102,7 @@ export function ClioToolInvocation({
           summaryInHeader={summaryInHeader}
         />
         <ResultDialogContent
-          title={`${tool.title || tool.name}: Technical details`}
+          title={`${actionLabel}: Technical details`}
           description="Original tool arguments, result, and diagnostics."
         >
           {tool.input !== undefined ? <ToolInput input={(tool.input ?? {}) as never} /> : null}

@@ -28,6 +28,8 @@ import type { ScientificMapPoint } from './scientific-map-view';
 import {
   isSelectionValue,
   parseSelectionState,
+  selectionForField,
+  type SelectionState,
   selectionIncludes,
   type SelectionWriter,
 } from './selection-state';
@@ -105,10 +107,12 @@ export function ClioScientificMap({
   const [localId, setLocalId] = useState(
     points.some((point) => point.id === selected) ? selected : undefined,
   );
+  const [localSelection, setLocalSelection] = useState<SelectionState>();
+  const writeSelection = setSelection ?? setLocalSelection;
   // Bound: the shared selection decides; unbound (or nothing there yet): local state and `selected`.
   const state = useMemo(
-    () => (setSelection ? parseSelectionState(selection) : undefined),
-    [selection, setSelection],
+    () => selectionForField(parseSelectionState(setSelection ? selection : localSelection), selectionField ?? 'id'),
+    [localSelection, selection, selectionField, setSelection],
   );
   const field: string =
     selectionField ?? (state && isSelectablePointField(state.field) ? state.field : 'id');
@@ -118,7 +122,6 @@ export function ClioScientificMap({
   // (`pointSelectValue` returns `undefined`), which would otherwise fail
   // perfectly silently: every click does nothing, with no visible reason.
   const unsupportedSelectionField =
-    Boolean(setSelection) &&
     selectionField !== undefined &&
     !isSelectablePointField(selectionField) &&
     !points.some((point) => point.selectionValue !== undefined);
@@ -152,20 +155,17 @@ export function ClioScientificMap({
     setLocalId(id);
     const point = points.find((candidate) => candidate.id === id);
     const value = point ? pointSelectValue(point, field) : undefined;
-    if (setSelection && value !== undefined) {
-      setSelection({ field, values: [value], ...(componentId ? { source: componentId } : {}) });
+    if (value !== undefined) {
+      writeSelection({ field, values: [value], ...(componentId ? { source: componentId } : {}) });
     }
   };
   const clearSelection = () => {
     setLocalId(undefined);
-    if (setSelection) {
-      setSelection({ field, values: [], ...(componentId ? { source: componentId } : {}) });
-    }
+    writeSelection({ field, values: [], ...(componentId ? { source: componentId } : {}) });
   };
   // Drag a rectangle to select every point inside it; clicking empty map space
   // clears both the linked selection and any locally selected point.
   const handleZoneSelect = (ids: string[]) => {
-    if (!setSelection) return;
     setLocalId(undefined);
     const values = ids
       .map((id) => {
@@ -173,7 +173,7 @@ export function ClioScientificMap({
         return point ? pointSelectValue(point, field) : undefined;
       })
       .filter(isSelectionValue);
-    setSelection({ field, values, ...(componentId ? { source: componentId } : {}) });
+    writeSelection({ field, values, ...(componentId ? { source: componentId } : {}) });
   };
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [mapHeight, setMapHeight] = useState(DEFAULT_MAP_HEIGHT);
@@ -390,30 +390,29 @@ export function ClioScientificMap({
       </>
     ),
   };
-  const boxSelectAction = setSelection ? (
+  const boxSelectAction = (
     <Button
       aria-label="Box select map points"
       aria-pressed={boxSelectMode}
-      className="shrink-0 gap-1.5"
+      className={cn('shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100', boxSelectMode && 'opacity-100')}
       onClick={() => setBoxSelectMode((active) => !active)}
       size="sm"
-      title="Drag a rectangle to select points; turn off to pan the map"
+      title="Box select — drag a rectangle to select points; turn off to pan the map"
       variant={boxSelectMode ? 'secondary' : 'ghost'}
     >
       <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
-      Box select
     </Button>
-  ) : null;
+  );
   const zoomActions = (
     <>
       {highlightedIds.size > 0 ? (
-        <Button aria-label="Zoom to selection" className="shrink-0 gap-1.5" onClick={zoomToSelection} size="sm" variant="outline">
-          <ZoomInIcon aria-hidden="true" className="size-3.5" />Zoom to selection
+        <Button aria-label="Zoom to selection" className="shrink-0" onClick={zoomToSelection} size="icon-sm" title="Zoom to selection" variant="ghost">
+          <ZoomInIcon aria-hidden="true" className="size-3.5" />
         </Button>
       ) : null}
       {zoomActive ? (
-        <Button aria-label="Reset zoom" className="shrink-0 gap-1.5" onClick={resetZoom} size="sm" variant="outline">
-          <RotateCcwIcon aria-hidden="true" className="size-3.5" />Reset zoom
+        <Button aria-label="Reset zoom" className="shrink-0" onClick={resetZoom} size="icon-sm" title="Reset zoom" variant="ghost">
+          <RotateCcwIcon aria-hidden="true" className="size-3.5" />
         </Button>
       ) : null}
     </>
@@ -428,7 +427,7 @@ export function ClioScientificMap({
         role="group"
       >
         <div className="mb-2 flex min-w-0 items-start gap-3">
-          <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{title}</h3>
+          <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={title}>{title}</h3>
           {boxSelectAction}
           {zoomActions}
           <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />

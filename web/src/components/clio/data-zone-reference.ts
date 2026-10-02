@@ -48,6 +48,9 @@ function previewTable(columns: readonly string[], rows: readonly Record<string, 
   if (!columns.length || !rows.length) return '';
   const cell = (value: unknown): string => {
     if (value === null || value === undefined) return '';
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Number(value.toPrecision(12)).toString();
+    }
     return String(value).replaceAll('|', '\\|');
   };
   const header = `| ${columns.join(' | ')} |`;

@@ -72,6 +72,14 @@ export function selectionIncludes(
   return state.values.some((selected) => selected === value || String(selected) === String(value));
 }
 
+/** A shared selection path identifies the same entities even when views name their key columns differently. */
+export function selectionForField(
+  state: SelectionState | undefined,
+  field: string | undefined,
+): SelectionState | undefined {
+  return state && field && state.field !== field ? { ...state, field } : state;
+}
+
 /** The writer the generic binder creates for a bound `selection` prop. */
 export type SelectionWriter = (value: SelectionState) => void;
 

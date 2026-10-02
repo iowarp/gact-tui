@@ -202,8 +202,16 @@ function axisRange(
   type: ChartAxisType,
   rows: readonly ChartRow[],
 ): AxisRange | undefined {
-  if (!isJsonObject(raw) || !Array.isArray(raw[field]) || raw[field].length !== 2) return undefined;
-  const bounds = raw[field] as [unknown, unknown];
+  if (!isJsonObject(raw) || !Array.isArray(raw[field]) || raw[field].length === 0) return undefined;
+  const selected = raw[field] as unknown[];
+  // Vega returns every covered category for ordinal/nominal intervals, not
+  // two endpoints. Using only the first and last would drop middle cells (or
+  // reject the brush entirely once it covers three or more categories).
+  if (type === 'ordinal' || type === 'nominal') {
+    return { categories: new Set(selected.map((value) => String(value))) };
+  }
+  if (selected.length !== 2) return undefined;
+  const bounds = selected as [unknown, unknown];
   const first = comparable(bounds[0], type);
   const second = comparable(bounds[1], type);
   if (first === undefined || second === undefined) return undefined;
