@@ -87,7 +87,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
   )
 
   const headerButtonClassName = cn(
-    "text-secondary-foreground/80 hover:bg-secondary data-[state=open]:bg-secondary hover:text-foreground data-[state=open]:text-foreground px-2 font-normal h-6 rounded-lg",
+    "text-secondary-foreground/80 hover:bg-secondary data-[state=open]:bg-secondary hover:text-foreground data-[state=open]:text-foreground px-2 font-normal h-6 rounded-lg min-w-0 max-w-full",
     className
   )
 
@@ -289,7 +289,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
 
   if (hasControls) {
     return (
-      <div className="-ms-2 flex h-full items-center justify-between gap-1.5">
+      <div className="-ms-2 flex h-full min-w-0 items-center justify-between gap-1.5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -298,7 +298,9 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
               disabled={isLoading}
             >
               {icon && icon}
-              {resolvedTitle}
+              <span className="min-w-0 truncate" title={resolvedTitle}>
+                {resolvedTitle}
+              </span>
               {sortIcon}
             </Button>
           </DropdownMenuTrigger>
@@ -324,7 +326,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
 
   if (canSort || (props.tableLayout?.columnsResizable && canResize)) {
     return (
-      <div className="-ms-2 flex h-full items-center">
+      <div className="-ms-2 flex h-full min-w-0 items-center">
         <Button
           variant="ghost"
           className={headerButtonClassName}
@@ -332,7 +334,9 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
           onClick={handleSort}
         >
           {icon && icon}
-          {resolvedTitle}
+          <span className="min-w-0 truncate" title={resolvedTitle}>
+            {resolvedTitle}
+          </span>
           {sortIcon}
         </Button>
       </div>
