@@ -1,8 +1,9 @@
-import { PROTOCOL_VERSION } from '@clio/core/v3';
+import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
+import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL, isHistoryMode } from '@/lib/context-mode';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
@@ -20,6 +21,7 @@ export interface ConnectionAvailability {
   state: ConnectionAvailabilityState;
   label: string;
   detail: string;
+  diagnostics?: string;
 }
 
 export type ConnectionAvailabilityMap = Readonly<Record<string, ConnectionAvailability>>;
@@ -93,6 +95,9 @@ export async function probeConnection(
 
     try {
       const health = await repository.serviceHealth(controller.signal);
+      if (health.healthy && isHistoryMode(health)) {
+        return { state: 'degraded', label: HISTORY_MODE_LABEL, detail: HISTORY_MODE_DETAIL };
+      }
       return health.healthy
         ? { state: 'healthy', label: 'Ready', detail: 'Service is available.' }
         : {
@@ -133,7 +138,14 @@ function availabilityFromError(error: unknown): ConnectionAvailability {
   }
   return {
     state: 'unavailable',
-    label: 'Unavailable',
+    label:
+      error instanceof TransportError && error.code === 'incompatible_capabilities'
+        ? 'Incompatible'
+        : 'Unavailable',
     detail: error instanceof Error ? error.message : 'The service could not be reached.',
+    diagnostics:
+      error instanceof TransportError && error.details
+        ? JSON.stringify(error.details, null, 2)
+        : undefined,
   };
 }

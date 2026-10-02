@@ -69,7 +69,6 @@ export function ProvidersSettings() {
         api_base: preset.id === active?.id ? (configuration.data?.api_base ?? '') : (preset.api_base ?? ''),
         model: choice.id,
         provider_options: {},
-        ...(choice.transport ? { variant: choice.transport } : {}),
       },
     });
   }

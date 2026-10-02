@@ -29,6 +29,9 @@ declare module '@brand' {
     }>;
     logoSvg: string | null;
     logoImage: string | null;
+    iconSvg: string | null;
+    faviconSvg: string | null;
+    wordmarkImage: string | null;
   }
   export const brand: Brand;
   export default brand;

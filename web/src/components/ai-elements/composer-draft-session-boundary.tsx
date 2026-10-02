@@ -13,7 +13,12 @@ import { usePromptInputController, useProviderAttachments } from './prompt-input
  */
 export function ComposerDraftSessionBoundary({ children }: PropsWithChildren) {
   const match = useMatch('/workspaces/:workspaceId/sessions/:sessionId');
-  const sessionKey = match ? `${match.params.workspaceId}:${match.params.sessionId}` : undefined;
+  const draftMatch = useMatch('/workspaces/:workspaceId/new');
+  const sessionKey = match
+    ? `session:${match.params.workspaceId}:${match.params.sessionId}`
+    : draftMatch
+      ? `draft:${draftMatch.params.workspaceId}`
+      : undefined;
   const lastSessionKey = useRef<string | undefined>(undefined);
   const { clear: clearAttachments } = useProviderAttachments();
   const {
@@ -21,6 +26,12 @@ export function ComposerDraftSessionBoundary({ children }: PropsWithChildren) {
   } = usePromptInputController();
 
   useEffect(() => {
+    // A presentation-only draft is discarded as soon as its route is left.
+    if (lastSessionKey.current?.startsWith('draft:') && lastSessionKey.current !== sessionKey) {
+      clearAttachments();
+      clearInput();
+      lastSessionKey.current = sessionKey;
+    }
     if (!sessionKey) return;
     if (lastSessionKey.current && lastSessionKey.current !== sessionKey) {
       clearAttachments();

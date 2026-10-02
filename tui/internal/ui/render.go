@@ -6,6 +6,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/JaimeCernuda/gact-tui/contract/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 )
 
 // renderPartsForRoleWithResults renders parts in order, but when a
@@ -159,6 +160,12 @@ func (t Theme) renderPart(p gact.Part, width int) string {
 
 	case gact.PartTypeCompaction:
 		return t.renderCompactionPart(p, wrapW)
+
+	case gact.PartTypeInjection:
+		return render.InjectionRow(p, wrapW, t.FgMuted, t.Secondary)
+
+	case gact.PartTypeNotice:
+		return render.NoticeRow(p, wrapW, t.Danger, t.FgMuted)
 
 	case partTypeRuntimeProvenance:
 		return t.renderRuntimeProvenancePart(p, wrapW)

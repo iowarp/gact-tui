@@ -60,9 +60,11 @@ vi.mock('@/providers/connection-provider', () => ({
 import { ConnectionPage } from './connection-page';
 import { clearConnectionOutcomes, connectionOutcomes } from '@/lib/connection-outcomes';
 import { InfrastructureTargetGoneError } from '@/lib/connection';
+import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.clearAllMocks();
   clearConnectionOutcomes();
   mocks.credentialsReady = true;
@@ -128,7 +130,7 @@ it('shows managed startup instead of asking desktop users for a connection addre
   expect(screen.getByText('Starting local service')).toBeVisible();
   expect(screen.getByText('Loading the bundled scientific workspace')).toBeVisible();
   expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
-  expect(screen.getByTestId('desktop-boot-logo')).toHaveClass('translate-x-1', '-translate-y-2');
+  expect(screen.getByTestId('desktop-boot-logo')).toHaveClass('object-contain');
   expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
 });
 
@@ -242,8 +244,8 @@ it('connects after clicking a known CLIO in the default list', async () => {
         <Routes>
           <Route element={<ConnectionPage />} path="/" />
           <Route
-            element={<div>Connected workspace session</div>}
-            path="/workspaces/:workspaceId/sessions/:sessionId"
+            element={<div>Connected workspace draft</div>}
+            path="/workspaces/:workspaceId/new"
           />
         </Routes>
       </MemoryRouter>
@@ -255,8 +257,9 @@ it('connects after clicking a known CLIO in the default list', async () => {
   await user.click(item);
   await user.click(screen.getByRole('button', { name: 'Open workspace' }));
 
-  expect(await screen.findByText('Connected workspace session')).toBeVisible();
+  expect(await screen.findByText('Connected workspace draft')).toBeVisible();
   expect(mocks.connect).toHaveBeenCalledOnce();
+  expect(mocks.repository.createSession).not.toHaveBeenCalled();
 });
 
 it('opens only the manual form from "Add a service" -- never a deploy action', async () => {
@@ -459,6 +462,7 @@ it('reports a passive probe failure without locking the real connection attempt'
 afterEach(cleanup);
 
 it('opens an existing workspace session after a successful connection', async () => {
+  rememberWorkspaceRoute('http://127.0.0.1:8788', 'ws_default', 'sess_empty');
   const user = userEvent.setup();
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -484,46 +488,46 @@ it('opens an existing workspace session after a successful connection', async ()
   expect(mocks.repository.createSession).not.toHaveBeenCalled();
 });
 
-it('creates the reusable empty base-agent session when every conversation has content', async () => {
-  mocks.repository.allSessions.mockResolvedValue([
-    {
-      id: 'sess_existing',
-      workspace_id: 'ws_default',
-      title: 'Completed review',
-      archived: false,
-      parent_session_id: '',
-      last_interaction_at: '2026-09-02T12:00:00Z',
-      updated_at: '2026-09-02T12:00:00Z',
-      created_at: '2026-09-02T11:00:00Z',
-      message_count: 4,
-    },
-  ]);
-  const user = userEvent.setup();
-  const queryClient = new QueryClient({
-    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/?intent=connect']}>
-        <Routes>
-          <Route element={<ConnectionPage />} path="/" />
-          <Route
-            element={<div>Empty base-agent session</div>}
-            path="/workspaces/:workspaceId/sessions/:sessionId"
-          />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+it.each([undefined, 0, 4])(
+  'opens a draft without creating a session (message_count=%s)',
+  async (messageCount) => {
+    mocks.repository.allSessions.mockResolvedValue([
+      {
+        id: 'sess_existing',
+        workspace_id: 'ws_default',
+        title: 'Completed review',
+        archived: false,
+        parent_session_id: '',
+        last_interaction_at: '2026-09-02T12:00:00Z',
+        updated_at: '2026-09-02T12:00:00Z',
+        created_at: '2026-09-02T11:00:00Z',
+        message_count: messageCount,
+      },
+    ]);
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/?intent=connect']}>
+          <Routes>
+            <Route element={<ConnectionPage />} path="/" />
+            <Route
+              element={<div>Presentation-only draft</div>}
+              path="/workspaces/:workspaceId/new"
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
 
-  await user.click(screen.getByRole('button', { name: 'Connect' }));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
-  expect(await screen.findByText('Empty base-agent session')).toBeVisible();
-  expect(mocks.repository.createSession).toHaveBeenCalledWith({
-    workspace_id: 'ws_default',
-    title: 'New conversation',
-  });
-});
+    expect(await screen.findByText('Presentation-only draft')).toBeVisible();
+    expect(mocks.repository.createSession).not.toHaveBeenCalled();
+  },
+);
 
 it('offers setup instead of the bare form when a connection resolves no target', async () => {
   mocks.repository.workspaces.mockResolvedValue([]);
@@ -561,7 +565,7 @@ it('offers setup instead of the bare form when a connection resolves no target',
   expect(mocks.connect).toHaveBeenCalledOnce();
 });
 
-it('says when it created the conversation the auto-connect landed in', async () => {
+it('auto-connects to a draft without minting a persistent session', async () => {
   // A remembered service is what makes the page connect without being asked.
   mocks.recents = [{ endpoint: 'http://127.0.0.1:8788', label: 'Contained' }];
   mocks.repository.allSessions.mockResolvedValue([
@@ -585,26 +589,15 @@ it('says when it created the conversation the auto-connect landed in', async () 
       <MemoryRouter initialEntries={['/']}>
         <Routes>
           <Route element={<ConnectionPage />} path="/" />
-          <Route
-            element={<div>Minted session</div>}
-            path="/workspaces/:workspaceId/sessions/:sessionId"
-          />
+          <Route element={<div>Presentation-only draft</div>} path="/workspaces/:workspaceId/new" />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByText('Minted session')).toBeVisible();
-  // Auto-connect creates a session on the service without being asked. That is
-  // a write, and it is recorded with its own reason rather than happening
-  // invisibly behind a redirect.
-  await waitFor(() =>
-    expect(connectionOutcomes().at(-1)).toMatchObject({
-      code: 'session_minted',
-      sessionId: 'sess_new',
-      workspaceId: 'ws_default',
-    }),
-  );
+  expect(await screen.findByText('Presentation-only draft')).toBeVisible();
+  expect(mocks.repository.createSession).not.toHaveBeenCalled();
+  expect(connectionOutcomes().some((outcome) => outcome.code === 'session_minted')).toBe(false);
 });
 
 function renderPage() {

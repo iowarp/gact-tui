@@ -63,9 +63,40 @@ pub(crate) fn runtime_state_dir() -> Option<PathBuf> {
 
 /// `<home>/.clio/hosts/<this machine's host key>`.
 fn machine_state_dir(home: &Path) -> PathBuf {
-    home.join(".clio")
-        .join("hosts")
-        .join(host_key(&system_hostname()))
+    let current = agent_state_root(home, |name| std::env::var_os(name).map(PathBuf::from))
+        .join("core-hosts")
+        .join(host_key(&system_hostname()));
+    let legacy = home.join(".clio/hosts").join(host_key(&system_hostname()));
+    if legacy.exists() && !current.exists() {
+        legacy
+    } else {
+        current
+    }
+}
+
+/// Mirrors Python paths.resolve_root(state), including legacy CLIO_USER_DIR.
+fn agent_state_root(home: &Path, env: impl Fn(&str) -> Option<PathBuf>) -> PathBuf {
+    let nonempty = |name| env(name).filter(|p| !p.as_os_str().is_empty() && p.is_absolute());
+    if let Some(root) = nonempty("CLIO_AGENT_STATE_DIR") {
+        return root;
+    }
+    // Agent HOME isolates content; the fixed-port Core daemon remains host-wide.
+    #[cfg(windows)]
+    {
+        nonempty("LOCALAPPDATA")
+            .unwrap_or_else(|| home.join("AppData/Local"))
+            .join("clio-agent/state")
+    }
+    #[cfg(target_os = "macos")]
+    {
+        home.join("Library/Application Support/clio-agent/state")
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        nonempty("XDG_STATE_HOME")
+            .unwrap_or_else(|| home.join(".local/state"))
+            .join("clio-agent")
+    }
 }
 
 /// The directory name for a machine, from its host name. Mirrors
@@ -442,7 +473,9 @@ mod tests {
         assert!(!hostname.is_empty(), "the OS reports a host name");
         assert_eq!(
             machine_state_dir(home),
-            home.join(".clio").join("hosts").join(host_key(&hostname))
+            agent_state_root(home, |name| std::env::var_os(name).map(PathBuf::from))
+                .join("core-hosts")
+                .join(host_key(&hostname))
         );
     }
 

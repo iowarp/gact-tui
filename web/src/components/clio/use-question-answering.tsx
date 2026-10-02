@@ -11,6 +11,7 @@ import {
   questionAnswerFromComposer,
   questionLink,
 } from '@/lib/inline-question';
+import { isVariantPickInteraction } from '@/lib/variant-runs';
 import type { SessionSendInput } from '@/hooks/use-session-mutations';
 import { planRevisionFromComposer } from './workspace-route-state';
 import { PendingQuestionNotice } from './pending-question-notice';
@@ -64,8 +65,11 @@ export function useQuestionAnswering({
     () => pendingLogQuestions(interactions, toolIds),
     [interactions, toolIds],
   );
-  // Read the live row: a question answered or expired elsewhere stops being a target.
-  const answering = questions.find((question) => question.id === answeringId);
+  // Read the live row: a question answered or expired elsewhere stops being a
+  // target. A pick between drafts never is: it is answered in its tabs block.
+  const answering = questions.find(
+    (question) => question.id === answeringId && !isVariantPickInteraction(question),
+  );
   const stopAnswer = useCallback(() => setAnsweringId(undefined), []);
   const context = useMemo<QuestionAnswerState>(
     () => ({

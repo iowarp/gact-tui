@@ -1,6 +1,7 @@
+import { BrandIcon } from '@/components/clio/brand-icon';
 import { brand } from '@brand';
-import { PROTOCOL_VERSION } from '@clio/core/v3';
-import { useMutation } from '@tanstack/react-query';
+import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -24,6 +25,7 @@ import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
+import { queryKeys } from '@/lib/query-keys';
 import { reportConnectionOutcome } from '@/lib/connection-outcomes';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -56,12 +58,16 @@ import {
 import {
   connectionSessionRoute,
   connectionWorkspaceForRoute,
-  emptyConnectionSessionTarget,
+  connectionSessionTargetForRoute,
   latestConnectionSessionTarget,
 } from '@/lib/connection-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
-import { lastWorkspaceRoute, rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
+import {
+  lastWorkspaceRoute,
+  rememberWorkspaceRoute,
+  newConversationRoute,
+} from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { ManagedBackendStatus } from '@/tauri/managed-backend';
 
@@ -173,7 +179,7 @@ function DesktopBoot({
               {logoSource ? (
                 <img
                   alt=""
-                  className="size-full translate-x-1 -translate-y-2 object-contain"
+                  className="size-full object-contain"
                   data-testid="desktop-boot-logo"
                   src={logoSource}
                 />
@@ -239,6 +245,7 @@ function DesktopBoot({
 }
 
 export function ConnectionPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const {
@@ -308,56 +315,37 @@ export function ConnectionPage() {
         repository.workspaces(),
         repository.allSessions(),
       ]);
-      // Only the workspace is remembered here: the flow below opens a blank
-      // conversation rather than the one that happened to be open last.
-      const rememberedWorkspace = connectionWorkspaceForRoute(
-        lastWorkspaceRoute(next.endpoint),
-        workspaces,
-      );
+      const rememberedRoute = lastWorkspaceRoute(next.endpoint);
+      const target = connectionSessionTargetForRoute(rememberedRoute, workspaces, sessions);
       const recent = latestConnectionSessionTarget(workspaces, sessions);
-      const workspace = rememberedWorkspace ?? recent?.workspace ?? workspaces[0];
-      let target = workspace ? emptyConnectionSessionTarget(workspace, sessions) : undefined;
+      const workspace =
+        connectionWorkspaceForRoute(rememberedRoute, workspaces) ??
+        recent?.workspace ??
+        workspaces[0];
       await connect(next);
-      if (!target && workspace) {
-        // Older services do not expose message_count. Fall back to their latest
-        // valid session instead of manufacturing a blank conversation on every load.
-        if (sessions.some((session) => session.message_count === undefined)) {
-          target = recent;
-        } else {
-          const session = await repository.createSession({
-            workspace_id: workspace.id,
-            title: 'New conversation',
-          });
-          target = { workspace, session };
-          reportConnectionOutcome({
-            code: 'session_minted',
-            endpoint: next.endpoint,
-            reason:
-              'Every existing conversation in this workspace had content, so a new one was created to land in.',
-            sessionId: session.id,
-            workspaceId: workspace.id,
-          });
-        }
+      queryClient.setQueryData(queryKeys.key('capabilities', next.endpoint), capabilities);
+      queryClient.setQueryData(queryKeys.key('workspaces', next.endpoint), workspaces);
+      queryClient.setQueryData(queryKeys.sessions(next.endpoint, 'all'), sessions);
+      if (workspace) {
+        queryClient.setQueryData(
+          queryKeys.sessions(next.endpoint, workspace.id),
+          sessions.filter((session) => session.workspace_id === workspace.id),
+        );
       }
-      if (!target) {
-        // The connection itself succeeded — there is simply nothing openable on
-        // the far side. The setup surface below is the way out of that; falling
-        // back to the connect form would strand the person on a button that has
-        // already done its job.
+      if (target) {
+        await navigate(connectionSessionRoute(target), { replace: true });
+      } else if (workspace) {
+        // A blank entry composer is presentation only. Opening/reopening the
+        // service must never persist an unused conversation on the backend.
+        await navigate(newConversationRoute(workspace.id), { replace: true });
+      } else {
         reportConnectionOutcome({
           code: 'target_unresolved',
           endpoint: next.endpoint,
-          reason: workspace
-            ? 'The workspace held no conversation that could be opened.'
-            : 'The service exposed no workspace that could be opened.',
-          workspaceId: workspace?.id,
+          reason: 'The service exposed no workspace that could be opened.',
         });
       }
-      if (target) {
-        rememberWorkspaceRoute(next.endpoint, target.workspace.id, target.session.id);
-        await navigate(connectionSessionRoute(target), { replace: true });
-      }
-      return { next, capabilities, sessions, target, workspaces };
+      return { next, capabilities, sessions, target: target ?? workspace, workspaces };
     },
   });
   const setup = useMutation({
@@ -434,6 +422,7 @@ export function ConnectionPage() {
   };
 
   const logoSource =
+    brand.wordmarkImage ??
     brand.logoImage ??
     (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
 
@@ -469,16 +458,7 @@ export function ConnectionPage() {
         <div className="max-w-2xl">
           <div className="mb-10 flex items-center gap-4">
             <div className="grid size-14 shrink-0 place-items-center self-center overflow-hidden rounded-2xl border border-primary/35 bg-card/75 shadow-[0_0_48px_color-mix(in_oklch,var(--primary)_18%,transparent)] backdrop-blur">
-              {logoSource ? (
-                <img alt="" className="size-full object-contain p-1.5" src={logoSource} />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="font-heading text-xl font-semibold text-primary"
-                >
-                  {brand.markGlyph}
-                </span>
-              )}
+              <BrandIcon className="size-10 text-primary" />
             </div>
             {/* Line boxes sum to the tile's 56px (16 + 24 + 16), so centering the
                 column against the tile lines the eyebrow up with its top edge and
@@ -712,6 +692,14 @@ export function ConnectionPage() {
                   <AlertTitle>Connection unavailable</AlertTitle>
                   <AlertDescription>
                     {mutation.error.message}
+                    {mutation.error instanceof TransportError && mutation.error.details ? (
+                      <details className="mt-2">
+                        <summary>Diagnostic details</summary>
+                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">
+                          {JSON.stringify(mutation.error.details, null, 2)}
+                        </pre>
+                      </details>
+                    ) : null}
                     {mutation.error instanceof InfrastructureTargetGoneError &&
                     mutation.variables ? (
                       <div className="mt-3">

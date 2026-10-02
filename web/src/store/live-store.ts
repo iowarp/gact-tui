@@ -1,5 +1,7 @@
 import {
   createEntityState,
+  mergeVariantRuns,
+  type VariantRuns,
   type EntityState,
   type StreamState,
   type TransportGap,
@@ -36,6 +38,11 @@ interface LiveStore {
   mergeSnapshots: (snapshot: Partial<EntityState>) => void;
   reconcileSnapshots: (snapshot: Partial<EntityState>) => void;
   clearSessionModelReferences: () => void;
+  /**
+   * Merges variant runs rebuilt from the durable trace (a reload) under the
+   * live ones: what the stream wrote wins, the trace fills what it never saw.
+   */
+  hydrateVariantRuns: (runs: VariantRuns) => void;
   reset: () => void;
 }
 
@@ -203,6 +210,13 @@ export const useLiveStore = create<LiveStore>((set) => ({
       entities: {
         ...state.entities,
         sessions: withoutEntitySessionModelReferences(state.entities.sessions),
+      },
+    })),
+  hydrateVariantRuns: (runs) =>
+    set((state) => ({
+      entities: {
+        ...state.entities,
+        variant_runs: mergeVariantRuns(state.entities.variant_runs, runs),
       },
     })),
   reset: () => set({ entities: createEntityState(), frameGaps: [], error: undefined }),

@@ -664,7 +664,7 @@ export function WorkspacePage() {
                 contextFramesPending={contextObservability.contextFrames.isPending}
                 contextPreferencesPending={sessionContext.preferences.isPending}
                 contextTargets={contextTargetOptions}
-                compactContextPending={sessionContext.compact.isPending}
+                compactContextPending={sessionContext.compactPending}
                 diffs={sessionObservability.diffs.data ?? []}
                 diffsError={sessionObservability.diffs.error?.message}
                 diffsPending={sessionObservability.diffs.isPending}

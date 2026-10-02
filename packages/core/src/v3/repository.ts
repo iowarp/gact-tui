@@ -25,7 +25,6 @@ import type {
 } from './domain.js';
 import type { AgentDefinition } from './agent-domain.js';
 import {
-  capabilitiesSchema,
   operationalRunSchema,
   sessionSchema,
   turnAttemptSchema,
@@ -58,6 +57,7 @@ import {
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
 import { mergeA2uiClientMetadata } from './a2ui/index.js';
 import { SystemRepository } from './system-repository.js';
+import { decodeCapabilities } from './capability-negotiation.js';
 
 /**
  * Artifact records requested per page while walking a session's registry.
@@ -81,7 +81,7 @@ export class ClioRepository extends SystemRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/capabilities',
-      decode: (value) => capabilitiesSchema.parse(value),
+      decode: decodeCapabilities,
       signal,
     });
   }

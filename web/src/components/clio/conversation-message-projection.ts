@@ -163,3 +163,23 @@ export function mcpAppResponsesForMessages(
   }
   return responses;
 }
+
+/**
+ * Whether a pending A2UI response owns this surface. The pending-response tray
+ * renders that surface (it is where the user answers it), so the transcript
+ * never mounts a second copy -- neither from a message's `a2ui` block nor as a
+ * detached surface.
+ */
+export function surfaceAwaitsPendingResponse(
+  interactions: readonly PendingInteraction[] | undefined,
+  surfaceId: string,
+): boolean {
+  return (
+    interactions?.some(
+      (interaction) =>
+        interaction.kind === 'a2ui' &&
+        interaction.status === 'pending' &&
+        interaction.source.surface_id === surfaceId,
+    ) ?? false
+  );
+}

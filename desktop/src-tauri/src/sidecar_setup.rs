@@ -12,6 +12,7 @@ pub(crate) const BUNDLED_RUNTIME_ENV: &str = "GACT_BUNDLED_RUNTIME_DIR";
 pub(crate) const HF_HOME_ENV: &str = "HF_HOME";
 pub(crate) const HF_HUB_CACHE_ENV: &str = "HF_HUB_CACHE";
 pub(crate) const HF_XET_CACHE_ENV: &str = "HF_XET_CACHE";
+pub(crate) const CLIO_AGENT_HOME_ENV: &str = "CLIO_AGENT_HOME";
 pub(crate) const CLIO_USER_DIR_ENV: &str = "CLIO_USER_DIR";
 
 /// Select the root for managed, potentially large desktop state.
@@ -58,7 +59,12 @@ pub(crate) fn prepare_desktop_workspace(app_local_data_dir: &Path) -> io::Result
 }
 
 pub(crate) fn desktop_user_dir(app_local_data_dir: &Path) -> PathBuf {
-    app_local_data_dir.join("clio-user")
+    let legacy = app_local_data_dir.join("clio-user");
+    if legacy.exists() {
+        legacy
+    } else {
+        app_local_data_dir.join("clio-agent")
+    }
 }
 
 pub(crate) fn prepare_desktop_user_dir(app_local_data_dir: &Path) -> io::Result<PathBuf> {
@@ -155,7 +161,7 @@ mod tests {
     #[test]
     fn desktop_user_state_is_scoped_to_platform_app_data() {
         let app_data = Path::new("platform-data");
-        assert_eq!(desktop_user_dir(app_data), app_data.join("clio-user"));
+        assert_eq!(desktop_user_dir(app_data), app_data.join("clio-agent"));
     }
 
     #[test]

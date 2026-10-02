@@ -76,6 +76,8 @@ jobs:
         run: pnpm --dir web exec playwright install --with-deps chromium
       - name: Browser e2e, accessibility, and visual baselines
         run: pnpm --dir web test:e2e
+      - name: Remote deployment dialog at desktop and narrow widths
+        run: pnpm --dir web exec playwright test --config playwright.deployment.config.ts
       # S8 (gact-tui#409): the exact bundle desktop packages must render all
       # 43 vendored A2UI examples. Needs web/dist (built above) and the
       # Chromium installed for the e2e step; it fails, never skips, when

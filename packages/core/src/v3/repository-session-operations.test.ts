@@ -76,6 +76,7 @@ describe('ClioRepository session operation contracts', () => {
         compacted: true,
         summary_message_id: 'message_summary',
       },
+      { session_id: 'sess 1', compacted: true },
     ]);
     const repository = new ClioRepository(transport);
 
@@ -83,6 +84,7 @@ describe('ClioRepository session operation contracts', () => {
     await repository.undoSession('sess 1', 1);
     await repository.rewindSession('sess 1', 'message 1', true);
     await repository.compactSession('sess 1');
+    await repository.compactSession('sess 1', 'expert/main');
 
     expect(transport.requests.map(({ method, path, body }) => ({ method, path, body }))).toEqual([
       {
@@ -97,6 +99,7 @@ describe('ClioRepository session operation contracts', () => {
         body: { message_id: 'message 1', include_target: true },
       },
       { method: 'POST', path: '/v1/sessions/sess%201/compact', body: {} },
+      { method: 'POST', path: '/v1/sessions/sess%201/compact?scope=expert%2Fmain', body: {} },
     ]);
   });
 

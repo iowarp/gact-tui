@@ -77,7 +77,7 @@ test('a map surface loads its basemap tiles under the desktop CSP', async ({ pag
     { cspValue: desktopCsp(), endpoint: fixtureEndpoint },
   );
 
-  await page.goto('/');
+  await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   const map = page.getByRole('group', { name: 'Nearest EarthScope GNSS stations' });
   await expect(map).toBeVisible();
 

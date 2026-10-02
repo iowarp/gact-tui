@@ -10,6 +10,8 @@ import type { ConversationDisplayMode } from '@/providers/conversation-display-p
 import { useConversationDisplay } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
+import { ClioCompactionProgress } from './conversation-summarization';
+import { placeCompactions } from './conversation-compaction-placement';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import type { ClioConversationProps } from './conversation-types';
 import {
@@ -17,6 +19,7 @@ import {
   isProjectedQuestionResumeEnvelope,
   mcpAppResponsesForMessages,
   projectA2UIActionMessages,
+  surfaceAwaitsPendingResponse,
 } from './conversation-message-projection';
 import { PresentationNavigation } from './presentation-navigation';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
@@ -58,6 +61,7 @@ function ConversationBody({
   loading,
   error,
   bottomInset = 0,
+  compactions,
   ...entities
 }: ClioConversationProps) {
   const mcpAppResponses = useMemo(
@@ -72,6 +76,10 @@ function ConversationBody({
           !isProjectedQuestionResumeEnvelope(message, entities.interactions),
       ))),
     [entities.interactions, sourceMessages],
+  );
+  const compactionPlacement = useMemo(
+    () => placeCompactions(compactions ?? [], messages),
+    [compactions, messages],
   );
   const { mode: defaultDisplayMode } = useConversationDisplay();
   const { conversationWidth } = useAppearancePreferences();
@@ -125,9 +133,16 @@ function ConversationBody({
   const detachedSurfaces = useMemo(
     () =>
       Object.values(entities.surfaces)
-        .filter((surface) => !referencedSurfaceIds.has(surface.id) && surface.state !== 'deleted')
+        .filter(
+          (surface) =>
+            !referencedSurfaceIds.has(surface.id) &&
+            surface.state !== 'deleted' &&
+            // The pending-response tray renders a surface awaiting the user's
+            // answer; a detached copy here would mount the same surface twice.
+            !surfaceAwaitsPendingResponse(entities.interactions, surface.id),
+        )
         .sort((left, right) => left.revision - right.revision),
-    [entities.surfaces, referencedSurfaceIds],
+    [entities.interactions, entities.surfaces, referencedSurfaceIds],
   );
   const activeStreamingIndex = messages.findLastIndex((message) =>
     message.blocks.some(
@@ -427,6 +442,7 @@ function ConversationBody({
                   measureElement={virtualizer.measureElement}
                   message={message}
                   mcpAppResponse={mcpAppResponses.get(message.id)}
+                  messageCompactions={compactionPlacement.byMessage.get(message.id)}
                   onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                   recent={index >= messages.length - 2}
                   start={start}
@@ -436,6 +452,17 @@ function ConversationBody({
             })}
           </div>
         )}
+        {compactionPlacement.trailing.length > 0 ? (
+          <div
+            className={`mx-auto grid w-full gap-3 px-5 pb-4 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            data-slot="trailing-compactions"
+            ref={autoscroll.observeContent}
+          >
+            {compactionPlacement.trailing.map((compaction) => (
+              <ClioCompactionProgress compaction={compaction} key={compaction.compaction_id} />
+            ))}
+          </div>
+        ) : null}
         {detachedSurfaces.length > 0 ? (
           <div
             ref={autoscroll.observeContent}

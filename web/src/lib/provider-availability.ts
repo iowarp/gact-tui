@@ -20,7 +20,7 @@ function providerNameForApiKeyCopy(preset: LanguageModelPreset | undefined): str
  * Translate a handful of typed backend reasons into plain wording -- never
  * the raw Globus/CLI text a live check surfaced. Applies wherever a reason
  * string can land, not only where a preset is in scope (e.g. a bare
- * handshake or per-transport result) -- `providerName` is optional and only
+ * handshake result) -- `providerName` is optional and only
  * sharpens the generic connectivity/auth sentence when the caller has one.
  */
 export function translateKnownProviderErrorReason(text: string, providerLabel?: string): string {
@@ -50,10 +50,10 @@ export function translateKnownProviderErrorReason(text: string, providerLabel?: 
   }
   // Every other typed reason this build knows about already reads as a plain
   // sentence after its "snake_case_code: " prefix (the
-  // `SDK_UNAVAILABLE_REASONS`/`PASSIVE_TOKEN_REASONS` style) -- drop just the
-  // code, never inventing new wording for a reason this build has never seen.
+  // `PASSIVE_TOKEN_REASONS` style) -- drop just the code, never inventing new
+  // wording for a reason this build has never seen.
   // Requires an underscore before the colon (every real typed code has one,
-  // e.g. `codex_sdk_signed_out`), so an ordinary "note: ..." sentence a
+  // e.g. `api_key_rejected`), so an ordinary "note: ..." sentence a
   // caller passes as free text is never mistaken for a code and truncated.
   // A bare code with no sentence after it is never shown as is.
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/u.test(text.trim())) {

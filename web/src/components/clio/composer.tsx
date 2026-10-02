@@ -110,7 +110,6 @@ export interface ClioComposerProps {
     references: Exclude<ComposerMessagePart, { type: 'text' }>[];
     provider?: string;
     model?: string;
-    transport?: string;
     delivery: MessageDelivery | 'queued';
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
@@ -206,7 +205,7 @@ export function ClioComposer({
   variant = 'docked',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
-  const { selectedOption, selectedTransport, selectModel } = useComposerModelSelection(
+  const { selectedOption, selectModel } = useComposerModelSelection(
     modelOptions,
     provider,
     model,
@@ -558,7 +557,6 @@ export function ClioComposer({
                 text: messageTextWithAnnotations(annotations, trimmed),
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
-                transport: selectedTransport,
                 onUploadProgress: (progress) => {
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
@@ -685,7 +683,6 @@ export function ClioComposer({
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
                   provider={selectedOption?.providerId}
-                  transport={selectedOption?.transport}
                   trigger={
                     <Button
                       aria-label="Change model"

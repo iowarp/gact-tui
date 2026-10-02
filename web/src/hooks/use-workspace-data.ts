@@ -37,6 +37,7 @@ import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
 import { useProviderCatalog } from './use-provider-catalog';
 import { useSessionLiveStream } from './use-session-live-stream';
+import { useVariantRunHydration } from './use-variant-run-hydration';
 import { useSessionObservability } from './use-session-observability';
 import { useWorkspaceCapabilities } from './use-workspace-capabilities';
 import {
@@ -200,6 +201,7 @@ export function useWorkspaceData({
     sessionId,
     workspaceId,
   });
+  useVariantRunHydration({ enabled: transcript.isSuccess, sessionId });
   const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
     capabilities.data?.capabilities,
   );

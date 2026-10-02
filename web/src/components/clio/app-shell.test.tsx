@@ -11,16 +11,18 @@ afterEach(cleanup);
 function installMatchMedia(matches: (query: string) => boolean) {
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
-    value: vi.fn((query: string): MediaQueryList => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(() => false),
-      matches: matches(query),
-      media: query,
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn(),
-    })),
+    value: vi.fn(
+      (query: string): MediaQueryList => ({
+        addEventListener: vi.fn(),
+        addListener: vi.fn(),
+        dispatchEvent: vi.fn(() => false),
+        matches: matches(query),
+        media: query,
+        onchange: null,
+        removeEventListener: vi.fn(),
+        removeListener: vi.fn(),
+      }),
+    ),
     writable: true,
   });
 }
@@ -40,6 +42,23 @@ function renderShell() {
 }
 
 describe('ClioAppShell responsive workbench', () => {
+  it('shows only the conversation when a draft has no canvas or status', () => {
+    installMatchMedia((query) => query.startsWith('(min-width:'));
+    const { container } = render(
+      <ClioAppShell
+        contextBar="New conversation"
+        navigation={<nav>Navigation</nav>}
+        statusStrip={null}
+        workbench={null}
+      >
+        <span>Draft composer</span>
+      </ClioAppShell>,
+    );
+    expect(screen.getByText('Draft composer')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Open workspace canvas' })).toBeNull();
+    expect(screen.queryByRole('separator', { name: 'Resize workspace canvas' })).toBeNull();
+    expect(container.querySelector('footer')).toBeNull();
+  });
   it('fills its title-bar-constrained parent without adding another viewport height', () => {
     installMatchMedia((query) => query === '(min-width: 768px)');
 

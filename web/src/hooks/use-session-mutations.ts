@@ -30,6 +30,8 @@ import {
   type WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
 import { respondToLegacyInteraction } from '@/lib/pending-interaction-contract';
+import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { firstMessageMetadata } from '@/lib/a2ui/first-message-metadata';
 
 interface UseSessionMutationsInput {
   activeModel?: string;
@@ -37,6 +39,8 @@ interface UseSessionMutationsInput {
   session?: Session;
   sessionId: string;
   workspaceId: string;
+  /** A presentation-only entry composer materializes a session on first send. */
+  createOnSend?: boolean;
   interactionRootSessionId?: string;
   supportsUnifiedInteractions?: boolean;
 }
@@ -47,9 +51,6 @@ export interface SessionSendInput {
   files?: UploadableFilePart[];
   provider?: string;
   model?: string;
-  /** The picked half of a multi-transport provider (Codex `sdk` / `direct`),
-   * sent as the model reference's `variant`; absent inherits the configured one. */
-  transport?: string;
   delivery: MessageDelivery | 'queued';
   behavior: MessageBehavior;
   onUploadProgress?: (progress: ResourceUploadProgress) => void;
@@ -79,6 +80,7 @@ export function useSessionMutations({
   session,
   sessionId,
   workspaceId,
+  createOnSend = false,
   interactionRootSessionId = sessionId,
   supportsUnifiedInteractions = false,
 }: UseSessionMutationsInput) {
@@ -93,6 +95,7 @@ export function useSessionMutations({
   // rather than leave it polling against a session nobody is looking at.
   const uploadController = useRef<AbortController | null>(null);
   const preparedUploads = useRef(new Map<string, Promise<WorkspaceResourceUploadResult>>());
+  const draftSession = useRef<Promise<Session> | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     uploadController.current = controller;
@@ -126,6 +129,7 @@ export function useSessionMutations({
       queryKeys.workspaceResources(settings.endpoint, workspaceId),
       queryKeys.transcript(settings.endpoint, sessionId),
       queryKeys.sessions(settings.endpoint, workspaceId),
+      queryKeys.sessions(settings.endpoint, 'all'),
     ]);
   };
 
@@ -185,17 +189,17 @@ export function useSessionMutations({
   );
 
   const sendIdentities = useRef(new SendIdentities());
-  const reconcileTurnMode = async (behavior: MessageBehavior) => {
-    if (!session) return;
+  const reconcileTurnMode = async (behavior: MessageBehavior, target = session) => {
+    if (!target) return;
     const mode = sessionModeForExecution(behavior.execution_mode);
     const patch = SESSION_MODE_PATCHES[mode];
     if (
-      session.mode === patch.mode &&
-      (patch.routing_mode === undefined || session.routing_mode === patch.routing_mode)
+      target.mode === patch.mode &&
+      (patch.routing_mode === undefined || target.routing_mode === patch.routing_mode)
     ) {
       return;
     }
-    const updated = await repository.updateSession(sessionId, patch);
+    const updated = await repository.updateSession(target.id, patch);
     replaceSnapshots({
       sessions: { ...useLiveStore.getState().entities.sessions, [updated.id]: updated },
     });
@@ -218,35 +222,68 @@ export function useSessionMutations({
       ];
       if (parts.length === 0) throw new Error('Write a message or attach a resource.');
 
-      const route = {
-        model_id: model,
-        provider_id: provider,
-        ...(value.transport ? { variant: value.transport } : {}),
-      };
+      const route = { model_id: model, provider_id: provider };
       if (value.delivery === 'queued' && value.answersQuestionId) {
         throw new Error("Answer the agent's question now, or stop answering to queue a message.");
       }
+      const controller = uploadController.current;
+      let target = session;
+      if (!sessionId && createOnSend) {
+        if (!controller || controller.signal.aborted)
+          throw new Error('This draft is no longer open.');
+        // Retain a successful creation across failed sends/retries. Concurrent
+        // submits share the same creation rather than minting extra sessions.
+        draftSession.current ??= repository
+          .createSession({
+            workspace_id: workspaceId,
+            title: 'New conversation',
+            mode: sessionModeForExecution(value.behavior.execution_mode),
+            routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
+            approval_mode: value.behavior.confirmation_policy,
+          })
+          .catch((error: unknown) => {
+            draftSession.current = null;
+            throw error;
+          });
+        target = await draftSession.current;
+      }
+      const targetId = sessionId || target?.id;
+      if (!targetId) throw new Error('Open a conversation before sending.');
       if (value.delivery === 'queued') {
-        return repository.createQueuedMessage(sessionId, {
+        const result = await repository.createQueuedMessage(targetId, {
           behavior: value.behavior,
           client_message_id: identity.clientMessageId,
           idempotency_key: identity.idempotencyKey,
           model: route,
           parts,
         });
+        if (!sessionId && target) openStartedSession(target, controller);
+        return result;
       }
-      if (value.delivery === 'start') await reconcileTurnMode(value.behavior);
-      return repository.submitMessage(sessionId, {
+      if (value.delivery === 'start') await reconcileTurnMode(value.behavior, target);
+      const initialMetadata = !sessionId
+        ? await firstMessageMetadata(repository, queryClient, targetId)
+        : undefined;
+      const result = await repository.submitMessage(targetId, {
         behavior: value.behavior,
         client_message_id: identity.clientMessageId,
         delivery: value.delivery,
         idempotency_key: identity.idempotencyKey,
         model: route,
         parts,
-        ...(value.answersQuestionId
-          ? { metadata: { answers_question_id: value.answersQuestionId } }
+        ...(initialMetadata || value.answersQuestionId
+          ? {
+              metadata: {
+                ...initialMetadata,
+                ...(value.answersQuestionId
+                  ? { answers_question_id: value.answersQuestionId }
+                  : {}),
+              },
+            }
           : {}),
       });
+      if (!sessionId && target) openStartedSession(target, controller);
+      return result;
     },
     onSuccess: () => sendIdentities.current.accepted(),
     onSettled: (_result, _error, value) => {
@@ -259,6 +296,23 @@ export function useSessionMutations({
       }
     },
   });
+
+  function openStartedSession(created: Session, controller: AbortController | null) {
+    for (const scope of [workspaceId, 'all']) {
+      queryClient.setQueryData<Session[]>(
+        queryKeys.sessions(settings.endpoint, scope),
+        (current = []) => [...current.filter((item) => item.id !== created.id), created],
+      );
+    }
+    // A submitted turn may finish after navigation. Preserve its real session,
+    // but never pull the person back from Settings or another conversation.
+    if (!controller || controller.signal.aborted) return;
+    rememberWorkspaceRoute(settings.endpoint, workspaceId, created.id);
+    void navigate(
+      `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(created.id)}`,
+      { replace: true },
+    );
+  }
 
   const updateQueuedMessage = useMutation({
     mutationFn: ({ message, text }: { message: QueuedMessage; text: string }) =>

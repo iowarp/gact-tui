@@ -123,7 +123,8 @@ export function ClioAppShell({
   // A wide viewport makes the canvas available, but it does not imply that the
   // user asked to open it. Explicit resource requests still reveal it, and an
   // open/closed choice survives route changes while this shell stays mounted.
-  const workbenchOpen = revealRequested || (workbenchPreference ?? false);
+  const hasWorkbench = Boolean(workbench);
+  const workbenchOpen = hasWorkbench && (revealRequested || (workbenchPreference ?? false));
   const collapseNavigationForWorkbench = workbenchOpen && workbenchNeedsNavigationRail;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const setWorkbenchOpen = useCallback(
@@ -155,6 +156,7 @@ export function ClioAppShell({
   }, [desktopWorkbench, workbenchOpen]);
 
   useEffect(() => {
+    if (!hasWorkbench) return;
     const handleShortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'b') {
         event.preventDefault();
@@ -163,7 +165,7 @@ export function ClioAppShell({
     };
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, [toggleWorkbench]);
+  }, [hasWorkbench, toggleWorkbench]);
 
   const sessionSurface = (
     <section
@@ -173,17 +175,21 @@ export function ClioAppShell({
       <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/90 px-3 backdrop-blur">
         <SidebarTrigger />
         <div className="min-w-0 flex-1">{contextBar}</div>
-        <Button
-          aria-label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
-          onClick={toggleWorkbench}
-          size="icon-sm"
-          variant={workbenchOpen ? 'secondary' : 'ghost'}
-        >
-          <PanelRightIcon aria-hidden="true" />
-        </Button>
+        {hasWorkbench && (
+          <Button
+            aria-label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
+            onClick={toggleWorkbench}
+            size="icon-sm"
+            variant={workbenchOpen ? 'secondary' : 'ghost'}
+          >
+            <PanelRightIcon aria-hidden="true" />
+          </Button>
+        )}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-      <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
+      {statusStrip && (
+        <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
+      )}
     </section>
   );
 
@@ -199,7 +205,7 @@ export function ClioAppShell({
       className="h-full min-h-0 min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
     >
       <section aria-label="Session workspace">
-        {desktopWorkbench ? (
+        {hasWorkbench && desktopWorkbench ? (
           <ResizablePanelGroup className="h-full" orientation="horizontal">
             <ResizablePanel minSize="400px">{sessionSurface}</ResizablePanel>
             <ResizableHandle
@@ -241,7 +247,7 @@ export function ClioAppShell({
           {workspace}
         </main>
       )}
-      {!desktopWorkbench ? (
+      {hasWorkbench && !desktopWorkbench ? (
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
             className="w-[min(92vw,480px)] p-0 [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"

@@ -32,7 +32,7 @@ interface UseProviderComponentUpdateInput {
 /**
  * The provider SDK update affordance's state: the service's update check
  * (`GET /v1/providers/{id}/components`, only for a provider whose catalog row
- * carries a `client` fact -- Codex and Claude Code), the running update's
+ * carries a `client` fact -- Claude Code), the running update's
  * stage (polled while it runs, also picked up when the panel reopens mid-update),
  * and the last finished job.
  */

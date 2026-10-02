@@ -3,6 +3,7 @@ import type { ContextSnapshot } from '@clio/core/v3';
 import { toast } from 'sonner';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
+import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
 import { sessionObservabilityQueryKey } from './use-session-observability';
 
@@ -21,21 +22,33 @@ export function useSessionContext(sessionId: string, scope: string, enabled = tr
     queryFn: ({ signal }) => repository.contextState(sessionId, scope, signal),
     enabled: canLoad,
   });
+  // The conversation shows a running compaction in place ("Summarizing
+  // context", then its summary or typed error), so the request itself only
+  // reports what the stream cannot: a refusal or a failed request.
   const compact = useMutation({
-    mutationFn: () => repository.compactContext(sessionId, scope),
-    onSuccess: async (snapshot) => {
-      queryClient.setQueryData(
-        queryKeys.sessionContextState(settings.endpoint, sessionId, scope),
-        snapshot,
-      );
-      await queryClient.invalidateQueries({
-        queryKey: sessionObservabilityQueryKey(settings.endpoint, sessionId),
-      });
-      toast.success('Working context compacted');
+    mutationFn: () => repository.compactSession(sessionId, scope),
+    onSuccess: async (result) => {
+      if (!result.compacted)
+        toast.info('Context was not compacted', {
+          description: result.reason ?? 'The service did not report a reason.',
+        });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessionContextState(settings.endpoint, sessionId, scope),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionObservabilityQueryKey(settings.endpoint, sessionId),
+        }),
+      ]);
     },
     onError: (error) =>
       toast.error('Context could not be compacted', { description: error.message }),
   });
+  const compactionRunning = useLiveStore((live) =>
+    Object.values(live.entities.compactions).some(
+      (compaction) => compaction.session_id === sessionId && compaction.status !== 'failed',
+    ),
+  );
   const preferences = useMutation({
     mutationFn: (input: { automatic_compaction?: boolean; autocompact_pct?: number }) =>
       repository.updateContextPreferences(sessionId, input),
@@ -59,5 +72,11 @@ export function useSessionContext(sessionId: string, scope: string, enabled = tr
     onError: (error) =>
       toast.error('Context controls could not be updated', { description: error.message }),
   });
-  return { compact, preferences, state };
+  return {
+    compact,
+    /** A compaction request is in flight or one is running for this session. */
+    compactPending: compact.isPending || compactionRunning,
+    preferences,
+    state,
+  };
 }

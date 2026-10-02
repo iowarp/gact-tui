@@ -11,8 +11,8 @@ function catalogProvider(overrides: Partial<ProviderCatalogEntry> = {}): Provide
   return {
     id: 'codex',
     name: 'OpenAI Codex',
-    kind: 'codex_sdk',
-    endpoint: 'local://codex-sdk',
+    kind: 'codex',
+    endpoint: 'codex://direct',
     configuration_url: '/settings/providers?provider=codex',
     connectivity: 'reachable',
     auth: 'ready',
@@ -27,8 +27,8 @@ function catalogProvider(overrides: Partial<ProviderCatalogEntry> = {}): Provide
 function catalogModel(modelId: string, availability = 'available', failure = '') {
   return {
     provider_id: 'codex',
-    provider_kind: 'codex_sdk',
-    endpoint: 'local://codex-sdk',
+    provider_kind: 'codex',
+    endpoint: 'codex://direct',
     deployment: '',
     model_id: modelId,
     revision: '',
@@ -188,8 +188,8 @@ describe('buildModelOptions', () => {
         {
           id: 'codex',
           name: 'OpenAI Codex',
-          kind: 'codex_sdk',
-          endpoint: 'local://codex-sdk',
+          kind: 'codex',
+          endpoint: 'codex://direct',
           configuration_url: '/settings/providers/codex',
           connectivity: 'reachable',
           auth: 'ready',
@@ -199,8 +199,8 @@ describe('buildModelOptions', () => {
           models: [
             {
               provider_id: 'codex',
-              provider_kind: 'codex_sdk',
-              endpoint: 'local://codex-sdk',
+              provider_kind: 'codex',
+              endpoint: 'codex://direct',
               deployment: '',
               model_id: 'openai/gpt-5.6-luna',
               revision: '',
@@ -243,117 +243,6 @@ describe('buildModelOptions', () => {
         modalities: ['text', 'image'],
       }),
     ]);
-  });
-
-  it('threads a multi-transport provider entry\'s transports onto every one of its options', () => {
-    const providerCatalog: ProviderCatalog = {
-      authoritative: 'live_handshake',
-      providers: [
-        {
-          id: 'codex',
-          name: 'Codex',
-          kind: 'codex',
-          endpoint: 'local://codex-sdk',
-          configuration_url: '/settings/providers/codex',
-          connectivity: 'reachable',
-          auth: 'ready',
-          health: 'ready',
-          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
-          failure: '',
-          transports: [
-            { id: 'sdk', label: 'Codex (local)', health: 'ready', reason: '' },
-            {
-              id: 'direct',
-              label: 'Direct',
-              health: 'unavailable',
-              reason: 'Codex sign-in is required',
-              auth: { method: 'subscription' },
-            },
-          ],
-          models: [
-            {
-              provider_id: 'codex',
-              provider_kind: 'codex',
-              endpoint: 'local://codex-sdk',
-              deployment: '',
-              model_id: 'gpt-5.6-luna',
-              revision: '',
-              modalities: ['text'],
-              reasoning: { supported: false, parameter: '', levels: [] },
-              native_tool_calling: true,
-              availability: 'available',
-              evidence: {
-                source: 'live',
-                generated_at: '2026-08-31T12:00:00Z',
-                live: true,
-                context_source: 'provider',
-              },
-              failure: '',
-              transport: 'sdk',
-            },
-          ],
-        },
-      ],
-    };
-
-    const [option] = buildModelOptions({
-      activeCatalogProvider: 'codex',
-      providerCatalog,
-      presets: [],
-    });
-
-    expect(option?.transport).toBe('sdk');
-    expect(option?.transports).toEqual(providerCatalog.providers[0]?.transports);
-  });
-
-  it('never reports transports for a single-transport provider', () => {
-    const providerCatalog: ProviderCatalog = {
-      authoritative: 'live_handshake',
-      providers: [
-        {
-          id: 'claude_code',
-          name: 'Claude Code',
-          kind: 'claude_code',
-          endpoint: 'claude-code://sdk',
-          configuration_url: '/settings/providers/claude_code',
-          connectivity: 'reachable',
-          auth: 'ready',
-          health: 'ready',
-          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
-          failure: '',
-          models: [
-            {
-              provider_id: 'claude_code',
-              provider_kind: 'claude_code',
-              endpoint: 'claude-code://sdk',
-              deployment: '',
-              model_id: 'claude-sonnet-5',
-              revision: '',
-              modalities: ['text'],
-              reasoning: { supported: false, parameter: '', levels: [] },
-              native_tool_calling: true,
-              availability: 'available',
-              evidence: {
-                source: 'live',
-                generated_at: '2026-08-31T12:00:00Z',
-                live: true,
-                context_source: 'provider',
-              },
-              failure: '',
-            },
-          ],
-        },
-      ],
-    };
-
-    const [option] = buildModelOptions({
-      activeCatalogProvider: 'claude_code',
-      providerCatalog,
-      presets: [],
-    });
-
-    expect(option?.transports).toBeUndefined();
-    expect(option?.transport).toBeUndefined();
   });
 
   it('keeps a configured provider the live catalog does not know about', () => {
@@ -779,18 +668,18 @@ describe('provider identity resolves by id, never by shared kind (#1418)', () =>
 });
 
 describe('findSelectedModelOption', () => {
-  // Codex SDK and Direct both list gpt-5.5: the picked half must be the one found.
   const rows = [
-    { providerId: 'codex', id: 'gpt-5.5', available: true, transport: 'sdk' },
-    { providerId: 'codex', id: 'gpt-5.5', available: true, transport: 'direct' },
+    { providerId: 'codex', id: 'gpt-5.5', available: false },
+    { providerId: 'codex', id: 'gpt-5.6-luna', available: true, aliases: ['luna'] },
+    { providerId: 'openai', id: 'gpt-5.5', available: true },
   ];
 
-  it('finds the half a picked transport names', () => {
-    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5', 'direct')?.transport).toBe('direct');
-    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5', 'sdk')?.transport).toBe('sdk');
+  it('finds the available row by provider and model id or alias', () => {
+    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.6-luna')?.id).toBe('gpt-5.6-luna');
+    expect(findSelectedModelOption(rows, 'codex', 'luna')?.id).toBe('gpt-5.6-luna');
   });
 
-  it('finds the first available row when no transport was picked', () => {
-    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5')?.transport).toBe('sdk');
+  it("never returns an unavailable row or another provider's model", () => {
+    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5')).toBeUndefined();
   });
 });

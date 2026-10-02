@@ -6,6 +6,37 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.1] — 2026-10-02
+
+Beta of the agent-loop rebuild UI, paired with clio-agent 0.9.5-beta.1.
+
+### Added
+
+- Everything CLIO adds to the agent's context is shown in the conversation as
+  an injection, marked with a syringe icon and expandable to the exact text the
+  agent received: reminders, notes on a tool call, hook effects and summaries.
+- Compaction is visible: a "Summarizing context" row (Automatic or Requested)
+  appears while it runs and becomes a "Summarization" injection with a
+  three-line preview and Show more. A failure, or a "still near the limit"
+  notice, is shown in place. Reloading the page shows the same as live.
+- Drafts: when the agent drafts several answers, each try gets a tab. You can
+  watch them stream, pick one, or ask for a refinement; superseded, cancelled
+  and expired drafts are marked.
+- A badge shows when a session runs in History mode.
+
+### Changed
+
+- Codex is reached one way only: directly with your Codex account. The model
+  picker lists Codex's models as one plain list with no SDK / Direct choice,
+  the composer's model button reads "Codex / Luna", and Log out sits in the
+  provider's own action row.
+- The web build's version status shows the web build's own version.
+- The context panel's compact action uses the same compaction as the agent.
+
+### Fixed
+
+- An agent-built view awaiting a response no longer appears twice.
+
 ## [0.11.2.25] — 2026-09-30
 
 ### Changed

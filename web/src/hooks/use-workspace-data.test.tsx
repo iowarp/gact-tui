@@ -68,6 +68,7 @@ vi.mock('./use-repository', () => ({ useRepository: () => mocks.repository }));
 vi.mock('./use-session-live-stream', () => ({
   useSessionLiveStream: mocks.useSessionLiveStream,
 }));
+vi.mock('./use-variant-run-hydration', () => ({ useVariantRunHydration: () => undefined }));
 vi.mock('./use-session-context', () => ({
   useSessionContext: () => ({ state: { data: undefined } }),
 }));

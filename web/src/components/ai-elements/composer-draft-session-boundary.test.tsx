@@ -17,10 +17,7 @@ function DraftHarness() {
       <button onClick={() => textInput.setInput('draft in progress')} type="button">
         Seed draft
       </button>
-      <button
-        onClick={() => navigate('/workspaces/ws_1/sessions/sess_2')}
-        type="button"
-      >
+      <button onClick={() => navigate('/workspaces/ws_1/sessions/sess_2')} type="button">
         Go to session 2
       </button>
       <button onClick={() => navigate('/settings/appearance')} type="button">
@@ -44,6 +41,17 @@ function renderAt(path: string) {
 }
 
 describe('ComposerDraftSessionBoundary', () => {
+  it.each(['Go to session 2', 'Go to a non-session route'])(
+    'discards a presentation-only draft on leaving: %s',
+    async (destination) => {
+      const user = userEvent.setup();
+      renderAt('/workspaces/ws_1/new');
+      await user.click(screen.getByRole('button', { name: 'Seed draft' }));
+      expect(screen.getByTestId('draft-text')).toHaveTextContent('draft in progress');
+      await user.click(screen.getByRole('button', { name: destination }));
+      expect(screen.getByTestId('draft-text')).toBeEmptyDOMElement();
+    },
+  );
   it('clears an in-progress draft when the route moves to a different session', async () => {
     const user = userEvent.setup();
     renderAt('/workspaces/ws_1/sessions/sess_1');

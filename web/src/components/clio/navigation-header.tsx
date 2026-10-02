@@ -1,3 +1,4 @@
+import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
 import {
   ArchiveIcon,
@@ -63,9 +64,6 @@ export function NavigationHeader({
   onOpenArchived,
   attentionControl,
 }: NavigationHeaderProps) {
-  const logoSource =
-    brand.logoImage ??
-    (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
   const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
   const otherConnections = recentConnections.filter((recent) => recent.endpoint !== endpoint);
 
@@ -81,13 +79,7 @@ export function NavigationHeader({
                 tooltip={`${brand.name}: ${activeAvailability.label}. ${activeAvailability.detail}`}
               >
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
-                  {logoSource ? (
-                    <img alt="" className="size-7 object-contain" src={logoSource} />
-                  ) : (
-                    <span aria-hidden="true" className="font-semibold">
-                      {brand.markGlyph}
-                    </span>
-                  )}
+                  <BrandIcon className="size-7" />
                 </span>
                 <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="flex min-w-0 items-center gap-1.5">

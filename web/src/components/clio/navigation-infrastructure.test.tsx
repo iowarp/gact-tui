@@ -17,6 +17,8 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { NavigationInfrastructure } from './navigation-infrastructure';
+import { HISTORY_MODE_LABEL } from '@/lib/context-mode';
+import { vocab } from '@/lib/brand-vocabulary';
 
 // jsdom has no media-query engine; the sidebar only asks for the mobile breakpoint.
 Object.defineProperty(window, 'matchMedia', {
@@ -46,8 +48,11 @@ function server(overrides: Partial<McpServerDefinition>): McpServerDefinition {
   };
 }
 
-function renderInfrastructure(servers: McpServerDefinition[]) {
-  repository.serviceHealth.mockResolvedValue({ healthy: true, integrations: [] });
+function renderInfrastructure(
+  servers: McpServerDefinition[],
+  health: Record<string, unknown> = { healthy: true, integrations: [] },
+) {
+  repository.serviceHealth.mockResolvedValue(health);
   repository.relayStatus.mockResolvedValue({ reachable: true, configured: true });
   repository.mcpServers.mockResolvedValue(servers);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -90,5 +95,22 @@ describe('NavigationInfrastructure', () => {
 
     await waitFor(() => expect(screen.getByText('Project files')).toBeInTheDocument());
     expect(screen.queryByText('Workspace files')).not.toBeInTheDocument();
+  });
+
+  it('names History mode on the agent service instead of a generic warning', async () => {
+    renderInfrastructure([server({ status: 'ready' })], {
+      healthy: true,
+      context_mode: 'history',
+      integrations: [{ name: 'arc', status: 'degraded', required: true }],
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(`Infrastructure: ${HISTORY_MODE_LABEL}`)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByLabelText('Show infrastructure status'));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(`${vocab.agent}: ${HISTORY_MODE_LABEL}`)).toBeInTheDocument(),
+    );
   });
 });

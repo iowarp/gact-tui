@@ -71,6 +71,7 @@ export type ClioQueryNamespace =
   | 'queued-messages'
   | 'tools'
   | 'transcript'
+  | 'variant-runs'
   | 'workspace-file'
   | 'workspace-file-bytes'
   | 'workspace-file-integrity'
@@ -84,6 +85,7 @@ export type ClioQueryNamespace =
   | 'workspace-resource-structure'
   | 'workspace-resource-structure-node'
   | 'workspace-memory-search'
+  | 'workspace-warmup'
   | 'workspaces';
 
 /** Canonical TanStack Query keys shared by reads, mutations, and live invalidation. */

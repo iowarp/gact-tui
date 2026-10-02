@@ -12,6 +12,9 @@ interface RawBrand {
   markGlyph?: string;
   logoSvg?: string;
   logoImage?: string;
+  iconSvg?: string;
+  faviconSvg?: string;
+  wordmarkImage?: string;
   accent?: string;
   /** Native product label, e.g. window/app/installer identity. Defaults to `${name} Desktop`. */
   productName?: string;
@@ -71,6 +74,9 @@ export interface ResolvedBrand {
   }>;
   logoSvg: string | null;
   logoImage: string | null;
+  iconSvg: string | null;
+  faviconSvg: string | null;
+  wordmarkImage: string | null;
 }
 
 function mimeType(path: string): string {
@@ -147,6 +153,9 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
       .filter((prompt) => prompt.label.length > 0),
     logoSvg: readAsset(profileDirectory, raw.logoSvg, true),
     logoImage: readAsset(profileDirectory, raw.logoImage, false),
+    iconSvg: readAsset(profileDirectory, raw.iconSvg, true),
+    faviconSvg: readAsset(profileDirectory, raw.faviconSvg ?? raw.logoSvg, true),
+    wordmarkImage: readAsset(profileDirectory, raw.wordmarkImage, false),
   };
 }
 
@@ -160,17 +169,37 @@ const NEUTRAL_FAVICON_PATH = '/favicon.svg';
 
 export function brandPlugin(brandingRoot: string, profile: string): Plugin {
   let cached: ResolvedBrand | undefined;
+  let production = false;
   const getBrand = () => (cached ??= loadBrand(brandingRoot, profile));
   return {
     name: 'workspace-brand',
     enforce: 'pre',
+    configResolved(config) {
+      production = config.command === 'build';
+    },
     resolveId(id) {
       return id === VIRTUAL_ID ? RESOLVED_ID : null;
     },
     load(id) {
-      return id === RESOLVED_ID
-        ? `export const brand = ${JSON.stringify(getBrand())}; export default brand;`
-        : null;
+      if (id !== RESOLVED_ID) return null;
+      const brand = { ...getBrand() };
+      const assets: string[] = [];
+      if (production) {
+        for (const key of ['logoImage', 'wordmarkImage'] as const) {
+          const value = brand[key];
+          if (!value) continue;
+          const comma = value.indexOf(',');
+          const extension = value.slice(5, value.indexOf(';')).split('/')[1];
+          const ref = this.emitFile({
+            type: 'asset',
+            name: `brand-${key}.${extension}`,
+            source: Buffer.from(value.slice(comma + 1), 'base64'),
+          });
+          brand[key] = null;
+          assets.push(`brand.${key} = import.meta.ROLLUP_FILE_URL_${ref};`);
+        }
+      }
+      return `export const brand = ${JSON.stringify(brand)}; ${assets.join('\n')} export default brand;`;
     },
     // Brand-drives the document <title> and favicon so a reload never falls
     // back to the tracked-default HTML's own hardcoded values (previously
@@ -187,7 +216,7 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
           attrs: {
             rel: 'icon',
             type: 'image/svg+xml',
-            href: brand.logoSvg ? BRAND_FAVICON_PATH : NEUTRAL_FAVICON_PATH,
+            href: brand.faviconSvg ? BRAND_FAVICON_PATH : NEUTRAL_FAVICON_PATH,
           },
           injectTo: 'head',
         },
@@ -199,11 +228,11 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
     // copies from public/ on its own.
     generateBundle() {
       const brand = getBrand();
-      if (!brand.logoSvg) return;
+      if (!brand.faviconSvg) return;
       this.emitFile({
         type: 'asset',
         fileName: BRAND_FAVICON_PATH.slice(1),
-        source: brand.logoSvg,
+        source: brand.faviconSvg,
       });
     },
     configureServer(server) {
@@ -224,12 +253,12 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
           return;
         }
         const brand = getBrand();
-        if (!brand.logoSvg) {
+        if (!brand.faviconSvg) {
           next();
           return;
         }
         res.setHeader('Content-Type', 'image/svg+xml');
-        res.end(brand.logoSvg);
+        res.end(brand.faviconSvg);
       });
     },
   };

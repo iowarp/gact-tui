@@ -1,3 +1,5 @@
+import { RemoteAgentConflict } from '@/components/clio/remote-agent-conflict';
+import { NewClioInstance } from '@/components/clio/managed-service-target-utils';
 import {
   createContext,
   useCallback,
@@ -79,6 +81,8 @@ function parseSavedRoute(value: unknown): SavedSshRoute | undefined {
   const platform = item.platform;
   return {
     label: item.label,
+    remotePort: typeof item.remotePort === 'number' ? item.remotePort : undefined,
+    keepRunning: item.keepRunning === true,
     installRoot: typeof item.installRoot === 'string' ? item.installRoot : '',
     profile: typeof item.profile === 'string' ? item.profile : '',
     host: item.host,
@@ -308,7 +312,11 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
           // `registerTarget` uses for a fresh deploy), and otherwise rebuild
           // it from the saved route, exactly like a fresh "Deploy and
           // connect" would, instead of failing outright (#1528).
-          target = targets.find((candidate) => targetMatchesHost(candidate, route));
+          target = targets.find(
+            (candidate) =>
+              targetMatchesHost(candidate, route) &&
+              candidate.install_root === (route.installRoot || ''),
+          );
           if (!target) {
             try {
               target = await controller.createInfrastructureTarget(sshTargetDefinition(route));
@@ -321,7 +329,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         if (!target) {
           throw new InfrastructureTargetGoneError(next.label || 'This connection');
         }
-        const confirmed = target;
+        let confirmed = target;
         const status = await attachInfrastructureSshTransport(
           controllerEndpoint,
           controllerToken,
@@ -372,20 +380,63 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
           // Connect/Replace for a genuine conflict, instead of failing
           // outright on a host that already has a working CLIO (#1528 review).
           const claimAbort = new AbortController();
-          try {
-            await claimClioAgent(controller, confirmed.id, claimAbort.signal, async (found) => {
-              setPendingConflict({ label: next.label || confirmed.label, found });
-              try {
-                return await waitForConflictAnswer(claimAbort.signal, conflictChoice);
-              } finally {
-                setPendingConflict(undefined);
+          const { invoke } = await import('@tauri-apps/api/core');
+          const desktopId = await invoke<string>('desktop_deployment_owner');
+          let port = route?.remotePort ?? 17800;
+          for (;;) {
+            try {
+              await claimClioAgent(
+                controller,
+                confirmed.id,
+                claimAbort.signal,
+                async (found) => {
+                  setPendingConflict({ label: next.label || confirmed.label, found });
+                  try {
+                    return await waitForConflictAnswer(claimAbort.signal, conflictChoice);
+                  } finally {
+                    setPendingConflict(undefined);
+                  }
+                },
+                undefined,
+                {
+                  port: String(port),
+                  desktop_id: desktopId,
+                  keep_running: String(route?.keepRunning ?? false),
+                },
+              );
+              break;
+            } catch (error) {
+              if (error instanceof NewClioInstance && route && error.conflict.owner) {
+                port += 1;
+                if (port > 65535) throw new Error('Choose a lower port to start another agent.');
+                const nextRoute = {
+                  ...route,
+                  installRoot: `${error.conflict.owner}-instance-${port}`,
+                  remotePort: port,
+                };
+                confirmed = await controller.createInfrastructureTarget(
+                  sshTargetDefinition(nextRoute),
+                );
+                await attachInfrastructureSshTransport(
+                  controllerEndpoint,
+                  controllerToken,
+                  confirmed,
+                );
+                next = {
+                  ...next,
+                  infrastructure: {
+                    targetId: confirmed.id,
+                    serviceId: 'clio_agent',
+                    route: nextRoute,
+                  },
+                };
+                continue;
               }
-            });
-          } catch (error) {
-            if (error instanceof DOMException && error.name === 'AbortError') {
-              throw new Error(`Connecting to ${confirmed.label} was cancelled.`);
+              if (error instanceof DOMException && error.name === 'AbortError') {
+                throw new Error(`Connecting to ${confirmed.label} was cancelled.`);
+              }
+              throw error;
             }
-            throw error;
           }
         }
         const catalog = await controller.managedServiceCatalog(confirmed.id);
@@ -403,7 +454,11 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
           // A rebuild above may have minted a new target id (or the saved
           // one just happened to collide with something else); carry the
           // real one forward so it is what gets remembered next.
-          infrastructure: { ...next.infrastructure, targetId: confirmed.id },
+          infrastructure: {
+            ...next.infrastructure,
+            targetId: confirmed.id,
+            serviceId: 'clio_agent',
+          },
         };
       }
       const endpoint = normalizeEndpoint(next.endpoint);
@@ -594,30 +649,26 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         }}
         open={Boolean(pendingConflict)}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{vocab.agent} already on {pendingConflict?.label}</DialogTitle>
+            <DialogTitle>
+              {vocab.agent} already on {pendingConflict?.label}
+            </DialogTitle>
             <DialogDescription className="sr-only">
               Choose whether to connect to the running {vocab.agent} or replace it.
             </DialogDescription>
           </DialogHeader>
           {pendingConflict ? (
-            <p aria-live="assertive" className="text-sm" role="alert">
-              {pendingConflict.found.health === 'healthy' ? (
-                <>
-                  {vocab.agent} {pendingConflict.found.installedVersion} is already running on{' '}
-                  {pendingConflict.label}
-                  {pendingConflict.found.pid ? ` (pid ${pendingConflict.found.pid})` : ''}.
-                </>
-              ) : (
-                <>
-                  {vocab.agent} on {pendingConflict.label} isn&apos;t answering
-                  {pendingConflict.found.pid ? ` (pid ${pendingConflict.found.pid})` : ''} &mdash;
-                  Replace it?
-                </>
-              )}
-            </p>
+            <RemoteAgentConflict
+              found={pendingConflict.found}
+              label={pendingConflict.label}
+              onChoice={(choice) => conflictChoice.current?.(choice)}
+            />
           ) : null}
+          <p className="text-xs text-muted-foreground">
+            Agents started here stop when this Desktop closes unless the saved connection opted to
+            keep them running.
+          </p>
           <DialogFooter>
             <Button
               onClick={() => conflictChoice.current?.('cancelled')}
@@ -625,18 +676,6 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
               variant="outline"
             >
               Cancel
-            </Button>
-            {pendingConflict?.found.health === 'healthy' ? (
-              <Button
-                onClick={() => conflictChoice.current?.('connect')}
-                type="button"
-                variant="outline"
-              >
-                Connect to the running {vocab.agent}
-              </Button>
-            ) : null}
-            <Button onClick={() => conflictChoice.current?.('replace')} type="button">
-              Replace it
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,11 +1,10 @@
 import { TransportError, type InfrastructureTarget } from '@clio/core/v3';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
-import type { ConnectionSettings } from '@/lib/connection';
+import { createRepository, type ConnectionSettings } from '@/lib/connection';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { TauriClioTransport } from '@/lib/transport/tauri-transport';
-import { useConnectionSettings } from '@/providers/connection-provider';
+import { waitForManagedBackend } from '@/tauri/managed-backend';
 import {
   attachInfrastructureSshTransport,
   cancelSshTransport,
@@ -31,6 +30,7 @@ import {
   waitForConflictAnswer,
   type ConflictAnswer,
   type FoundConflict,
+  NewClioInstance,
 } from './managed-service-target-utils';
 
 export type RemoteDeploymentPhase = 'idle' | 'running' | 'cancelling' | 'failed' | 'cancelled';
@@ -47,8 +47,12 @@ export type RemoteDeployment = {
   /** Set while `deploy` is paused on "Connect to the running CLIO (vX)" or "Replace it". */
   conflict?: FoundConflict;
   /** Answer a found conflict; a no-op when none is pending. */
-  resolveConflict: (choice: 'connect' | 'replace') => void;
-  deploy: (host: SshHost, name: string) => Promise<void>;
+  resolveConflict: (choice: ConflictAnswer) => void;
+  deploy: (
+    host: SshHost,
+    name: string,
+    options?: { port: number; keepRunning: boolean },
+  ) => Promise<void>;
   cancel: () => Promise<void>;
 };
 
@@ -65,8 +69,7 @@ export type RemoteDeployment = {
 export function useRemoteDeployment(
   onReady: (settings: ConnectionSettings) => Promise<void>,
 ): RemoteDeployment {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
+  const activeRepository = useRef<ReturnType<typeof createRepository> | undefined>(undefined);
   const [progress, dispatch] = useReducer(deployProgressReducer, initialDeployProgress);
   const [phase, setPhase] = useState<RemoteDeploymentPhase>('idle');
   const [transport, setTransport] = useState<SshTransportStatus>();
@@ -77,7 +80,7 @@ export function useRemoteDeployment(
   const abort = useRef<AbortController | undefined>(undefined);
   const conflictChoice = useRef<((choice: ConflictAnswer) => void) | undefined>(undefined);
 
-  const resolveConflict = useCallback((choice: 'connect' | 'replace') => {
+  const resolveConflict = useCallback((choice: ConflictAnswer) => {
     conflictChoice.current?.(choice);
   }, []);
 
@@ -126,7 +129,12 @@ export function useRemoteDeployment(
    * `resolveConflict` is called. Never decides which itself.
    */
   const runInstallToCompletion = useCallback(
-    (registered: InfrastructureTarget, signal: AbortSignal) =>
+    (
+      repository: ReturnType<typeof createRepository>,
+      registered: InfrastructureTarget,
+      signal: AbortSignal,
+      configuration: Record<string, string>,
+    ) =>
       claimClioAgent(
         repository,
         registered.id,
@@ -142,12 +150,13 @@ export function useRemoteDeployment(
         (id) => {
           operation.current = id;
         },
+        configuration,
       ),
-    [repository],
+    [],
   );
 
   const deploy = useCallback(
-    async (host: SshHost, name: string) => {
+    async (host: SshHost, name: string, options = { port: 17800, keepRunning: false }) => {
       const controller = new AbortController();
       abort.current = controller;
       session.current = undefined;
@@ -158,7 +167,17 @@ export function useRemoteDeployment(
       dispatch({ type: 'start', at: Date.now() });
       try {
         await listen();
-        const registered = await registerTarget(repository, host);
+        // Infrastructure always belongs to this Desktop's local controller,
+        // even while the active conversation is connected to a remote agent.
+        const handle = await waitForManagedBackend({});
+        const settings = { endpoint: handle.url, token: handle.bearer_token || undefined };
+        const repository = createRepository(settings);
+        const { invoke } = await import('@tauri-apps/api/core');
+        const desktopId = await invoke<string>('desktop_deployment_owner');
+        activeRepository.current = repository;
+        let deployedHost = host;
+        let port = options.port;
+        let registered = await registerTarget(repository, deployedHost);
         let status = await attachInfrastructureSshTransport(
           settings.endpoint,
           settings.token,
@@ -177,7 +196,31 @@ export function useRemoteDeployment(
         }
         await repository.setInfrastructureTransportState(registered.id, 'connected');
         await attachInfrastructureSshTransport(settings.endpoint, settings.token, registered);
-        await runInstallToCompletion(registered, controller.signal);
+        for (;;) {
+          try {
+            await runInstallToCompletion(repository, registered, controller.signal, {
+              port: String(port),
+              keep_running: String(options.keepRunning),
+              desktop_id: desktopId,
+            });
+            break;
+          } catch (error) {
+            if (!(error instanceof NewClioInstance) || !error.conflict.owner) throw error;
+            port += 1;
+            if (port > 65535) throw new Error('Choose a lower port to start another agent.');
+            deployedHost = {
+              ...host,
+              label: `${host.label} (${port})`,
+              installRoot: `${error.conflict.owner}-instance-${port}`,
+            };
+            registered = await repository.createInfrastructureTarget(
+              sshTargetDefinition(deployedHost),
+            );
+            observe(
+              await attachInfrastructureSshTransport(settings.endpoint, settings.token, registered),
+            );
+          }
+        }
         dispatch({ type: 'open', at: Date.now() });
         const catalog = await repository.managedServiceCatalog(registered.id, controller.signal);
         const service = catalog.services.find((candidate) => candidate.id === 'clio_agent');
@@ -193,7 +236,11 @@ export function useRemoteDeployment(
           infrastructure: {
             targetId: registered.id,
             serviceId: 'clio_agent',
-            route: savedSshRoute(host),
+            route: {
+              ...savedSshRoute(deployedHost),
+              remotePort: port,
+              keepRunning: options.keepRunning,
+            },
           },
         });
         dispatch({ type: 'opened', at: Date.now() });
@@ -212,15 +259,7 @@ export function useRemoteDeployment(
         setPhase('failed');
       }
     },
-    [
-      listen,
-      observe,
-      onReady,
-      repository,
-      runInstallToCompletion,
-      settings.endpoint,
-      settings.token,
-    ],
+    [listen, observe, onReady, runInstallToCompletion],
   );
 
   /**
@@ -242,8 +281,8 @@ export function useRemoteDeployment(
       );
     }
     if (operation.current) {
-      await repository
-        .cancelInfrastructureOperation(operation.current)
+      await activeRepository.current
+        ?.cancelInfrastructureOperation(operation.current)
         .catch((error: unknown) =>
           problems.push(`The remote operation could not be cancelled: ${String(error)}`),
         );
@@ -255,7 +294,7 @@ export function useRemoteDeployment(
     }
     setPhase('cancelled');
     if (problems.length) setDetails(problems.join('\n'));
-  }, [repository]);
+  }, []);
 
   return { phase, progress, transport, details, conflict, resolveConflict, deploy, cancel };
 }
@@ -292,12 +331,15 @@ async function checkHealth(endpoint: string, signal: AbortSignal): Promise<void>
 
 /** Create or update the durable infrastructure target for this host. */
 async function registerTarget(
-  repository: ReturnType<typeof useRepository>,
+  repository: ReturnType<typeof createRepository>,
   host: SshHost,
 ): Promise<InfrastructureTarget> {
   const targets = await repository.infrastructureTargets();
   const definition = sshTargetDefinition(host);
-  const existing = targets.find((candidate) => targetMatchesHost(candidate, host));
+  const existing = targets.find(
+    (candidate) =>
+      targetMatchesHost(candidate, host) && candidate.install_root === (host.installRoot || ''),
+  );
   return existing
     ? repository.updateInfrastructureTarget(existing.id, definition)
     : repository.createInfrastructureTarget(definition);
