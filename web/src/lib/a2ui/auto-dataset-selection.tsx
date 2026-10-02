@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { selectionKey, type SelectionState, type SelectionWriter } from '@/components/clio/selection-state';
+import {
+  selectionKey,
+  type SelectionState,
+  type SelectionWriter,
+} from '@/components/clio/selection-state';
 
 interface Store {
   values: ReadonlyMap<string, SelectionState>;
@@ -14,7 +18,11 @@ export function AutoDatasetSelectionProvider({ children }: { children: ReactNode
   const write = useCallback((dataUri: string, value: SelectionState) => {
     setValues((current) => {
       const previous = current.get(dataUri);
-      if (previous && selectionKey(previous.field, previous.values) === selectionKey(value.field, value.values) && previous.source === value.source) {
+      if (
+        previous &&
+        selectionKey(previous.field, previous.values) === selectionKey(value.field, value.values) &&
+        previous.source === value.source
+      ) {
         return current;
       }
       return new Map(current).set(dataUri, value);

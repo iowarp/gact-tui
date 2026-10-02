@@ -4,6 +4,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
+import { inlineSelectionKey } from '@/lib/a2ui/inline-selection-key';
+import { dataViewFlexStyle } from './data-view-layout';
 import { BoundDataQuery } from './bound-data-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -131,13 +133,32 @@ export function ClioSelectableDataTable({
   );
   const [inlineSort, setInlineSort] = useState<{ column: string; desc: boolean } | undefined>();
   const keys = useMemo(() => columns.map(columnKey), [columns]);
-  const effectiveSelection = setSelection ? selection : (selection ?? localSelection);
-  const keyColumn = selectionField ?? keys[0];
+  const inlineIdentity = useMemo(() => {
+    if (server || setSelection) return undefined;
+    const candidates = (selectionField ? [selectionField] : keys)
+      .map((field) => {
+        const values = rows.map((row) => row[field]);
+        const key = inlineSelectionKey(values);
+        const namedEntity =
+          /(^|[_ -])(id|key|station|site|event|name|label|location)($|[_ -])/iu.test(field);
+        const score = namedEntity ? 2 : values.every((value) => typeof value === 'string') ? 1 : 0;
+        return { field, key, score };
+      })
+      .filter((candidate) => candidate.key && candidate.score > 0)
+      .sort((left, right) => right.score - left.score);
+    return candidates[0];
+  }, [keys, rows, selectionField, server, setSelection]);
+  const autoInlineSelection = useAutoDatasetSelection(inlineIdentity?.key);
+  const effectiveSelection = setSelection
+    ? selection
+    : (selection ?? autoInlineSelection.selection ?? localSelection);
+  const keyColumn =
+    selectionField ?? (autoInlineSelection.active ? inlineIdentity?.field : undefined) ?? keys[0];
   const state = useMemo(
     () => selectionForField(parseSelectionState(effectiveSelection), keyColumn),
     [effectiveSelection, keyColumn],
   );
-  const writeSelection = setSelection ?? setLocalSelection;
+  const writeSelection = setSelection ?? autoInlineSelection.setSelection ?? setLocalSelection;
   const filteredRows = useMemo(
     () =>
       server ? rows : (applyClientFilters(rows as QueryRow[], inlineFilters) as ClioDataRow[]),
@@ -731,39 +752,40 @@ export const ClioDataTableCatalogComponent = createComponentImplementation(
     const setSelection = isBoundToPath(context.componentModel.properties.selection)
       ? (props.setSelection as unknown as SelectionWriter)
       : undefined;
-    if (props.dataUri) {
-      return (
-        <BoundDataQuery
-          dataContext={context.dataContext}
-          query={props.dataQuery as TableDataQuery | undefined}
-        >
-          {(resolvedQuery) => (
-            <ClioDataTableArtifactSource
-              accessibility={props.accessibility}
-              action={props.action ? () => void props.action?.() : undefined}
-              columns={props.columns as ClioDataColumn[] | undefined}
-              componentId={context.componentModel.id}
-              dataQuery={resolvedQuery}
-              dataUri={props.dataUri!}
-              selection={props.selection}
-              selectionField={props.selectionField}
-              setSelection={setSelection}
-            />
-          )}
-        </BoundDataQuery>
-      );
-    }
     return (
-      <ClioSelectableDataTable
-        accessibility={props.accessibility}
-        action={props.action ? () => void props.action?.() : undefined}
-        columns={props.columns as ClioDataColumn[]}
-        componentId={context.componentModel.id}
-        rows={props.rows as ClioDataRow[]}
-        selection={props.selection}
-        selectionField={props.selectionField}
-        setSelection={setSelection}
-      />
+      <div style={dataViewFlexStyle(props.weight)}>
+        {props.dataUri ? (
+          <BoundDataQuery
+            dataContext={context.dataContext}
+            query={props.dataQuery as TableDataQuery | undefined}
+          >
+            {(resolvedQuery) => (
+              <ClioDataTableArtifactSource
+                accessibility={props.accessibility}
+                action={props.action ? () => void props.action?.() : undefined}
+                columns={props.columns as ClioDataColumn[] | undefined}
+                componentId={context.componentModel.id}
+                dataQuery={resolvedQuery}
+                dataUri={props.dataUri!}
+                selection={props.selection}
+                selectionField={props.selectionField}
+                setSelection={setSelection}
+              />
+            )}
+          </BoundDataQuery>
+        ) : (
+          <ClioSelectableDataTable
+            accessibility={props.accessibility}
+            action={props.action ? () => void props.action?.() : undefined}
+            columns={props.columns as ClioDataColumn[]}
+            componentId={context.componentModel.id}
+            rows={props.rows as ClioDataRow[]}
+            selection={props.selection}
+            selectionField={props.selectionField}
+            setSelection={setSelection}
+          />
+        )}
+      </div>
     );
   },
 );

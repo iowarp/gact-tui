@@ -195,6 +195,24 @@
    `pending-a2ui-response.tsx`'s own) portals straight past that host's own
    id. Keep the official components interactive while giving them a visible
    CLIO treatment inside generated surfaces only. */
+[data-slot='a2ui-surface-root'] {
+  container-type: inline-size;
+}
+
+/* A generated Row can hold a map and table with equal weight, but two
+   half-width data views become unusable in the transcript. Stack root rows
+   when the surface itself is narrow, including in the workspace canvas. */
+@container (max-width: 700px) {
+  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row'] {
+    flex-direction: column !important;
+  }
+
+  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row'] > * {
+    flex: 0 1 auto !important;
+    width: 100%;
+  }
+}
+
 [data-slot='a2ui-surface-root'] .chip {
   display: inline-flex;
   min-height: 2rem;

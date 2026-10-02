@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
+import { inlineSelectionKey } from '@/lib/a2ui/inline-selection-key';
 import { cn } from '@/lib/utils';
 import type { View } from 'vega';
 import { MousePointerSquareDashedIcon, ZoomInIcon } from 'lucide-react';
@@ -26,12 +27,7 @@ import {
   type ChartDataQuery,
   type ChartRow,
 } from './chart-data';
-import {
-  canvasAvailable,
-  embedChart,
-  prepareChartSpec,
-  type ChartRenderer,
-} from './chart-embed';
+import { canvasAvailable, embedChart, prepareChartSpec, type ChartRenderer } from './chart-embed';
 import { chartJpegBlob, chartPngBlob, chartSvgText } from './chart-export';
 import { withDefaultProjectionFit } from './chart-projection-fit';
 import { bindChartSelection, viewHasSignal, type ChartSelectionBinding } from './chart-selection';
@@ -115,23 +111,33 @@ function isDarkTheme(): boolean {
 
 /** A Vega-Lite chart over inline or artifact rows, with a selection linkable across components. */
 export function ClioChart(props: ClioChartProps) {
-  const {
-    accessibility,
-    componentId,
-    height = DEFAULT_CHART_HEIGHT,
-    title,
-    weight,
-  } = props;
+  const { accessibility, componentId, height = DEFAULT_CHART_HEIGHT, title, weight } = props;
   const { colorField, entityField, facetField, preset, xField, xType, yField } = props;
   const autoSelection = useAutoDatasetSelection(props.dataUri);
+  const inlineField = props.selectionField ?? entityField;
+  const inlineKey = useMemo(
+    () =>
+      !props.dataUri && inlineField && props.data
+        ? inlineSelectionKey(props.data.map((row) => row[inlineField]))
+        : undefined,
+    [inlineField, props.data, props.dataUri],
+  );
+  const autoInlineSelection = useAutoDatasetSelection(inlineKey);
   const autoActive = autoSelection.active && !props.setSelection;
   const [localSelection, setLocalSelection] = useState<SelectionState>();
-  const setSelection = props.setSelection ?? autoSelection.setSelection ?? setLocalSelection;
+  const setSelection =
+    props.setSelection ??
+    autoSelection.setSelection ??
+    autoInlineSelection.setSelection ??
+    setLocalSelection;
   const selection = props.setSelection
     ? props.selection
-    : autoSelection.active ? autoSelection.selection : props.selection ?? localSelection;
+    : autoSelection.active
+      ? autoSelection.selection
+      : (props.selection ?? autoInlineSelection.selection ?? localSelection);
   const param = props.selectionParam ?? CHART_SPEC_RULES.defaultSelectionParam;
-  const selectionField = props.selectionField ?? (autoActive && !props.dataQuery?.aggregate ? '__row' : entityField);
+  const selectionField =
+    props.selectionField ?? (autoActive && !props.dataQuery?.aggregate ? '__row' : entityField);
   // The binder hands a static `spec` over by reference, so this rebuilds only when it changes.
   const rawSpec = props.spec;
   const built = useMemo(
@@ -249,11 +255,15 @@ export function ClioChart(props: ClioChartProps) {
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
   const [boxSelectMode, setBoxSelectMode] = useState(false);
   const chartHeight = fullscreen
-    ? Math.max(height, Math.min(preset === 'boxplot' ? 640 : Number.POSITIVE_INFINITY, window.innerHeight - 180))
+    ? Math.max(
+        height,
+        Math.min(preset === 'boxplot' ? 640 : Number.POSITIVE_INFINITY, window.innerHeight - 180),
+      )
     : height;
-  const boxplotWidthLimit = preset === 'boxplot' && xField && displayRows
-    ? Math.min(960, Math.max(360, new Set(displayRows.map((row) => row[xField])).size * 180))
-    : undefined;
+  const boxplotWidthLimit =
+    preset === 'boxplot' && xField && displayRows
+      ? Math.min(960, Math.max(360, new Set(displayRows.map((row) => row[xField])).size * 180))
+      : undefined;
   const [measuredWidth, setMeasuredWidth] = useState(0);
   useEffect(() => {
     const node = containerRef.current;
@@ -267,7 +277,7 @@ export function ClioChart(props: ClioChartProps) {
   }, [fullscreen, boxplotWidthLimit]);
   const renderer = useMemo<ChartRenderer>(() => (canvasAvailable() ? 'canvas' : 'svg'), []);
   const spec = useMemo(
-    () => built.spec ? withChartPointSelection(built.spec, param, selectionField) : undefined,
+    () => (built.spec ? withChartPointSelection(built.spec, param, selectionField) : undefined),
     [built.spec, param, selectionField],
   );
   const hasRows = rows !== undefined;
@@ -347,7 +357,9 @@ export function ClioChart(props: ClioChartProps) {
         if (applied) setZoomActive(true);
         else setEmbedError('Zoom unavailable: selected rows have no numeric x and y values.');
       })
-      .catch((error: unknown) => setEmbedError(error instanceof Error ? error.message : String(error)));
+      .catch((error: unknown) =>
+        setEmbedError(error instanceof Error ? error.message : String(error)),
+      );
   };
 
   useEffect(() => {
@@ -410,7 +422,16 @@ export function ClioChart(props: ClioChartProps) {
         viewRef.current = view;
         // Region capture reads the same rendered Vega view and row set that
         // this component uses, so its box context can name enclosed rows.
-        (node as HTMLDivElement & { __clioChart?: { view: View; rows: () => readonly ChartRow[]; xField?: string; yField?: string } }).__clioChart = {
+        (
+          node as HTMLDivElement & {
+            __clioChart?: {
+              view: View;
+              rows: () => readonly ChartRow[];
+              xField?: string;
+              yField?: string;
+            };
+          }
+        ).__clioChart = {
           view,
           rows: () => rowsRef.current ?? [],
           xField,
@@ -656,7 +677,17 @@ export function ClioChart(props: ClioChartProps) {
   const renderZoomActions = () =>
     zoomParam ? (
       <div className="flex shrink-0 items-center gap-1">
-        {selectedZoomRows.length ? <Button aria-label="Zoom to selection" onClick={zoomToSelection} size="icon-sm" title="Zoom to selection" variant="ghost"><ZoomInIcon aria-hidden="true" className="size-3.5" /></Button> : null}
+        {selectedZoomRows.length ? (
+          <Button
+            aria-label="Zoom to selection"
+            onClick={zoomToSelection}
+            size="icon-sm"
+            title="Zoom to selection"
+            variant="ghost"
+          >
+            <ZoomInIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        ) : null}
         {zoomActive ? <ChartZoomResetButton onClick={resetChartZoom} /> : null}
       </div>
     ) : null;
@@ -665,7 +696,10 @@ export function ClioChart(props: ClioChartProps) {
       <Button
         aria-label="Box select chart rows"
         aria-pressed={boxSelectMode}
-        className={cn('shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100', boxSelectMode && 'opacity-100')}
+        className={cn(
+          'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100',
+          boxSelectMode && 'opacity-100',
+        )}
         onClick={() => setBoxSelectMode((active) => !active)}
         size="sm"
         title="Box select — drag a rectangle to select rows; turn off to return to ordinary chart interaction"
@@ -714,7 +748,12 @@ export function ClioChart(props: ClioChartProps) {
       style={dataViewFlexStyle(weight)}
     >
       <div className="mb-2 flex min-w-0 items-start gap-3">
-        <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug" title={heading}>{heading}</h3>
+        <h3
+          className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
+          title={heading}
+        >
+          {heading}
+        </h3>
         {renderBoxSelectAction()}
         {renderZoomActions()}
         <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
@@ -741,7 +780,11 @@ export function ClioChart(props: ClioChartProps) {
           ) : (
             <div
               aria-label={`${heading}: ${description}`}
-                className={cn('relative min-w-0 overflow-x-auto', boxplotWidthLimit && 'flex justify-center', boxSelectMode && 'cursor-crosshair')}
+              className={cn(
+                'relative min-w-0 overflow-x-auto',
+                boxplotWidthLimit && 'flex justify-center',
+                boxSelectMode && 'cursor-crosshair',
+              )}
               role="img"
               style={{ minHeight: chartHeight }}
             >
@@ -753,7 +796,9 @@ export function ClioChart(props: ClioChartProps) {
                 data-renderer={renderer}
                 data-slot="a2ui-chart-view"
                 ref={containerRef}
-                style={boxplotWidthLimit ? { width: `min(100%, ${boxplotWidthLimit}px)` } : undefined}
+                style={
+                  boxplotWidthLimit ? { width: `min(100%, ${boxplotWidthLimit}px)` } : undefined
+                }
               />
             </div>
           )}
@@ -772,7 +817,14 @@ export function ClioChart(props: ClioChartProps) {
 
 function ChartZoomResetButton({ onClick }: { onClick: () => void }) {
   return (
-    <Button aria-label="Reset zoom" className="shrink-0" onClick={onClick} size="icon-sm" title="Reset zoom" variant="ghost">
+    <Button
+      aria-label="Reset zoom"
+      className="shrink-0"
+      onClick={onClick}
+      size="icon-sm"
+      title="Reset zoom"
+      variant="ghost"
+    >
       <RetryIcon aria-hidden="true" className="size-3.5" />
     </Button>
   );
