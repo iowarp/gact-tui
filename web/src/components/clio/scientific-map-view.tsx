@@ -493,6 +493,15 @@ export function ClioScientificMapView({
           )
           .map((candidate) => candidate.id);
       onZoneSelect?.(ids);
+    } else if (map && boxSelectMode) {
+      // A tap in rectangle mode is still a point click. DOM markers sit above
+      // their projected coordinate, so compare with the icon's visual centre.
+      const hit = points.find((candidate) => {
+        const projected = map.project([candidate.longitude, candidate.latitude]);
+        return Math.hypot(projected.x - point.x, projected.y - 16 - point.y) <= 18;
+      });
+      if (hit) onSelect(hit.id);
+      else onClearSelection?.();
     }
     dragBoxRef.current = null;
     setDragBox(null);
