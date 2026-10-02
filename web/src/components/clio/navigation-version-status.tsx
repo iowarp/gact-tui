@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import { compareReleaseVersions, displayReleaseVersion, releaseTag } from '@/lib/release-version';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -41,6 +42,20 @@ import { agentCheckIssue, desktopCheckIssue } from './version-check-issue';
 // 'unavailable' is a check that ran and could not finish (a release still
 // being published, an unreachable feed): said in words, never a red alarm.
 type VersionState = 'unknown' | 'checking' | 'current' | 'available' | 'unavailable' | 'error';
+// A per-product row can also be 'browser': this page is the web build served
+// to a plain browser, where no signed desktop update check exists. It is a
+// settled fact about the runtime, never a pending check.
+type RowState = VersionState | 'browser';
+
+/**
+ * The web build's own release version, stamped by `vite.config.ts` from the
+ * workspace `package.json` -- what a plain browser shows instead of the
+ * desktop shell's version, which only exists inside the desktop app.
+ */
+function webBuildVersion(): string | undefined {
+  const stamped: unknown = import.meta.env.VITE_CLIO_WORKSPACE_VERSION;
+  return displayReleaseVersion(typeof stamped === 'string' ? stamped : undefined);
+}
 
 /**
  * Drives one "Update all" click through the real state machine
@@ -103,6 +118,10 @@ async function runUpdate(
 export function SystemVersionStatus() {
   const repository = useRepository();
   const { credentialsReady, isManagedConnection, settings } = useConnectionSettings();
+  // Read once: the runtime never changes under a mounted page. Outside the
+  // desktop shell the Tauri version call can never answer, so waiting on it
+  // was the endless "Version" spinner in a plain browser.
+  const [desktopShell] = useState(inTauri);
   const [desktopVersion, setDesktopVersion] = useState<string>();
   const updateFlowStep = useUpdateFlowStore((state) => state.step);
   const updateFlowAction = useUpdateFlowStore((state) => state.action);
@@ -134,6 +153,7 @@ export function SystemVersionStatus() {
   });
 
   useEffect(() => {
+    if (!desktopShell) return;
     let disposed = false;
     void import('@tauri-apps/api/app')
       .then(({ getVersion }) => getVersion())
@@ -148,9 +168,11 @@ export function SystemVersionStatus() {
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [desktopShell]);
 
-  const displayedDesktopVersion = displayReleaseVersion(desktopVersion);
+  const displayedDesktopVersion = desktopShell
+    ? displayReleaseVersion(desktopVersion)
+    : webBuildVersion();
   const agentVersion = displayReleaseVersion(capabilities.data?.service?.version);
   const latestClioVersion = displayReleaseVersion(latestClioRelease.data?.version ?? undefined);
   // The desktop's own update target comes ONLY from a real signed-manifest
@@ -184,12 +206,19 @@ export function SystemVersionStatus() {
           : (agentIssue?.state ?? 'unknown');
   // DesktopUpdateSnapshot['status'] already IS this component's VersionState
   // vocabulary; only its failure is split into 'unavailable' vs 'error'.
-  const desktopRowState: VersionState =
-    snapshot.status === 'error' ? (desktopIssue?.state ?? 'error') : snapshot.status;
+  // In a plain browser there is no desktop update check at all: the row is
+  // settled as 'browser' and the overall status rests on the agent alone.
+  const desktopRowState: RowState = !desktopShell
+    ? 'browser'
+    : snapshot.status === 'error'
+      ? (desktopIssue?.state ?? 'error')
+      : snapshot.status;
   const state = useMemo<VersionState>(() => {
     if (desktopRowState === 'error' || capabilities.isError) return 'error';
     if (
-      !displayedDesktopVersion ||
+      // Only the desktop shell waits on its own version; the browser's web
+      // build version is stamped at build time and never pending.
+      (desktopShell && !displayedDesktopVersion) ||
       capabilities.isPending ||
       latestClioReleaseChecking ||
       snapshot.status === 'checking'
@@ -198,7 +227,7 @@ export function SystemVersionStatus() {
     }
     if (desktopUpdateAvailable || agentBehindLatest) return 'available';
     if (desktopRowState === 'unavailable' || agentRowState === 'unavailable') return 'unavailable';
-    if (snapshot.status === 'unknown' || !agentVersionKnown) return 'unknown';
+    if (desktopRowState === 'unknown' || !agentVersionKnown) return 'unknown';
     return 'current';
   }, [
     agentBehindLatest,
@@ -207,6 +236,7 @@ export function SystemVersionStatus() {
     desktopRowState,
     capabilities.isError,
     capabilities.isPending,
+    desktopShell,
     desktopUpdateAvailable,
     displayedDesktopVersion,
     latestClioReleaseChecking,
@@ -218,7 +248,7 @@ export function SystemVersionStatus() {
 
   const recheck = async (): Promise<void> => {
     await Promise.allSettled([
-      checkForDesktopUpdate(),
+      ...(desktopShell ? [checkForDesktopUpdate()] : []),
       capabilities.refetch(),
       latestClioRelease.refetch(),
     ]);
@@ -239,7 +269,11 @@ export function SystemVersionStatus() {
   const statusLabel = {
     unknown: 'Version status not yet checked',
     checking: 'Checking versions',
-    current: `${vocab.product} and ${vocab.agent} are up to date`,
+    // A browser never checked the web build itself, so only the agent is
+    // claimed current there.
+    current: desktopShell
+      ? `${vocab.product} and ${vocab.agent} are up to date`
+      : `${vocab.agent} is up to date`,
     available: 'Software update available',
     unavailable: 'Could not check for updates',
     error: 'Version status needs attention',
@@ -312,7 +346,7 @@ export function SystemVersionStatus() {
               ? `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`
               : undefined
           }
-          note={desktopIssue?.text}
+          note={desktopShell ? desktopIssue?.text : 'Update checks run in the desktop app.'}
           state={desktopRowState}
           targetVersion={desktopUpdateAvailable ? desktopTargetVersion : undefined}
           testId="version-row-desktop"
@@ -324,7 +358,7 @@ export function SystemVersionStatus() {
 }
 
 /** {label, badge className} for each honest version state -- Badge variants, never a fallback to "current". */
-const VERSION_STATE_PRESENTATION: Record<VersionState, { label: string; className: string }> = {
+const VERSION_STATE_PRESENTATION: Record<RowState, { label: string; className: string }> = {
   unknown: { label: 'Not checked', className: 'text-muted-foreground border-border bg-muted/50' },
   checking: {
     label: 'Checking…',
@@ -343,10 +377,14 @@ const VERSION_STATE_PRESENTATION: Record<VersionState, { label: string; classNam
     label: 'Needs attention',
     className: 'text-destructive border-destructive/30 bg-destructive/10',
   },
+  browser: {
+    label: 'Web build',
+    className: 'text-muted-foreground border-border bg-muted/50',
+  },
 };
 
 /** The per-product status readout -- a real Badge variant per state, distinct from the action button. */
-function VersionStateBadge({ state }: { state: VersionState }) {
+function VersionStateBadge({ state }: { state: RowState }) {
   const { label, className } = VERSION_STATE_PRESENTATION[state];
   return (
     <Badge className={cn('gap-1', className)} variant="outline">
@@ -385,7 +423,7 @@ function VersionRow({
   onRecheck: () => void;
   onUpdate?: () => void;
   releaseUrl?: string;
-  state: VersionState;
+  state: RowState;
   targetVersion?: string;
   /** Stable hook for scoping assertions to ONE row -- two rows can be in
    * different states at once (e.g. desktop checking, agent current). */
