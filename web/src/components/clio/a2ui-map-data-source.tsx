@@ -23,6 +23,7 @@ import { downloadServerTableExport, type ServerExportQuery } from './table-expor
 export interface ClioMapArtifactSourceProps extends MapFieldNames {
   accessibility?: A2UIAccessibility;
   title?: string;
+  valueLabel?: string;
   valueUnit?: string;
   dataUri: string;
   dataQuery?: TableDataQuery;
@@ -52,6 +53,7 @@ export function ClioMapArtifactSource({
   detailField,
   categoryField,
   valueField,
+  valueLabel,
   valueUnit,
   selectionField,
   title = 'Locations',
@@ -288,7 +290,7 @@ export function ClioMapArtifactSource({
         selectionField={effectiveSelectionField}
         setSelection={effectiveSetSelection}
         title={title}
-        valueLabel={valueField}
+        valueLabel={valueLabel ?? valueField}
         valueUnit={valueUnit}
       />
       {reducedCaption ? <p className="text-xs text-muted-foreground">{reducedCaption}</p> : null}

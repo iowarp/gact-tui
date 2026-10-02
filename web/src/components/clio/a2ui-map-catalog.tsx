@@ -43,6 +43,7 @@ const mapDataProperties = {
   detailField: fieldNameSchema.optional(),
   categoryField: fieldNameSchema.optional(),
   valueField: fieldNameSchema.optional(),
+  valueLabel: z.string().max(80).optional(),
   valueUnit: z.string().max(40).optional(),
   selected: z.string().max(A2UI_MAP_POINT_ID_MAX_CHARS).optional(),
   selection: CommonSchemas.DynamicValue.optional(),
@@ -108,6 +109,7 @@ export const ClioMapCatalogComponent = createComponentImplementation(
               selectionField={props.selectionField}
               setSelection={setSelection}
               title={props.title}
+              valueLabel={props.valueLabel}
               valueUnit={props.valueUnit}
             />}
           </BoundDataQuery>
@@ -127,6 +129,7 @@ export const ClioMapCatalogComponent = createComponentImplementation(
             setSelection={setSelection}
             title={props.title}
             valueField={props.valueField}
+            valueLabel={props.valueLabel}
             valueUnit={props.valueUnit}
           />
         ) : (
@@ -141,6 +144,7 @@ export const ClioMapCatalogComponent = createComponentImplementation(
             selectionField={props.selectionField}
             setSelection={setSelection}
             title={props.title}
+            valueLabel={props.valueLabel}
             valueUnit={props.valueUnit}
           />
         )}

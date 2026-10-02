@@ -25,6 +25,7 @@ interface GeoJsonSourceProps {
   setSelection?: SelectionWriter;
   title?: string;
   valueField?: string;
+  valueLabel?: string;
   valueUnit?: string;
 }
 
@@ -35,6 +36,7 @@ export function ClioMapGeoJsonSource({
   detailField,
   categoryField,
   valueField,
+  valueLabel,
   selectionField,
   selection,
   setSelection,
@@ -105,6 +107,6 @@ export function ClioMapGeoJsonSource({
     selectionField={effectiveSelectionField}
     setSelection={effectiveSetSelection}
     title={title}
-    valueLabel={valueField}
+    valueLabel={valueLabel ?? valueField}
   />;
 }
