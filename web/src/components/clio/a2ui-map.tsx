@@ -472,7 +472,7 @@ export function ClioScientificMap({
           </Button>
         </TooltipTrigger>
         <TooltipContent align="end" side="bottom">
-          Box select points. Hold Ctrl while dragging to select tracks. Shift adds or removes selections.
+          Click a point to select it. Ctrl-click selects its track. Shift-click toggles a point; Ctrl+Shift-click merges or removes a track. Drag selects points; Ctrl-drag selects tracks.
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

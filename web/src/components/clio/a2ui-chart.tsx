@@ -857,7 +857,7 @@ export function ClioChart(props: ClioChartProps) {
           </TooltipTrigger>
           <TooltipContent align="end" side="bottom">
             {selectsSeries
-              ? 'Box select points. Hold Ctrl and drag to select whole curves. Shift adds to the selection.'
+              ? 'Drag to select points. Ctrl-drag selects whole curves. Shift adds or removes.'
               : 'Box select. Drag a rectangle to select rows. Click again to exit.'}
           </TooltipContent>
         </Tooltip>
@@ -887,7 +887,7 @@ export function ClioChart(props: ClioChartProps) {
       linkable && selectionField ? (
         <span>
           {zoomParam
-            ? 'Click a point to select it. Ctrl-click selects its curve. Shift adds or removes. Drag to select points; Ctrl-drag selects curves. Alt+drag pans and Ctrl+wheel zooms.'
+            ? 'Click a point to select it. Ctrl-click selects its curve. Shift-click toggles a point; Ctrl+Shift-click merges or removes a curve. Drag selects points; Ctrl-drag selects curves. Alt+drag pans and Ctrl+wheel zooms.'
             : 'Choose Box select or hold Shift and drag to select matching rows.'}
         </span>
       ) : undefined,
