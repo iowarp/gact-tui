@@ -62,6 +62,8 @@ interface ScientificMapViewProps {
 const MANY_POINTS_THRESHOLD = 150;
 const POINTS_SOURCE_ID = 'clio-map-points';
 const POINTS_LAYER_ID = 'clio-map-points-circles';
+/** Which mounted view last claimed the points layer on a (possibly pooled) map instance. */
+const pointsLayerOwners = new WeakMap<MapLibreMap, symbol>();
 /** Paint-expression colors; maplibre evaluates these itself and cannot read CSS custom properties. */
 const POINT_COLOR = '#1d4ed8';
 const POINT_HIGHLIGHTED_COLOR = '#ea580c';
@@ -212,8 +214,15 @@ export function ClioScientificMapView({
   useEffect(() => {
     if (!manyPoints || !mapInstance) return undefined;
     const map = mapInstance;
+    // With `reuseMaps`, a view that moves (a surface opened full screen is
+    // portaled to a new host, which remounts it) hands its pooled instance to
+    // the new view before its own cleanup has run. That late cleanup must not
+    // tear down the points the new view now draws on the same instance, so the
+    // layer is removed only by the view that last claimed it.
+    const owner = Symbol('clio-map-points-owner');
     const ensurePointsLayer = () => {
       if (!map.isStyleLoaded()) return;
+      pointsLayerOwners.set(map, owner);
       if (!map.getSource(POINTS_SOURCE_ID)) {
         map.addSource(POINTS_SOURCE_ID, {
           type: 'geojson',
@@ -238,9 +247,16 @@ export function ClioScientificMapView({
     ensurePointsLayer();
     map.on('load', ensurePointsLayer);
     map.on('style.load', ensurePointsLayer);
+    // A reused instance can be handed over while its basemap tiles are still loading:
+    // `isStyleLoaded()` is false then, and 'load'/'style.load' already fired long ago,
+    // so nothing above would ever retry. 'idle' fires once the map settles.
+    map.on('idle', ensurePointsLayer);
     return () => {
       map.off('load', ensurePointsLayer);
       map.off('style.load', ensurePointsLayer);
+      map.off('idle', ensurePointsLayer);
+      if (pointsLayerOwners.get(map) !== owner) return;
+      pointsLayerOwners.delete(map);
       // Best-effort: with `reuseMaps`, this instance may already be back in
       // the pool (or fully torn down) by the time this cleanup runs.
       try {

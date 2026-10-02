@@ -39,6 +39,8 @@ COPY packages/ ./packages/
 COPY web/ ./web/
 COPY branding/ ./branding/
 COPY brand.config.json ./brand.config.json
+# The desktop What's new dialog bundles the user changelog (web/src/lib/desktop-changelog.ts).
+COPY CHANGELOG.md ./CHANGELOG.md
 
 # CLIO owns its product copy and assets. Resolve that profile from the agent
 # repository at the paired ref rather than copying CLIO identity into GACT.

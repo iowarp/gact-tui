@@ -19,6 +19,7 @@ import {
   type DataGridFeatures,
 } from '@/components/reui/data-grid/data-grid';
 import { DATA_GRID_PAGE_SIZES } from '@/lib/runtime-limits';
+import { cn } from '@/lib/utils';
 import {
   ClioRangeColumnFilter,
   ClioTextColumnFilter,
@@ -74,7 +75,13 @@ function ClioColumnValueCell<TData extends ClioDataRow>({
 }) {
   const value = (row.original as ClioDataRow)[column.id];
   return (
-    <span className="font-mono text-xs" title={exactCell(value)}>
+    // One line per row: a wrapped cell makes every row several lines tall, and a
+    // page of them pushes the rest of the conversation far out of view. The full
+    // value stays reachable in the tooltip and by widening the column.
+    <span
+      className={cn('block truncate text-xs', typeof value === 'number' && 'tabular-nums')}
+      title={exactCell(value)}
+    >
       {formatCell(value)}
     </span>
   );

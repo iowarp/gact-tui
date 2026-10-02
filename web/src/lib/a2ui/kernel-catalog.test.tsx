@@ -2,6 +2,10 @@ import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
+import {
+  resolvedCardAction,
+  type CardActionDispatchContext,
+} from './kernel-catalog-card-actions';
 
 vi.mock('@/components/clio/scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="professional-map-renderer" />,
@@ -60,8 +64,10 @@ const testCatalog = new Catalog(
   [...KERNEL_FUNCTIONS.values()],
 );
 
-function buildSurface(components: Record<string, unknown>[]) {
-  const surfaceId = 'scientific-view';
+const TEST_SURFACE_ID = 'scientific-view';
+
+function buildSurface(components: Record<string, unknown>[], extraMessages: A2uiMessage[] = []) {
+  const surfaceId = TEST_SURFACE_ID;
   const processor = new MessageProcessor([testCatalog], async () => undefined, {
     version: 'v0.9.1',
   });
@@ -70,6 +76,7 @@ function buildSurface(components: Record<string, unknown>[]) {
       version: 'v0.9.1',
       createSurface: { surfaceId, catalogId: TEST_CATALOG_ID },
     },
+    ...extraMessages,
     {
       version: 'v0.9.1',
       updateComponents: { surfaceId, components },
@@ -192,7 +199,8 @@ describe('CLIO A2UI kernel catalog', () => {
       'aria-description',
       'Two bounded EarthScope locations',
     );
-    expect(screen.getByText('2 labeled locations')).toBeVisible();
+    expect(screen.getByText('2 locations')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Locations list' }));
     const second = screen.getByRole('button', { name: /Station 2/ });
     fireEvent.click(second);
     expect(second).toHaveAttribute('aria-pressed', 'true');
@@ -334,6 +342,119 @@ describe('CLIO A2UI kernel catalog', () => {
       expect((await screen.findAllByLabelText(label)).length).toBeGreaterThan(0);
     }
   }, 20_000);
+
+  it('dispatches action-card and approval button actions instead of dropping them (#1549 G1)', async () => {
+    // The generic binder already resolves `item.action` into a zero-arg
+    // closure (`GenericBinder.bindAction`) before these components ever see
+    // it, so re-wrapping it in `context.dispatchAction(...)` hands
+    // `SurfaceModel.dispatchAction` a function instead of an `{ event }`
+    // payload, which it drops with no `event` key and no error. Calling the
+    // closure directly is the same path `Button`'s own `onClick: props.action`
+    // and this file's `Callout` already use.
+    //
+    // The closure's dispatch runs through `ComponentContext._actionDispatcher`
+    // (`surface.dispatchAction(action, this.componentModel.id)`), so the
+    // emitted event also carries `sourceComponentId` -- the id of the
+    // action-card/approval component itself, not the button -- and the
+    // binder resolves any `{ path }` context value against the live data
+    // model before dispatch. Both are asserted here, not only `name`.
+    const continueAction = {
+      event: { name: 'card.continue', context: { reportId: { path: '/report/id' } } },
+    };
+    const approveAction = { event: { name: 'approval.approve' } };
+    const surface = buildSurface(
+      [
+        { id: 'root', component: 'Column', children: ['action', 'approval'] },
+        {
+          id: 'action',
+          component: 'clio.action-card.v1',
+          title: 'Continue analysis',
+          body: 'Review the result',
+          severity: 'info',
+          actions: [{ label: 'Continue', action: continueAction }],
+        },
+        {
+          id: 'approval',
+          component: 'clio.approval.v1',
+          title: 'Approve export',
+          reason: 'Write the report',
+          risk: 'low',
+          actions: [{ label: 'Approve', action: approveAction }],
+        },
+      ],
+      [
+        {
+          version: 'v0.9.1',
+          updateDataModel: { surfaceId: TEST_SURFACE_ID, path: '/report/id', value: 'RPT-42' },
+        },
+      ] as A2uiMessage[],
+    );
+    const onAction = vi.fn();
+    surface.onAction.subscribe(onAction);
+
+    render(<A2uiSurface surface={surface} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    await vi.waitFor(() => {
+      expect(onAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'card.continue',
+          sourceComponentId: 'action',
+          context: { reportId: 'RPT-42' },
+        }),
+      );
+      expect(onAction).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'approval.approve', sourceComponentId: 'approval' }),
+      );
+    });
+  });
+
+  describe('resolvedCardAction guards a non-function action (adversarial review #514 finding 5)', () => {
+    // The binder contract `resolvedCardAction`'s own doc comment describes
+    // (`CommonSchemas.Action` always classifies as `ACTION` and gets
+    // wrapped) means a real `MessageProcessor` render can't produce a
+    // non-function `item.action` without first failing schema validation --
+    // there is no live reproduction that doesn't also break the surface a
+    // different way. This calls the guard directly, the same way the
+    // action-card/approval click handlers do, to prove the defensive branch
+    // itself: it must never call a non-function, and it must report through
+    // `dispatchError` rather than silently doing nothing.
+    function fakeContext(): CardActionDispatchContext & { dispatchError: ReturnType<typeof vi.fn> } {
+      const dispatchError = vi.fn().mockResolvedValue(undefined);
+      return { dataContext: { surface: { dispatchError } }, dispatchError };
+    }
+
+    it('calls a resolved function action directly, with no dispatchError', () => {
+      const context = fakeContext();
+      const action = vi.fn();
+      const boundAction = action as unknown as Parameters<typeof resolvedCardAction>[0];
+
+      resolvedCardAction(boundAction, context)();
+
+      expect(action).toHaveBeenCalledTimes(1);
+      expect(context.dispatchError).not.toHaveBeenCalled();
+    });
+
+    it('reports a local, unposted resolution problem instead of calling a non-function action', () => {
+      const context = fakeContext();
+      const unresolvedAction = { event: { name: 'card.continue' } } as unknown as Parameters<
+        typeof resolvedCardAction
+      >[0];
+
+      expect(() => resolvedCardAction(unresolvedAction, context)()).not.toThrow();
+
+      expect(context.dispatchError).toHaveBeenCalledTimes(1);
+      const [reported] = context.dispatchError.mock.calls[0] as [{ code: string; message: string }];
+      // A real `VALIDATION_FAILED` belongs on the wire (owner decision 11);
+      // this is a local resolution problem, so it must use a different code
+      // -- that's what routes it to the visible, unposted `localNotice` card
+      // in `a2ui-surface.tsx`'s `handleValidationFailed` instead of a POST.
+      expect(reported.code).not.toBe('VALIDATION_FAILED');
+      expect(reported.message.length).toBeGreaterThan(0);
+    });
+  });
 
   it('shows a clean fallback card, not the raw red "Unknown component" error, for a retired clio.time-series.v1', () => {
     // #1533 MEDIUM 7: `clio.time-series.v1` was retired in favor of the

@@ -324,9 +324,14 @@ function ConversationBody({
           visible={minimapVisible}
         />
       ) : null}
+      {/* `overflow-anchor: none`: the virtualizer and the autoscroll hook own
+          scroll position here. With the browser's own scroll anchoring on, it
+          picked an anchor near the bottom and, each time the virtualizer
+          re-positioned rows, silently moved the reader back to the bottom right
+          after they scrolled up, even on a finished conversation. */}
       <div
         aria-label="Conversation"
-        className="clio-scrollbar h-full overflow-y-auto overscroll-contain"
+        className="clio-scrollbar h-full overflow-y-auto overscroll-contain [overflow-anchor:none]"
         data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;

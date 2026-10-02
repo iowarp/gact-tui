@@ -3,6 +3,7 @@ import { useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import type { DataSurfaceZoneSelection } from '@/lib/selection-actions';
+import { useDataHeaderCompact } from './data-header-density';
 import type { DataZoneReference } from './data-zone-reference';
 
 /**
@@ -28,11 +29,14 @@ export function DataReferenceThisButton({
   disabled?: boolean;
 }) {
   const registry = useContext(SelectionActionsContext);
+  const compact = useDataHeaderCompact();
   if (!registry) return null;
   return (
     <Button
+      aria-label="Reference this"
       className="gap-1.5 text-xs"
       disabled={disabled}
+      title="Reference this data in your message"
       onClick={() => {
         const reference = buildReference();
         const target: DataSurfaceZoneSelection = {
@@ -47,7 +51,7 @@ export function DataReferenceThisButton({
       variant="outline"
     >
       <ChartLineIcon aria-hidden="true" className="size-3.5" />
-      Reference this
+      {compact ? null : 'Reference this'}
     </Button>
   );
 }

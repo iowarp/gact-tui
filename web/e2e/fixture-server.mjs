@@ -1022,6 +1022,9 @@ const server = createServer(async (request, response) => {
     questionPending = true;
     mcpV2UiDemo = false;
     a2uiMapDemo = false;
+    // Every spec shares this server: a demo left on by one spec file (the
+    // linked earthquake surface) otherwise leaks into every spec after it.
+    a2uiDataDemo = false;
     attachmentsEnabled = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;
@@ -1405,6 +1408,12 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/schedules`) {
     sendJson(response, { schedules: [], cron_timezone: 'UTC' });
+    return;
+  }
+  // The variant tabs rebuild a session's BestOfN / Refine runs from this route
+  // after a reload; the flat-NDP session has none.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/variant-runs`) {
+    sendJson(response, { session_id: sessionId, runs: [] });
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/queued-messages`) {
