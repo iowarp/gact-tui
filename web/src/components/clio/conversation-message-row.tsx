@@ -27,6 +27,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ClioMessageHistoryActions } from './message-history-actions';
 import { MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
+import { VariantRunsForMessage } from './variant-runs-for-message';
 import { subagentsForTool } from './subagent-tool-link';
 import type { ConversationMessageRowProps } from './conversation-types';
 import { specialMessageExecutionMode } from './conversation-message-projection';
@@ -300,6 +301,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     </div>
                   ),
                 )}
+                <VariantRunsForMessage message={message} />
                 <MessageBlockSequence
                   blocks={visibleResidualBlocks}
                   messageSessionId={message.session_id}
@@ -307,12 +309,15 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 />
               </>
             ) : (
-              <MessageBlockSequence
-                blocks={message.blocks}
-                messageSessionId={message.session_id}
-                resourcesFirst={message.role === 'user'}
-                {...entities}
-              />
+              <>
+                <VariantRunsForMessage message={message} />
+                <MessageBlockSequence
+                  blocks={message.blocks}
+                  messageSessionId={message.session_id}
+                  resourcesFirst={message.role === 'user'}
+                  {...entities}
+                />
+              </>
             )}
             {messageCompactions?.map((compaction) => (
               <ClioCompactionProgress compaction={compaction} key={compaction.compaction_id} />

@@ -176,6 +176,8 @@ const injectionMessageBlockSchema = additivelyTolerant(
       call_id: z.string().optional(),
       trigger: z.enum(['auto', 'manual']).optional(),
       compaction_id: z.string().optional(),
+      variants_id: z.string().optional(),
+      try_index: z.number().int().nonnegative().optional(),
       agent_id: z.string().optional(),
       sequence: z.number().int().positive().optional(),
       stream_source: z.string().optional(),

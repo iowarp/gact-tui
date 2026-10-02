@@ -47,6 +47,9 @@ export type MessageBlock = MessageBlockContext &
         call_id?: string;
         trigger?: 'auto' | 'manual';
         compaction_id?: string;
+        /** Set when a variant try received it: the block belongs to that try's tab. */
+        variants_id?: string;
+        try_index?: number;
       }
     | {
         /**
