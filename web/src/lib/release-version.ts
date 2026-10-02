@@ -1,8 +1,12 @@
-/** Convert Tauri's fourth component build metadata into the public release form. */
+/**
+ * Convert fourth-component build metadata into the public release form:
+ * Tauri's `0.9.4+3` and the workspace package's `0.11.2+patch.25` both
+ * become the published `0.9.4.3` / `0.11.2.25`.
+ */
 export function displayReleaseVersion(version: string | undefined): string | undefined {
   const trimmed = version?.trim().replace(/^v/u, '');
   if (!trimmed) return undefined;
-  return trimmed.replace(/^(\d+\.\d+\.\d+)\+(\d+)$/u, '$1.$2');
+  return trimmed.replace(/^(\d+\.\d+\.\d+)\+(?:patch\.)?(\d+)$/u, '$1.$2');
 }
 
 /** Return a release tag accepted by both GitHub and the CLIO installer. */
