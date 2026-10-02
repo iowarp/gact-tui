@@ -1410,6 +1410,12 @@ const server = createServer(async (request, response) => {
     sendJson(response, { schedules: [], cron_timezone: 'UTC' });
     return;
   }
+  // The variant tabs rebuild a session's BestOfN / Refine runs from this route
+  // after a reload; the flat-NDP session has none.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/variant-runs`) {
+    sendJson(response, { session_id: sessionId, runs: [] });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/queued-messages`) {
     sendJson(response, { queued_messages: queuedMessages });
     return;
