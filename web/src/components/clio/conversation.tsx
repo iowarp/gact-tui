@@ -17,6 +17,7 @@ import type { ClioConversationProps } from './conversation-types';
 import {
   isProjectedQuestionResumeEnvelope,
   mcpAppResponsesForMessages,
+  surfaceAwaitsPendingResponse,
 } from './conversation-message-projection';
 import { PresentationNavigation } from './presentation-navigation';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
@@ -130,9 +131,16 @@ function ConversationBody({
   const detachedSurfaces = useMemo(
     () =>
       Object.values(entities.surfaces)
-        .filter((surface) => !referencedSurfaceIds.has(surface.id) && surface.state !== 'deleted')
+        .filter(
+          (surface) =>
+            !referencedSurfaceIds.has(surface.id) &&
+            surface.state !== 'deleted' &&
+            // The pending-response tray renders a surface awaiting the user's
+            // answer; a detached copy here would mount the same surface twice.
+            !surfaceAwaitsPendingResponse(entities.interactions, surface.id),
+        )
         .sort((left, right) => left.revision - right.revision),
-    [entities.surfaces, referencedSurfaceIds],
+    [entities.interactions, entities.surfaces, referencedSurfaceIds],
   );
   const activeStreamingIndex = messages.findLastIndex((message) =>
     message.blocks.some(
