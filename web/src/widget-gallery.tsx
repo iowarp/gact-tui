@@ -7,6 +7,7 @@ import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from '@/lib/a2ui/ker
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { createSelectionActionRegistry } from '@/lib/selection-actions';
+import { GallerySkillDialog } from '@/gallery-skill-dialog';
 import type { DataSurfaceZoneSelection } from '@/lib/selection-actions';
 import { A2UI_BASIC_EXAMPLES, BASIC_CATALOG_ROW, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 
@@ -266,6 +267,14 @@ export function WidgetGallery() {
   const [showExample, setShowExample] = useState(false);
   const [composer, setComposer] = useState('');
   const [reference, setReference] = useState<DataSurfaceZoneSelection>();
+  const [skill, setSkill] = useState<string | null>(null);
+  const openSkill = (name: string) => {
+    if (new URLSearchParams(window.location.search).has('embedded') && window.parent !== window) {
+      window.parent.postMessage({ type: 'clio:gallery-skill', name }, window.location.origin);
+    } else {
+      setSkill(name);
+    }
+  };
   const selectionActions = useMemo(() => createSelectionActionRegistry(), []);
   useEffect(() => selectionActions.register({
     id: 'gallery-reference-preview',
@@ -291,7 +300,7 @@ export function WidgetGallery() {
       })}
     </nav>
     <div className="min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{labels[active] ?? active}</h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button></div></header>
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{labels[active] ?? active}</h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => openSkill(active)} type="button">Skill</button></div></header>
       {active === 'clio.chart.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Chart example">{['scatter', 'boxplot', 'heatmap', 'trajectories', 'spectra'].map((item) => <button aria-pressed={variant === item} className={`shrink-0 rounded-md px-3 py-1.5 text-xs capitalize ${variant === item ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item} onClick={() => { setVariant(item); setReference(undefined); }} type="button">{item}</button>)}</div> : null}
       {active === 'clio.callout.v1' ? <p className="text-sm text-muted-foreground">A short notice for a result, warning, or next step that deserves attention.</p> : null}
       <div className="min-h-56 overflow-x-auto"><div className={active === 'clio.chart.v1' ? 'min-w-[540px] sm:min-w-0' : active === 'clio.artifact.v1' ? 'max-w-2xl' : undefined}><A2uiDemo key={`${active}:${variant}`} name={active} variant={variant} /></div></div>
@@ -300,5 +309,5 @@ export function WidgetGallery() {
       {showContract ? <aside className="space-y-2 rounded-md bg-muted/50 p-4 text-sm"><p>{catalogDescription(active) || 'A layout or control building block in the A2UI Basic catalog.'}</p><p className="font-mono text-xs text-muted-foreground">{active}</p></aside> : null}
       {showExample ? <pre className="max-h-96 overflow-auto rounded-md border bg-muted/20 p-4 text-xs">{JSON.stringify(examplePayload(active, variant), null, 2)}</pre> : null}
     </div>
-  </section></SelectionActionsContext.Provider>;
+  </section><GallerySkillDialog name={skill} onClose={() => setSkill(null)} /></SelectionActionsContext.Provider>;
 }

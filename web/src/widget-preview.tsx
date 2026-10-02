@@ -10,6 +10,7 @@ import { ClioWeather } from '@/components/clio/a2ui-weather';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppProviders } from '@/providers/app-providers';
 import { A2uiDemo, LinkedViewsDemo, ReportReviewDemo, WidgetGallery } from '@/widget-gallery';
+import { GallerySkillDialog } from '@/gallery-skill-dialog';
 import './index.css';
 import './widget-gallery.css';
 
@@ -23,6 +24,8 @@ const controls = [
   ['clio.slider.v1', 'Range slider'],
 ] as const;
 const embedded = new URLSearchParams(window.location.search).has('embedded');
+const skillPreview = new URLSearchParams(window.location.search).get('skill');
+if (skillPreview) document.documentElement.classList.add('gallery-skill-preview');
 
 function WeatherExample() {
   return (
@@ -59,6 +62,14 @@ function Preview() {
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme !== 'light';
   const [composer, setComposer] = useState('');
+  const [showGeneralSkill, setShowGeneralSkill] = useState(false);
+  const openGeneralSkill = () => {
+    if (embedded && window.parent !== window) {
+      window.parent.postMessage({ type: 'clio:gallery-skill', name: 'general' }, window.location.origin);
+    } else {
+      setShowGeneralSkill(true);
+    }
+  };
   useEffect(() => {
     const useDraft = (event: Event) =>
       setComposer((event as CustomEvent<{ text: string }>).detail.text);
@@ -77,10 +88,11 @@ function Preview() {
     window.addEventListener('message', syncTheme);
     return () => window.removeEventListener('message', syncTheme);
   }, [setTheme]);
+  if (skillPreview) return <GallerySkillDialog name={skillPreview} onClose={() => window.parent.postMessage({ type: 'clio:gallery-skill-close' }, window.location.origin)} />;
   return (
     <main className={`gallery-page min-h-screen bg-background px-4 text-foreground sm:px-8 ${embedded ? 'py-4' : 'py-8'}`}>
       <div className="mx-auto max-w-7xl space-y-6">
-        {!embedded ? <header className="flex flex-wrap items-start justify-between gap-4">
+        {embedded ? <div className="flex justify-end"><button className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onClick={openGeneralSkill} type="button">A2UI skills</button></div> : <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-muted-foreground">
               Interactive component gallery
@@ -90,14 +102,20 @@ function Preview() {
               Explore all 37 components, their example data, and connected workflows.
             </p>
           </div>
-          <button
+          <div className="flex shrink-0 gap-2"><button
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+            onClick={openGeneralSkill}
+            type="button"
+          >
+            A2UI skills
+          </button><button
             className="shrink-0 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
             onClick={() => setTheme(dark ? 'light' : 'dark')}
             type="button"
           >
             {dark ? 'Light theme' : 'Dark theme'}
-          </button>
-        </header> : null}
+          </button></div>
+        </header>}
         <Tabs defaultValue="components">
           <TabsList
             aria-label="Widget gallery"
@@ -242,6 +260,7 @@ function Preview() {
             </section>
           </TabsContent>
         </Tabs>
+        <GallerySkillDialog name={showGeneralSkill ? 'general' : null} onClose={() => setShowGeneralSkill(false)} />
       </div>
       <Toaster />
     </main>

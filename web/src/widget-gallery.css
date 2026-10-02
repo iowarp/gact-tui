@@ -31,3 +31,13 @@
 .gallery-page [data-slot="a2ui-mesh-viewport"] [role="img"] {
   height: clamp(20rem, 48vw, 34rem);
 }
+
+html.gallery-skill-preview,
+html.gallery-skill-preview body,
+html.gallery-skill-preview #root {
+  background: transparent;
+}
+
+html.gallery-skill-preview [data-slot="dialog-overlay"] {
+  display: none;
+}
