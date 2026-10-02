@@ -17,7 +17,8 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import type { VariantRunView, VariantTabView } from '@/lib/variant-runs';
+import { followTranscriptLink } from '@/lib/inline-question';
+import type { VariantClosedView, VariantRunView, VariantTabView } from '@/lib/variant-runs';
 import { HarnessInjection } from './conversation-message-blocks';
 import { respondFromControl } from './interaction-control';
 import { ResponseErrorNotice } from './pending-interaction-notices';
@@ -59,6 +60,46 @@ function TabBadges({ tab }: { tab: VariantTabView }) {
   );
 }
 
+/** `Pick by Oct 1, 2026, 3:45 PM`: the pick's deadline as a local date and time. */
+function PickDeadline({ expiresAt }: { expiresAt: string }) {
+  const at = new Date(expiresAt);
+  const shown = Number.isNaN(at.getTime())
+    ? expiresAt
+    : at.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  return (
+    <p className="text-xs text-muted-foreground" data-slot="variant-pick-deadline">
+      Pick by <time dateTime={expiresAt}>{shown}</time>; after that the drafts expire.
+    </p>
+  );
+}
+
+/** A run that ended without a pick: what happened, in words, and where it went. */
+function ClosedNotice({ closed }: { closed: VariantClosedView }) {
+  const messageId = closed.supersededByMessageId;
+  const link = messageId ? `#message-${encodeURIComponent(messageId)}` : undefined;
+  return (
+    <div
+      className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground"
+      data-slot="variant-closed"
+    >
+      <Badge variant="outline">{closed.label}</Badge>
+      <span>{closed.notice}</span>
+      {link ? (
+        <a
+          className="font-medium text-foreground underline underline-offset-2"
+          href={link}
+          onClick={(event) => {
+            event.preventDefault();
+            followTranscriptLink(link);
+          }}
+        >
+          Go to your message
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 function TryActivity({ tab }: { tab: VariantTabView }) {
   if (tab.activity.length === 0) return null;
   return (
@@ -81,10 +122,12 @@ function TryActivity({ tab }: { tab: VariantTabView }) {
 function PickPanel({
   tab,
   refinable,
+  expiresAt,
   onPick,
 }: {
   tab: VariantTabView;
   refinable: boolean;
+  expiresAt?: string;
   onPick: VariantPick;
 }) {
   const [comment, setComment] = useState('');
@@ -136,6 +179,7 @@ function PickPanel({
         {responding ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}
         {trimmed && refinable ? `Refine ${tab.label}` : `Pick ${tab.label}`}
       </Button>
+      {expiresAt ? <PickDeadline expiresAt={expiresAt} /> : null}
     </div>
   );
 }
@@ -144,11 +188,13 @@ function TryPanel({
   tab,
   refinable,
   sessionId,
+  expiresAt,
   onPick,
 }: {
   tab: VariantTabView;
   refinable: boolean;
   sessionId: string;
+  expiresAt?: string;
   onPick?: VariantPick;
 }) {
   return (
@@ -193,7 +239,9 @@ function TryPanel({
           Your comment: <span className="text-foreground">{tab.comment}</span>
         </p>
       ) : null}
-      {onPick ? <PickPanel onPick={onPick} refinable={refinable} tab={tab} /> : null}
+      {onPick ? (
+        <PickPanel expiresAt={expiresAt} onPick={onPick} refinable={refinable} tab={tab} />
+      ) : null}
     </div>
   );
 }
@@ -202,7 +250,8 @@ function TryPanel({
  * A BestOfN / Refine run as tabs, one per try: each streams live while the
  * tries run in parallel, shows its score or the user's pick, and -- while the
  * run waits for the user -- carries the pick action and, for Refine, a comment
- * box. With no pick waiting it is the read-only record of the run.
+ * box. With no pick waiting it is the read-only record of the run; a run that
+ * closed without a pick (superseded, cancelled, expired) says so in words.
  */
 export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPick?: VariantPick }) {
   const [active, setActive] = useState(String(view.defaultTab));
@@ -217,7 +266,7 @@ export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPic
   const current = view.tabs.some((tab) => String(tab.tryIndex) === active)
     ? active
     : String(view.defaultTab);
-  const canPick = Boolean(onPick && view.pick);
+  const canPick = Boolean(onPick && view.pick && !view.closed);
   return (
     <Frame
       aria-label={view.title}
@@ -236,6 +285,7 @@ export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPic
         </span>
       </FrameHeader>
       <FramePanel className="min-w-0">
+        {view.closed ? <ClosedNotice closed={view.closed} /> : null}
         {view.pick?.prompt ? (
           <p className="mb-2 text-sm text-foreground">{view.pick.prompt}</p>
         ) : null}
@@ -259,6 +309,7 @@ export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPic
           {view.tabs.map((tab) => (
             <TabsContent className="min-w-0 pt-2" key={tab.tryIndex} value={String(tab.tryIndex)}>
               <TryPanel
+                expiresAt={view.pick?.expiresAt}
                 onPick={canPick ? onPick : undefined}
                 refinable={view.refinable}
                 sessionId={view.sessionId}

@@ -4,6 +4,7 @@ import {
   type MessageBlock,
   type PendingInteraction,
   type VariantCandidate,
+  type VariantClosure,
   type VariantRun,
   type VariantTry,
 } from '@clio/core/v3';
@@ -28,6 +29,8 @@ export interface VariantPickQuestion {
   rubric?: string;
   refinable: boolean;
   candidates: VariantCandidate[];
+  /** The pick's deadline (`draft_alternatives`' `expiresInSeconds`), when it has one. */
+  expiresAt?: string;
 }
 
 /** The pick question an interaction carries, or `undefined` when it is not one. */
@@ -44,6 +47,7 @@ export function variantPickQuestion(
     rubric: parsed.data.variant.rubric,
     refinable: parsed.data.variant.refinable,
     candidates: parsed.data.variant.candidates,
+    expiresAt: interaction.payload?.expires_at || undefined,
   };
 }
 
@@ -156,6 +160,17 @@ export interface VariantTabView {
   candidateId?: string;
 }
 
+/** A run that ended without a pick, in plain words. */
+export interface VariantClosedView {
+  status: VariantClosure['status'];
+  /** The short status: `Superseded by your next message`, `Cancelled`, `Expired`. */
+  label: string;
+  /** What it means for the drafts. */
+  notice: string;
+  /** The user message that superseded the pick. */
+  supersededByMessageId?: string;
+}
+
 export interface VariantRunView {
   variantsId: string;
   sessionId: string;
@@ -165,8 +180,10 @@ export interface VariantRunView {
   status: string;
   tabs: VariantTabView[];
   defaultTab: number;
-  /** The pick waiting for the user; absent once the run is decided. */
+  /** The pick waiting for the user; absent once the run is decided or closed. */
   pick?: VariantPickQuestion;
+  /** The run ended without a pick: read-only, no pick or comment. */
+  closed?: VariantClosedView;
   refinable: boolean;
 }
 
@@ -186,8 +203,37 @@ function methodLabel(run: VariantRun): string {
   return judge ? `${strategy} · ${judge}` : strategy;
 }
 
+/** A closed run's plain status and notice; never a colour or an icon alone. */
+export function variantClosedView(closure: VariantClosure): VariantClosedView {
+  const unused = 'None of these drafts was used.';
+  switch (closure.status) {
+    case 'superseded':
+      return {
+        status: closure.status,
+        label: 'Superseded by your next message',
+        notice: `You sent a new message instead of picking. ${unused}`,
+        supersededByMessageId: closure.superseded_by_message_id,
+      };
+    case 'cancelled':
+      return {
+        status: closure.status,
+        label: 'Cancelled',
+        notice: `The pick was cancelled. ${unused}`,
+      };
+    case 'expired':
+      return {
+        status: closure.status,
+        label: 'Expired',
+        notice: `The time to pick ran out. ${unused}`,
+      };
+    default:
+      return { status: closure.status, label: 'Closed', notice: `The pick closed. ${unused}` };
+  }
+}
+
 function statusLabel(run: VariantRun, noun: string, pick?: VariantPickQuestion): string {
   if (run.selection) return `${noun} ${run.selection.selected_index + 1} selected`;
+  if (run.closure) return variantClosedView(run.closure).label;
   if (pick) return 'Waiting for your pick';
   if (run.status === 'failed') return 'The run failed';
   const running = run.tries.filter((item) => item.state === 'running').length;
@@ -204,7 +250,8 @@ export function variantRunView(
   messages: readonly Message[],
 ): VariantRunView {
   const noun = tryNoun(run);
-  const pick = run.selection ? undefined : waitingPick(run, interactions);
+  // A decided or closed run offers no pick, whatever interaction rows remain.
+  const pick = run.selection || run.closure ? undefined : waitingPick(run, interactions);
   const injections = variantInjections(messages, run.variants_id);
   // A Refine try forked from a pick: the user picked that try with a comment
   // (its advice). The final pick is the selection's.
@@ -283,6 +330,7 @@ export function variantRunView(
     tabs,
     defaultTab,
     pick,
+    closed: run.closure ? variantClosedView(run.closure) : undefined,
     refinable: pick?.refinable ?? false,
   };
 }
