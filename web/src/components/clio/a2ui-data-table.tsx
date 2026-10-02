@@ -320,6 +320,7 @@ export function ClioSelectableDataTable({
       columns={columns}
       description={a2uiAccessibilityDescription(accessibility)}
       label={heading}
+      showLabel={Boolean(a2uiAccessibilityLabel(accessibility))}
       onRowClick={selectRow}
       rows={visibleRows}
       selectedRows={selectedRows}
