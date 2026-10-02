@@ -10,8 +10,24 @@ export type VariantStrategy = WireValue<'best_of_n' | 'refine'>;
 export type VariantJudge = WireValue<'lm' | 'user'>;
 export type VariantTryState = WireValue<'running' | 'completed' | 'failed'>;
 export type VariantRunStatus = WireValue<
-  'running' | 'awaiting_pick' | 'answered' | 'selected' | 'failed'
+  | 'running'
+  | 'awaiting_pick'
+  | 'answered'
+  | 'selected'
+  | 'failed'
+  | 'superseded'
+  | 'cancelled'
+  | 'expired'
 >;
+/** How a user-judged run ended without a pick. */
+export type VariantClosedStatus = WireValue<'superseded' | 'cancelled' | 'expired'>;
+
+/** The run statuses that close a run without a pick. */
+export const VARIANT_CLOSED_STATUSES: readonly VariantClosedStatus[] = [
+  'superseded',
+  'cancelled',
+  'expired',
+];
 
 export interface VariantTryTokens {
   input: number;
@@ -104,6 +120,22 @@ export interface VariantCandidate {
   text: string;
 }
 
+/**
+ * A user-judged run that ended without a pick (`variant.closed`, or a served
+ * record with a closed status): superseded by the user's next message,
+ * cancelled, or expired. None of its drafts entered the conversation.
+ */
+export interface VariantClosure {
+  status: VariantClosedStatus;
+  /** `variant_pick_superseded` | `variant_pick_cancelled` | `variant_pick_expired`. */
+  reason?: string;
+  closed_at?: string;
+  /** The pick question that closed. */
+  question_id?: string;
+  /** The user message that superseded the pick. */
+  superseded_by_message_id?: string;
+}
+
 export interface VariantRun {
   variants_id: string;
   session_id: string;
@@ -123,4 +155,6 @@ export interface VariantRun {
   /** Tries in `try_index` order. */
   tries: VariantTry[];
   selection?: VariantSelection;
+  /** How the run ended without a pick; absent while open or once selected. */
+  closure?: VariantClosure;
 }

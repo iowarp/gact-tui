@@ -107,6 +107,25 @@ describe('variant run view', () => {
     expect(variantRunView(run, [otherRun], []).pick).toBeUndefined();
   });
 
+  it('offers no pick on a closed run, even with a pending interaction row left', () => {
+    const closed = {
+      ...run,
+      status: 'expired' as const,
+      closure: { status: 'expired' as const, reason: 'variant_pick_expired' },
+    };
+    const view = variantRunView(closed, [pick], []);
+    expect(view.pick).toBeUndefined();
+    expect(view.tabs[0]?.candidateId).toBeUndefined();
+    expect(view.status).toBe('Expired');
+    expect(view.closed).toMatchObject({ status: 'expired', label: 'Expired' });
+  });
+
+  it('carries the pick deadline from the interaction', () => {
+    const timed = { ...pick, payload: { ...pick.payload, expires_at: '2026-10-01T12:30:00Z' } };
+    expect(variantRunView(run, [timed], []).pick?.expiresAt).toBe('2026-10-01T12:30:00Z');
+    expect(variantRunView(run, [pick], []).pick?.expiresAt).toBeUndefined();
+  });
+
   it('marks the tries the user picked: a refined source and the final pick', () => {
     const tries = [
       run.tries[0]!,

@@ -31,10 +31,12 @@ import {
   appendVariantDelta,
   recordVariantActivity,
   selectVariant,
+  closeVariant,
   upsertVariantTry,
 } from './variant-reducer.js';
 import {
   variantSelectedSchema,
+  variantClosedSchema,
   variantSemanticEventSchema,
   variantTryDeltaSchema,
   variantTryUpsertSchema,
@@ -497,6 +499,10 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'variant.selected': {
       const selected = variantSelectedSchema.parse(envelope.payload);
       return { ...base, revisions, variant_runs: selectVariant(base.variant_runs, selected) };
+    }
+    case 'variant.closed': {
+      const closed = variantClosedSchema.parse(envelope.payload);
+      return { ...base, revisions, variant_runs: closeVariant(base.variant_runs, closed) };
     }
     case 'semantic.event': {
       // Only a variant try's own events are projected (into its tab); every

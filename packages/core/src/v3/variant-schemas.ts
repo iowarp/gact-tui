@@ -73,6 +73,29 @@ export const variantSelectedSchema = z.object({
   comment: optionalWireString(),
 });
 
+/**
+ * `variant.closed` (entity `<variants_id>`): a user-judged run ended without a
+ * pick -- superseded by the user's next message, cancelled, or expired -- with
+ * the drafts it had offered.
+ */
+export const variantClosedSchema = z.object({
+  ...variantRunFields,
+  status: forwardCompatibleEnum(['superseded', 'cancelled', 'expired']),
+  reason: optionalWireString(),
+  question_id: optionalWireString(),
+  closed_at: optionalWireString(),
+  candidates: z
+    .array(
+      z.object({
+        try_index: z.number().int().nonnegative(),
+        scope: z.string().default(''),
+        text: z.string().default(''),
+      }),
+    )
+    .default([]),
+  superseded_by_message_id: optionalWireString(),
+});
+
 /** A pick question's metadata (its interaction's `payload.metadata`): `metadata.variant`. */
 export const variantQuestionMetadataSchema = z.object({
   variants_id: z.string().min(1),
@@ -182,7 +205,20 @@ export const variantRunRecordSchema = z.object({
   judge: forwardCompatibleEnum(['lm', 'user']),
   n: z.number().int().nonnegative(),
   rubric: optionalText,
-  status: forwardCompatibleEnum(['running', 'awaiting_pick', 'answered', 'selected', 'failed']),
+  status: forwardCompatibleEnum([
+    'running',
+    'awaiting_pick',
+    'answered',
+    'selected',
+    'failed',
+    'superseded',
+    'cancelled',
+    'expired',
+  ]),
+  question_id: optionalText,
+  closed_reason: optionalText,
+  closed_at: optionalText,
+  superseded_by_message_id: optionalText,
   turn_id: optionalText,
   anchor_message_id: optionalText,
   pick: optionalIndex,
@@ -199,5 +235,6 @@ export const variantRunListSchema = z.object({
 export type VariantTryUpsert = z.infer<typeof variantTryUpsertSchema>;
 export type VariantTryDelta = z.infer<typeof variantTryDeltaSchema>;
 export type VariantSelected = z.infer<typeof variantSelectedSchema>;
+export type VariantClosed = z.infer<typeof variantClosedSchema>;
 export type VariantSemanticEvent = z.infer<typeof variantSemanticEventSchema>;
 export type VariantRunRecord = z.infer<typeof variantRunRecordSchema>;

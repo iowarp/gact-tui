@@ -370,3 +370,139 @@ describe('VariantTabsBlock after a reload', () => {
     expect(screen.getByText('Best of 2 · judged by the model')).toBeInTheDocument();
   });
 });
+
+function closedFrame(status: string, extra: Record<string, unknown> = {}): TransportFrame {
+  return frame(
+    'variant.closed',
+    {
+      ...RUN,
+      status,
+      reason: `variant_pick_${status}`,
+      question_id: 'q_1',
+      closed_at: '2026-10-01T12:05:00Z',
+      candidates: [
+        { try_index: 0, scope: 'main#run0', text: 'Alpha one' },
+        { try_index: 1, scope: 'main#run1', text: 'Beta two' },
+      ],
+      ...extra,
+    },
+    'var_1',
+  );
+}
+
+describe('VariantTabsBlock for a run closed without a pick', () => {
+  it('shows a superseded run read-only, with a way to the message that superseded it', () => {
+    apply(
+      tryUpsert(0, { state: 'completed', text: 'Alpha one' }),
+      closedFrame('superseded', { superseded_by_message_id: 'msg_user_2' }),
+    );
+    // Even a stale pending interaction row offers no pick on a closed run.
+    renderRuns({ interactions: [pickInteraction(true)] });
+
+    const block = screen.getByRole('group', { name: 'Alternative drafts' });
+    expect(within(block).getByRole('status')).toHaveTextContent('Superseded by your next message');
+    const notice = block.querySelector('[data-slot="variant-closed"]') as HTMLElement;
+    expect(notice).toHaveTextContent('You sent a new message instead of picking.');
+    expect(within(notice).getByRole('link', { name: 'Go to your message' })).toHaveAttribute(
+      'href',
+      '#message-msg_user_2',
+    );
+    // The drafts it offered are still readable, one tab each.
+    expect(
+      within(block)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['Draft 1', 'Draft 2']);
+    expect(within(block).getByRole('tabpanel')).toHaveTextContent('Alpha one');
+    expect(within(block).queryByRole('button', { name: /Pick|Refine/u })).not.toBeInTheDocument();
+    expect(within(block).queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['cancelled', 'Cancelled', 'The pick was cancelled.'],
+    ['expired', 'Expired', 'The time to pick ran out.'],
+  ])('shows a %s run as %s with no pick', (status, label, notice) => {
+    apply(closedFrame(status));
+    renderRuns({
+      interactions: [
+        { ...pickInteraction(false), status: status as PendingInteraction['status'], actions: [] },
+      ],
+    });
+
+    const block = screen.getByRole('group', { name: 'Alternative drafts' });
+    expect(within(block).getByRole('status')).toHaveTextContent(label);
+    expect(block.querySelector('[data-slot="variant-closed"]')).toHaveTextContent(notice);
+    expect(within(block).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(block).queryByRole('button', { name: /Pick|Refine/u })).not.toBeInTheDocument();
+  });
+
+  it('renders the same closed run after a reload from the served records', () => {
+    const runs = variantRunsFromRecords(
+      variantRunListSchema.parse({
+        session_id: 'sess_1',
+        runs: [
+          {
+            schema: 'clio.variant_run.v1',
+            variants_id: 'var_1',
+            session_id: 'sess_1',
+            agent_id: 'main',
+            origin: 'draft_alternatives',
+            strategy: 'best_of_n',
+            judge: 'user',
+            n: 2,
+            status: 'superseded',
+            closed_reason: 'variant_pick_superseded',
+            closed_at: '2026-10-01T12:05:00Z',
+            superseded_by_message_id: 'msg_user_2',
+            question_id: 'q_1',
+            turn_id: 'turn_1',
+            anchor_message_id: 'msg_a',
+            pick: null,
+            comment: '',
+            selected_index: null,
+            tries: [0, 1].map((index) => ({
+              try_index: index,
+              scope: `main#run${index}`,
+              state: 'completed',
+              text: index ? 'Beta two' : 'Alpha one',
+              score: null,
+              turn_id: 'turn_1',
+              anchor_message_id: 'msg_a',
+              steps: [],
+            })),
+          },
+        ],
+      }).runs,
+    );
+    act(() => useLiveStore.getState().hydrateVariantRuns(runs));
+    renderRuns();
+
+    const block = screen.getByRole('group', { name: 'Alternative drafts' });
+    expect(within(block).getByRole('status')).toHaveTextContent('Superseded by your next message');
+    expect(within(block).getByRole('link', { name: 'Go to your message' })).toHaveAttribute(
+      'href',
+      '#message-msg_user_2',
+    );
+    expect(within(block).getAllByRole('tab')).toHaveLength(2);
+    expect(within(block).queryByRole('button', { name: /Pick|Refine/u })).not.toBeInTheDocument();
+  });
+
+  it('shows the pick deadline on the pick row while the pick waits', () => {
+    apply(tryUpsert(0, { state: 'completed', text: 'Alpha one' }));
+    const pick = pickInteraction(false);
+    renderRuns({
+      interactions: [{ ...pick, payload: { ...pick.payload, expires_at: '2026-10-01T12:30:00Z' } }],
+    });
+    const row = document.querySelector('[data-slot="variant-pick"]') as HTMLElement;
+    expect(within(row).getByRole('button', { name: 'Pick Draft 1' })).toBeInTheDocument();
+    const deadline = row.querySelector('[data-slot="variant-pick-deadline"]') as HTMLElement;
+    expect(deadline).toHaveTextContent(/^Pick by .+; after that the drafts expire\.$/u);
+    expect(deadline.querySelector('time')).toHaveAttribute('datetime', '2026-10-01T12:30:00Z');
+  });
+
+  it('shows no deadline for a pick without one', () => {
+    apply(tryUpsert(0, { state: 'completed', text: 'Alpha one' }));
+    renderRuns({ interactions: [pickInteraction(false)] });
+    expect(document.querySelector('[data-slot="variant-pick-deadline"]')).toBeNull();
+  });
+});

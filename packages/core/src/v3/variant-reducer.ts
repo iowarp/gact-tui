@@ -1,5 +1,13 @@
-import type { VariantRun, VariantTry, VariantTryActivity } from './variant-domain.js';
+import {
+  VARIANT_CLOSED_STATUSES,
+  type VariantClosedStatus,
+  type VariantClosure,
+  type VariantRun,
+  type VariantTry,
+  type VariantTryActivity,
+} from './variant-domain.js';
 import type {
+  VariantClosed,
   VariantRunRecord,
   VariantSelected,
   VariantSemanticEvent,
@@ -137,6 +145,64 @@ export function selectVariant(runs: VariantRuns, selected: VariantSelected): Var
   };
 }
 
+/**
+ * The run ended without a pick (`variant.closed`): superseded by the user's
+ * next message, cancelled, or expired. The drafts it offered are kept as
+ * completed tries (one this client never saw streaming is added from them),
+ * and the run is closed: no pick can answer it any more.
+ */
+export function closeVariant(runs: VariantRuns, closed: VariantClosed): VariantRuns {
+  let run = runWith(runs[closed.variants_id], closed);
+  for (const candidate of closed.candidates) {
+    const current = tryAt(run, candidate.try_index);
+    if (!current) {
+      run = withTry(run, {
+        ...emptyTry(run.variants_id, candidate.try_index),
+        scope: candidate.scope,
+        state: 'completed',
+        text: candidate.text,
+        run_id: closed.run_id,
+      });
+    } else if (!current.text && candidate.text) {
+      run = withTry(run, {
+        ...current,
+        scope: current.scope || candidate.scope,
+        text: candidate.text,
+      });
+    }
+  }
+  return {
+    ...runs,
+    [run.variants_id]: {
+      ...run,
+      status: closed.status,
+      closure: {
+        status: closed.status,
+        reason: closed.reason || undefined,
+        closed_at: closed.closed_at || undefined,
+        question_id: closed.question_id || undefined,
+        superseded_by_message_id: closed.superseded_by_message_id || undefined,
+      },
+    },
+  };
+}
+
+function isClosedStatus(status: string): status is VariantClosedStatus {
+  return (VARIANT_CLOSED_STATUSES as readonly string[]).includes(status);
+}
+
+/** A served record's closure: only a closed status has one. */
+function recordClosure(record: VariantRunRecord): VariantClosure | undefined {
+  if (!isClosedStatus(record.status)) return undefined;
+  return {
+    status: record.status,
+    reason: record.closed_reason,
+    closed_at: record.closed_at,
+    question_id: record.question_id,
+    superseded_by_message_id: record.superseded_by_message_id,
+  };
+}
+
 /** The `(variants_id, try_index)` stamp a try's other semantic events carry. */
 function tryStamp(
   payload: Record<string, unknown>,
@@ -232,6 +298,7 @@ export function variantRunsFromRecords(records: readonly VariantRunRecord[]): Va
               comment: record.comment,
             }
           : undefined,
+      closure: recordClosure(record),
     };
   }
   return runs;
@@ -269,6 +336,7 @@ function mergeRun(live: VariantRun, persisted: VariantRun): VariantRun {
     status: live.status ?? persisted.status,
     tries: [...tries.values()].sort((left, right) => left.try_index - right.try_index),
     selection: live.selection ?? persisted.selection,
+    closure: live.closure ?? persisted.closure,
   };
 }
 

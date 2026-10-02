@@ -1,4 +1,5 @@
 import type { Message, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
+import { isVariantPickInteraction } from './variant-runs';
 
 /** The inline question card's DOM id, keyed by the tool call that asked it. */
 export function inlineQuestionDomId(invocationId: string): string {
@@ -79,6 +80,10 @@ export function questionAnswerFromComposer(
   input: { text: string; files?: readonly unknown[]; references?: readonly unknown[] },
 ): ComposerQuestionAnswer | undefined {
   if (!answering || answering.status !== 'pending') return undefined;
+  // A pick between drafts is answered only in its tabs block, with exactly one
+  // draft: never by a composer message (the server refuses one with
+  // `drafts_question_needs_pick`), so the composer sends an ordinary message.
+  if (isVariantPickInteraction(answering)) return undefined;
   const questionId =
     typeof answering.payload?.question_id === 'string' ? answering.payload.question_id : '';
   if ((input.files?.length ?? 0) > 0 || (input.references?.length ?? 0) > 0) {
