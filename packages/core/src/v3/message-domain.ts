@@ -33,10 +33,38 @@ export type MessageBlock = MessageBlockContext &
     | { id: string; type: 'tool'; tool_id: string; thought?: string }
     | { id: string; type: 'plan'; title: string; detail?: string }
     | {
+        /**
+         * Harness data the agent was given (plan reminder, todos, a path hint, a
+         * context summary, ...). A `summarization` injection is the record of a
+         * compaction: `text` is the summary that replaced the earlier context,
+         * `trigger` says whether the service (`auto`) or the user (`manual`)
+         * started it, and `compaction_id` matches its `compaction.*` events.
+         */
         id: string;
-        type: 'compaction';
-        summary: string;
-        auto?: boolean;
+        type: 'injection';
+        source: string;
+        text: string;
+        call_id?: string;
+        trigger?: 'auto' | 'manual';
+        compaction_id?: string;
+        /** Set when a variant try received it: the block belongs to that try's tab. */
+        variants_id?: string;
+        try_index?: number;
+      }
+    | {
+        /**
+         * A service notice recorded in the transcript. `source:
+         * "compaction_failed"` is the durable record of a failed compaction:
+         * `text` says why, `code` is its typed reason, `trigger` who started it,
+         * and `compaction_id` matches its `compaction.*` events.
+         */
+        id: string;
+        type: 'notice';
+        source: string;
+        text: string;
+        code?: string;
+        trigger?: 'auto' | 'manual';
+        compaction_id?: string;
       }
     | { id: string; type: 'task'; task_id: string }
     | { id: string; type: 'subagent'; subagent_id: string; stage?: string; task?: string }

@@ -12,7 +12,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { openExternalUrl } from '@/tauri/external-url';
 import { storeProviderCredential } from '@/tauri/secure-credentials';
-import { providerOwner, useOwnedState } from './provider-owned-state';
+import { useOwnedState } from './provider-owned-state';
 
 /** The visible progress text of a running provider action. */
 export type ProviderActionStage =
@@ -45,20 +45,6 @@ interface ProviderActionsInput {
    * Every other action only needs `presetId`.
    */
   preset?: LanguageModelPreset;
-  /**
-   * Which part of the provider this instance acts for -- a transport id
-   * ("sdk" / "direct") for a provider reachable more than one way. Each scope
-   * is its OWN instance with its own stage, sign-in flow and results, so one
-   * transport's sign-in progress can never render in the other's section.
-   */
-  scope?: string;
-  /**
-   * Re-read the provider's catalog entry with a live probe after a check
-   * (`refresh=true`), not a passive read. A multi-transport provider needs it:
-   * its local transport is only probed by a live catalog read, never by the
-   * provider handshake.
-   */
-  probeCatalog?: boolean;
 }
 
 /**
@@ -76,16 +62,14 @@ export function useProviderActions({
   presetId,
   apiBase,
   preset,
-  scope = '',
-  probeCatalog = false,
 }: ProviderActionsInput) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  // Every result, flow and stage below belongs to the provider (and scope)
-  // it was produced for: an action still running when the person moves to
-  // another provider settles into its own slot, never the new provider's.
-  const owner = providerOwner(presetId, scope);
+  // Every result, flow and stage below belongs to the provider it was
+  // produced for: an action still running when the person moves to another
+  // provider settles into its own slot, never the new provider's.
+  const owner = presetId;
   const [refreshResult, setRefreshResult, clearRefreshResults] =
     useOwnedState<ProviderModelRefreshResult>(owner);
   const [handshakeResult, setHandshakeResult, clearHandshakeResults] =
@@ -124,7 +108,7 @@ export function useProviderActions({
   // entry stale) or changed its credential (which the service retires). A
   // plain read re-discovers exactly that entry from the fresh handshake.
   const reloadCatalogEntry = async () => {
-    const catalog = await repository.providerCatalog(probeCatalog, undefined, presetId);
+    const catalog = await repository.providerCatalog(false, undefined, presetId);
     queryClient.setQueryData(queryKeys.providerCatalog(settings.endpoint), catalog);
   };
   const checkProvider = async () => {
@@ -387,7 +371,7 @@ export function useProviderActions({
   // leak into the newly selected one (picker submenu or Settings panel).
   useEffect(() => {
     reset();
-  }, [presetId, scope, reset]);
+  }, [presetId, reset]);
 
   return {
     authFailedReason,

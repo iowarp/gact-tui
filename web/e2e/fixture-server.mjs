@@ -1410,6 +1410,12 @@ const server = createServer(async (request, response) => {
     sendJson(response, { schedules: [], cron_timezone: 'UTC' });
     return;
   }
+  // The variant tabs rebuild a session's BestOfN / Refine runs from this route
+  // after a reload; the flat-NDP session has none.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/variant-runs`) {
+    sendJson(response, { session_id: sessionId, runs: [] });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/queued-messages`) {
     sendJson(response, { queued_messages: queuedMessages });
     return;
@@ -1587,7 +1593,7 @@ const server = createServer(async (request, response) => {
     sendJson(response, {
       configured: true,
       provider: 'codex',
-      api_base: 'codex://app-server',
+      api_base: 'codex://direct',
       model: 'gpt-5.6-luna',
       thinking_level: 'medium',
       thinking_effective: 'medium (budget 8192)',
@@ -1596,7 +1602,7 @@ const server = createServer(async (request, response) => {
           id: 'codex',
           label: 'Codex',
           provider: 'codex',
-          api_base: 'codex://app-server',
+          api_base: 'codex://direct',
           suggested_model: 'gpt-5.6-luna',
           requires_api_key: false,
           is_authenticated: true,

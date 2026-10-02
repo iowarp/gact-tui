@@ -47,9 +47,6 @@ export interface SessionSendInput {
   files?: UploadableFilePart[];
   provider?: string;
   model?: string;
-  /** The picked half of a multi-transport provider (Codex `sdk` / `direct`),
-   * sent as the model reference's `variant`; absent inherits the configured one. */
-  transport?: string;
   delivery: MessageDelivery | 'queued';
   behavior: MessageBehavior;
   onUploadProgress?: (progress: ResourceUploadProgress) => void;
@@ -218,11 +215,7 @@ export function useSessionMutations({
       ];
       if (parts.length === 0) throw new Error('Write a message or attach a resource.');
 
-      const route = {
-        model_id: model,
-        provider_id: provider,
-        ...(value.transport ? { variant: value.transport } : {}),
-      };
+      const route = { model_id: model, provider_id: provider };
       if (value.delivery === 'queued' && value.answersQuestionId) {
         throw new Error("Answer the agent's question now, or stop answering to queue a message.");
       }

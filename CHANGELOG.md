@@ -6,6 +6,13 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Changed
+
+- Codex is reached one way only: directly with your Codex account. The model
+  picker lists Codex's models as one plain list with no SDK / Direct choice,
+  the composer's model button reads "Codex / Luna", and Log out sits in the
+  provider's own action row.
+
 ## [0.11.2.25] — 2026-09-30
 
 ### Changed

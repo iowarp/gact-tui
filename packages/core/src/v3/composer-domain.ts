@@ -31,7 +31,6 @@ export interface ResourceDeliveryDecision {
 export interface ComposerModelRef {
   provider_id: string;
   model_id: string;
-  variant?: string;
 }
 
 /** A thinking level the message contract can carry, in ascending order of depth. */
@@ -367,28 +366,6 @@ export interface ProviderCatalogModel {
    * field (`modalities`, `native_tool_calling`, `context_window`,
    * `reasoning`, ...): the evidence source and the rule that decided it. */
   capabilities_provenance?: Record<string, { source: string; decided_by: string }>;
-  /** Which of the provider's `transports` (below) this model came from -- set
-   * only for a multi-transport provider (Codex: `"sdk"` | `"direct"`). */
-  transport?: string;
-}
-
-/**
- * One way a multi-transport provider can be reached (Codex's local SDK vs
- * its direct OAuth subscription). Present on `ProviderCatalogEntry` ONLY for
- * a provider reachable more than one way; a single-transport provider has no
- * `transports` field at all. `auth` carries just enough to derive that ONE
- * transport's action set (`health` already folds in "needs install" via
- * `"needs_install"`) -- never a `models` array of its own, since every
- * transport's models already ride the flat `ProviderCatalogEntry.models`
- * list, each tagged with its own `transport` id above.
- */
-export interface ProviderCatalogTransport {
-  id: string;
-  label: string;
-  health: string;
-  reason: string;
-  /** `logout`: whether CLIO can sign this transport out (backend-owned). */
-  auth?: { method?: string; logout?: boolean };
 }
 
 export interface ProviderCatalogEntry {
@@ -407,9 +384,7 @@ export interface ProviderCatalogEntry {
   /** A background probe is running for this provider right now. */
   checking?: boolean;
   models: ProviderCatalogModel[];
-  /** Present only for a provider reachable more than one way (see above). */
-  transports?: ProviderCatalogTransport[];
-  /** The CLI a Codex / Claude Code SDK transport runs (installed vs bundled). */
+  /** The CLI the Claude Code SDK runs (installed vs bundled). */
   client?: ProviderClientFact;
 }
 

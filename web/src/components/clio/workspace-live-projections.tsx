@@ -19,7 +19,14 @@ function useSessionMessages(sessionId: string): Message[] {
 
 type LiveConversationProps = Omit<
   ClioConversationProps,
-  'actionLifecycles' | 'artifacts' | 'messages' | 'subagents' | 'surfaces' | 'tasks' | 'tools'
+  | 'actionLifecycles'
+  | 'artifacts'
+  | 'compactions'
+  | 'messages'
+  | 'subagents'
+  | 'surfaces'
+  | 'tasks'
+  | 'tools'
 > & {
   artifacts: readonly Artifact[];
   sessionId: string;
@@ -38,6 +45,7 @@ export function WorkspaceLiveConversation({
   const subagentEntities = useLiveStore((state) => state.entities.subagents);
   const surfaceEntities = useLiveStore((state) => state.entities.surfaces);
   const actionLifecycles = useLiveStore((state) => state.entities.a2ui_action_lifecycles);
+  const compactionEntities = useLiveStore((state) => state.entities.compactions);
   const tasks = useLiveStore((state) => state.entities.tasks);
   const tools = useLiveStore((state) => state.entities.tools);
   const messages = useMemo(
@@ -68,6 +76,11 @@ export function WorkspaceLiveConversation({
       ),
     [sessionId, surfaceEntities],
   );
+  const compactions = useMemo(
+    () =>
+      Object.values(compactionEntities).filter((compaction) => compaction.session_id === sessionId),
+    [compactionEntities, sessionId],
+  );
   const subagents = useMemo(
     () => ({
       ...subagentEntities,
@@ -76,8 +89,8 @@ export function WorkspaceLiveConversation({
     [subagentEntities, subagentList],
   );
   const entities = useMemo(
-    () => ({ actionLifecycles, artifacts, subagents, surfaces, tasks, tools }),
-    [actionLifecycles, artifacts, subagents, surfaces, tasks, tools],
+    () => ({ actionLifecycles, artifacts, compactions, subagents, surfaces, tasks, tools }),
+    [actionLifecycles, artifacts, compactions, subagents, surfaces, tasks, tools],
   );
   return <ClioConversation {...entities} {...props} messages={messages} />;
 }

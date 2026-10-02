@@ -85,7 +85,7 @@ const options = [
     id: 'gpt-5.6-luna',
     label: 'Luna',
     available: true,
-    endpoint: 'local://codex-sdk',
+    endpoint: 'codex://direct',
     configurationUrl: '/settings/providers?provider=codex',
     freshness: '2026-08-31T12:00:00Z',
     health: 'ready',

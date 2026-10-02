@@ -235,7 +235,7 @@
         "auth_method": "subscription",
         "configuration_url": "/settings/providers?provider=codex",
         "connectivity": "unreachable",
-        "endpoint": "codex://sdk",
+        "endpoint": "codex://direct",
         "failure": "connection refused",
         "freshness": {
           "generated_at": "2026-09-23T10:00:00+00:00",
@@ -702,7 +702,7 @@
         "auth_method": "subscription",
         "configuration_url": "/settings/providers?provider=codex",
         "connectivity": "reachable",
-        "endpoint": "codex://sdk",
+        "endpoint": "codex://direct",
         "failure": "",
         "freshness": {
           "generated_at": "2026-09-25T10:00:00+00:00",
@@ -717,7 +717,7 @@
             "availability": "available",
             "context_window": 400000,
             "deployment": "",
-            "endpoint": "codex://sdk",
+            "endpoint": "codex://direct",
             "evidence": {
               "context_source": "live",
               "generated_at": "2026-09-25T10:00:00+00:00",
@@ -747,13 +747,13 @@
               "supported": true
             },
             "revision": "",
-            "transport": "sdk"
+            "transport": "direct"
           },
           {
             "availability": "available",
             "context_window": 400000,
             "deployment": "",
-            "endpoint": "codex://sdk",
+            "endpoint": "codex://direct",
             "evidence": {
               "context_source": "live",
               "generated_at": "2026-09-25T10:00:00+00:00",
@@ -783,13 +783,13 @@
               "supported": true
             },
             "revision": "",
-            "transport": "sdk"
+            "transport": "direct"
           },
           {
             "availability": "available",
             "context_window": 400000,
             "deployment": "",
-            "endpoint": "codex://sdk",
+            "endpoint": "codex://direct",
             "evidence": {
               "context_source": "live",
               "generated_at": "2026-09-25T10:00:00+00:00",
@@ -819,13 +819,13 @@
               "supported": true
             },
             "revision": "",
-            "transport": "sdk"
+            "transport": "direct"
           },
           {
             "availability": "available",
             "context_window": 400000,
             "deployment": "",
-            "endpoint": "codex://sdk",
+            "endpoint": "codex://direct",
             "evidence": {
               "context_source": "live",
               "generated_at": "2026-09-25T10:00:00+00:00",
@@ -855,25 +855,20 @@
               "supported": true
             },
             "revision": "",
-            "transport": "sdk"
+            "transport": "direct"
           }
         ],
         "name": "OpenAI Codex",
         "transports": [
           {
-            "health": "ready",
-            "id": "sdk",
-            "label": "Codex (local)",
-            "reason": ""
-          },
-          {
             "auth": {
+              "logout": true,
               "method": "oauth"
             },
-            "health": "unavailable",
+            "health": "ready",
             "id": "direct",
             "label": "Direct",
-            "reason": "Codex sign-in is required"
+            "reason": ""
           }
         ]
       },
@@ -1365,12 +1360,12 @@
         "name": "OpenRouter"
       },
       {
-        "api_base": "codex://sdk",
+        "api_base": "codex://direct",
         "auth_methods": [
           "subscription"
         ],
         "default_model": "",
-        "description": "Uses the official OpenAI Codex Python SDK so calls reuse your Codex subscription instead of paying per-token on the OpenAI API. Authenticate Codex once on this machine; the SDK owns its pinned runtime.",
+        "description": "Signs in with your Codex account and calls the Codex backend directly from CLIO's own process -- no Codex CLI, no Codex SDK. Usage counts against your Codex plan limits.",
         "env_keys": [],
         "id": "codex",
         "is_authenticated": false,

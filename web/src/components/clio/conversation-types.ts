@@ -5,6 +5,7 @@ import type {
   A2UISurface,
   ClioRepository,
   Message as DomainMessage,
+  PendingCompaction,
   PendingInteraction,
   PendingInteractionResponse,
   SubagentRun,
@@ -42,6 +43,12 @@ export interface ClioConversationProps {
    */
   actionLifecycles?: Record<string, A2UIActionLifecycle>;
   resources?: Record<string, WorkspaceResource>;
+  /**
+   * This session's live compactions (`EntityState.compactions`): a running one
+   * renders as "Summarizing context" where it started, a failed one as its
+   * typed error. Stream-only, so a caller not wired to the live store omits it.
+   */
+  compactions?: readonly PendingCompaction[];
   onActionCardAction?: (action: ActionCardAction) => void | Promise<unknown>;
   onForkFromMessage?: (messageId: string) => void | Promise<unknown>;
   forkingMessageId?: string;
@@ -83,4 +90,6 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   onDisplayModeChange: (mode: ConversationDisplayMode) => void;
   activeMcpAppId?: string;
   mcpAppResponse?: McpAppResponseActivityData;
+  /** The compactions positioned after this message's content. */
+  messageCompactions?: readonly PendingCompaction[];
 }

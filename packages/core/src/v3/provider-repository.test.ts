@@ -101,7 +101,7 @@ describe('ClioRepository provider contracts', () => {
     const result = {
       provider: 'codex',
       discovered: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-      source: 'codex_app_server',
+      source: 'codex_direct_model_list',
       default_model: 'gpt-5.6-luna',
       generated_at: '2026-08-23T05:00:00Z',
       added: ['gpt-5.6-luna'],
@@ -116,7 +116,7 @@ describe('ClioRepository provider contracts', () => {
     await expect(repository.refreshProviderModels(['codex'])).resolves.toMatchObject([
       {
         provider: 'codex',
-        source: 'codex_app_server',
+        source: 'codex_direct_model_list',
         added: ['gpt-5.6-luna'],
       },
     ]);
@@ -180,7 +180,7 @@ describe('ClioRepository provider contracts', () => {
       {
         configured: true,
         provider: 'codex',
-        api_base: 'codex://app-server',
+        api_base: 'codex://direct',
         model: 'gpt-5.6-luna',
         thinking_level: null,
         thinking_effective: 'default (provider default)',
@@ -236,7 +236,7 @@ describe('ClioRepository provider contracts', () => {
       {
         configured: true,
         provider: 'codex',
-        api_base: 'codex://app-server',
+        api_base: 'codex://direct',
         model: 'gpt-5.6-luna',
         presets: [],
       },
@@ -262,7 +262,7 @@ describe('ClioRepository provider contracts', () => {
   it('runs a report-only provider handshake with an explicit refresh', async () => {
     const report = {
       models: [{ id: 'gpt-5.6-luna', context_window: 400000 }],
-      source: 'codex_app_server',
+      source: 'codex_direct_model_list',
       connectivity: 'ok',
       auth: 'not_required',
       latency_ms: 18.4,

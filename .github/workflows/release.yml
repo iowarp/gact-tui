@@ -107,3 +107,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          # A beta tag (vX.Y.Z-beta.N) is a pre-release and never becomes latest.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ !contains(github.ref_name, '-') }}

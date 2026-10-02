@@ -10,7 +10,7 @@ import { InfoTip } from './info-tip';
 import type { ProviderGroup } from './model-picker-model';
 import type { ProviderComponentUpdateState } from './provider-component-update';
 
-/** "Installed Codex 0.157.1" / "Bundled Claude Code 2.1.276". */
+/** "Installed Claude Code 2.1.276" / "Bundled Claude Code 2.1.276". */
 function providerClientLabel(group: ProviderGroup): string | undefined {
   const client = group.client;
   if (!client?.source) return undefined;

@@ -84,8 +84,6 @@ export interface ModelSettingsUpdate extends Partial<Record<ResponseSettingName,
   provider_options: Record<string, string>;
   /** ``null`` clears the configured level back to the model's default. */
   thinking_level?: ReasoningEffort | null;
-  /** The transport a multi-transport provider binds (the chosen model row's own). */
-  variant?: string;
 }
 
 /**

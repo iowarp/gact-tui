@@ -110,6 +110,19 @@ describe('questionAnswerFromComposer', () => {
     ).toEqual({ kind: 'message', questionId: 'q1' });
   });
 
+  it('never answers a pick between drafts with a composer message', () => {
+    const drafts = question({
+      source: { protocol: 'native', tool_name: 'draft_alternatives', invocation_id: 'call_d' },
+    });
+    expect(questionAnswerFromComposer(drafts, 'session_1', { text: 'the first' })).toBeUndefined();
+    expect(
+      questionAnswerFromComposer(drafts, 'session_1', {
+        text: 'see file',
+        files: [{ name: 'a.csv' }],
+      }),
+    ).toBeUndefined();
+  });
+
   it("refuses attachments for a delegated agent's question instead of dropping them", () => {
     expect(() =>
       questionAnswerFromComposer(question({ owner_session_id: 'child' }), 'session_1', {

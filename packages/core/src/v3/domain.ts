@@ -5,6 +5,8 @@ import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 import type { ToolPresentation } from './tool-presentation-domain.js';
 import type { CapabilityNegotiation } from './capability-domain.js';
+import type { PendingCompaction } from './compaction-domain.js';
+import type { VariantRun } from './variant-domain.js';
 import type { UsageSnapshot } from './usage-domain.js';
 
 export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
@@ -404,7 +406,8 @@ export interface ContextSnapshot {
   autocompact_pct?: number;
   segments?: Array<Record<string, unknown>>;
   render_text?: string;
-  render_keys?: Record<string, unknown>;
+  /** The agent's context as the model receives it (role + typed parts). */
+  messages?: Array<{ role: string; parts: Array<Record<string, unknown>> }>;
   provenance: Provenance;
 }
 
@@ -655,25 +658,6 @@ export interface HookInspection {
   recent_invocations: Array<Record<string, unknown>>;
 }
 
-export interface ServiceIntegrationHealth {
-  name: string;
-  status: string;
-  detail?: string;
-  summary?: string;
-  config_source?: string;
-  next_action?: string;
-  endpoint?: string;
-  required?: boolean;
-}
-
-export interface ServiceHealth {
-  healthy: boolean;
-  uptime_s: number;
-  overall_status: string;
-  integrations: ServiceIntegrationHealth[];
-  tool_hooks_installed?: boolean;
-}
-
 export interface RuntimeMetrics {
   uptime_s: number;
   sessions: { total: number; active: number; by_status: Record<string, number> };
@@ -770,6 +754,10 @@ export interface EntityState {
   surfaces: Record<string, A2UISurface>;
   a2ui_action_lifecycles: Record<string, A2UIActionLifecycle>;
   infrastructure: Record<string, InfrastructureDependency>;
+  /** Live compactions keyed by `compaction_id` (stream-only; see PendingCompaction). */
+  compactions: Record<string, PendingCompaction>;
+  /** BestOfN / Refine runs keyed by `variants_id`: the tries' tabs and the selection. */
+  variant_runs: Record<string, VariantRun>;
   active_turns: Record<string, string>;
   responded_turns: Record<string, string>;
   revisions: Record<string, number>;
@@ -778,6 +766,7 @@ export interface EntityState {
   gaps: TransportGap[];
 }
 export type { ActionCardAction, MessageBlock, MessageBlockContext } from './message-domain.js';
+export type { CompactionError, CompactionTrigger, PendingCompaction } from './compaction-domain.js';
 export type { A2uiAgentCapabilities, CapabilityNegotiation } from './capability-domain.js';
 export type {
   CommandDefinition,

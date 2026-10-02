@@ -13,7 +13,7 @@ export interface ProviderLogOut {
 interface ProviderPanelFooterProps {
   /** The provider-level actions (Refresh and Reload models act on the whole provider). */
   actions: ProviderActions;
-  /** Present only when the provider (or its signed-in transport) supports it. */
+  /** Present only when the provider supports it. */
   logOut?: ProviderLogOut;
   /** The latest provider-level failure, as one sentence. */
   error?: string;

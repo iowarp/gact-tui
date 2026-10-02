@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { workspaceIdFromRoute } from '@/lib/workspace-route-memory';
 import { serviceTitle } from '@/lib/mcp-service-presentation';
+import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL, isHistoryMode } from '@/lib/context-mode';
 
 type InfrastructureState = 'checking' | 'healthy' | 'degraded' | 'failed' | 'unavailable';
 
@@ -86,20 +87,28 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
             stateLabel: 'Unavailable',
             detail: health.error?.message,
           }
-        : integrationWarnings
+        : isHistoryMode(health.data)
           ? {
               id: 'agent-service',
               label: vocab.agent,
               state: 'degraded',
-              stateLabel: 'Warning',
-              detail: `${integrationWarnings} supporting ${integrationWarnings === 1 ? 'service needs' : 'services need'} attention`,
+              stateLabel: HISTORY_MODE_LABEL,
+              detail: HISTORY_MODE_DETAIL,
             }
-          : {
-              id: 'agent-service',
-              label: vocab.agent,
-              state: 'healthy',
-              stateLabel: 'Ready',
-            };
+          : integrationWarnings
+            ? {
+                id: 'agent-service',
+                label: vocab.agent,
+                state: 'degraded',
+                stateLabel: 'Warning',
+                detail: `${integrationWarnings} supporting ${integrationWarnings === 1 ? 'service needs' : 'services need'} attention`,
+              }
+            : {
+                id: 'agent-service',
+                label: vocab.agent,
+                state: 'healthy',
+                stateLabel: 'Ready',
+              };
 
     const relayState: InfrastructureItem = relay.isPending
       ? {
@@ -310,6 +319,12 @@ function aggregateInfrastructureState(items: readonly InfrastructureItem[]): Inf
       state: 'checking',
       stateLabel: 'Checking',
     };
+  }
+  const historyMode = items.find(
+    (item) => item.id === 'agent-service' && item.stateLabel === HISTORY_MODE_LABEL,
+  );
+  if (historyMode) {
+    return { ...historyMode, id: 'infrastructure', label: 'Infrastructure' };
   }
   if (items.some((item) => item.state === 'degraded')) {
     return {

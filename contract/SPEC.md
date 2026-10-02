@@ -1329,9 +1329,23 @@ Implemented shapes (clio):
 >   },
 >   "segments": [ /* attributed working-set rows */ ],
 >   "render_text": "...",              // pre-rendered one-line summary
->   "render_keys": { /* ... */ }
+>   "messages": [                      // the agent's context exactly as the model receives it
+>     { "role": "user", "parts": [ { "type": "text", "text": "..." } ] },
+>     { "role": "assistant", "parts": [
+>         { "type": "thinking", "text": "..." }, { "type": "text", "text": "..." },
+>         { "type": "tool_call", "id": "call_1", "name": "...", "input": { } } ] },
+>     { "role": "tool", "parts": [
+>         { "type": "tool_result", "id": "call_1", "name": "...", "is_error": false,
+>           "content": [ { "type": "text", "text": "..." } ] } ] }
+>   ]
 > }
 > ```
+>
+> `messages` is the scope's live segments folded the way the agent loop folds them:
+> part `type` is `text | thinking | tool_call | tool_result | image | document`
+> (media carry `media_type` only, never their bytes). CLIO's own additions are user
+> messages whose text starts `[clio: <source>]`. It replaces the old `render_keys`
+> trajectory dict, which no longer matched what the model sees.
 >
 > **Fullness** = `used_pct` (model-grounded, preferred) else `pct_used`; draw
 > the auto-compaction line on the bar at `autocompact_pct`; absolute usage =
@@ -2696,6 +2710,9 @@ a2ui.surface.deleted implemented
 a2ui.surface.upserted implemented
 approval.resolved implemented
 approval.upserted implemented
+compaction.completed implemented
+compaction.failed implemented
+compaction.started implemented
 infrastructure.dependency.changed implemented
 message.accepted implemented
 message.block.completed implemented
@@ -2728,6 +2745,10 @@ stream.live implemented
 subagent.upserted implemented
 tool.presentation.delta implemented
 tool.upserted implemented
+variant.closed implemented
+variant.selected implemented
+variant.try.delta implemented
+variant.try.upserted implemented
 # spec-only — canonical client state with no reference-backend publisher yet
 a2ui.action.consumed spec-only
 a2ui.action.delivered spec-only
@@ -2740,11 +2761,66 @@ task.upserted spec-only
 workspace.upserted spec-only
 ```
 
+The `compaction.*` events make a context compaction visible while it runs.
+Every payload carries `session_id`, `compaction_id`, `scope`,
+`trigger` (`"auto"` | `"manual"`) and `turn_id` (`""` when it ran between
+turns); `compaction.completed` adds `message_id`, `part_id` and
+`replaced_count`, and `compaction.failed` adds `error: {code, message}` and
+`part_id` (the failure notice below, or `""` with code
+`compaction_failure_unrecorded` when it could not be recorded). The
+durable record is an `injection` block with `source: "summarization"`, `text`
+= the summary, and optional `trigger`/`compaction_id`: part of the open turn's
+assistant message mid-turn, or its own assistant message between turns. It
+replaces the retired `compaction` part type. A failure is recorded the same
+way as a `notice` block with `source: "compaction_failed"`, `text`, `code`,
+`trigger` and `compaction_id`.
+
 Decoders MAY accept an unknown future `type` so one new event cannot take down
 the live stream, but reducers MUST ignore an unknown event without fabricating
 state. A dropped or malformed frame produces typed degradation/gap state and
 authoritative REST reconciliation; it is never silently reinterpreted as a
 known entity.
+
+#### Variant runs (Phase 9)
+
+A BestOfN / Refine run (the agent drafting alternatives, origin
+`draft_alternatives`, or a blueprint/subagent module run as variants, origin
+`module_variant`) is projected as one run keyed by `variants_id`:
+
+- `variant.try.upserted` (entity `<variants_id>:<try_index>`) — a try started
+  (`state: running`), ended (`completed` with `text`, `tokens`, and `score` when
+  LM-judged), or `failed` (`error`); optional `forked_from` and `advice` for a
+  Refine try. A scored try is upserted again with its `score`.
+- `variant.try.delta` (same entity) — the try's live `text` or `thinking`
+  stream. It never enters the turn's answer lane.
+- `variant.selected` (entity `<variants_id>`) — `selected_index`, the selected
+  `text`, `scores`, and for judge `user` the `pick` and `comment`.
+- `variant.closed` (entity `<variants_id>`) — a user-judged run ended without
+  a pick: `status` `superseded` (the user sent a new message instead),
+  `cancelled`, or `expired` (the pick's deadline, `expiresInSeconds` on
+  `draft_alternatives`, passed), with `reason`
+  (`variant_pick_superseded` | `variant_pick_cancelled` | `variant_pick_expired`),
+  `question_id`, `closed_at`, the offered `candidates`
+  (`[{try_index, scope, text}]`) and, when superseded,
+  `superseded_by_message_id`. Clients show the run read-only with that plain
+  status and offer no pick: none of its drafts entered the conversation.
+
+Every other semantic event a try emits carries `payload.variants_id` and
+`payload.try_index`; a client groups it under the try, not the turn. An
+injection block made inside a try carries the same two keys. A user-judged run
+asks a `choice` question whose `metadata.variant` lists the candidates (the
+question's interaction carries it as `payload.metadata`); it is answered with
+exactly one `selected_options` draft id and an optional `answer` comment;
+it is never answered by a message (`answers_question_id` naming a drafts
+question is refused with 422 `drafts_question_needs_pick`). A pick with a
+deadline carries it as the interaction's `payload.expires_at`; a closed pick's
+interaction is `cancelled` or `expired` with no actions.
+Clients render the run as one tab per try and, after a reload, rebuild it from
+`GET /v1/sessions/{id}/variant-runs` (`clio.variant_run.v1` records served from
+clio-core: every run, LM- and user-judged, each try with its own steps and the
+`anchor_message_id` of the turn it belongs to; a closed run carries `status`
+`superseded` | `cancelled` | `expired`, `closed_reason`, `closed_at` and
+`superseded_by_message_id`).
 
 **Known gap (S6 adversarial review, tracked for S8):** the official Basic
 catalog's `openUrl` function (`@a2ui/web_core`'s `OpenUrlImplementation`)

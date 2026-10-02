@@ -1,6 +1,6 @@
 import type { A2UISurface } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -364,6 +364,45 @@ describe('ClioA2UISurface actions', () => {
     // on surface.id only (the deleted `${id}:${revision}` remount wiped this).
     update({ ...withUnrelatedUpdate, revision: 2 });
     expect(screen.getByLabelText('Name')).toHaveValue('Alice');
+  });
+
+  it('scopes the TextField input/label styles to a marker present in both the inline and full-screen hosts (#1549 G9 #25)', async () => {
+    // The existing ChoicePicker CSS patch (web/src/index.css) is scoped to
+    // `[id^='a2ui-surface-']`, which the full-screen dialog never reaches:
+    // `ClioA2UISurfaceCard` keeps that id on the fixed inline section and
+    // portals `children` straight into the dialog, bypassing it entirely.
+    // The new TextField/Label styles (and that patch) scope instead to a
+    // `data-slot="a2ui-surface-root"` marker this file places directly on
+    // `renderedSurface` -- the one div common to every host -- so this
+    // proves the marker travels with the surface into the dialog too.
+    const surfaceId = 'surface-text-styled';
+    const surface: A2UISurface = {
+      id: surfaceId,
+      session_id: 'sess_1',
+      catalog_id: CLIO_A2UI_CATALOG_ID,
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: [
+        { version: 'v0.9.1', createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID } },
+        {
+          version: 'v0.9.1',
+          updateComponents: {
+            surfaceId,
+            components: [{ id: 'root', component: 'TextField', label: 'Name' }],
+          },
+        },
+      ],
+    };
+
+    renderSurface(surface);
+    const inlineInput = await screen.findByLabelText('Name');
+    expect(inlineInput.closest('[data-slot="a2ui-surface-root"]')).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open generated UI full screen' }));
+    const dialog = screen.getByRole('dialog');
+    const fullscreenInput = within(dialog).getByLabelText('Name');
+    expect(fullscreenInput.closest('[data-slot="a2ui-surface-root"]')).not.toBeNull();
   });
 
   it('disables a Button with a failing required check until input satisfies it', async () => {

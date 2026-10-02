@@ -218,7 +218,7 @@ describe('conversationTurnPresentation', () => {
           id: 'provider_reasoning',
           type: 'reasoning',
           text: '**Use the file reader.****Then inspect the result.**',
-          provider_source: 'codex_app_server',
+          provider_source: 'codex_direct',
         },
         { id: 'next_1', type: 'text', text: 'Inspecting evidence.', channel: 'next_thought' },
         { id: 'tool_1', type: 'tool', tool_id: 'call_read' },
@@ -447,7 +447,7 @@ describe('conversationTurnPresentation', () => {
           id: 'reasoning_live',
           type: 'reasoning',
           text: '**Planning the tool call**',
-          provider_source: 'codex_app_server',
+          provider_source: 'codex_direct',
         },
         {
           id: 'next_live',
@@ -500,6 +500,26 @@ describe('conversationTurnPresentation', () => {
 
     expect(view.iterations[0]?.summary).toBe('Compare the three grounded observations.');
     expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
+  });
+
+  it('shows a markdown-headed reasoning summary as plain text', () => {
+    const message: Message = {
+      id: 'assistant_markdown_summary',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-09-29T00:00:00Z',
+      blocks: [
+        {
+          id: 'thinking_markdown',
+          type: 'reasoning',
+          text: '**Clarifying projection concepts**\n\nThe two measures differ.',
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(view.iterations[0]?.summary).toBe('Clarifying projection concepts The two measures differ.');
   });
 
   it('keeps a tool block whose invocation has not arrived in the residual lane', () => {

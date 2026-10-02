@@ -4,7 +4,6 @@ import type {
   ModelFacts,
   ProviderCatalog,
   ProviderCatalogEntry,
-  ProviderCatalogTransport,
   ProviderClientFact,
   ProviderModel,
 } from '@clio/core/v3';
@@ -68,12 +67,7 @@ export interface ClioModelOption {
   capabilityProvenance?: Readonly<Record<string, { source: string; decided_by: string }>>;
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: readonly string[];
-  /** This provider's OWN transports (Codex: sdk + direct), present on every
-   * row from a multi-transport provider so the picker can group by it. */
-  transports?: readonly ProviderCatalogTransport[];
-  /** Which of `transports` this specific model row came from. */
-  transport?: string;
-  /** The CLI this provider's SDK transport runs (Codex / Claude Code only). */
+  /** The CLI this provider's SDK runs (Claude Code only). */
   client?: ProviderClientFact;
   /** The provider's typed failure reason as the catalog reports it (e.g.
    * `argonne_reauthentication_required: ...`), for deciding its action. */
@@ -101,8 +95,7 @@ export function matchesConfiguredModel(
 
 /**
  * The available option naming `providerId`+`modelId` (by id, alias, or resolved
- * id). A multi-transport provider lists the same model once per transport (Codex
- * SDK and Direct both list `gpt-5.5`), so a picked `transport` selects that half.
+ * id).
  */
 export function findSelectedModelOption<
   T extends {
@@ -110,19 +103,12 @@ export function findSelectedModelOption<
     id: string;
     aliases?: readonly string[];
     available: boolean;
-    transport?: string;
   },
->(
-  options: readonly T[],
-  providerId: string | undefined,
-  modelId: string | undefined,
-  transport?: string,
-): T | undefined {
+>(options: readonly T[], providerId: string | undefined, modelId: string | undefined): T | undefined {
   return options.find(
     (option) =>
       option.providerId === providerId &&
       matchesConfiguredModel(option, modelId) &&
-      (!transport || option.transport === transport) &&
       option.available,
   );
 }
@@ -138,7 +124,6 @@ export function findHeldModelOption(
   options: readonly ClioModelOption[],
   providerId: string | undefined,
   modelId: string | undefined,
-  transport?: string,
 ): ClioModelOption | undefined {
   if (!providerId || !modelId) return undefined;
   const waiting = (option: ClioModelOption) =>
@@ -148,8 +133,7 @@ export function findHeldModelOption(
     (option) =>
       option.kind !== 'provider' &&
       waiting(option) &&
-      matchesConfiguredModel(option, modelId) &&
-      (!transport || option.transport === transport),
+      matchesConfiguredModel(option, modelId),
   );
   if (modelRow) return modelRow;
   const providerRow = options.find((option) => option.kind === 'provider' && waiting(option));
@@ -273,8 +257,7 @@ function liveProviderOptions(
   const providerName = provider.name || providerDisplayName(preset, provider.id);
   // Not failed, just not set up yet (no key / sign-in / install): neutral,
   // for its dated last-good rows as much as for an empty row. Never overrides
-  // a provider the service reports ready (Codex's SDK half needs no preset
-  // sign-in) or one it is probing right now.
+  // a provider the service reports ready or one it is probing right now.
   const needsSetup =
     provider.health !== 'ready' &&
     ((preset !== undefined && !preset.is_authenticated) || provider.health === 'needs_install');
@@ -287,7 +270,6 @@ function liveProviderOptions(
     // The service's live "probe running right now" overlay wins over the
     // cached health, so the row shows the check instead of a stale verdict.
     health: provider.checking ? 'checking' : needsSetup ? PROVIDER_NEEDS_SETUP : provider.health,
-    transports: provider.transports,
     client: provider.client,
     failure: provider.failure || undefined,
   };
@@ -376,7 +358,6 @@ function liveProviderOptions(
       modelFacts: model.model_facts,
       capabilityProvenance: model.capabilities_provenance,
       aliases: model.aliases,
-      transport: model.transport,
     };
   });
 }
