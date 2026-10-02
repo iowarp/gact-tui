@@ -1,7 +1,7 @@
 import { MapPinIcon } from 'lucide-react';
 import type { FeatureCollection } from 'geojson';
 import type { ExpressionSpecification, GeoJSONSource, MapLibreMap } from 'maplibre-gl';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map, {
   Marker,
@@ -237,6 +237,7 @@ export function ClioScientificMapView({
     [onMapInstance],
   );
   const [dragBox, setDragBox] = useState<DragBox | null>(null);
+  const dragBoxRef = useRef<DragBox | null>(null);
   const lastBoxDragAt = useRef(0);
   const manyPoints = !geometry && points.length > MANY_POINTS_THRESHOLD;
   const categoryColors = useMemo(() => mapCategoryColors(points), [points]);
@@ -434,45 +435,52 @@ export function ClioScientificMapView({
     else onClearSelection?.();
   };
 
-  const containerPoint = (event: ReactPointerEvent<HTMLDivElement>): { x: number; y: number } => {
+  const containerPoint = (event: ReactMouseEvent<HTMLDivElement>): { x: number; y: number } => {
     const rect = rootRef.current!.getBoundingClientRect();
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
-  const handlePointerDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleMouseDownCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (!onZoneSelect || (!boxSelectMode && !event.shiftKey) || event.button !== 0) return;
-    // Takes over shift+drag from maplibre's default box-zoom (disabled below)
-    // before it ever reaches the map canvas.
+    // MapLibre listens for mouse events separately from pointer events. Take
+    // ownership of the mouse gesture before its canvas can begin a pan.
     event.preventDefault();
     event.stopPropagation();
     const point = containerPoint(event);
-    setDragBox({ startX: point.x, startY: point.y, x: point.x, y: point.y });
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const next = { startX: point.x, startY: point.y, x: point.x, y: point.y };
+    dragBoxRef.current = next;
+    setDragBox(next);
   };
-  const handlePointerMoveCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragBox) return;
+  const handleMouseMoveCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const current = dragBoxRef.current;
+    if (!current) return;
     event.stopPropagation();
     const point = containerPoint(event);
-    setDragBox({ ...dragBox, x: point.x, y: point.y });
+    const next = { ...current, x: point.x, y: point.y };
+    dragBoxRef.current = next;
+    setDragBox(next);
   };
-  const handlePointerUpCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragBox) return;
+  const handleMouseUpCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const current = dragBoxRef.current;
+    if (!current) return;
     event.stopPropagation();
+    const point = containerPoint(event);
+    const completed = { ...current, x: point.x, y: point.y };
     const map = mapRef.current?.getMap();
     const moved =
-      Math.abs(dragBox.x - dragBox.startX) > ZONE_DRAG_THRESHOLD_PX ||
-      Math.abs(dragBox.y - dragBox.startY) > ZONE_DRAG_THRESHOLD_PX;
+      Math.abs(completed.x - completed.startX) > ZONE_DRAG_THRESHOLD_PX ||
+      Math.abs(completed.y - completed.startY) > ZONE_DRAG_THRESHOLD_PX;
     if (map && moved) {
       lastBoxDragAt.current = performance.now();
-      const corner1 = map.unproject([dragBox.startX, dragBox.startY]);
-      const corner2 = map.unproject([dragBox.x, dragBox.y]);
+      const corner1 = map.unproject([completed.startX, completed.startY]);
+      const corner2 = map.unproject([completed.x, completed.y]);
       const west = Math.min(corner1.lng, corner2.lng);
       const east = Math.max(corner1.lng, corner2.lng);
       const south = Math.min(corner1.lat, corner2.lat);
       const north = Math.max(corner1.lat, corner2.lat);
       const ids = geometry
         ? [...new Set(map.queryRenderedFeatures(
-            [[Math.min(dragBox.startX, dragBox.x), Math.min(dragBox.startY, dragBox.y)],
-              [Math.max(dragBox.startX, dragBox.x), Math.max(dragBox.startY, dragBox.y)]],
+            [[Math.min(completed.startX, completed.x), Math.min(completed.startY, completed.y)],
+              [Math.max(completed.startX, completed.x), Math.max(completed.startY, completed.y)]],
             { layers: GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id)) },
           ).map((feature) => feature.properties?.id).filter((id): id is string => typeof id === 'string'))]
         : points
@@ -486,21 +494,46 @@ export function ClioScientificMapView({
           .map((candidate) => candidate.id);
       onZoneSelect?.(ids);
     }
+    dragBoxRef.current = null;
     setDragBox(null);
-    if (event.currentTarget.hasPointerCapture(event.pointerId))
-      event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  // The map canvas owns its native drag gesture. An explicit selection layer
+  // gives rectangle mode a stable pointer target even when the map reuses its
+  // canvas after scrolling or a full-screen transition.
+  const handleOverlayPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const point = containerPoint(event);
+    const next = { startX: point.x, startY: point.y, x: point.x, y: point.y };
+    dragBoxRef.current = next;
+    setDragBox(next);
+  };
+  const handleOverlayPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragBoxRef.current) return;
+    const point = containerPoint(event);
+    const next = { ...dragBoxRef.current, x: point.x, y: point.y };
+    dragBoxRef.current = next;
+    setDragBox(next);
+  };
+  const handleOverlayPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragBoxRef.current) return;
+    // Reuse the same selection calculation as Shift+drag.
+    handleMouseUpCapture(event as unknown as ReactMouseEvent<HTMLDivElement>);
+    event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   return (
     <div
       className={cn('relative size-full', boxSelectMode && 'cursor-crosshair')}
       data-slot="a2ui-map-surface"
-      onPointerDownCapture={handlePointerDownCapture}
-      onPointerMoveCapture={handlePointerMoveCapture}
-      onPointerUpCapture={handlePointerUpCapture}
+      onMouseDownCapture={handleMouseDownCapture}
+      onMouseMoveCapture={handleMouseMoveCapture}
+      onMouseUpCapture={handleMouseUpCapture}
       ref={rootRef}
     >
       <Map
+        dragPan={!boxSelectMode}
         initialViewState={viewState}
         interactiveLayerIds={geometry ? [...GEOMETRY_LAYER_IDS] : manyPoints ? [POINTS_LAYER_ID] : undefined}
         mapStyle={rasterStyle}
@@ -560,6 +593,15 @@ export function ClioScientificMapView({
           </Popup>
         ) : null}
       </Map>
+      {boxSelectMode && onZoneSelect ? (
+        <div
+          aria-label="Drag to select map points"
+          className="absolute inset-0 z-[1] cursor-crosshair touch-none"
+          onPointerDown={handleOverlayPointerDown}
+          onPointerMove={handleOverlayPointerMove}
+          onPointerUp={handleOverlayPointerUp}
+        />
+      ) : null}
       {dragBox ? (
         <div
           className="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-primary bg-primary/10"

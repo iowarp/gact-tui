@@ -561,7 +561,7 @@ export function ClioScientificMap({
                   onClearSelection={clearSelection}
                   onMapInstance={handleMapInstance}
                   onSelect={setSelectedId}
-                  onZoneSelect={setSelection ? handleZoneSelect : undefined}
+                  onZoneSelect={handleZoneSelect}
                   points={points}
                   selectedId={selectedId}
                 />
