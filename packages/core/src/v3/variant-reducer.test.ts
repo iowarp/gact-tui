@@ -140,6 +140,72 @@ describe('variant run reducer', () => {
     expect(run.tries[0]!.score).toBe(0.2);
   });
 
+  it('closes a run superseded by the next message, keeping the offered drafts', () => {
+    const state = reduce([
+      tryFrame(0, { judge: 'user', state: 'completed', text: 'A' }),
+      tryFrame(1, { judge: 'user', state: 'completed' }),
+      frame(
+        'variant.closed',
+        {
+          ...RUN,
+          judge: 'user',
+          status: 'superseded',
+          reason: 'variant_pick_superseded',
+          question_id: 'q_1',
+          closed_at: '2026-10-01T12:05:00Z',
+          candidates: [
+            { try_index: 0, scope: 'main#run0', text: 'A' },
+            { try_index: 1, scope: 'main#run1', text: 'B' },
+            { try_index: 2, scope: 'main#run2', text: 'C' },
+          ],
+          superseded_by_message_id: 'msg_user_2',
+        },
+        'var_1',
+      ),
+    ]);
+    const run = state.variant_runs.var_1!;
+    expect(run.status).toBe('superseded');
+    expect(run.selection).toBeUndefined();
+    expect(run.closure).toEqual({
+      status: 'superseded',
+      reason: 'variant_pick_superseded',
+      closed_at: '2026-10-01T12:05:00Z',
+      question_id: 'q_1',
+      superseded_by_message_id: 'msg_user_2',
+    });
+    // A try this client never saw streaming is added from the offered drafts.
+    expect(run.tries.map((item) => [item.try_index, item.state, item.text, item.scope])).toEqual([
+      [0, 'completed', 'A', 'main#run0'],
+      [1, 'completed', 'B', 'main#run1'],
+      [2, 'completed', 'C', 'main#run2'],
+    ]);
+  });
+
+  it('closes a cancelled or expired run with no superseding message', () => {
+    for (const status of ['cancelled', 'expired'] as const) {
+      const state = reduce([
+        frame(
+          'variant.closed',
+          {
+            ...RUN,
+            judge: 'user',
+            status,
+            reason: `variant_pick_${status}`,
+            question_id: 'q_1',
+            closed_at: '2026-10-01T12:05:00Z',
+            candidates: [{ try_index: 0, scope: 'main#run0', text: 'A' }],
+          },
+          'var_1',
+        ),
+      ]);
+      const run = state.variant_runs.var_1!;
+      expect(run.status).toBe(status);
+      expect(run.closure).toMatchObject({ status, reason: `variant_pick_${status}` });
+      expect(run.closure!.superseded_by_message_id).toBeUndefined();
+      expect(run.tries).toHaveLength(1);
+    }
+  });
+
   it('records a gap for a delta whose try started before this stream', () => {
     const state = reduce([deltaFrame(2, 'orphan')]);
     expect(state.variant_runs).toEqual({});
@@ -290,6 +356,67 @@ describe('variant runs after a reload', () => {
         { type: 'unknown', original_type: 'hologram' },
       ],
     });
+  });
+
+  it('reads a closed run as closed, with its reason and superseding message', () => {
+    const runs = variantRunsFromRecords([
+      variantRunRecordSchema.parse(
+        record({
+          status: 'superseded',
+          selected_index: null,
+          pick: null,
+          comment: null,
+          question_id: 'q_1',
+          closed_reason: 'variant_pick_superseded',
+          closed_at: '2026-10-01T12:05:00Z',
+          superseded_by_message_id: 'msg_user_3',
+        }),
+      ),
+    ]);
+    expect(runs.var_1).toMatchObject({
+      status: 'superseded',
+      closure: {
+        status: 'superseded',
+        reason: 'variant_pick_superseded',
+        closed_at: '2026-10-01T12:05:00Z',
+        question_id: 'q_1',
+        superseded_by_message_id: 'msg_user_3',
+      },
+    });
+    expect(runs.var_1!.selection).toBeUndefined();
+
+    const open = variantRunsFromRecords([
+      variantRunRecordSchema.parse(
+        record({ status: 'awaiting_pick', selected_index: null, pick: null, comment: null }),
+      ),
+    ]);
+    expect(open.var_1!.closure).toBeUndefined();
+  });
+
+  it('keeps a live closure when the served record still waits for the pick', () => {
+    const live = reduce([
+      frame(
+        'variant.closed',
+        {
+          ...RUN,
+          judge: 'user',
+          status: 'expired',
+          reason: 'variant_pick_expired',
+          question_id: 'q_1',
+          closed_at: '2026-10-01T12:05:00Z',
+          candidates: [],
+        },
+        'var_1',
+      ),
+    ]).variant_runs;
+    const persisted = variantRunsFromRecords([
+      variantRunRecordSchema.parse(
+        record({ status: 'awaiting_pick', selected_index: null, pick: null, comment: null }),
+      ),
+    ]);
+    const merged = mergeVariantRuns(live, persisted).var_1!;
+    expect(merged.status).toBe('expired');
+    expect(merged.closure).toMatchObject({ status: 'expired' });
   });
 
   it('rejects a typed server failure instead of an empty list', async () => {
