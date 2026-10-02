@@ -70,6 +70,13 @@ function progressKey(storageId: string): string {
   return `clio:steps:${window.location.pathname}:${storageId}`;
 }
 
+function timerLabel(seconds: number): string {
+  if (seconds < 60) return `${seconds} sec timer`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return remainder === 0 ? `${minutes} min timer` : `${minutes} min ${remainder} sec timer`;
+}
+
 /** Procedure with progress persisted through its bound data model and session storage. */
 export function ClioSteps({
   title,
@@ -224,7 +231,7 @@ export function ClioSteps({
                         <TimerIcon aria-hidden="true" className="size-3.5" />
                         <span aria-live={remaining === 0 ? 'polite' : 'off'}>
                           {remaining === undefined
-                            ? `${Math.ceil(step.durationSeconds / 60)} min timer`
+                            ? timerLabel(step.durationSeconds)
                             : remaining === 0
                               ? 'Timer finished'
                               : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')} left`}

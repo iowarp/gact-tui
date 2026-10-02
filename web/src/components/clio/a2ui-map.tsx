@@ -10,7 +10,7 @@ import {
 import type { MapLibreMap } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DropdownMenuCheckboxItem, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useContainerQuery } from '@/hooks/use-container-query';
@@ -377,29 +377,15 @@ export function ClioScientificMap({
     overflowContent: (
       <>
         <DropdownMenuCheckboxItem
+          aria-label="Show locations list"
           checked={showList}
+          className="whitespace-nowrap"
           onCheckedChange={(checked) => setShowList(checked === true)}
         >
-          Show locations list
+          Locations list
         </DropdownMenuCheckboxItem>
-        <DropdownMenuItem
-          className="text-xs text-muted-foreground"
-          disabled
-          onSelect={(event) => event.preventDefault()}
-        >
-          {`${points.length.toLocaleString()} locations`}
-        </DropdownMenuItem>
       </>
     ),
-    selectionHint: setSelection && !boxSelectMode ? (
-      <span
-        className="inline-flex items-center gap-1"
-        title="Choose Box select, or hold Shift and drag; click empty map space to clear selection"
-      >
-        <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
-        Box select or Shift+drag; click empty space to clear
-      </span>
-    ) : undefined,
   };
   const boxSelectAction = setSelection ? (
     <Button

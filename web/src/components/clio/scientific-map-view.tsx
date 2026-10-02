@@ -527,10 +527,10 @@ export function ClioScientificMapView({
                     aria-label={`Select ${point.label}`}
                     aria-pressed={highlighted}
                     className={cn(
-                      'group grid size-8 cursor-pointer place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      highlighted && 'scale-110 border-primary bg-primary text-primary-foreground',
+                      'group grid size-8 cursor-pointer place-items-center rounded-full border border-white/80 text-white shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      highlighted && 'scale-110 ring-2 ring-primary ring-offset-1 ring-offset-background',
                     )}
-                    style={highlighted ? undefined : { color: mapPointColor(point, categoryColors, valueExtent) }}
+                    style={{ backgroundColor: mapPointColor(point, categoryColors, valueExtent) }}
                     onClick={(event) => {
                       event.stopPropagation();
                       onSelect(point.id);

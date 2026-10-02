@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { copyText } from '@/lib/clipboard';
 
 const versionSchema = z
   .object({
@@ -115,7 +116,7 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
   };
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       toast.success('Draft copied');
     } catch (error) {
       toast.error('Could not copy the draft', {

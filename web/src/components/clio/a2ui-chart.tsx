@@ -234,6 +234,12 @@ export function ClioChart(props: ClioChartProps) {
   const selectionRef = useRef(selectionState);
   const setSelectionRef = useRef(setSelection);
   const [embedError, setEmbedError] = useState('');
+  const [darkTheme, setDarkTheme] = useState(isDarkTheme);
+  useEffect(() => {
+    const observer = new MutationObserver(() => setDarkTheme(isDarkTheme()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
   const [zoomActive, setZoomActive] = useState(false);
   const [linkable, setLinkable] = useState(true);
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
@@ -383,11 +389,13 @@ export function ClioChart(props: ClioChartProps) {
       prepareChartSpec(embedSpec, {
         height: chartHeight,
         rows: cloneRows(embeddedRows ?? []),
-        width: measuredWidth,
+        // Vega lays legends outside the plot width. Leave room inside the
+        // surface so categorical and continuous legends remain readable.
+        width: Math.max(220, measuredWidth - (colorField ? 112 : 0)),
       }),
       embeddedRows ?? [],
     );
-    embedChart(node, prepared, { dark: isDarkTheme(), renderer })
+    embedChart(node, prepared, { dark: darkTheme, renderer })
       .then(async (result) => {
         if (cancelled) {
           result.finalize();
@@ -478,7 +486,9 @@ export function ClioChart(props: ClioChartProps) {
     // was first embedded into. A clean re-embed is simpler and more robust
     // than trying to make an imperative Vega view tolerate a silent DOM move.
   }, [
+    colorField,
     componentId,
+    darkTheme,
     embedSpec,
     fullscreen,
     hasRows,

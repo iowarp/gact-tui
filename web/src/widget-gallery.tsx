@@ -39,6 +39,37 @@ const chartRows = Array.from({ length: 90 }, (_, index) => ({
   __row: index, id: `eq${String(index + 1).padStart(3, '0')}`, depth: 1 + (index * 17) % 32,
   magnitude: 1.1 + ((index * 13) % 52) / 10, region: ['Coast', 'Valley', 'Range'][index % 3],
 }));
+const heatmapRows = ['Coast', 'Valley', 'Range'].flatMap((region, regionIndex) =>
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, dayIndex) => ({
+    __row: regionIndex * 6 + dayIndex,
+    id: `${region}-${day}`,
+    region,
+    day,
+    events: 4 + ((regionIndex * 7 + dayIndex * 11) % 21),
+  })),
+);
+const trajectoryRows = ['Coast', 'Valley', 'Range'].flatMap((region, regionIndex) =>
+  Array.from({ length: 18 }, (_, index) => ({
+    __row: regionIndex * 18 + index,
+    id: region,
+    region,
+    day: index + 1,
+    displacement: Number((regionIndex * 1.5 + index * (0.13 + regionIndex * 0.03) + Math.sin(index / 2 + regionIndex) * 0.4).toFixed(2)),
+  })),
+);
+const spectrumRows = ['Sample A', 'Sample B', 'Sample C'].flatMap((sample, sampleIndex) =>
+  Array.from({ length: 55 }, (_, index) => {
+    const wavelength = 400 + index * 6;
+    const peak = 490 + sampleIndex * 72;
+    return {
+      __row: sampleIndex * 55 + index,
+      id: sample,
+      sample,
+      wavelength,
+      intensity: Number((0.12 + (1 + sampleIndex * 0.18) * Math.exp(-(((wavelength - peak) / 48) ** 2))).toFixed(3)),
+    };
+  }),
+);
 const linkedRows = Array.from({ length: 12 }, (_, index) => ({
   id: `site-${index + 1}`, site: `Site ${index + 1}`, depth: 2 + index * 1.7,
   magnitude: 1.2 + ((index * 7) % 25) / 10, latitude: 36 + index * 0.32,
@@ -70,24 +101,30 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
       { id: 'next-steps', component: 'Text', text: 'Check the Fresno record and schedule a Reno visit.' },
     ];
     case 'linked': return [
-      { id: 'root', component: 'Column', children: ['views', 'table'] },
-      { id: 'views', component: 'Grid', columns: 2, children: ['chart', 'map'] },
+      { id: 'root', component: 'Column', children: ['chart', 'map', 'table'] },
       { id: 'chart', component: 'clio.chart.v1', title: 'Depth and magnitude', preset: 'scatter', data: linkedRows, xField: 'depth', yField: 'magnitude', entityField: 'id', colorField: 'region', height: 300, selection: { path: '/selection/sites' }, selectionField: 'id' },
       { id: 'map', component: 'clio.map.v1', title: 'Field sites', points: linkedRows.map((row) => ({ id: row.id, label: row.site, latitude: row.latitude, longitude: row.longitude, category: row.region, detail: `${row.magnitude.toFixed(1)} magnitude` })), selection: { path: '/selection/sites' }, selectionField: 'id' },
       { id: 'table', component: 'clio.data-table.v1', columns: ['id', 'region', 'depth', 'magnitude'], rows: linkedRows, selection: { path: '/selection/sites' }, selectionField: 'id' },
     ];
     case 'Frame': return [{ id: 'root', component: name, title: 'Station summary', description: 'Three recent observations', child: 'demo' }, { id: 'demo', component: 'Text', text: 'Berkeley moved 2 mm this week.' }];
     case 'Grid': return [{ id: 'root', component: name, columns: 3, children: ['one', 'two', 'three'] }, ...['Berkeley', 'Fresno', 'Reno'].map((text, index) => ({ id: ['one', 'two', 'three'][index]!, component: 'Text', text }))];
-    case 'clio.chart.v1': return root({ id: 'demo', component: name, title: variant === 'boxplot' ? 'Magnitude by region' : 'Depth vs. magnitude',
-      preset: variant, data: chartRows, xField: variant === 'boxplot' ? 'region' : 'depth', yField: 'magnitude',
-      entityField: 'id', colorField: 'region', height: 380 });
+    case 'clio.chart.v1': {
+      const examples: Record<string, { title: string; data: Record<string, unknown>[]; xField: string; yField: string; colorField: string; entityField: string }> = {
+        scatter: { title: 'Earthquake depth and magnitude', data: chartRows, xField: 'depth', yField: 'magnitude', colorField: 'region', entityField: 'id' },
+        boxplot: { title: 'Magnitude by region', data: chartRows, xField: 'region', yField: 'magnitude', colorField: 'region', entityField: 'id' },
+        heatmap: { title: 'Events by region and day', data: heatmapRows, xField: 'day', yField: 'region', colorField: 'events', entityField: 'id' },
+        trajectories: { title: 'Displacement over time', data: trajectoryRows, xField: 'day', yField: 'displacement', colorField: 'region', entityField: 'id' },
+        spectra: { title: 'Sample spectra', data: spectrumRows, xField: 'wavelength', yField: 'intensity', colorField: 'sample', entityField: 'id' },
+      };
+      return root({ id: 'demo', component: name, preset: variant, height: 380, ...examples[variant] });
+    }
     case 'clio.data-table.v1': return root({ id: 'demo', component: name, columns: ['id', 'region', 'depth', 'magnitude'], rows: chartRows });
-    case 'clio.map.v1': return root({ id: 'demo', component: name, title: 'Field sites', points: [
+    case 'clio.map.v1': return root({ id: 'demo', component: name, title: 'Field sites', selection: { path: '/selection/sites' }, selectionField: 'id', points: [
       { id: 'berkeley', label: 'Berkeley', latitude: 37.8715, longitude: -122.273, category: 'Field site', detail: 'Northern California' },
       { id: 'fresno', label: 'Fresno', latitude: 36.7378, longitude: -119.7871, category: 'Lab', detail: 'Central Valley' },
       { id: 'reno', label: 'Reno', latitude: 39.5296, longitude: -119.8138, category: 'Field site', detail: 'Nevada' },
     ] });
-    case 'clio.mesh-viewport.v1': return root({ id: 'demo', component: name, title: 'Coastal elevation model', meshUri: 'artifact://artifact_gallery_terrain_glb', format: 'glb' });
+    case 'clio.mesh-viewport.v1': return root({ id: 'demo', component: name, title: 'Surface mesh sample', meshUri: 'artifact://artifact_gallery_terrain_glb', format: 'glb' });
     case 'clio.raster-viewport.v1': return root({ id: 'demo', component: name, title: 'Temperature field', rasterUri: 'artifact://artifact_raster_demo', colormap: 'viridis', unit: '°C' });
     case 'clio.weather.v1': return root({ id: 'demo', component: name, location: 'Berkeley, California', timeZone: 'America/Los_Angeles', observedAt: '2026-10-01T13:35:00-07:00', condition: 'Partly cloudy', temperature: 67, temperatureUnit: 'F', source: 'Example forecast', windSpeed: 9, windUnit: 'mph',
       hourly: Array.from({ length: 24 }, (_, index) => ({ time: new Date(Date.parse('2026-10-01T14:00:00-07:00') + index * 3_600_000).toISOString(), condition: ['Sunny', 'Cloudy', 'Rain'][Math.floor(index / 4) % 3], temperature: 68 + Math.round(5 * Math.sin(index / 3)), precipitationChance: [5, 15, 60][Math.floor(index / 4) % 3] })),
@@ -118,13 +155,13 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
     case 'clio.code.v1': return root({ id: 'demo', component: name, title: 'Station summary', language: 'python', code: 'stations = ["Berkeley", "Fresno", "Reno"]\nfor station in stations:\n    print(station)' });
     case 'clio.diff.v1': return root({ id: 'demo', component: name, path: 'analysis.py', diff: '@@ -1,2 +1,3 @@\n stations = load_stations()\n+stations = filter_quality(stations)\n print(len(stations))' });
     case 'clio.mermaid.v1': return root({ id: 'demo', component: name, title: 'From observation to report', source: 'flowchart LR\n  A[Collect] --> B[Review]\n  B --> C[Publish]' });
-    case 'clio.artifact.v1': return root({ id: 'demo', component: name, name: 'vertical-displacement.png', uri: 'artifact://artifact_plot', mediaType: 'image/png' });
+    case 'clio.artifact.v1': return root({ id: 'demo', component: name, name: 'vertical-displacement.png', uri: 'artifact://artifact_plot', mediaType: 'image/png', size: 53953 });
     case 'clio.slider.v1': return root({ id: 'demo', component: name, label: 'Depth interval', min: 0, max: 30, step: 0.5, range: true, value: [2, 12], unit: 'km' });
     default: return root({ id: 'demo', component: 'Text', text: 'This view needs a registered artifact in a connected CLIO workspace.' });
   }
 }
 
-function A2uiDemo({ name, variant }: { name: ComponentName; variant: string }) {
+export function A2uiDemo({ name, variant }: { name: ComponentName; variant: string }) {
   const [lastAction, setLastAction] = useState('');
   const surface = useMemo(() => {
     const workspaceOnly = name.startsWith('clio.') || name === 'Frame' || name === 'Grid' || name === 'linked';
@@ -168,12 +205,21 @@ function catalogDescription(name: string): string {
   return file.components?.[name]?.description ?? '';
 }
 
+function examplePayload(name: string, variant: string): unknown {
+  const fixtureName = basicExamples[name];
+  if (!fixtureName) return clioDemo(name, variant);
+  const example = A2UI_BASIC_EXAMPLES.find((item) => item.file.includes(fixtureName));
+  const messages = example?.messages as Array<{ updateComponents?: { components?: unknown } }> | undefined;
+  return messages?.find((message) => message.updateComponents)?.updateComponents?.components ?? clioDemo(name, variant);
+}
+
 /** A visually led explorer of every component in the CLIO workspace catalog. */
 export function WidgetGallery() {
   const [active, setActive] = useState('clio.chart.v1');
   const [query, setQuery] = useState('');
   const [variant, setVariant] = useState('scatter');
   const [showContract, setShowContract] = useState(false);
+  const [showExample, setShowExample] = useState(false);
   const [composer, setComposer] = useState('');
   useEffect(() => {
     const useDraft = (event: Event) => setComposer((event as CustomEvent<{ text: string }>).detail.text);
@@ -191,12 +237,13 @@ export function WidgetGallery() {
       })}
     </nav>
     <div className="min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{labels[active] ?? active}</h2></div><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button></header>
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{labels[active] ?? active}</h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button></div></header>
       {active === 'clio.chart.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Chart example">{['scatter', 'boxplot', 'heatmap', 'trajectories', 'spectra'].map((item) => <button aria-pressed={variant === item} className={`shrink-0 rounded-md px-3 py-1.5 text-xs capitalize ${variant === item ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item} onClick={() => setVariant(item)} type="button">{item}</button>)}</div> : null}
       {active === 'clio.callout.v1' ? <p className="text-sm text-muted-foreground">A short notice for a result, warning, or next step that deserves attention.</p> : null}
       <div className="min-h-56 overflow-x-auto"><div className={active === 'clio.chart.v1' ? 'min-w-[540px] sm:min-w-0' : active === 'clio.artifact.v1' ? 'max-w-2xl' : undefined}><A2uiDemo key={`${active}:${variant}`} name={active} variant={variant} /></div></div>
       {active === 'clio.message-draft.v1' && composer ? <label className="block space-y-2 text-sm"><span className="text-muted-foreground">Composer</span><textarea className="min-h-32 w-full rounded-md border bg-background p-3" onChange={(event) => setComposer(event.target.value)} value={composer} /></label> : null}
       {showContract ? <aside className="space-y-2 rounded-md bg-muted/50 p-4 text-sm"><p>{catalogDescription(active) || 'A layout or control building block in the A2UI Basic catalog.'}</p><p className="font-mono text-xs text-muted-foreground">{active}</p></aside> : null}
+      {showExample ? <pre className="max-h-96 overflow-auto rounded-md border bg-muted/20 p-4 text-xs">{JSON.stringify(examplePayload(active, variant), null, 2)}</pre> : null}
     </div>
   </section>;
 }
