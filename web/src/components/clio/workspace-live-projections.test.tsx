@@ -1,10 +1,11 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import type { Artifact, A2UISurface } from '@clio/core/v3';
+import type { Artifact, A2UISurface, PendingCompaction } from '@clio/core/v3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   entities: {
     artifacts: {},
+    compactions: {} as Record<string, PendingCompaction>,
     infrastructure: {},
     messages: {},
     subagents: {},
@@ -24,12 +25,17 @@ vi.mock('@/store/live-store', () => ({
 vi.mock('./conversation', () => ({
   ClioConversation: ({
     artifacts,
+    compactions,
     surfaces,
   }: {
     artifacts: Record<string, Artifact>;
+    compactions?: readonly PendingCompaction[];
     surfaces: Record<string, A2UISurface>;
   }) => (
     <>
+      <output data-testid="compaction-ids">
+        {(compactions ?? []).map((compaction) => compaction.compaction_id).join(',')}
+      </output>
       <output data-testid="artifact-size">{artifacts['artifact_plot']?.size}</output>
       <output data-testid="artifact-ids">{Object.keys(artifacts).join(',')}</output>
       <output data-testid="surface-ids">{Object.keys(surfaces).join(',')}</output>
@@ -62,6 +68,7 @@ describe('WorkspaceLiveConversation', () => {
   beforeEach(() => {
     cleanup();
     mocks.entities.artifacts = {};
+    mocks.entities.compactions = {};
     mocks.entities.messages = {};
     mocks.entities.surfaces = {};
   });
@@ -125,6 +132,27 @@ describe('WorkspaceLiveConversation', () => {
 
     expect(screen.getByTestId('surface-ids')).toHaveTextContent('surface_current');
     expect(screen.getByTestId('surface-ids')).not.toHaveTextContent('surface_other');
+  });
+
+  it("passes only this session's live compactions to the conversation", () => {
+    const running: PendingCompaction = {
+      compaction_id: 'cmp_current',
+      session_id: 'sess_1',
+      scope: 'main',
+      trigger: 'auto',
+      turn_id: '',
+      status: 'running',
+      started_at: '2026-10-01T00:00:00Z',
+    };
+    mocks.entities.compactions = {
+      cmp_current: running,
+      cmp_other: { ...running, compaction_id: 'cmp_other', session_id: 'sess_2' },
+    };
+
+    render(<WorkspaceLiveConversation artifacts={[]} sessionId="sess_1" subagents={[]} />);
+
+    expect(screen.getByTestId('compaction-ids')).toHaveTextContent('cmp_current');
+    expect(screen.getByTestId('compaction-ids')).not.toHaveTextContent('cmp_other');
   });
 
   it('passes the authoritative session identity into the observability state owner', () => {

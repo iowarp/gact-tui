@@ -60,7 +60,7 @@ function contextSnapshot(value: unknown): ContextSnapshot {
     autocompact_pct: result.autocompact_pct ?? undefined,
     segments: result.segments,
     render_text: result.render_text,
-    render_keys: result.render_keys,
+    messages: result.messages,
     provenance: {
       source: 'server',
       observed_at: new Date().toISOString(),
@@ -89,19 +89,6 @@ export class ContextRepository extends SearchRepository {
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/policy`,
       decode: (value) => contextPolicySchema.parse(value),
-      signal,
-    });
-  }
-
-  public compactContext(
-    sessionId: string,
-    scope: string,
-    signal?: AbortSignal,
-  ): Promise<ContextSnapshot> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/compact?scope=${encodeURIComponent(scope)}`,
-      decode: contextSnapshot,
       signal,
     });
   }

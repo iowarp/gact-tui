@@ -27,8 +27,10 @@ const desktop = vi.hoisted(() => ({
 const updateManagedClio = vi.hoisted(() => vi.fn(async () => undefined));
 const restartClio = vi.hoisted(() => vi.fn(async () => undefined));
 const getVersion = vi.hoisted(() => vi.fn(async () => '0.9.4+3'));
+const runtime = vi.hoisted(() => ({ desktopShell: true }));
 
 vi.mock('@tauri-apps/api/app', () => ({ getVersion }));
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => runtime.desktopShell }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({
@@ -79,10 +81,12 @@ function renderStatus() {
 beforeEach(() => {
   useUpdateFlowStore.getState().reset();
   localStorage.clear();
+  runtime.desktopShell = true;
   desktop.snapshot = { status: 'current' };
   desktop.install.mockClear();
   desktop.check.mockClear();
   updateManagedClio.mockClear();
+  getVersion.mockClear();
   getVersion.mockResolvedValue('0.9.4+3');
   repository.capabilities.mockResolvedValue({
     service: { name: 'clio-agent-gact', version: '0.9.4.3' },
@@ -100,7 +104,10 @@ beforeEach(() => {
   });
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+});
 
 describe('SystemVersionStatus', () => {
   it('shows one compact version control and two branded software rows', async () => {
@@ -317,5 +324,89 @@ describe('SystemVersionStatus', () => {
         'Could not check for updates: the release server could not be reached.',
       ),
     ).toBeVisible();
+  });
+});
+
+describe('SystemVersionStatus in a plain browser', () => {
+  beforeEach(() => {
+    runtime.desktopShell = false;
+    // In a plain browser the desktop updater never runs: its snapshot stays
+    // at the initial 'unknown' forever.
+    desktop.snapshot = { status: 'unknown' };
+    vi.stubEnv('VITE_CLIO_WORKSPACE_VERSION', '0.11.2+patch.25');
+    repository.capabilities.mockClear();
+    repository.capabilities.mockResolvedValue({
+      service: { name: 'clio-agent-gact', version: '0.11.2.25' },
+    });
+    repository.latestRelease.mockResolvedValue({
+      version: '0.11.2.25',
+      source: 'https://github.com/iowarp/clio-agent/releases/latest/download/latest-lite.json',
+      checked_at: '2026-10-01T00:00:00Z',
+      degradation: null,
+    });
+  });
+
+  it('shows the web build version instead of waiting on the desktop shell', async () => {
+    renderStatus();
+
+    const trigger = await screen.findByRole('button', {
+      name: `${brand.agentName} is up to date`,
+    });
+    expect(trigger).toHaveTextContent('v0.11.2.25');
+    expect(trigger).not.toHaveTextContent('Version');
+    expect(getVersion).not.toHaveBeenCalled();
+
+    fireEvent.click(trigger);
+    // Opening the popover rechecks the agent only -- the desktop updater is
+    // never asked to check from a browser.
+    await waitFor(() => expect(repository.capabilities).toHaveBeenCalledTimes(2));
+    expect(desktop.check).not.toHaveBeenCalled();
+
+    const productRow = within(await screen.findByTestId('version-row-desktop'));
+    expect(productRow.getByText('v0.11.2.25')).toBeVisible();
+    expect(productRow.getByText('Web build')).toBeVisible();
+    expect(productRow.getByText('Update checks run in the desktop app.')).toBeVisible();
+    expect(productRow.queryByText('Not checked')).not.toBeInTheDocument();
+    expect(productRow.queryByText('Checking…')).not.toBeInTheDocument();
+    expect(productRow.queryByRole('button')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('version-row-agent')).getByText('Up to date')).toBeVisible();
+  });
+
+  it('settles on the agent state, never an endless check, when the agent has no version', async () => {
+    repository.capabilities.mockResolvedValue({ service: { name: 'clio-agent-gact' } });
+    renderStatus();
+
+    const trigger = await screen.findByRole('button', { name: 'Version status not yet checked' });
+    expect(trigger).toHaveTextContent('v0.11.2.25');
+    expect(screen.queryByRole('button', { name: 'Checking versions' })).not.toBeInTheDocument();
+  });
+
+  it('offers an agent update from the browser without a desktop install', async () => {
+    repository.capabilities.mockResolvedValue({
+      service: { name: 'clio-agent-gact', version: '0.11.2.24' },
+    });
+    renderStatus();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Software update available' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Update all' }));
+
+    await waitFor(() =>
+      expect(updateManagedClio).toHaveBeenCalledWith('v0.11.2.25', {
+        restartApp: true,
+        onProgress: expect.any(Function),
+      }),
+    );
+    expect(desktop.install).not.toHaveBeenCalled();
+  });
+});
+
+describe('SystemVersionStatus in the desktop app', () => {
+  it('keeps checking until the desktop shell reports its version', async () => {
+    getVersion.mockReturnValue(new Promise<string>(() => undefined));
+    renderStatus();
+
+    const trigger = await screen.findByRole('button', { name: 'Checking versions' });
+    expect(trigger).toHaveTextContent('Version');
+    expect(getVersion).toHaveBeenCalledOnce();
   });
 });

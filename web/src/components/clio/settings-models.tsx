@@ -101,28 +101,18 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
     providerId,
     configuration.model,
     configuration.resolved_model_id,
-    option?.transport,
   );
 
   const apply = useApplyModelConfiguration(() => setEdited(false));
   const save = {
     isPending: apply.isPending,
     error: apply.error,
-    mutate: ({
-      preset,
-      next,
-      variant,
-    }: {
-      preset: LanguageModelPreset;
-      next: ModelSettingsValues;
-      variant?: string;
-    }) => {
+    mutate: ({ preset, next }: { preset: LanguageModelPreset; next: ModelSettingsValues }) => {
       const update = modelSettingsUpdate({
         preset,
         seeded: preset.id === activePreset?.id ? seed() : { ...next, effort: '' },
         values: next,
       });
-      if (variant) update.variant = variant;
       apply.mutate({ update, requiresKey: preset.requires_api_key });
     },
   };
@@ -141,20 +131,18 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
       effort: staying && choice.id === configuration.model ? values.effort : '',
     };
     setValues(next);
-    // A model reached two ways (Codex's SDK or Direct) binds the way it was picked.
-    save.mutate({ preset, next, variant: choice.transport });
+    save.mutate({ preset, next });
   }
 
   function chooseEffort(effort: ModelSettingsValues['effort']) {
     if (!activePreset) return;
     const next = { ...values, effort };
     setValues(next);
-    save.mutate({ preset: activePreset, next, variant: option?.transport });
+    save.mutate({ preset: activePreset, next });
   }
 
   function saveValues() {
-    if (activePreset)
-      save.mutate({ preset: activePreset, next: values, variant: option?.transport });
+    if (activePreset) save.mutate({ preset: activePreset, next: values });
   }
 
   return (

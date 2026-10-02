@@ -264,10 +264,15 @@ export function ClioContextCanvasPanel({
                 className="w-fit"
                 disabled={!canCompact || compactPending}
                 size="sm"
+                title={
+                  compactPending
+                    ? 'Summarizing context; progress shows in the conversation'
+                    : undefined
+                }
                 variant="outline"
               >
                 <SparklesIcon aria-hidden="true" />
-                {compactPending ? 'Compacting…' : 'Compact now'}
+                Compact now
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -510,7 +515,8 @@ function compactedSummaryTokens(messages: readonly Message[]): number {
       total +
       message.blocks.reduce(
         (messageTotal, block) =>
-          messageTotal + (block.type === 'compaction' ? block.summary.length : 0),
+          messageTotal +
+          (block.type === 'injection' && block.source === 'summarization' ? block.text.length : 0),
         0,
       ),
     0,

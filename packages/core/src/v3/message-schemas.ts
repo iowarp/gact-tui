@@ -161,13 +161,44 @@ const agentMessageBlockSchema = additivelyTolerant(
     })
     .strict(),
 );
-const compactionMessageBlockSchema = additivelyTolerant(
+/**
+ * Harness data the agent was given: CLIO's own additions (plan reminder, todos,
+ * task results, ...) and notes on a tool call (a path hint, a circuit-breaker
+ * warning, an oversize result's file). `text` is exactly what the agent received.
+ */
+const injectionMessageBlockSchema = additivelyTolerant(
   z
     .object({
       id: z.string(),
-      type: z.literal('compaction'),
-      summary: z.string(),
-      auto: z.boolean().optional(),
+      type: z.literal('injection'),
+      source: z.string(),
+      text: z.string(),
+      call_id: z.string().optional(),
+      trigger: z.enum(['auto', 'manual']).optional(),
+      compaction_id: z.string().optional(),
+      variants_id: z.string().optional(),
+      try_index: z.number().int().nonnegative().optional(),
+      agent_id: z.string().optional(),
+      sequence: z.number().int().positive().optional(),
+      stream_source: z.string().optional(),
+      channel: z.string().optional(),
+    })
+    .strict(),
+);
+/**
+ * A service notice recorded in the transcript, e.g. a failed compaction
+ * (`source: "compaction_failed"`) with its typed `code`.
+ */
+const noticeMessageBlockSchema = additivelyTolerant(
+  z
+    .object({
+      id: z.string(),
+      type: z.literal('notice'),
+      source: z.string(),
+      text: z.string(),
+      code: z.string().optional(),
+      trigger: z.enum(['auto', 'manual']).optional(),
+      compaction_id: z.string().optional(),
       agent_id: z.string().optional(),
       sequence: z.number().int().positive().optional(),
       stream_source: z.string().optional(),
@@ -207,7 +238,8 @@ export const messageBlockSchema = z.union([
   mcpAppMessageBlockSchema,
   subagentMessageBlockSchema,
   agentMessageBlockSchema,
-  compactionMessageBlockSchema,
+  injectionMessageBlockSchema,
+  noticeMessageBlockSchema,
   knownMessageBlockSchema,
   additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,

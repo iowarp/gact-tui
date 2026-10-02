@@ -24,7 +24,6 @@ func sampleContextStateJSON() map[string]any {
 		"categories":       map[string]int{"messages": 8_000, "tool_calls": 4_000, "framing": 3_500},
 		"segments":         []map[string]any{{"id": "seg1", "kind": "message", "tokens": 8_000}},
 		"render_text":      "Context: 15.5k / 200k",
-		"render_keys":      map[string]any{"pct": "7.8%"},
 	}
 }
 

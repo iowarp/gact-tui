@@ -10,6 +10,9 @@ export const GACT_V3_EVENT_TYPES = [
   'approval.resolved',
   'approval.upserted',
   'artifact.upserted',
+  'compaction.completed',
+  'compaction.failed',
+  'compaction.started',
   'infrastructure.dependency.changed',
   'message.block.completed',
   'message.block.delta',
@@ -44,6 +47,10 @@ export const GACT_V3_EVENT_TYPES = [
   'task.upserted',
   'tool.upserted',
   'tool.presentation.delta',
+  'variant.closed',
+  'variant.selected',
+  'variant.try.delta',
+  'variant.try.upserted',
   'workspace.upserted',
 ] as const;
 

@@ -41,7 +41,6 @@ type ContextState struct {
 	Categories     map[string]int   `json:"categories"`
 	Segments       []ContextSegment `json:"segments"`
 	RenderText     string           `json:"render_text"`
-	RenderKeys     map[string]any   `json:"render_keys"`
 }
 
 // GetContextState issues GET /v1/sessions/{id}/context/state[?scope=<expert>].

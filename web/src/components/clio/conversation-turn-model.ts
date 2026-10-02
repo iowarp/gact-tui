@@ -53,8 +53,20 @@ export interface ConversationIteration {
   summary: string;
 }
 
+/**
+ * The record of a compaction that happened inside the turn -- its summary or
+ * its failure notice. It stays at its step: it renders between the iterations
+ * before it and the ones after it.
+ */
+export interface ConversationTurnCompactionRecord {
+  /** How many iterations precede the record. */
+  afterIteration: number;
+  block: Extract<MessageBlock, { type: 'injection' | 'notice' }>;
+}
+
 export interface ConversationTurnPresentation {
   iterations: ConversationIteration[];
+  compactionRecords: ConversationTurnCompactionRecord[];
   residualBlocks: MessageBlock[];
 }
 
@@ -64,9 +76,10 @@ export function conversationTurnPresentation(
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task> = {},
 ): ConversationTurnPresentation {
-  const { iterations, consumed } = fallbackIterations(message, tools, tasks);
+  const { iterations, compactionRecords, consumed } = fallbackIterations(message, tools, tasks);
   return {
     iterations,
+    compactionRecords,
     residualBlocks: message.blocks.filter((block) => !consumed.has(block.id)),
   };
 }
@@ -75,8 +88,13 @@ function fallbackIterations(
   message: Message,
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task>,
-): { iterations: ConversationIteration[]; consumed: Set<string> } {
+): {
+  iterations: ConversationIteration[];
+  compactionRecords: ConversationTurnCompactionRecord[];
+  consumed: Set<string>;
+} {
   const iterations: ConversationIteration[] = [];
+  const compactionRecords: ConversationTurnCompactionRecord[] = [];
   const consumed = new Set<string>();
   const indexed = message.blocks.map((block, position) => ({ block, position }));
   const ordered = indexed.some(({ block }) => block.sequence === undefined)
@@ -107,6 +125,15 @@ function fallbackIterations(
   };
 
   for (const { block } of ordered) {
+    if (
+      (block.type === 'injection' && block.source === 'summarization') ||
+      (block.type === 'notice' && block.source === 'compaction_failed')
+    ) {
+      flush();
+      compactionRecords.push({ afterIteration: iterations.length, block });
+      consumed.add(block.id);
+      continue;
+    }
     if (block.type === 'reasoning') {
       if (!block.streaming && !block.text.trim()) {
         consumed.add(block.id);
@@ -192,7 +219,7 @@ function fallbackIterations(
     messageCompletedNormally(message) && !current.activity.some((entry) => entry.kind === 'tool'),
     messageInterrupted(message),
   );
-  return { consumed, iterations };
+  return { compactionRecords, consumed, iterations };
 }
 
 function messageToolOwnsReceipt(iteration: ConversationIteration, message: string): boolean {
@@ -282,7 +309,10 @@ function iterationSummary(
 }
 
 function compactSentence(value: string): string {
-  const line = value.replace(/\s+/gu, ' ').trim();
+  // A one-line summary is plain text: inline markdown markers (a reasoning
+  // summary's **heading**, `code`, # levels) are dropped, never shown raw.
+  const plain = value.replace(/(\*\*|__|`)/gu, '').replace(/^\s*#{1,6}\s+/gmu, '');
+  const line = plain.replace(/\s+/gu, ' ').trim();
   const sentenceEnd = line.search(/(?<=[.!?])\s/u);
   const sentence = (sentenceEnd >= 0 ? line.slice(0, sentenceEnd + 1) : line).trim();
   return truncate(sentence, SUMMARY_TRUNCATE_CHARS);

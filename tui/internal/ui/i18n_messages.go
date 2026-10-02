@@ -105,6 +105,7 @@ const (
 	msgLMConfigLaunchingLogin         messageID = "lm_config.auth.launching"
 	msgLMConfigNoKeyRequired          messageID = "lm_config.auth.no_key"
 	msgLMConfigLocalCLI               messageID = "lm_config.transport.local_cli"
+	msgLMConfigDirect                 messageID = "lm_config.transport.direct"
 	msgLMConfigStatus                 messageID = "lm_config.status"
 	msgLMConfigModelTitle             messageID = "lm_config.model.title"
 	msgLMConfigModelCandidatesTitle   messageID = "lm_config.model.candidates_title"

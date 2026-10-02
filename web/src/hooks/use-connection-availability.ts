@@ -3,6 +3,7 @@ import { useQueries } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
+import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL, isHistoryMode } from '@/lib/context-mode';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
@@ -93,6 +94,9 @@ export async function probeConnection(
 
     try {
       const health = await repository.serviceHealth(controller.signal);
+      if (health.healthy && isHistoryMode(health)) {
+        return { state: 'degraded', label: HISTORY_MODE_LABEL, detail: HISTORY_MODE_DETAIL };
+      }
       return health.healthy
         ? { state: 'healthy', label: 'Ready', detail: 'Service is available.' }
         : {

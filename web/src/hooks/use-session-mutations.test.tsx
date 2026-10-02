@@ -128,16 +128,15 @@ describe('useSessionMutations send identity', () => {
     });
   });
 
-  it("sends a picked transport as the route's variant", async () => {
+  it('sends a Codex route as provider and model only, with no transport variant', async () => {
     mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
     const { result } = renderMutations();
 
-    await result.current.send.mutateAsync({ ...draft, transport: 'sdk' });
+    await result.current.send.mutateAsync(draft);
 
-    expect(mocks.repository.submitMessage.mock.calls[0]?.[1].model).toEqual({
+    expect(mocks.repository.submitMessage.mock.calls[0]?.[1].model).toStrictEqual({
       model_id: 'gpt-5.6-luna',
       provider_id: 'codex',
-      variant: 'sdk',
     });
   });
 

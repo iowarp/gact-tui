@@ -40,6 +40,9 @@ func detailMetadataRemainder(p gact.Part) map[string]any {
 		} {
 			used[key] = true
 		}
+	case gact.PartTypeInjection:
+		used["actor"] = true
+		used["call_id"] = true
 	case gact.PartTypeCompaction:
 		used["synthetic_from"] = true
 		used["synthetic"] = true

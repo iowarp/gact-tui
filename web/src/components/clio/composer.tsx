@@ -69,7 +69,6 @@ import { focusEditorAtOffset } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { messageTextWithAnnotations, type ComposerAnnotation } from '@/lib/composer-annotations';
-import { modelTransportLabel } from './provider-transport-state';
 import type { ClioModelOption } from '@/lib/model-options';
 
 const focusComposerEditor = focusEditorAtOffset;
@@ -111,7 +110,6 @@ export interface ClioComposerProps {
     references: Exclude<ComposerMessagePart, { type: 'text' }>[];
     provider?: string;
     model?: string;
-    transport?: string;
     delivery: MessageDelivery | 'queued';
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
@@ -206,11 +204,7 @@ export function ClioComposer({
   variant = 'docked',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
-  const { selectedOption, selectedTransport, selectModel } = useComposerModelSelection(
-    modelOptions,
-    provider,
-    model,
-  );
+  const { selectedOption, selectModel } = useComposerModelSelection(modelOptions, provider, model);
   const [behaviorSelection, setBehaviorSelection] = useState<{
     behavior: MessageBehavior;
     authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
@@ -539,7 +533,6 @@ export function ClioComposer({
                 text: messageTextWithAnnotations(annotations, trimmed),
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
-                transport: selectedTransport,
                 onUploadProgress: (progress) => {
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
@@ -663,7 +656,6 @@ export function ClioComposer({
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
                   provider={selectedOption?.providerId}
-                  transport={selectedOption?.transport}
                   trigger={
                     <Button
                       aria-label="Change model"
@@ -776,12 +768,9 @@ function ComposerAddContextButton({
   );
 }
 
-/** The model button's text: provider, the half it is reached through when
- * there are two ("Codex · Direct / Luna"), and the model. */
+/** The model button's text: provider and model ("Codex / Luna"). */
 function composerModelLabel(option: ClioModelOption): string {
-  const half = modelTransportLabel(option);
-  const provider = half ? `${option.providerName} · ${half}` : option.providerName;
-  return `${provider} / ${compactModelName(option.providerId, option.id, option.label)}`;
+  return `${option.providerName} / ${compactModelName(option.providerId, option.id, option.label)}`;
 }
 
 function compactModelName(provider: string, modelId: string, label: string): string {

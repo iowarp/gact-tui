@@ -75,7 +75,7 @@ export const options = [
     id: 'gpt-5.6-luna',
     label: 'Luna',
     available: true,
-    endpoint: 'local://codex-sdk',
+    endpoint: 'codex://direct',
     configurationUrl: '/settings/providers?provider=codex',
     freshness: '2026-08-31T12:00:00Z',
     health: 'ready',
@@ -130,57 +130,6 @@ export function footerButtonNames(): string[] {
   return [...(footer?.querySelectorAll('button') ?? [])].map(
     (button) => button.getAttribute('aria-label') ?? button.textContent?.trim() ?? '',
   );
-}
-
-/** Codex's two transports as the catalog reports them, for option rows. */
-export function codexTransports(
-  direct: 'ready' | 'signed_out',
-  sdk: 'ready' | 'unavailable' | 'unchecked' = 'ready',
-) {
-  return [
-    {
-      id: 'sdk',
-      label: 'Codex (local)',
-      health: sdk === 'ready' ? 'ready' : 'unavailable',
-      reason:
-        sdk === 'unchecked'
-          ? 'codex_sdk_not_checked: run an explicit provider check to ask the Codex SDK'
-          : sdk === 'unavailable'
-            ? 'codex_sdk_unavailable: the Codex app is not installed'
-            : '',
-    },
-    {
-      id: 'direct',
-      label: 'Direct',
-      health: direct === 'ready' ? 'ready' : 'unavailable',
-      reason: '',
-      auth: { method: 'oauth', logout: true },
-    },
-  ];
-}
-
-/** Codex option rows: one Luna row per ready transport, carrying `transports`. */
-export function codexOptions(transports: ReturnType<typeof codexTransports>) {
-  const codex = options[0]!;
-  return [
-    ...transports
-      .filter((transport) => transport.health === 'ready')
-      .map((transport) => ({ ...codex, transport: transport.id, transports })),
-    ...(transports.every((transport) => transport.health !== 'ready')
-      ? [
-          {
-            ...codex,
-            id: '',
-            kind: 'provider' as const,
-            label: 'Codex',
-            available: false,
-            health: 'unavailable',
-            transports,
-          },
-        ]
-      : []),
-    options[1]!,
-  ];
 }
 
 export function setWideViewport(matches: boolean): void {

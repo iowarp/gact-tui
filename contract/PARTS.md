@@ -44,6 +44,7 @@ gact-tui and is **not** made here. Tracked in **clio-agent#1170**.
 | `compaction` | assorted | context compaction marker — `/compact` APPENDS a checkpoint row; earlier messages stay in the transcript |
 | `background_exit` | `gact/background_exit.py:46` | **P2.14 / #1131** |
 | `agent_message` | `gact/agent_messaging.py:116` | **P2.11 / #1128** |
+| `injection` | `gact/injection_parts.py` | harness data the agent was given — `source` (`todos`, `plan_mode`, `replan`, `memory_search`, `task_results`, `path_hint`, `circuit_breaker`, `result_spilled`, `hook`), `text` (exactly what the agent received), optional `call_id` (the tool call it is about). Clients render it as harness data (a syringe icon), never as model or user text |
 
 `SPEC.md` documents only `text`, `thinking`, `tool_call`, `tool_result`, `ask`
 and `compaction`.

@@ -3,6 +3,8 @@ import { agentTaskRecordSchema, type AgentTaskRecord } from './agent-task-domain
 import type { AsyncProcess, ContextFile, ContextFrame, SessionDiff } from './domain.js';
 import { ExecutionProvenanceRepository } from './execution-provenance-repository.js';
 import { operationalRunStateSchema } from './schemas.js';
+import { variantRunsFromRecords, type VariantRuns } from './variant-reducer.js';
+import { variantRunListSchema } from './variant-schemas.js';
 
 const sessionDiffSchema = z.object({
   path: z.string(),
@@ -141,6 +143,22 @@ export class SessionObservabilityRepository extends ExecutionProvenanceRepositor
       recordedAt: event.occurred_at,
       tools: event.payload.tools,
     };
+  }
+
+  /**
+   * The session's BestOfN / Refine runs as clio-core records them (LM- and
+   * user-judged; each try with its own steps): what the variant tabs are
+   * rebuilt from after a reload. A failure (404 `not_found`, 503
+   * `no_context_store`, 500 `variant_record_unreadable`) rejects typed.
+   */
+  public async variantRuns(sessionId: string, signal?: AbortSignal): Promise<VariantRuns> {
+    const value = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/variant-runs`,
+      decode: (input) => variantRunListSchema.parse(input),
+      signal,
+    });
+    return variantRunsFromRecords(value.runs);
   }
 
   public async sessionDiffs(sessionId: string, signal?: AbortSignal): Promise<SessionDiff[]> {

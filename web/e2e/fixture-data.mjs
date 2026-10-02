@@ -98,11 +98,11 @@ export const providerCatalog = {
       ],
     },
     {
-      // The active model: its real Codex SDK efforts drive the composer control.
+      // The active model: its real Codex efforts drive the composer control.
       id: 'codex',
       name: 'OpenAI Codex',
       kind: 'codex',
-      endpoint: 'codex://sdk',
+      endpoint: 'codex://direct',
       configuration_url: '/settings/providers?provider=codex',
       connectivity: 'ok',
       auth: 'ok',
@@ -113,7 +113,7 @@ export const providerCatalog = {
         providerCatalogModel({
           provider_id: 'codex',
           provider_kind: 'codex',
-          endpoint: 'codex://sdk',
+          endpoint: 'codex://direct',
           deployment: '',
           model_id: 'gpt-5.6-luna',
           modalities: ['text', 'image'],
@@ -122,7 +122,7 @@ export const providerCatalog = {
             parameter: '',
             levels: ['minimal', 'low', 'medium', 'high', 'xhigh'],
             default: 'medium',
-            source: 'codex_sdk',
+            source: 'codex_direct_model_list',
           },
           context_window: 262144,
           loaded_context_window: null,
@@ -153,18 +153,20 @@ export const providerCatalog = {
 };
 
 /**
- * One compaction checkpoint block (#1339): `/compact` APPENDS this to the
- * transcript rather than replacing it, so earlier messages stay reachable
- * above the checkpoint row.
+ * One compaction record: a `summarization` injection carrying the summary the
+ * agent received. Compaction APPENDS it to the transcript rather than replacing
+ * it, so earlier messages stay reachable above the row.
  */
 export const compactionCheckpoint = {
   id: 'block_compaction',
-  type: 'compaction',
-  summary:
+  type: 'injection',
+  source: 'summarization',
+  trigger: 'auto',
+  compaction_id: 'cmp_fixture',
+  text:
     'The agent reviewed the EarthScope station evidence ledger, cross-checked coverage against ' +
     'quality flags, and confirmed the derived displacement series before this checkpoint. Earlier ' +
     'messages remain in the transcript above this row and can be reopened at any time.',
-  auto: true,
 };
 
 /** One steer accepted for the next safe boundary, on a real transcript message. */

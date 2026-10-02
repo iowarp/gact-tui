@@ -9,9 +9,9 @@ import {
   AlertTriangleIcon,
   ExternalLinkIcon,
   FileCode2Icon,
-  PackageOpenIcon,
   PanelsTopLeftIcon,
   RouteIcon,
+  SyringeIcon,
 } from 'lucide-react';
 import { createElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -31,7 +31,6 @@ import {
   PlanTrigger,
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
@@ -48,6 +47,9 @@ import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { toolOutputDiffKey } from './declared-diff-key';
+import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
+import { vocab } from '@/lib/brand-vocabulary';
+import { SummarizationInjection, TranscriptNotice } from './conversation-summarization';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -196,8 +198,16 @@ function MessageBlockView({
           </PlanHeader>
         </Plan>
       );
-    case 'compaction':
-      return <CompactionSummary block={block} />;
+    case 'injection':
+      // A variant try's injection renders inside that try's tab, not the turn.
+      if (block.variants_id) return null;
+      return block.source === 'summarization' ? (
+        <SummarizationInjection block={block} label={INJECTION_LABELS.summarization} />
+      ) : (
+        <HarnessInjection block={block} />
+      );
+    case 'notice':
+      return <TranscriptNotice block={block} />;
     case 'artifact': {
       const artifact = artifacts[block.artifact_id];
       return artifact ? (
@@ -241,13 +251,7 @@ function MessageBlockView({
       );
     case 'a2ui': {
       const surface = surfaces[block.surface_id];
-      const ownsPendingResponse = interactions?.some(
-        (interaction) =>
-          interaction.kind === 'a2ui' &&
-          interaction.status === 'pending' &&
-          interaction.source.surface_id === block.surface_id,
-      );
-      if (ownsPendingResponse) return null;
+      if (surfaceAwaitsPendingResponse(interactions, block.surface_id)) return null;
       return surface?.state === 'deleted' ? (
         <ClioStatus label={`${PROTOCOL.a2ui} surface removed`} value="cancelled" />
       ) : surface ? (
@@ -386,40 +390,52 @@ function MessageBlockView({
   }
 }
 
-type CompactionBlock = Extract<MessageBlock, { type: 'compaction' }>;
+type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
+
+const INJECTION_LABELS: Record<string, string> = {
+  todos: 'Todo list',
+  plan_mode: 'Plan reminder',
+  replan: 'Replanning suggestion',
+  memory_search: 'Memory search results',
+  task_results: 'Results from background tasks',
+  path_hint: 'Path suggestion',
+  circuit_breaker: 'Repeated-failure warning',
+  result_spilled: 'Large result saved to a file',
+  hook: 'Hook',
+  summarization: 'Summarization',
+  variant_drafting: 'Drafting alternatives',
+  variant_advice: 'Advice for this draft',
+};
 
 /**
- * The compaction checkpoint row (#1339): `/compact` APPENDS this as a
- * synthetic assistant message rather than replacing the transcript, so the
- * collapsed state previews what the agent actually received instead of
- * hiding it entirely.
+ * Harness data the agent was given (a syringe: CLIO put this into the agent's
+ * context). Collapsed to what it is; expanded to exactly the text the agent got,
+ * so the user sees the same thing the agent saw.
  */
-function CompactionSummary({ block }: { block: CompactionBlock }) {
+export function HarnessInjection({ block }: { block: InjectionBlock }) {
   const [expanded, setExpanded] = useState(false);
+  const label = INJECTION_LABELS[block.source] ?? humanizeProtocolValue(block.source);
   return (
-    <section className="min-w-0 max-w-full" data-slot="compaction-summary">
+    <section className="min-w-0 max-w-full" data-slot="harness-injection">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-muted-foreground">
-        <PackageOpenIcon aria-hidden="true" className="size-4 shrink-0" />
-        <span>Context summarized</span>
-        <Badge variant="secondary">{block.auto ? 'Automatic' : 'Requested'}</Badge>
+        <SyringeIcon aria-hidden="true" className="size-4 shrink-0" />
+        <span>
+          {vocab.product} gave the agent: {label}
+        </span>
         <button
           aria-expanded={expanded}
           className="text-xs font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={() => setExpanded((value) => !value)}
           type="button"
         >
-          {expanded ? 'Show less' : 'Show more'}
+          {expanded ? 'Hide' : 'Show what it got'}
         </button>
       </div>
       {expanded ? (
-        <div className="mt-2 min-w-0 max-w-full break-words">
-          <GroundedMessageResponse>{block.summary}</GroundedMessageResponse>
-        </div>
-      ) : (
-        <p className="mt-1 line-clamp-3 min-w-0 max-w-full whitespace-pre-wrap break-words text-sm leading-5 text-muted-foreground">
-          {block.summary}
-        </p>
-      )}
+        <pre className="mt-2 min-w-0 max-w-full whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-xs leading-5">
+          {block.text}
+        </pre>
+      ) : null}
     </section>
   );
 }

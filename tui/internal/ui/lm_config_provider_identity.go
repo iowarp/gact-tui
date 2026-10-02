@@ -19,6 +19,16 @@ func lmConfigIsLocalLiveProvider(p client.LMProviderPreset) bool {
 		strings.Contains(base, "localhost")
 }
 
+// lmConfigTransportMessage names how a provider without an editable API base
+// is reached: Codex calls its backend directly from the agent; Claude Code
+// runs its local CLI.
+func lmConfigTransportMessage(p client.LMProviderPreset) messageID {
+	if p.Provider == "codex" {
+		return msgLMConfigDirect
+	}
+	return msgLMConfigLocalCLI
+}
+
 func lmConfigSupportsLiveCatalog(p client.LMProviderPreset) bool {
 	if p.SupportsLiveCatalog {
 		return true

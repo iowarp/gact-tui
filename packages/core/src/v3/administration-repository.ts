@@ -4,8 +4,8 @@ import type {
   HookInspection,
   PermissionPolicy,
   RuntimeMetrics,
-  ServiceHealth,
 } from './domain.js';
+import type { ServiceHealth } from './service-health-domain.js';
 import type { SandboxSetupResult, SandboxStatus } from './sandbox-domain.js';
 import type { MemoryEvent, MemoryStatistics } from './memory-domain.js';
 import type { AgentDefinition } from './agent-domain.js';
@@ -164,6 +164,10 @@ const serviceHealthSchema = z.object({
     .boolean()
     .nullish()
     .transform((value) => value ?? undefined),
+  context_mode: z
+    .enum(['clio_core', 'history'])
+    .nullish()
+    .transform((value) => value ?? undefined),
 });
 const sandboxStatusSchema = z.object({
   name: z.string().default('sandbox'),
@@ -209,9 +213,7 @@ const sandboxSetupResultSchema = z.object({
     .boolean()
     .nullish()
     .transform((value) => value ?? undefined),
-  row: sandboxStatusSchema
-    .nullish()
-    .transform((value) => value ?? undefined),
+  row: sandboxStatusSchema.nullish().transform((value) => value ?? undefined),
 });
 const runtimeMetricsSchema = z.object({
   uptime_s: z.number().int().nonnegative(),

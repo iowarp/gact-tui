@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 /**
- * Which CLI binary a provider's SDK transport runs (`client` on a Codex or
- * Claude Code catalog entry and on the components status): the user's
+ * Which CLI binary a provider's SDK runs (`client` on a Claude Code catalog
+ * entry and on the components status): the user's
  * installed CLI or the one the SDK bundles, with the version it reports and
  * the service's typed reason for the choice. `source` is `null` only when no
  * CLI exists at all.

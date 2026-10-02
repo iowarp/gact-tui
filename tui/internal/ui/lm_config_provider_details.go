@@ -147,7 +147,7 @@ func (c *lmConfigComponent) renderProviderDetailsRowsAndHits(innerW int, visible
 			})
 		}
 	} else {
-		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(c.app.localizer.t(msgLMConfigLocalCLI, nil)))
+		rows = append(rows, lipgloss.NewStyle().Foreground(t.FgMuted).Render(c.app.localizer.t(lmConfigTransportMessage(*p), nil)))
 	}
 	appendLines(statusLines, lipgloss.NewStyle().Foreground(statusColor), visibleRows)
 	if c.info != nil && strings.EqualFold(strings.TrimSpace(c.info.Provider), strings.TrimSpace(p.Provider)) {

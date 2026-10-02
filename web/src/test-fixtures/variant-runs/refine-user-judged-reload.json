@@ -1,0 +1,176 @@
+{
+  "metadata": {
+    "producer": "Shaped after clio-agent feat/variant-self-refine-2 (5e123c7e): the body of GET /v1/sessions/{sid}/variant-runs (routes/variant_runs.py variant_runs_wire, clio.variant_run.v1) and the transcript messages of the run's turns.",
+    "story": "Refine with the user as judge: two drafts, the user picks Draft 2 with a comment, Draft 3 is refined from it (in the resumed turn), the user accepts Draft 3."
+  },
+  "session_id": "sess_drafts",
+  "variant_runs": {
+    "session_id": "sess_drafts",
+    "runs": [
+      {
+        "schema": "clio.variant_run.v1",
+        "variants_id": "var_9",
+        "session_id": "sess_drafts",
+        "agent_id": "main",
+        "origin": "draft_alternatives",
+        "strategy": "refine",
+        "judge": "user",
+        "n": 3,
+        "n_requested": 3,
+        "rubric": "accurate and complete",
+        "threshold": null,
+        "status": "selected",
+        "turn_id": "msg_user_1",
+        "anchor_message_id": "msg_assistant_1",
+        "question_id": "q_round2",
+        "pick": 2,
+        "comment": "",
+        "selected_index": 2,
+        "tries": [
+          {
+            "try_index": 0,
+            "scope": "main#run0",
+            "state": "completed",
+            "text": "The mesh converges at 2.1 million cells.",
+            "score": null,
+            "tokens": { "input": 1200, "output": 80, "total": 1280 },
+            "advice": "",
+            "forked_from": null,
+            "error": "",
+            "turn_id": "msg_user_1",
+            "anchor_message_id": "msg_assistant_1",
+            "steps": [
+              {
+                "role": "assistant",
+                "parts": [
+                  { "type": "thinking", "text": "Check the mesh log before answering." },
+                  {
+                    "type": "tool_call",
+                    "id": "call_log",
+                    "name": "read_file",
+                    "input": { "path": "mesh/convergence.log" }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "parts": [
+                  {
+                    "type": "tool_result",
+                    "id": "call_log",
+                    "name": "read_file",
+                    "is_error": false,
+                    "content": [{ "type": "text", "text": "cells=2.1M drag_delta=0.38%" }]
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "parts": [{ "type": "text", "text": "The mesh converges at 2.1 million cells." }]
+              }
+            ]
+          },
+          {
+            "try_index": 1,
+            "scope": "main#run1",
+            "state": "completed",
+            "text": "Mesh study: the drag coefficient changes by less than 0.4% past 2.1M cells, so 2.1M is converged.",
+            "score": null,
+            "tokens": { "input": 1210, "output": 95, "total": 1305 },
+            "advice": "",
+            "forked_from": null,
+            "error": "",
+            "turn_id": "msg_user_1",
+            "anchor_message_id": "msg_assistant_1",
+            "steps": []
+          },
+          {
+            "try_index": 2,
+            "scope": "main#run2",
+            "state": "completed",
+            "text": "Mesh study (0.6M, 1.2M, 2.1M cells): drag changes by less than 0.4% past 2.1M cells, so 2.1M is converged.",
+            "score": null,
+            "tokens": { "input": 1500, "output": 110, "total": 1610 },
+            "advice": "Add the cell count of the coarsest mesh too.",
+            "forked_from": 1,
+            "error": "",
+            "turn_id": "msg_user_2",
+            "anchor_message_id": "msg_assistant_2",
+            "steps": [
+              {
+                "role": "user",
+                "parts": [{ "type": "text", "text": "Add the cell count of the coarsest mesh too." }]
+              },
+              {
+                "role": "assistant",
+                "parts": [
+                  {
+                    "type": "text",
+                    "text": "Mesh study (0.6M, 1.2M, 2.1M cells): drag changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "id": "msg_user_1",
+      "session_id": "sess_drafts",
+      "role": "user",
+      "created_at": "2026-10-01T12:00:00Z",
+      "blocks": [{ "id": "u1", "type": "text", "text": "Is the mesh converged?" }]
+    },
+    {
+      "id": "msg_assistant_1",
+      "session_id": "sess_drafts",
+      "turn_id": "msg_user_1",
+      "run_id": "msg_user_1",
+      "role": "assistant",
+      "created_at": "2026-10-01T12:00:00.5Z",
+      "blocks": [
+        {
+          "id": "inj_drafting",
+          "type": "injection",
+          "source": "variant_drafting",
+          "text": "Drafting up to 3 alternatives; you pick. Rubric: accurate and complete",
+          "call_id": ""
+        }
+      ]
+    },
+    {
+      "id": "msg_user_2",
+      "session_id": "sess_drafts",
+      "role": "user",
+      "created_at": "2026-10-01T12:00:40Z",
+      "blocks": [{ "id": "u2", "type": "text", "text": "Draft 2: Add the cell count of the coarsest mesh too." }]
+    },
+    {
+      "id": "msg_assistant_2",
+      "session_id": "sess_drafts",
+      "turn_id": "msg_user_2",
+      "run_id": "msg_user_2",
+      "role": "assistant",
+      "created_at": "2026-10-01T12:00:41Z",
+      "blocks": [
+        {
+          "id": "inj_advice",
+          "type": "injection",
+          "source": "variant_advice",
+          "text": "Add the cell count of the coarsest mesh too.",
+          "call_id": "",
+          "variants_id": "var_9",
+          "try_index": 2
+        },
+        {
+          "id": "a2",
+          "type": "text",
+          "text": "Mesh study (0.6M, 1.2M, 2.1M cells): drag changes by less than 0.4% past 2.1M cells, so 2.1M is converged."
+        }
+      ]
+    }
+  ]
+}

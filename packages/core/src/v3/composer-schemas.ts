@@ -19,7 +19,6 @@ export const contextReferenceKindSchema = z.enum([
 export const composerModelRefSchema = z.object({
   provider_id: z.string(),
   model_id: z.string(),
-  variant: z.string().optional(),
 });
 
 /** Every thinking level the message contract defines, in ascending order. */
@@ -302,26 +301,6 @@ export const resourceDeliveryRecordSchema = z
   })
   .passthrough();
 
-/**
- * One way a multi-transport provider can be reached (Codex's local SDK vs
- * its direct OAuth subscription). Present on a catalog entry ONLY for a
- * provider reachable more than one way -- absent (not `[]`) for every other
- * provider, so the picker's `transports.length > 1` check never false-fires.
- */
-export const providerCatalogTransportSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  health: z.string(),
-  reason: z.string(),
-  // `logout`: the backend's own answer to "can CLIO sign this transport
-  // out" (Codex Direct: yes; the SDK transport is the user's own login and
-  // carries no `auth` at all) -- never inferred on the client.
-  auth: z
-    .object({ method: optionalWireString(), logout: z.boolean().default(false) })
-    .nullish()
-    .transform((value) => value ?? undefined),
-});
-
 export const providerCatalogSchema = z.object({
   authoritative: z.string(),
   providers: z.array(
@@ -433,22 +412,10 @@ export const providerCatalogSchema = z.object({
             )
             .nullish()
             .transform((value) => value ?? undefined),
-          // Which of the entry's own `transports` (below) this model came
-          // from -- set only for a multi-transport provider (Codex: "sdk" |
-          // "direct"). `undefined` for every single-transport provider.
-          transport: optionalWireString(),
         }),
       ),
-      // Present only for a provider reachable more than one way (see
-      // `providerCatalogTransportSchema`); an absent key here is why a
-      // single-transport provider's picker submenu stays one section.
-      transports: z
-        .array(providerCatalogTransportSchema)
-        .nullish()
-        .transform((value) => value ?? undefined),
-      // The CLI a Codex / Claude Code SDK transport runs (installed vs
-      // bundled, with its version). Absent for every other provider and on
-      // older services.
+      // The CLI the Claude Code SDK runs (installed vs bundled, with its
+      // version). Absent for every other provider and on older services.
       client: providerClientFactSchema.nullish().transform((value) => value ?? undefined),
     }),
   ),
