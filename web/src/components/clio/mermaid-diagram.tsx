@@ -184,7 +184,7 @@ export function ClioMermaidDiagram({
           ) : (
             <MermaidPreview
               chart={source}
-              className={fullscreen ? 'h-full' : 'h-72 sm:h-80'}
+              className={fullscreen ? 'h-full' : 'h-48 sm:h-52'}
               config={config}
               onSvgOutputChange={setSvgOutput}
               svgOutput={svgOutput}

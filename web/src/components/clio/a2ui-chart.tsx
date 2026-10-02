@@ -7,6 +7,7 @@ import type { View } from 'vega';
 import { MousePointerSquareDashedIcon, ZoomInIcon } from 'lucide-react';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenuItem,
   DropdownMenuRadioGroup,
@@ -56,6 +57,7 @@ import {
 } from './data-query-filters';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import {
+  isSelectionValue,
   parseSelectionState,
   selectionForField,
   type SelectionState,
@@ -254,6 +256,7 @@ export function ClioChart(props: ClioChartProps) {
   const [linkable, setLinkable] = useState(true);
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
   const [boxSelectMode, setBoxSelectMode] = useState(false);
+  const [boxReady, setBoxReady] = useState(false);
   const chartHeight = fullscreen
     ? Math.max(
         height,
@@ -349,6 +352,7 @@ export function ClioChart(props: ClioChartProps) {
     const values = new Set(selectionState.values);
     return displayRows.filter((row) => values.has(row[selectionField] as SelectionValue));
   }, [displayRows, selectionField, selectionState]);
+  const selectsSeries = preset === 'trajectories' || preset === 'spectra';
   const zoomToSelection = () => {
     const view = viewRef.current;
     if (!view || !zoomParam || !xField || !yField || !selectedZoomRows.length) return;
@@ -388,6 +392,7 @@ export function ClioChart(props: ClioChartProps) {
     if (!node || !embedSpec || !hasRows || measuredWidth <= 0) return;
     let cancelled = false;
     let finalize: (() => void) | undefined;
+    if (boxSelectMode) setBoxReady(false);
     setEmbedError('');
     // Snapshotted once, here — `rowsRef.current` can move on during the
     // `await embedChart(...)` gap below (a `[displayRows]` update arriving
@@ -457,7 +462,9 @@ export function ClioChart(props: ClioChartProps) {
         }
         const canLink = viewHasSignal(view, param);
         setLinkable(canLink);
+        let boxBound = false;
         if (boxSelectionParam && selectionField && viewHasSignal(view, boxSelectionParam)) {
+          boxBound = true;
           boxSelectionBindingRef.current = bindChartBoxSelection(view, {
             param: boxSelectionParam,
             read: (signal) =>
@@ -478,8 +485,13 @@ export function ClioChart(props: ClioChartProps) {
               setSelectionRef.current?.({ field: selectionField, source: componentId, values });
             },
           });
+        } else if (boxSelectMode) {
+          setEmbedError('Box selection is unavailable for this chart.');
         }
-        if (!canLink) return;
+        if (!canLink) {
+          if (boxSelectMode) setEmbedError('Selection is unavailable for this chart.');
+          return;
+        }
         const binding = bindChartSelection(view, {
           componentId,
           param,
@@ -489,6 +501,7 @@ export function ClioChart(props: ClioChartProps) {
         bindingRef.current = binding;
         const current = selectionRef.current;
         if (current) await binding.apply(current);
+        if (boxSelectMode && boxBound) setBoxReady(true);
       })
       .catch((error: unknown) => {
         if (!cancelled) setEmbedError(error instanceof Error ? error.message : String(error));
@@ -527,6 +540,7 @@ export function ClioChart(props: ClioChartProps) {
     yAxisType,
     yField,
     boxSelectionParam,
+    boxSelectMode,
     zoomParam,
   ]);
 
@@ -543,12 +557,15 @@ export function ClioChart(props: ClioChartProps) {
   const label = a2uiAccessibilityLabel(accessibility) ?? `${heading} chart`;
   const buildReference = (): DataZoneReference => {
     const shownRows = (displayRows ?? []).length;
-    const totalRows = matchedRows ?? shownRows;
-    const selectedValues =
-      selectionField && selectionState?.field === selectionField ? selectionState.values : [];
+    const totalRows = props.dataUri ? (matchedRows ?? shownRows) : shownRows;
+    const selectedValues = selectionField
+      ? [...new Set(selectedZoomRows.map((row) => row[selectionField]).filter(isSelectionValue))]
+      : [];
     const selected = selectedValues.length > 0;
     const zoneDescription = selected
-      ? `${selectedValues.length.toLocaleString()} selected ${selectedValues.length === 1 ? 'row' : 'rows'} of ${totalRows.toLocaleString()}`
+      ? selectsSeries && selectedZoomRows.length !== selectedValues.length
+        ? `${selectedValues.length.toLocaleString()} selected ${selectedValues.length === 1 ? 'curve' : 'curves'} containing ${selectedZoomRows.length.toLocaleString()} of ${totalRows.toLocaleString()} rows`
+        : `${selectedZoomRows.length.toLocaleString()} selected ${selectedZoomRows.length === 1 ? 'row' : 'rows'} of ${totalRows.toLocaleString()}`
       : `the filtered current view (${totalRows.toLocaleString()} rows)`;
     return buildZoneReference({
       componentLabel: heading,
@@ -559,9 +576,10 @@ export function ClioChart(props: ClioChartProps) {
       query: {
         dataQuery: effectiveDataQuery,
         dataUri: props.dataUri,
+        ...(!props.dataUri ? { rows: selected ? selectedZoomRows : (displayRows ?? []) } : {}),
         ...(selected ? { selection: { field: selectionField, values: selectedValues } } : {}),
       },
-      zoneDescription: note ? `${zoneDescription} — ${note.replace(/\.$/u, '')}` : zoneDescription,
+      zoneDescription: note ? `${zoneDescription}. ${note.replace(/\.$/u, '')}` : zoneDescription,
     });
   };
 
@@ -693,24 +711,37 @@ export function ClioChart(props: ClioChartProps) {
     ) : null;
   const renderBoxSelectAction = () =>
     boxSelectionParam ? (
-      <Button
-        aria-label="Box select chart rows"
-        aria-pressed={boxSelectMode}
-        className={cn(
-          'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100',
-          boxSelectMode && 'opacity-100',
-        )}
-        onClick={() => setBoxSelectMode((active) => !active)}
-        size="sm"
-        title="Box select — drag a rectangle to select rows; turn off to return to ordinary chart interaction"
-        variant={boxSelectMode ? 'secondary' : 'ghost'}
-      >
-        <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
-      </Button>
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label={selectsSeries ? 'Box select chart curves' : 'Box select chart rows'}
+              aria-pressed={boxSelectMode}
+              className={cn(
+                'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100',
+                boxSelectMode && 'opacity-100',
+              )}
+              onClick={() => {
+                setBoxReady(false);
+                setBoxSelectMode((active) => !active);
+              }}
+              size="icon-sm"
+              variant={boxSelectMode ? 'secondary' : 'ghost'}
+            >
+              <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent align="end" side="bottom">
+            {selectsSeries
+              ? 'Box select. Drag across curves to select whole curves. Click again to exit.'
+              : 'Box select. Drag a rectangle to select rows. Click again to exit.'}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     ) : null;
   const toolbarCapabilities: SurfaceCapabilities = {
     captureComponentId: componentId,
-    buildReference: hasRows ? buildReference : undefined,
+    buildReference: hasRows && (!boxSelectMode || boxReady) ? buildReference : undefined,
     exportFormats: hasRows ? exportFormats : undefined,
     filters: filterableFields.length
       ? {
@@ -754,14 +785,16 @@ export function ClioChart(props: ClioChartProps) {
         >
           {heading}
         </h3>
-        {renderBoxSelectAction()}
-        {renderZoomActions()}
-        <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+        <div className="flex shrink-0 items-center gap-0.5">
+          {renderBoxSelectAction()}
+          {renderZoomActions()}
+          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+        </div>
       </div>
       <SurfaceFullScreenHost
         fullscreen={fullscreen}
         headerExtra={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5">
             {renderBoxSelectAction()}
             {renderZoomActions()}
             {/* The dialog already has its own "Exit full screen" button. */}
@@ -790,6 +823,14 @@ export function ClioChart(props: ClioChartProps) {
             >
               {!hasRows || !spec ? (
                 <div className="absolute inset-0 animate-pulse bg-muted motion-reduce:animate-none" />
+              ) : null}
+              {boxSelectMode && !boxReady && hasRows && spec ? (
+                <div
+                  className="absolute inset-0 z-10 grid place-items-center bg-background/70 text-xs text-muted-foreground"
+                  role="status"
+                >
+                  Preparing box selection
+                </div>
               ) : null}
               {/* Vega owns this node's children; React never renders into it. */}
               <div

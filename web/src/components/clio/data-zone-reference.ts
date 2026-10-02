@@ -68,7 +68,7 @@ function previewFields(columns: readonly string[], row: Record<string, unknown>)
 
 /** Builds the reference block "Reference this" attaches for one chart/map/table zone. */
 export function buildZoneReference(input: DataZoneReferenceInput): DataZoneReference {
-  const sections: string[] = [`**${input.componentLabel}** — ${input.datasetLabel}`];
+  const sections: string[] = [`**${input.componentLabel}**\nDataset: ${input.datasetLabel}.`];
   if (input.filters.length) sections.push(`Filters: ${input.filters.join('; ')}.`);
   sections.push(`Zone: ${input.zoneDescription}.`);
   const table = input.previewLayout === 'fields' && input.previewRows.length === 1

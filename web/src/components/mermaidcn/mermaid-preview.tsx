@@ -119,7 +119,7 @@ export function MermaidPreview({
       imageSrc={imageSrc}
       controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
         <div className="flex min-h-9 items-center justify-between gap-2 border-b px-2 py-1">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
+          <span className="hidden text-xs text-muted-foreground lg:inline">
             {zoomScrollHint()}
           </span>
           <div className="ml-auto flex items-center gap-0.5">

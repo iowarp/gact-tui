@@ -12,6 +12,7 @@ import type { FeatureCollection } from 'geojson';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
@@ -437,20 +438,28 @@ export function ClioScientificMap({
     ),
   };
   const boxSelectAction = (
-    <Button
-      aria-label="Box select map points"
-      aria-pressed={boxSelectMode}
-      className={cn(
-        'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100',
-        boxSelectMode && 'opacity-100',
-      )}
-      onClick={() => setBoxSelectMode((active) => !active)}
-      size="sm"
-      title="Box select — drag a rectangle to select points; turn off to pan the map"
-      variant={boxSelectMode ? 'secondary' : 'ghost'}
-    >
-      <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
-    </Button>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            aria-label="Box select map points"
+            aria-pressed={boxSelectMode}
+            className={cn(
+              'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100',
+              boxSelectMode && 'opacity-100',
+            )}
+            onClick={() => setBoxSelectMode((active) => !active)}
+            size="icon-sm"
+            variant={boxSelectMode ? 'secondary' : 'ghost'}
+          >
+            <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent align="end" side="bottom">
+          Box select. Drag a rectangle to select points. Click again to pan the map.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
   const zoomActions = (
     <>
@@ -498,21 +507,23 @@ export function ClioScientificMap({
           <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={title}>
             {title}
           </h3>
-          {boxSelectAction}
-          {zoomActions}
-          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+          <div className="flex shrink-0 items-center gap-0.5">
+            {boxSelectAction}
+            {zoomActions}
+            <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+          </div>
         </div>
         <SurfaceFullScreenHost
           fullscreen={fullscreen}
           headerExtra={
-            <>
+            <div className="flex items-center gap-0.5">
               {boxSelectAction}
               {zoomActions}
               <SurfaceToolbar
                 capabilities={{ ...toolbarCapabilities, fullScreen: undefined }}
                 floating={false}
               />
-            </>
+            </div>
           }
           onOpenChange={setFullscreen}
           title={title}

@@ -38,9 +38,19 @@ const labels: Record<string, string> = {
   'clio.diff.v1': 'Diff',
 };
 
+function sampleFraction(index: number, salt: number): number {
+  let value = Math.imul(index + 1, 0x9e3779b1) ^ salt;
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x85ebca6b);
+  value ^= value >>> 13;
+  return (value >>> 0) / 0x100000000;
+}
+
 const chartRows = Array.from({ length: 90 }, (_, index) => ({
-  __row: index, id: `eq${String(index + 1).padStart(3, '0')}`, depth: 1 + (index * 17) % 32,
-  magnitude: 1.1 + ((index * 13) % 52) / 10, region: ['Coast', 'Valley', 'Range'][index % 3],
+  __row: index, id: `eq${String(index + 1).padStart(3, '0')}`,
+  depth: Number((1 + sampleFraction(index, 17) * 32).toFixed(2)),
+  magnitude: Number((1.05 + sampleFraction(index, 47) * 3.9).toFixed(2)),
+  region: ['Coast', 'Valley', 'Range'][index % 3],
 }));
 const heatmapRows = ['Coast', 'Valley', 'Range'].flatMap((region, regionIndex) =>
   ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, dayIndex) => ({
