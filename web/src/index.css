@@ -213,6 +213,19 @@
   }
 }
 
+/* A chart needs room for axes and its legend even when the transcript itself
+   remains wider than the generic two-column breakpoint. */
+@container (max-width: 900px) {
+  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart']) {
+    flex-direction: column !important;
+  }
+
+  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart']) > * {
+    flex: 0 1 auto !important;
+    width: 100%;
+  }
+}
+
 [data-slot='a2ui-surface-root'] .chip {
   display: inline-flex;
   min-height: 2rem;
