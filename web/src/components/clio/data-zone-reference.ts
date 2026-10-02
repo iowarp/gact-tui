@@ -23,6 +23,8 @@ export interface DataZoneReferenceInput {
   previewColumns: readonly string[];
   /** The first ~5 rows of the zone, already narrowed by the caller. */
   previewRows: readonly Record<string, unknown>[];
+  /** Use a readable field list for a single wide record instead of a cramped table. */
+  previewLayout?: 'table' | 'fields';
   /** The exact query (`dataUri` + filter, at minimum) an agent can re-run for this zone. */
   query: unknown;
 }
@@ -54,12 +56,21 @@ function previewTable(columns: readonly string[], rows: readonly Record<string, 
   return [header, divider, ...body].join('\n');
 }
 
+function previewFields(columns: readonly string[], row: Record<string, unknown>): string {
+  return columns
+    .filter((column) => row[column] !== null && row[column] !== undefined && String(row[column]).trim() !== '')
+    .map((column) => `- **${column}**: ${String(row[column]).replaceAll(/\r?\n/g, ' ')}`)
+    .join('\n');
+}
+
 /** Builds the reference block "Reference this" attaches for one chart/map/table zone. */
 export function buildZoneReference(input: DataZoneReferenceInput): DataZoneReference {
   const sections: string[] = [`**${input.componentLabel}** — ${input.datasetLabel}`];
   if (input.filters.length) sections.push(`Filters: ${input.filters.join('; ')}.`);
   sections.push(`Zone: ${input.zoneDescription}.`);
-  const table = previewTable(input.previewColumns, input.previewRows);
+  const table = input.previewLayout === 'fields' && input.previewRows.length === 1
+    ? previewFields(input.previewColumns, input.previewRows[0]!)
+    : previewTable(input.previewColumns, input.previewRows);
   if (table) sections.push(table);
   sections.push(['```json', JSON.stringify(input.query, null, 2), '```'].join('\n'));
   return {

@@ -215,6 +215,10 @@ function MessageBlockView({
     case 'injection':
       // A variant try's injection renders inside that try's tab, not the turn.
       if (block.variants_id) return null;
+      // The generic tool-use prompt is harness guidance, while actual calls
+      // already appear in Activity. Showing it as a transcript item looks like
+      // a second, unnamed tool call beside the generated surface.
+      if (block.source === 'tool_use') return null;
       return block.source === 'summarization' ? (
         <SummarizationInjection block={block} label={INJECTION_LABELS.summarization} />
       ) : (

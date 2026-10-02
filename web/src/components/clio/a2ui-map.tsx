@@ -313,6 +313,7 @@ export function ClioScientificMap({
     'label',
     'latitude',
     'longitude',
+    'value',
     'detail',
     'category',
   ] as const;
@@ -323,6 +324,7 @@ export function ClioScientificMap({
         label: point.label,
         latitude: point.latitude,
         longitude: point.longitude,
+        value: point.value ?? null,
         detail: point.detail ?? null,
         category: point.category ?? null,
       })),
@@ -333,7 +335,8 @@ export function ClioScientificMap({
       componentLabel: title,
       datasetLabel: 'inline data',
       filters: [],
-      previewColumns: ['label', 'latitude', 'longitude', 'category'],
+      previewColumns: ['label', 'latitude', 'longitude', 'value', 'detail', 'category'],
+      previewLayout: highlightedIds.size === 1 ? 'fields' : 'table',
       previewRows: highlightedIds.size
         ? inlinePointRows.filter((row) => highlightedIds.has(String(row.id)))
         : inlinePointRows.slice(0, 5),
@@ -596,12 +599,12 @@ export function ClioScientificMap({
             ) : null}
           </div>
           {valueExtent ? (
-            <div aria-label={`${valueLabel} colour scale`} className="flex flex-wrap items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground" data-slot="a2ui-map-legend">
-              <span className="font-medium text-foreground">{valueLabel}</span>
-              <span className="tabular-nums">{valueExtent[0].toLocaleString()}{valueUnit ? ` ${valueUnit}` : ''}</span>
-              <span aria-hidden="true" className="h-2.5 min-w-20 flex-1 rounded-full" style={{ background: `linear-gradient(to right, ${CONTINUOUS_LOW_COLOR}, ${CONTINUOUS_MID_COLOR}, ${CONTINUOUS_HIGH_COLOR})` }} />
-              <span className="tabular-nums">{valueExtent[1].toLocaleString()}{valueUnit ? ` ${valueUnit}` : ''}</span>
-              {points.some((point) => point.value === undefined) ? <span>Grey: no value</span> : null}
+            <div aria-label={`${valueLabel} colour scale`} className="grid grid-cols-[auto_minmax(5rem,1fr)_auto] items-center gap-x-2 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground" data-slot="a2ui-map-legend">
+              <span className="col-span-3 font-medium text-foreground">{valueLabel}</span>
+              <span className="whitespace-nowrap tabular-nums">{valueExtent[0].toLocaleString()}{valueUnit ? ` ${valueUnit}` : ''}</span>
+              <span aria-hidden="true" className="h-2.5 min-w-0 rounded-full" style={{ background: `linear-gradient(to right, ${CONTINUOUS_LOW_COLOR}, ${CONTINUOUS_MID_COLOR}, ${CONTINUOUS_HIGH_COLOR})` }} />
+              <span className="whitespace-nowrap tabular-nums">{valueExtent[1].toLocaleString()}{valueUnit ? ` ${valueUnit}` : ''}</span>
+              {points.some((point) => point.value === undefined) ? <span className="col-span-3">Grey: no value</span> : null}
             </div>
           ) : categoryColors.size > 0 ? (
             <div
