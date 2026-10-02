@@ -28,7 +28,10 @@ const mocks = vi.hoisted(() => ({
       }),
     ),
     pendingApprovals: vi.fn(async () => [] as unknown[]),
-    pendingInteractions: vi.fn(async () => [] as unknown[]),
+    pendingInteractionProjection: vi.fn(async () => ({
+      interactions: [] as unknown[],
+      degradations: [] as { reason: string; detail: string }[],
+    })),
     pendingQuestions: vi.fn(async () => [] as unknown[]),
     providerCatalog: vi.fn(async () => ({ providers: [] })),
     providerModels: vi.fn(async () => ({ models: [] })),
@@ -142,7 +145,7 @@ beforeEach(() => {
   mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: [] });
   mocks.repository.pendingApprovals.mockResolvedValue([]);
   mocks.repository.pendingQuestions.mockResolvedValue([]);
-  mocks.repository.pendingInteractions.mockResolvedValue([]);
+  mocks.repository.pendingInteractionProjection.mockResolvedValue({ interactions: [], degradations: [] });
   mocks.repository.sessions.mockResolvedValue([
     { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'idle' },
   ]);
@@ -178,7 +181,7 @@ describe('useWorkspaceData interaction reads', () => {
       kind: 'permission',
       owner_session_id: 'sess_1',
     });
-    expect(mocks.repository.pendingInteractions).not.toHaveBeenCalled();
+    expect(mocks.repository.pendingInteractionProjection).not.toHaveBeenCalled();
   });
 
   it('reports a failed capability read as a degradation, not a failed response read', async () => {
@@ -216,7 +219,7 @@ describe('useWorkspaceData interaction reads', () => {
       gact_versions: [],
     });
     mocks.repository.pendingApprovals.mockResolvedValue([approval]);
-    mocks.repository.pendingInteractions.mockResolvedValue([
+    mocks.repository.pendingInteractionProjection.mockResolvedValue({ interactions: [
       {
         id: 'interaction_1',
         kind: 'question',
@@ -227,7 +230,7 @@ describe('useWorkspaceData interaction reads', () => {
         source: { protocol: 'native' },
         created_at: '2026-09-02T00:00:00Z',
       },
-    ]);
+    ], degradations: [] });
 
     const { result } = renderWorkspaceData();
 
@@ -236,6 +239,21 @@ describe('useWorkspaceData interaction reads', () => {
     // owns them, so an approval served by both surfaces is never listed twice.
     await waitFor(() => expect(result.current.interactions).toHaveLength(1));
     expect(result.current.interactions[0]?.id).toBe('interaction_1');
+  });
+
+  it('shows a typed partial-read notice from the unified interaction projection', async () => {
+    mocks.repository.capabilities.mockResolvedValue({
+      capabilities: { x_clio_interactions: true },
+      gact_versions: [],
+    });
+    mocks.repository.pendingInteractionProjection.mockResolvedValue({
+      interactions: [],
+      degradations: [{ reason: 'clio_core_segments_invalid', detail: 'One session could not be read' }],
+    });
+    const { result } = renderWorkspaceData();
+    await waitFor(() =>
+      expect(result.current.interactionsError?.message).toContain('damaged data record'),
+    );
   });
 });
 

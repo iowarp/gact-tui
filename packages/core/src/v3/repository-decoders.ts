@@ -191,6 +191,7 @@ export const permissionListSchema = z.object({
 export const questionListSchema = z.object({ questions: z.array(userQuestionSchema).default([]) });
 export const pendingInteractionListSchema = z.object({
   interactions: z.array(pendingInteractionOrDegradedSchema).default([]),
+  degradations: z.array(z.object({ reason: z.string(), detail: z.string() })).default([]),
 });
 export const operationalRunListSchema = z.object({
   runs: z.array(operationalRunSchema).default([]),

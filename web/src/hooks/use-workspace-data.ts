@@ -230,7 +230,7 @@ export function useWorkspaceData({
   });
   const normalizedInteractions = useQuery({
     queryKey: queryKeys.pendingInteractions(settings.endpoint, attendedSessionId),
-    queryFn: ({ signal }) => repository.pendingInteractions(attendedSessionId, true, signal),
+    queryFn: ({ signal }) => repository.pendingInteractionProjection(attendedSessionId, true, signal),
     enabled:
       Boolean(attendedSessionId) &&
       (allSessions.data !== undefined || sessions.data !== undefined) &&
@@ -253,7 +253,7 @@ export function useWorkspaceData({
   const attentionInteractionQueries = useQueries({
     queries: attentionRootSessionIds.map((rootSessionId) => ({
       queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId),
-      queryFn: ({ signal }) => repository.pendingInteractions(rootSessionId, true, signal),
+      queryFn: ({ signal }) => repository.pendingInteractionProjection(rootSessionId, true, signal),
       staleTime: PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
     })),
   });
@@ -263,7 +263,7 @@ export function useWorkspaceData({
   const interactions = useMemo(
     () =>
       supportsUnifiedInteractions
-        ? (normalizedInteractions.data ?? [])
+        ? (normalizedInteractions.data?.interactions ?? [])
         : legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),
     [
       approvals.data,
@@ -274,7 +274,7 @@ export function useWorkspaceData({
     ],
   );
   const attentionInteractions = supportsUnifiedInteractions
-    ? [...interactions, ...attentionInteractionQueries.flatMap((query) => query.data ?? [])]
+    ? [...interactions, ...attentionInteractionQueries.flatMap((query) => query.data?.interactions ?? [])]
     : interactions;
   const a2uiOwnerIds = useMemo(
     () => [
@@ -561,6 +561,15 @@ export function useWorkspaceData({
       approvals.error ??
       questions.error ??
       attentionInteractionsError ??
+      [normalizedInteractions, ...attentionInteractionQueries]
+        .flatMap((query) => query.data?.degradations ?? [])
+        .map((degradation) =>
+          new Error(
+            degradation.reason.startsWith('clio_core_')
+              ? 'A saved session has a damaged data record. Its interactive responses are unavailable.'
+              : degradation.detail,
+          ),
+        )[0] ??
       undefined,
     // `capabilities` failing is a degradation, not a failed response read: the
     // legacy ledgers above still run and still answer, so every pending

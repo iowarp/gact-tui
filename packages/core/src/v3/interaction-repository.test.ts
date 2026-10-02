@@ -3,6 +3,19 @@ import { RecordingTransport } from './recording-transport.test-helper.js';
 import { ClioRepository } from './repository.js';
 
 describe('ClioRepository normalized interaction contract', () => {
+  it('keeps available responses and reports a partial ledger read', async () => {
+    const repository = new ClioRepository(new RecordingTransport([{
+      interactions: [{
+        id: 'question:q1', kind: 'question', owner_session_id: 'root',
+        attended_session_id: 'root', status: 'pending', title: 'Continue',
+        created_at: '2026-10-02T00:00:00Z', source: { protocol: 'native' },
+      }],
+      degradations: [{ reason: 'clio_core_segments_invalid', detail: 'One session could not be read' }],
+    }]));
+    const projection = await repository.pendingInteractionProjection('root');
+    expect(projection.interactions).toHaveLength(1);
+    expect(projection.degradations[0]?.reason).toBe('clio_core_segments_invalid');
+  });
   it('preserves immutable plan references and failed registration reviews', async () => {
     const references = [
       { artifact_id: 'plan_v3', saved: true, version: 3, sha256: 'reviewed-content' },

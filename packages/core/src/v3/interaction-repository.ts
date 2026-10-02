@@ -10,13 +10,23 @@ export class InteractionRepository extends ComposerRepository {
     includeChildren = true,
     signal?: AbortSignal,
   ): Promise<PendingInteraction[]> {
+    const result = await this.pendingInteractionProjection(rootSessionId, includeChildren, signal);
+    return result.interactions;
+  }
+
+  /** Lists available responses together with typed reasons that the list is partial. */
+  public async pendingInteractionProjection(
+    rootSessionId: string,
+    includeChildren = true,
+    signal?: AbortSignal,
+  ): Promise<{ interactions: PendingInteraction[]; degradations: { reason: string; detail: string }[] }> {
     const result = await this.transport.request({
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(rootSessionId)}/interactions?include_children=${includeChildren}&include_recent_resolved=true&resolved_limit=20`,
       decode: (value) => pendingInteractionListSchema.parse(value),
       signal,
     });
-    return result.interactions;
+    return result;
   }
 
   /** Routes a response to the authoritative interaction owner through its attended root. */

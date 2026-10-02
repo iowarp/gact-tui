@@ -127,9 +127,9 @@ export function ClioPendingInteractions({
       <QueueSection className="flex min-h-0 flex-col">
         <QueueSectionTrigger data-slot="pending-interactions-trigger">
           <QueueSectionLabel
-            count={pending.length}
+            count={pending.length || undefined}
             icon={<MessageCircleQuestionIcon aria-hidden="true" className="size-3.5" />}
-            label={pending.length === 1 ? 'response needed' : 'responses needed'}
+            label={pending.length === 0 ? 'Response status' : pending.length === 1 ? 'response needed' : 'responses needed'}
           />
         </QueueSectionTrigger>
         <QueueSectionContent className="flex min-h-0 flex-col">
