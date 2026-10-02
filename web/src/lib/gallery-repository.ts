@@ -1,5 +1,6 @@
-import type { ArtifactRasterQueryRequest, ArtifactRasterQueryResult } from '@clio/core/v3';
+import type { ArtifactRasterQueryRequest, ArtifactRasterQueryResult, ArtifactTableQueryRequest, ArtifactTableQueryResult } from '@clio/core/v3';
 import type { createRepository } from '@/lib/connection';
+import { galleryStormTracks } from './gallery-storm-tracks';
 
 type Repository = ReturnType<typeof createRepository>;
 const BOUNDS = [0, 0, 100, 100] as const;
@@ -35,6 +36,42 @@ function rasterSample(query: ArtifactRasterQueryRequest): ArtifactRasterQueryRes
 export function createGalleryRepository(base: Repository): Repository {
   return new Proxy(base, {
     get(target, property, receiver) {
+      if (property === 'artifactTableQuery') {
+        return (artifactId: string, query: ArtifactTableQueryRequest, signal?: AbortSignal): Promise<ArtifactTableQueryResult> => {
+          if (artifactId !== 'artifact_gallery_storm_tracks') return target.artifactTableQuery(artifactId, query, signal);
+          const filtered = galleryStormTracks.filter((row) => (query.filter ?? []).every((filter) => {
+            const value = row[filter.column as keyof typeof row];
+            if (filter.op === 'contains') return String(value ?? '').toLowerCase().includes(filter.value.toLowerCase());
+            if (filter.op === 'eq') return value === filter.value;
+            if (filter.op === 'in') return filter.value.includes(value);
+            if (filter.op === 'isnull') return (value == null) === (filter.value ?? true);
+            if (filter.op === 'range') return (filter.value[0] == null || Number(value) >= Number(filter.value[0])) &&
+              (filter.value[1] == null || Number(value) <= Number(filter.value[1]));
+            return true;
+          }));
+          const sorted = [...filtered];
+          for (const sort of [...(query.sort ?? [])].reverse()) {
+            sorted.sort((a, b) => {
+              const left = a[sort.column as keyof typeof a];
+              const right = b[sort.column as keyof typeof b];
+              const result = typeof left === 'number' && typeof right === 'number'
+                ? left - right : String(left).localeCompare(String(right), undefined, { numeric: true });
+              return sort.desc ? -result : result;
+            });
+          }
+          const offset = query.offset ?? 0;
+          const page = sorted.slice(offset, offset + query.limit);
+          const names = query.columns ?? Object.keys(galleryStormTracks[0]!);
+          const columns = Object.fromEntries(names.map((name) => [name, page.map((row) => row[name as keyof typeof row] ?? null)]));
+          return Promise.resolve({
+            artifact_id: artifactId,
+            schema: Object.keys(galleryStormTracks[0]!).map((name) => ({ name, type: ['lat', 'lon'].includes(name) ? 'double' : 'string' })),
+            columns, totalRows: galleryStormTracks.length, matchedRows: filtered.length,
+            returnedRows: page.length, truncated: page.length < filtered.length,
+            downsample: { mode: 'none' }, rowKey: { column: '__row', values: page.map((row) => galleryStormTracks.indexOf(row)) },
+          });
+        };
+      }
       if (property === 'artifactRasterQuery') {
         return (artifactId: string, query: ArtifactRasterQueryRequest) =>
           artifactId === 'artifact_raster_demo'

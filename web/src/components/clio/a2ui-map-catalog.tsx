@@ -40,6 +40,8 @@ const mapDataProperties = {
   longitudeField: fieldNameSchema.optional(),
   labelField: fieldNameSchema.optional(),
   idField: fieldNameSchema.optional(),
+  trackField: fieldNameSchema.optional(),
+  orderField: fieldNameSchema.optional(),
   detailField: fieldNameSchema.optional(),
   categoryField: fieldNameSchema.optional(),
   valueField: fieldNameSchema.optional(),
@@ -69,6 +71,15 @@ function checkMapComponent(value: MapShape, context: z.RefinementCtx): void {
     }
   } else if (value.dataQuery) {
     context.addIssue({ code: 'custom', message: 'dataQuery applies only to dataUri' });
+  }
+  if (value.trackField && !value.dataUri) {
+    context.addIssue({ code: 'custom', message: 'trackField requires dataUri' });
+  }
+  if (value.trackField && !value.orderField) {
+    context.addIssue({ code: 'custom', message: 'trackField requires orderField' });
+  }
+  if (value.orderField && !value.trackField) {
+    context.addIssue({ code: 'custom', message: 'orderField requires trackField' });
   }
   if (isBoundToPath(value.selection) && !value.selectionField) {
     context.addIssue({ code: 'custom', message: 'selectionField is required when selection is bound' });
@@ -101,6 +112,8 @@ export const ClioMapCatalogComponent = createComponentImplementation(
               dataUri={props.dataUri!}
               detailField={props.detailField}
               idField={props.idField}
+              trackField={props.trackField}
+              orderField={props.orderField}
               labelField={props.labelField!}
               latitudeField={props.latitudeField!}
               longitudeField={props.longitudeField!}

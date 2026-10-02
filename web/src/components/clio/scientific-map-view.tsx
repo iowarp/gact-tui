@@ -31,12 +31,15 @@ export interface ScientificMapPoint {
    */
   selectionValue?: string | number;
   value?: number;
+  /** Index of this observation in a queried table, used to form ordered tracks. */
+  rowIndex?: number;
 }
 
 interface ScientificMapViewProps {
   points: readonly ScientificMapPoint[];
   geometry?: FeatureCollection;
   geometryBounds?: [[number, number], [number, number]];
+  geometrySelectionByPoints?: boolean;
   /** When active, an ordinary drag selects a 2D rectangle instead of panning. */
   boxSelectMode?: boolean;
   selectedId?: string;
@@ -200,6 +203,7 @@ export function ClioScientificMapView({
   boxSelectMode = false,
   geometry,
   geometryBounds,
+  geometrySelectionByPoints,
   highlightedIds,
   onMapInstance,
   onSelect,
@@ -301,7 +305,7 @@ export function ClioScientificMapView({
       if (!map.getLayer(GEOMETRY_LAYER_IDS[2])) map.addLayer({
         id: GEOMETRY_LAYER_IDS[2], type: 'circle', source: GEOMETRY_SOURCE_ID,
         filter: ['==', ['geometry-type'], 'Point'],
-        paint: { 'circle-color': color, 'circle-radius': ['case', ['get', 'highlighted'], 7, 5], 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 },
+        paint: { 'circle-color': color, 'circle-radius': ['case', ['get', 'highlighted'], 7, ['get', 'endpoint'], 6, 4], 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 },
       });
     };
     const updateCursor = (event: MapLayerMouseEvent) => {
@@ -429,7 +433,14 @@ export function ClioScientificMapView({
     // selection, so a held Shift here must never also select the one point
     // under the cursor.
     if (boxSelectMode || event.originalEvent.shiftKey || performance.now() - lastBoxDragAt.current < 350) return;
-    const feature = event.features?.[0];
+    // A pooled MapLibre instance can render our imperative geometry layers
+    // before react-map-gl refreshes its interactive layer list. Ask the live
+    // map for the hit in that case, so a visible line is always clickable.
+    const feature = event.features?.[0] ?? (geometry
+      ? mapRef.current?.getMap().queryRenderedFeatures(event.point, {
+          layers: GEOMETRY_LAYER_IDS.filter((id) => mapRef.current?.getMap().getLayer(id)),
+        })[0]
+      : undefined);
     const id = feature?.properties?.id;
     if (typeof id === 'string') onSelect(id);
     else onClearSelection?.();
@@ -477,7 +488,7 @@ export function ClioScientificMapView({
       const east = Math.max(corner1.lng, corner2.lng);
       const south = Math.min(corner1.lat, corner2.lat);
       const north = Math.max(corner1.lat, corner2.lat);
-      const ids = geometry
+      const ids = geometry && !geometrySelectionByPoints
         ? [...new Set(map.queryRenderedFeatures(
             [[Math.min(completed.startX, completed.x), Math.min(completed.startY, completed.y)],
               [Math.max(completed.startX, completed.x), Math.max(completed.startY, completed.y)]],
@@ -498,7 +509,7 @@ export function ClioScientificMapView({
       // their projected coordinate, so compare with the icon's visual centre.
       const hit = points.find((candidate) => {
         const projected = map.project([candidate.longitude, candidate.latitude]);
-        return Math.hypot(projected.x - point.x, projected.y - 16 - point.y) <= 18;
+        return Math.hypot(projected.x - point.x, projected.y - (geometrySelectionByPoints ? 0 : 16) - point.y) <= 18;
       });
       if (hit) onSelect(hit.id);
       else onClearSelection?.();

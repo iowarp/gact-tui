@@ -362,6 +362,33 @@
       ],
       "type": "object"
     },
+    "GuideIngredient": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "quantity": {
+          "description": "Amount for baseAmount servings.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "unitPlural": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "quantity"
+      ],
+      "type": "object"
+    },
     "GuideStep": {
       "additionalProperties": false,
       "properties": {
@@ -418,6 +445,7 @@
       "additionalProperties": false,
       "properties": {
         "category": {
+          "description": "Nominal group, such as station type. Use value for measured numbers.",
           "maxLength": 120,
           "type": "string"
         },
@@ -446,7 +474,7 @@
           "type": "number"
         },
         "value": {
-          "description": "Optional numeric value for continuous colour.",
+          "description": "Optional measured magnitude for a continuous colour scale and legend.",
           "type": "number"
         }
       },
@@ -1444,7 +1472,7 @@
           "type": "object"
         }
       ],
-      "description": "A single- or multiple-selection picker over a fixed option list.",
+      "description": "A single- or multiple-selection picker; bind value to the path an action reads.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2833,6 +2861,13 @@
           "dependentRequired": {
             "dataQuery": [
               "dataUri"
+            ],
+            "orderField": [
+              "trackField"
+            ],
+            "trackField": [
+              "dataUri",
+              "orderField"
             ]
           },
           "properties": {
@@ -2888,6 +2923,10 @@
               "$ref": "#/$defs/FieldName",
               "description": "Dataset column holding longitude (required with dataUri)."
             },
+            "orderField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "With trackField, time or numeric sequence column ordering positions along each trajectory."
+            },
             "points": {
               "description": "Inline points (at most 500) — this array rides the surface's own wire message, so it is capped for transfer size; for a larger dataset use dataUri instead, unbounded and paged/downsampled by the viewer.",
               "items": {
@@ -2912,9 +2951,18 @@
             "title": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
             },
+            "trackField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "With dataUri, column identifying each trajectory (for example storm_id). Rows with the same value form one path."
+            },
             "valueField": {
               "$ref": "#/$defs/FieldName",
               "description": "Numeric dataset column used for a continuous colour scale and legend."
+            },
+            "valueLabel": {
+              "description": "Human-readable name for the numeric map legend, such as Displacement.",
+              "maxLength": 80,
+              "type": "string"
             },
             "valueUnit": {
               "description": "Unit shown beside a continuous-colour legend's values.",
@@ -3031,7 +3079,7 @@
           }
         }
       ],
-      "description": "Points on an interactive map (stations, sites, epicenters).",
+      "description": "Interactive points, ordered trajectories, or GeoJSON geometry on a map.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -3478,6 +3526,13 @@
             "component": {
               "const": "clio.steps.v1"
             },
+            "ingredients": {
+              "items": {
+                "$ref": "#/$defs/GuideIngredient"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
             "progress": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue"
             },
@@ -3504,7 +3559,7 @@
           "type": "object"
         }
       ],
-      "description": "An interactive protocol or recipe with checkable steps, timers, and scaled quantities.",
+      "description": "An interactive protocol or recipe with checkable actions, timers, and separately scaled ingredients.",
       "type": "object",
       "unevaluatedProperties": false
     },

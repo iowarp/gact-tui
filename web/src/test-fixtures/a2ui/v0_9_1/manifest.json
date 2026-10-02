@@ -48,7 +48,7 @@
   "catalogs": {
     "catalogs/basic/catalog.json": "8cc94d0a482e67048f9fc989964ca5da56fe42f531d919315a508989fb22e13e",
     "catalogs/basic/catalog.clio.json": "11a1e1312cf5b47239aa122f497b5f521ec78ff5503298eec21682a7368c3e20",
-    "catalogs/clio-workspace/v1/catalog.json": "8eef4b84dc8ff22a4d76767deb0d216e88ce28e14b25a944617d92580e0d81de",
+    "catalogs/clio-workspace/v1/catalog.json": "083a4411bf57df2087162d9c00aaf25cdd0e77719f7a70abcfd7617947a9734f",
     "catalogs/clio-workspace/v1/catalog.clio.json": "b6fc044da6af348c53fae9dc7e0d14f1f730e6f46689d5a127f2a7a14da979b5"
   }
 }

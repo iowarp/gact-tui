@@ -5,7 +5,7 @@ import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import type { A2UIAccessibility } from './a2ui-accessibility';
 import { ClioScientificMap } from './a2ui-map';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
-import { pointsFromRows, type MapFieldNames } from './map-points';
+import { pointsFromRows, trajectoriesFromRows, type MapFieldNames } from './map-points';
 import {
   columnKindFromRows,
   columnKindFromSchema,
@@ -50,6 +50,8 @@ export function ClioMapArtifactSource({
   longitudeField,
   labelField,
   idField,
+  trackField,
+  orderField,
   detailField,
   categoryField,
   valueField,
@@ -69,6 +71,8 @@ export function ClioMapArtifactSource({
       longitudeField,
       labelField,
       idField,
+      trackField,
+      orderField,
       detailField,
       categoryField,
       valueField,
@@ -80,6 +84,8 @@ export function ClioMapArtifactSource({
     valueField,
     detailField,
     idField,
+    trackField,
+    orderField,
     labelField,
     latitudeField,
     longitudeField,
@@ -114,14 +120,14 @@ export function ClioMapArtifactSource({
   const filterableFields = useMemo<DataFilterField[]>(() => {
     const seen = new Set<string>();
     const fields: DataFilterField[] = [];
-    for (const key of [categoryField, valueField, detailField]) {
+    for (const key of [categoryField, trackField, valueField, detailField]) {
       if (!key || seen.has(key)) continue;
       seen.add(key);
       const kind = columnKindFromSchema(schema, key) ?? columnKindFromRows(rows, key);
       fields.push({ key, kind, label: key.replaceAll('_', ' ') });
     }
     return fields;
-  }, [categoryField, valueField, detailField, rows, schema]);
+  }, [categoryField, trackField, valueField, detailField, rows, schema]);
   const filterPopover = filterableFields.length ? (
     <DataFilterPopover
       fields={filterableFields}
@@ -136,6 +142,9 @@ export function ClioMapArtifactSource({
     selectedValues.length && rows && effectiveSelectionField
       ? rows.filter((row) => selectionIncludes(selection, effectiveSelectionField, row[effectiveSelectionField]))
       : [];
+  const visibleSelectedValues = effectiveSelectionField
+    ? selectedRows.map((row) => row[effectiveSelectionField]).filter((value): value is string | number => typeof value === 'string' || typeof value === 'number')
+    : [];
   const buildReference = (): DataZoneReference => {
     const total = matchedRows ?? rows?.length ?? 0;
     const shown = returnedRows ?? rows?.length ?? 0;
@@ -152,14 +161,14 @@ export function ClioMapArtifactSource({
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
       filters: (effectiveDataQuery?.filter ?? []).map(describeQueryFilter),
       previewColumns,
-      previewRows: selectedValues.length ? selectedRows : (rows ?? []).slice(0, 5),
+      previewRows: visibleSelectedValues.length ? selectedRows : (rows ?? []).slice(0, 5),
       query: {
         dataQuery: effectiveDataQuery,
         dataUri,
-        ...(selectedValues.length ? { selection: { field: effectiveSelectionField, values: selectedValues } } : {}),
+        ...(visibleSelectedValues.length ? { selection: { field: effectiveSelectionField, values: visibleSelectedValues } } : {}),
       },
-      zoneDescription: selectedValues.length
-        ? `${selectedValues.length.toLocaleString()} selected ${selectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`
+      zoneDescription: visibleSelectedValues.length
+        ? `${visibleSelectedValues.length.toLocaleString()} selected ${visibleSelectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`
         : shown < total
           ? `the filtered current view (${shown.toLocaleString()} of ${total.toLocaleString()} points)`
           : `the filtered current view (${total.toLocaleString()} points)`,
@@ -241,7 +250,7 @@ export function ClioMapArtifactSource({
     () =>
       rows
         ? pointsFromRows(rows, {
-            categoryField,
+            categoryField: categoryField ?? (valueField ? undefined : trackField),
             valueField,
             detailField,
             idField,
@@ -253,6 +262,7 @@ export function ClioMapArtifactSource({
         : undefined,
     [
       categoryField,
+      trackField,
       valueField,
       detailField,
       idField,
@@ -262,6 +272,12 @@ export function ClioMapArtifactSource({
       rows,
       effectiveSelectionField,
     ],
+  );
+  const geometry = useMemo(
+    () => rows && points && trackField && orderField
+      ? trajectoriesFromRows(rows, points, trackField, orderField)
+      : undefined,
+    [rows, points, trackField, orderField],
   );
 
   if (error) {
@@ -286,6 +302,8 @@ export function ClioMapArtifactSource({
         {...rest}
         dataCapabilities={dataCapabilities}
         points={points}
+        geometry={geometry}
+        geometrySelectionByPoints={Boolean(geometry)}
         selection={effectiveSelection}
         selectionField={effectiveSelectionField}
         setSelection={effectiveSetSelection}
@@ -293,7 +311,7 @@ export function ClioMapArtifactSource({
         valueLabel={valueLabel ?? valueField}
         valueUnit={valueUnit}
       />
-      {reducedCaption ? <p className="text-xs text-muted-foreground">{reducedCaption}</p> : null}
+      {reducedCaption ? <p className="text-xs text-muted-foreground">{geometry ? `${reducedCaption} Trajectories may be incomplete.` : reducedCaption}</p> : null}
     </div>
   );
 }

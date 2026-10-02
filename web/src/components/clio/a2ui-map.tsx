@@ -68,6 +68,7 @@ interface ClioMapProps {
   points: ScientificMapPoint[];
   geometry?: FeatureCollection;
   geometryBounds?: [[number, number], [number, number]];
+  geometrySelectionByPoints?: boolean;
   selected?: string;
   action?: () => void;
   actionLabel?: string;
@@ -104,6 +105,7 @@ export function ClioScientificMap({
   points,
   geometry,
   geometryBounds,
+  geometrySelectionByPoints,
   selected,
   action,
   actionLabel = 'Use selected location',
@@ -568,6 +570,7 @@ export function ClioScientificMap({
                   boxSelectMode={boxSelectMode}
                   geometry={geometry}
                   geometryBounds={geometryBounds}
+                  geometrySelectionByPoints={geometrySelectionByPoints}
                   highlightedIds={highlightedIds}
                   onClearSelection={clearSelection}
                   onMapInstance={handleMapInstance}

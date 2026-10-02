@@ -1,4 +1,5 @@
 import type { ScientificMapPoint } from './scientific-map-view';
+import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
 import type { SelectionValue } from './selection-state';
 import type { QueryRow } from './table-query-rows';
 
@@ -44,6 +45,8 @@ export interface MapFieldNames {
   longitudeField: string;
   labelField: string;
   idField?: string;
+  trackField?: string;
+  orderField?: string;
   detailField?: string;
   categoryField?: string;
   valueField?: string;
@@ -72,6 +75,7 @@ export function pointsFromRows(
     const id = fields.idField ? toText(row[fields.idField]) : undefined;
     points.push({
       id: id ?? `row-${index}`,
+      rowIndex: index,
       label,
       latitude,
       longitude,
@@ -84,4 +88,57 @@ export function pointsFromRows(
     });
   });
   return points;
+}
+
+/** Join timestamped table positions without asking the producer to serialize paths. */
+export function trajectoriesFromRows(
+  rows: readonly QueryRow[],
+  points: readonly ScientificMapPoint[],
+  trackField: string,
+  orderField: string,
+): FeatureCollection {
+  type Position = { point: ScientificMapPoint; order: string | number; index: number };
+  const tracks = new Map<string, Position[]>();
+  for (const point of points) {
+    const index = point.rowIndex;
+    if (index === undefined) continue;
+    const row = rows[index];
+    const track = row?.[trackField];
+    const order = row?.[orderField];
+    if ((typeof track !== 'string' && typeof track !== 'number') ||
+      (typeof order !== 'string' && typeof order !== 'number')) continue;
+    const key = String(track);
+    const group = tracks.get(key) ?? [];
+    group.push({ point, order, index });
+    tracks.set(key, group);
+  }
+  const features: Array<Feature<LineString | Point>> = [];
+  for (const [track, positions] of tracks) {
+    positions.sort((a, b) => {
+      const delta = typeof a.order === 'number' && typeof b.order === 'number'
+        ? a.order - b.order
+        : String(a.order).localeCompare(String(b.order), undefined, { numeric: true });
+      return delta || a.index - b.index;
+    });
+    positions.forEach(({ point }, index) => {
+      if (index > 0) {
+        const previous = positions[index - 1]!.point;
+        if (Math.abs(previous.longitude - point.longitude) <= 180) {
+          features.push({
+            type: 'Feature', id: point.id,
+            geometry: { type: 'LineString', coordinates: [
+              [previous.longitude, previous.latitude], [point.longitude, point.latitude],
+            ] },
+            properties: { track },
+          });
+        }
+      }
+      features.push({
+        type: 'Feature', id: point.id,
+        geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
+        properties: { track, endpoint: index === positions.length - 1 },
+      });
+    });
+  }
+  return { type: 'FeatureCollection', features };
 }
