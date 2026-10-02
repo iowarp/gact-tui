@@ -335,7 +335,7 @@ export function ClioDataTable({
     ),
   };
   const selectedOnlyAction =
-    selectedCount > 0 && onSelectedOnlyChange ? (
+    (selectedCount > 0 || selectedOnly) && onSelectedOnlyChange ? (
       <button
         aria-pressed={selectedOnly}
         className={cn(
@@ -351,7 +351,13 @@ export function ClioDataTable({
 
   return (
     <DataGrid<DataGridFeatures, ClioDataRow>
-      emptyMessage="No rows were provided for this data view."
+      emptyMessage={
+        selectedOnly
+          ? 'No selected rows match the current view.'
+          : server?.filters.size || inlineFilters?.size
+            ? 'No rows match the current filters.'
+            : 'No rows were provided for this data view.'
+      }
       onRowClick={onRowClick}
       recordCount={server ? server.totalRows : rows.length}
       table={table}

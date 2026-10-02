@@ -158,6 +158,20 @@ export function ClioSelectableDataTable({
       return desc ? -compared : compared;
     });
   }, [filteredRows, inlineSort, server]);
+  const selectedFilteredRows = useMemo(
+    () =>
+      state && keyColumn && !server
+        ? orderedRows.filter((row) => selectionIncludes(state, keyColumn, row[keyColumn]))
+        : [],
+    [keyColumn, orderedRows, server, state],
+  );
+  const selectedFilteredValues = useMemo(
+    () =>
+      keyColumn
+        ? [...new Set(selectedFilteredRows.map((row) => row[keyColumn]).filter(isSelectionValue))]
+        : [],
+    [keyColumn, selectedFilteredRows],
+  );
   const changeInlineFilter = (column: string, value: ClioColumnFilterValue | undefined) => {
     setInlineFilters((current) => {
       const next = new Map(current);
@@ -202,26 +216,32 @@ export function ClioSelectableDataTable({
         componentLabel: heading,
         datasetLabel: 'inline data',
         filters: mergeFilters(undefined, inlineFilters).map(describeQueryFilter),
-        previewColumns: keys.slice(0, state?.values.length ? 12 : 5),
-        previewRows:
-          state?.values.length && keyColumn
-            ? orderedRows
-                .filter((row) => selectionIncludes(state, keyColumn, row[keyColumn]))
-                .slice(0, 5)
-            : orderedRows.slice(0, 5),
+        previewColumns: keys.slice(0, selectedFilteredValues.length ? 12 : 5),
+        previewRows: selectedFilteredValues.length
+          ? selectedFilteredRows.slice(0, 5)
+          : orderedRows.slice(0, 5),
         query: {
           columns: keys,
           rowCount: filteredRows.length,
-          ...(state?.values.length
-            ? { selection: { field: state.field, values: state.values } }
+          ...(selectedFilteredValues.length && keyColumn
+            ? { selection: { field: keyColumn, values: selectedFilteredValues } }
             : {}),
         },
-        zoneDescription: state?.values.length
-          ? `${state.values.length.toLocaleString()} selected ${state.values.length === 1 ? 'row' : 'rows'} of ${filteredRows.length.toLocaleString()}`
+        zoneDescription: selectedFilteredValues.length
+          ? `${selectedFilteredValues.length.toLocaleString()} selected ${selectedFilteredValues.length === 1 ? 'row' : 'rows'} of ${filteredRows.length.toLocaleString()}`
           : `the filtered current view (${filteredRows.length.toLocaleString()} rows)`,
       });
     return { buildReference, exportFormats };
-  }, [filteredRows, heading, inlineFilters, keyColumn, keys, orderedRows, state]);
+  }, [
+    filteredRows,
+    heading,
+    inlineFilters,
+    keyColumn,
+    keys,
+    orderedRows,
+    selectedFilteredRows,
+    selectedFilteredValues,
+  ]);
   const toolbarCapabilities: SurfaceCapabilities = {
     ...(capabilities ?? inlineCapabilities),
     captureComponentId: componentId,
@@ -230,8 +250,8 @@ export function ClioSelectableDataTable({
   const visibleRows = useMemo(() => {
     if (server || !selectedOnly || !state?.values.length || keyColumn === undefined)
       return orderedRows;
-    return orderedRows.filter((row) => selectionIncludes(state, keyColumn, row[keyColumn]));
-  }, [keyColumn, orderedRows, selectedOnly, server, state]);
+    return selectedFilteredRows;
+  }, [keyColumn, orderedRows, selectedFilteredRows, selectedOnly, server, state]);
   const selectedRows = useMemo(() => {
     if (!state || keyColumn === undefined) return undefined;
     const selected = new Set<number>();
@@ -283,7 +303,7 @@ export function ClioSelectableDataTable({
       rows={visibleRows}
       selectedRows={selectedRows}
       selectedOnly={selectedOnly && Boolean(state?.values.length)}
-      selectedCount={state?.values.length ?? 0}
+      selectedCount={server ? (state?.values.length ?? 0) : selectedFilteredValues.length}
       onSelectedOnlyChange={server ? server.onSelectedOnlyChange : setLocalSelectedOnly}
       externalSelection={Boolean(
         state?.values.length && state.source && state.source !== componentId,
