@@ -1584,7 +1584,7 @@ const server = createServer(async (request, response) => {
     sendJson(response, {
       configured: true,
       provider: 'codex',
-      api_base: 'codex://app-server',
+      api_base: 'codex://direct',
       model: 'gpt-5.6-luna',
       thinking_level: 'medium',
       thinking_effective: 'medium (budget 8192)',
@@ -1593,7 +1593,7 @@ const server = createServer(async (request, response) => {
           id: 'codex',
           label: 'Codex',
           provider: 'codex',
-          api_base: 'codex://app-server',
+          api_base: 'codex://direct',
           suggested_model: 'gpt-5.6-luna',
           requires_api_key: false,
           is_authenticated: true,

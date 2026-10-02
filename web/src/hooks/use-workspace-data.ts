@@ -462,9 +462,6 @@ export function useWorkspaceData({
     session?.model_id ??
     modelConfiguration.data?.model ??
     capabilities.data?.active_model?.model_id;
-  // The session's transport of a multi-transport provider (Codex SDK / Direct):
-  // the same model id exists under each, so the model alone cannot say which.
-  const activeTransport = session?.model_transport;
   // Only a level a person chose for this session is sent with messages; the
   // configured global level is displayed by the composer and applied server-side.
   const activeEffort = session?.effort;
@@ -508,7 +505,6 @@ export function useWorkspaceData({
     configuredEffort,
     activeModel,
     activeProvider,
-    activeTransport,
     attentionInteractions,
     agentBlueprints,
     allSessions,

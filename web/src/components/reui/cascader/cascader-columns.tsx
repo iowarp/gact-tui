@@ -116,31 +116,10 @@ export interface CascaderColumnPanelProps {
    */
   footer?: React.ReactNode;
   /**
-   * Splits the active column into labelled groups that scroll on their own
-   * (e.g. one provider reachable two ways). The column's rows are the
-   * concatenation of every section's `items`, in order; each section renders
-   * as a named `group` of options inside the ONE listbox, so arrow keys still
-   * walk every row. Non-row content (sign-in buttons, fields) never goes
-   * here: it belongs in `footer` or `empty`, outside the listbox.
-   */
-  sections?: readonly CascaderColumnSection[];
-  /**
    * Replaces the default "No results" text when the column has no rows, and
    * renders OUTSIDE the listbox so it may hold real controls.
    */
   empty?: React.ReactNode;
-}
-
-/** One labelled, independently scrolling group of a split column. */
-export interface CascaderColumnSection {
-  key: string;
-  /** The group's visible heading (plain content: no focusable controls). */
-  label: React.ReactNode;
-  /** The group's accessible name. */
-  ariaLabel: string;
-  items: readonly CascaderNode[];
-  /** Rendered between the previous section and this one (e.g. an "or" rule). */
-  separator?: React.ReactNode;
 }
 
 function CascaderColumnPanel({
@@ -148,7 +127,6 @@ function CascaderColumnPanel({
   children,
   virtualized,
   footer,
-  sections,
   empty,
 }: CascaderColumnPanelProps) {
   const { labels, baseId, isBranch, isSelectable, isSelected, isIndeterminate, retryLevel } =
@@ -200,12 +178,9 @@ function CascaderColumnPanel({
         {...getCascaderMoreProps(node, loadStates)}
         data-open={open || undefined}
         className={open ? 'bg-accent/60 text-accent-foreground' : undefined}
-        /* Set metadata is option-only; a trail row is a `role="button"`. The
-           explicit index keeps a split column's rows in one sequence; the
-           row itself only forwards it while the root is windowed. */
+        /* Set metadata is option-only; a trail row is a `role="button"`. */
         {...(column.active
           ? {
-              index: i,
               'aria-setsize': column.items.length,
               'aria-posinset': i + 1,
             }
@@ -264,63 +239,6 @@ function CascaderColumnPanel({
     </div>
   );
 
-  if (sections) {
-    let offset = 0;
-    const groups = sections.map((section) => {
-      const start = offset;
-      offset += section.items.length;
-      return { section, start };
-    });
-    const groupNodes = groups.map(({ section, start }) => (
-      <React.Fragment key={section.key}>
-        {section.separator}
-        {/* Sized to its content; when the sections together outgrow the
-            column, each shrinks (in proportion to its size) and scrolls on
-            its own -- never a fixed half with a gap under a short list. */}
-        <div
-          aria-label={section.ariaLabel}
-          className="flex min-h-0 shrink flex-col"
-          data-section={section.key}
-          data-slot="cascader-column-section"
-          role="group"
-        >
-          <div className="shrink-0" role="presentation">
-            {section.label}
-          </div>
-          <div
-            className={cn(CASCADER_ROWS_CLASS, 'min-h-0 overflow-y-auto overscroll-contain')}
-            data-slot="cascader-column-section-rows"
-          >
-            {section.items.map((node, i) => renderRow(node, start + i))}
-          </div>
-        </div>
-      </React.Fragment>
-    ));
-    // Content-sized too: whatever follows the sections (a sign-in block)
-    // sits right under the last row; the caller's footer takes the rest.
-    const splitClass = 'flex min-h-0 w-full shrink flex-col';
-    return (
-      <div
-        data-slot="cascader-column-bounds"
-        data-active={column.active || undefined}
-        data-depth={column.depth}
-        data-split=""
-        className={PANEL_CLASS}
-      >
-        {column.active ? (
-          <ComboboxPrimitive.List {...shared} className={splitClass}>
-            {groupNodes}
-          </ComboboxPrimitive.List>
-        ) : (
-          <div {...shared} role="group" className={splitClass}>
-            {groupNodes}
-          </div>
-        )}
-        {footer}
-      </div>
-    );
-  }
-
   return (
     <div
       data-slot="cascader-column-bounds"
@@ -356,55 +274,4 @@ function CascaderColumnPanel({
   );
 }
 
-export interface CascaderSectionedItemsProps {
-  /** Splits the current level's rows into labelled groups (same shape as a split column). */
-  sections: (items: readonly CascaderNode[]) => readonly CascaderColumnSection[];
-}
-
-/**
- * The drill-mode counterpart of a split column: dropped inside `CascaderList`
- * in place of `CascaderItems`, it renders the current level's rows as the same
- * labelled groups, in one scroll (a narrow panel has no room for two).
- */
-function CascaderSectionedItems({ sections }: CascaderSectionedItemsProps) {
-  const { isBranch, isSelectable, isSelected, isIndeterminate } = useCascaderActions();
-  const { renderedItems, loadStates } = useCascaderState();
-  let offset = 0;
-  return (
-    <>
-      {sections(renderedItems).map((section) => {
-        const start = offset;
-        offset += section.items.length;
-        return (
-          <React.Fragment key={section.key}>
-            {section.separator}
-            <div
-              aria-label={section.ariaLabel}
-              data-section={section.key}
-              data-slot="cascader-column-section"
-              role="group"
-            >
-              <div role="presentation">{section.label}</div>
-              {section.items.map((node, i) => (
-                <CascaderItem
-                  key={node.value}
-                  node={node}
-                  index={start + i}
-                  branch={isBranch(node)}
-                  selectable={isSelectable(node)}
-                  selected={isSelected(node)}
-                  indeterminate={isIndeterminate(node)}
-                  {...getCascaderMoreProps(node, loadStates)}
-                  aria-setsize={renderedItems.length}
-                  aria-posinset={start + i + 1}
-                />
-              ))}
-            </div>
-          </React.Fragment>
-        );
-      })}
-    </>
-  );
-}
-
-export { CascaderColumnPanel, CascaderColumns, CascaderSectionedItems };
+export { CascaderColumnPanel, CascaderColumns };

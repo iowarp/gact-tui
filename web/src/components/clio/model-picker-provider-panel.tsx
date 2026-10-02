@@ -1,12 +1,6 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { useEffect, useRef, type ReactNode } from 'react';
-import type { CascaderColumnSection } from '@/components/reui/cascader/cascader-columns';
-import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
-import {
-  providerUsableModelCount,
-  type PickerNodeData,
-  type ProviderGroup,
-} from './model-picker-model';
+import { providerUsableModelCount, type ProviderGroup } from './model-picker-model';
 import { ProviderComponentStatus } from './provider-component-status';
 import { useProviderComponentUpdate } from './provider-component-update';
 import { ProviderConnectState } from './provider-connect-state';
@@ -14,16 +8,8 @@ import { providerCredentialKind } from '@/lib/provider-availability';
 import { useProviderActions } from './provider-actions';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
 import { providerActionError } from './provider-setup-state';
-import { OrSeparator, TransportLabel, TransportLogin } from './provider-transport-parts';
-import {
-  isMultiTransport,
-  transportSections,
-  visibleTransportSections,
-} from './provider-transport-state';
 
 export interface ProviderPanelColumn {
-  /** Split groups for the model column (a provider reachable more than one way). */
-  sections?: (items: readonly CascaderNode[]) => CascaderColumnSection[];
   /** The column's content when it has no rows (setup, or a log in). */
   empty?: ReactNode;
   footer?: ReactNode;
@@ -31,21 +17,16 @@ export interface ProviderPanelColumn {
 
 /**
  * The models a provider's column lists, as tree children: nothing until the
- * provider is usable; for a provider reachable more than one way, the models
- * of each ready transport in the service's order (the sections partition
- * exactly these rows).
+ * provider is usable.
  */
 export function providerColumnModels(group: ProviderGroup) {
-  if (isMultiTransport(group)) {
-    return transportSections(group).flatMap((section) => section.models);
-  }
   return providerUsableModelCount(group) > 0 ? group.availableChoices : [];
 }
 
 interface UseProviderPanelInput {
   group: ProviderGroup | undefined;
   preset: LanguageModelPreset | undefined;
-  /** Whether the picker is open: an unchecked transport is checked once per opening. */
+  /** Whether the picker is open: a provider that needs a check is checked once per opening. */
   open: boolean;
   /** A sentence the action row shows over the latest failure (e.g. why a model can't be picked). */
   notice?: string;
@@ -53,28 +34,15 @@ interface UseProviderPanelInput {
 
 /**
  * The picker's right-hand panel for the provider in view, driven by the
- * shared action hook -- ONE instance for the provider (Refresh / Reload
- * models act on all of it) and, for a provider with a transport CLIO signs in
- * itself, a SEPARATE instance scoped to that transport, so its log-in steps
- * render in its own section and nowhere else.
+ * shared action hook every provider surface uses.
  */
 export function useProviderPanel({ group, preset, open, notice }: UseProviderPanelInput) {
-  const multi = isMultiTransport(group);
-  const sections = group && multi ? transportSections(group) : [];
-  const signInTransport = sections.find((section) => section.transport.auth);
   const providerActions = useProviderActions({
     presetId: group?.id ?? '',
     apiBase: group?.endpoint ?? preset?.api_base ?? '',
     preset,
-    probeCatalog: multi,
   });
-  const transportActions = useProviderActions({
-    presetId: signInTransport ? (group?.id ?? '') : '',
-    apiBase: group?.endpoint ?? preset?.api_base ?? '',
-    preset,
-    scope: signInTransport?.transport.id,
-  });
-  // The provider's SDK update (Codex / Claude Code): its running stage drives
+  // The provider's SDK update (Claude Code): its running stage drives
   // the same heartbeat and panel text as every other provider action, and a
   // finished update re-checks the provider so its models reflect the new SDK.
   const componentUpdate = useProviderComponentUpdate({
@@ -82,22 +50,19 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
     open,
     onUpdated: () => providerActions.handshake.mutate(),
   });
-  const stage = componentUpdate.stage ?? providerActions.stage ?? transportActions.stage;
+  const stage = componentUpdate.stage ?? providerActions.stage;
   const componentStatus = group?.client ? (
     <ProviderComponentStatus group={group} state={componentUpdate} />
   ) : null;
 
-  // A transport the service has never asked is asked when it comes into view,
-  // once per opening: the person sees it being checked, never a request to.
-  const autoChecked = useRef(new Set<string>());
   // A CLI-owned sign-in (Claude Code) the service last saw signed out is asked
-  // again too: the person may have signed in in a terminal since (#1455).
+  // again when it comes into view, once per opening: the person may have
+  // signed in in a terminal since (#1455).
+  const autoChecked = useRef(new Set<string>());
   const needsCheck =
-    sections.some((section) => section.state === 'unchecked') ||
-    (!multi &&
-      providerCredentialKind(preset) === 'cli' &&
-      preset?.is_authenticated === false &&
-      preset.status !== 'install_required');
+    providerCredentialKind(preset) === 'cli' &&
+    preset?.is_authenticated === false &&
+    preset.status !== 'install_required';
   const providerBusy = Boolean(providerActions.stage);
   const groupId = group?.id;
   useEffect(() => {
@@ -113,102 +78,27 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
 
   if (!group) return { column: {} satisfies ProviderPanelColumn, stage };
 
-  if (!multi) {
-    const usable = providerUsableModelCount(group) > 0;
-    const logOut: ProviderLogOut | undefined = !preset?.is_authenticated
-      ? undefined
-      : preset.supports_logout
-        ? { label: 'Log out', run: () => providerActions.logout.mutate(), busy: false }
-        : preset.requires_api_key
-          ? { label: 'Remove key', run: () => providerActions.removeApiKey.mutate(), busy: false }
-          : undefined;
-    const column: ProviderPanelColumn = usable
-      ? {
-          footer: (
-            <>
-              {componentStatus}
-              <ProviderPanelFooter
-                actions={providerActions}
-                error={notice ?? providerActionError(providerActions, group)}
-                logOut={logOut}
-              />
-            </>
-          ),
-        }
-      : { empty: <ProviderConnectState actions={providerActions} group={group} preset={preset} /> };
-    return { column, stage };
-  }
-
-  const visible = visibleTransportSections(sections, providerBusy);
-  const listed = visible.filter((section) => section.state !== 'signed_out');
-  const signedOut = visible.filter((section) => section.state === 'signed_out');
-  const signedInTransport = sections.find((section) => section.canLogOut);
-  const logOut: ProviderLogOut | undefined = signedInTransport
+  const usable = providerUsableModelCount(group) > 0;
+  const logOut: ProviderLogOut | undefined = !preset?.is_authenticated
+    ? undefined
+    : preset.supports_logout
+      ? { label: 'Log out', run: () => providerActions.logout.mutate(), busy: false }
+      : preset.requires_api_key
+        ? { label: 'Remove key', run: () => providerActions.removeApiKey.mutate(), busy: false }
+        : undefined;
+  const column: ProviderPanelColumn = usable
     ? {
-        label: 'Log out',
-        run: () => transportActions.logout.mutate(),
-        busy: Boolean(transportActions.stage),
+        footer: (
+          <>
+            {componentStatus}
+            <ProviderPanelFooter
+              actions={providerActions}
+              error={notice ?? providerActionError(providerActions, group)}
+              logOut={logOut}
+            />
+          </>
+        ),
       }
-    : undefined;
-
-  const loginBlocks = signedOut.map((section, index) => (
-    <div className="flex shrink-0 flex-col" key={section.transport.id}>
-      {listed.length || index > 0 ? <OrSeparator /> : null}
-      <div
-        className="flex flex-col gap-1 pb-3"
-        data-slot="transport-login"
-        data-transport={section.transport.id}
-      >
-        <TransportLabel focusable section={section} />
-        <TransportLogin
-          actions={transportActions}
-          group={group}
-          preset={preset}
-          section={section}
-        />
-      </div>
-    </div>
-  ));
-  const footer = (
-    <>
-      {listed.length ? loginBlocks : null}
-      {/* Free space collects here, above the action row -- never between
-          the SDK's models and Direct. */}
-      <div aria-hidden="true" className="min-h-0 flex-1" data-slot="panel-spacer" />
-      {componentStatus}
-      <ProviderPanelFooter
-        actions={providerActions}
-        error={notice ?? providerActionError(providerActions, group)}
-        logOut={logOut}
-      />
-    </>
-  );
-  const column: ProviderPanelColumn = listed.length
-    ? {
-        sections: (items) =>
-          listed.map((section, index) => ({
-            key: section.transport.id,
-            ariaLabel: `${section.label}: ${section.info}`,
-            label: (
-              <TransportLabel
-                section={section}
-                stage={
-                  section.state === 'unchecked'
-                    ? providerActions.stage
-                    : section === signInTransport
-                      ? transportActions.stage
-                      : undefined
-                }
-              />
-            ),
-            items: items.filter((node) => {
-              const data = node.data as PickerNodeData | undefined;
-              return data?.kind === 'model' && data.choice.transport === section.transport.id;
-            }),
-            separator: index > 0 ? <OrSeparator /> : undefined,
-          })),
-        footer,
-      }
-    : { empty: <div className="flex flex-col">{loginBlocks}</div>, footer };
+    : { empty: <ProviderConnectState actions={providerActions} group={group} preset={preset} /> };
   return { column, stage };
 }

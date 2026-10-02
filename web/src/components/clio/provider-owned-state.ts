@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 
 /**
- * State that belongs to ONE provider (and transport scope) of a shared action
+ * State that belongs to ONE provider of a shared action
  * hook. The picker keeps one `useProviderActions` instance and changes its
  * provider as the person moves between rows, so an action that settles after
  * the move -- a "Reload models" whose failure lands two seconds later -- used
@@ -29,9 +29,4 @@ export function useOwnedState<T>(
   );
   const clear = useCallback(() => setSlots((current) => (current.size ? new Map() : current)), []);
   return [slots.get(owner), set, clear];
-}
-
-/** The owner key for a provider and one of its transport scopes. */
-export function providerOwner(presetId: string, scope: string): string {
-  return `${presetId}\u0000${scope}`;
 }
