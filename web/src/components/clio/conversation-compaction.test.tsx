@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Message, PendingCompaction } from '@clio/core/v3';
+import type { A2UISurface, Message, PendingCompaction, PendingInteraction } from '@clio/core/v3';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
@@ -28,6 +28,14 @@ vi.mock('@tanstack/react-virtual', () => ({
     measure: () => undefined,
     scrollToIndex: virtualizerMocks.scrollToIndex,
   }),
+}));
+
+// The surface renderer is out of scope here: these tests count how many times
+// the transcript mounts a surface, so it stands in as one tagged element.
+vi.mock('./a2ui-surface', () => ({
+  ClioA2UISurface: ({ surface }: { surface: A2UISurface }) => (
+    <section data-slot="test-a2ui-surface" data-surface-id={surface.id} />
+  ),
 }));
 
 Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
@@ -127,14 +135,22 @@ function pending(overrides: Partial<PendingCompaction> = {}): PendingCompaction 
   };
 }
 
-function conversation(messages: Message[], compactions?: PendingCompaction[]) {
+function conversation(
+  messages: Message[],
+  compactions?: PendingCompaction[],
+  {
+    interactions,
+    surfaces = {},
+  }: { interactions?: PendingInteraction[]; surfaces?: Record<string, A2UISurface> } = {},
+) {
   return renderConversation(
     <ClioConversation
       artifacts={{}}
       compactions={compactions}
+      interactions={interactions}
       messages={messages}
       subagents={{}}
-      surfaces={{}}
+      surfaces={surfaces}
       tasks={{}}
       tools={{}}
     />,
@@ -338,5 +354,82 @@ describe('ClioConversation compaction progress', () => {
     expect(document.querySelector('[data-slot="trailing-compactions"]')).toHaveTextContent(
       'Summarizing context',
     );
+  });
+});
+
+function mapSurface(id: string): A2UISurface {
+  return {
+    id,
+    session_id: 'session_1',
+    catalog_id: 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1',
+    protocol_version: '0.9.1',
+    revision: 1,
+    state: 'ready',
+    messages: [],
+  };
+}
+
+function pendingSurfaceResponse(surfaceId: string): PendingInteraction {
+  return {
+    id: `a2ui:session_1:${surfaceId}`,
+    kind: 'a2ui',
+    owner_session_id: 'session_1',
+    attended_session_id: 'session_1',
+    status: 'pending',
+    title: 'Choose an EarthScope station',
+    source: { protocol: 'native', surface_id: surfaceId },
+    created_at: '2026-10-01T00:00:05Z',
+  };
+}
+
+function mountedSurfaces(surfaceId: string): Element[] {
+  return [
+    ...document.querySelectorAll(`[data-slot="test-a2ui-surface"][data-surface-id="${surfaceId}"]`),
+  ];
+}
+
+describe('ClioConversation renders each block once', () => {
+  it('renders a turn with an A2UI surface and a mid-turn summary once each', () => {
+    conversation(
+      [
+        userMessage,
+        {
+          ...assistantMessage,
+          blocks: [
+            { id: 'r1', type: 'reasoning', text: 'Read the station files.' },
+            summaryBlock,
+            { id: 'r2', type: 'reasoning', text: 'Mapped the nearest stations.' },
+            { id: 'map_block', type: 'a2ui', surface_id: 'surface_map' },
+            { id: 'answer', type: 'text', text: 'Final answer text.', channel: 'answer' },
+          ],
+        },
+      ],
+      undefined,
+      { surfaces: { surface_map: mapSurface('surface_map') } },
+    );
+    const [surface, ...duplicates] = mountedSurfaces('surface_map');
+    expect(surface).toBeDefined();
+    expect(duplicates).toHaveLength(0);
+    expect(document.getElementById('message-message_assistant')?.contains(surface!)).toBe(true);
+    expect(document.querySelectorAll('[data-source="summarization"]')).toHaveLength(1);
+    expect(screen.getAllByText('Final answer text.')).toHaveLength(1);
+  });
+
+  it('leaves a detached surface awaiting a pending response to the response tray', () => {
+    // The surface has no message block (it is detached) and a pending A2UI
+    // response owns it: the tray renders it, so the transcript must not.
+    conversation([userMessage, { ...assistantMessage, blocks: [summaryBlock] }], undefined, {
+      interactions: [pendingSurfaceResponse('surface_map')],
+      surfaces: { surface_map: mapSurface('surface_map') },
+    });
+    expect(mountedSurfaces('surface_map')).toHaveLength(0);
+    expect(document.querySelectorAll('[data-source="summarization"]')).toHaveLength(1);
+  });
+
+  it('renders a detached surface once when no pending response owns it', () => {
+    conversation([userMessage, assistantMessage], undefined, {
+      surfaces: { surface_map: mapSurface('surface_map') },
+    });
+    expect(mountedSurfaces('surface_map')).toHaveLength(1);
   });
 });

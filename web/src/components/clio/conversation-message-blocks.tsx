@@ -47,6 +47,7 @@ import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { toolOutputDiffKey } from './declared-diff-key';
+import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SummarizationInjection, TranscriptNotice } from './conversation-summarization';
 
@@ -250,13 +251,7 @@ function MessageBlockView({
       );
     case 'a2ui': {
       const surface = surfaces[block.surface_id];
-      const ownsPendingResponse = interactions?.some(
-        (interaction) =>
-          interaction.kind === 'a2ui' &&
-          interaction.status === 'pending' &&
-          interaction.source.surface_id === block.surface_id,
-      );
-      if (ownsPendingResponse) return null;
+      if (surfaceAwaitsPendingResponse(interactions, block.surface_id)) return null;
       return surface?.state === 'deleted' ? (
         <ClioStatus label={`${PROTOCOL.a2ui} surface removed`} value="cancelled" />
       ) : surface ? (
