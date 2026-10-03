@@ -62,7 +62,7 @@ const unexpectedErrors = new WeakMap<Page, string[]>();
 // A light-gray 1x1 PNG, generated in code: the repo's media policy forbids committed
 // test images, and any valid image lets MapLibre finish a tile.
 const TILE_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN48uTJfwAIHAPA7h4SLgAAAABJRU5ErkJggg==',
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGN4+vTpfwAJEQOv/mB/yAAAAABJRU5ErkJggg==',
   'base64',
 );
 
@@ -94,6 +94,7 @@ test.beforeEach(async ({ page }) => {
 
 test.afterEach(async ({ page }) => {
   expect(unexpectedErrors.get(page) ?? []).toEqual([]);
+  await expect(page.getByText(/^Map background unavailable:/u)).toHaveCount(0);
 });
 
 /** Opens the workspace, publishes the linked earthquake surface, and waits for it to render. */
