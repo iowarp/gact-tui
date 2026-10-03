@@ -553,16 +553,16 @@ export function useWorkspaceData({
     executionProvenance,
     interactionSessionIds,
     interactions,
-    // Reads that actually failed to list responses. The per-root fan-out errors
-    // join it — a blocked background session the reader cannot see is still an
-    // interaction the reader was not told about.
+    // Reads that actually failed to list responses. A failed background-root
+    // request joins this warning because its attention lane is unknown. A
+    // typed damaged-record notice stays with its own root: opening a clean
+    // session should not show another session's persistent record warning.
     interactionsError:
       normalizedInteractions.error ??
       approvals.error ??
       questions.error ??
       attentionInteractionsError ??
-      [normalizedInteractions, ...attentionInteractionQueries]
-        .flatMap((query) => query.data?.degradations ?? [])
+      (normalizedInteractions.data?.degradations ?? [])
         .map((degradation) =>
           new Error(
             degradation.reason.startsWith('clio_core_')

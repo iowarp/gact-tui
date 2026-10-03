@@ -255,6 +255,33 @@ describe('useWorkspaceData interaction reads', () => {
       expect(result.current.interactionsError?.message).toContain('damaged data record'),
     );
   });
+
+  it('keeps a damaged background session notice out of an unrelated clean session', async () => {
+    mocks.repository.capabilities.mockResolvedValue({
+      capabilities: { x_clio_interactions: true },
+      gact_versions: [],
+    });
+    const sessions = [
+      { id: 'sess_1', workspace_id: 'ws_1', title: 'Current', state: 'idle' },
+      { id: 'sess_2', workspace_id: 'ws_1', title: 'Older', state: 'idle' },
+    ];
+    mocks.repository.sessions.mockResolvedValue(sessions);
+    mocks.repository.allSessions.mockResolvedValue(sessions);
+    mocks.repository.pendingInteractionProjection.mockImplementation(async (rootId: string) => ({
+      interactions: [],
+      degradations: rootId === 'sess_2'
+        ? [{ reason: 'clio_core_segments_invalid', detail: 'Older record could not be read' }]
+        : [],
+    }));
+
+    const { result } = renderWorkspaceData();
+    await waitFor(() =>
+      expect(mocks.repository.pendingInteractionProjection).toHaveBeenCalledWith(
+        'sess_2', true, expect.anything(),
+      ),
+    );
+    expect(result.current.interactionsError).toBeUndefined();
+  });
 });
 
 describe('useWorkspaceData artifact reads', () => {
