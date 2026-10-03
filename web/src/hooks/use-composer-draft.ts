@@ -18,20 +18,22 @@ const EMPTY_ANNOTATIONS: readonly ComposerAnnotation[] = [];
 interface HeldDraft {
   annotations: readonly ComposerAnnotation[];
   references: readonly InlineReferenceSelection[];
-  sessionId: string;
+  scope: string;
   value: string;
 }
 
-function emptyDraft(sessionId: string): HeldDraft {
+type DraftPersistence = { persist: true; endpoint: string } | { persist: false };
+
+function emptyDraft(scope: string, storageKey: string | null): HeldDraft {
   let value = '';
-  if (typeof window !== 'undefined') {
+  if (storageKey && typeof window !== 'undefined') {
     try {
-      value = window.sessionStorage.getItem(`clio:composer-draft:${sessionId}`) ?? '';
+      value = window.sessionStorage.getItem(storageKey) ?? '';
     } catch {
       // Private browsing can deny storage; the in-memory draft still works.
     }
   }
-  return { annotations: EMPTY_ANNOTATIONS, references: EMPTY_REFERENCES, sessionId, value };
+  return { annotations: EMPTY_ANNOTATIONS, references: EMPTY_REFERENCES, scope, value };
 }
 
 /**
@@ -45,31 +47,39 @@ function emptyDraft(sessionId: string): HeldDraft {
  * prose around them survived. Annotations are added from outside the composer
  * (a selection in the transcript), so they must live here too.
  *
- * The draft is keyed by session rather than cleared on navigation, so switching
- * away from a session and back reads as empty without a separate reset.
+ * Temporary entry composers never persist. Real sessions may opt into restoring
+ * unsent text within the tab, scoped to both the agent endpoint and session ID.
  */
-export function useComposerDraft(sessionId: string): ComposerDraft {
-  const [draft, setDraft] = useState<HeldDraft>(() => emptyDraft(sessionId));
-  const current = draft.sessionId === sessionId ? draft : emptyDraft(sessionId);
+export function useComposerDraft(
+  sessionId: string,
+  persistence: DraftPersistence = { persist: false },
+): ComposerDraft {
+  const scope = JSON.stringify([persistence.persist ? persistence.endpoint : null, sessionId]);
+  const storageKey = persistence.persist ? `clio:composer-draft:${scope}` : null;
+  const [draft, setDraft] = useState<HeldDraft>(() => emptyDraft(scope, storageKey));
+  const current = draft.scope === scope ? draft : emptyDraft(scope, storageKey);
 
   const patch = useCallback(
-    (change: Partial<Omit<HeldDraft, 'sessionId'>>) =>
+    (change: Partial<Omit<HeldDraft, 'scope'>>) =>
       setDraft((held) => ({
-        ...(held.sessionId === sessionId ? held : emptyDraft(sessionId)),
+        ...(held.scope === scope ? held : emptyDraft(scope, storageKey)),
         ...change,
       })),
-    [sessionId],
+    [scope, storageKey],
   );
-  const onValueChange = useCallback((value: string) => {
-    patch({ value });
-    try {
-      const key = `clio:composer-draft:${sessionId}`;
-      if (value) window.sessionStorage.setItem(key, value);
-      else window.sessionStorage.removeItem(key);
-    } catch {
-      // The current tab retains the draft even if browser storage is unavailable.
-    }
-  }, [patch, sessionId]);
+  const onValueChange = useCallback(
+    (value: string) => {
+      patch({ value });
+      if (!storageKey) return;
+      try {
+        if (value) window.sessionStorage.setItem(storageKey, value);
+        else window.sessionStorage.removeItem(storageKey);
+      } catch {
+        // The current tab retains the draft even if browser storage is unavailable.
+      }
+    },
+    [patch, storageKey],
+  );
   const onReferencesChange = useCallback(
     (references: readonly InlineReferenceSelection[]) => patch({ references }),
     [patch],

@@ -181,6 +181,38 @@ export const messageBlockGeneratedSchema: z.ZodType<MessageBlock> = z.discrimina
       type: z.literal('routing'),
     })
     .strict(),
+  z
+    .object({
+      agent_id: z.union([z.string(), z.null()]).default(null),
+      call_id: z.union([z.string(), z.null()]).default(null),
+      channel: z.union([z.string(), z.null()]).default(null),
+      compaction_id: z.union([z.string(), z.null()]).default(null),
+      id: z.string(),
+      sequence: z.union([z.number().int().gt(0), z.null()]).default(null),
+      source: z.string(),
+      stream_source: z.union([z.string(), z.null()]).default(null),
+      text: z.string(),
+      trigger: z.union([z.enum(['auto', 'manual']), z.null()]).default(null),
+      try_index: z.union([z.number().int().gte(0), z.null()]).default(null),
+      type: z.literal('injection'),
+      variants_id: z.union([z.string(), z.null()]).default(null),
+    })
+    .strict(),
+  z
+    .object({
+      agent_id: z.union([z.string(), z.null()]).default(null),
+      channel: z.union([z.string(), z.null()]).default(null),
+      code: z.union([z.string(), z.null()]).default(null),
+      compaction_id: z.union([z.string(), z.null()]).default(null),
+      id: z.string(),
+      sequence: z.union([z.number().int().gt(0), z.null()]).default(null),
+      source: z.string(),
+      stream_source: z.union([z.string(), z.null()]).default(null),
+      text: z.string(),
+      trigger: z.union([z.enum(['auto', 'manual']), z.null()]).default(null),
+      type: z.literal('notice'),
+    })
+    .strict(),
 ]);
 
 export const messageBlockTypes = [
@@ -197,4 +229,6 @@ export const messageBlockTypes = [
   'diff',
   'error',
   'routing',
+  'injection',
+  'notice',
 ] as const;

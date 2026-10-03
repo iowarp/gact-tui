@@ -198,7 +198,7 @@ export type ScriptArtifactId = string;
 export type ScriptHash = string;
 export type Tool = string;
 /**
- * Closed discriminated union of the 13 GACT 0.3 message-block types.
+ * Closed discriminated union of the 15 GACT 0.3 message-block types.
  */
 export type MessageBlock =
   | TextMessageBlock
@@ -213,7 +213,9 @@ export type MessageBlock =
   | CitationMessageBlock
   | DiffMessageBlock
   | ErrorMessageBlock
-  | RoutingMessageBlock;
+  | RoutingMessageBlock
+  | InjectionMessageBlock
+  | NoticeMessageBlock;
 export type AgentId = string | null;
 export type Channel = string | null;
 export type Id = string;
@@ -328,6 +330,30 @@ export type Label3 = string;
 export type Sequence12 = number | null;
 export type StreamSource12 = string | null;
 export type Type12 = 'routing';
+export type AgentId13 = string | null;
+export type CallId = string | null;
+export type Channel13 = string | null;
+export type CompactionId = string | null;
+export type Id14 = string;
+export type Sequence13 = number | null;
+export type Source4 = string;
+export type StreamSource13 = string | null;
+export type Text2 = string;
+export type Trigger = ('auto' | 'manual') | null;
+export type TryIndex = number | null;
+export type Type13 = 'injection';
+export type VariantsId = string | null;
+export type AgentId14 = string | null;
+export type Channel14 = string | null;
+export type Code3 = string | null;
+export type CompactionId1 = string | null;
+export type Id15 = string;
+export type Sequence14 = number | null;
+export type Source5 = string;
+export type StreamSource14 = string | null;
+export type Text3 = string;
+export type Trigger1 = ('auto' | 'manual') | null;
+export type Type14 = 'notice';
 /**
  * Every source that states this value; the first is the winning one.
  *
@@ -453,7 +479,7 @@ export type Evidence8 = [TagEvidence, ...TagEvidence[]];
 /**
  * The link's label as it reads in the text.
  */
-export type Text2 = string;
+export type Text4 = string;
 /**
  * The link target exactly as the source wrote it.
  */
@@ -469,7 +495,7 @@ export type Plain = string;
 /**
  * The source's text, verbatim.
  */
-export type Text3 = string;
+export type Text5 = string;
 /**
  * The model identity the facts describe (as in ModelCapabilityTags).
  */
@@ -571,13 +597,13 @@ export type Path4 = string;
 export type EdgeRole = 'used' | 'generated';
 export type Sha2561 = string | null;
 export type Version4 = number | null;
-export type AgentId13 = string;
+export type AgentId15 = string;
 /**
  * Whether the agent executed or annotated the transform.
  */
 export type AgentRole = 'executing' | 'annotating';
 export type Annotation1 = string;
-export type CallId = string;
+export type CallId1 = string;
 export type Candidates = string[];
 export type EndedAt = string;
 export type EventId = string;
@@ -1175,6 +1201,49 @@ export interface RoutingMessageBlock {
   type: Type12;
 }
 /**
+ * Data the harness (CLIO) gave the agent: a plan reminder, the todo list, a path
+ * suggestion, a saved oversize result, a hook's effect. ``source`` names what it is;
+ * ``text`` is exactly what the agent got; ``call_id`` ties a note to its tool call.
+ *
+ * ``source: "summarization"`` is a compaction's record: ``text`` is the summary the
+ * agent continues from, ``trigger`` says who asked for it (``auto`` or ``manual``)
+ * and ``compaction_id`` names that compaction. ``variants_id`` / ``try_index`` mean
+ * the block belongs to that variant try's tab (e.g. Refine advice given inside a try).
+ */
+export interface InjectionMessageBlock {
+  agent_id?: AgentId13;
+  call_id?: CallId;
+  channel?: Channel13;
+  compaction_id?: CompactionId;
+  id: Id14;
+  sequence?: Sequence13;
+  source: Source4;
+  stream_source?: StreamSource13;
+  text: Text2;
+  trigger?: Trigger;
+  try_index?: TryIndex;
+  type: Type13;
+  variants_id?: VariantsId;
+}
+/**
+ * A service notice recorded in the transcript, e.g. a failed compaction
+ * (``source: "compaction_failed"``). It is never shown to the model. ``code`` is the
+ * typed reason; ``trigger`` / ``compaction_id`` tie a compaction notice to its run.
+ */
+export interface NoticeMessageBlock {
+  agent_id?: AgentId14;
+  channel?: Channel14;
+  code?: Code3;
+  compaction_id?: CompactionId1;
+  id: Id15;
+  sequence?: Sequence14;
+  source: Source5;
+  stream_source?: StreamSource14;
+  text: Text3;
+  trigger?: Trigger1;
+  type: Type14;
+}
+/**
  * Everything a model picker may tag one model with, each tag with its evidence.
  *
  * An absent tag means no source stated it -- never "no". ``role`` always
@@ -1293,13 +1362,13 @@ export interface DescriptionFact {
 export interface DescriptionValue {
   links?: Links;
   plain: Plain;
-  text: Text3;
+  text: Text5;
 }
 /**
  * One markdown link found in a description, kept as data.
  */
 export interface DescriptionLink {
-  text: Text2;
+  text: Text4;
   url: Url;
 }
 /**
@@ -1398,10 +1467,10 @@ export interface ProvEdge {
  * One coarse transform keyed by the observer call id.
  */
 export interface TransformRecord {
-  agent_id?: AgentId13;
+  agent_id?: AgentId15;
   agent_role?: AgentRole;
   annotation?: Annotation1;
-  call_id: CallId;
+  call_id: CallId1;
   candidates?: Candidates;
   ended_at?: EndedAt;
   environment?: EnvironmentRecord;

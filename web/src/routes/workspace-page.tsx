@@ -61,7 +61,7 @@ export function WorkspacePage() {
   const navigate = useNavigate();
   const repository = useRepository();
   const a2uiCatalog = useA2uiCatalogRegistry(sessionId);
-  const composerDraft = useComposerDraft(sessionId);
+  const composerDraft = useComposerDraft(sessionId, { persist: true, endpoint: settings.endpoint });
   const [composerFocusKey, setComposerFocusKey] = useState(0);
   const focusComposerForAnswer = useCallback(() => setComposerFocusKey((key) => key + 1), []);
   useAddToChatSelectionAction(composerDraft, focusComposerForAnswer);

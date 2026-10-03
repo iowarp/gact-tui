@@ -35,7 +35,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
   const repository = useRepository();
-  const draft = useComposerDraft(workspaceId);
+  const draft = useComposerDraft(workspaceId, { persist: false });
   const data = useWorkspaceData({ contextTargetId: '', sessionId: '', workspaceId });
   const defaults = useQuery({
     queryKey: queryKeys.key('session-defaults', settings.endpoint),

@@ -3,7 +3,6 @@ import { useRepository } from '@/hooks/use-repository';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import { inlineSelectionKey } from '@/lib/a2ui/inline-selection-key';
 import { cn } from '@/lib/utils';
-import type { ScenegraphEvent, View } from 'vega';
 import { MousePointerSquareDashedIcon, ZoomInIcon } from 'lucide-react';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
@@ -28,27 +27,21 @@ import {
   type ChartDataQuery,
   type ChartRow,
 } from './chart-data';
-import { canvasAvailable, embedChart, prepareChartSpec, type ChartRenderer } from './chart-embed';
+import { canvasAvailable, type ChartRenderer } from './chart-embed';
+import { useChartView } from './use-chart-view';
 import { chartJpegBlob, chartPngBlob, chartSvgText } from './chart-export';
-import { withDefaultProjectionFit } from './chart-projection-fit';
-import { withSeriesLegend } from './chart-series-legend';
-import { bindChartSelection, translateChartSelectionValues, viewHasSignal, type ChartSelectionBinding } from './chart-selection';
+import { translateChartSelectionValues } from './chart-selection';
 import { CHART_SPEC_RULES } from './chart-spec-guard';
 import {
-  bindChartBoxSelection,
-  chartBoxSelectionValues,
-  chartClickSelectionValues,
   clearManualChartZoom,
   zoomChartToRows,
   withManualChartZoom,
   withChartBoxSelection,
   withChartLinePointTargets,
-  chartMarkSelectionValue,
-  nearestChartSeriesValue,
   withChartPointSelection,
   type ChartAxisType,
 } from './chart-box-selection';
-import { chartAxisType, cloneRows, describeChart, isContinuousAxis } from './chart-view-helpers';
+import { chartAxisType, describeChart, isContinuousAxis } from './chart-view-helpers';
 import { buildSpec, distinctFieldValues } from './chart-spec-build';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
 import { dataViewFlexStyle } from './data-view-layout';
@@ -112,10 +105,6 @@ export interface ClioChartProps {
 /** Default plot height when the producer names none. Unit: CSS pixels. */
 const DEFAULT_CHART_HEIGHT = 320;
 
-function isDarkTheme(): boolean {
-  return document.documentElement.classList.contains('dark');
-}
-
 /** A Vega-Lite chart over inline or artifact rows, with a selection linkable across components. */
 export function ClioChart(props: ClioChartProps) {
   const { accessibility, componentId, height = DEFAULT_CHART_HEIGHT, title, weight } = props;
@@ -145,12 +134,14 @@ export function ClioChart(props: ClioChartProps) {
   const param = props.selectionParam ?? CHART_SPEC_RULES.defaultSelectionParam;
   const selectsSeries = preset === 'trajectories' || preset === 'spectra';
   const inlineRows = useMemo(
-    () => props.data && selectsSeries
-      ? props.data.map((row, index) => ({ ...row, __row: row.__row ?? index }))
-      : props.data,
+    () =>
+      props.data && selectsSeries
+        ? props.data.map((row, index) => ({ ...row, __row: row.__row ?? index }))
+        : props.data,
     [props.data, selectsSeries],
   );
-  const selectionField = props.selectionField ??
+  const selectionField =
+    props.selectionField ??
     (selectsSeries || (autoActive && !props.dataQuery?.aggregate) ? '__row' : entityField);
   // Series geometry stays grouped by the entity even when automatic linking
   // uses __row to share exact observations with maps and tables.
@@ -174,7 +165,19 @@ export function ClioChart(props: ClioChartProps) {
         },
         param,
       ),
-    [colorField, entityField, facetField, markSelectionField, param, preset, rawSpec, selectsSeries, xField, xType, yField],
+    [
+      colorField,
+      entityField,
+      facetField,
+      markSelectionField,
+      param,
+      preset,
+      rawSpec,
+      selectsSeries,
+      xField,
+      xType,
+      yField,
+    ],
   );
   // `dataQuery` is rebuilt on every binder pass; key its projection by content.
   const queryColumnsKey = JSON.stringify(props.dataQuery?.columns ?? []);
@@ -243,27 +246,8 @@ export function ClioChart(props: ClioChartProps) {
   }, [filters, props.dataUri, rows]);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<View | undefined>(undefined);
-  const bindingRef = useRef<ChartSelectionBinding | undefined>(undefined);
-  const boxSelectionBindingRef = useRef<{ dispose: () => void } | undefined>(undefined);
-  const dataRefreshCountRef = useRef(0);
-  const rowsRef = useRef(displayRows);
-  const selectionRef = useRef(selectionState);
-  const wholeCurveBrushRef = useRef(false);
-  const additiveBrushRef = useRef(false);
-  const setSelectionRef = useRef(setSelection);
-  const [embedError, setEmbedError] = useState('');
-  const [darkTheme, setDarkTheme] = useState(isDarkTheme);
-  useEffect(() => {
-    const observer = new MutationObserver(() => setDarkTheme(isDarkTheme()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
-  const [zoomActive, setZoomActive] = useState(false);
-  const [linkable, setLinkable] = useState(true);
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
   const [boxSelectMode, setBoxSelectMode] = useState(false);
-  const [boxReady, setBoxReady] = useState(false);
   const chartHeight = fullscreen
     ? Math.max(
         height,
@@ -287,11 +271,14 @@ export function ClioChart(props: ClioChartProps) {
   }, [fullscreen, boxplotWidthLimit]);
   const renderer = useMemo<ChartRenderer>(() => (canvasAvailable() ? 'canvas' : 'svg'), []);
   const spec = useMemo(
-    () => built.spec
-      ? (preset === 'trajectories' || preset === 'spectra'
-        ? withChartLinePointTargets(withChartPointSelection(built.spec, param, markSelectionField))
-        : withChartPointSelection(built.spec, param, selectionField))
-      : undefined,
+    () =>
+      built.spec
+        ? preset === 'trajectories' || preset === 'spectra'
+          ? withChartLinePointTargets(
+              withChartPointSelection(built.spec, param, markSelectionField),
+            )
+          : withChartPointSelection(built.spec, param, selectionField)
+        : undefined,
     [built.spec, markSelectionField, param, preset, selectionField],
   );
   const hasRows = rows !== undefined;
@@ -320,6 +307,43 @@ export function ClioChart(props: ClioChartProps) {
   );
   const embedSpec = zoomInjection.spec;
   const zoomParam = spec && supportsManualZoom ? zoomInjection.param : undefined;
+  const {
+    viewRef,
+    bindingRef,
+    embedError,
+    setEmbedError,
+    zoomActive,
+    setZoomActive,
+    linkable,
+    boxReady,
+    setBoxReady,
+  } = useChartView({
+    containerRef,
+    displayRows,
+    selectionState,
+    setSelection,
+    embedSpec,
+    hasRows,
+    preset,
+    entityField,
+    colorField,
+    chartHeight,
+    measuredWidth,
+    renderer,
+    zoomParam,
+    param,
+    boxSelectionParam,
+    selectionField,
+    xField,
+    yField,
+    xAxisType,
+    yAxisType,
+    boxSelectMode,
+    componentId,
+    markSelectionField,
+    selectsSeries,
+    fullscreen,
+  });
   const filterableFields = useMemo<DataFilterField[]>(() => {
     const seen = new Set<string>();
     const fields: DataFilterField[] = [];
@@ -345,7 +369,10 @@ export function ClioChart(props: ClioChartProps) {
   const selectedMarkValues = useMemo(() => {
     if (!selectionState || !selectionField || !markSelectionField) return [];
     return translateChartSelectionValues(
-      rows ?? [], selectionField, markSelectionField, selectionState.values,
+      rows ?? [],
+      selectionField,
+      markSelectionField,
+      selectionState.values,
     );
   }, [markSelectionField, rows, selectionField, selectionState]);
   const selectedCandidate =
@@ -355,11 +382,12 @@ export function ClioChart(props: ClioChartProps) {
   const handleSelectCandidate = (raw: string) => {
     const value = selectionCandidates.find((candidate) => String(candidate) === raw);
     if (value === undefined) return;
-    const values = selectsSeries && entityField && selectionField
-      ? translateChartSelectionValues(rows ?? [], entityField, selectionField, [value])
-      : [value];
+    const values =
+      selectsSeries && entityField && selectionField
+        ? translateChartSelectionValues(rows ?? [], entityField, selectionField, [value])
+        : [value];
     void bindingRef.current?.select(values);
-    if (selectionField) setSelectionRef.current?.({ field: selectionField, source: componentId, values });
+    if (selectionField) setSelection?.({ field: selectionField, source: componentId, values });
   };
   const resetChartZoom = () => {
     const view = viewRef.current;
@@ -387,287 +415,6 @@ export function ClioChart(props: ClioChartProps) {
       );
   };
 
-  useEffect(() => {
-    setSelectionRef.current = setSelection;
-  }, [setSelection]);
-  useEffect(() => {
-    rowsRef.current = displayRows;
-    const view = viewRef.current;
-    if (!view || !displayRows) return;
-    dataRefreshCountRef.current += 1;
-    view.data('source', cloneRows(displayRows));
-    const finishRefresh = () => {
-      dataRefreshCountRef.current = Math.max(0, dataRefreshCountRef.current - 1);
-    };
-    void view.runAsync().then(finishRefresh, (error: unknown) => {
-      finishRefresh();
-      if (viewRef.current === view) {
-        setEmbedError(error instanceof Error ? error.message : String(error));
-      }
-    });
-  }, [displayRows]);
-
-  // One embedded view per chart definition; rows and the selection only update it.
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node || !embedSpec || !hasRows || measuredWidth <= 0) return;
-    let cancelled = false;
-    let finalize: (() => void) | undefined;
-    // Snapshotted once, here — `rowsRef.current` can move on during the
-    // `await embedChart(...)` gap below (a `[displayRows]` update arriving
-    // before this promise settles). The `[displayRows]` effect above only pushes an update
-    // into an ALREADY-embedded view (`viewRef.current` is still unset for
-    // the whole gap), so without the re-check after `.then` resolves, such
-    // an update is a lost write: silently dropped until some later,
-    // unrelated rows change happened to come along.
-    const embeddedRows = rowsRef.current;
-    // Renderer default (owner ruling, feedback_affordances_are_renderer_defaults.md
-    // — #1549 G4 review): a geoshape mark needs projection.fit to actually
-    // draw, and the agent should never have to know that. See
-    // chart-projection-fit.ts; an agent-authored fit always wins.
-    const seriesLegend = withSeriesLegend(
-      embedSpec,
-      embeddedRows ?? [],
-      preset,
-      entityField,
-      colorField,
-    );
-    const prepared = withDefaultProjectionFit(
-      prepareChartSpec(seriesLegend.spec, {
-        height: chartHeight,
-        rows: cloneRows(embeddedRows ?? []),
-        // Vega lays legends outside the plot width. Leave room inside the
-        // surface so categorical and continuous legends remain readable.
-        width: Math.max(220, measuredWidth - (colorField || seriesLegend.visible ? 112 : 0)),
-      }),
-      embeddedRows ?? [],
-    );
-    embedChart(node, prepared, { dark: darkTheme, renderer })
-      .then(async (result) => {
-        if (cancelled) {
-          result.finalize();
-          return;
-        }
-        finalize = result.finalize;
-        const view = result.view;
-        setEmbedError('');
-        viewRef.current = view;
-        // Region capture reads the same rendered Vega view and row set that
-        // this component uses, so its box context can name enclosed rows.
-        (
-          node as HTMLDivElement & {
-            __clioChart?: {
-              view: View;
-              rows: () => readonly ChartRow[];
-              xField?: string;
-              yField?: string;
-            };
-          }
-        ).__clioChart = {
-          view,
-          rows: () => rowsRef.current ?? [],
-          xField,
-          yField,
-        };
-        setZoomActive(false);
-        const zoomListener = (_name: string, value: unknown) => {
-          if (!value || typeof value !== 'object') return setZoomActive(false);
-          const domains = value as Record<string, unknown>;
-          setZoomActive(Array.isArray(domains.x) && Array.isArray(domains.y));
-        };
-        if (zoomParam && viewHasSignal(view, zoomParam)) {
-          view.addSignalListener(zoomParam, zoomListener);
-          const previousFinalize = finalize;
-          finalize = () => {
-            view.removeSignalListener(zoomParam, zoomListener);
-            previousFinalize?.();
-          };
-        }
-        if (rowsRef.current && rowsRef.current !== embeddedRows) {
-          view.data('source', cloneRows(rowsRef.current));
-          await view.runAsync();
-        }
-        const canLink = viewHasSignal(view, param);
-        setLinkable(canLink);
-        let boxBound = false;
-        if (boxSelectionParam && selectionField && viewHasSignal(view, boxSelectionParam)) {
-          boxBound = true;
-          boxSelectionBindingRef.current = bindChartBoxSelection(view, {
-            param: boxSelectionParam,
-            read: (signal) =>
-              chartBoxSelectionValues(signal, {
-                rows: rowsRef.current ?? [],
-                selectionField,
-                xField: xField!,
-                xType: xAxisType,
-                yField: yField!,
-                yType: yAxisType,
-              }),
-            shouldIgnoreSignal: () => dataRefreshCountRef.current > 0,
-            write: (values) => {
-              // The shared state echoes this chart's own source back unchanged.
-              // Update Vega's point selection here so a box also highlights
-              // the individual marks, including on standalone inline charts.
-              const markValues = wholeCurveBrushRef.current && entityField && selectionField
-                ? translateChartSelectionValues(
-                    rowsRef.current ?? [], entityField, selectionField,
-                    translateChartSelectionValues(rowsRef.current ?? [], selectionField, entityField, values),
-                  )
-                : values;
-              const previous = additiveBrushRef.current && selectionRef.current?.field === selectionField
-                ? selectionRef.current.values : [];
-              const merged = additiveBrushRef.current
-                ? [...new Set([...previous, ...markValues])]
-                : markValues;
-              void bindingRef.current?.select(merged);
-              setSelectionRef.current?.({ field: selectionField, source: componentId, values: merged });
-            },
-          });
-        } else if (boxSelectMode) {
-          setEmbedError('Box selection is unavailable for this chart.');
-        }
-        if (!canLink) {
-          if (boxSelectMode) setEmbedError('Selection is unavailable for this chart.');
-          return;
-        }
-        const binding = bindChartSelection(view, {
-          componentId,
-          param,
-          field: markSelectionField,
-          write: (state) => {
-            if (!selectionField || !markSelectionField) return;
-            const values = translateChartSelectionValues(
-              rowsRef.current ?? [], markSelectionField, selectionField, state.values,
-            );
-            setSelectionRef.current?.({ field: selectionField, source: componentId, values });
-          },
-        });
-        bindingRef.current = binding;
-        const handleBrushPointerDown = (event: ScenegraphEvent) => {
-          wholeCurveBrushRef.current = Boolean(event.ctrlKey || event.metaKey);
-          additiveBrushRef.current = Boolean(event.shiftKey);
-        };
-        view.addEventListener('pointerdown', handleBrushPointerDown);
-        const previousFinalizeForBrush = finalize;
-        finalize = () => {
-          view.removeEventListener('pointerdown', handleBrushPointerDown);
-          previousFinalizeForBrush?.();
-        };
-        if (selectsSeries && selectionField && markSelectionField) {
-          // Vega-Lite's line hit can report a stale series, so resolve the
-          // closest plotted point or path against the current rows.
-          let pendingClick: number | undefined;
-          const handleSeriesClick = (event: ScenegraphEvent, item: unknown) => {
-            if (!('clientX' in event) || !('clientY' in event)) return;
-            const plot = node.querySelector('canvas, svg')?.getBoundingClientRect();
-            const hit = plot && xField && yField && entityField
-              ? nearestChartSeriesValue(
-                  view,
-                  rowsRef.current ?? [],
-                  { x: event.clientX - plot.left, y: event.clientY - plot.top },
-                  xField, yField, entityField, xAxisType, selectionField,
-                )
-              : undefined;
-            const fallback = chartMarkSelectionValue(item, markSelectionField);
-            if (!hit && fallback === undefined) return;
-            const wholeCurve = Boolean(event.ctrlKey || event.metaKey || hit?.kind === 'line');
-            const targets = wholeCurve && hit && entityField
-              ? translateChartSelectionValues(rowsRef.current ?? [], entityField, selectionField, [hit.series])
-              : hit?.point !== undefined ? [hit.point] : fallback !== undefined ? [fallback] : [];
-            if (!targets.length) return;
-            const current = selectionRef.current;
-            const previous = current?.field === selectionField
-              ? current.values
-              : [];
-            const values = chartClickSelectionValues(previous, targets, Boolean(event.shiftKey));
-            const next = { field: selectionField, source: componentId, values };
-            selectionRef.current = next;
-            // Run after Vega-Lite's own click handler so the same selection
-            // store is authoritative for the highlight and outgoing reference.
-            if (pendingClick !== undefined) window.clearTimeout(pendingClick);
-            pendingClick = window.setTimeout(() => {
-              pendingClick = undefined;
-              void binding.select(values);
-              setSelectionRef.current?.(next);
-            }, 0);
-          };
-          view.addEventListener('click', handleSeriesClick);
-          const previousFinalize = finalize;
-          finalize = () => {
-            if (pendingClick !== undefined) window.clearTimeout(pendingClick);
-            view.removeEventListener('click', handleSeriesClick);
-            previousFinalize?.();
-          };
-        }
-        const current = selectionRef.current;
-        if (current && selectionField && markSelectionField) {
-          await binding.apply({
-            field: markSelectionField,
-            values: translateChartSelectionValues(
-              rowsRef.current ?? [], selectionField, markSelectionField, current.values,
-            ),
-          });
-        }
-        if (boxSelectMode && boxBound) setBoxReady(true);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) setEmbedError(error instanceof Error ? error.message : String(error));
-      });
-    return () => {
-      cancelled = true;
-      bindingRef.current?.dispose();
-      bindingRef.current = undefined;
-      boxSelectionBindingRef.current?.dispose();
-      boxSelectionBindingRef.current = undefined;
-      viewRef.current = undefined;
-      delete (node as HTMLDivElement & { __clioChart?: unknown }).__clioChart;
-      finalize?.();
-    };
-    // `fullscreen` forces a full re-embed on every toggle: `SurfaceFullScreenHost`
-    // moves this view's own host node between two PORTAL targets (inline vs.
-    // dialog) rather than remounting the React tree, so this effect's deps
-    // alone would never re-run on that move and Vega's view stayed sized (and,
-    // once actually observed live, sometimes blank) for whichever container it
-    // was first embedded into. A clean re-embed is simpler and more robust
-    // than trying to make an imperative Vega view tolerate a silent DOM move.
-  }, [
-    colorField,
-    preset,
-    componentId,
-    darkTheme,
-    embedSpec,
-    entityField,
-    fullscreen,
-    hasRows,
-    chartHeight,
-    measuredWidth,
-    param,
-    renderer,
-    selectionField,
-    markSelectionField,
-    selectsSeries,
-    xField,
-    xAxisType,
-    yAxisType,
-    yField,
-    boxSelectionParam,
-    boxSelectMode,
-    zoomParam,
-  ]);
-
-  // A selection written by another component on this surface shows here.
-  useEffect(() => {
-    selectionRef.current = selectionState;
-    if (selectionState && selectionField && markSelectionField) {
-      void bindingRef.current?.apply({
-        field: markSelectionField,
-        values: translateChartSelectionValues(
-          rowsRef.current ?? [], selectionField, markSelectionField, selectionState.values,
-        ),
-      });
-    }
-  }, [markSelectionField, selectionField, selectionState]);
-
   const failure = built.error || dataError || embedError;
 
   const heading = title || 'Chart';
@@ -683,13 +430,18 @@ export function ClioChart(props: ClioChartProps) {
     const selectedCurves = entityField
       ? new Set(selectedZoomRows.map((row) => row[entityField]).filter(isSelectionValue)).size
       : 0;
-    const completeCurves = Boolean(selectsSeries && entityField && selectedCurves &&
-      (displayRows ?? []).filter((row) => selectedZoomRows.some((selectedRow) =>
-        selectedRow[entityField] === row[entityField])).length === selectedZoomRows.length);
+    const completeCurves = Boolean(
+      selectsSeries &&
+        entityField &&
+        selectedCurves &&
+        (displayRows ?? []).filter((row) =>
+          selectedZoomRows.some((selectedRow) => selectedRow[entityField] === row[entityField]),
+        ).length === selectedZoomRows.length,
+    );
     const zoneDescription = selected
       ? completeCurves
         ? `${selectedCurves.toLocaleString()} selected ${selectedCurves === 1 ? 'curve' : 'curves'} containing ${selectedZoomRows.length.toLocaleString()} of ${totalRows.toLocaleString()} rows`
-        : `${selectedZoomRows.length.toLocaleString()} selected ${selectsSeries ? (selectedZoomRows.length === 1 ? 'point' : 'points') : (selectedZoomRows.length === 1 ? 'row' : 'rows')} of ${totalRows.toLocaleString()}`
+        : `${selectedZoomRows.length.toLocaleString()} selected ${selectsSeries ? (selectedZoomRows.length === 1 ? 'point' : 'points') : selectedZoomRows.length === 1 ? 'row' : 'rows'} of ${totalRows.toLocaleString()}`
       : `the filtered current view (${totalRows.toLocaleString()} rows)`;
     return buildZoneReference({
       componentLabel: heading,
@@ -793,7 +545,9 @@ export function ClioChart(props: ClioChartProps) {
     <>
       {linkable && markSelectionField && selectionCandidates.length > 0 ? (
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Select a {selectsSeries ? entityField : markSelectionField} by keyboard</DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger>
+            Select a {selectsSeries ? entityField : markSelectionField} by keyboard
+          </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup onValueChange={handleSelectCandidate} value={selectedCandidate}>
               {selectionCandidates.map((candidate) => (

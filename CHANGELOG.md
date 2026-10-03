@@ -6,6 +6,28 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.2] — 2026-10-03
+
+### Added
+
+- Interactive chart, map, mesh, raster, and image views with linked selections,
+  region capture, filters, exports, artifact previews, and component guidance.
+- Custom brand icons and wordmarks across the workspace and desktop shell.
+- Workspace tool preparation while the temporary new-conversation composer is open.
+
+### Fixed
+
+- New-conversation entry and Settings navigation no longer create saved sessions.
+  The first send creates the session; failed sends reuse it while the draft remains
+  open. Temporary draft text is discarded on departure, and saved-session drafts
+  are isolated between agent endpoints.
+- Desktop SSH transport attachment and explicit reconnect, update, replace, and
+  new-instance choices for existing remote agents.
+- Local and remote runtime paths follow the CLIO namespace contract, with
+  persistence retained across app replacement.
+- Chart and map selection, transcript scrolling, tool output, and partial surface
+  recovery retain their state and provenance through interactive updates.
+
 ## [0.11.3-beta.1] — 2026-10-02
 
 Beta of the agent-loop rebuild UI, paired with clio-agent 0.9.5-beta.1.

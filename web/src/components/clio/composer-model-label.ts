@@ -1,11 +1,8 @@
 import type { ClioModelOption } from '@/lib/model-options';
-import { modelTransportLabel } from './provider-transport-state';
 
 /** Compact provider and model name shown by the composer picker. */
 export function composerModelLabel(option: ClioModelOption): string {
-  const half = modelTransportLabel(option);
-  const provider = half ? `${option.providerName} · ${half}` : option.providerName;
-  return `${provider} / ${compactModelName(option.providerId, option.id, option.label)}`;
+  return `${option.providerName} / ${compactModelName(option.providerId, option.id, option.label)}`;
 }
 
 function compactModelName(provider: string, modelId: string, label: string): string {

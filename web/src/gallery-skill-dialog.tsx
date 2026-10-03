@@ -1,3 +1,4 @@
+import { vocab } from '@/lib/brand-vocabulary';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   Dialog,
@@ -25,7 +26,7 @@ type CatalogComponent = {
 type CatalogFile = { components?: Record<string, CatalogComponent> };
 
 const catalogs = [
-  { name: 'CLIO workspace', skill: 'a2ui-catalog-clio-workspace', row: CLIO_WORKSPACE_CATALOG_ROW },
+  { name: `${vocab.agent} workspace`, skill: 'a2ui-catalog-clio-workspace', row: CLIO_WORKSPACE_CATALOG_ROW },
   { name: 'A2UI Basic', skill: 'a2ui-catalog-basic', row: BASIC_CATALOG_ROW },
 ];
 
@@ -187,7 +188,7 @@ export function GallerySkillDialog({
         <DialogHeader>
           <DialogTitle>{name === 'general' ? 'Agent guidance' : `${name} contract`}</DialogTitle>
           <DialogDescription>
-            {name === 'general' ? 'The standard marketplace agent, CLIO presentation skill, and component catalogs.' : 'Fields and validation for this component.'}
+            {name === 'general' ? `The standard marketplace agent, ${vocab.agent} presentation skill, and component catalogs.` : 'Fields and validation for this component.'}
           </DialogDescription>
         </DialogHeader>
         <div

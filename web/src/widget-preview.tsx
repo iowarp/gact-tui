@@ -1,3 +1,4 @@
+import { vocab } from '@/lib/brand-vocabulary';
 // oxlint-disable react/only-export-components -- This is a standalone gallery entrypoint.
 import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -123,7 +124,7 @@ function Preview() {
     <main className={`gallery-page min-h-screen bg-background px-4 text-foreground sm:px-8 ${embedded ? 'py-4' : 'py-8'}`}>
       <div className="mx-auto max-w-7xl space-y-6">
         {embedded ? <div className="flex justify-end"><button className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onClick={openGeneralSkill} type="button">Agent guidance</button></div> : <header className="flex flex-wrap items-start justify-between gap-4">
-          <div><p className="text-xs uppercase tracking-widest text-muted-foreground">Explore CLIO</p><h1 className="text-2xl font-semibold tracking-tight">Widget gallery</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Explore CLIO’s interactive components and connected views.</p></div>
+          <div><p className="text-xs uppercase tracking-widest text-muted-foreground">Explore {vocab.agent}</p><h1 className="text-2xl font-semibold tracking-tight">Widget gallery</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Explore {vocab.agent}’s interactive components and connected views.</p></div>
           <div className="flex shrink-0 gap-2"><button className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onClick={openGeneralSkill} type="button">Agent guidance</button><button className="shrink-0 rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onClick={() => setTheme(dark ? 'light' : 'dark')} type="button">{dark ? 'Light theme' : 'Dark theme'}</button></div>
         </header>}
         <Tabs onValueChange={setSection} value={section}>

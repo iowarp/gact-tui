@@ -16,17 +16,45 @@ const reference: WorkspaceReference = {
 afterEach(() => window.sessionStorage.clear());
 
 describe('useComposerDraft', () => {
+  const persistent = { persist: true, endpoint: 'http://local.test' } as const;
+
+  it('discards the temporary entry draft when leaving its page', () => {
+    const first = renderHook(() => useComposerDraft('workspace_1', { persist: false }));
+    act(() => first.result.current.onValueChange('temporary question'));
+    act(() => first.result.current.onReferencesChange([{ offset: 0, reference }]));
+    expect(window.sessionStorage.length).toBe(0);
+    first.unmount();
+    const second = renderHook(() => useComposerDraft('workspace_1', { persist: false }));
+    expect(second.result.current.value).toBe('');
+    expect(second.result.current.references).toEqual([]);
+  });
+
+  it('isolates matching session IDs on different agent endpoints', () => {
+    const { result, rerender } = renderHook(
+      ({ endpoint }) => useComposerDraft('session_1', { persist: true, endpoint }),
+      { initialProps: { endpoint: 'http://local.test' } },
+    );
+    act(() => result.current.onValueChange('local question'));
+    act(() => result.current.onReferencesChange([{ offset: 0, reference }]));
+    rerender({ endpoint: 'http://remote.test' });
+    expect(result.current.value).toBe('');
+    expect(result.current.references).toEqual([]);
+    act(() => result.current.onValueChange('remote question'));
+    rerender({ endpoint: 'http://local.test' });
+    expect(result.current.value).toBe('local question');
+  });
+
   it('restores unsent text after a page remount and clears it after send', () => {
-    const first = renderHook(() => useComposerDraft('session_reload'));
+    const first = renderHook(() => useComposerDraft('session_reload', persistent));
     act(() => first.result.current.onValueChange('unsent field note'));
     first.unmount();
 
-    const second = renderHook(() => useComposerDraft('session_reload'));
+    const second = renderHook(() => useComposerDraft('session_reload', persistent));
     expect(second.result.current.value).toBe('unsent field note');
     act(() => second.result.current.onValueChange(''));
     second.unmount();
 
-    const third = renderHook(() => useComposerDraft('session_reload'));
+    const third = renderHook(() => useComposerDraft('session_reload', persistent));
     expect(third.result.current.value).toBe('');
   });
 

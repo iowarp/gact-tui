@@ -1,3 +1,4 @@
+import { vocab } from '@/lib/brand-vocabulary';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { galleryComponentFromHash, galleryComponentSlug } from '@/lib/gallery-component-links';
 import { renderMarkdown } from '@a2ui/markdown-it';
@@ -219,7 +220,7 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
     case 'clio.mermaid.v1': return root({ id: 'demo', component: name, title: 'From observation to report', source: 'flowchart LR\n  A[Collect] --> B[Review]\n  B --> C[Publish]' });
     case 'clio.artifact.v1': return root({ id: 'demo', component: name, name: 'vertical-displacement.png', uri: 'artifact://artifact_plot', mediaType: 'image/png', size: 53953 });
     case 'clio.slider.v1': return root({ id: 'demo', component: name, label: 'Depth interval', min: 0, max: 30, step: 0.5, range: true, value: [2, 12], unit: 'km' });
-    default: return root({ id: 'demo', component: 'Text', text: 'This view needs a registered artifact in a connected CLIO workspace.' });
+    default: return root({ id: 'demo', component: 'Text', text: `This view needs a registered artifact in a connected ${vocab.agent} workspace.` });
   }
 }
 

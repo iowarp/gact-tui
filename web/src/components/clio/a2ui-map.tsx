@@ -1,10 +1,11 @@
+import { RetryIcon } from '@/lib/icon-vocabulary';
+import { MapLegend } from './map-legend';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   MapPinIcon,
   MousePointerSquareDashedIcon,
-  RotateCcwIcon,
   ZoomInIcon,
 } from 'lucide-react';
 import type { MapLibreMap } from 'maplibre-gl';
@@ -26,15 +27,7 @@ import {
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import { mapPngBlob } from './map-export';
 import { isSelectablePointField, mapClickSelectionValues, pointSelectValue } from './map-points';
-import {
-  CONTINUOUS_HIGH_COLOR,
-  CONTINUOUS_LOW_COLOR,
-  CONTINUOUS_MID_COLOR,
-  mapCategoryColors,
-  mapPointColor,
-  mapValueExtent,
-  UNCATEGORIZED_COLOR,
-} from './map-category-palette';
+import { mapCategoryColors, mapPointColor, mapValueExtent } from './map-category-palette';
 import type { ScientificMapPoint } from './scientific-map-view';
 import {
   isSelectionValue,
@@ -61,7 +54,6 @@ const ClioScientificMapView = lazy(() =>
 const MAP_LIST_ROW_HEIGHT = 48;
 const MAP_LIST_CHROME_HEIGHT = 64;
 const DEFAULT_MAP_HEIGHT = 416;
-const MAX_INLINE_CATEGORY_LEGEND = 12;
 
 interface ClioMapProps {
   accessibility?: A2UIAccessibility;
@@ -130,29 +122,24 @@ export function ClioScientificMap({
   const writeSelection = setSelection ?? autoSelection.setSelection ?? setLocalSelection;
   // Bound: the shared selection decides; unbound (or nothing there yet): local state and `selected`.
   const incomingSelection = useMemo(
-    () => parseSelectionState(
-      setSelection
-        ? selection
-        : autoSelection.active
-          ? autoSelection.selection
-          : localSelection,
-    ),
-    [
-      autoSelection.active,
-      autoSelection.selection,
-      localSelection,
-      selection,
-      setSelection,
-    ],
+    () =>
+      parseSelectionState(
+        setSelection ? selection : autoSelection.active ? autoSelection.selection : localSelection,
+      ),
+    [autoSelection.active, autoSelection.selection, localSelection, selection, setSelection],
   );
-  const field: string = selectionField ??
+  const field: string =
+    selectionField ??
     (setSelection && incomingSelection && isSelectablePointField(incomingSelection.field)
       ? incomingSelection.field
       : 'id');
-  const state = setSelection && !selectionField && incomingSelection &&
+  const state =
+    setSelection &&
+    !selectionField &&
+    incomingSelection &&
     !isSelectablePointField(incomingSelection.field)
-    ? undefined
-    : selectionForField(incomingSelection, field);
+      ? undefined
+      : selectionForField(incomingSelection, field);
   // Inline `points` (no `dataUri`) never carry a dataset `selectionValue` —
   // only `id`/`label`/`category` exist to select by. A `selectionField`
   // naming anything else can never resolve a value to write or compare
@@ -206,10 +193,14 @@ export function ClioScientificMap({
   const handleZoneSelect = (ids: string[], wholeTracks = false, additive = false) => {
     setLocalId(undefined);
     const selectedIds = wholeTracks
-      ? points.filter((point) => ids.some((id) => {
-          const hit = points.find((candidate) => candidate.id === id);
-          return hit && (hit.id === point.id || (hit.track && hit.track === point.track));
-        })).map((point) => point.id)
+      ? points
+          .filter((point) =>
+            ids.some((id) => {
+              const hit = points.find((candidate) => candidate.id === id);
+              return hit && (hit.id === point.id || (hit.track && hit.track === point.track));
+            }),
+          )
+          .map((point) => point.id)
       : ids;
     const values = selectedIds
       .map((id) => {
@@ -473,7 +464,8 @@ export function ClioScientificMap({
           </Button>
         </TooltipTrigger>
         <TooltipContent align="end" side="bottom">
-          Click a point to select it. Ctrl-click selects its track. Shift-click toggles a point; Ctrl+Shift-click merges or removes a track. Drag selects points; Ctrl-drag selects tracks.
+          Click a point to select it. Ctrl-click selects its track. Shift-click toggles a point;
+          Ctrl+Shift-click merges or removes a track. Drag selects points; Ctrl-drag selects tracks.
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -501,7 +493,7 @@ export function ClioScientificMap({
           title="Reset zoom"
           variant="ghost"
         >
-          <RotateCcwIcon aria-hidden="true" className="size-3.5" />
+          <RetryIcon aria-hidden="true" className="size-3.5" />
         </Button>
       ) : null}
     </>
@@ -650,7 +642,13 @@ export function ClioScientificMap({
                               'h-full w-full justify-start gap-2 px-2 py-1 text-left',
                               isSelected(point.id) && 'border-primary/50 bg-primary/10',
                             )}
-                            onClick={(event) => setSelectedId(point.id, event.shiftKey, event.ctrlKey || event.metaKey)}
+                            onClick={(event) =>
+                              setSelectedId(
+                                point.id,
+                                event.shiftKey,
+                                event.ctrlKey || event.metaKey,
+                              )
+                            }
                             variant="ghost"
                           >
                             <MapPinIcon
@@ -713,74 +711,15 @@ export function ClioScientificMap({
               </div>
             ) : null}
           </div>
-          {valueExtent ? (
-            <div
-              aria-label={`${valueLabel} colour scale`}
-              className="grid grid-cols-[auto_minmax(5rem,1fr)_auto] items-center gap-x-2 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground"
-              data-slot="a2ui-map-legend"
-            >
-              <span className="col-span-3 font-medium text-foreground">{valueLabel}</span>
-              <span className="whitespace-nowrap tabular-nums">
-                {valueExtent[0].toLocaleString()}
-                {valueUnit ? ` ${valueUnit}` : ''}
-              </span>
-              <span
-                aria-hidden="true"
-                className="h-2.5 min-w-0 rounded-full"
-                style={{
-                  background: `linear-gradient(to right, ${CONTINUOUS_LOW_COLOR}, ${CONTINUOUS_MID_COLOR}, ${CONTINUOUS_HIGH_COLOR})`,
-                }}
-              />
-              <span className="whitespace-nowrap tabular-nums">
-                {valueExtent[1].toLocaleString()}
-                {valueUnit ? ` ${valueUnit}` : ''}
-              </span>
-              {points.some((point) => point.value === undefined) ? (
-                <span className="col-span-3">Grey: no value</span>
-              ) : null}
-            </div>
-          ) : categoryColors.size > MAX_INLINE_CATEGORY_LEGEND ? (
-            <div
-              aria-label="Map colour summary"
-              className="border-t px-3 py-2 text-xs text-muted-foreground"
-              data-slot="a2ui-map-legend"
-            >
-              {categoryColors.size.toLocaleString()}{' '}
-              {geometrySelectionByPoints ? 'tracks' : 'categories'} on the map. Colours repeat;
-              filter to compare them.
-              {geometrySelectionByPoints && points.length > 1_000
-                ? ' Zoom in for observations.'
-                : ''}
-            </div>
-          ) : categoryColors.size > 0 ? (
-            <div
-              aria-label="Map category colours"
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground"
-              data-slot="a2ui-map-legend"
-              role="list"
-            >
-              {[...categoryColors].map(([category, color]) => (
-                <span className="inline-flex items-center gap-1.5" key={category} role="listitem">
-                  <span
-                    aria-hidden="true"
-                    className="size-2.5 rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
-                  {category}
-                </span>
-              ))}
-              {hasUncategorized ? (
-                <span className="inline-flex items-center gap-1.5" role="listitem">
-                  <span
-                    aria-hidden="true"
-                    className="size-2.5 rounded-full"
-                    style={{ backgroundColor: UNCATEGORIZED_COLOR }}
-                  />
-                  Uncategorized
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          <MapLegend
+            valueExtent={valueExtent}
+            valueLabel={valueLabel}
+            valueUnit={valueUnit}
+            points={points}
+            categoryColors={categoryColors}
+            geometrySelectionByPoints={geometrySelectionByPoints}
+            hasUncategorized={hasUncategorized}
+          />
           {selectedPoint ? (
             <div
               className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-xs"
