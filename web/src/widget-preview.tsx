@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes';
 import { Toaster } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppProviders } from '@/providers/app-providers';
-import { A2uiDemo, LinkedChartDemo, LinkedViewsDemo, WidgetGallery } from '@/widget-gallery';
+import { A2uiDemo, LinkedChartDemo, WidgetGallery } from '@/widget-gallery';
 import { GallerySkillDialog } from '@/gallery-skill-dialog';
 import './index.css';
 import './widget-gallery.css';
@@ -15,11 +15,46 @@ const embedded = new URLSearchParams(window.location.search).has('embedded');
 const skillPreview = new URLSearchParams(window.location.search).get('skill');
 if (skillPreview) document.documentElement.classList.add('gallery-skill-preview');
 
+const hurricaneMoments = [
+  { id: 'harvey-042', storm: 'Harvey', detail: '115 kt near the Texas coast', year: '2017' },
+  { id: 'maria-017', storm: 'Maria', detail: '150 kt east of Puerto Rico', year: '2017' },
+  { id: 'dorian-038', storm: 'Dorian', detail: '160 kt near the Bahamas', year: '2019' },
+];
+
+function HurricaneShowcase() {
+  const [active, setActive] = useState(-1);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playing) return;
+    const timer = window.setTimeout(() => {
+      if (active < hurricaneMoments.length - 1) setActive(active + 1);
+      else setPlaying(false);
+    }, 2600);
+    return () => window.clearTimeout(timer);
+  }, [active, playing]);
+  const moment = hurricaneMoments[active];
+  return <section className="gallery-hurricane-showcase space-y-4" aria-label="Interactive hurricane walkthrough">
+    <div className="gallery-hurricane-intro">
+      <div className="space-y-3">
+        <p className="gallery-hurricane-kicker">A question becomes an explorable answer</p>
+        <blockquote>“How did Harvey, Maria, and Dorian move, and when did each reach its strongest winds?”</blockquote>
+        <p>One set of observations powers the tracks, wind curves, and table. Pick a point in any view to find it in the others.</p>
+      </div>
+      <div className="gallery-hurricane-play">
+        <button className="gallery-hurricane-play-button" onClick={() => { if (playing) setPlaying(false); else { setActive(0); setPlaying(true); } }} type="button">{playing ? 'Pause walkthrough' : 'Play walkthrough'}</button>
+        <span aria-live="polite">{moment ? `${moment.storm} ${moment.year}: ${moment.detail}` : 'Three storms, one linked selection'}</span>
+      </div>
+    </div>
+    <div className="gallery-hurricane-surface"><A2uiDemo name="linked-hurricanes" variant="trajectories" demoSelection={moment?.id ?? null} onInteract={() => setPlaying(false)} /></div>
+    <p className="text-xs text-muted-foreground">Historical observations adapted from NOAA HURDAT2 for this gallery. The bundled data works without a running agent. <a className="underline underline-offset-2 hover:text-foreground" href="https://www.nhc.noaa.gov/data/" rel="noreferrer" target="_blank">Source</a></p>
+  </section>;
+}
+
 function Preview() {
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme !== 'light';
   const [section, setSection] = useState('intro');
-  const [linkedExample, setLinkedExample] = useState('sites');
+  const [linkedExample, setLinkedExample] = useState('hurricanes');
   const [showGeneralSkill, setShowGeneralSkill] = useState(false);
   const openGeneralSkill = () => {
     if (embedded && window.parent !== window) {
@@ -54,7 +89,7 @@ function Preview() {
             <p className="text-sm text-muted-foreground">The <strong className="text-foreground">Components</strong> tab includes all 37 catalog entries, including controls, layout, and media. Each example links to its exact contract. <strong className="text-foreground">Agent guidance</strong> shows the standard marketplace agent and presentation skill.</p>
           </TabsContent>
           <TabsContent className="pt-6" value="components"><WidgetGallery /></TabsContent>
-          <TabsContent className="space-y-5 pt-6" value="linked"><div className="max-w-3xl space-y-2"><h2 className="text-lg font-semibold">One dataset across several views</h2><p className="text-sm leading-6 text-muted-foreground">CLIO links views of the same rows so a selection in one can be found in the others. Click a point or row, then inspect the other views and the data sent by Reference this.</p></div><div aria-label="Linked data examples" className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group"><button aria-pressed={linkedExample === 'sites'} className={`shrink-0 rounded-md px-3 py-1.5 text-sm ${linkedExample === 'sites' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} onClick={() => setLinkedExample('sites')} type="button">Field sites</button><button aria-pressed={linkedExample === 'events'} className={`shrink-0 rounded-md px-3 py-1.5 text-sm ${linkedExample === 'events' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} onClick={() => setLinkedExample('events')} type="button">Earthquake readings</button></div>{linkedExample === 'sites' ? <LinkedViewsDemo /> : <LinkedChartDemo />}</TabsContent>
+          <TabsContent className="space-y-5 pt-6" value="linked"><div className="max-w-3xl space-y-2"><h2 className="text-xl font-semibold">Interact with your data visually</h2><p className="text-sm leading-6 text-muted-foreground">Selections travel between views of the same observations. Play the walkthrough, then try the map, curves, and table yourself.</p></div><div aria-label="Linked data examples" className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group"><button aria-pressed={linkedExample === 'hurricanes'} className={`shrink-0 rounded-md px-3 py-1.5 text-sm ${linkedExample === 'hurricanes' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} onClick={() => setLinkedExample('hurricanes')} type="button">Hurricane tracks</button><button aria-pressed={linkedExample === 'events'} className={`shrink-0 rounded-md px-3 py-1.5 text-sm ${linkedExample === 'events' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} onClick={() => setLinkedExample('events')} type="button">Earthquake readings</button></div>{linkedExample === 'hurricanes' ? <HurricaneShowcase /> : <LinkedChartDemo />}</TabsContent>
         </Tabs>
         <GallerySkillDialog name={showGeneralSkill ? 'general' : null} onClose={() => setShowGeneralSkill(false)} />
       </div><Toaster />

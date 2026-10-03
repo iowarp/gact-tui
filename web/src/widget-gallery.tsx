@@ -122,6 +122,12 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
       { id: 'map', component: 'clio.map.v1', title: 'Field sites', points: linkedRows.map((row) => ({ id: row.id, label: row.site, latitude: row.latitude, longitude: row.longitude, category: row.region, detail: `${row.magnitude.toFixed(1)} magnitude` })), selection: { path: '/selection/sites' }, selectionField: 'id' },
       { id: 'table', component: 'clio.data-table.v1', columns: ['id', 'region', 'depth', 'magnitude'], rows: linkedRows, selection: { path: '/selection/sites' }, selectionField: 'id' },
     ];
+    case 'linked-hurricanes': return [
+      { id: 'root', component: 'Column', children: ['map', 'chart', 'table'] },
+      { id: 'map', component: 'clio.map.v1', title: 'Atlantic hurricane tracks', dataUri: 'artifact://artifact_gallery_hurricane_tracks', latitudeField: 'lat', longitudeField: 'lon', labelField: 'label', idField: 'observation_id', trackField: 'storm', orderField: 'time', filterFields: ['storm', 'year', 'wind_kt'], selection: { path: '/selection/hurricanes' }, selectionField: 'observation_id' },
+      { id: 'chart', component: 'clio.chart.v1', title: 'Wind speed along each track', preset: 'trajectories', dataUri: 'artifact://artifact_gallery_hurricane_tracks', xField: 'elapsed_hours', yField: 'wind_kt', colorField: 'storm', entityField: 'storm', selection: { path: '/selection/hurricanes' }, selectionField: 'observation_id', height: 400 },
+      { id: 'table', component: 'clio.data-table.v1', dataUri: 'artifact://artifact_gallery_hurricane_tracks', columns: ['storm', 'time', 'wind_kt', 'lat', 'lon'], selection: { path: '/selection/hurricanes' }, selectionField: 'observation_id' },
+    ];
     case 'linked-regions': return [
       { id: 'root', component: 'Column', children: ['scatter', 'boxplot', 'table'] },
       { id: 'scatter', component: 'clio.chart.v1', title: 'Earthquake depth and magnitude', preset: 'scatter', data: chartRows, xField: 'depth', yField: 'magnitude', entityField: 'id', colorField: 'region', height: 300, selection: { path: '/selection/events' }, selectionField: 'id' },
@@ -212,7 +218,7 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
   }
 }
 
-export function A2uiDemo({ name, variant }: { name: ComponentName; variant: string }) {
+export function A2uiDemo({ name, variant, demoSelection, onInteract }: { name: ComponentName; variant: string; demoSelection?: string | null; onInteract?: () => void }) {
   const [lastAction, setLastAction] = useState('');
   const [capturePreview, setCapturePreview] = useState<{ imageUrl: string; text: string }>();
   const surface = useMemo(() => {
@@ -244,6 +250,12 @@ export function A2uiDemo({ name, variant }: { name: ComponentName; variant: stri
     });
   }, [surface]);
   useEffect(() => {
+    if (name !== 'linked-hurricanes' || demoSelection === undefined) return;
+    surface?.dataModel.set('/selection/hurricanes', {
+      field: 'observation_id', values: demoSelection ? [demoSelection] : [], source: 'gallery-demo',
+    });
+  }, [name, demoSelection, surface]);
+  useEffect(() => {
     const showCapture = (event: Event) => {
       const detail = (event as CustomEvent<{ file: File; text: string }>).detail;
       setCapturePreview({ imageUrl: URL.createObjectURL(detail.file), text: detail.text });
@@ -258,7 +270,7 @@ export function A2uiDemo({ name, variant }: { name: ComponentName; variant: stri
     revision: 1,
     messages: [{ updateComponents: { components: examplePayload(name, variant) } }],
   };
-  return <div className="space-y-4"><div data-slot="a2ui-surface-root"><MarkdownContext.Provider value={renderMarkdown}><A2uiReferenceSessionProvider value="sess_flat_ndp"><AutoDatasetSelectionProvider><A2uiRegionCaptureProvider allowDemoCapture surface={captureSurface}><A2uiSurface surface={surface} /></A2uiRegionCaptureProvider></AutoDatasetSelectionProvider></A2uiReferenceSessionProvider></MarkdownContext.Provider></div>{lastAction ? <p className="rounded-md bg-muted px-3 py-2 text-xs">Demo action: {lastAction}</p> : null}{capturePreview ? <aside aria-label="Capture preview" className="space-y-3 rounded-md border p-3 text-sm"><div className="flex items-center justify-between gap-3"><p className="font-medium">Capture preview</p><button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setCapturePreview(undefined)} type="button">Close</button></div><img alt="Captured surface with labelled selection boxes" className="max-h-80 max-w-full rounded border object-contain" src={capturePreview.imageUrl} /><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-sm bg-muted/30 p-2 text-xs">{capturePreview.text}</pre></aside> : null}</div>;
+  return <div className="space-y-4" onPointerDownCapture={onInteract}><div data-slot="a2ui-surface-root"><MarkdownContext.Provider value={renderMarkdown}><A2uiReferenceSessionProvider value="sess_flat_ndp"><AutoDatasetSelectionProvider><A2uiRegionCaptureProvider allowDemoCapture surface={captureSurface}><A2uiSurface surface={surface} /></A2uiRegionCaptureProvider></AutoDatasetSelectionProvider></A2uiReferenceSessionProvider></MarkdownContext.Provider></div>{lastAction ? <p className="rounded-md bg-muted px-3 py-2 text-xs">Demo action: {lastAction}</p> : null}{capturePreview ? <aside aria-label="Capture preview" className="space-y-3 rounded-md border p-3 text-sm"><div className="flex items-center justify-between gap-3"><p className="font-medium">Capture preview</p><button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setCapturePreview(undefined)} type="button">Close</button></div><img alt="Captured surface with labelled selection boxes" className="max-h-80 max-w-full rounded border object-contain" src={capturePreview.imageUrl} /><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-sm bg-muted/30 p-2 text-xs">{capturePreview.text}</pre></aside> : null}</div>;
 }
 
 /** A small three-view example showing one selection shared by chart, map, and table. */

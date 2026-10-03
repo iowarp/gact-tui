@@ -1,6 +1,7 @@
 import type { ArtifactRasterQueryRequest, ArtifactRasterQueryResult, ArtifactTableQueryRequest, ArtifactTableQueryResult } from '@clio/core/v3';
 import type { createRepository } from '@/lib/connection';
 import { galleryStormTracks } from './gallery-storm-tracks';
+import galleryHurricaneTracks from './gallery-hurricane-tracks.json';
 
 type Repository = ReturnType<typeof createRepository>;
 const BOUNDS = [0, 0, 100, 100] as const;
@@ -38,9 +39,10 @@ export function createGalleryRepository(base: Repository): Repository {
     get(target, property, receiver) {
       if (property === 'artifactTableQuery') {
         return (artifactId: string, query: ArtifactTableQueryRequest, signal?: AbortSignal): Promise<ArtifactTableQueryResult> => {
-          if (artifactId !== 'artifact_gallery_storm_tracks') return target.artifactTableQuery(artifactId, query, signal);
-          const filtered = galleryStormTracks.filter((row) => (query.filter ?? []).every((filter) => {
-            const value = row[filter.column as keyof typeof row];
+          if (artifactId !== 'artifact_gallery_storm_tracks' && artifactId !== 'artifact_gallery_hurricane_tracks') return target.artifactTableQuery(artifactId, query, signal);
+          const rows = artifactId === 'artifact_gallery_hurricane_tracks' ? galleryHurricaneTracks : galleryStormTracks;
+          const filtered = rows.filter((row) => (query.filter ?? []).every((filter) => {
+            const value = (row as Record<string, string | number>)[filter.column];
             if (filter.op === 'contains') return String(value ?? '').toLowerCase().includes(filter.value.toLowerCase());
             if (filter.op === 'eq') return value === filter.value;
             if (filter.op === 'in') return filter.value.includes(value);
@@ -56,8 +58,8 @@ export function createGalleryRepository(base: Repository): Repository {
           const sorted = [...filtered];
           for (const sort of [...(query.sort ?? [])].reverse()) {
             sorted.sort((a, b) => {
-              const left = a[sort.column as keyof typeof a];
-              const right = b[sort.column as keyof typeof b];
+              const left = (a as Record<string, string | number>)[sort.column];
+              const right = (b as Record<string, string | number>)[sort.column];
               const result = typeof left === 'number' && typeof right === 'number'
                 ? left - right : String(left).localeCompare(String(right), undefined, { numeric: true });
               return sort.desc ? -result : result;
@@ -65,17 +67,17 @@ export function createGalleryRepository(base: Repository): Repository {
           }
           const offset = query.offset ?? 0;
           const page = sorted.slice(offset, offset + query.limit);
-          const names = query.columns ?? Object.keys(galleryStormTracks[0]!);
-          const columns = Object.fromEntries(names.map((name) => [name, page.map((row) => row[name as keyof typeof row] ?? null)]));
+          const names = query.columns ?? Object.keys(rows[0]!);
+          const columns = Object.fromEntries(names.map((name) => [name, page.map((row) => (row as Record<string, string | number>)[name] ?? null)]));
           return Promise.resolve({
             artifact_id: artifactId,
-            schema: Object.keys(galleryStormTracks[0]!).map((name) => ({
+            schema: Object.keys(rows[0]!).map((name) => ({
               name,
-              type: ['lat', 'lon', 'wind_kt'].includes(name) ? 'double' : name === 'time' ? 'timestamp[s, tz=UTC]' : 'string',
+              type: ['lat', 'lon', 'wind_kt', 'elapsed_hours', 'year'].includes(name) ? 'double' : name === 'time' ? 'timestamp[s, tz=UTC]' : 'string',
             })),
-            columns, totalRows: galleryStormTracks.length, matchedRows: filtered.length,
+            columns, totalRows: rows.length, matchedRows: filtered.length,
             returnedRows: page.length, truncated: page.length < filtered.length,
-            downsample: { mode: 'none' }, rowKey: { column: '__row', values: page.map((row) => galleryStormTracks.indexOf(row)) },
+            downsample: { mode: 'none' }, rowKey: { column: '__row', values: page.map((row) => rows.indexOf(row)) },
           });
         };
       }
