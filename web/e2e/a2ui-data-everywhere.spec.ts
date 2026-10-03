@@ -224,36 +224,32 @@ async function mapPointsLayerData(page: Page): Promise<{
   });
 }
 
-/**
- * Past the virtualization threshold (#1533 MEDIUM 6), the side list only
- * mounts rows scrolled into view — a point deep in the 500-row list (the
- * earthquake fixture orders points by timestamp, not by id, so a given id's
- * position is arbitrary) may not exist in the DOM at all until scrolled to.
- * Scrolls the list container in increments — the same thing a sighted user
- * would do to find it — until the target row mounts, then returns it.
- */
+/** Open the map's optional list through its shared toolbar menu. */
+async function showMapLocations(page: Page) {
+  const map = page.locator('[data-slot="a2ui-map"]');
+  const list = map.locator('[data-slot="a2ui-map-points-list"]');
+  if (await list.isVisible()) return;
+  await map.hover();
+  await map.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Show locations list' }).click();
+  await expect(list).toBeVisible();
+}
+
+/** Find a point by paging through the complete, bounded locations list. */
 async function scrollToMapPointButton(page: Page, id: string) {
-  // The locations list starts closed; open it the way a reader would.
-  // Matches either state ("Show"/"Hide the locations list") — this helper is
-  // called more than once per test, and the button's accessible name flips
-  // with its pressed state.
-  const toggle = page.getByRole('button', { name: /the locations list$/iu });
-  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
-  const list = page.locator('[data-slot="a2ui-map-points-list"]');
+  await showMapLocations(page);
   const target = mapPointButton(page, id);
-  if (await target.count()) return target;
-  const totalHeight = await list.evaluate((element) => element.scrollHeight);
-  const step = Math.max((await list.evaluate((element) => element.clientHeight)) || 256, 256) * 6;
-  for (let top = 0; top <= totalHeight; top += step) {
-    await list.evaluate((element, value) => {
-      element.scrollTop = value;
-    }, top);
-    if (await target.count()) return target;
+  const next = page.getByRole('button', { name: 'Next locations page' });
+  while (!(await target.count()) && await next.isEnabled()) {
+    const pagination = page.locator('[data-slot="a2ui-map-points-pagination"]');
+    const before = await pagination.innerText();
+    await next.click();
+    await expect(pagination).not.toHaveText(before);
   }
+  await expect(target).toBeVisible();
   return target;
 }
 
-const screenshotDir = 'D:/Libraries/Documents/projects/clio_develop_workspace/temp/a2ui-data-shots';
 
 for (const theme of ['light', 'dark'] as const) {
   test(`captures the linked demo in ${theme} theme`, async ({ page }) => {
@@ -267,6 +263,7 @@ for (const theme of ['light', 'dark'] as const) {
     // MEDIUM 6): they draw as one GeoJSON layer, not 500 DOM markers, so
     // "500 locations" (driven by the resolved point count itself, not a
     // rendering strategy) is what proves the whole referenced dataset loaded.
+    await showMapLocations(page);
     await expect(page.getByText('500 locations')).toBeVisible({ timeout: 60_000 });
     // The DOM list proves the data resolved; this proves the map component
     // itself turned it into a real layer AND that the canvas actually
@@ -291,7 +288,7 @@ for (const theme of ['light', 'dark'] as const) {
     // and taking a plain viewport screenshot sidesteps both.
     const surface = page.locator('[aria-label^="Interactive surface,"]').last();
     await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
-    await page.screenshot({ path: `${screenshotDir}/earthquake-demo-${theme}.png` });
+    await page.screenshot({ path: `${test.info().outputDir}/earthquake-demo-${theme}.png` });
   });
 }
 
@@ -311,7 +308,7 @@ test('a detached surface never overlaps the subagent card in the message before 
   // it. `conversation.tsx` now independently measures the real DOM and pads
   // the gap; this proves it holds for the actual card+artifact+surface
   // sequence the bug was found in, not just in principle.
-  const card = page.getByLabel('Open child conversation Station evidence specialist');
+  const card = page.getByRole('article', { name: 'Child conversation unavailable for Station evidence specialist' });
   const surface = page.locator('[aria-label^="Interactive surface,"]').last();
   await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
   const cardBox = await card.boundingBox();
@@ -329,13 +326,7 @@ test('a detached surface never overlaps the subagent card in the message before 
   const seamSurfaceBox = await surface.boundingBox();
   if (seamCardBox && seamSurfaceBox) {
     await page.screenshot({
-      path: `${exploreShotsDir}/card-surface-seam.png`,
-      clip: {
-        height: Math.min(seamSurfaceBox.y + 96 - seamCardBox.y, 900),
-        width: Math.max(seamCardBox.width, seamSurfaceBox.width),
-        x: Math.min(seamCardBox.x, seamSurfaceBox.x),
-        y: seamCardBox.y,
-      },
+      path: `${test.info().outputDir}/card-surface-seam.png`,
     });
   }
 });
@@ -353,6 +344,7 @@ test('renders a chart, map, table, and metric from one referenced dataset', asyn
   // (the inline cap of 500 governs `points`, not a `dataUri` map). Past the
   // map's own virtualization threshold (#1533 MEDIUM 6), 500 points draw as
   // one GeoJSON layer rather than 500 DOM markers.
+  await showMapLocations(page);
   await expect(page.getByText('500 locations')).toBeVisible();
   await expect
     .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
@@ -524,14 +516,12 @@ test('clicking a column header toggles its sort', async ({ page }) => {
 // re-query, user filters on charts and maps, zone selection, and "Reference
 // this". Screenshots for these land in a dedicated directory so they don't
 // collide with the #508 demo captures above.
-const exploreShotsDir =
-  'D:/Libraries/Documents/projects/clio_develop_workspace/temp/a2ui-explore-shots';
-
-test('brushing the chart re-queries the range at full detail and the zone links the map', async ({
+test('box selection links the map and explicit zoom preserves the full dataset', async ({
   page,
 }) => {
   test.setTimeout(90_000);
   await openEarthquakeDemo(page);
+  await showMapLocations(page);
   // Past the map's own virtualization threshold (#1533 MEDIUM 6), 500 points
   // draw as one GeoJSON layer rather than 500 DOM markers.
   await expect(page.getByText('500 locations')).toBeVisible({ timeout: 20_000 });
@@ -546,6 +536,9 @@ test('brushing the chart re-queries the range at full detail and the zone links 
     .toBeGreaterThan(0);
 
   const chartView = page.locator('[data-slot="a2ui-chart-view"]');
+  const chart = page.locator('[data-slot="a2ui-chart"]');
+  await chart.hover();
+  await chart.getByRole('button', { name: 'Box select chart rows' }).click();
   // The demo surface is far taller than the viewport inside the transcript's
   // own scroll container, so the chart starts off-screen (a negative-y
   // bounding box) - `page.mouse` works in viewport coordinates, so the drag
@@ -553,19 +546,13 @@ test('brushing the chart re-queries the range at full detail and the zone links 
   await chartView.scrollIntoViewIfNeeded();
   const box = await chartView.boundingBox();
   if (!box) throw new Error('the chart view has no bounding box');
-  const y = box.y + box.height / 2;
-  // A left-to-right drag over the middle of the x (depth) axis - vega-lite's
-  // interval selection turns this into a brush without any spec change on
-  // the producer's side (`chart-zoom.ts`'s runtime-only injection).
-  await page.mouse.move(box.x + box.width * 0.25, y);
+  // Select a real rectangle, then zoom explicitly. Selection itself retains
+  // the complete plotted dataset and only highlights matching map points.
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.25);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.5, y, { steps: 10 });
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.75, { steps: 10 });
   await page.mouse.up();
-
-  await expect(page.locator('[data-slot="a2ui-chart-zoom-caption"]')).toContainText(
-    'Zoomed to depth',
-    { timeout: 20_000 },
-  );
+  await expect(chart.getByRole('img', { name: /· 500 rows$/u })).toBeVisible();
 
   // The zone's own ids replaced the shared selection: the map (which always
   // shows every referenced point, never paginated) highlights a proper
@@ -596,13 +583,24 @@ test('brushing the chart re-queries the range at full detail and the zone links 
   await page.setViewportSize({ height: 1400, width: 1280 });
   const surface = page.locator('[aria-label^="Interactive surface,"]').last();
   await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
-  await page.screenshot({ path: `${exploreShotsDir}/chart-brush-zone-linked.png` });
+  await page.screenshot({ path: `${test.info().outputDir}/chart-brush-zone-linked.png` });
 
-  // Double-click clears the brush and its zone.
-  await page.mouse.dblclick(box.x + box.width * 0.5, y);
-  await expect(page.locator('[data-slot="a2ui-chart-zoom-caption"]')).toHaveCount(0, {
-    timeout: 20_000,
+  // Zoom is a separate action and never drops rows or clears the selection.
+  const xDomain = () => chartView.evaluate((element) => {
+    const chartState = (element as HTMLElement & {
+      __clioChart?: { view: { scale: (name: string) => { domain: () => number[] } } };
+    }).__clioChart;
+    if (!chartState) throw new Error('Chart has not rendered');
+    return chartState.view.scale('x').domain();
   });
+  const beforeZoom = await xDomain();
+  await chart.hover();
+  await chart.getByRole('button', { name: 'Zoom to selection' }).click();
+  await expect.poll(xDomain).not.toEqual(beforeZoom);
+  await expect(chart.getByRole('img', { name: /· 500 rows$/u })).toBeVisible();
+  await expect(selectedCount).toHaveText(selectedText);
+  await chart.getByRole('button', { name: 'Reset zoom' }).click();
+  await expect.poll(xDomain).toEqual(beforeZoom);
 });
 
 test('a chart filter popover narrows the plotted rows, layered on the agent base view', async ({
@@ -611,7 +609,8 @@ test('a chart filter popover narrows the plotted rows, layered on the agent base
   test.setTimeout(90_000);
   await openEarthquakeDemo(page);
   const chartFrame = page.locator('[data-slot="a2ui-chart"]');
-  await expect(chartFrame).toContainText('500 rows', { timeout: 20_000 });
+  const chartImage = chartFrame.getByRole('img');
+  await expect(chartImage).toHaveAttribute('aria-label', /· 500 rows$/u, { timeout: 20_000 });
 
   // The toolbar is revealed on hover (G0 redesign); a real mouse user reaches
   // it by moving across the card, so a synthetic click needs the same hover
@@ -621,11 +620,11 @@ test('a chart filter popover narrows the plotted rows, layered on the agent base
   await chartFrame.getByRole('button', { name: /^Filters/u }).click();
   await page.getByLabel('Filter place, contains').fill('eastern');
 
-  await expect(chartFrame).not.toContainText('500 rows', { timeout: 20_000 });
-  await expect(chartFrame).toContainText(/\d+ rows/u);
+  await expect(chartImage).not.toHaveAttribute('aria-label', /· 500 rows$/u, { timeout: 20_000 });
+  await expect(chartImage).toHaveAttribute('aria-label', /· [1-9]\d* rows$/u);
 
   await page.screenshot({
-    path: `${exploreShotsDir}/chart-filter-popover.png`,
+    path: `${test.info().outputDir}/chart-filter-popover.png`,
     clip: (await chartFrame.boundingBox()) ?? undefined,
   });
 });
@@ -635,6 +634,7 @@ test('shift+dragging a rectangle on the map selects points and links the table',
 }) => {
   test.setTimeout(90_000);
   await openEarthquakeDemo(page);
+  await showMapLocations(page);
   // Past the map's own virtualization threshold (#1533 MEDIUM 6), 500 points
   // draw as one GeoJSON layer rather than 500 DOM markers.
   await expect(page.getByText('500 locations')).toBeVisible({ timeout: 20_000 });
@@ -689,13 +689,13 @@ test('"Reference this" puts a clean chip in the composer and a properly rendered
   // selected on this chart, so it names the whole view.
   const attached = page.getByRole('list', { name: 'Attached selections' });
   await expect(attached).toBeVisible();
-  await expect(attached).toContainText('the whole view');
+  await expect(attached).toContainText('the filtered current view (500 rows)');
   expect(await attached.innerText()).not.toContain('```json');
   expect(await attached.innerText()).not.toContain('**');
   expect((await attached.innerText()).includes('artifact_earthquake')).toBe(false);
 
   await page.screenshot({
-    path: `${exploreShotsDir}/reference-this-composer.png`,
+    path: `${test.info().outputDir}/reference-this-composer.png`,
     clip: (await attached.boundingBox()) ?? undefined,
   });
 

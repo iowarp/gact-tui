@@ -95,7 +95,7 @@ test('renders a clio.chart.v1 scatter preset over inline data', async ({ page })
   // Wait past "Loading rows…" so the card's final (taller) height is what
   // gets captured, not a mid-load layout.
   await expect(
-    surfaceSection.locator('[data-slot="a2ui-chart"]').getByText('9 rows'),
+    surfaceSection.getByRole('img', { name: /· 9 rows$/u }),
   ).toBeVisible();
 
   // Screenshot the surface card itself, not the whole page — the seeded
@@ -104,7 +104,7 @@ test('renders a clio.chart.v1 scatter preset over inline data', async ({ page })
   await screenshotElement(
     page,
     surfaceSection,
-    'D:/Libraries/Documents/projects/clio_develop_workspace/temp/chart-shots/chart-scatter-preset.png',
+    test.info().outputPath('chart-scatter-preset.png'),
   );
 });
 
@@ -121,7 +121,7 @@ test('the chart still renders in full screen, and again after exiting (#1551/#51
   const chartFrame = surfaceSection.locator('[data-slot="a2ui-chart"]');
   const chartView = chartFrame.locator('[data-slot="a2ui-chart-view"]');
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
-  await expect(chartFrame.getByText('9 rows')).toBeVisible();
+  await expect(chartFrame.getByRole('img', { name: /· 9 rows$/u })).toBeVisible();
   const inlineBox = await chartView.locator('canvas, svg').first().boundingBox();
   expect(inlineBox?.width).toBeGreaterThan(0);
   expect(inlineBox?.height).toBeGreaterThan(0);
@@ -139,7 +139,7 @@ test('the chart still renders in full screen, and again after exiting (#1551/#51
   expect(fullscreenBox?.width).toBeGreaterThan(0);
   expect(fullscreenBox?.height).toBeGreaterThan(0);
   await page.screenshot({
-    path: 'D:/Libraries/Documents/projects/clio_develop_workspace/temp/g0-shots/chart-fullscreen.png',
+    path: test.info().outputPath('chart-fullscreen.png'),
   });
 
   await dialog.getByRole('button', { name: 'Exit full screen' }).click();
@@ -164,7 +164,7 @@ test('links selection between clio.chart.v1 and clio.data-table.v1 sharing one p
   const chartView = surfaceSection.locator('[data-slot="a2ui-chart-view"]');
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
   await expect(
-    surfaceSection.locator('[data-slot="a2ui-chart"]').getByText('9 rows'),
+    surfaceSection.getByRole('img', { name: /· 9 rows$/u }),
   ).toBeVisible();
 
   // Click a table row (a real DOM element; the chart's own canvas marks are
@@ -177,6 +177,6 @@ test('links selection between clio.chart.v1 and clio.data-table.v1 sharing one p
   await screenshotElement(
     page,
     surfaceSection,
-    'D:/Libraries/Documents/projects/clio_develop_workspace/temp/chart-shots/chart-linked-selection.png',
+    test.info().outputPath('chart-linked-selection.png'),
   );
 });
