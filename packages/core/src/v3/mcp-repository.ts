@@ -42,6 +42,17 @@ export interface McpServerListOptions {
 
 /** Tool-provider discovery, lifecycle, and inventory routes. */
 export class McpRepository extends DocumentRepository {
+  /** Prepare the selected workspace's MCP fleet without creating a session. */
+  public warmWorkspace(workspaceId: string, signal?: AbortSignal) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/warmup`,
+      decode: (value) =>
+        z.object({ status: z.enum(['warming', 'disabled', 'unavailable']) }).parse(value),
+      signal,
+    });
+  }
+
   public mcpConfiguration(
     name: string,
     signal?: AbortSignal,

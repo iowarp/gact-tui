@@ -84,6 +84,7 @@ export type ClioQueryNamespace =
   | 'workspace-resource-structure'
   | 'workspace-resource-structure-node'
   | 'workspace-memory-search'
+  | 'workspace-warmup'
   | 'workspaces';
 
 /** Canonical TanStack Query keys shared by reads, mutations, and live invalidation. */
