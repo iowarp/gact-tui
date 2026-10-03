@@ -262,6 +262,9 @@ pub(crate) fn remove_managed_install_storage(resource_dir: &Path) -> Result<(), 
         resource_dir.join("data/bundled-runtime.installing"),
         resource_dir.join("data/bundled-runtime.previous"),
         resource_dir.join("data/clio-user/data/cte"),
+        resource_dir.join("data/clio-user/cache"),
+        resource_dir.join("data/clio-agent/data/cte"),
+        resource_dir.join("data/clio-agent/cache"),
         resource_dir.join("data/huggingface"),
     ] {
         remove_dir_if_present(&generated_root)?;
