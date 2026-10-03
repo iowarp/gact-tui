@@ -1,3 +1,4 @@
+import { RemoteAgentConflict } from './remote-agent-conflict';
 import { useMutation } from '@tanstack/react-query';
 import { LaptopIcon, ServerIcon } from 'lucide-react';
 import { ConfigureIcon } from '@/lib/icon-vocabulary';
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { ConnectionSettings } from '@/lib/connection';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -55,6 +57,8 @@ export function DeployClioDialog({
   // The name follows the chosen computer until the user types their own.
   const [customName, setCustomName] = useState<string>();
   const [nameError, setNameError] = useState<string>();
+  const [keepRunning, setKeepRunning] = useState(false);
+  const [remotePort, setRemotePort] = useState(17800);
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
   const ready = async (settings: ConnectionSettings) => {
@@ -104,7 +108,11 @@ export function DeployClioDialog({
     }
     setRouteError(undefined);
     if (invalidName) return;
-    void remote.deploy(host, name.trim());
+    if (!Number.isInteger(remotePort) || remotePort < 1024 || remotePort > 65535) {
+      setRouteError('Choose a port between 1024 and 65535.');
+      return;
+    }
+    void remote.deploy(host, name.trim(), { port: remotePort, keepRunning });
   };
 
   return (
@@ -208,41 +216,48 @@ export function DeployClioDialog({
             <DeployStageList progress={remote.progress} />
           ) : null}
 
+          {target === 'ssh' ? (
+            <div className="grid gap-3">
+              <Field>
+                <FieldLabel htmlFor="remote-clio-port">Remote agent port</FieldLabel>
+                <Input
+                  id="remote-clio-port"
+                  type="number"
+                  min={1024}
+                  max={65535}
+                  value={remotePort}
+                  disabled={running}
+                  onChange={(event) => setRemotePort(Number(event.target.value))}
+                />
+              </Field>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={keepRunning}
+                  disabled={running}
+                  onCheckedChange={(checked) => setKeepRunning(checked === true)}
+                />
+                Keep this remote agent running when {vocab.product} closes
+              </label>
+              <p className="text-xs text-muted-foreground">
+                New agents started by this Desktop{' '}
+                {keepRunning
+                  ? 'will stay running'
+                  : 'will stop gracefully on exit; their files stay installed'}
+                . Reconnecting to an existing agent leaves its lifecycle unchanged.
+              </p>
+            </div>
+          ) : null}
+
           {prompt && remote.transport ? (
             <SshAuthentication prompt={prompt} sessionId={remote.transport.session_id} />
           ) : null}
 
           {remote.conflict ? (
-            <div className="grid gap-3 rounded-xl border bg-card p-4" role="alert" aria-live="assertive">
-              <p className="text-sm">
-                {remote.conflict.health === 'healthy' ? (
-                  <>
-                    {vocab.agent} {remote.conflict.installedVersion} is already running on{' '}
-                    {host?.label ?? 'this host'}
-                    {remote.conflict.pid ? ` (pid ${remote.conflict.pid})` : ''}.
-                  </>
-                ) : (
-                  <>
-                    {vocab.agent} on {host?.label ?? 'this host'} isn&apos;t answering
-                    {remote.conflict.pid ? ` (pid ${remote.conflict.pid})` : ''} &mdash; Replace it?
-                  </>
-                )}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {remote.conflict.health === 'healthy' ? (
-                  <Button
-                    onClick={() => remote.resolveConflict('connect')}
-                    type="button"
-                    variant="outline"
-                  >
-                    Connect to the running {vocab.agent} ({remote.conflict.installedVersion})
-                  </Button>
-                ) : null}
-                <Button onClick={() => remote.resolveConflict('replace')} type="button">
-                  Replace it
-                </Button>
-              </div>
-            </div>
+            <RemoteAgentConflict
+              found={remote.conflict}
+              label={host?.label ?? 'this host'}
+              onChoice={remote.resolveConflict}
+            />
           ) : null}
 
           {target === 'ssh' && remote.phase === 'failed' && remote.progress.failure ? (

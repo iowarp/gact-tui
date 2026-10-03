@@ -101,6 +101,9 @@ export class VersionConflictError extends Error {
     public readonly installedVersion: string,
     public readonly pid: string,
     public readonly health: 'healthy' | 'unresponsive' | 'unknown' = 'unknown',
+    public readonly targetVersion?: string,
+    public readonly owner?: string,
+    public readonly port?: number,
   ) {
     super(
       health === 'healthy'
@@ -116,10 +119,20 @@ export type FoundConflict = {
   installedVersion: string;
   pid: string;
   health: 'healthy' | 'unresponsive' | 'unknown';
+  targetVersion?: string;
+  owner?: string;
+  port?: number;
 };
 
 /** The person's answer to a found conflict, or "cancelled" (abort/Cancel). */
-export type ConflictAnswer = 'connect' | 'replace' | 'cancelled';
+export type ConflictAnswer = 'connect' | 'replace' | 'update' | 'new' | 'cancelled';
+
+/** The caller creates a separate infrastructure target for the selected new port. */
+export class NewClioInstance extends Error {
+  constructor(public readonly conflict: FoundConflict) {
+    super('Start a separate remote agent');
+  }
+}
 
 /**
  * Run the `clio_agent` claim step to completion -- the same path a fresh
@@ -135,8 +148,9 @@ export async function claimClioAgent(
   signal: AbortSignal,
   onConflict: (conflict: FoundConflict) => Promise<ConflictAnswer>,
   onOperationStarted?: (operationId: string) => void,
+  initialConfiguration: Record<string, string> = {},
 ): Promise<InfrastructureOperation> {
-  let configuration: Record<string, string> = {};
+  let configuration: Record<string, string> = initialConfiguration;
   for (;;) {
     const started = await repository.runManagedServiceAction('clio_agent', {
       target_id: targetId,
@@ -149,15 +163,25 @@ export async function claimClioAgent(
       return await waitForOperation(repository, started, signal);
     } catch (error) {
       if (!(error instanceof VersionConflictError)) throw error;
-      const choice = await onConflict({
+      const found = {
         installedVersion: error.installedVersion,
         pid: error.pid,
         health: error.health,
-      });
+        targetVersion: error.targetVersion,
+        owner: error.owner,
+        port: error.port,
+      };
+      const choice = await onConflict(found);
       if (choice === 'cancelled') {
         throw new DOMException('Deployment cancelled', 'AbortError');
       }
-      configuration = { on_conflict: choice };
+      if (choice === 'new') throw new NewClioInstance(found);
+      configuration = {
+        ...initialConfiguration,
+        on_conflict: choice,
+        ...(found.pid ? { conflict_pid: found.pid } : {}),
+        ...(found.owner ? { conflict_root: found.owner } : {}),
+      };
     }
   }
 }
@@ -206,6 +230,9 @@ export async function waitForOperation(
           operation.conflict.installed_version,
           operation.conflict.pid,
           operation.conflict.health,
+          operation.conflict.target_version,
+          operation.conflict.owner,
+          operation.conflict.port,
         );
       }
       throw new Error(operation.error || operation.progress || `${operation.action} failed.`);

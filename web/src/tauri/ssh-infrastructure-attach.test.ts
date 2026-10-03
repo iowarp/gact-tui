@@ -65,6 +65,59 @@ beforeEach(() => {
 });
 
 describe('Deploy attach through a hop (#1478)', () => {
+  it('waits for admission when two callers attach concurrently', async () => {
+    const concurrentTarget = { ...target, id: 'concurrent' };
+    const first = attachInfrastructureSshTransport(
+      'http://127.0.0.1:18947',
+      'tok',
+      concurrentTarget,
+    );
+    const socket = await socketOpened();
+    socket.readyState = ScriptedSocket.OPEN;
+    socket.protocol = 'clio.infrastructure.v2';
+    socket.dispatchEvent(new Event('open'));
+    let secondReady = false;
+    const second = attachInfrastructureSshTransport(
+      'http://127.0.0.1:18947',
+      'tok',
+      concurrentTarget,
+    ).then(() => {
+      secondReady = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(secondReady).toBe(false);
+    socket.dispatchEvent(new MessageEvent('message', { data: '{"type":"attached"}' }));
+    await Promise.all([first, second]);
+    expect(
+      native.invoke.mock.calls.filter(([command]) => command === 'ssh_transport_open'),
+    ).toHaveLength(1);
+  });
+
+  it('rebinds SSH to a changed controller without closing its native tunnel', async () => {
+    const reboundTarget = { ...target, id: 'rebound' };
+    const first = attachInfrastructureSshTransport('http://127.0.0.1:18947', 'tok', reboundTarget);
+    const oldSocket = await socketOpened();
+    oldSocket.readyState = ScriptedSocket.OPEN;
+    oldSocket.dispatchEvent(new Event('open'));
+    await first;
+    ScriptedSocket.last = undefined;
+    const second = attachInfrastructureSshTransport(
+      'http://127.0.0.1:19999',
+      'new-token',
+      reboundTarget,
+    );
+    const socket = await socketOpened();
+    expect(socket.url.toString()).toContain(':19999/');
+    socket.readyState = ScriptedSocket.OPEN;
+    socket.protocol = 'clio.infrastructure.v2';
+    socket.dispatchEvent(new Event('open'));
+    socket.dispatchEvent(new MessageEvent('message', { data: '{"type":"attached"}' }));
+    await second;
+    expect(native.invoke.mock.calls.some(([command]) => command === 'ssh_transport_close')).toBe(
+      false,
+    );
+  });
+
   it("fails with the agent's reason, never a bare rejection", async () => {
     const attaching = attachInfrastructureSshTransport('http://127.0.0.1:18947', 'tok', {
       ...target,

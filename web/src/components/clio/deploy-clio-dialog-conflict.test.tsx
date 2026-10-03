@@ -46,6 +46,7 @@ const handlers = new Map<string, (event: { payload: unknown }) => void>();
 /** A `gact_http` bridge that answers the health check with `status`. */
 function nativeHealth(status: number) {
   return async (command: string) => {
+    if (command === 'desktop_deployment_owner') return 'desktop-test';
     if (command !== 'gact_http') throw new Error(`unexpected native command ${command}`);
     return {
       status,
@@ -56,8 +57,9 @@ function nativeHealth(status: number) {
   };
 }
 
-vi.mock('@/hooks/use-repository', () => ({
-  useRepository: () => ({
+vi.mock('@/lib/connection', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/connection')>()),
+  createRepository: () => ({
     cancelInfrastructureOperation: mocks.cancelInfrastructureOperation,
     createInfrastructureTarget: mocks.createInfrastructureTarget,
     infrastructureOperation: mocks.infrastructureOperation,
@@ -205,6 +207,10 @@ beforeEach(() => {
   mocks.sshTransportLog.mockResolvedValue('');
   // The remote CLIO's own answer through the tunnel, via the native bridge.
   mocks.invoke.mockReset().mockImplementation(nativeHealth(200));
+  mocks.waitForManagedBackend.mockResolvedValue({
+    url: 'http://127.0.0.1:17800',
+    bearer_token: 'controller-token',
+  });
   // The WebView's fetch is never the path: it is CORS-blocked in the desktop.
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
   mocks.writeSshTransport.mockResolvedValue(undefined);
@@ -232,6 +238,68 @@ function isConflictText(element: Element | null): boolean {
 }
 
 describe('DeployClioDialog found-CLIO conflict', () => {
+  it.each([
+    ['Reconnect and update', 'update'],
+    ['Leave it running and start another', 'new'],
+    ['Cancel', 'cancelled'],
+  ])(
+    'handles the explicit %s choice without silently replacing an agent',
+    async (label, choice) => {
+      const user = userEvent.setup();
+      const onReady = renderDialog();
+      await chooseRemoteHost(user);
+      const keep = screen.getByRole('checkbox', { name: /Keep this remote agent running/u });
+      expect(keep).not.toBeChecked();
+      await user.click(keep);
+      mocks.runManagedServiceAction.mockResolvedValueOnce({
+        ...runningOperation,
+        state: 'failed',
+        error: 'clio_deploy_version_conflict',
+        conflict: {
+          installed_version: '0.9.4.1',
+          target_version: '0.9.5b1',
+          pid: '321',
+          health: 'healthy',
+          owner: '/home/alice/clio',
+          port: 17800,
+        },
+      });
+      await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+      await user.click(await screen.findByRole('button', { name: label }));
+      if (choice === 'cancelled') {
+        await waitFor(() =>
+          expect(screen.getByRole('button', { name: 'Deploy and connect' })).toBeEnabled(),
+        );
+        expect(mocks.runManagedServiceAction).toHaveBeenCalledTimes(1);
+        expect(onReady).not.toHaveBeenCalled();
+      } else {
+        await waitFor(() => expect(onReady).toHaveBeenCalled());
+        const request = mocks.runManagedServiceAction.mock.calls.at(-1)?.[1];
+        expect(request.configuration.keep_running).toBe('true');
+        if (choice === 'update') {
+          expect(request.configuration).toMatchObject({
+            on_conflict: 'update',
+            conflict_pid: '321',
+            conflict_root: '/home/alice/clio',
+          });
+        } else {
+          expect(request.configuration.port).toBe('17801');
+          expect(request.configuration.on_conflict).toBeUndefined();
+          expect(mocks.createInfrastructureTarget).toHaveBeenLastCalledWith(
+            expect.objectContaining({ install_root: '/home/alice/clio-instance-17801' }),
+          );
+          expect(onReady).toHaveBeenCalledWith(
+            expect.objectContaining({
+              infrastructure: expect.objectContaining({
+                route: expect.objectContaining({ remotePort: 17801 }),
+              }),
+            }),
+          );
+        }
+      }
+    },
+  );
+
   it('asks "Connect" or "Replace" when claiming the port finds another healthy CLIO, and continues on Connect', async () => {
     const user = userEvent.setup();
     const onReady = renderDialog();
@@ -257,7 +325,7 @@ describe('DeployClioDialog found-CLIO conflict', () => {
     expect(screen.getByRole('button', { name: /Deploying to homelab/u })).toBeDisabled();
 
     await user.click(
-      screen.getByRole('button', { name: `Connect to the running ${vocab.agent} (0.9.4.1)` }),
+      screen.getByRole('button', { name: `Reconnect to the running ${vocab.agent} (0.9.4.1)` }),
     );
 
     await waitFor(() => expect(onReady).toHaveBeenCalled());
@@ -265,7 +333,13 @@ describe('DeployClioDialog found-CLIO conflict', () => {
       target_id: 'target-homelab',
       action: 'install',
       variant_id: 'released',
-      configuration: { on_conflict: 'connect' },
+      configuration: {
+        port: '17800',
+        keep_running: 'false',
+        desktop_id: 'desktop-test',
+        on_conflict: 'connect',
+        conflict_pid: '321',
+      },
     });
   });
 
@@ -288,14 +362,20 @@ describe('DeployClioDialog found-CLIO conflict', () => {
 
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
     await screen.findByText((_, element) => isConflictText(element), {}, { timeout: 5000 });
-    await user.click(screen.getByRole('button', { name: 'Replace it' }));
+    await user.click(screen.getByRole('button', { name: 'Stop and replace' }));
 
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     expect(mocks.runManagedServiceAction).toHaveBeenLastCalledWith('clio_agent', {
       target_id: 'target-homelab',
       action: 'install',
       variant_id: 'released',
-      configuration: { on_conflict: 'replace' },
+      configuration: {
+        port: '17800',
+        keep_running: 'false',
+        desktop_id: 'desktop-test',
+        on_conflict: 'replace',
+        conflict_pid: '321',
+      },
     });
   });
 
@@ -325,18 +405,24 @@ describe('DeployClioDialog found-CLIO conflict', () => {
     // Connecting to something that never answered makes no sense: only
     // Replace is offered, never Connect (#1528 review).
     expect(
-      screen.queryByRole('button', { name: /Connect to the running/u }),
+      screen.queryByRole('button', { name: /Reconnect to the running/u }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Replace it' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Stop and replace' })).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: 'Replace it' }));
+    await user.click(screen.getByRole('button', { name: 'Stop and replace' }));
 
     await waitFor(() =>
       expect(mocks.runManagedServiceAction).toHaveBeenLastCalledWith('clio_agent', {
         target_id: 'target-homelab',
         action: 'install',
         variant_id: 'released',
-        configuration: { on_conflict: 'replace' },
+        configuration: {
+          port: '17800',
+          keep_running: 'false',
+          desktop_id: 'desktop-test',
+          on_conflict: 'replace',
+          conflict_pid: '321',
+        },
       }),
     );
   }, 15_000);

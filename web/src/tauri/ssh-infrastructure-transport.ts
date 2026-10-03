@@ -77,9 +77,11 @@ type ActiveBridge = {
   sessionId: string;
   targetId: string;
   routeKey: string;
+  controllerKey: string;
 };
 
 const bridges = new Map<string, ActiveBridge>();
+const attachments = new Map<string, Promise<SshTransportStatus>>();
 
 /** Open the same interactive OpenSSH PTY used by deployment, without attaching it to CLIO. */
 export async function openSshConnectionTest(route: SshRoute): Promise<SshConnectionTest> {
@@ -108,14 +110,45 @@ export async function attachInfrastructureSshTransport(
   target: InfrastructureTarget,
   options: { interactive?: boolean } = {},
 ): Promise<SshTransportStatus> {
+  // Serialize attachment for a target: native SSH being connected does not
+  // mean its WebSocket has received the backend's admission acknowledgement.
+  const previous = attachments.get(target.id);
+  const pending = (async () => {
+    if (previous) await previous.catch(() => undefined);
+    return attachTransport(endpoint, token, target, options);
+  })();
+  attachments.set(target.id, pending);
+  try {
+    return await pending;
+  } finally {
+    if (attachments.get(target.id) === pending) attachments.delete(target.id);
+  }
+}
+
+async function attachTransport(
+  endpoint: string,
+  token: string | undefined,
+  target: InfrastructureTarget,
+  options: { interactive?: boolean },
+): Promise<SshTransportStatus> {
   if (!inTauri()) throw new Error(`Interactive SSH transport requires ${vocab.product}.`);
   if (target.kind !== 'ssh' || !target.ssh) throw new Error('The target is not an SSH host.');
   const routeKey = JSON.stringify(target.ssh);
+  const controllerKey = JSON.stringify([new URL(endpoint).href, token ?? '']);
   const existing = bridges.get(target.id);
-  if (existing && existing.routeKey === routeKey && existing.socket.readyState <= WebSocket.OPEN) {
+  if (
+    existing &&
+    existing.routeKey === routeKey &&
+    existing.controllerKey === controllerKey &&
+    existing.socket.readyState === WebSocket.OPEN
+  ) {
     return sshTransportStatus(existing.sessionId);
   }
-  if (existing) await closeInfrastructureSshTransport(target.id);
+  if (existing?.routeKey === routeKey) {
+    // Rebind the live SSH session to the new backend/token, keeping its tunnel.
+    bridges.delete(target.id);
+    existing.socket.close();
+  } else if (existing) await closeInfrastructureSshTransport(target.id);
   const { invoke } = await import('@tauri-apps/api/core');
   const status = await invoke<SshTransportStatus>('ssh_transport_open', {
     request: {
@@ -131,13 +164,20 @@ export async function attachInfrastructureSshTransport(
     sessionId: status.session_id,
     targetId: target.id,
     routeKey,
+    controllerKey,
   };
   bridges.set(target.id, bridge);
   socket.addEventListener('message', (event) => void handleBridgeMessage(bridge, event));
   socket.addEventListener('close', () => {
     if (bridges.get(target.id) === bridge) bridges.delete(target.id);
   });
-  await waitForAttachment(socket);
+  try {
+    await waitForAttachment(socket);
+  } catch (error) {
+    if (bridges.get(target.id) === bridge) bridges.delete(target.id);
+    socket.close();
+    throw error;
+  }
   return status;
 }
 

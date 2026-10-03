@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn().mockResolvedValue('desktop-test') }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockResolvedValue(vi.fn()) }));
 vi.mock('@/tauri/secure-credentials', () => ({
   readConnectionCredential: mocks.read,
@@ -137,9 +138,7 @@ describe('connection provider reconnect (#1528)', () => {
   function saveAresConnection(infrastructure: Record<string, unknown>) {
     localStorage.setItem(
       'clio.recent-connections',
-      JSON.stringify([
-        { endpoint: 'http://127.0.0.1:43123', label: 'Ares lab', infrastructure },
-      ]),
+      JSON.stringify([{ endpoint: 'http://127.0.0.1:43123', label: 'Ares lab', infrastructure }]),
     );
   }
 
@@ -217,7 +216,7 @@ describe('connection provider reconnect (#1528)', () => {
       target_id: 'ares-lab-2',
       action: 'install',
       variant_id: 'released',
-      configuration: {},
+      configuration: { port: '17800', desktop_id: 'desktop-test', keep_running: 'false' },
     });
     expect(mocks.setInfrastructureTransportState).toHaveBeenCalledWith('ares-lab-2', 'connected');
   });
@@ -276,7 +275,7 @@ describe('connection provider reconnect (#1528)', () => {
       target_id: 'ares-already-here',
       action: 'install',
       variant_id: 'released',
-      configuration: {},
+      configuration: { port: '17800', desktop_id: 'desktop-test', keep_running: 'false' },
     });
   });
 
@@ -402,7 +401,7 @@ describe('connection provider reconnect (#1528)', () => {
     expect(dialog).toHaveTextContent('4821');
     expect(dialog).toHaveAttribute('aria-live', 'assertive');
 
-    fireEvent.click(screen.getByRole('button', { name: /Connect to the running/u }));
+    fireEvent.click(screen.getByRole('button', { name: /Reconnect to the running/u }));
 
     await waitFor(() => {
       expect(screen.getByLabelText('resolved target id')).toHaveTextContent('ares-lab-2');
@@ -411,7 +410,13 @@ describe('connection provider reconnect (#1528)', () => {
       target_id: 'ares-lab-2',
       action: 'install',
       variant_id: 'released',
-      configuration: { on_conflict: 'connect' },
+      configuration: {
+        port: '17800',
+        desktop_id: 'desktop-test',
+        keep_running: 'false',
+        on_conflict: 'connect',
+        conflict_pid: '4821',
+      },
     });
   });
 });
