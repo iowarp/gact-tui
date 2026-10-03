@@ -34,6 +34,7 @@ export interface CaptureSurface {
 interface CaptureContext {
   allowed: boolean;
   start: (target: CaptureTarget) => void;
+  selectingComponentId?: string;
 }
 
 // oxlint-disable-next-line react/only-export-components
@@ -255,7 +256,9 @@ function captureText(surface: CaptureSurface, target: CaptureTarget, regions: re
     `Region capture of ${target.title}. The attached image has labelled boxes.`,
     ...regions.map((region) => `${region.id}: ${region.comment || '(no comment)'}`),
     '```json',
-    JSON.stringify(context, null, 2),
+    // Keep the exact structured context while avoiding a hundreds-line code
+    // block in the sent conversation when a region covers many data points.
+    JSON.stringify(context),
     '```',
   ].join('\n');
 }
@@ -357,6 +360,10 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
   const controlDrag = useRef<{ x: number; y: number; left: number; top: number } | undefined>(undefined);
   const start = useCallback((next: CaptureTarget) => {
     if (!allowed) return;
+    if (target?.element === next.element) {
+      setSelecting((active) => !active);
+      return;
+    }
     if (target?.element !== next.element) {
       setRegions([]);
       nextId.current = 1;
@@ -369,7 +376,18 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
     // ordinary popovers, so the controls must also stack above that dialog.
     setControlPosition({ x: clamp(rect.right - 265, 8, window.innerWidth - 260), y: clamp(rect.top + 56, 8, window.innerHeight - 90) });
   }, [allowed, target?.element]);
-  const context = useMemo(() => ({ allowed, start }), [allowed, start]);
+  const context = useMemo(() => ({ allowed, start, selectingComponentId: selecting ? target?.componentId : undefined }), [allowed, start, selecting, target?.componentId]);
+  useEffect(() => {
+    if (!selecting || !target) return;
+    const leaveCaptureForOtherTool = (event: globalThis.PointerEvent) => {
+      const button = (event.target as Element).closest('button');
+      if (!button || button.closest('[data-capture-ui="true"]') || button.matches('[data-capture-toggle="true"]')) return;
+      const component = target.element.closest<HTMLElement>('.group');
+      if (component?.contains(button)) setSelecting(false);
+    };
+    document.addEventListener('pointerdown', leaveCaptureForOtherTool, true);
+    return () => document.removeEventListener('pointerdown', leaveCaptureForOtherTool, true);
+  }, [selecting, target]);
   useEffect(() => {
     if (!target) return;
     let observedMap: NonNullable<MapDebugSurface['__clioMap']> | undefined;

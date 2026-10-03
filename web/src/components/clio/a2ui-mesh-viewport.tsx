@@ -149,7 +149,11 @@ export function ClioMeshViewport({
   const [snapshotError, setSnapshotError] = useState('');
   const [boxMode, setBoxMode] = useState(false);
   const [zoomActive, setZoomActive] = useState(false);
-  const [nodeSelection, setNodeSelection] = useState<{ meshUri: string; ids: number[] }>();
+  const [nodeSelection, setNodeSelection] = useState<{
+    meshUri: string;
+    ids: number[];
+    box: { left: number; top: number; right: number; bottom: number };
+  }>();
   const selectedNodes = useMemo(
     () => nodeSelection?.meshUri === meshUri ? nodeSelection.ids : [],
     [meshUri, nodeSelection],
@@ -376,7 +380,16 @@ export function ClioMeshViewport({
       right: Math.max(start.x, end.x) * rect.width,
       bottom: Math.max(start.y, end.y) * rect.height,
     }) ?? [];
-    setNodeSelection({ meshUri, ids: nodes });
+    setNodeSelection({
+      meshUri,
+      ids: nodes,
+      box: {
+        left: Math.min(start.x, end.x),
+        top: Math.min(start.y, end.y),
+        right: Math.max(start.x, end.x),
+        bottom: Math.max(start.y, end.y),
+      },
+    });
   };
 
   const heading = title || (parsed?.stage ? STAGE_LABEL[parsed.stage] : undefined) || 'Part';
@@ -479,7 +492,8 @@ export function ClioMeshViewport({
   const zoomButtons = () => <>
     {selectedNodes.length ? <Button aria-label="Zoom to selection" onClick={() => {
       const scene = sceneRef.current;
-      if (scene?.frameNodes(selectedNodes, upAxis)) {
+      const box = nodeSelection?.meshUri === meshUri ? nodeSelection.box : undefined;
+      if (box && scene?.zoomToScreenBox(box)) {
         setZoomActive(true);
         const member = memberRef.current;
         if (member) publishMeshCamera(group, member, scene.cameraState());

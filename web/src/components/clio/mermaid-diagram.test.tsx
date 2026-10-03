@@ -27,9 +27,11 @@ const SAMPLE_SVG =
 vi.mock('@/components/mermaidcn/mermaid-preview', () => ({
   MermaidPreview: ({
     chart,
+    controls,
     onSvgOutputChange,
   }: {
     chart: string;
+    controls: (api: { zoomIn: () => void; zoomOut: () => void; centerView: () => void; scalePercent: number }) => ReactNode;
     onSvgOutputChange: (svg: string) => void;
   }) => {
     // Stands in for a successful mermaid.js render: reports a fixed, valid
@@ -38,7 +40,7 @@ vi.mock('@/components/mermaidcn/mermaid-preview', () => ({
     useEffect(() => {
       onSvgOutputChange(SAMPLE_SVG);
     }, [chart, onSvgOutputChange]);
-    return <div data-slot="mermaid-preview">{chart}</div>;
+    return <div data-slot="mermaid-preview">{controls({ zoomIn: () => {}, zoomOut: () => {}, centerView: () => {}, scalePercent: 100 })}{chart}</div>;
   },
 }));
 
@@ -112,20 +114,12 @@ describe('ClioMermaidDiagram', () => {
     expect(screen.getByText(SOURCE)).toBeInTheDocument(); // the mocked MermaidPreview's own chart text
     expect(screen.queryByText('Mermaid source')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'More' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Diagram view' }));
-    const sourceOption = screen.getByRole('menuitemradio', { name: 'Mermaid source' });
-    fireEvent.pointerMove(sourceOption);
-    fireEvent.click(sourceOption);
+    await user.click(screen.getByRole('button', { name: 'Mermaid source' }));
 
     expect(screen.getByText('Mermaid source')).toBeInTheDocument();
     expect(document.querySelector('[data-code]')).toHaveAttribute('data-code', SOURCE);
 
-    await user.click(screen.getByRole('button', { name: 'More' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Diagram view' }));
-    const renderOption = screen.getByRole('menuitemradio', { name: 'Rendered diagram' });
-    fireEvent.pointerMove(renderOption);
-    fireEvent.click(renderOption);
+    await user.click(screen.getByRole('button', { name: 'Rendered diagram' }));
     expect(screen.queryByText('Mermaid source')).not.toBeInTheDocument();
   });
 

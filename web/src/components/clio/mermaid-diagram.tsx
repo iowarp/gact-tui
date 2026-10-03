@@ -1,5 +1,7 @@
-import { AlertTriangleIcon } from 'lucide-react';
+import { AlertTriangleIcon, Code2Icon, GitBranchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import {
   CodeBlock,
   CodeBlockFilename,
@@ -8,13 +10,6 @@ import {
 } from '@/components/ai-elements/code-block';
 import type { MermaidConfig } from '@/components/mermaidcn/mermaid';
 import { MermaidPreview } from '@/components/mermaidcn/mermaid-preview';
-import {
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-} from '@/components/ui/dropdown-menu';
 import { artifactIdFromDataUri } from './table-query-rows';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import { svgIntrinsicSize, svgToPngBlob } from './mermaid-export';
@@ -33,6 +28,8 @@ import {
 } from './surface-toolbar';
 
 type MermaidView = 'render' | 'source';
+
+const actionReveal = 'opacity-60 transition-opacity duration-150 [@media(hover:hover)]:pointer-events-none [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:pointer-events-auto [@media(hover:hover)]:group-focus-within:opacity-100';
 
 const config: MermaidConfig = {
   theme: 'base',
@@ -124,23 +121,18 @@ export function ClioMermaidDiagram({
     exportFormats,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
     onCopy: () => copyTextToClipboard(source),
-    overflowContent: (
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger>Diagram view</DropdownMenuSubTrigger>
-        <DropdownMenuSubContent>
-          <DropdownMenuRadioGroup
-            onValueChange={(value) => {
-              if (value === 'render' || value === 'source') setView(value);
-            }}
-            value={view}
-          >
-            <DropdownMenuRadioItem value="render">Rendered diagram</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="source">Mermaid source</DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
-    ),
   };
+
+  const viewSwitch = <div aria-label="Diagram view" className={`inline-flex shrink-0 items-center rounded-md border p-0.5 ${actionReveal}`} role="group">
+    <Button aria-label="Rendered diagram" aria-pressed={view === 'render'} onClick={() => setView('render')} size="icon-sm" title="Rendered diagram" variant={view === 'render' ? 'secondary' : 'ghost'}><GitBranchIcon aria-hidden="true" className="size-3.5" /></Button>
+    <Button aria-label="Mermaid source" aria-pressed={view === 'source'} onClick={() => setView('source')} size="icon-sm" title="Mermaid source" variant={view === 'source' ? 'secondary' : 'ghost'}><Code2Icon aria-hidden="true" className="size-3.5" /></Button>
+  </div>;
+
+  const header = <header className="mb-2 flex min-w-0 items-center gap-2">
+    <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={heading}>{heading}</h3>
+    {viewSwitch}
+    <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+  </header>;
 
   return (
     <section
@@ -148,17 +140,14 @@ export function ClioMermaidDiagram({
       aria-label={accessibilityLabel || heading}
       className="group relative min-w-0"
     >
-      <header className="mb-2 flex min-w-0 items-start gap-3">
-        <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{heading}</h3>
-        <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
-      </header>
+      {view === 'source' || validationError ? header : null}
       <SurfaceFullScreenHost
         fullscreen={fullscreen}
         headerExtra={
-          <SurfaceToolbar
+          <>{viewSwitch}<SurfaceToolbar
             capabilities={{ ...toolbarCapabilities, fullScreen: undefined }}
             floating={false}
-          />
+          /></>
         }
         onOpenChange={setFullscreen}
         title={heading}
@@ -186,6 +175,17 @@ export function ClioMermaidDiagram({
               chart={source}
               className={fullscreen ? 'h-full' : 'h-48 sm:h-52'}
               config={config}
+              controls={({ zoomIn, zoomOut, centerView, scalePercent }) => <header className="mb-2 flex min-w-0 items-center gap-2">
+                {!fullscreen ? <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={heading}>{heading}</h3> : <span className="flex-1" />}
+                {!fullscreen ? viewSwitch : null}
+                <div className={`flex shrink-0 items-center gap-0.5 ${actionReveal}`} title="Scroll over the diagram to zoom, drag to pan">
+                  <Button aria-label="Zoom out" disabled={!svgOutput} onClick={zoomOut} size="icon-sm" title="Zoom out" variant="ghost"><ZoomOutIcon aria-hidden="true" className="size-3.5" /></Button>
+                  <span className="min-w-9 text-center text-[11px] tabular-nums text-muted-foreground">{scalePercent}%</span>
+                  <Button aria-label="Zoom in" disabled={!svgOutput} onClick={zoomIn} size="icon-sm" title="Zoom in" variant="ghost"><ZoomInIcon aria-hidden="true" className="size-3.5" /></Button>
+                  <Button aria-label="Reset zoom" disabled={!svgOutput} onClick={centerView} size="icon-sm" title="Reset zoom" variant="ghost"><RetryIcon aria-hidden="true" className="size-3.5" /></Button>
+                </div>
+                {!fullscreen ? <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} /> : null}
+              </header>}
               onSvgOutputChange={setSvgOutput}
               svgOutput={svgOutput}
             />

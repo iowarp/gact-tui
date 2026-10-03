@@ -375,6 +375,8 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
               <span className="inline-flex">
                 <Button
                   aria-label="Capture labelled regions"
+                  aria-pressed={capture.selectingComponentId !== undefined && capture.selectingComponentId === capabilities.captureComponentId}
+                  data-capture-toggle="true"
                   disabled={!capture.allowed}
                   onClick={() => {
                     const container = rootRef.current?.closest<HTMLElement>('[data-slot^="a2ui-"]')

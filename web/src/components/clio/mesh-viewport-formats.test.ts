@@ -32,6 +32,14 @@ describe('standard mesh decoders', () => {
     expect(mesh.baseColors?.[2]).toBeGreaterThan(mesh.baseColors?.[0] ?? 1);
   });
 
+  it('assigns one spatial node id to repeated OBJ face vertices', async () => {
+    const mesh = await parseMeshArtifact(bytes(
+      'o Square\nv 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3\nf 1 3 4\n',
+    ), 'obj');
+    expect(new Set(mesh.nodeIndex).size).toBe(4);
+    expect(mesh.nodeIndex).toHaveLength(mesh.positions.length / 3);
+  });
+
   it('gives an actionable reason for compressed VTP arrays', async () => {
     const source = '<VTKFile type="PolyData" compressor="vtkZLibDataCompressor"><PolyData/></VTKFile>';
     await expect(parseMeshArtifact(bytes(source), 'vtp')).rejects.toMatchObject({

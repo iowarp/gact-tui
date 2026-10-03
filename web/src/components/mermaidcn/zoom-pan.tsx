@@ -32,6 +32,7 @@ export interface ZoomPanProps {
   viewportClassName?: string;
   viewportMode?: 'fill' | 'image-aspect';
   fitPadding?: number;
+  wheelZoom?: 'modifier' | 'plain';
   onLoad?: () => void;
   onError?: (error: Error) => void;
   controls?: (api: {
@@ -58,6 +59,7 @@ export function ZoomPan({
   viewportClassName = '',
   viewportMode = 'fill',
   fitPadding = 0.9,
+  wheelZoom = 'modifier',
   onLoad,
   onError,
   controls,
@@ -343,7 +345,7 @@ export function ZoomPan({
       // report a trackpad pinch gesture as a wheel event -- so a plain wheel
       // (mouse scroll, or a trackpad pan) is left alone and scrolls the page
       // instead of being captured by the diagram underneath the cursor.
-      if (!(e.ctrlKey || e.metaKey)) return;
+      if (wheelZoom === 'modifier' && !(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
 
       const rect = canvas.getBoundingClientRect();
@@ -373,7 +375,7 @@ export function ZoomPan({
     return () => {
       canvas.removeEventListener('wheel', onWheel);
     };
-  }, [maxScale, minScale, updateImmediate]);
+  }, [maxScale, minScale, updateImmediate, wheelZoom]);
 
   // Window events for dragging
   React.useEffect(() => {

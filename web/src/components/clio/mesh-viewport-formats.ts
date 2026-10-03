@@ -118,6 +118,8 @@ function flattenGeometry(root: THREE.Object3D, format: MeshFormat): ParsedFeaMes
   const positions: number[] = [];
   const triangles: number[] = [];
   const colors: number[] = [];
+  const nodeIds: number[] = [];
+  const nodesByPosition = new Map<string, number>();
   let textured = false;
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
@@ -137,6 +139,15 @@ function flattenGeometry(root: THREE.Object3D, format: MeshFormat): ParsedFeaMes
     for (let i = 0; i < position.count; i += 1) {
       point.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld);
       positions.push(point.x, point.y, point.z);
+      // OBJ and other triangle soups repeat vertices at face seams. Give
+      // coincident positions one spatial node id for selection and reference.
+      const key = `${point.x},${point.y},${point.z}`;
+      let nodeId = nodesByPosition.get(key);
+      if (nodeId === undefined) {
+        nodeId = nodesByPosition.size;
+        nodesByPosition.set(key, nodeId);
+      }
+      nodeIds.push(nodeId);
       colors.push(tint.r * (vertexColor?.getX(i) ?? 1), tint.g * (vertexColor?.getY(i) ?? 1), tint.b * (vertexColor?.getZ(i) ?? 1));
     }
     for (let i = 0; i < count; i += 1) triangles.push(offset + (index?.getX(i) ?? i));
@@ -148,11 +159,10 @@ function flattenGeometry(root: THREE.Object3D, format: MeshFormat): ParsedFeaMes
   geometry.computeBoundingBox();
   const box = geometry.boundingBox!;
   geometry.dispose();
-  const vertexCount = positions.length / 3;
   return {
     positions: Float32Array.from(positions),
     triangles: Uint32Array.from(triangles),
-    nodeIndex: Float32Array.from({ length: vertexCount }, (_, index) => index),
+    nodeIndex: Float32Array.from(nodeIds),
     topology: 'surface',
     fields: [],
     frames: [],

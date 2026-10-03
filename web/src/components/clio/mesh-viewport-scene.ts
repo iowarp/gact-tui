@@ -33,6 +33,13 @@ export interface MeshScreenBox {
   bottom: number;
 }
 
+export interface NormalizedMeshScreenBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 /** Return stable node ids enclosed by a rectangle in the current camera projection. */
 export function projectedMeshNodeIds(
   data: Pick<ParsedFeaMesh, 'positions' | 'nodeIndex'>,
@@ -207,25 +214,42 @@ export class MeshViewportScene {
     this.requestRender();
   }
 
-  /** Deliberately frame the selected nodes without changing which nodes are selected. */
-  public frameNodes(nodeIds: readonly number[], up: MeshUpAxis): boolean {
-    const data = this.data;
-    if (!data || nodeIds.length === 0) return false;
-    const selected = new Set(nodeIds);
-    const bounds = new THREE.Box3();
-    const point = new THREE.Vector3();
-    for (let vertex = 0; vertex < data.nodeIndex.length; vertex += 1) {
-      if (!selected.has(Math.round(data.nodeIndex[vertex] ?? vertex))) continue;
-      const offset = vertex * 3;
-      bounds.expandByPoint(point.set(data.positions[offset]!, data.positions[offset + 1]!, data.positions[offset + 2]!));
+  /** Keep the current orbit direction while moving into a dragged screen region. */
+  public zoomToScreenBox(box: NormalizedMeshScreenBox): boolean {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    if (width <= 0 || height <= 0) return false;
+    const boxWidth = Math.abs(box.right - box.left);
+    const boxHeight = Math.abs(box.bottom - box.top);
+    if (boxWidth <= 0 || boxHeight <= 0) return false;
+    const currentTarget = this.controls.target.clone();
+    const distance = this.camera.position.distanceTo(currentTarget);
+    const visibleHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    const visibleWidth = visibleHeight * this.camera.aspect;
+    const centerX = (box.left + box.right) / 2 - 0.5;
+    const centerY = 0.5 - (box.top + box.bottom) / 2;
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
+    const offset = right.multiplyScalar(centerX * visibleWidth).add(up.multiplyScalar(centerY * visibleHeight));
+    const nextTarget = currentTarget.add(offset);
+    const scale = Math.min(1, Math.max(boxWidth, boxHeight) * 1.5);
+    const nextDistance = Math.max(distance * scale, 1e-3);
+    const direction = this.camera.position.clone().sub(this.controls.target).normalize();
+    this.controls.target.copy(nextTarget);
+    this.camera.position.copy(nextTarget).addScaledVector(direction, nextDistance);
+    this.camera.near = Math.max(nextDistance / 1000, 1e-4);
+    const meshRadius = this.data
+      ? new THREE.Vector3(...this.data.bounds.min).distanceTo(new THREE.Vector3(...this.data.bounds.max)) / 2
+      : distance;
+    this.camera.far = Math.max((nextDistance + meshRadius) * 100, 1);
+    this.camera.updateProjectionMatrix();
+    this.applyingRemote = true;
+    try {
+      this.controls.update();
+    } finally {
+      this.applyingRemote = false;
     }
-    if (bounds.isEmpty()) return false;
-    const whole = new THREE.Box3(new THREE.Vector3(...data.bounds.min), new THREE.Vector3(...data.bounds.max));
-    // A single picked node has zero extent. Retain enough surrounding mesh
-    // to show what the person zoomed into instead of filling the screen with
-    // one clipped face.
-    bounds.expandByScalar(Math.max(whole.getSize(new THREE.Vector3()).length() * 0.35, 1e-3));
-    this.frameBounds({ min: bounds.min.toArray(), max: bounds.max.toArray() }, up);
+    this.requestRender();
     return true;
   }
 
@@ -313,7 +337,16 @@ export class MeshViewportScene {
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    this.selectedPoints = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0x22d3ee, size: 8, sizeAttenuation: false, depthTest: false }));
+    const size = positions.length > 300 ? 3 : positions.length > 30 ? 5 : 8;
+    this.selectedPoints = new THREE.Points(geometry, new THREE.PointsMaterial({
+      color: 0x22d3ee,
+      size,
+      sizeAttenuation: false,
+      depthTest: true,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0.85,
+    }));
     this.scene.add(this.selectedPoints);
     this.requestRender();
   }
