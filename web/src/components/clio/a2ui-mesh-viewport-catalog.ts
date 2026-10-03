@@ -36,12 +36,13 @@ export const meshViewportSchema = z
 /** Protocol adapter for `clio.mesh-viewport.v1`; the renderer loads on first use. */
 export const ClioMeshViewportCatalogComponent = createComponentImplementation(
   { name: 'clio.mesh-viewport.v1', schema: meshViewportSchema },
-  ({ props }) =>
+  ({ props, context }) =>
     createElement(
       Suspense,
       { fallback: createElement(Skeleton, { className: 'h-80 rounded-lg' }) },
       createElement(LazyMeshViewport, {
         accessibility: props.accessibility,
+        componentId: context.componentModel.id,
         // The binder writes back only when `camera` is bound to a data-model path.
         camera: props.camera,
         setCamera: props.setCamera as unknown as ((value: MeshCameraState) => void) | undefined,

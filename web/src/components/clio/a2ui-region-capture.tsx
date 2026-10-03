@@ -1,4 +1,3 @@
-import type { A2UISurface } from '@clio/core/v3';
 import { toCanvas } from 'html-to-image';
 import { CheckIcon, GripVerticalIcon, ListIcon, SendIcon } from 'lucide-react';
 import { CloseIcon, DeleteIcon } from '@/lib/icon-vocabulary';
@@ -24,6 +23,12 @@ interface CaptureTarget {
   componentId?: string;
   title: string;
   reference?: () => { summary: string; query?: unknown };
+}
+
+export interface CaptureSurface {
+  id: string;
+  revision: number;
+  messages: readonly unknown[];
 }
 
 interface CaptureContext {
@@ -81,7 +86,7 @@ function displayedRegion(target: HTMLElement, region: Region): Region {
   return { ...region, x: Math.min(x1, x2), y: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) };
 }
 
-function surfaceComponent(surface: A2UISurface, componentId: string | undefined): Record<string, unknown> | undefined {
+function surfaceComponent(surface: CaptureSurface, componentId: string | undefined): Record<string, unknown> | undefined {
   if (!componentId) return undefined;
   for (const message of [...(surface.messages as unknown as Record<string, unknown>[])].reverse()) {
     const update = message.updateComponents as { components?: Record<string, unknown>[] } | undefined;
@@ -205,7 +210,21 @@ function mapFeaturesUnderBox(target: HTMLElement, region: Region): Record<string
   }
 }
 
-function captureText(surface: A2UISurface, target: CaptureTarget, regions: readonly Region[]): string {
+function meshNodesUnderBox(target: HTMLElement, region: Region): Record<string, unknown> | null {
+  const mesh = target as HTMLElement & {
+    __clioMeshInspect?: (box: { left: number; top: number; right: number; bottom: number }) => Record<string, unknown>;
+  };
+  if (!mesh.__clioMeshInspect) return null;
+  const bounds = target.getBoundingClientRect();
+  return mesh.__clioMeshInspect({
+    left: region.x * bounds.width,
+    top: region.y * bounds.height,
+    right: (region.x + region.width) * bounds.width,
+    bottom: (region.y + region.height) * bounds.height,
+  });
+}
+
+function captureText(surface: CaptureSurface, target: CaptureTarget, regions: readonly Region[]): string {
   const component = surfaceComponent(surface, target.componentId);
   const viewReference = target.reference?.();
   const activeQuery = viewReference?.query && typeof viewReference.query === 'object' && !Array.isArray(viewReference.query)
@@ -229,6 +248,7 @@ function captureText(surface: A2UISurface, target: CaptureTarget, regions: reado
       visibleDataUnderBox: visibleTextUnderBox(target.element, displayedRegion(target.element, region)),
       chartRowsUnderBox: chartRowsUnderBox(target.element, displayedRegion(target.element, region)),
       mapFeaturesUnderBox: mapFeaturesUnderBox(target.element, displayedRegion(target.element, region)),
+      meshNodesUnderBox: meshNodesUnderBox(target.element, displayedRegion(target.element, region)),
     })),
   };
   return [
@@ -316,8 +336,9 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
 }
 
 /** A surface-level camera mode with persistent, labelled visual regions. */
-export function A2uiRegionCaptureProvider({ children, surface }: { children: ReactNode; surface: A2UISurface }) {
-  const allowed = useModelImageInput();
+export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture = false }: { children: ReactNode; surface: CaptureSurface; allowDemoCapture?: boolean }) {
+  const acceptsImages = useModelImageInput();
+  const allowed = allowDemoCapture || acceptsImages;
   const [target, setTarget] = useState<CaptureTarget>();
   const [bounds, setBounds] = useState<DOMRect>();
   const [, updateMapFrame] = useState(0);

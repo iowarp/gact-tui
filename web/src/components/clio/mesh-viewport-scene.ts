@@ -26,6 +26,38 @@ export interface MeshProbe {
   y: number;
 }
 
+export interface MeshScreenBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** Return stable node ids enclosed by a rectangle in the current camera projection. */
+export function projectedMeshNodeIds(
+  data: Pick<ParsedFeaMesh, 'positions' | 'nodeIndex'>,
+  visibleTriangleIndex: Uint32Array,
+  camera: THREE.Camera,
+  size: { width: number; height: number },
+  box: MeshScreenBox,
+): number[] {
+  if (size.width <= 0 || size.height <= 0) return [];
+  camera.updateMatrixWorld();
+  const point = new THREE.Vector3();
+  const nodes = new Set<number>();
+  for (const vertex of visibleTriangleIndex) {
+    const offset = vertex * 3;
+    point.set(data.positions[offset]!, data.positions[offset + 1]!, data.positions[offset + 2]!).project(camera);
+    if (point.z < -1 || point.z > 1) continue;
+    const x = (point.x + 1) * size.width / 2;
+    const y = (1 - point.y) * size.height / 2;
+    if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) {
+      nodes.add(Math.round(data.nodeIndex[vertex] ?? vertex));
+    }
+  }
+  return [...nodes].sort((a, b) => a - b);
+}
+
 /** The WebGL half of the viewport: renders on demand, never on a loop. */
 export class MeshViewportScene {
   private readonly renderer: THREE.WebGLRenderer;
@@ -48,6 +80,7 @@ export class MeshViewportScene {
   private geometry?: THREE.BufferGeometry;
   private mesh?: THREE.Mesh;
   private edges?: THREE.LineSegments;
+  private selectedPoints?: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>;
   private selection?: MeshSelection;
   private view: MeshViewState = { frame: 0 };
   private frame = 0;
@@ -174,6 +207,28 @@ export class MeshViewportScene {
     this.requestRender();
   }
 
+  /** Deliberately frame the selected nodes without changing which nodes are selected. */
+  public frameNodes(nodeIds: readonly number[], up: MeshUpAxis): boolean {
+    const data = this.data;
+    if (!data || nodeIds.length === 0) return false;
+    const selected = new Set(nodeIds);
+    const bounds = new THREE.Box3();
+    const point = new THREE.Vector3();
+    for (let vertex = 0; vertex < data.nodeIndex.length; vertex += 1) {
+      if (!selected.has(Math.round(data.nodeIndex[vertex] ?? vertex))) continue;
+      const offset = vertex * 3;
+      bounds.expandByPoint(point.set(data.positions[offset]!, data.positions[offset + 1]!, data.positions[offset + 2]!));
+    }
+    if (bounds.isEmpty()) return false;
+    const whole = new THREE.Box3(new THREE.Vector3(...data.bounds.min), new THREE.Vector3(...data.bounds.max));
+    // A single picked node has zero extent. Retain enough surrounding mesh
+    // to show what the person zoomed into instead of filling the screen with
+    // one clipped face.
+    bounds.expandByScalar(Math.max(whole.getSize(new THREE.Vector3()).length() * 0.35, 1e-3));
+    this.frameBounds({ min: bounds.min.toArray(), max: bounds.max.toArray() }, up);
+    return true;
+  }
+
   public cameraState(): MeshCameraState {
     return {
       position: this.camera.position.toArray(),
@@ -221,6 +276,48 @@ export class MeshViewportScene {
     return { value, x, y };
   }
 
+  /** Select visible mesh vertices whose current screen positions lie in a dragged rectangle. */
+  public nodesInScreenBox(box: MeshScreenBox): number[] {
+    const data = this.data;
+    const selection = this.selection;
+    if (!data || !selection) return [];
+    return projectedMeshNodeIds(data, selection.index, this.camera, {
+      width: this.container.clientWidth,
+      height: this.container.clientHeight,
+    }, box);
+  }
+
+  /** Keep selected vertices visibly attached to the geometry while the camera moves. */
+  public highlightNodes(nodeIds: readonly number[]): void {
+    if (this.selectedPoints) {
+      this.scene.remove(this.selectedPoints);
+      this.selectedPoints.geometry.dispose();
+      this.selectedPoints.material.dispose();
+      this.selectedPoints = undefined;
+    }
+    const data = this.data;
+    const selection = this.selection;
+    if (!data || !selection || nodeIds.length === 0) {
+      this.requestRender();
+      return;
+    }
+    const selected = new Set(nodeIds);
+    const seen = new Set<number>();
+    const positions: number[] = [];
+    for (const vertex of selection.index) {
+      const node = Math.round(data.nodeIndex[vertex] ?? vertex);
+      if (!selected.has(node) || seen.has(node)) continue;
+      seen.add(node);
+      const offset = vertex * 3;
+      positions.push(data.positions[offset]!, data.positions[offset + 1]!, data.positions[offset + 2]!);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    this.selectedPoints = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0x22d3ee, size: 8, sizeAttenuation: false, depthTest: false }));
+    this.scene.add(this.selectedPoints);
+    this.requestRender();
+  }
+
   /** Draw now and return the canvas, so a snapshot needs no preserved drawing buffer. */
   public capture(): HTMLCanvasElement {
     this.renderer.render(this.scene, this.camera);
@@ -248,6 +345,12 @@ export class MeshViewportScene {
   }
 
   private clearMesh(): void {
+    if (this.selectedPoints) {
+      this.scene.remove(this.selectedPoints);
+      this.selectedPoints.geometry.dispose();
+      this.selectedPoints.material.dispose();
+      this.selectedPoints = undefined;
+    }
     if (this.mesh) {
       this.scene.remove(this.mesh);
       this.mesh = undefined;

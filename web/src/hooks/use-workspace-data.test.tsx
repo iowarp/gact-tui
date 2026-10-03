@@ -267,9 +267,9 @@ describe('useWorkspaceData interaction reads', () => {
     ];
     mocks.repository.sessions.mockResolvedValue(sessions);
     mocks.repository.allSessions.mockResolvedValue(sessions);
-    mocks.repository.pendingInteractionProjection.mockImplementation(async (rootId: string) => ({
+    mocks.repository.pendingInteractionProjection.mockImplementation(async (...args: unknown[]) => ({
       interactions: [],
-      degradations: rootId === 'sess_2'
+      degradations: args[0] === 'sess_2'
         ? [{ reason: 'clio_core_segments_invalid', detail: 'Older record could not be read' }]
         : [],
     }));

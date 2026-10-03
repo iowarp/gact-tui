@@ -6,6 +6,7 @@ import { ArrowUpRight, Search } from 'lucide-react';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from '@/lib/a2ui/kernel-catalog';
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { AutoDatasetSelectionProvider } from '@/lib/a2ui/auto-dataset-selection';
+import { A2uiRegionCaptureProvider, type CaptureSurface } from '@/components/clio/a2ui-region-capture';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { createSelectionActionRegistry } from '@/lib/selection-actions';
 import { GallerySkillDialog } from '@/gallery-skill-dialog';
@@ -213,6 +214,7 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
 
 export function A2uiDemo({ name, variant }: { name: ComponentName; variant: string }) {
   const [lastAction, setLastAction] = useState('');
+  const [capturePreview, setCapturePreview] = useState<{ imageUrl: string; text: string }>();
   const surface = useMemo(() => {
     const workspaceOnly = name.startsWith('clio.') || name === 'Frame' || name === 'Grid' || name.startsWith('linked');
     const catalogId = workspaceOnly ? CLIO_WORKSPACE_CATALOG_ROW.catalogId : BASIC_CATALOG_ROW.catalogId;
@@ -241,8 +243,22 @@ export function A2uiDemo({ name, variant }: { name: ComponentName; variant: stri
       setLastAction(label.charAt(0).toUpperCase() + label.slice(1));
     });
   }, [surface]);
+  useEffect(() => {
+    const showCapture = (event: Event) => {
+      const detail = (event as CustomEvent<{ file: File; text: string }>).detail;
+      setCapturePreview({ imageUrl: URL.createObjectURL(detail.file), text: detail.text });
+    };
+    window.addEventListener('clio:add-region-capture', showCapture);
+    return () => window.removeEventListener('clio:add-region-capture', showCapture);
+  }, []);
+  useEffect(() => () => { if (capturePreview) URL.revokeObjectURL(capturePreview.imageUrl); }, [capturePreview]);
   if (!surface) return <p className="text-sm text-muted-foreground">This example could not be created.</p>;
-  return <div className="space-y-4"><div data-slot="a2ui-surface-root"><MarkdownContext.Provider value={renderMarkdown}><A2uiReferenceSessionProvider value="sess_flat_ndp"><AutoDatasetSelectionProvider><A2uiSurface surface={surface} /></AutoDatasetSelectionProvider></A2uiReferenceSessionProvider></MarkdownContext.Provider></div>{lastAction ? <p className="rounded-md bg-muted px-3 py-2 text-xs">Demo action: {lastAction}</p> : null}</div>;
+  const captureSurface: CaptureSurface = {
+    id: surface.id,
+    revision: 1,
+    messages: [{ updateComponents: { components: examplePayload(name, variant) } }],
+  };
+  return <div className="space-y-4"><div data-slot="a2ui-surface-root"><MarkdownContext.Provider value={renderMarkdown}><A2uiReferenceSessionProvider value="sess_flat_ndp"><AutoDatasetSelectionProvider><A2uiRegionCaptureProvider allowDemoCapture surface={captureSurface}><A2uiSurface surface={surface} /></A2uiRegionCaptureProvider></AutoDatasetSelectionProvider></A2uiReferenceSessionProvider></MarkdownContext.Provider></div>{lastAction ? <p className="rounded-md bg-muted px-3 py-2 text-xs">Demo action: {lastAction}</p> : null}{capturePreview ? <aside aria-label="Capture preview" className="space-y-3 rounded-md border p-3 text-sm"><div className="flex items-center justify-between gap-3"><p className="font-medium">Capture preview</p><button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setCapturePreview(undefined)} type="button">Close</button></div><img alt="Captured surface with labelled selection boxes" className="max-h-80 max-w-full rounded border object-contain" src={capturePreview.imageUrl} /><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-sm bg-muted/30 p-2 text-xs">{capturePreview.text}</pre></aside> : null}</div>;
 }
 
 /** A small three-view example showing one selection shared by chart, map, and table. */

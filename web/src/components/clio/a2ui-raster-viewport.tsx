@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { MinusIcon, ScanIcon } from 'lucide-react';
+import { MinusIcon, ScanIcon, ZoomInIcon } from 'lucide-react';
 import { AddIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
 import type { ArtifactRasterQueryResult } from '@clio/core/v3';
@@ -197,6 +197,7 @@ export function ClioRasterViewport({
   const capabilities: SurfaceCapabilities = {
     captureComponentId: componentId,
     buildReference: data ? reference : undefined,
+    onReferenced: () => setBoxMode(false),
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
     exportFormats: [
       { id: 'png', label: 'PNG image', disabled: !data, run: () => canvasRef.current?.toBlob((blob) => {
@@ -214,8 +215,8 @@ export function ClioRasterViewport({
   } : undefined;
   const legend = useMemo(() => `linear-gradient(to right, ${STOPS[colormap].join(', ')})`, [colormap]);
   const controls = (insideDialog: boolean) => <>
-    <Button aria-label="Box select" aria-pressed={boxMode} className="size-7" onClick={() => setBoxMode(!boxMode)} size="icon" title="Draw a box to select a region" variant={boxMode ? 'secondary' : 'ghost'}><ScanIcon className="size-3.5" /></Button>
-    {selectedExtent ? <Button className="h-7 px-2 text-xs" onClick={() => { setExtent(selectedExtent); setSelectedExtent(undefined); setBoxMode(false); }} size="sm" variant="ghost">Zoom to selection</Button> : null}
+    <Button aria-label="Box select" aria-pressed={boxMode} className={`size-7 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 ${boxMode ? 'opacity-100' : ''}`} onClick={() => setBoxMode(!boxMode)} size="icon" title="Draw a box to select a region" variant={boxMode ? 'secondary' : 'ghost'}><ScanIcon className="size-3.5" /></Button>
+    {selectedExtent ? <Button aria-label="Zoom to selection" className="size-7" onClick={() => { setExtent(selectedExtent); setSelectedExtent(undefined); setBoxMode(false); }} size="icon" title="Zoom to selection" variant="ghost"><ZoomInIcon className="size-3.5" /></Button> : null}
     {extent ? <Button aria-label="Reset zoom" className="size-7" onClick={() => { setExtent(undefined); setSelectedExtent(undefined); }} size="icon" title="Reset zoom" variant="ghost"><RetryIcon className="size-3.5" /></Button> : null}
     <SurfaceToolbar capabilities={insideDialog ? { ...capabilities, fullScreen: undefined } : capabilities} floating={false} />
   </>;
