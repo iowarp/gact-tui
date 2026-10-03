@@ -44,8 +44,9 @@ describe('ClioInfrastructurePreparation', () => {
     ).toBe('Setting up environment (retrying MCP Pandas)');
   });
 
-  it('moves from generic session setup to agent startup without inventing a phase', () => {
+  it('distinguishes first-session preparation from a follow-up request', () => {
     expect(infrastructurePreparationLabel([])).toBe('Setting up session');
+    expect(infrastructurePreparationLabel([], true)).toBe('Preparing next response');
     expect(
       infrastructurePreparationLabel([
         dependency('ready', { observed_active: true, tool_count: 4 }),

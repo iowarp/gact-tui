@@ -311,6 +311,50 @@ describe('ClioConversation transcript autoscroll', () => {
     expect(scrollButton()).toBeNull();
   });
 
+  it('keeps following a delayed browser scroll after an activity collapses', () => {
+    const geometry = stubScrollGeometry();
+    render(conversation('Streaming'));
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    geometry.grow(-500);
+    fireEvent.scroll(log); // Acknowledge the observer's own bottom scroll.
+    now += 200;
+    log.scrollTop -= 300; // Delayed native clamp, with unchanged geometry.
+    fireEvent.scroll(log);
+    expect(log.scrollTop).toBe(geometry.bottom());
+    geometry.grow(400);
+    expect(log.scrollTop).toBe(geometry.bottom());
+    expect(scrollButton()).toBeNull();
+  });
+
+  it('yields to a reader during the activity collapse window', () => {
+    const geometry = stubScrollGeometry();
+    render(conversation('Streaming'));
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    geometry.grow(-500);
+    now += 40;
+    fireEvent.wheel(log, { deltaY: -120 });
+    log.scrollTop -= 120;
+    fireEvent.scroll(log);
+    const readingTop = log.scrollTop;
+    geometry.grow(400);
+    expect(log.scrollTop).toBe(readingTop);
+    expect(scrollButton()).toBeVisible();
+  });
+
+  it('allows script navigation after the collapse has settled', () => {
+    const geometry = stubScrollGeometry();
+    render(conversation('Streaming'));
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    geometry.grow(-500);
+    fireEvent.scroll(log);
+    now += 600;
+    log.scrollTop = 0;
+    fireEvent.scroll(log);
+    geometry.grow(400);
+    expect(log.scrollTop).toBe(0);
+    expect(scrollButton()).toBeNull();
+  });
+
   it('does not re-engage when a programmatic scroll lands the reader at the bottom', () => {
     const geometry = stubScrollGeometry();
     render(conversation('Streaming'));

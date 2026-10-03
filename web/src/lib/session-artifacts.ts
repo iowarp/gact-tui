@@ -70,6 +70,17 @@ export function artifactDetailEntity(detail: ArtifactDetail, sessionId: string):
   return artifact;
 }
 
+/** Resolve the exact immutable version referenced by a transcript message. */
+export function artifactDetailVersionEntity(
+  detail: ArtifactDetail,
+  artifactId: string,
+  sessionId: string,
+): Artifact {
+  const version = detail.artifact.versions.find((candidate) => candidate.artifact_id === artifactId);
+  if (!version) throw new Error(`Artifact ${artifactId} has no readable version.`);
+  return artifactVersionEntity(detail.artifact, version, sessionId, 'produced');
+}
+
 function artifactRecordHead(
   record: ArtifactRecord,
   sessionId: string,

@@ -241,6 +241,20 @@ describe('A2uiMedia', () => {
   });
 
   describe('G0: Image affordances (download, full screen, Reference this)', () => {
+    it('bounds figures inline and fits portrait figures within the fullscreen viewport', async () => {
+      fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_abc'));
+      fake.readA2uiReferenceBytes.mockResolvedValue(PNG);
+      renderMedia(<A2uiMedia componentId="img" kind="image" label="Plot" url="artifact_abc" variant="largeFeature" objectFit="contain" />);
+      const image = await screen.findByRole('img', { name: 'Plot' });
+      expect(image.style.maxHeight).toBe('min(400px, 45vh)');
+      expect(image.style.objectFit).toBe('contain');
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Full screen' }));
+      const expandedImage = screen.getByRole('dialog').querySelector('img');
+      expect(expandedImage?.style.maxHeight).toBe('calc(100dvh - 6rem)');
+      expect(expandedImage?.style.objectFit).toBe('contain');
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Exit full screen' }));
+      expect(screen.getByRole('img', { name: 'Plot' }).style.maxHeight).toBe('min(400px, 45vh)');
+    });
     it('downloads the original bytes straight from the already-resolved blob: URL', async () => {
       const user = userEvent.setup();
       fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_abc'));

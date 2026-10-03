@@ -10,6 +10,47 @@ import { ClioObservabilityDock } from './observability-dock';
 afterEach(cleanup);
 
 describe('ClioObservabilityDock startup status', () => {
+  it('recognizes v3 run ids and tool activity before the assistant run id arrives', () => {
+    render(<ClioObservabilityDock activeTurnId="run_current" artifacts={[]} contextFiles={[]}
+      contextFrames={[]} diffs={[]} infrastructureDependencies={[]}
+      messages={[
+        { id: 'msg_old', session_id: 'sess_1', run_id: 'run_old', role: 'assistant',
+          created_at: '2026-09-05T19:59:59Z',
+          blocks: [{ id: 'old_text', type: 'text', text: 'Previous answer' }] },
+        { id: 'msg_user', session_id: 'sess_1', run_id: 'run_current', role: 'user',
+          created_at: '2026-09-05T20:00:00Z',
+          blocks: [{ id: 'user_text', type: 'text', text: 'Next question' }] },
+        { id: 'msg_tool', session_id: 'sess_1', role: 'assistant',
+          created_at: '2026-09-05T20:00:01Z',
+          blocks: [{ id: 'tool_block', type: 'tool', tool_id: 'load_skill_1' }] },
+      ]}
+      processes={[]} runs={[]} sessionState="running" subagents={[]} tasks={[]} tools={[]} />);
+    expect(screen.getByText('Working on your request')).toBeVisible();
+    expect(screen.queryByText('Preparing next response')).not.toBeInTheDocument();
+    expect(screen.queryByText('Starting')).not.toBeInTheDocument();
+  });
+
+  it('keeps initial session setup when the agent has not started', () => {
+    render(<ClioObservabilityDock activeTurnId="turn_first" artifacts={[]} contextFiles={[]}
+      contextFrames={[]} diffs={[]} infrastructureDependencies={[]} messages={[]}
+      processes={[]} runs={[]} sessionState="running" subagents={[]} tasks={[]} tools={[]} />);
+    expect(screen.getAllByText('Setting up session').find(
+      (element) => !element.classList.contains('sr-only'),
+    )).toBeVisible();
+  });
+
+  it('keeps working after current-turn tool activity even between tool invocations', () => {
+    render(<ClioObservabilityDock activeTurnId="turn_current" artifacts={[]} contextFiles={[]}
+      contextFrames={[]} diffs={[]} infrastructureDependencies={[]}
+      messages={[{ id: 'msg_tool', session_id: 'sess_1', turn_id: 'turn_current',
+        role: 'assistant', created_at: '2026-09-05T20:00:01Z',
+        blocks: [{ id: 'tool_block', type: 'tool', tool_id: 'load_skill_1' }] }]}
+      processes={[]} runs={[]} sessionState="running" subagents={[]} tasks={[]} tools={[]} />);
+    expect(screen.getByText('Working on your request')).toBeVisible();
+    expect(screen.queryByText('Setting up session')).not.toBeInTheDocument();
+    expect(screen.queryByText('Starting')).not.toBeInTheDocument();
+  });
+
   it('replaces the generic startup label with the active MCP preparation phase', () => {
     render(
       <ClioObservabilityDock
@@ -150,7 +191,7 @@ describe('ClioObservabilityDock startup status', () => {
             turn_id: 'turn_old',
             role: 'assistant',
             created_at: '2026-09-05T19:59:59Z',
-            blocks: [{ id: 'block_assistant_old', type: 'text', text: 'Old answer' }],
+            blocks: [{ id: 'block_assistant_old', type: 'text', text: 'Old answer', streaming: true }],
           },
           {
             id: 'msg_user',
@@ -172,7 +213,7 @@ describe('ClioObservabilityDock startup status', () => {
 
     expect(
       screen
-        .getAllByText('Setting up session')
+        .getAllByText('Preparing next response')
         .find((element) => !element.classList.contains('sr-only')),
     ).toBeVisible();
     expect(screen.queryByText('Agent is responding')).not.toBeInTheDocument();

@@ -22,6 +22,13 @@ function geometry(lines: number) {
 }
 
 describe('display-line result previews', () => {
+  it('bounds an unmeasured result before hidden content acquires geometry', () => {
+    geometry(0);
+    const { container } = render(
+      <BoundedResult lines={5}><pre>Unmeasured command</pre></BoundedResult>,
+    );
+    expect(container.querySelector('[id]')).toHaveStyle({ maxHeight: '120px' });
+  });
   it('keeps three whole checklist items rather than slicing a wrapped item', () => {
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: Element,

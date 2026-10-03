@@ -98,7 +98,7 @@ export const queryDownsampleSchema = z
  * itself is an ARRAY of these (multiple keys apply in order, a stable
  * compound sort), never a single object.
  */
-export const querySortSchema = z.object({ column: fieldNameSchema, desc: z.boolean() }).strict();
+export const querySortSchema = z.object({ column: fieldNameSchema, desc: z.boolean().default(false) }).strict();
 
 /**
  * `$defs/DataQuery`: the table-query server's request model (without

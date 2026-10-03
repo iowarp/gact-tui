@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
     surfaces: {},
     tasks: {},
     tools: {},
-    active_turns: {},
-    responded_turns: {},
+    active_turns: {} as Record<string, string>,
+    responded_turns: {} as Record<string, string>,
   },
 }));
 
@@ -44,7 +44,9 @@ vi.mock('./conversation', () => ({
 }));
 
 vi.mock('./observability-dock', () => ({
-  ClioObservabilityDock: () => null,
+  ClioObservabilityDock: ({ activeTurnResponded }: { activeTurnResponded?: boolean }) => (
+    <output data-testid="turn-responded">{String(activeTurnResponded)}</output>
+  ),
   ClioObservabilityView: ({
     messages,
     sessionId,
@@ -61,6 +63,7 @@ vi.mock('./observability-dock', () => ({
 
 import {
   WorkspaceLiveConversation,
+  WorkspaceLiveObservabilityDock,
   WorkspaceLiveObservabilityView,
 } from './workspace-live-projections';
 
@@ -71,6 +74,20 @@ describe('WorkspaceLiveConversation', () => {
     mocks.entities.compactions = {};
     mocks.entities.messages = {};
     mocks.entities.surfaces = {};
+    mocks.entities.active_turns = {};
+    mocks.entities.responded_turns = {};
+  });
+
+  it.each([
+    { active: undefined, responded: undefined, expected: false },
+    { active: 'run_1', responded: undefined, expected: false },
+    { active: 'run_1', responded: 'run_1', expected: true },
+  ])('requires a real active turn before reporting a response: $expected', ({ active, responded, expected }) => {
+    if (active) mocks.entities.active_turns.sess_1 = active;
+    if (responded) mocks.entities.responded_turns.sess_1 = responded;
+    render(<WorkspaceLiveObservabilityDock artifacts={[]} contextFiles={[]} contextFrames={[]}
+      diffs={[]} processes={[]} runs={[]} sessionId="sess_1" subagents={[]} tasks={[]} tools={[]} />);
+    expect(screen.getByTestId('turn-responded')).toHaveTextContent(String(expected));
   });
 
   it('uses the registry-enriched artifact projection supplied by the workspace query', () => {

@@ -18,6 +18,24 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation status and lifecycle semantics', () => {
+  it('keeps a multi-line shell command inside the same bounded preview as stdout', () => {
+    const { container } = render(
+      <ClioToolInvocation tool={{
+        id: 'script', session_id: 's', name: 'shell_bash', state: 'succeeded',
+        presentation: { summary: '', blocks: [{
+          id: 'terminal', type: 'terminal',
+          command: Array.from({ length: 80 }, (_, i) => `print(${i})`).join('\n'),
+          text: 'Done', exit_code: 0,
+        }] },
+      }} />,
+    );
+    const command = screen.getByLabelText('Command');
+    const viewport = command.closest('[style]');
+    expect(viewport).toHaveClass('overflow-hidden');
+    expect(viewport).toHaveAttribute('style', expect.stringContaining('max-height:'));
+    expect(viewport?.textContent).toContain('Done');
+    expect(container.querySelector('[data-slot="tool-human-result"]')).toContainElement(viewport as HTMLElement);
+  });
   it('shows one filename and opens its declared full path in the workbench', async () => {
     const openFile = vi.fn();
     const path = 'D:/workspace/evidence.txt';

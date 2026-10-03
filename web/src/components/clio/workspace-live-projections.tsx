@@ -106,7 +106,7 @@ export function WorkspaceLiveObservabilityDock({
   const infrastructure = useLiveStore((state) => state.entities.infrastructure);
   const activeTurnId = useLiveStore((state) => state.entities.active_turns[sessionId]);
   const activeTurnResponded = useLiveStore(
-    (state) => state.entities.responded_turns[sessionId] === activeTurnId,
+    (state) => Boolean(activeTurnId && state.entities.responded_turns[sessionId] === activeTurnId),
   );
   const infrastructureDependencies = useMemo(
     () => Object.values(infrastructure).filter((item) => item.session_id === sessionId),

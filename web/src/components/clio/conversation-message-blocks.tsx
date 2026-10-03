@@ -36,6 +36,7 @@ import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
+import { ReferencedArtifact } from './referenced-artifact';
 import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
@@ -46,6 +47,7 @@ import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
+import { SentReferenceMessage } from './sent-reference-message';
 import { toolOutputDiffKey } from './declared-diff-key';
 import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -141,6 +143,7 @@ type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
   block: MessageBlock;
   messageSessionId?: string;
   reasoningDefaultOpen?: boolean;
+  compactReferences?: boolean;
 };
 
 function MessageBlockView({
@@ -164,6 +167,7 @@ function MessageBlockView({
   messageSessionId,
   interactions,
   onInteractionResponse,
+  compactReferences,
 }: MessageBlockViewProps) {
   switch (block.type) {
     case 'text':
@@ -174,6 +178,8 @@ function MessageBlockView({
         >
           {block.streaming ? (
             <ClioStreamingText className="leading-7" active text={block.text} />
+          ) : compactReferences ? (
+            <SentReferenceMessage text={block.text} />
           ) : (
             <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
           )}
@@ -231,13 +237,11 @@ function MessageBlockView({
       return artifact ? (
         <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} />
       ) : (
-        <Alert>
-          <PanelsTopLeftIcon aria-hidden="true" />
-          <AlertTitle>Artifact unavailable</AlertTitle>
-          <AlertDescription>
-            The message refers to an artifact the service did not return.
-          </AlertDescription>
-        </Alert>
+        <ReferencedArtifact
+          artifactId={block.artifact_id}
+          sessionId={messageSessionId ?? ''}
+          onOpen={onOpenArtifact}
+        />
       );
     }
     case 'action_card':

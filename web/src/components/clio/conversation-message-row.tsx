@@ -321,6 +321,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   blocks={message.blocks}
                   messageSessionId={message.session_id}
                   resourcesFirst={message.role === 'user'}
+                  compactReferences={message.role === 'user'}
                   {...entities}
                 />
               </>

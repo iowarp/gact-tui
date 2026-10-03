@@ -25,6 +25,12 @@ const BOTTOM_EPSILON_PX = 2;
  */
 const USER_SCROLL_WINDOW_MS = 600;
 
+// A collapsed activity can resize, clamp, and then deliver its native scroll
+// in separate frames. That delayed clamp is still layout, not navigation.
+// Live capture under load delivered one clamp 154 ms after the resize. Cover
+// the collapse animation and its queued compositor scroll, not just one frame.
+const LAYOUT_SCROLL_WINDOW_MS = 500;
+
 const SCROLL_UP_KEYS = new Set(['ArrowUp', 'PageUp', 'Home']);
 const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' ']);
 
@@ -121,6 +127,7 @@ export function useTranscriptAutoscroll(
   const touchYRef = useRef<number | null>(null);
   const contentElementsRef = useRef(new Set<HTMLElement>());
   const observerRef = useRef<ResizeObserver | null>(null);
+  const layoutFollowUntilRef = useRef(Number.NEGATIVE_INFINITY);
 
   const setStuck = useCallback((next: boolean) => {
     stuckRef.current = next;
@@ -196,13 +203,21 @@ export function useTranscriptAutoscroll(
       previous.clientHeight !== element.clientHeight;
     recordGeometry(element);
     const atBottom = distanceFromBottom(element) <= BOTTOM_EPSILON_PX;
-    // Navigation (geometry unchanged) decides stuck outright; a scroll caused
-    // by a size change can only confirm it, never unstick.
-    setStuck(resized ? stuckRef.current || atBottom : atBottom);
     const userDriven =
       scrollbarPointerRef.current ||
       touchYRef.current !== null ||
       performance.now() - lastUserInputAtRef.current <= USER_SCROLL_WINDOW_MS;
+    if (
+      !userDriven &&
+      followingRef.current &&
+      performance.now() <= layoutFollowUntilRef.current
+    ) {
+      if (!atBottom) scrollToBottom('instant');
+      return;
+    }
+    // Navigation (geometry unchanged) decides stuck outright; a scroll caused
+    // by a size change can only confirm it, never unstick.
+    setStuck(resized ? stuckRef.current || atBottom : atBottom);
     if (!userDriven) return;
     if (atBottom) {
       if (!engagedRef.current) setEngaged(true);
@@ -211,7 +226,7 @@ export function useTranscriptAutoscroll(
       // drag has no directional input event, only the scroll it produces.
       setEngaged(false);
     }
-  }, [recordGeometry, scrollRef, setEngaged, setStuck]);
+  }, [recordGeometry, scrollRef, scrollToBottom, setEngaged, setStuck]);
 
   const onWheel = useCallback(
     (event: WheelEvent<HTMLElement>) => {
@@ -311,7 +326,10 @@ export function useTranscriptAutoscroll(
     const element = scrollRef.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      if (followingRef.current) scrollToBottom('instant');
+      if (followingRef.current) {
+        layoutFollowUntilRef.current = performance.now() + LAYOUT_SCROLL_WINDOW_MS;
+        scrollToBottom('instant');
+      }
     });
     observerRef.current = observer;
     observer.observe(element);

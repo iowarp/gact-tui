@@ -4,15 +4,17 @@ import { infrastructurePreparationLabel } from './infrastructure-preparation-lab
 
 interface ClioInfrastructurePreparationProps {
   dependencies: readonly InfrastructureDependency[];
+  followUp?: boolean;
 }
 
 /** AI Elements shimmer treatment for the current pre-response startup phase. */
 export function ClioInfrastructurePreparation({
   dependencies,
+  followUp = false,
 }: ClioInfrastructurePreparationProps) {
   return (
     <Shimmer as="span" className="min-w-0 flex-1 truncate text-left font-medium" duration={1.5}>
-      {infrastructurePreparationLabel(dependencies)}
+      {infrastructurePreparationLabel(dependencies, followUp)}
     </Shimmer>
   );
 }

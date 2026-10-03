@@ -336,22 +336,33 @@ export function ArtifactView({
         </TabsList>
       </div>
       <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
-        <ScrollArea className="h-full min-w-0 p-3">
-          {isDocumentArtifact(artifact.media_type, artifact.name) ? (
-            <ClioDocumentWorkspace
-              artifact={artifact}
-              fallbackPreview={preview}
-              key={artifact.id}
-            />
-          ) : (
-            preview
-          )}
-          {fallbackPath ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Recovered from the matching workspace file.
-            </p>
-          ) : null}
-        </ScrollArea>
+        {canPreviewImage ? (
+          <div className="flex h-full min-h-0 flex-col gap-3 p-3">
+            <div className="min-h-0 flex-1">{preview}</div>
+            {fallbackPath ? (
+              <p className="shrink-0 text-xs text-muted-foreground">
+                Recovered from the matching workspace file.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <ScrollArea className="h-full min-w-0 p-3">
+            {isDocumentArtifact(artifact.media_type, artifact.name) ? (
+              <ClioDocumentWorkspace
+                artifact={artifact}
+                fallbackPreview={preview}
+                key={artifact.id}
+              />
+            ) : (
+              preview
+            )}
+            {fallbackPath ? (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Recovered from the matching workspace file.
+              </p>
+            ) : null}
+          </ScrollArea>
+        )}
       </TabsContent>
       <TabsContent className="m-0 min-h-0 overflow-hidden" value="versions">
         <ScrollArea className="h-full min-w-0 p-3">

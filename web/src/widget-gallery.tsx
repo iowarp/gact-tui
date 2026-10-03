@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { galleryComponentFromHash, galleryComponentSlug } from '@/lib/gallery-component-links';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
 import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
@@ -308,14 +309,38 @@ function examplePayload(name: string, variant: string): unknown {
 
 /** A visually led explorer of every component in the CLIO workspace catalog. */
 export function WidgetGallery() {
-  const [active, setActive] = useState('clio.chart.v1');
+  const [active, setActive] = useState(() => galleryComponentFromHash(
+    window.location.hash, groups.flatMap((group) => group.names),
+  ) ?? 'clio.chart.v1');
   const [query, setQuery] = useState('');
-  const [variant, setVariant] = useState('scatter');
+  const [variant, setVariant] = useState(() => active === 'clio.map.v1' ? 'sites' : 'scatter');
   const [showContract, setShowContract] = useState(false);
   const [showExample, setShowExample] = useState(false);
   const [composer, setComposer] = useState('');
   const [reference, setReference] = useState<DataSurfaceZoneSelection>();
   const [skill, setSkill] = useState<string | null>(null);
+  const selectComponent = useCallback((name: string, updateUrl = true) => {
+    setActive(name);
+    if (name === 'clio.map.v1') setVariant('sites');
+    if (name === 'clio.chart.v1') setVariant('scatter');
+    setShowContract(false);
+    setReference(undefined);
+    const hash = `#${galleryComponentSlug(name)}`;
+    if (updateUrl && window.location.hash !== hash) window.history.pushState(null, '', hash);
+  }, []);
+  useEffect(() => {
+    const sync = () => {
+      const name = galleryComponentFromHash(window.location.hash, groups.flatMap((group) => group.names));
+      if (name) selectComponent(name, false);
+      else if (!window.location.hash) selectComponent('clio.chart.v1', false);
+    };
+    window.addEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => {
+      window.removeEventListener('hashchange', sync);
+      window.removeEventListener('popstate', sync);
+    };
+  }, [selectComponent]);
   const openSkill = (name: string) => {
     if (new URLSearchParams(window.location.search).has('embedded') && window.parent !== window) {
       window.parent.postMessage({ type: 'clio:gallery-skill', name }, window.location.origin);
@@ -339,16 +364,16 @@ export function WidgetGallery() {
   }, []);
   const activeGroup = groups.find((group) => group.names.includes(active));
   return <SelectionActionsContext.Provider value={selectionActions}><section className="grid gap-7 lg:grid-cols-[14rem_minmax(0,1fr)]">
-    <label className="block space-y-1.5 text-xs text-muted-foreground lg:hidden"><span>Component</span><select aria-label="Choose a component" className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground" onChange={(event) => { const next = event.target.value; setActive(next); if (next === 'clio.map.v1') setVariant('sites'); if (next === 'clio.chart.v1') setVariant('scatter'); setShowContract(false); setReference(undefined); }} value={active}>{groups.map((group) => <optgroup key={group.title} label={group.title}>{group.names.map((name) => <option key={name} value={name}>{labels[name] ?? name}</option>)}</optgroup>)}</select></label>
+    <label className="block space-y-1.5 text-xs text-muted-foreground lg:hidden"><span>Component</span><select aria-label="Choose a component" className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground" onChange={(event) => { selectComponent(event.target.value); }} value={active}>{groups.map((group) => <optgroup key={group.title} label={group.title}>{group.names.map((name) => <option key={name} value={name}>{labels[name] ?? name}</option>)}</optgroup>)}</select></label>
     <nav aria-label="Components" className="gallery-nav-scroll hidden space-y-5 lg:sticky lg:top-6 lg:block lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
       <label className="flex items-center gap-2 rounded-md border px-3"><Search aria-hidden className="size-4 text-muted-foreground" /><input aria-label="Find a component" className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Find a component" value={query} /></label>
       {groups.map((group) => {
         const names = group.names.filter((name) => `${labels[name] ?? name} ${name}`.toLowerCase().includes(query.toLowerCase()));
-        return names.length ? <div className="space-y-1" key={group.title}><p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{group.title}</p>{names.map((name) => <button aria-current={active === name ? 'page' : undefined} className={`block w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors ${active === name ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`} key={name} onClick={() => { setActive(name); if (name === 'clio.map.v1') setVariant('sites'); if (name === 'clio.chart.v1') setVariant('scatter'); setShowContract(false); setReference(undefined); }} type="button">{labels[name] ?? name}</button>)}</div> : null;
+        return names.length ? <div className="space-y-1" key={group.title}><p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{group.title}</p>{names.map((name) => <button aria-current={active === name ? 'page' : undefined} className={`block w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors ${active === name ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`} key={name} onClick={() => { selectComponent(name); }} type="button">{labels[name] ?? name}</button>)}</div> : null;
       })}
     </nav>
     <div className="min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{labels[active] ?? active}</h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => openSkill(active)} type="button">Contract</button></div></header>
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight"><a href={`#${galleryComponentSlug(active)}`} aria-label={`Link to ${labels[active] ?? active}`} className="hover:underline">{labels[active] ?? active}</a></h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => openSkill(active)} type="button">Contract</button></div></header>
       {active === 'clio.chart.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Chart example">{['scatter', 'boxplot', 'heatmap', 'trajectories', 'storm-series', 'spectra'].map((item) => <button aria-pressed={variant === item} className={`shrink-0 rounded-md px-3 py-1.5 text-xs capitalize ${variant === item ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item} onClick={() => { setVariant(item); setReference(undefined); }} type="button">{item === 'storm-series' ? 'Storm series' : item}</button>)}</div> : null}
       {active === 'clio.map.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Map example">{[{ id: 'sites', label: 'Sites' }, { id: 'storm-tracks', label: 'Storm tracks' }].map((item) => <button aria-pressed={variant === item.id} className={`shrink-0 rounded-md px-3 py-1.5 text-xs ${variant === item.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item.id} onClick={() => { setVariant(item.id); setReference(undefined); }} type="button">{item.label}</button>)}</div> : null}
       {active === 'clio.callout.v1' ? <p className="text-sm text-muted-foreground">A short notice for a result, warning, or next step that deserves attention.</p> : null}

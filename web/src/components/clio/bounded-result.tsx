@@ -68,7 +68,13 @@ export function BoundedResult({
   const hidden = bottoms.length > lines || hasMore;
   const separate =
     separateViewer || hasMore || bottoms.length > Math.max(unit === 'items' ? 10 : 30, lines * 2);
-  const height = running ? lines * 24 : expanded ? undefined : bottoms[lines - 1];
+  // Keep the first paint bounded too, including when a hidden activity panel
+  // has not yet supplied measurable text rows. Short results still shrink.
+  const height = running
+    ? lines * 24
+    : expanded
+      ? undefined
+      : (bottoms[lines - 1] ?? bottoms.at(-1) ?? lines * 24);
   const expand = async () => {
     setError('');
     if (hasMore && loadMore) {

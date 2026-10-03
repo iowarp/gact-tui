@@ -11,6 +11,7 @@ function activeDependency(
 /** Derive the one honest, evolving startup sentence shown in the composer. */
 export function infrastructurePreparationLabel(
   dependencies: readonly InfrastructureDependency[],
+  followUp = false,
 ): string {
   const dependency = activeDependency(dependencies);
   if (dependency) {
@@ -31,5 +32,5 @@ export function infrastructurePreparationLabel(
   const preparedThisTurn = dependencies.some(
     (dependency) => dependency.state === 'ready' && dependency.observed_active,
   );
-  return preparedThisTurn ? 'Starting agent' : 'Setting up session';
+  return preparedThisTurn ? 'Starting agent' : followUp ? 'Preparing next response' : 'Setting up session';
 }

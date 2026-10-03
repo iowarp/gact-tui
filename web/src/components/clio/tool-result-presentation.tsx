@@ -289,11 +289,18 @@ export function ToolResultPresentation({
               autoScroll={false}
               isStreaming={running}
             >
-              {block.command ? <TerminalCommand command={block.command} /> : null}
               {block.content_ref && !running ? (
-                <PagedBlock block={block} lines={budget} />
+                <>
+                  {block.command ? (
+                    <BoundedResult lines={budget} title="Terminal command">
+                      <TerminalCommand command={block.command} />
+                    </BoundedResult>
+                  ) : null}
+                  <PagedBlock block={block} lines={budget} />
+                </>
               ) : (
                 <BoundedResult lines={budget} running={running} title="Terminal output">
+                  {block.command ? <TerminalCommand command={block.command} /> : null}
                   <TerminalContent className="max-h-none overflow-visible bg-zinc-950 p-3 text-zinc-100" />
                 </BoundedResult>
               )}

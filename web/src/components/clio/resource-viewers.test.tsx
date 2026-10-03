@@ -158,7 +158,12 @@ describe('ArtifactView', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByLabelText('Zoomable image scan-speed.svg')).toBeVisible();
+    const imageCanvas = await screen.findByLabelText('Zoomable image scan-speed.svg');
+    expect(imageCanvas).toBeVisible();
+    // A scroll viewport has an intrinsically sized content wrapper. A fitted
+    // image instead needs the actual panel height when the canvas is expanded.
+    expect(imageCanvas.closest('[data-slot="scroll-area"]')).toBeNull();
+    expect(imageCanvas.closest('[role="tabpanel"]')?.firstElementChild).toHaveClass('h-full');
     expect(screen.queryByText('Preview unavailable')).not.toBeInTheDocument();
   });
 });

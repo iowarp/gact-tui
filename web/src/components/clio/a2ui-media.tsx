@@ -30,6 +30,18 @@ export interface A2uiMediaProps {
   /** Accessible name (Image `description`, AudioPlayer `description`, Video label). */
   label?: string;
   objectFit?: CSSProperties['objectFit'];
+  variant?: 'icon' | 'avatar' | 'smallFeature' | 'mediumFeature' | 'largeFeature' | 'header';
+}
+
+/** Preserve the catalog's image sizing without letting a figure fill the transcript. */
+function imageVariantStyle(variant: A2uiMediaProps['variant']): CSSProperties {
+  switch (variant) {
+    case 'icon': return { width: 24, height: 24 };
+    case 'avatar': return { width: 40, height: 40, borderRadius: '50%' };
+    case 'smallFeature': return { maxWidth: 100, maxHeight: 100 };
+    case 'header': return { width: '100%', height: 200 };
+    default: return { maxWidth: '100%', maxHeight: 'min(400px, 45vh)' };
+  }
 }
 
 /** A media component's typed failure, in place of the element (never a broken image). */
@@ -99,11 +111,13 @@ function ReferenceImage({
   objectFit,
   onError,
   state,
+  variant,
 }: {
   label: string | undefined;
   objectFit: CSSProperties['objectFit'];
   onError: () => void;
   state: A2uiReferenceState;
+  variant: A2uiMediaProps['variant'];
 }) {
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
   const name = state.resolution?.name || label || 'image';
@@ -146,17 +160,17 @@ function ReferenceImage({
       >
         <img
           alt={label ?? ''}
-          className={fullscreen ? 'max-h-full max-w-full object-contain' : 'max-w-full rounded-md'}
+          className={fullscreen ? 'mx-auto block max-w-full object-contain' : 'max-w-full rounded-md'}
           onError={onError}
           src={state.objectUrl}
-          style={fullscreen ? undefined : { objectFit }}
+          style={fullscreen ? { maxHeight: 'calc(100dvh - 6rem)', objectFit: 'contain' } : { ...imageVariantStyle(variant), objectFit }}
         />
       </SurfaceFullScreenHost>
     </div>
   );
 }
 
-function ReferenceMedia({ kind, label, objectFit, url }: Omit<A2uiMediaProps, 'componentId'>) {
+function ReferenceMedia({ kind, label, objectFit, url, variant }: Omit<A2uiMediaProps, 'componentId'>) {
   const state = useA2uiReference(url);
   const [undisplayable, setUndisplayable] = useState<string>();
   const failure =
@@ -178,7 +192,7 @@ function ReferenceMedia({ kind, label, objectFit, url }: Omit<A2uiMediaProps, 'c
   }
   const onError = () => setUndisplayable(state.objectUrl);
   if (kind === 'image') {
-    return <ReferenceImage label={label} objectFit={objectFit} onError={onError} state={state} />;
+    return <ReferenceImage label={label} objectFit={objectFit} onError={onError} state={state} variant={variant} />;
   }
   if (kind === 'video') {
     return (
@@ -204,7 +218,7 @@ function ReferenceMedia({ kind, label, objectFit, url }: Omit<A2uiMediaProps, 'c
  * read with the connection's bearer (works for a local or remote CLIO); an
  * external `https:` URL is shown as an explicit link, never auto-loaded.
  */
-export function A2uiMedia({ componentId, kind, label, objectFit, url }: A2uiMediaProps) {
+export function A2uiMedia({ componentId, kind, label, objectFit, url, variant }: A2uiMediaProps) {
   const guard = useA2uiUrlGuard(componentId, 'url', url);
   if (!guard.ok) {
     return (
@@ -216,5 +230,5 @@ export function A2uiMedia({ componentId, kind, label, objectFit, url }: A2uiMedi
     );
   }
   if (!isClioReference(url)) return <A2uiExternalMedia kind={kind} url={url} />;
-  return <ReferenceMedia kind={kind} label={label} objectFit={objectFit} url={url} />;
+  return <ReferenceMedia kind={kind} label={label} objectFit={objectFit} url={url} variant={variant} />;
 }

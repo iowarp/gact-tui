@@ -125,19 +125,38 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     activeActivityCount || sessionActive || sessionNeedsAttention,
   );
   const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
+  const latestUser = props.messages.findLast((message) => message.role === 'user');
+  const currentRunId = props.activeTurnId ?? latestUser?.run_id ?? latestUser?.turn_id;
+  const isCurrentAssistant = (message: Message): boolean => {
+    if (message.role !== 'assistant') return false;
+    const runId = message.run_id ?? message.turn_id;
+    if (runId && currentRunId) return runId === currentRunId;
+    // Live tool-only messages can arrive before their run association. Use the
+    // latest user message boundary until the server supplies that association.
+    return !latestUser || Date.parse(message.created_at) >= Date.parse(latestUser.created_at);
+  };
   const currentAssistantStreaming = props.messages.some(
     (message) =>
-      message.role === 'assistant' &&
+      isCurrentAssistant(message) &&
       message.blocks.some(
         (block) =>
           (block.type === 'text' || block.type === 'reasoning') && block.streaming === true,
       ),
   );
   const assistantResponding = currentAssistantStreaming || props.activeTurnResponded === true;
-  const startupVisible = Boolean(
-    sessionActive && !currentTool && !latestActiveProcess && !currentTask && !assistantResponding,
+  const currentTurnHasActivity = props.messages.some(
+    (message) => isCurrentAssistant(message) &&
+      message.blocks.some((block) => block.type === 'tool' || block.type === 'reasoning' ||
+        (block.type === 'text' && block.text.trim().length > 0)),
   );
-  const startupLabel = infrastructurePreparationLabel(props.infrastructureDependencies ?? []);
+  const agentHasStarted = assistantResponding || currentTurnHasActivity;
+  const followUp = props.messages.some(
+    (message) => message.role === 'assistant' && !isCurrentAssistant(message),
+  );
+  const startupVisible = Boolean(
+    sessionActive && !currentTool && !latestActiveProcess && !currentTask && !agentHasStarted,
+  );
+  const startupLabel = infrastructurePreparationLabel(props.infrastructureDependencies ?? [], followUp);
   const activityCountLabel = `${activityCount.toLocaleString()} background ${activityCount === 1 ? 'activity' : 'activities'}`;
   const dockLabel = currentTool
     ? getToolPresentation(currentTool).title
@@ -148,8 +167,8 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         : activityCount
           ? activityCountLabel
           : sessionActive
-            ? assistantResponding
-              ? 'Agent is responding'
+            ? agentHasStarted
+              ? assistantResponding ? 'Agent is responding' : 'Working on your request'
               : startupLabel
             : 'Session details';
   // The badge takes the session state's tone (red for failed), so its words must name that
@@ -157,7 +176,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   const dockStatus = activeActivityCount
     ? `${activeActivityCount} active`
     : sessionActive
-      ? assistantResponding
+      ? agentHasStarted
         ? 'Working'
         : 'Starting'
       : sessionNeedsAttention && props.sessionState
@@ -189,7 +208,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
         {startupVisible ? (
-          <ClioInfrastructurePreparation dependencies={props.infrastructureDependencies ?? []} />
+          <ClioInfrastructurePreparation dependencies={props.infrastructureDependencies ?? []} followUp={followUp} />
         ) : (
           <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
         )}

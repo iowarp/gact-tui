@@ -642,6 +642,7 @@ const Image = createComponentImplementation(ImageApi, ({ props, context }) => (
     kind="image"
     label={props.description}
     objectFit={IMAGE_OBJECT_FIT[props.fit ?? 'cover']}
+    variant={props.variant}
     url={props.url}
   />
 ));
