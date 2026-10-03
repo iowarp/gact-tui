@@ -346,9 +346,7 @@ describe('SurfaceToolbar', () => {
   it('keeps the same relative order across two different REAL components declaring different subsets (controlled, not reordered)', () => {
     // A real `ClioChart` (declares Filters from its x/y/entity fields, plus
     // Reference this/Full screen/download) and a real
-    // `ClioSelectableDataTable` (its own per-column header filters, not the
-    // shared Filters icon -- see its own doc comment; so just Reference
-    // this/Full screen/download) rendered side by side, NOT two hand-built
+    // `ClioSelectableDataTable` (with its native Filters icon) rendered side by side, NOT two hand-built
     // `SurfaceCapabilities` objects (#516 review item 16): a synthetic object
     // can drift from what a real component actually declares and never
     // notice.
@@ -382,8 +380,10 @@ describe('SurfaceToolbar', () => {
       .map((button) => button.getAttribute('aria-label'))
       .filter((label): label is string => label !== null);
 
-    expect(chartOrder).toEqual(['Filters', 'Reference this', 'Full screen', 'More']);
-    expect(tableOrder).toEqual(['Reference this', 'Full screen', 'More']);
+    expect(chartOrder).toEqual([
+      'Box select chart points', 'Filters', 'Reference this', 'Full screen', 'More',
+    ]);
+    expect(tableOrder).toEqual(['Filters', 'Reference this', 'Full screen', 'More']);
     // Every control the table DOES declare lands in the same relative
     // position the chart uses for it -- nothing reordered per component.
     for (const shared of tableOrder) {

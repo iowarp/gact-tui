@@ -66,6 +66,8 @@ function wrap(children: ReactNode) {
 
 /** Opens the shared `SurfaceToolbar` overflow and the nested Download submenu. */
 async function openDownloadMenu(user: ReturnType<typeof userEvent.setup>) {
+  // Radix can still be closing the prior nested menu after a download.
+  await user.keyboard('{Escape}');
   await user.click(screen.getByRole('button', { name: 'More' }));
   await user.click(screen.getByRole('menuitem', { name: /Download/ }));
 }

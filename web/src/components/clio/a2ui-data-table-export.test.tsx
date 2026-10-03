@@ -264,7 +264,7 @@ describe('clio.data-table.v1 inline rows (G0)', () => {
     expect(screen.queryByRole('button', { name: 'Reference this' })).not.toBeInTheDocument();
   });
 
-  it('"Reference this" attaches the whole inline table, with no dataUri to re-query', async () => {
+  it('"Reference this" attaches the filtered inline view, with no dataUri to re-query', async () => {
     const user = userEvent.setup();
     render(
       <WithComposer>
@@ -281,7 +281,7 @@ describe('clio.data-table.v1 inline rows (G0)', () => {
 
     const attached = screen.getByRole('list', { name: 'Attached selections' });
     expect(attached).toHaveTextContent('Station table');
-    expect(attached).toHaveTextContent('the whole table (2 rows)');
+    expect(attached).toHaveTextContent('the filtered current view (2 rows)');
 
     await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
     const popover = await screen.findByText('Sent with your next message, exactly as shown below.');

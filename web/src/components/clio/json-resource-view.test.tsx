@@ -27,7 +27,10 @@ describe('JSON resource view', () => {
     render(<ClioJsonResourceView content={content} title="batch-005.json" />);
 
     expect(screen.getByRole('tab', { name: 'Data' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('runs, 2 rows')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'runs' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('menuitem', { name: '2 rows' })).toBeVisible();
+    await user.keyboard('{Escape}');
     expect(screen.getByText('run-021')).toBeVisible();
     expect(screen.getByText('113.828325')).toHaveAttribute('title', '113.82832450388318');
 

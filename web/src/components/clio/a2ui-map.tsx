@@ -129,29 +129,30 @@ export function ClioScientificMap({
   const autoSelection = useAutoDatasetSelection(inlineKey);
   const writeSelection = setSelection ?? autoSelection.setSelection ?? setLocalSelection;
   // Bound: the shared selection decides; unbound (or nothing there yet): local state and `selected`.
-  const state = useMemo(
-    () =>
-      selectionForField(
-        parseSelectionState(
-          setSelection
-            ? selection
-            : autoSelection.active
-              ? autoSelection.selection
-              : localSelection,
-        ),
-        selectionField ?? 'id',
-      ),
+  const incomingSelection = useMemo(
+    () => parseSelectionState(
+      setSelection
+        ? selection
+        : autoSelection.active
+          ? autoSelection.selection
+          : localSelection,
+    ),
     [
       autoSelection.active,
       autoSelection.selection,
       localSelection,
       selection,
-      selectionField,
       setSelection,
     ],
   );
-  const field: string =
-    selectionField ?? (state && isSelectablePointField(state.field) ? state.field : 'id');
+  const field: string = selectionField ??
+    (setSelection && incomingSelection && isSelectablePointField(incomingSelection.field)
+      ? incomingSelection.field
+      : 'id');
+  const state = setSelection && !selectionField && incomingSelection &&
+    !isSelectablePointField(incomingSelection.field)
+    ? undefined
+    : selectionForField(incomingSelection, field);
   // Inline `points` (no `dataUri`) never carry a dataset `selectionValue` —
   // only `id`/`label`/`category` exist to select by. A `selectionField`
   // naming anything else can never resolve a value to write or compare

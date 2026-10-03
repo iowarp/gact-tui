@@ -224,12 +224,13 @@ describe('CLIO A2UI kernel catalog', () => {
       'Two bounded EarthScope locations',
     );
     await user.click(screen.getByRole('button', { name: 'More' }));
-    expect(screen.getByRole('menuitem', { name: '2 locations' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '2 locations' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Show locations list' }));
     await user.keyboard('{Escape}');
+    expect(screen.getByTitle('Total map locations')).toHaveTextContent('2 locations');
     const second = screen.getByRole('button', { name: /Station 2/ });
     fireEvent.click(second);
-    expect(second).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Station 2/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('40.12000, -88.21000')).toBeVisible();
     expect(container.textContent).not.toContain('tile.openstreetmap.org');
   });

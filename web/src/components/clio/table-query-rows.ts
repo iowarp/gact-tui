@@ -149,9 +149,11 @@ export function columnarToRows(
  */
 function describeResult(result: ArtifactTableQueryResult, requestedOffset: boolean): string {
   const mode = typeof result.downsample.mode === 'string' ? result.downsample.mode : 'none';
-  const downsampled = mode !== 'none';
-  if (!downsampled && !result.truncated && !requestedOffset) return '';
   const matched = result.matchedRows ?? result.totalRows;
+  // A producer may request sampling for a small result. If every matching row
+  // came back, the view has not actually been reduced.
+  const downsampled = mode !== 'none' && result.returnedRows < matched;
+  if (!downsampled && !result.truncated && !requestedOffset) return '';
   const parts = [
     `Showing ${result.returnedRows.toLocaleString()} of ${matched.toLocaleString()} rows`,
   ];

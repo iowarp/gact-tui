@@ -152,12 +152,16 @@ export function ClioSelectableDataTable({
   const effectiveSelection = setSelection
     ? selection
     : (selection ?? autoInlineSelection.selection ?? localSelection);
-  const keyColumn =
-    selectionField ?? (autoInlineSelection.active ? inlineIdentity?.field : undefined) ?? keys[0];
-  const state = useMemo(
-    () => selectionForField(parseSelectionState(effectiveSelection), keyColumn),
-    [effectiveSelection, keyColumn],
-  );
+  const boundField = setSelection ? parseSelectionState(effectiveSelection)?.field : undefined;
+  const keyColumn = selectionField ??
+    (boundField && keys.includes(boundField) ? boundField : undefined) ??
+    (autoInlineSelection.active ? inlineIdentity?.field : undefined) ?? keys[0];
+  const state = useMemo(() => {
+    if (setSelection && !selectionField && boundField && !keys.includes(boundField)) {
+      return undefined;
+    }
+    return selectionForField(parseSelectionState(effectiveSelection), keyColumn);
+  }, [boundField, effectiveSelection, keyColumn, keys, selectionField, setSelection]);
   const writeSelection = setSelection ?? autoInlineSelection.setSelection ?? setLocalSelection;
   const filteredRows = useMemo(
     () =>

@@ -26,7 +26,7 @@ describe('buildZoneReference', () => {
     expect(summary).toBe('depth 2–8 — 23 of 270 rows');
     expect(summary).not.toContain('**');
     expect(summary).not.toContain('|');
-    expect(markdown).toContain('**Depth vs. magnitude chart** — artifact_earthquakes01');
+    expect(markdown).toContain('**Depth vs. magnitude chart**\nDataset: artifact_earthquakes01.');
     expect(markdown).toContain('Filters: magnitude ≥ 2.');
     expect(markdown).toContain('Zone: depth 2–8 — 23 of 270 rows.');
     expect(markdown).toContain('| id | depth | magnitude |');

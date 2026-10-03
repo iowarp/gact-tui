@@ -8,6 +8,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // (which probes a canvas for text metrics at import) estimates quietly.
 vi.hoisted(() => {
   HTMLCanvasElement.prototype.getContext = () => null;
+  const measure = HTMLElement.prototype.getBoundingClientRect;
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    if (this.getAttribute('data-slot') === 'a2ui-chart-view') {
+      return new DOMRect(0, 0, 640, 320);
+    }
+    return measure.call(this);
+  };
 });
 
 import type { View } from 'vega';

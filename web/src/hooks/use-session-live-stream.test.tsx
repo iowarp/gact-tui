@@ -163,7 +163,7 @@ describe('useSessionLiveStream resume recovery', () => {
     unmount();
   });
 
-  it('does not refetch the complete transcript after an ordered completion event', () => {
+  it('reconciles the authoritative transcript after a completion event', () => {
     const keys = queryInvalidationKeysForEvent({
       endpoint: 'http://127.0.0.1:8790',
       eventName: 'message.completed',
@@ -171,7 +171,7 @@ describe('useSessionLiveStream resume recovery', () => {
       workspaceId: 'ws_1',
     });
 
-    expect(keys).not.toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
+    expect(keys).toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
     expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
     expect(keys).toContainEqual(['execution-provenance', 'http://127.0.0.1:8790', 'sess_1']);
   });

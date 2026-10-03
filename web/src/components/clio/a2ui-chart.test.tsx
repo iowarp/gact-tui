@@ -283,6 +283,31 @@ describe('ClioChart', () => {
     ).toBeInTheDocument();
   });
 
+  it('does not call a complete small result downsampled just because sampling was requested', async () => {
+    repository.artifactTableQuery.mockResolvedValue({
+      schema: [],
+      columns: { t: [0, 1], v: [1, 2], run: ['a', 'a'] },
+      totalRows: 2,
+      matchedRows: 2,
+      returnedRows: 2,
+      truncated: false,
+      downsample: { mode: 'per_entity_lttb' },
+    });
+    render(
+      wrap(
+        <ClioChart
+          {...PRESET}
+          componentId="complete-small-series"
+          dataQuery={{ downsample: DATA_QUERY_DOWNSAMPLE }}
+          dataUri="artifact://artifact_runs01"
+        />,
+      ),
+    );
+
+    await embeddedView();
+    expect(screen.queryByText(/downsampled/iu)).not.toBeInTheDocument();
+  });
+
   it('includes the producer\'s own downsample request in the "current view" CSV export, matching what the chart actually plots (#516 review item 16)', async () => {
     repository.artifactTableQuery.mockResolvedValue({
       schema: [],

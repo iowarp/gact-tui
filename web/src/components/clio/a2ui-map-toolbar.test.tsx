@@ -106,13 +106,13 @@ async function openDownloadMenu(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('menuitem', { name: /Download/ }));
 }
 
-/** The point count moved from the map body into its secondary toolbar details. */
+/** The point count shares a line with pagination in the optional locations list. */
 async function expectMapCount(user: ReturnType<typeof userEvent.setup>, count: string) {
   const dialog = screen.queryByRole('dialog');
   const toolbarScope = dialog ?? (await mapSurface());
   await user.click(within(toolbarScope).getByRole('button', { name: 'More' }));
-  expect(await screen.findByRole('menuitem', { name: count })).toBeVisible();
-  await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Show locations list' }));
+  expect(within(toolbarScope).getByTitle('Total map locations')).toHaveTextContent(count);
 }
 
 /**
@@ -308,7 +308,7 @@ describe('clio.map.v1 G0 toolbar — dataUri', () => {
     expect(within(dialog).getByTestId('map-canvas')).toBeInTheDocument();
     // The SAME canvas, not a second one left behind inline.
     expect(screen.getAllByTestId('map-canvas')).toHaveLength(1);
-    // The map count is secondary detail in the shared overflow, including in full screen.
+    // The list keeps its compact count and page controls in full screen.
     await expectMapCount(user, '1 locations');
 
     await user.click(within(dialog).getByRole('button', { name: 'Exit full screen' }));

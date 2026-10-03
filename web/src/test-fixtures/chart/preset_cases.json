@@ -364,7 +364,9 @@
             },
             "mark": {
               "extent": 1.5,
+              "opacity": 0.55,
               "outliers": false,
+              "size": 36,
               "type": "boxplot"
             }
           },
@@ -376,17 +378,35 @@
               },
               "opacity": {
                 "condition": {
+                  "empty": false,
                   "param": "sel",
                   "value": 1
                 },
-                "value": 0.2
+                "value": 0.32
               },
               "size": {
                 "condition": {
+                  "empty": false,
                   "param": "sel",
-                  "value": 80
+                  "value": 120
                 },
-                "value": 20
+                "value": 36
+              },
+              "stroke": {
+                "condition": {
+                  "empty": false,
+                  "param": "sel",
+                  "value": "white"
+                },
+                "value": "transparent"
+              },
+              "strokeWidth": {
+                "condition": {
+                  "empty": false,
+                  "param": "sel",
+                  "value": 1.5
+                },
+                "value": 0
               },
               "tooltip": [
                 {

@@ -16,7 +16,7 @@ const stepSchema = z
     id: z.string().min(1),
     title: z.string().min(1),
     detail: z.string().optional(),
-    durationSeconds: z.number().int().positive().optional(),
+    durationSeconds: z.number().int().min(1).optional(),
     quantity: z.number().min(0).optional(),
     quantityUnit: z.string().optional(),
     quantityUnitPlural: z.string().optional(),

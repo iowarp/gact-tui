@@ -45,7 +45,7 @@ const CLIO_SCHEMAS_CHART_HASHES: Record<string, string> = {
  */
 const CLIO_SCHEMAS_CHART_FIXTURE_HASHES: Record<string, string> = {
   'guard_cases.json': 'c21856e8a09f41654a588057a41a54150e8664be70442b7e4d09e02cda8bd069',
-  'preset_cases.json': '2767c24e9773aa8e9b38da0c7c06a5aa06cb15254f20938d4212b7bf79cf230f',
+  'preset_cases.json': '53e4f1641862455853685bf9a578171bf7c0c9504e552636a266c3da2a9e597f',
   'selection_state_cases.json': '485f2f529f9695eb7957b421267596b86b8895a487b509c9ce3462cba662d3da',
   'component_cases.json': '25d44e61df49064a7242289fec27569b526a8666295be4ea87ae127a327f88d1',
 };

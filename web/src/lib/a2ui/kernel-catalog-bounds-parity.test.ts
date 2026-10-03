@@ -35,6 +35,8 @@ type JsonSchemaNode = {
   enum?: unknown[];
   minimum?: number;
   maximum?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
   minLength?: number;
   maxLength?: number;
   pattern?: string;
@@ -123,8 +125,12 @@ function expectBoundsMatch(path: string, clientType: z.ZodTypeAny, serverNode: J
   const unwrapped = unwrapZodType(clientType);
 
   if (unwrapped instanceof z.ZodNumber) {
-    expect(unwrapped.minValue, `${path}: client minimum`).toBe(resolved.minimum ?? null);
-    expect(unwrapped.maxValue, `${path}: client maximum`).toBe(resolved.maximum ?? null);
+    const minCheck = unwrapped._def.checks.find((check) => check.kind === 'min');
+    const maxCheck = unwrapped._def.checks.find((check) => check.kind === 'max');
+    expect(minCheck?.inclusive ? minCheck.value : null, `${path}: client minimum`).toBe(resolved.minimum ?? null);
+    expect(minCheck && !minCheck.inclusive ? minCheck.value : null, `${path}: client exclusiveMinimum`).toBe(resolved.exclusiveMinimum ?? null);
+    expect(maxCheck?.inclusive ? maxCheck.value : null, `${path}: client maximum`).toBe(resolved.maximum ?? null);
+    expect(maxCheck && !maxCheck.inclusive ? maxCheck.value : null, `${path}: client exclusiveMaximum`).toBe(resolved.exclusiveMaximum ?? null);
     if (resolved.type === 'integer' || resolved.type === 'number') {
       expect(unwrapped.isInt, `${path}: integer-vs-number`).toBe(resolved.type === 'integer');
     }
