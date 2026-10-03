@@ -57,6 +57,8 @@ screenshots
 web/screenshots
 examples/loop-test
 **/*.png
+# This fixture is imported by the bundled widget gallery at build time.
+!web/tests/fixtures/gallery-sample.png
 **/*.gif
 **/*.tape
 tmp
