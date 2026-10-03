@@ -555,11 +555,17 @@ FunctionEnd
   RMDir /r "$INSTDIR\data\bundled-runtime.installing"
   RMDir /r "$INSTDIR\data\bundled-runtime.previous"
   RMDir /r "$INSTDIR\data\clio-user\data\cte"
+  RMDir /r "$INSTDIR\data\clio-user\cache"
+  RMDir /r "$INSTDIR\data\clio-agent\data\cte"
+  RMDir /r "$INSTDIR\data\clio-agent\cache"
   RMDir /r "$INSTDIR\data\huggingface"
   RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime"
   RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime.installing"
   RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime.previous"
   RMDir /r "$LOCALAPPDATA\${BUNDLEID}\clio-user\data\cte"
+  RMDir /r "$LOCALAPPDATA\${BUNDLEID}\clio-user\cache"
+  RMDir /r "$LOCALAPPDATA\${BUNDLEID}\clio-agent\data\cte"
+  RMDir /r "$LOCALAPPDATA\${BUNDLEID}\clio-agent\cache"
   RMDir /r "$LOCALAPPDATA\${PRODUCTNAME}\gact-runtime"
   ; Pre-0.9.4 developer/preview builds used these fixed machine-local
   ; directories outside the product identifier. They contain only generated

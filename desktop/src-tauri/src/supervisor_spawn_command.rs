@@ -9,7 +9,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::sidecar_setup::{BUNDLED_RUNTIME_ENV, CLIO_USER_DIR_ENV};
+use crate::sidecar_setup::{BUNDLED_RUNTIME_ENV, CLIO_AGENT_HOME_ENV, CLIO_USER_DIR_ENV};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -55,7 +55,29 @@ pub(crate) fn launcher_spawn_command(
         command.current_dir(dir);
     }
     if let Some(dir) = user_dir {
-        command.env(CLIO_USER_DIR_ENV, dir);
+        // Keep the legacy layout until explicitly migrated. Fresh installs use
+        // the product prefix and separated roles; operator overrides still win.
+        let key = if dir.file_name().is_some_and(|n| n == "clio-user") {
+            CLIO_USER_DIR_ENV
+        } else {
+            CLIO_AGENT_HOME_ENV
+        };
+        if std::env::var_os(CLIO_AGENT_HOME_ENV).is_none()
+            && std::env::var_os(CLIO_USER_DIR_ENV).is_none()
+        {
+            command.env(key, dir);
+        }
+    }
+    // Desktop discovery and the child must share one host registry, even when
+    // this managed instance has its own config/data home.
+    if let Some(state) = crate::clio_core_registry::runtime_state_dir() {
+        command.env("CLIO_RUNTIME_STATE_DIR", state);
+    }
+    if let Some(dir) = working_dir {
+        let legacy = dir.join(".clio/agent/sessions.json");
+        if legacy.is_file() && std::env::var_os("CLIO_SESSIONS_PATH").is_none() {
+            command.env("CLIO_SESSIONS_PATH", legacy);
+        }
     }
     if let Some(dir) = bundled_runtime {
         command.env(BUNDLED_RUNTIME_ENV, dir);
@@ -133,7 +155,7 @@ mod tests {
 
     #[test]
     fn launcher_spawn_command_isolates_desktop_user_state() {
-        let user_dir = Path::new("desktop-data/clio-user");
+        let user_dir = Path::new("desktop-data/clio-agent");
         let command = launcher_spawn_command(
             Path::new("launcher"),
             17812,
@@ -146,9 +168,31 @@ mod tests {
         assert_eq!(
             command
                 .get_envs()
-                .find(|(key, _)| *key == CLIO_USER_DIR_ENV),
-            Some((CLIO_USER_DIR_ENV.as_ref(), Some(user_dir.as_os_str())))
+                .find(|(key, _)| *key == CLIO_AGENT_HOME_ENV),
+            Some((CLIO_AGENT_HOME_ENV.as_ref(), Some(user_dir.as_os_str())))
         );
+    }
+
+    #[test]
+    fn launcher_spawn_command_preserves_legacy_user_layout() {
+        let legacy = Path::new("desktop-data/clio-user");
+        let command = launcher_spawn_command(
+            Path::new("launcher"),
+            17812,
+            "test-token",
+            None,
+            Some(legacy),
+            None,
+        );
+        assert_eq!(
+            command
+                .get_envs()
+                .find(|(key, _)| *key == CLIO_USER_DIR_ENV),
+            Some((CLIO_USER_DIR_ENV.as_ref(), Some(legacy.as_os_str())))
+        );
+        assert!(command
+            .get_envs()
+            .all(|(key, _)| key != CLIO_AGENT_HOME_ENV));
     }
 
     #[test]
