@@ -53,7 +53,7 @@ function HurricaneShowcase() {
 function Preview() {
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme !== 'light';
-  const [section, setSection] = useState('intro');
+  const [section, setSection] = useState(new URLSearchParams(window.location.search).get('section') === 'linked' ? 'linked' : 'intro');
   const [linkedExample, setLinkedExample] = useState('hurricanes');
   const [showGeneralSkill, setShowGeneralSkill] = useState(false);
   const openGeneralSkill = () => {
