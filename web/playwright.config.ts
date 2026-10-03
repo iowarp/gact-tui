@@ -1,9 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
+const previewPort = Number.parseInt(process.env['CLIO_PREVIEW_PORT'] ?? '4173', 10);
 
 if (!Number.isSafeInteger(fixturePort) || fixturePort < 1 || fixturePort > 65_535) {
   throw new Error(`Invalid CLIO_FIXTURE_PORT: ${process.env['CLIO_FIXTURE_PORT'] ?? ''}`);
+}
+if (!Number.isSafeInteger(previewPort) || previewPort < 1 || previewPort > 65_535) {
+  throw new Error(`Invalid CLIO_PREVIEW_PORT: ${process.env['CLIO_PREVIEW_PORT'] ?? ''}`);
 }
 
 export default defineConfig({
@@ -18,7 +22,7 @@ export default defineConfig({
   retries: 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: `http://127.0.0.1:${previewPort}`,
     trace: 'retain-on-failure',
   },
   webServer: [
@@ -30,9 +34,11 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
-      command: 'pnpm exec vite preview --host 127.0.0.1 --port 4173',
-      port: 4173,
-      reuseExistingServer: true,
+      command: `pnpm exec vite preview --host 127.0.0.1 --port ${previewPort} --strictPort`,
+      port: previewPort,
+      // A different checkout may own the usual port. Reusing it silently
+      // tests another build; use CLIO_PREVIEW_PORT for concurrent campaigns.
+      reuseExistingServer: false,
       timeout: 60_000,
     },
   ],
