@@ -18,6 +18,7 @@ vi.mock('@/providers/connection-provider', () => ({
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { NavigationInfrastructure } from './navigation-infrastructure';
 import { HISTORY_MODE_LABEL } from '@/lib/context-mode';
+import { vocab } from '@/lib/brand-vocabulary';
 
 // jsdom has no media-query engine; the sidebar only asks for the mobile breakpoint.
 Object.defineProperty(window, 'matchMedia', {
@@ -109,7 +110,7 @@ describe('NavigationInfrastructure', () => {
     fireEvent.click(screen.getByLabelText('Show infrastructure status'));
 
     await waitFor(() =>
-      expect(screen.getByLabelText(`Agent: ${HISTORY_MODE_LABEL}`)).toBeInTheDocument(),
+      expect(screen.getByLabelText(`${vocab.agent}: ${HISTORY_MODE_LABEL}`)).toBeInTheDocument(),
     );
   });
 });
