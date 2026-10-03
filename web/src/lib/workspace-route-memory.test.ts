@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   lastWorkspaceRoute,
+  newConversationRoute,
   rememberWorkspaceRoute,
   rememberValidatedWorkspaceRoute,
   returnRouteFromState,
@@ -44,9 +45,9 @@ describe('connection-scoped workspace route memory', () => {
   it('does not let an unconfirmed or mismatched session replace the return target', () => {
     rememberWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', 'sess_known');
 
-    expect(
-      rememberValidatedWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', undefined),
-    ).toBe(false);
+    expect(rememberValidatedWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', undefined)).toBe(
+      false,
+    );
     expect(
       rememberValidatedWorkspaceRoute('http://127.0.0.1:8790', 'ws_luna', {
         id: 'sess_wrong',
@@ -65,6 +66,9 @@ describe('connection-scoped workspace route memory', () => {
   });
 
   it('recovers the workspace context for local settings surfaces', () => {
+    expect(newConversationRoute('ws science')).toBe('/workspaces/ws%20science/new');
+    expect(workspaceIdFromRoute('/workspaces/ws%20science/new')).toBe('ws science');
+    expect(sessionIdFromRoute('/workspaces/ws%20science/new')).toBeUndefined();
     expect(workspaceIdFromRoute('/workspaces/ws%20science/sessions/sess_1')).toBe('ws science');
     expect(sessionIdFromRoute('/workspaces/ws%20science/sessions/sess%20review?panel=files')).toBe(
       'sess review',

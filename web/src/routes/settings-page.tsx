@@ -518,8 +518,8 @@ function AppearanceSettings() {
               <FieldContent>
                 <FieldTitle>Hide dot files and folders</FieldTitle>
                 <FieldDescription>
-                  Hides paths with a dot-prefixed segment (including .clio) from the workspace
-                  Files view. Off by default.
+                  Hides paths with a dot-prefixed segment (including .clio) from the workspace Files
+                  view. Off by default.
                 </FieldDescription>
               </FieldContent>
               <Switch
@@ -709,7 +709,10 @@ export function SettingsPage() {
               key={id}
               variant={id === section ? 'secondary' : 'ghost'}
             >
-              <Link to={`/settings/${id}`}>
+              <Link
+                state={{ endpoint: settings.endpoint, from: workspaceRoute }}
+                to={`/settings/${id}`}
+              >
                 <SectionIcon aria-hidden="true" /> {label}
               </Link>
             </Button>
