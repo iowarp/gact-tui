@@ -1,13 +1,16 @@
 // oxlint-disable react/only-export-components -- This is a standalone gallery entrypoint.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import { Toaster } from 'sonner';
+import { ArrowUpRight, BoxSelect, Image as ImageIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppProviders } from '@/providers/app-providers';
 import { A2uiDemo, LinkedChartDemo, WidgetGallery } from '@/widget-gallery';
 import { GallerySkillDialog } from '@/gallery-skill-dialog';
+import { SelectionActionsContext } from '@/lib/selection-actions-context';
+import { createSelectionActionRegistry, type DataSurfaceZoneSelection } from '@/lib/selection-actions';
 import './index.css';
 import './widget-gallery.css';
 
@@ -50,6 +53,48 @@ function HurricaneShowcase() {
   </section>;
 }
 
+function IntroShowcase() {
+  const selectionActions = useMemo(() => createSelectionActionRegistry(), []);
+  const [reference, setReference] = useState<DataSurfaceZoneSelection>();
+  useEffect(() => selectionActions.register({
+    id: 'gallery-intro-reference',
+    label: 'Reference this',
+    icon: ArrowUpRight,
+    order: 10,
+    kinds: ['data-surface-zone'],
+    run: (target) => { if (target.kind === 'data-surface-zone') setReference(target); },
+  }), [selectionActions]);
+  return <SelectionActionsContext.Provider value={selectionActions}>
+    <div className="gallery-intro-showcase">
+      <div className="gallery-intro-heading">
+        <div>
+          <p className="gallery-hurricane-kicker">From evidence to a new question</p>
+          <h2>Explore the result. Point to what matters.</h2>
+          <p>Move through a scientific surface, select the data behind a finding, or capture a visual region to discuss with the agent.</p>
+        </div>
+        <span className="gallery-intro-live">Interactive examples</span>
+      </div>
+      <div className="gallery-intro-grid">
+        <section className="gallery-intro-panel" aria-label="Explore a 3D surface">
+          <div className="gallery-intro-panel-heading"><span className="gallery-intro-number">01</span><div><h3>Explore a 3D surface</h3><p>Orbit, probe the field, and box select part of the specimen.</p></div></div>
+          <A2uiDemo name="clio.mesh-viewport.v1" variant="intro-load" />
+          <p className="gallery-intro-note">Illustrative, dimensionless field on a specimen shaped for this gallery. <a href="https://github.com/JaimeCernuda/abaqus-scripting" rel="noreferrer" target="_blank">Explore the Abaqus example</a> for real simulation outputs.</p>
+        </section>
+        <section className="gallery-intro-panel" aria-label="Select observations">
+          <div className="gallery-intro-panel-heading"><span className="gallery-intro-number">02</span><div><h3>Select a profile point</h3><p>Pick a height in the same illustrative field, then use Reference this.</p></div></div>
+          <A2uiDemo name="clio.chart.v1" variant="intro-load" />
+          {reference ? <aside aria-label="Selected data reference" className="gallery-intro-reference"><div><ArrowUpRight aria-hidden="true" className="size-4" /><strong>What the agent receives</strong><button onClick={() => setReference(undefined)} type="button">Close</button></div><p>{reference.summary}</p><pre>{reference.markdown}</pre></aside> : null}
+        </section>
+      </div>
+      <div className="gallery-intro-flow">
+        <div><ArrowUpRight aria-hidden="true" /><span><strong>Data selection</strong><small>Selected rows become a precise, reusable reference in the conversation.</small></span></div>
+        <div><BoxSelect aria-hidden="true" /><span><strong>Visual selection</strong><small>Capture labelled regions from the viewport and attach the image to a request.</small></span></div>
+        <div><ImageIcon aria-hidden="true" /><span><strong>Ask for a visual response</strong><small>In a connected session, the captured image can guide a new annotated image.</small></span></div>
+      </div>
+    </div>
+  </SelectionActionsContext.Provider>;
+}
+
 function Preview() {
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme !== 'light';
@@ -84,9 +129,8 @@ function Preview() {
         <Tabs onValueChange={setSection} value={section}>
           <TabsList aria-label="Widget gallery" className="gallery-tab-scroll h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto bg-transparent p-0" variant="line"><TabsTrigger value="intro">Intro</TabsTrigger><TabsTrigger value="components">Components</TabsTrigger><TabsTrigger value="linked">Linked data</TabsTrigger></TabsList>
           <TabsContent className="space-y-8 pt-6" value="intro">
-            <div className="max-w-3xl space-y-3"><h2 className="text-xl font-semibold">Answers you can explore</h2><p className="text-sm leading-6 text-muted-foreground">CLIO can show an answer as a chart, map, table, forecast, draft, protocol, or composed view. The agent supplies data and configuration. The workspace supplies selection, filters, reference, and export where they apply.</p><div className="flex flex-wrap gap-2"><button className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground" onClick={() => setSection('components')} type="button">Explore components</button><button className="rounded-md border px-3 py-2 text-sm hover:bg-muted" onClick={() => setSection('linked')} type="button">See linked views</button></div></div>
-            <div className="grid items-start gap-6 lg:grid-cols-2"><section className="min-w-0 space-y-3"><div><h3 className="font-medium">Compare data</h3><p className="text-sm text-muted-foreground">Select points, filter rows, and reference what is visible.</p></div><A2uiDemo name="clio.chart.v1" variant="scatter" /></section><section className="min-w-0 space-y-3"><div><h3 className="font-medium">Present a decision</h3><p className="text-sm text-muted-foreground">A status and next action can sit beside the analysis.</p></div><A2uiDemo name="report-review" variant="scatter" /></section></div>
-            <p className="text-sm text-muted-foreground">The <strong className="text-foreground">Components</strong> tab includes all 37 catalog entries, including controls, layout, and media. Each example links to its exact contract. <strong className="text-foreground">Agent guidance</strong> shows the standard marketplace agent and presentation skill.</p>
+            <IntroShowcase />
+            <div className="flex flex-wrap items-center justify-between gap-4"><p className="max-w-2xl text-sm text-muted-foreground">These are live gallery examples. Explore the full component catalog or follow one dataset through linked views.</p><div className="flex gap-2"><button className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground" onClick={() => setSection('components')} type="button">Explore components</button><button className="rounded-md border px-3 py-2 text-sm hover:bg-muted" onClick={() => setSection('linked')} type="button">See linked views</button></div></div>
           </TabsContent>
           <TabsContent className="pt-6" value="components"><WidgetGallery /></TabsContent>
           <TabsContent className="space-y-5 pt-6" value="linked"><div className="max-w-3xl space-y-2"><h2 className="text-xl font-semibold">Interact with your data visually</h2><p className="text-sm leading-6 text-muted-foreground">Selections travel between views of the same observations. Play the walkthrough, then try the map, curves, and table yourself.</p></div><div aria-label="Linked data examples" className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group"><button aria-pressed={linkedExample === 'hurricanes'} className={`shrink-0 rounded-md px-3 py-1.5 text-sm ${linkedExample === 'hurricanes' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} onClick={() => setLinkedExample('hurricanes')} type="button">Hurricane tracks</button><button aria-pressed={linkedExample === 'events'} className={`shrink-0 rounded-md px-3 py-1.5 text-sm ${linkedExample === 'events' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} onClick={() => setLinkedExample('events')} type="button">Earthquake readings</button></div>{linkedExample === 'hurricanes' ? <HurricaneShowcase /> : <LinkedChartDemo />}</TabsContent>

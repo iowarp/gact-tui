@@ -60,6 +60,140 @@
   height: clamp(20rem, 48vw, 34rem);
 }
 
+.gallery-intro-showcase {
+  position: relative;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.gallery-intro-showcase::before {
+  position: absolute;
+  z-index: 0;
+  inset: -1.5rem -1rem auto;
+  height: 33rem;
+  background: radial-gradient(ellipse at 25% 25%, color-mix(in srgb, #18a8b5 16%, transparent), transparent 65%);
+  content: "";
+  pointer-events: none;
+}
+
+.gallery-intro-showcase > * { position: relative; }
+
+.gallery-intro-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.gallery-intro-heading h2 {
+  margin-top: 0.4rem;
+  font-size: clamp(1.5rem, 3vw, 2.3rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.gallery-intro-heading p:not(.gallery-hurricane-kicker) {
+  max-width: 42rem;
+  margin-top: 0.65rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.gallery-intro-live {
+  flex: none;
+  border: 1px solid color-mix(in srgb, #18a8b5 40%, transparent);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  color: color-mix(in srgb, #18a8b5 75%, var(--foreground));
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.gallery-intro-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.gallery-intro-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 1.1rem;
+  background: var(--background);
+  padding: clamp(0.85rem, 2vw, 1.25rem);
+  box-shadow: 0 18px 44px color-mix(in srgb, #071f2a 9%, transparent);
+}
+
+.gallery-intro-panel-heading {
+  display: flex;
+  gap: 0.85rem;
+  align-items: baseline;
+  min-height: 4.5rem;
+}
+
+.gallery-intro-number {
+  color: color-mix(in srgb, #18a8b5 72%, var(--foreground));
+  font-size: 0.75rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.gallery-intro-panel-heading h3 { font-size: 0.95rem; font-weight: 650; }
+.gallery-intro-panel-heading p { margin-top: 0.2rem; color: var(--muted-foreground); font-size: 0.78rem; line-height: 1.4; }
+.gallery-intro-panel [data-slot="a2ui-mesh-viewport"] [role="img"] { height: clamp(20rem, 35vw, 27rem); }
+.gallery-intro-note { margin-top: 0.8rem; color: var(--muted-foreground); font-size: 0.7rem; line-height: 1.45; }
+.gallery-intro-note a { color: var(--foreground); text-decoration: underline; text-underline-offset: 2px; }
+
+.gallery-intro-reference {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  border: 1px solid color-mix(in srgb, #18a8b5 35%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, #18a8b5 7%, var(--background));
+  padding: 0.85rem;
+  font-size: 0.75rem;
+}
+
+.gallery-intro-reference > div { display: flex; align-items: center; gap: 0.5rem; }
+.gallery-intro-reference > div button { margin-left: auto; color: var(--muted-foreground); }
+.gallery-intro-reference p { color: var(--muted-foreground); }
+.gallery-intro-reference pre { max-height: 11rem; overflow: auto; white-space: pre-wrap; font-size: 0.68rem; }
+
+.gallery-intro-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.gallery-intro-flow > div {
+  display: flex;
+  gap: 0.75rem;
+  min-width: 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  padding: 0.9rem 0.2rem 0;
+}
+
+.gallery-intro-flow svg { flex: none; width: 1rem; height: 1rem; color: color-mix(in srgb, #18a8b5 75%, var(--foreground)); }
+.gallery-intro-flow span { display: grid; gap: 0.25rem; }
+.gallery-intro-flow strong { font-size: 0.8rem; }
+.gallery-intro-flow small { color: var(--muted-foreground); font-size: 0.73rem; line-height: 1.45; }
+
+@media (max-width: 900px) {
+  .gallery-intro-grid { grid-template-columns: 1fr; }
+  .gallery-intro-panel-heading { min-height: auto; margin-bottom: 0.75rem; }
+}
+
+@media (max-width: 600px) {
+  .gallery-intro-heading { display: block; }
+  .gallery-intro-live { display: inline-block; margin-top: 1rem; }
+  .gallery-intro-flow { grid-template-columns: 1fr; }
+}
+
 html.gallery-skill-preview,
 html.gallery-skill-preview body,
 html.gallery-skill-preview #root {

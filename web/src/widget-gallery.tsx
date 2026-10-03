@@ -11,6 +11,7 @@ import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { createSelectionActionRegistry } from '@/lib/selection-actions';
 import { GallerySkillDialog } from '@/gallery-skill-dialog';
 import type { DataSurfaceZoneSelection } from '@/lib/selection-actions';
+import galleryLoadProfile from '@/lib/gallery-load-profile.json';
 import { A2UI_BASIC_EXAMPLES, BASIC_CATALOG_ROW, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 
 type ComponentName = string;
@@ -164,8 +165,9 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
         trajectories: { title: 'Displacement over time', data: trajectoryRows, xField: 'day', yField: 'displacement', colorField: 'region', entityField: 'id' },
         'storm-series': { title: 'Storm wind speed over time', dataUri: 'artifact://artifact_gallery_storm_tracks', xField: 'time', xType: 'temporal', yField: 'wind_kt', colorField: 'storm', entityField: 'storm' },
         spectra: { title: 'Sample spectra', data: spectrumRows, xField: 'wavelength', yField: 'intensity', colorField: 'sample', entityField: 'id' },
+        'intro-load': { title: 'Relative load by specimen height', data: galleryLoadProfile, xField: 'height', yField: 'relative_load', colorField: 'zone', entityField: 'id' },
       };
-      return root({ id: 'demo', component: name, preset: variant === 'storm-series' ? 'trajectories' : variant, height: 380, ...examples[variant] });
+      return root({ id: 'demo', component: name, preset: variant === 'storm-series' ? 'trajectories' : variant === 'intro-load' ? 'scatter' : variant, height: 380, ...examples[variant] });
     }
     case 'clio.data-table.v1': return root({ id: 'demo', component: name, columns: ['id', 'region', 'depth', 'magnitude'], rows: chartRows });
     case 'clio.map.v1': return variant === 'storm-tracks'
@@ -175,7 +177,9 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
       { id: 'fresno', label: 'Fresno', latitude: 36.7378, longitude: -119.7871, category: 'Lab', detail: 'Central Valley' },
       { id: 'reno', label: 'Reno', latitude: 39.5296, longitude: -119.8138, category: 'Field site', detail: 'Nevada' },
     ] });
-    case 'clio.mesh-viewport.v1': return root({ id: 'demo', component: name, title: 'Surface mesh sample', meshUri: 'artifact://artifact_gallery_terrain_glb', format: 'glb' });
+    case 'clio.mesh-viewport.v1': return variant === 'intro-load'
+      ? root({ id: 'demo', component: name, title: 'Illustrative load field', meshUri: 'artifact://artifact_gallery_load_specimen_glb', format: 'glb', field: 'relative_load' })
+      : root({ id: 'demo', component: name, title: 'Surface mesh sample', meshUri: 'artifact://artifact_gallery_terrain_glb', format: 'glb' });
     case 'clio.raster-viewport.v1': return root({ id: 'demo', component: name, title: 'Temperature field', rasterUri: 'artifact://artifact_raster_demo', colormap: 'viridis', unit: '°C' });
     case 'clio.weather.v1': return root({ id: 'demo', component: name, location: 'Berkeley, California', timeZone: 'America/Los_Angeles', observedAt: '2026-10-01T13:35:00-07:00', condition: 'Partly cloudy', temperature: 67, temperatureUnit: 'F', source: 'Example forecast', windSpeed: 9, windUnit: 'mph',
       hourly: Array.from({ length: 24 }, (_, index) => ({ time: new Date(Date.parse('2026-10-01T14:00:00-07:00') + index * 3_600_000).toISOString(), condition: ['Sunny', 'Cloudy', 'Rain'][Math.floor(index / 4) % 3], temperature: 68 + Math.round(5 * Math.sin(index / 3)), precipitationChance: [5, 15, 60][Math.floor(index / 4) % 3] })),
@@ -258,11 +262,12 @@ export function A2uiDemo({ name, variant, demoSelection, onInteract }: { name: C
   useEffect(() => {
     const showCapture = (event: Event) => {
       const detail = (event as CustomEvent<{ file: File; text: string }>).detail;
+      if (!surface || !detail.file.name.startsWith(`clio-capture-${surface.id}-`)) return;
       setCapturePreview({ imageUrl: URL.createObjectURL(detail.file), text: detail.text });
     };
     window.addEventListener('clio:add-region-capture', showCapture);
     return () => window.removeEventListener('clio:add-region-capture', showCapture);
-  }, []);
+  }, [surface]);
   useEffect(() => () => { if (capturePreview) URL.revokeObjectURL(capturePreview.imageUrl); }, [capturePreview]);
   if (!surface) return <p className="text-sm text-muted-foreground">This example could not be created.</p>;
   const captureSurface: CaptureSurface = {
@@ -270,7 +275,7 @@ export function A2uiDemo({ name, variant, demoSelection, onInteract }: { name: C
     revision: 1,
     messages: [{ updateComponents: { components: examplePayload(name, variant) } }],
   };
-  return <div className="space-y-4" onPointerDownCapture={onInteract}><div data-slot="a2ui-surface-root"><MarkdownContext.Provider value={renderMarkdown}><A2uiReferenceSessionProvider value="sess_flat_ndp"><AutoDatasetSelectionProvider><A2uiRegionCaptureProvider allowDemoCapture surface={captureSurface}><A2uiSurface surface={surface} /></A2uiRegionCaptureProvider></AutoDatasetSelectionProvider></A2uiReferenceSessionProvider></MarkdownContext.Provider></div>{lastAction ? <p className="rounded-md bg-muted px-3 py-2 text-xs">Demo action: {lastAction}</p> : null}{capturePreview ? <aside aria-label="Capture preview" className="space-y-3 rounded-md border p-3 text-sm"><div className="flex items-center justify-between gap-3"><p className="font-medium">Capture preview</p><button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setCapturePreview(undefined)} type="button">Close</button></div><img alt="Captured surface with labelled selection boxes" className="max-h-80 max-w-full rounded border object-contain" src={capturePreview.imageUrl} /><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-sm bg-muted/30 p-2 text-xs">{capturePreview.text}</pre></aside> : null}</div>;
+  return <div className="space-y-4" onPointerDownCapture={onInteract}><div data-slot="a2ui-surface-root"><MarkdownContext.Provider value={renderMarkdown}><A2uiReferenceSessionProvider value="sess_flat_ndp"><AutoDatasetSelectionProvider><A2uiRegionCaptureProvider allowDemoCapture surface={captureSurface}><A2uiSurface surface={surface} /></A2uiRegionCaptureProvider></AutoDatasetSelectionProvider></A2uiReferenceSessionProvider></MarkdownContext.Provider></div>{lastAction ? <p className="rounded-md bg-muted px-3 py-2 text-xs">Demo action: {lastAction}</p> : null}{capturePreview ? <aside aria-label="Capture preview" className="space-y-3 rounded-md border p-3 text-sm"><div className="flex items-center justify-between gap-3"><p className="font-medium">Capture preview</p><button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setCapturePreview(undefined)} type="button">Close</button></div><img alt="Captured surface with labelled selection boxes" className="max-h-80 max-w-full rounded border object-contain" src={capturePreview.imageUrl} /><details><summary className="cursor-pointer text-xs text-muted-foreground">View agent payload</summary><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-sm bg-muted/30 p-2 text-xs">{capturePreview.text}</pre></details></aside> : null}</div>;
 }
 
 /** A small three-view example showing one selection shared by chart, map, and table. */

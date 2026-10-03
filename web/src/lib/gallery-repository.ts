@@ -89,10 +89,11 @@ export function createGalleryRepository(base: Repository): Repository {
       }
       if (property === 'readArtifactBytes') {
         return async (artifactId: string, fetchPath?: string, signal?: AbortSignal) => {
-          if (artifactId !== 'artifact_gallery_terrain_glb') {
+          if (artifactId !== 'artifact_gallery_terrain_glb' && artifactId !== 'artifact_gallery_load_specimen_glb') {
             return target.readArtifactBytes(artifactId, fetchPath, signal);
           }
-          const response = await fetch(galleryAsset('gallery/surface.glb'), { signal });
+          const filename = artifactId === 'artifact_gallery_load_specimen_glb' ? 'load-specimen.glb' : 'surface.glb';
+          const response = await fetch(galleryAsset(`gallery/${filename}`), { signal });
           if (!response.ok) throw new Error(`Gallery mesh unavailable (${response.status}).`);
           return new Uint8Array(await response.arrayBuffer());
         };
