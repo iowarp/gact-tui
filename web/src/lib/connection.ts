@@ -34,6 +34,8 @@ export interface InfrastructureConnection {
 
 /** Enough of an SSH host's route to recreate its infrastructure target. */
 export interface SavedSshRoute {
+  remotePort?: number;
+  keepRunning?: boolean;
   label: string;
   installRoot: string;
   profile: string;

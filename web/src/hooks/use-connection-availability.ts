@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION } from '@clio/core/v3';
+import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
@@ -21,6 +21,7 @@ export interface ConnectionAvailability {
   state: ConnectionAvailabilityState;
   label: string;
   detail: string;
+  diagnostics?: string;
 }
 
 export type ConnectionAvailabilityMap = Readonly<Record<string, ConnectionAvailability>>;
@@ -137,7 +138,14 @@ function availabilityFromError(error: unknown): ConnectionAvailability {
   }
   return {
     state: 'unavailable',
-    label: 'Unavailable',
+    label:
+      error instanceof TransportError && error.code === 'incompatible_capabilities'
+        ? 'Incompatible'
+        : 'Unavailable',
     detail: error instanceof Error ? error.message : 'The service could not be reached.',
+    diagnostics:
+      error instanceof TransportError && error.details
+        ? JSON.stringify(error.details, null, 2)
+        : undefined,
   };
 }

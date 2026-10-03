@@ -39,6 +39,7 @@ const handlers = new Map<string, (event: { payload: unknown }) => void>();
 /** A `gact_http` bridge that answers the health check with `status`. */
 function nativeHealth(status: number) {
   return async (command: string) => {
+    if (command === 'desktop_deployment_owner') return 'desktop-test';
     if (command !== 'gact_http') throw new Error(`unexpected native command ${command}`);
     return {
       status,
@@ -49,8 +50,9 @@ function nativeHealth(status: number) {
   };
 }
 
-vi.mock('@/hooks/use-repository', () => ({
-  useRepository: () => ({
+vi.mock('@/lib/connection', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/connection')>()),
+  createRepository: () => ({
     cancelInfrastructureOperation: mocks.cancelInfrastructureOperation,
     createInfrastructureTarget: mocks.createInfrastructureTarget,
     infrastructureOperation: mocks.infrastructureOperation,
@@ -218,6 +220,10 @@ beforeEach(() => {
   mocks.sshTransportLog.mockResolvedValue('');
   // The remote CLIO's own answer through the tunnel, via the native bridge.
   mocks.invoke.mockReset().mockImplementation(nativeHealth(200));
+  mocks.waitForManagedBackend.mockResolvedValue({
+    url: 'http://127.0.0.1:17800',
+    bearer_token: 'controller-token',
+  });
   // The WebView's fetch is never the path: it is CORS-blocked in the desktop.
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
   mocks.writeSshTransport.mockResolvedValue(undefined);
@@ -299,6 +305,8 @@ describe('DeployClioDialog', () => {
           // never had) that record can rebuild it instead of failing (#1528).
           route: {
             label: 'homelab',
+            remotePort: 17800,
+            keepRunning: false,
             installRoot: '',
             profile: 'homelab',
             host: '10.0.0.102',
@@ -315,7 +323,7 @@ describe('DeployClioDialog', () => {
       target_id: 'target-homelab',
       action: 'install',
       variant_id: 'released',
-      configuration: {},
+      configuration: { port: '17800', keep_running: 'false', desktop_id: 'desktop-test' },
     });
   });
 

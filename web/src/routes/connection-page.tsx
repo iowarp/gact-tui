@@ -1,5 +1,5 @@
 import { brand } from '@brand';
-import { PROTOCOL_VERSION } from '@clio/core/v3';
+import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
@@ -712,6 +712,14 @@ export function ConnectionPage() {
                   <AlertTitle>Connection unavailable</AlertTitle>
                   <AlertDescription>
                     {mutation.error.message}
+                    {mutation.error instanceof TransportError && mutation.error.details ? (
+                      <details className="mt-2">
+                        <summary>Diagnostic details</summary>
+                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">
+                          {JSON.stringify(mutation.error.details, null, 2)}
+                        </pre>
+                      </details>
+                    ) : null}
                     {mutation.error instanceof InfrastructureTargetGoneError &&
                     mutation.variables ? (
                       <div className="mt-3">

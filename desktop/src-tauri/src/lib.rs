@@ -27,6 +27,7 @@ mod menu;
 mod menu_spec;
 mod net_util;
 mod plugins;
+mod remote_lifecycle;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod runtime_install_report;
 mod runtime_pack;
@@ -162,6 +163,9 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(state)
         .manage(ssh_transport::SshTransportRegistry::new())
+        .manage(remote_lifecycle::DesktopDeploymentOwner(hex::encode(
+            rand::random::<[u8; 16]>(),
+        )))
         .manage(sse_registry::SseRegistry::new())
         .manage(terminal_pty::TerminalRegistry::new())
         .invoke_handler(tauri::generate_handler![
@@ -174,6 +178,7 @@ pub fn run() {
             commands::read_logs,
             commands::open_document_path,
             ssh_transport::ssh_transport_open,
+            remote_lifecycle::desktop_deployment_owner,
             ssh_transport::ssh_transport_status,
             ssh_transport::ssh_transport_write,
             ssh_transport::ssh_transport_exec,
@@ -510,6 +515,17 @@ pub(crate) fn request_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 /// has to wait out its own connection-close grace on a reader we were going
 /// to kill anyway — cheaper than closing it after.
 pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let (Some(state), Some(owner)) = (
+        app.try_state::<Mutex<Supervisor>>(),
+        app.try_state::<remote_lifecycle::DesktopDeploymentOwner>(),
+    ) {
+        let handle = supervisor_state::lock_recover(&state).snapshot();
+        if let Err(error) =
+            remote_lifecycle::stop_remote_agents(&handle.url, &handle.bearer_token, &owner.0)
+        {
+            eprintln!("{error}");
+        }
+    }
     if let Some(sse) = app.try_state::<sse_registry::SseRegistry>() {
         sse.stop_all();
     }

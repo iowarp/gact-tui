@@ -43,6 +43,14 @@ export function ConnectionAvailabilityIndicator({
             <p className="font-medium">{availability.label}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{availability.detail}</p>
             <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">{endpoint}</p>
+            {availability.diagnostics ? (
+              <details className="mt-2 text-xs">
+                <summary>Diagnostic details</summary>
+                <pre className="max-h-48 overflow-auto whitespace-pre-wrap">
+                  {availability.diagnostics}
+                </pre>
+              </details>
+            ) : null}
           </div>
         </div>
       </HoverCardContent>
