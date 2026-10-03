@@ -29,10 +29,20 @@ test.use({ viewport: { width: 1280, height: 1800 } });
  * over.
  */
 async function screenshotElement(page: Page, locator: Locator, path: string) {
-  await locator.scrollIntoViewIfNeeded();
-  const box = await locator.boundingBox();
-  if (!box) throw new Error('element has no bounding box to screenshot');
-  await page.screenshot({ path, clip: box });
+  // Transcript layout can replace the surface while scrollIntoViewIfNeeded
+  // waits for stability. Reacquire it on that transient detach; never accept
+  // a missing chart or an empty capture as a successful screenshot.
+  await expect(async () => {
+    await locator.scrollIntoViewIfNeeded({ timeout: 1_000 });
+    await expect(
+      locator.locator('[data-slot="a2ui-chart-view"]').locator('canvas, svg'),
+    ).toHaveCount(1, { timeout: 1_000 });
+    const box = await locator.boundingBox();
+    if (!box || box.width <= 0 || box.height <= 0) {
+      throw new Error('element has no visible bounding box to screenshot');
+    }
+    await page.screenshot({ path, clip: box });
+  }).toPass({ timeout: 5_000 });
 }
 
 test.beforeEach(async ({ page }) => {
