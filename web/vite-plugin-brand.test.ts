@@ -65,7 +65,11 @@ function emitFileFromGenerateBundle(plugin: Plugin): EmittedAsset[] {
 
 interface FakeServer {
   server: ViteDevServer;
-  middleware: (req: { url?: string }, res: { setHeader: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> }, next: ReturnType<typeof vi.fn>) => void;
+  middleware: (
+    req: { url?: string },
+    res: { setHeader: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> },
+    next: ReturnType<typeof vi.fn>,
+  ) => void;
 }
 
 function makeFakeServer(): FakeServer {
@@ -211,5 +215,29 @@ describe('loadBrand vocabulary fields', () => {
     expect(brand.productName).toBe('Acme Desktop');
     expect(brand.agentName).toBe('Acme');
     expect(brand.workspaceNoun).toBe('workspace');
+  });
+});
+
+describe('custom brand icons', () => {
+  it('loads separate artwork, monochrome icon and favicon from the selected profile', () => {
+    const custom = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h4v4z"/></svg>';
+    const root = makeBrandingRoot(
+      'custom',
+      {
+        name: 'Custom',
+        iconSvg: 'icon.svg',
+        faviconSvg: 'favicon.svg',
+        wordmarkImage: 'wordmark.png',
+      },
+      { 'icon.svg': custom, 'favicon.svg': GACT_LOGO_SVG, 'wordmark.png': 'png-content' },
+    );
+    const brand = loadBrand(root, 'custom');
+    expect(brand.iconSvg).toBe(custom);
+    expect(brand.wordmarkImage).toMatch(/^data:image\/png;base64,/);
+    expect(emitFileFromGenerateBundle(brandPlugin(root, 'custom'))[0].source).toBe(GACT_LOGO_SVG);
+  });
+  it('fails the build when a declared custom icon is missing', () => {
+    const root = makeBrandingRoot('custom', { name: 'Custom', iconSvg: 'missing.svg' });
+    expect(() => loadBrand(root, 'custom')).toThrow('referenced asset does not exist');
   });
 });

@@ -33,7 +33,10 @@ Only `name` is required. The workspace currently consumes:
 | `homeUrl`, `taglineAccentUrl` | Optional product links |
 | `markGlyph` | One-character fallback when no logo exists |
 | `logoSvg` | SVG asset path relative to the profile directory; inlined at build time |
-| `logoImage` | Raster asset path relative to the profile directory; inlined as a data URL |
+| `logoImage` | Raster mark relative to the profile directory; emitted as a production asset |
+| `wordmarkImage` | Optional full logo used on the desktop startup screen |
+| `iconSvg` | Optional monochrome SVG used in navigation, title bar, welcome and connection chrome; inherits the theme color |
+| `faviconSvg` | Optional browser favicon; defaults to `logoSvg` |
 | `accent` | Product action accent |
 | `themeTokens` | CSS custom-property overrides applied at boot |
 | `landing.eyebrow` | Short domain/product category on the connection screen |
@@ -47,6 +50,11 @@ them.
 The Vite plugin exposes a typed virtual `@brand` module. Application components
 must read product identity from that module rather than hard-code CLIO or any
 other embedding product.
+
+Use `BrandIcon` for compact product marks. It renders `iconSvg` as a CSS mask,
+preserving its shape while matching light and dark themes. Existing profiles
+without that field keep their image or glyph fallback. Assets are paths relative
+to the selected profile; missing files fail the build with their exact path.
 
 ## Build examples
 

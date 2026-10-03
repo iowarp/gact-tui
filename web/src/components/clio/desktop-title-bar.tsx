@@ -1,3 +1,4 @@
+import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
 import {
   ArrowLeftIcon,
@@ -61,13 +62,6 @@ import {
 // natively-drawn chrome. Matches the traffic-light cluster's rough width
 // plus margin — see tauri.macos.conf.json's titleBarStyle: Overlay.
 const MACOS_TRAFFIC_LIGHT_CLEARANCE = 'pl-20';
-
-function logoSource(): string | null {
-  return (
-    brand.logoImage ??
-    (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null)
-  );
-}
 
 async function runWindowAction(action: DesktopWindowAction): Promise<void> {
   try {
@@ -209,7 +203,6 @@ export function DesktopTitleBar() {
   }, []);
 
   if (!inTauri()) return null;
-  const logo = logoSource();
 
   return (
     <header
@@ -297,13 +290,7 @@ export function DesktopTitleBar() {
         </DropdownMenu>
         <div aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
         <span className="grid size-5 place-items-center rounded-md bg-primary/12 text-primary">
-          {logo ? (
-            <img alt="" className="size-4 object-contain" draggable={false} src={logo} />
-          ) : (
-            <span aria-hidden="true" className="text-[10px] font-semibold">
-              {brand.markGlyph}
-            </span>
-          )}
+          <BrandIcon className="size-4" />
         </span>
         <span className="text-xs font-medium">{brand.wordmark}</span>
         <div aria-hidden="true" className="mx-1 h-4 w-px bg-border" />

@@ -1,3 +1,4 @@
+import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
 import type { ReactNode } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
@@ -14,10 +15,6 @@ export function ClioConversationWelcome({
   disabled,
   onSelectPrompt,
 }: ClioConversationWelcomeProps) {
-  const logoSource =
-    brand.logoImage ??
-    (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
-
   return (
     <section
       aria-label={`${brand.name} conversation welcome`}
@@ -28,13 +25,7 @@ export function ClioConversationWelcome({
         description={brand.workspace.description}
         icon={
           <span className="grid size-12 place-items-center rounded-2xl bg-primary/12 text-primary shadow-sm ring-1 ring-primary/20">
-            {logoSource ? (
-              <img alt="" className="size-9 object-contain" src={logoSource} />
-            ) : (
-              <span aria-hidden="true" className="font-heading text-lg font-semibold">
-                {brand.markGlyph}
-              </span>
-            )}
+            <BrandIcon className="size-9" />
           </span>
         }
         title={brand.workspace.greeting}

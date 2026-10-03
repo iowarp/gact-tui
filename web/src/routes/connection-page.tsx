@@ -1,3 +1,4 @@
+import { BrandIcon } from '@/components/clio/brand-icon';
 import { brand } from '@brand';
 import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
@@ -173,7 +174,7 @@ function DesktopBoot({
               {logoSource ? (
                 <img
                   alt=""
-                  className="size-full translate-x-1 -translate-y-2 object-contain"
+                  className="size-full object-contain"
                   data-testid="desktop-boot-logo"
                   src={logoSource}
                 />
@@ -434,6 +435,7 @@ export function ConnectionPage() {
   };
 
   const logoSource =
+    brand.wordmarkImage ??
     brand.logoImage ??
     (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
 
@@ -469,16 +471,7 @@ export function ConnectionPage() {
         <div className="max-w-2xl">
           <div className="mb-10 flex items-center gap-4">
             <div className="grid size-14 shrink-0 place-items-center self-center overflow-hidden rounded-2xl border border-primary/35 bg-card/75 shadow-[0_0_48px_color-mix(in_oklch,var(--primary)_18%,transparent)] backdrop-blur">
-              {logoSource ? (
-                <img alt="" className="size-full object-contain p-1.5" src={logoSource} />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="font-heading text-xl font-semibold text-primary"
-                >
-                  {brand.markGlyph}
-                </span>
-              )}
+              <BrandIcon className="size-10 text-primary" />
             </div>
             {/* Line boxes sum to the tile's 56px (16 + 24 + 16), so centering the
                 column against the tile lines the eyebrow up with its top edge and
