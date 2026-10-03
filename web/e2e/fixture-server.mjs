@@ -55,7 +55,7 @@ let streamStarted = false;
 let nextCursor = 1;
 let queuedMessages = [];
 const streamClients = new Set();
-const artifactPng = readFileSync(new URL('../public/gallery-sample.png', import.meta.url));
+const artifactPng = readFileSync(new URL('../tests/fixtures/gallery-sample.png', import.meta.url));
 
 const mcpAppHtml = `<!doctype html>
 <html lang="en">

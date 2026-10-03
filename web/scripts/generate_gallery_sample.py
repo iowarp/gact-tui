@@ -30,7 +30,7 @@ def main() -> None:
     for spine in ax.spines.values():
         spine.set_color("#34414d")
     fig.tight_layout(pad=2.1)
-    output = Path(__file__).resolve().parents[1] / "public" / "gallery-sample.png"
+    output = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "gallery-sample.png"
     fig.savefig(output, facecolor=fig.get_facecolor())
     plt.close(fig)
 

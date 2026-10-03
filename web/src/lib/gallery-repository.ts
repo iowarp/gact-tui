@@ -1,3 +1,4 @@
+import gallerySampleUrl from '../../tests/fixtures/gallery-sample.png';
 import type { ArtifactRasterQueryRequest, ArtifactRasterQueryResult, ArtifactTableQueryRequest, ArtifactTableQueryResult } from '@clio/core/v3';
 import type { createRepository } from '@/lib/connection';
 import { galleryStormTracks } from './gallery-storm-tracks';
@@ -111,7 +112,7 @@ export function createGalleryRepository(base: Repository): Repository {
           if (resolution.artifact_id !== 'artifact_plot') {
             return target.readA2uiReferenceBytes(resolution as Parameters<Repository['readA2uiReferenceBytes']>[0], signal);
           }
-          const response = await fetch(galleryAsset('gallery-sample.png'), { signal });
+          const response = await fetch(gallerySampleUrl, { signal });
           if (!response.ok) throw new Error(`Gallery image unavailable (${response.status}).`);
           return new Uint8Array(await response.arrayBuffer());
         };
@@ -119,7 +120,7 @@ export function createGalleryRepository(base: Repository): Repository {
       if (property === 'readArtifactBytesFor') {
         return async (artifact: Parameters<Repository['readArtifactBytesFor']>[0], signal?: AbortSignal) => {
           if (artifact.id !== 'artifact_plot') return target.readArtifactBytesFor(artifact, signal);
-          const response = await fetch(galleryAsset('gallery-sample.png'), { signal });
+          const response = await fetch(gallerySampleUrl, { signal });
           if (!response.ok) throw new Error(`Gallery image unavailable (${response.status}).`);
           return new Uint8Array(await response.arrayBuffer());
         };
