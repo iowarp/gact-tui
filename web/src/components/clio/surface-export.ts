@@ -115,13 +115,31 @@ export function resolveCardBackground(node: Element | null): string {
   return isTransparentColor(documentBackground) ? '#ffffff' : documentBackground;
 }
 
-/** Copies `text` to the clipboard; resolves `false` (never throws) when the API is unavailable or denied. */
+/** Copies text after a user gesture, including on local HTTP previews without the async Clipboard API. */
 export async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
-    if (!navigator.clipboard) return false;
-    await navigator.clipboard.writeText(text);
-    return true;
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Local HTTP previews can expose a clipboard object yet reject writeText.
+  }
+  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.append(field);
+  try {
+    field.focus();
+    field.select();
+    return document.execCommand('copy');
   } catch {
     return false;
+  } finally {
+    field.remove();
+    previousFocus?.focus();
   }
 }

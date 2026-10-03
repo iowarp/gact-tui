@@ -95,8 +95,10 @@ describe('browser download helpers', () => {
 });
 
 describe('copyTextToClipboard', () => {
+  const originalExecCommand = document.execCommand;
   afterEach(() => {
     vi.restoreAllMocks();
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: originalExecCommand });
     // @ts-expect-error -- restoring a test-only override
     delete navigator.clipboard;
   });
@@ -108,16 +110,21 @@ describe('copyTextToClipboard', () => {
     expect(writeText).toHaveBeenCalledWith('hello');
   });
 
-  it('resolves false (never throws) when the clipboard API is unavailable', async () => {
+  it('uses a user-gesture fallback when the Clipboard API is unavailable', async () => {
     // @ts-expect-error -- simulating an environment with no Clipboard API
     delete navigator.clipboard;
-    await expect(copyTextToClipboard('hello')).resolves.toBe(false);
+    const copy = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: copy });
+    await expect(copyTextToClipboard('hello')).resolves.toBe(true);
+    expect(copy).toHaveBeenCalledWith('copy');
+    expect(document.querySelector('textarea[readonly]')).toBeNull();
   });
 
-  it('resolves false (never throws) when the clipboard API rejects', async () => {
+  it('resolves false when both copy methods fail', async () => {
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
     });
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: vi.fn().mockReturnValue(false) });
     await expect(copyTextToClipboard('hello')).resolves.toBe(false);
   });
 });

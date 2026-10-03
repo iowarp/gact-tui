@@ -181,7 +181,7 @@ describe('ClioMermaidDiagram', () => {
     await waitFor(() => expect(capturedBlobs.at(-1)?.type).toBe('image/png'));
   });
 
-  it("copies the Mermaid source to the clipboard through the toolbar's one copy affordance", async () => {
+  it('keeps source and copy controls in the main header', async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     // `Object.defineProperty`, not `Object.assign`: `userEvent.setup()` (used
@@ -191,13 +191,12 @@ describe('ClioMermaidDiagram', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
 
     render(wrap(<ClioMermaidDiagram source={SOURCE} title="Pipeline" />));
-    await user.click(screen.getByRole('button', { name: 'More' }));
-    selectMenuItem(screen.getByRole('menuitem', { name: 'Copy source' }));
+    expect(screen.getByRole('button', { name: 'Mermaid source' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Copy source' }));
 
     expect(writeText).toHaveBeenCalledWith(SOURCE);
-    // Exactly one obvious way to copy: the Source view's own header carries
-    // no second copy button now that the toolbar provides it.
-    expect(screen.queryByRole('button', { name: /copy mermaid source/iu })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.queryByRole('menuitem', { name: 'Copy source' })).not.toBeInTheDocument();
   });
 
   it('moves the diagram into a full-screen dialog and back, without duplicating it', async () => {

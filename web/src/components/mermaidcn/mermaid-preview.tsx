@@ -7,6 +7,7 @@ import { Mermaid } from './mermaid';
 import { ZoomPan } from './zoom-pan';
 import { sanitizeMermaidSvg } from '@/components/clio/mermaid-security';
 import { cn } from '@/lib/utils';
+import { mermaidNodeRegions } from './mermaid-node-regions';
 
 export interface MermaidPreviewProps {
   chart: string;
@@ -15,14 +16,18 @@ export interface MermaidPreviewProps {
   onSvgOutputChange: (svg: string) => void;
   className?: string;
   controls: (api: { zoomIn: () => void; zoomOut: () => void; centerView: () => void; scalePercent: number }) => ReactNode;
+  interactiveNodes?: readonly { id: string; label: string }[];
+  selectedNodeIds?: readonly string[];
+  onNodeClick?: (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => void;
 }
 
 /** Diagram canvas using the same header controls as other CLIO surfaces. */
-export function MermaidPreview({ chart, config, svgOutput, onSvgOutputChange, className, controls }: MermaidPreviewProps) {
+export function MermaidPreview({ chart, config, svgOutput, onSvgOutputChange, className, controls, interactiveNodes, selectedNodeIds, onNodeClick }: MermaidPreviewProps) {
   const [renderError, setRenderError] = useState<string>();
   const imageSrc = useMemo(() => svgOutput
     ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgWithIntrinsicSize(svgOutput))}`
     : '', [svgOutput]);
+  const hitRegions = useMemo(() => interactiveNodes ? mermaidNodeRegions(svgOutput, interactiveNodes) : [], [svgOutput, interactiveNodes]);
 
   return <ZoomPan
     ariaLabel="Interactive Mermaid diagram"
@@ -31,6 +36,9 @@ export function MermaidPreview({ chart, config, svgOutput, onSvgOutputChange, cl
     error={renderError}
     fitPadding={0.8}
     imageSrc={imageSrc}
+    hitRegions={hitRegions}
+    selectedRegionIds={selectedNodeIds}
+    onRegionClick={onNodeClick}
     wheelZoom="plain"
   >
     <Mermaid

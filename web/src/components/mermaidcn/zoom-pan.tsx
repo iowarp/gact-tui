@@ -45,6 +45,9 @@ export interface ZoomPanProps {
   isLoading?: boolean;
   loadingFallback?: React.ReactNode;
   error?: string;
+  hitRegions?: readonly { id: string; x: number; y: number; width: number; height: number }[];
+  selectedRegionIds?: readonly string[];
+  onRegionClick?: (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => void;
 }
 
 export function ZoomPan({
@@ -66,11 +69,17 @@ export function ZoomPan({
   isLoading = false,
   loadingFallback,
   error,
+  hitRegions,
+  selectedRegionIds,
+  onRegionClick,
 }: ZoomPanProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const stageRef = React.useRef<HTMLDivElement>(null);
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const imageRef = React.useRef<HTMLImageElement | null>(null);
+  const hitRegionsRef = React.useRef(hitRegions);
+  const selectedRegionIdsRef = React.useRef(selectedRegionIds);
+  const onRegionClickRef = React.useRef(onRegionClick);
   const [imageDimensions, setImageDimensions] = React.useState<Dimensions>();
   const [stageDimensions, setStageDimensions] = React.useState<Dimensions>();
 
@@ -145,9 +154,25 @@ export function ZoomPan({
 
     // Draw image
     ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight);
+    const selected = new Set(selectedRegionIdsRef.current);
+    for (const region of hitRegionsRef.current ?? []) {
+      if (!selected.has(region.id)) continue;
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.18)';
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 3 / scale;
+      ctx.fillRect(region.x, region.y, region.width, region.height);
+      ctx.strokeRect(region.x, region.y, region.width, region.height);
+    }
 
     ctx.restore();
   }, []);
+
+  React.useEffect(() => {
+    hitRegionsRef.current = hitRegions;
+    selectedRegionIdsRef.current = selectedRegionIds;
+    onRegionClickRef.current = onRegionClick;
+    render();
+  }, [hitRegions, selectedRegionIds, onRegionClick, render]);
 
   // Mode 1: Snappy Update (Instant)
   // Used for drag, pinch, and wheel to ensure 1:1 input response
@@ -290,7 +315,6 @@ export function ZoomPan({
     if (e.button !== 0) return;
     e.preventDefault();
     isDragging.current = true;
-    isFitView.current = false;
 
     // Sync logic: grab exactly where we are, cancelling any smooth animation
     targetRef.current = { ...currentRef.current };
@@ -299,6 +323,19 @@ export function ZoomPan({
 
     updateImmediate();
   };
+
+  const selectAt = React.useCallback((clientX: number, clientY: number, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !onRegionClickRef.current) return;
+    const rect = canvas.getBoundingClientRect();
+    const { x, y, scale } = currentRef.current;
+    const imageX = (clientX - rect.left - x) / scale;
+    const imageY = (clientY - rect.top - y) / scale;
+    const region = [...(hitRegionsRef.current ?? [])].reverse().find((candidate) =>
+      imageX >= candidate.x && imageX <= candidate.x + candidate.width &&
+      imageY >= candidate.y && imageY <= candidate.y + candidate.height);
+    if (region) onRegionClickRef.current(region.id, modifiers);
+  }, []);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const panStep = event.shiftKey ? 80 : 32;
@@ -383,6 +420,7 @@ export function ZoomPan({
       if (!isDragging.current) return;
       const dx = e.clientX - panStartRef.current.x;
       const dy = e.clientY - panStartRef.current.y;
+      if (Math.hypot(dx, dy) >= 5) isFitView.current = false;
 
       targetRef.current.x = targetStartRef.current.x + dx;
       targetRef.current.y = targetStartRef.current.y + dy;
@@ -390,7 +428,10 @@ export function ZoomPan({
       updateImmediate();
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (event: MouseEvent) => {
+      if (isDragging.current && Math.hypot(event.clientX - panStartRef.current.x, event.clientY - panStartRef.current.y) < 5) {
+        selectAt(event.clientX, event.clientY, event);
+      }
       isDragging.current = false;
     };
 
@@ -400,7 +441,7 @@ export function ZoomPan({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [updateImmediate]);
+  }, [selectAt, updateImmediate]);
 
   // Touch handlers
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -622,7 +663,13 @@ export function ZoomPan({
             // onWheel handled via useEffect with passive: false
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
-            onTouchEnd={() => {
+            onTouchEnd={(event) => {
+              if (!isPinching.current && touchStartRef.current?.touches.length === 1 && event.changedTouches.length === 1) {
+                const touch = event.changedTouches[0];
+                if (Math.hypot(touch.clientX - touchStartRef.current.touches[0].x, touch.clientY - touchStartRef.current.touches[0].y) < 8) {
+                  selectAt(touch.clientX, touch.clientY, { shiftKey: false, ctrlKey: false, metaKey: false });
+                }
+              }
               isDragging.current = false;
               isPinching.current = false;
             }}

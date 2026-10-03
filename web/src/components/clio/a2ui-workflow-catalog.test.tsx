@@ -2,7 +2,7 @@ import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9
 import { A2uiSurface, Column, type ReactComponentImplementation } from '@a2ui/react/v0_9';
 import { TransportError } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,8 +13,19 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 vi.mock('./mermaid-diagram', () => ({
-  ClioMermaidDiagram: ({ source, title }: { source: string; title?: string }) => (
-    <section aria-label={title || 'Diagram'}>{source}</section>
+  ClioMermaidDiagram: ({ source, title, interactiveNodes, selectedNodeIds, onNodeClick, referenceOverride }: {
+    source: string;
+    title?: string;
+    interactiveNodes?: readonly { id: string; label: string }[];
+    selectedNodeIds?: readonly string[];
+    onNodeClick?: (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => void;
+    referenceOverride?: () => { query?: unknown };
+  }) => (
+    <section aria-label={title || 'Diagram'}>
+      {source}
+      {interactiveNodes?.map((node) => <button aria-label={`Pick ${node.label}`} key={node.id} onClick={(event) => onNodeClick?.(node.id, event)} type="button" />)}
+      <output data-testid="selected-workflow-nodes" data-query={JSON.stringify(referenceOverride?.().query)}>{selectedNodeIds?.join(',')}</output>
+    </section>
   ),
 }));
 
@@ -77,6 +88,23 @@ describe('clio.workflow.v1 schema', () => {
 });
 
 describe('clio.workflow.v1 dataUri rendering', () => {
+  it('selects a node natively and references only that step', () => {
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['workflow'] },
+      { id: 'workflow', component: 'clio.workflow.v1', nodes: [
+        { id: 'collect', label: 'Collect' }, { id: 'review', label: 'Review' },
+      ], edges: [{ source: 'collect', target: 'review' }] },
+    ]);
+    render(wrap(<A2uiSurface surface={surface} />));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Review' }));
+    const selected = screen.getByTestId('selected-workflow-nodes');
+    expect(selected).toHaveTextContent('review');
+    expect(JSON.parse(selected.dataset.query ?? '{}')).toMatchObject({ selection: { field: 'id', values: ['review'] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Collect' }), { shiftKey: true });
+    expect(selected).toHaveTextContent('review,collect');
+  });
+
   it('parses the referenced {nodes, edges} JSON file and renders the graph', async () => {
     repository.readArtifactText.mockResolvedValue(
       JSON.stringify({
@@ -94,7 +122,7 @@ describe('clio.workflow.v1 dataUri rendering', () => {
 
     render(wrap(<A2uiSurface surface={surface} />));
 
-    expect(await screen.findByText(/Fetch/u)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Pick Fetch' })).toBeInTheDocument();
     expect(repository.readArtifactText).toHaveBeenCalledWith(
       'artifact_workflow01',
       undefined,

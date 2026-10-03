@@ -1,7 +1,7 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
 import { A2UI_WORKFLOW_EDGES_MAX, A2UI_WORKFLOW_NODES_MAX } from '@clio/core/v3';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { z } from 'zod';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
 import { refinedStrictObject } from './a2ui-refined-schema';
 import { useArtifactText } from './artifact-text-query';
 import { ClioMermaidDiagram } from './mermaid-diagram';
+import { buildZoneReference } from './data-zone-reference';
 
 const workflowNode = z
   .object({
@@ -97,6 +98,29 @@ function ClioWorkflowDiagram({
   edges,
   selected,
 }: ClioWorkflowDiagramProps) {
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const interactiveNodes = useMemo(() => nodes.map(({ id, label }) => ({ id, label })), [nodes]);
+  const selectNode = (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
+    setSelectedNodeIds((previous) => {
+      if (modifiers.shiftKey || modifiers.ctrlKey || modifiers.metaKey) {
+        return previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id];
+      }
+      return previous.length === 1 && previous[0] === id ? [] : [id];
+    });
+  };
+  const selectedNodes = nodes.filter((node) => selectedNodeIds.includes(node.id));
+  const reference = () => buildZoneReference({
+    componentLabel: 'Workflow',
+    datasetLabel: dataUri ?? 'inline workflow',
+    filters: [],
+    zoneDescription: selectedNodes.length ? `${selectedNodes.length} selected workflow ${selectedNodes.length === 1 ? 'step' : 'steps'}` : 'the whole workflow',
+    previewColumns: ['id', 'label', 'state', 'detail'],
+    previewRows: selectedNodes,
+    query: {
+      ...(dataUri ? { dataUri } : { nodes, edges }),
+      ...(selectedNodes.length ? { selection: { field: 'id', values: selectedNodes.map((node) => node.id) } } : {}),
+    },
+  });
   return (
     <div {...a2uiAccessibilityProps(accessibility)} className="grid gap-2" role="group">
       <ClioMermaidDiagram
@@ -105,7 +129,15 @@ function ClioWorkflowDiagram({
         dataUri={dataUri}
         source={workflowSource(nodes, edges, selected)}
         title="Workflow"
+        interactiveNodes={interactiveNodes}
+        selectedNodeIds={selectedNodeIds}
+        onNodeClick={selectNode}
+        referenceOverride={reference}
       />
+      <div className="sr-only focus-within:not-sr-only focus-within:flex focus-within:flex-wrap focus-within:gap-1" aria-label="Workflow steps" role="group">
+        {nodes.map((node) => <Button aria-pressed={selectedNodeIds.includes(node.id)} key={node.id} onClick={(event) => selectNode(node.id, event)} size="sm" type="button" variant="outline">Select {node.label}</Button>)}
+      </div>
+      {selectedNodes.length ? <div className="flex items-center gap-2 text-xs" aria-live="polite"><span className="min-w-0 truncate">Selected: {selectedNodes.map((node) => node.label).join(', ')}</span><Button onClick={() => setSelectedNodeIds([])} size="xs" variant="ghost">Clear</Button></div> : null}
       {action && selected ? (
         <Button
           className="justify-self-start"

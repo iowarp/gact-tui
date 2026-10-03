@@ -1,6 +1,7 @@
-import { AlertTriangleIcon, Code2Icon, GitBranchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
+import { AlertTriangleIcon, Code2Icon, CopyIcon, GitBranchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import {
   CodeBlock,
@@ -57,6 +58,10 @@ export function ClioMermaidDiagram({
   dataUri,
   source,
   title,
+  interactiveNodes,
+  selectedNodeIds,
+  onNodeClick,
+  referenceOverride,
 }: {
   accessibilityDescription?: string;
   accessibilityLabel?: string;
@@ -64,6 +69,10 @@ export function ClioMermaidDiagram({
   dataUri?: string;
   source: string;
   title?: string;
+  interactiveNodes?: readonly { id: string; label: string }[];
+  selectedNodeIds?: readonly string[];
+  onNodeClick?: (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => void;
+  referenceOverride?: () => DataZoneReference;
 }) {
   const [view, setView] = useState<MermaidView>('render');
   const [svgOutput, setSvgOutput] = useState('');
@@ -116,11 +125,15 @@ export function ClioMermaidDiagram({
     });
 
   const toolbarCapabilities: SurfaceCapabilities = {
-    buildReference,
-    copyLabel: 'Copy source',
+    buildReference: referenceOverride ?? buildReference,
     exportFormats,
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
-    onCopy: () => copyTextToClipboard(source),
+  };
+
+  const copySource = () => {
+    void copyTextToClipboard(source).then((copied) => {
+      if (!copied) toast.error("Couldn't copy source");
+    });
   };
 
   const viewSwitch = <div aria-label="Diagram view" className={`inline-flex shrink-0 items-center rounded-md border p-0.5 ${actionReveal}`} role="group">
@@ -128,9 +141,12 @@ export function ClioMermaidDiagram({
     <Button aria-label="Mermaid source" aria-pressed={view === 'source'} onClick={() => setView('source')} size="icon-sm" title="Mermaid source" variant={view === 'source' ? 'secondary' : 'ghost'}><Code2Icon aria-hidden="true" className="size-3.5" /></Button>
   </div>;
 
+  const copySourceButton = <Button aria-label="Copy source" className={actionReveal} onClick={copySource} size="icon-sm" title="Copy source" variant="ghost"><CopyIcon aria-hidden="true" className="size-3.5" /></Button>;
+
   const header = <header className="mb-2 flex min-w-0 items-center gap-2">
     <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={heading}>{heading}</h3>
     {viewSwitch}
+    {copySourceButton}
     <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
   </header>;
 
@@ -144,7 +160,7 @@ export function ClioMermaidDiagram({
       <SurfaceFullScreenHost
         fullscreen={fullscreen}
         headerExtra={
-          <>{viewSwitch}<SurfaceToolbar
+          <>{viewSwitch}{copySourceButton}<SurfaceToolbar
             capabilities={{ ...toolbarCapabilities, fullScreen: undefined }}
             floating={false}
           /></>
@@ -177,16 +193,19 @@ export function ClioMermaidDiagram({
               config={config}
               controls={({ zoomIn, zoomOut, centerView, scalePercent }) => <header className="mb-2 flex min-w-0 items-center gap-2">
                 {!fullscreen ? <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={heading}>{heading}</h3> : <span className="flex-1" />}
-                {!fullscreen ? viewSwitch : null}
-                <div className={`flex shrink-0 items-center gap-0.5 ${actionReveal}`} title="Scroll over the diagram to zoom, drag to pan">
-                  <Button aria-label="Zoom out" disabled={!svgOutput} onClick={zoomOut} size="icon-sm" title="Zoom out" variant="ghost"><ZoomOutIcon aria-hidden="true" className="size-3.5" /></Button>
+                {!fullscreen ? <>{viewSwitch}{copySourceButton}</> : null}
+                <div className={`flex shrink-0 items-center gap-0.5 ${actionReveal}`}>
+                  <Button aria-label="Zoom out" disabled={!svgOutput} onClick={zoomOut} size="icon-sm" title="Zoom out. Scroll over the diagram to zoom, drag to pan" variant="ghost"><ZoomOutIcon aria-hidden="true" className="size-3.5" /></Button>
                   <span className="min-w-9 text-center text-[11px] tabular-nums text-muted-foreground">{scalePercent}%</span>
-                  <Button aria-label="Zoom in" disabled={!svgOutput} onClick={zoomIn} size="icon-sm" title="Zoom in" variant="ghost"><ZoomInIcon aria-hidden="true" className="size-3.5" /></Button>
+                  <Button aria-label="Zoom in" disabled={!svgOutput} onClick={zoomIn} size="icon-sm" title="Zoom in. Scroll over the diagram to zoom, drag to pan" variant="ghost"><ZoomInIcon aria-hidden="true" className="size-3.5" /></Button>
                   <Button aria-label="Reset zoom" disabled={!svgOutput} onClick={centerView} size="icon-sm" title="Reset zoom" variant="ghost"><RetryIcon aria-hidden="true" className="size-3.5" /></Button>
                 </div>
                 {!fullscreen ? <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} /> : null}
               </header>}
               onSvgOutputChange={setSvgOutput}
+              interactiveNodes={interactiveNodes}
+              selectedNodeIds={selectedNodeIds}
+              onNodeClick={onNodeClick}
               svgOutput={svgOutput}
             />
           )}
