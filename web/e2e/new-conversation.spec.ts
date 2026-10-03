@@ -11,6 +11,17 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
     localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
   }, endpoint);
   const sessionCreations: string[] = [];
+  const warmups: string[] = [];
+  await page.route(`${endpoint}/v1/capabilities`, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.capabilities.x_clio_workspace_warmup = true;
+    await route.fulfill({ response, json: body });
+  });
+  await page.route(`${endpoint}/v1/workspaces/*/warmup`, async (route) => {
+    warmups.push(new URL(route.request().url()).pathname);
+    await route.fulfill({ status: 202, json: { status: 'warming' } });
+  });
   const errors: string[] = [];
   page.on('request', (request) => {
     if (request.method() === 'POST' && new URL(request.url()).pathname === '/v1/sessions') {
@@ -26,6 +37,8 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
   const composer = page.getByRole('combobox', { name: /Ask .+ to investigate/ });
   await expect(composer).toBeEnabled();
+  await expect.poll(() => warmups.length).toBe(1);
+  expect(warmups[0]).toBe('/v1/workspaces/ws_flat_ndp/warmup');
   await expect(page.getByRole('combobox', { name: 'Conversation workspace' })).toHaveValue(
     'ws_flat_ndp',
   );
@@ -36,6 +49,7 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await page.getByRole('link', { name: 'Workspace', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
   await expect(composer).toHaveText('');
+  await expect.poll(() => warmups.length).toBe(2);
 
   await page.getByRole('link', { name: /^EarthScope NDP evidence review/ }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
@@ -46,7 +60,42 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   expect(sessionCreations).toEqual([]);
+  expect(warmups).toHaveLength(2);
   expect(errors).toEqual([]);
+});
+
+test('draft remains usable when background preparation fails', async ({ page }) => {
+  expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
+  await page.addInitScript((connection) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
+  }, endpoint);
+  await page.route(`${endpoint}/v1/capabilities`, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.capabilities.x_clio_workspace_warmup = true;
+    await route.fulfill({ response, json: body });
+  });
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(`${endpoint}/v1/workspaces/*/warmup`, async (route) => {
+    await waiting;
+    await route.fulfill({ status: 503, json: { error: 'Service is starting' } });
+  });
+  let creations = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/v1/sessions')
+      creations += 1;
+  });
+  await page.goto('/');
+  const composer = page.getByRole('combobox', { name: /Ask .+ to investigate/ });
+  await expect(composer).toBeEnabled();
+  await composer.fill('Still able to compose while tools start');
+  release();
+  await expect(page.getByText(/Tools could not be prepared in advance/)).toBeVisible();
+  await expect(composer).toBeEnabled();
+  expect(creations).toBe(0);
 });
 
 test('first send creates exactly one session and negotiates interactive UI before delivery', async ({

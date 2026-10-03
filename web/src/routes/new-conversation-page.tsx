@@ -18,6 +18,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
+import { useWorkspaceWarmup } from '@/hooks/use-workspace-warmup';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { queryKeys } from '@/lib/query-keys';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
@@ -56,6 +57,15 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
   const sessions = data.allSessions.data ?? data.sessions.data ?? [];
   const workspace = data.workspaces.data?.find((item) => item.id === workspaceId);
+  const warmup = useWorkspaceWarmup(
+    workspaceId,
+    Boolean(
+      workspace &&
+        defaults.isSuccess &&
+        data.capabilities.data?.capabilities.x_clio_workspace_warmup,
+    ),
+    defaults.data?.blueprint_id,
+  );
   useDesktopTitleSync({ workspace: workspace?.display_name, session: 'New conversation' });
   const error = data.workspaces.error ?? data.capabilities.error ?? defaults.error;
   if (error || (!data.workspaces.isPending && !workspace)) {
@@ -108,7 +118,14 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       workbench={null}
     >
       <div className="flex h-full min-h-0 flex-col justify-center overflow-y-auto px-4 py-8 sm:px-8">
-        <WorkspaceActionAlerts actionError={send.error?.message} />
+        <WorkspaceActionAlerts
+          actionError={
+            send.error?.message ??
+            (warmup.error
+              ? `Tools could not be prepared in advance: ${warmup.error.message}. You can still send a message.`
+              : undefined)
+          }
+        />
         <ClioConversationWelcome disabled={send.isPending} onSelectPrompt={draft.onValueChange}>
           <ClioComposer
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
