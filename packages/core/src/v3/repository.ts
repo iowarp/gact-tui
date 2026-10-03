@@ -45,7 +45,6 @@ import {
   questionListSchema,
   sessionListSchema,
   toolCatalogSchema,
-  transcriptSchema,
   workspaceFileListSchema,
   workspaceListSchema,
 } from './repository-decoders.js';
@@ -58,6 +57,7 @@ import type { ClioTransport, StreamScope, TransportFrame } from './transport.js'
 import { mergeA2uiClientMetadata } from './a2ui/index.js';
 import { SystemRepository } from './system-repository.js';
 import { decodeCapabilities } from './capability-negotiation.js';
+import { decodeTranscript } from './transcript-decoder.js';
 
 /**
  * Artifact records requested per page while walking a session's registry.
@@ -723,21 +723,13 @@ export class ClioRepository extends SystemRepository {
   }
 
   public async transcript(sessionId: string, signal?: AbortSignal): Promise<TranscriptSnapshot> {
-    const result = await this.transport.request({
+    const value = await this.transport.request({
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
-      decode: (value) => transcriptSchema.parse(value),
+      decode: (value) => value,
       signal,
     });
-    return {
-      cursor: result.cursor,
-      messages: result.messages,
-      tools: result.tools,
-      tasks: result.tasks,
-      subagents: result.subagents,
-      artifacts: result.artifacts,
-      surfaces: result.surfaces,
-    };
+    return decodeTranscript(value, signal);
   }
 
   public retryTurn(

@@ -75,7 +75,7 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
     for (const phrase of [
       'login received by the agent',
       "login delivered to the agent's turn",
-      'login applied',
+      'login recorded',
       'login failed',
       'login ignored as a duplicate',
     ]) {
@@ -106,7 +106,7 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
 
   await test.step('consumed', async () => {
     await publishLifecycle(page, 'consumed');
-    await expect(page.getByText('login applied')).toBeVisible();
+    await expect(page.getByText('login recorded')).toBeVisible();
   });
 
   await test.step('failed, with the reason worded inline', async () => {

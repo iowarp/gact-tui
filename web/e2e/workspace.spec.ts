@@ -458,9 +458,9 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
   await expect(
     pendingResponses.getByRole('group', { name: 'Nearest EarthScope GNSS stations' }),
   ).toBeVisible();
-  // Four boxes flattened to one: only the map's own Frame keeps a real
-  // border between the tray and the map itself.
-  await expect(pendingResponses.locator('[data-slot="frame"].border')).toHaveCount(1);
+  // The map now renders directly in the tray, without another framed box.
+  await expect(pendingResponses.locator('[data-slot="a2ui-map"]')).toHaveCount(1);
+  await expect(pendingResponses.locator('[data-slot="frame"].border')).toHaveCount(0);
 
   // A wheel over the map's own canvas must never scroll the page (which
   // would fight the map for the gesture) — a real browser check, not a
@@ -801,8 +801,14 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
   });
   await page.goto(workspaceUrl);
   await expect(page.getByRole('log', { name: 'Conversation' })).toBeVisible();
+  // The conversation shell mounts before its snapshot finishes decoding.
+  // Start the measurement only once the active message is actually mounted.
+  await expect(
+    page.getByRole('log', { name: 'Conversation' }).locator('[aria-busy="true"]'),
+  ).toBeAttached();
 
   const renderedRows = page.locator('[data-index]');
+  expect(await renderedRows.count()).toBeGreaterThan(0);
   expect(await renderedRows.count()).toBeLessThan(50);
 
   await page.getByRole('log', { name: 'Conversation' }).evaluate((element) => {
