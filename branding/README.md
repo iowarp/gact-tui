@@ -25,23 +25,23 @@ Selection happens at build time; it is not an environment-variable theme toggle.
 
 Only `name` is required. The workspace currently consumes:
 
-| Field | Purpose |
-| --- | --- |
-| `name` | Document title, accessible product name, and product-facing copy |
-| `wordmark` | Short chrome label; defaults to `name` |
-| `tagline`, `taglineAccent` | Optional short product phrases |
-| `homeUrl`, `taglineAccentUrl` | Optional product links |
-| `markGlyph` | One-character fallback when no logo exists |
-| `logoSvg` | SVG asset path relative to the profile directory; inlined at build time |
-| `logoImage` | Raster mark relative to the profile directory; emitted as a production asset |
-| `wordmarkImage` | Optional full logo used on the desktop startup screen |
-| `iconSvg` | Optional monochrome SVG used in navigation, title bar, welcome and connection chrome; inherits the theme color |
-| `faviconSvg` | Optional browser favicon; defaults to `logoSvg` |
-| `accent` | Product action accent |
-| `themeTokens` | CSS custom-property overrides applied at boot |
-| `landing.eyebrow` | Short domain/product category on the connection screen |
-| `landing.headline` | Primary product promise on the connection screen |
-| `landing.description` | Supporting product description on the connection screen |
+| Field                         | Purpose                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `name`                        | Document title, accessible product name, and product-facing copy                                               |
+| `wordmark`                    | Short chrome label; defaults to `name`                                                                         |
+| `tagline`, `taglineAccent`    | Optional short product phrases                                                                                 |
+| `homeUrl`, `taglineAccentUrl` | Optional product links                                                                                         |
+| `markGlyph`                   | One-character fallback when no logo exists                                                                     |
+| `logoSvg`                     | SVG asset path relative to the profile directory; inlined at build time                                        |
+| `logoImage`                   | Raster mark relative to the profile directory; emitted as a production asset                                   |
+| `wordmarkImage`               | Optional full logo used on the desktop startup screen                                                          |
+| `iconSvg`                     | Optional monochrome SVG used in navigation, title bar, welcome and connection chrome; inherits the theme color |
+| `faviconSvg`                  | Optional browser favicon; defaults to `logoSvg`                                                                |
+| `accent`                      | Product action accent                                                                                          |
+| `themeTokens`                 | CSS custom-property overrides applied at boot                                                                  |
+| `landing.eyebrow`             | Short domain/product category on the connection screen                                                         |
+| `landing.headline`            | Primary product promise on the connection screen                                                               |
+| `landing.description`         | Supporting product description on the connection screen                                                        |
 
 The landing fields are deliberately product-owned. Transport versions, replay
 cursors, process topology, and similar implementation details do not belong in
