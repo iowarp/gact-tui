@@ -1,11 +1,12 @@
 import { lazy, Suspense } from 'react';
 import { brand } from '@brand';
 import { useEffect } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
 import { WorkspacePage } from '@/routes/workspace-page';
+import { NewConversationPage } from '@/routes/new-conversation-page';
 import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
 import { WhatsNewDialog } from '@/components/clio/whats-new-dialog';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -19,6 +20,7 @@ import {
 } from '@/components/clio/selection-actions';
 import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
+import { returnRouteFromState } from '@/lib/workspace-route-memory';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -60,8 +62,15 @@ function ProviderCatalogWarmup() {
 
 export default function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const desktopHost = inTauri();
-  const { credentialsReady } = useConnectionSettings();
+  const { credentialsReady, settings } = useConnectionSettings();
+  const settingsReturnState = {
+    endpoint: settings.endpoint,
+    from: location.pathname.startsWith('/workspaces/')
+      ? location.pathname
+      : returnRouteFromState(location.state, settings.endpoint),
+  };
   useNativeMenuBridge();
   useEffect(() => {
     // "Connected" here means the boot-time connection resolution (managed
@@ -72,12 +81,16 @@ export default function App() {
     if (!desktopHost || !credentialsReady) return;
     return scheduleBackgroundUpdateCheck();
   }, [credentialsReady, desktopHost]);
-  useMenuAction('open-settings', () => navigate('/settings/appearance'));
+  useMenuAction('open-settings', () =>
+    navigate('/settings/appearance', {
+      state: settingsReturnState,
+    }),
+  );
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
-  useMenuAction('about', () => navigate('/settings/about'));
+  useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));
   useMenuAction('help-docs', () => {
     if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);
-    else navigate('/settings/about');
+    else navigate('/settings/about', { state: settingsReturnState });
   });
   useEffect(() => {
     // Title comes from index.html's brand-driven <title> (vite-plugin-brand.ts's
@@ -100,6 +113,7 @@ export default function App() {
         <Routes>
           <Route element={<ConnectionPage />} path="/" />
           <Route element={<WorkspacePage />} path="/workspaces/:workspaceId/sessions/:sessionId" />
+          <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
           <Route element={<RunsPage />} path="/runs" />
           <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
           <Route element={<SettingsPage />} path="/settings/:section" />

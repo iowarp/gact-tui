@@ -197,7 +197,7 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
 });
 
 test('renders dense flat-NDP semantics with accessible interactions', async ({ page }) => {
-  await page.goto('/');
+  await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
 
   await expect(page.getByText('EarthScope NDP evidence review').first()).toBeVisible();
@@ -448,7 +448,7 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
   });
   expect(seeded.ok()).toBe(true);
 
-  await page.goto('/');
+  await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
   const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
   await expect(
@@ -910,7 +910,7 @@ test('shows the summarization injection collapsed with a clamped preview, then e
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/');
+  await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
   await settleConversationAtLatest(page);
 

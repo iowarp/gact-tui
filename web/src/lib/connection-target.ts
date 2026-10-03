@@ -6,51 +6,6 @@ export interface ConnectionSessionTarget {
   workspace: Workspace;
 }
 
-/**
- * HEURISTIC — the one place this client guesses at a session's purpose.
- *
- * There is no field on `Session` that says a session is an internal
- * qualification run, so this sniffs the title for the prefix the harness
- * happens to write. That is wrong in both directions: a person who titles a
- * conversation "__CLIO dev notes" is silently denied it as an entry session,
- * and an internal session created under any other title is handed to them.
- *
- * TODO(server): the real fix is a typed marker on the session — an `internal:
- * boolean` (or an `origin` of `'qualification'`) on `Session` in
- * `packages/core/src/v3/domain.ts` and its schema, set by whatever creates
- * these runs. When that lands, `isReusableEntrySession` reads the field and
- * this constant and its comment are deleted outright; nothing else in the
- * client depends on the prefix.
- *
- * Keep every use of it inside this module. A title heuristic that spreads is a
- * vocabulary the whole client then has to keep agreeing on.
- */
-const INTERNAL_SESSION_TITLE_PREFIX = '__CLIO dev ';
-
-/** Internal qualification sessions must never become a user's entry composer. */
-function isReusableEntrySession(session: Session): boolean {
-  return (
-    isPrimarySession(session) &&
-    !session.archived &&
-    session.message_count === 0 &&
-    !session.active_blueprint_id &&
-    !session.title.startsWith(INTERNAL_SESSION_TITLE_PREFIX)
-  );
-}
-
-/** Resolve the newest reusable empty base-agent session in one workspace. */
-export function emptyConnectionSessionTarget(
-  workspace: Workspace,
-  sessions: readonly Session[],
-): ConnectionSessionTarget | undefined {
-  const session = sessions
-    .filter(
-      (candidate) => candidate.workspace_id === workspace.id && isReusableEntrySession(candidate),
-    )
-    .toSorted((left, right) => right.created_at.localeCompare(left.created_at))[0];
-  return session ? { session, workspace } : undefined;
-}
-
 /** Resolve the most recently interacted-with valid session owned by one connection. */
 export function latestConnectionSessionTarget(
   workspaces: readonly Workspace[],
@@ -84,11 +39,8 @@ function parseWorkspaceRoute(
 /**
  * The workspace a remembered route names, when it still exists.
  *
- * Reconnecting opens a fresh conversation rather than the one that was open
- * last, so the connection page needs the workspace the person was working in
- * and nothing else. Requiring their last session to still exist would drop them
- * back to global recency for no reason — a workspace outlives any one
- * conversation in it.
+ * If the last conversation was removed, its workspace can still host the
+ * presentation-only entry composer. A workspace outlives a conversation in it.
  */
 export function connectionWorkspaceForRoute(
   route: string,

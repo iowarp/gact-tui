@@ -6,8 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
 
 const mocks = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  firstMessageMetadata: vi.fn(async () => ({
+    a2uiClientCapabilities: { 'v0.9': { supportedCatalogIds: ['test-catalog'] } },
+  })),
   uploadWorkspaceResources: vi.fn(),
   repository: {
+    createSession: vi.fn(),
     answerQuestion: vi.fn(async () => ({})),
     cancelQuestion: vi.fn(async () => ({})),
     createQueuedMessage: vi.fn(),
@@ -33,9 +38,12 @@ vi.mock('@/store/live-store', () => ({
   ),
 }));
 vi.mock('./use-repository', () => ({ useRepository: () => mocks.repository }));
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));
 vi.mock('@/lib/upload-workspace-resources', () => ({
   uploadWorkspaceResources: mocks.uploadWorkspaceResources,
+}));
+vi.mock('@/lib/a2ui/first-message-metadata', () => ({
+  firstMessageMetadata: mocks.firstMessageMetadata,
 }));
 
 import { useSessionMutations, type SessionSendInput } from './use-session-mutations';
@@ -68,6 +76,109 @@ const draft: SessionSendInput = { behavior, delivery: 'start', text: 'Check the 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.repository.createSession.mockReset().mockResolvedValue({
+    id: 'sess_created',
+    workspace_id: 'ws_1',
+    mode: 'edit',
+    routing_mode: 'auto',
+  });
+});
+
+function renderDraft() {
+  return renderHook(
+    () =>
+      useSessionMutations({
+        activeModel: 'gpt-5.6-luna',
+        activeProvider: 'codex',
+        sessionId: '',
+        workspaceId: 'ws_1',
+        createOnSend: true,
+      }),
+    { wrapper: strictWrapper },
+  );
+}
+
+describe('presentation-only conversation', () => {
+  it('shares session creation between overlapping sends', async () => {
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderDraft();
+    await Promise.all([
+      result.current.send.mutateAsync(draft),
+      result.current.send.mutateAsync(draft),
+    ]);
+    expect(mocks.repository.createSession).toHaveBeenCalledTimes(1);
+    const [first, second] = mocks.repository.submitMessage.mock.calls;
+    expect(first).toEqual(second);
+  });
+  it('creates nothing on mount or invalid input; creates and opens a session on first send', async () => {
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderDraft();
+    expect(mocks.repository.createSession).not.toHaveBeenCalled();
+    await expect(result.current.send.mutateAsync({ ...draft, text: ' ' })).rejects.toThrow(
+      'Write a message',
+    );
+    expect(mocks.repository.createSession).not.toHaveBeenCalled();
+    await result.current.send.mutateAsync(draft);
+    expect(mocks.repository.createSession).toHaveBeenCalledTimes(1);
+    expect(mocks.repository.createSession).toHaveBeenCalledWith({
+      workspace_id: 'ws_1',
+      title: 'New conversation',
+      mode: 'edit',
+      routing_mode: 'auto',
+      approval_mode: 'ask',
+    });
+    expect(mocks.repository.submitMessage).toHaveBeenCalledWith(
+      'sess_created',
+      expect.objectContaining({
+        parts: [{ type: 'text', text: draft.text }],
+        metadata: { a2uiClientCapabilities: { 'v0.9': { supportedCatalogIds: ['test-catalog'] } } },
+      }),
+    );
+    expect(mocks.navigate).toHaveBeenCalledWith('/workspaces/ws_1/sessions/sess_created', {
+      replace: true,
+    });
+  });
+
+  it('reuses the created session and message identity after a failed first send', async () => {
+    mocks.repository.submitMessage
+      .mockRejectedValueOnce(new Error('connection interrupted'))
+      .mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderDraft();
+    await expect(result.current.send.mutateAsync(draft)).rejects.toThrow('connection interrupted');
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    await result.current.send.mutateAsync(draft);
+    expect(mocks.repository.createSession).toHaveBeenCalledTimes(1);
+    const [first, second] = mocks.repository.submitMessage.mock.calls;
+    expect(first).toEqual(second);
+  });
+
+  it('allows retry when creating the session itself failed', async () => {
+    mocks.repository.createSession.mockRejectedValueOnce(new Error('service unavailable'));
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderDraft();
+    await expect(result.current.send.mutateAsync(draft)).rejects.toThrow('service unavailable');
+    expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
+    await result.current.send.mutateAsync(draft);
+    expect(mocks.repository.createSession).toHaveBeenCalledTimes(2);
+    expect(mocks.repository.submitMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not navigate back when a submitted message completes after leaving', async () => {
+    let accept!: (value: unknown) => void;
+    mocks.repository.submitMessage.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          accept = resolve;
+        }),
+    );
+    const { result, unmount } = renderDraft();
+    const send = result.current.send.mutateAsync(draft);
+    await waitFor(() => expect(mocks.repository.submitMessage).toHaveBeenCalledTimes(1));
+    unmount();
+    accept({ message_id: 'message_1' });
+    await send;
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
 });
 
 function renderMutations(session?: Session) {

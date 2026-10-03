@@ -1,5 +1,10 @@
 const LAST_WORKSPACE_ROUTE = 'clio.last-workspace-route';
 
+/** Address a presentation-only composer, without allocating a session id. */
+export function newConversationRoute(workspaceId: string): string {
+  return `/workspaces/${encodeURIComponent(workspaceId)}/new`;
+}
+
 function connectionRouteKey(endpoint: string): string {
   return `${LAST_WORKSPACE_ROUTE}:${encodeURIComponent(endpoint)}`;
 }
@@ -55,7 +60,7 @@ export function returnRouteFromState(state: unknown, endpoint: string): string {
 }
 
 export function workspaceIdFromRoute(route: string): string | undefined {
-  const match = /^\/workspaces\/([^/]+)\/sessions\//u.exec(route);
+  const match = /^\/workspaces\/([^/]+)\/(?:sessions\/|new(?:[?#]|$))/u.exec(route);
   if (!match?.[1]) return undefined;
   try {
     return decodeURIComponent(match[1]);
