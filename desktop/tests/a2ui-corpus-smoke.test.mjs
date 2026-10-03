@@ -240,41 +240,43 @@ test(
 
       const conversation = page.getByRole('log', { name: 'Conversation' });
       await conversation.waitFor({ state: 'visible', timeout: 15_000 });
+      await page.getByRole('region', { name: /^Interactive surface,/ }).first().waitFor({
+        state: 'visible', timeout: 15_000,
+      });
 
-      // Scroll in steps (rather than straight to the bottom) so every
-      // surface passes near the viewport at least once — the detached
-      // surface host defers mounting to an IntersectionObserver
-      // (DeferredA2UISurface, 800px rootMargin) and un-mounts again once a
-      // non-live surface scrolls back out, so only a straight-to-bottom
-      // jump would miss the surfaces stacked above the final scroll
-      // position. Renders accumulate into a Set across every step.
+      // Leave follow mode with real keyboard input, then visit every reserved
+      // host. Completed surfaces unmount outside the viewport, and their actual
+      // heights vary after lazy loading; a single initial scrollHeight cannot
+      // describe the whole corpus or prove each example rendered.
+      await conversation.press('Home');
+      const hosts = conversation.locator('[data-a2ui-viewport]');
+      await hosts.nth(corpus.count - 1).waitFor({ state: 'attached', timeout: 15_000 });
+      assert.equal(await hosts.count(), corpus.count);
       const renderedIds = new Set();
-      const scrollHeight = await conversation.evaluate((element) => element.scrollHeight);
-      const clientHeight = await conversation.evaluate((element) => element.clientHeight);
-      const step = Math.max(200, Math.floor(clientHeight * 0.6));
-      for (let top = 0; top <= scrollHeight; top += step) {
-        await conversation.evaluate((element, scrollTop) => element.scrollTo({ top: scrollTop }), top);
-        await page.waitForTimeout(120);
-        const ids = await page.evaluate(() =>
-          Array.from(document.querySelectorAll('[aria-label^="Generated UI,"]')).map(
-            (el) => el.id,
-          ),
+      for (let index = 0; index < corpus.count; index += 1) {
+        const host = hosts.nth(index);
+        await host.scrollIntoViewIfNeeded();
+        const surface = host.getByRole('region', { name: /^Interactive surface,/ });
+        await surface.waitFor({ state: 'visible', timeout: 15_000 });
+        renderedIds.add(await surface.getAttribute('id'));
+        const text = await surface.innerText();
+        assert.doesNotMatch(text, /Unknown component/u, `example ${index} has an unknown component`);
+        assert.doesNotMatch(
+          text,
+          /Interactive surface unavailable/u,
+          `example ${index} failed to render`,
         );
-        for (const id of ids) renderedIds.add(id);
-      }
-      // One final pass at the bottom, in case the loop's step overshot it.
-      await conversation.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
-      await page.waitForTimeout(200);
-      for (const id of await page.evaluate(() =>
-        Array.from(document.querySelectorAll('[aria-label^="Generated UI,"]')).map((el) => el.id),
-      )) {
-        renderedIds.add(id);
       }
 
       assert.equal(
         renderedIds.size,
         43,
         `expected 43 rendered surfaces, saw ${renderedIds.size}: ${[...renderedIds].sort().join(', ')}`,
+      );
+      assert.deepEqual(
+        [...renderedIds].sort(),
+        corpus.surface_ids.map((id) => `a2ui-surface-${encodeURIComponent(id)}`).sort(),
+        'every published example must have rendered its own surface',
       );
 
       const bodyText = await page.evaluate(() => document.body.innerText);
