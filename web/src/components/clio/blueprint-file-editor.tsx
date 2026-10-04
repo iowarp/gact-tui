@@ -30,26 +30,39 @@ import { InfoTip } from './info-tip';
 import { vocab } from '@/lib/brand-vocabulary';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { connectionScope } from '@/lib/connection-scope';
+import { BlueprintOperationStatus } from './blueprint-operation-status';
+import { useBlueprintOperation } from '@/hooks/use-blueprint-operation';
 
-/** Edits one server-owned blueprint source file with a real code editor and explicit save. */
-export function BlueprintFileEditor({
-  blueprintId,
-  workspaceId,
-  sessionId,
-  path,
-}: {
+type BlueprintFileEditorProps = {
   blueprintId: string;
   workspaceId: string;
   sessionId: string;
   path: string;
-}) {
+};
+
+/** Edits one server-owned blueprint source file with a real code editor and explicit save. */
+export function BlueprintFileEditor(props: BlueprintFileEditorProps) {
+  const { settings } = useConnectionSettings();
+  return <BlueprintFileEditorView key={connectionScope(settings)} {...props} />;
+}
+
+function BlueprintFileEditorView({
+  blueprintId,
+  workspaceId,
+  sessionId,
+  path,
+}: BlueprintFileEditorProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const owner = connectionScope(settings);
+  const operation = useBlueprintOperation({ blueprintId, workspaceId });
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const queryKey = [
     'blueprint-file',
     settings.endpoint,
+    owner,
     blueprintId,
     workspaceId,
     sessionId,
@@ -64,6 +77,7 @@ export function BlueprintFileEditor({
   const authoringKey = [
     'blueprint-authoring',
     settings.endpoint,
+    owner,
     blueprintId,
     workspaceId,
     sessionId,
@@ -75,7 +89,14 @@ export function BlueprintFileEditor({
     refetchInterval: 5000,
   });
   type Buffer = { text: string; baseline: string; hash: string };
-  const bufferKey = ['blueprint-editor-buffer', settings.endpoint, blueprintId, workspaceId, path];
+  const bufferKey = [
+    'blueprint-editor-buffer',
+    settings.endpoint,
+    owner,
+    blueprintId,
+    workspaceId,
+    path,
+  ];
   const buffer = useQuery<Buffer | null>({
     queryKey: bufferKey,
     queryFn: skipToken,
@@ -152,12 +173,16 @@ export function BlueprintFileEditor({
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: authoringKey });
-      toast.success('Source published. Reload to apply it.');
+      toast.success(
+        authoring.data?.separate_checkout
+          ? 'Working checkout published. Update the marketplace source before Reload.'
+          : 'Source published. Reload to apply it.',
+      );
     },
     onError: (error) => toast.error(error.message),
   });
   const reload = useMutation({
-    mutationKey: ['blueprint-reload', settings.endpoint, blueprintId, workspaceId],
+    mutationKey: ['blueprint-reload', settings.endpoint, owner, blueprintId, workspaceId],
     mutationFn: () =>
       repository.updateAgentBlueprint(blueprintId, {
         scope: authoring.data?.scope === 'global' ? 'global' : 'workspace',
@@ -175,8 +200,8 @@ export function BlueprintFileEditor({
   });
   const reloading =
     useIsMutating({
-      mutationKey: ['blueprint-reload', settings.endpoint, blueprintId, workspaceId],
-    }) > 0;
+      mutationKey: ['blueprint-reload', settings.endpoint, owner, blueprintId, workspaceId],
+    }) > 0 || operation.pending;
   const busy = save.isPending || publish.isPending || reloading;
   const unpublished = Boolean(authoring.data?.unpublished_files.length);
 
@@ -210,14 +235,20 @@ export function BlueprintFileEditor({
             {unpublished
               ? 'Draft saved'
               : authoring.data?.reload_required
-                ? 'Ready to reload'
+                ? authoring.data.separate_checkout
+                  ? 'Checkout differs'
+                  : 'Ready to reload'
                 : 'Applied'}
           </Badge>
         )}
         <InfoTip label="About blueprint authoring">
           Save draft keeps edits separate from the running blueprint. Publish validates and writes
-          the authoring source. Reload applies that source after running turns finish. Paths belong
-          to the connected {vocab.agent}.
+          the authoring source. Reload waits for running turns to finish. Paths belong to the
+          connected {vocab.agent}. Reload reads the registered marketplace source:{' '}
+          {authoring.data?.reload_source ?? authoring.data?.source}.
+          {authoring.data?.separate_checkout
+            ? ' This editor uses a separate working checkout. Publish upstream to the selected Git ref, or select this folder as the marketplace source, before Reload can include these edits.'
+            : ''}
         </InfoTip>
       </div>
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1 text-xs text-muted-foreground">
@@ -260,6 +291,11 @@ export function BlueprintFileEditor({
               </Button>
             </div>
           </details>
+        </div>
+      ) : null}
+      {operation.operation ? (
+        <div className="shrink-0 border-b px-3 py-2">
+          <BlueprintOperationStatus operation={operation.operation} />
         </div>
       ) : null}
       <div className="min-h-0 flex-1">
@@ -325,7 +361,7 @@ export function BlueprintFileEditor({
         </details>
       ) : null}
       <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-t px-3 py-2">
-        <div aria-live="polite" className="min-w-0 flex-1 text-xs">
+        <div aria-live="polite" className="w-full text-xs">
           {save.error ? <p className="text-destructive">{save.error.message}</p> : null}
           {publish.error ? <p className="text-destructive">{publish.error.message}</p> : null}
           {reload.error ? <p className="text-destructive">{reload.error.message}</p> : null}
@@ -348,7 +384,9 @@ export function BlueprintFileEditor({
                   : unpublished
                     ? 'Draft saved; runtime unchanged.'
                     : authoring.data?.reload_required
-                      ? 'Source published; Reload to apply.'
+                      ? authoring.data.separate_checkout
+                        ? 'Publish upstream to include checkout edits.'
+                        : 'Source differs; Reload to apply.'
                       : 'Applied revision.'}
             </p>
           )}

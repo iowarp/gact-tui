@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { InfoTip } from './info-tip';
 import { ClioStatus } from './status';
 import { vocab } from '@/lib/brand-vocabulary';
+import { BlueprintOperationStatus } from './blueprint-operation-status';
+import { useBlueprintOperation } from '@/hooks/use-blueprint-operation';
 
 /** A compact management row; blueprint inventory is disclosed only on request. */
 export function MarketplaceSourceRow({
@@ -30,6 +32,7 @@ export function MarketplaceSourceRow({
   onInstall: (id: string) => void;
 }) {
   const Icon = source.source_kind === 'path' ? FolderIcon : GitBranchIcon;
+  const operation = useBlueprintOperation({ sourceId: source.id });
   const blueprints = source.available_blueprints.filter((row) => row.kind !== 'pack');
   return (
     <section
@@ -66,8 +69,13 @@ export function MarketplaceSourceRow({
           value={source.status === 'ready' && !source.reload_required ? 'healthy' : 'degraded'}
         />
         <div className="ml-auto flex gap-2">
-          <Button onClick={onReload} disabled={pending} size="sm" variant="outline">
-            {pending ? 'Reloading…' : 'Reload'}
+          <Button
+            onClick={onReload}
+            disabled={pending || operation.pending}
+            size="sm"
+            variant="outline"
+          >
+            {pending || operation.pending ? 'Reloading…' : 'Reload'}
           </Button>
           <Button
             onClick={onConfigure}
@@ -79,7 +87,15 @@ export function MarketplaceSourceRow({
           </Button>
         </div>
       </div>
-      {source.error ? (
+      {operation.operation ? (
+        <div className="px-4 pb-3">
+          <BlueprintOperationStatus operation={operation.operation} />
+        </div>
+      ) : null}
+      {operation.error ? (
+        <p className="px-4 pb-3 text-xs text-destructive">Reload history could not be loaded.</p>
+      ) : null}
+      {source.error && source.error !== operation.operation?.error ? (
         <p className="px-4 pb-3 text-sm text-destructive" role="alert">
           {source.error}
         </p>

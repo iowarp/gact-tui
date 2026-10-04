@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
     hostStorageSettings: vi.fn(),
     agentBlueprints: vi.fn(),
     agentBlueprintSources: vi.fn(),
+    blueprintOperations: vi.fn(),
     workspaces: vi.fn(),
     configureAgentBlueprintSource: vi.fn(),
     refreshAgentBlueprintSource: vi.fn(),
@@ -47,6 +48,7 @@ beforeEach(() => {
     hostname: 'delta-node',
   });
   state.repository.agentBlueprintSources.mockResolvedValue([source]);
+  state.repository.blueprintOperations.mockResolvedValue([]);
   state.repository.workspaces.mockResolvedValue([
     { id: 'ws_a', display_name: 'Experiment', path: '/experiment' },
   ]);

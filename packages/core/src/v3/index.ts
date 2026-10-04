@@ -5,6 +5,7 @@ export * from './usage-domain.js';
 export * from './work-state.js';
 export * from './interaction-domain.js';
 export * from './blueprint-domain.js';
+export * from './blueprint-operation.js';
 export * from './capability-domain.js';
 export * from './memory-domain.js';
 export * from './prompt-domain.js';

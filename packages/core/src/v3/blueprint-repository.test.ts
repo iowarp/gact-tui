@@ -3,6 +3,23 @@ import { RecordingTransport } from './recording-transport.test-helper.js';
 import { BlueprintRepository } from './blueprint-repository.js';
 
 describe('blueprint source update checks', () => {
+  it('reads durable operations and supplies empty optional receipt collections', async () => {
+    const transport = new RecordingTransport([
+      { operations: [{ id: 'operation', label: 'Reload', status: 'interrupted' }] },
+    ]);
+    const repository = new BlueprintRepository(transport);
+    const operations = await repository.blueprintOperations();
+    expect(operations).toEqual([
+      {
+        id: 'operation',
+        label: 'Reload',
+        status: 'interrupted',
+        target: {},
+        installed: [],
+        skipped: [],
+      },
+    ]);
+  });
   it('reads the fleet-wide update check and reports the typed reason per source', async () => {
     const transport = new RecordingTransport([
       {

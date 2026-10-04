@@ -1,6 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
 import { ConnectedSourcePicker } from './connected-source-picker';
 import { BlueprintInstallView } from './blueprint-install-view';
+import { BlueprintOwnership } from './blueprint-ownership';
+import { connectionScope } from '@/lib/connection-scope';
 import type {
   AgentBlueprint,
   AgentBlueprintReference,
@@ -8,7 +10,14 @@ import type {
   WorkspaceFileEntry,
 } from '@clio/core/v3';
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BoxIcon, BoxesIcon, FileTextIcon, FolderIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
+import {
+  BoxIcon,
+  BoxesIcon,
+  FileTextIcon,
+  FolderIcon,
+  SearchIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
 import {
   lazy,
@@ -400,6 +409,7 @@ export function BlueprintBrowser({
               <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{blueprint.display_name}</p>
+                <BlueprintOwnership blueprint={blueprint} />
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
                   {blueprint.description || 'No description provided.'}
                 </p>
@@ -409,7 +419,9 @@ export function BlueprintBrowser({
                   ) : (
                     <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
                   )}
-                  <Badge variant="outline">{blueprint.scope}</Badge>
+                  <Badge variant="outline">
+                    {blueprint.scope === 'global' ? 'All workspaces' : 'This workspace'}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -437,9 +449,10 @@ interface BlueprintViewProps {
 export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintViewProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const owner = connectionScope(settings);
   const queryClient = useQueryClient();
   const catalog = useQuery({
-    queryKey: queryKeys.agentBlueprints(settings.endpoint, workspaceId),
+    queryKey: [...queryKeys.agentBlueprints(settings.endpoint, workspaceId), owner],
     queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
   });
   const currentBlueprint = catalog.data?.find((row) => row.id === blueprint.id) ?? blueprint;
@@ -448,6 +461,7 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
   const selectionKey = [
     'blueprint-selected-file',
     settings.endpoint,
+    owner,
     blueprint.id,
     workspaceId,
     sessionId,
@@ -468,6 +482,7 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
       blueprint.id,
       workspaceId,
       sessionId,
+      owner,
     ),
     queryFn: ({ signal }) =>
       repository.agentBlueprintFiles(blueprint.id, { workspaceId, sessionId }, signal),
@@ -515,6 +530,7 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
                 <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{currentBlueprint.display_name}</p>
+                  <BlueprintOwnership blueprint={currentBlueprint} />
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {currentBlueprint.enabled === undefined ? null : (
                       <ClioStatus value={currentBlueprint.enabled ? 'healthy' : 'degraded'} />

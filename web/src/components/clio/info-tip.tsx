@@ -40,7 +40,11 @@ export function InfoTip({ label, children, className, focusable = true }: InfoTi
               type="button"
               onClick={(event) => {
                 event.preventDefault();
+                event.stopPropagation();
                 setOpen(true);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
               }}
             >
               <InfoIcon aria-hidden="true" className="size-3.5" />

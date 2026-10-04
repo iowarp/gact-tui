@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { blueprintOperationSchema, type BlueprintOperation } from './blueprint-operation.js';
 import type { AgentBlueprint, AgentBlueprintSource, WorkspaceFileEntry } from './domain.js';
 import type {
   AgentBlueprintSourceUpdate,
@@ -16,6 +17,16 @@ import {
 
 /** Marketplace-backed blueprint lifecycle and session activation. */
 export class BlueprintRepository extends SessionObservabilityRepository {
+  public async blueprintOperations(signal?: AbortSignal): Promise<BlueprintOperation[]> {
+    const result = await this.transport.request({
+      method: 'GET',
+      path: '/v1/agent-blueprints/operations',
+      signal,
+      decode: (value) => z.object({ operations: z.array(blueprintOperationSchema) }).parse(value),
+    });
+    return result.operations;
+  }
+
   public async agentBlueprints(
     workspaceId?: string,
     signal?: AbortSignal,
@@ -315,6 +326,8 @@ export class BlueprintRepository extends SessionObservabilityRepository {
           .object({
             source: z.string(),
             git_source: z.boolean().default(false),
+            reload_source: z.string().optional(),
+            separate_checkout: z.boolean().default(false),
             scope: z.string(),
             installed_revision: z.string(),
             has_draft: z.boolean(),
