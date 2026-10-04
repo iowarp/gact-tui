@@ -36,10 +36,16 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { CatalogToolset } from '@/components/clio/catalog-toolset';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { inTauri } from '@/lib/transport/tauri-runtime';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import {
@@ -55,7 +61,6 @@ import {
 } from './infrastructure-foundation';
 import { SandboxFoundationRow } from './infrastructure-sandbox-row';
 export function InfrastructurePage() {
-  const desktop = inTauri();
   const location = useLocation();
   const { section } = useParams();
   const currentSection: InfrastructureSection = isInfrastructureSection(section)
@@ -67,6 +72,7 @@ export function InfrastructurePage() {
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
+  const [connectServiceOpen, setConnectServiceOpen] = useState(false);
   const [relayOpen, setRelayOpen] = useState(false);
   const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
@@ -332,7 +338,9 @@ export function InfrastructurePage() {
               <ManagedServices
                 connectedAgentLabel={settings.label}
                 connectedAgentLocation={settings.location}
-                onConnectExistingService={() => setWebSearchOpen(true)}
+                onConnectExistingService={() => setConnectServiceOpen(true)}
+                onManageWebSearch={() => setWebSearchOpen(true)}
+                onManageRelay={() => setRelayOpen(true)}
                 onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
                 onDisconnectWebSearch={() => disconnectWebSearch.mutate()}
                 webSearchConnected={webSearchReady}
@@ -341,68 +349,86 @@ export function InfrastructurePage() {
                 webSearchDisconnecting={disconnectWebSearch.isPending}
                 relayStatus={relay.data}
               />
-              {!desktop ? (
-                <section aria-label="Add services" className="mt-6 grid gap-4 md:grid-cols-2">
-                  <SetupCard
-                    action={
-                      webSearchReady && webSearchConfiguration.data?.configured
-                        ? disconnectWebSearch.isPending
-                          ? 'Disconnecting…'
-                          : 'Disconnect'
-                        : webSearchReady
-                          ? 'View tools'
+              <Dialog open={connectServiceOpen} onOpenChange={setConnectServiceOpen}>
+                <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>Connect an existing service</DialogTitle>
+                    <DialogDescription>
+                      Attach a service to {settings.label || vocab.agent}. Its deployment remains
+                      under your control.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <section aria-label="Add services" className="grid gap-4">
+                    <SetupCard
+                      action={
+                        webSearchReady && webSearchConfiguration.data?.configured
+                          ? disconnectWebSearch.isPending
+                            ? 'Disconnecting…'
+                            : 'Disconnect'
+                          : webSearchReady
+                            ? 'View tools'
+                            : webSearchConfigured
+                              ? 'Repair connection'
+                              : 'Connect web search'
+                      }
+                      description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
+                      icon={BookOpenCheckIcon}
+                      onAction={() =>
+                        webSearchReady && webSearchConfiguration.data?.configured
+                          ? disconnectWebSearch.mutate()
+                          : (setConnectServiceOpen(false), setWebSearchOpen(true))
+                      }
+                      status={
+                        webSearchReady
+                          ? 'healthy'
                           : webSearchConfigured
-                            ? 'Repair connection'
-                            : 'Connect web search'
-                    }
-                    description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
-                    icon={BookOpenCheckIcon}
-                    onAction={() =>
-                      webSearchReady && webSearchConfiguration.data?.configured
-                        ? disconnectWebSearch.mutate()
-                        : setWebSearchOpen(true)
-                    }
-                    status={
-                      webSearchReady ? 'healthy' : webSearchConfigured ? 'degraded' : 'unavailable'
-                    }
-                    statusLabel={
-                      webSearchReady
-                        ? 'Connected'
-                        : webSearchConfigured
-                          ? 'Needs attention'
-                          : 'Not connected'
-                    }
-                    title="Research and documents"
-                    to={
-                      webSearchReady && !webSearchConfiguration.data?.configured
-                        ? '/infrastructure/tools'
-                        : undefined
-                    }
-                  />
-                  <SetupCard
-                    action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
-                    description="Run and follow work on lab computers or clusters through CLIO Relay."
-                    detail={relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)}
-                    icon={NetworkIcon}
-                    onAction={() => setRelayOpen(true)}
-                    status={
-                      relay.data?.reachable
-                        ? 'healthy'
-                        : relay.data?.configured
-                          ? 'degraded'
-                          : 'unavailable'
-                    }
-                    statusLabel={
-                      relay.data?.reachable
-                        ? 'Connected'
-                        : relay.data?.configured
-                          ? 'Needs attention'
-                          : 'Not connected'
-                    }
-                    title="Remote computers"
-                  />
-                </section>
-              ) : null}
+                            ? 'degraded'
+                            : 'unavailable'
+                      }
+                      statusLabel={
+                        webSearchReady
+                          ? 'Connected'
+                          : webSearchConfigured
+                            ? 'Needs attention'
+                            : 'Not connected'
+                      }
+                      title="Research and documents"
+                      to={
+                        webSearchReady && !webSearchConfiguration.data?.configured
+                          ? '/infrastructure/tools'
+                          : undefined
+                      }
+                    />
+                    <SetupCard
+                      action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
+                      description="Run and follow work on lab computers or clusters through CLIO Relay."
+                      detail={
+                        relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)
+                      }
+                      icon={NetworkIcon}
+                      onAction={() => (setConnectServiceOpen(false), setRelayOpen(true))}
+                      status={
+                        relay.data?.reachable
+                          ? 'healthy'
+                          : relay.data?.configured
+                            ? 'degraded'
+                            : 'unavailable'
+                      }
+                      statusLabel={
+                        relay.data?.reachable
+                          ? 'Connected'
+                          : relay.data?.configured
+                            ? 'Needs attention'
+                            : 'Not connected'
+                      }
+                      title="Remote computers"
+                    />
+                  </section>
+                  <Button asChild variant="outline">
+                    <Link to="/settings/providers">Connect an inference provider</Link>
+                  </Button>
+                </DialogContent>
+              </Dialog>
             </>
           ) : null}
 

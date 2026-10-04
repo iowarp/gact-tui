@@ -572,6 +572,7 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: /Connect web search/u }));
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     expect(screen.getByText('Connect an existing service')).toBeVisible();
@@ -613,6 +614,7 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
 
     await waitFor(() => expect(repository.removeMcpConfiguration).toHaveBeenCalledWith('web'));
@@ -637,6 +639,7 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: /Repair connection/u }));
     expect(await screen.findByDisplayValue('http://offline:8089')).toBeVisible();
     expect(screen.getByText('Configuration saved, service unavailable')).toBeVisible();
@@ -648,10 +651,12 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: /Connect web search/u }));
     expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(screen.getByRole('button', { name: 'Connect Relay' }));
     expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
   });

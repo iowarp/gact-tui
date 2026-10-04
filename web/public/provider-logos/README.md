@@ -1,5 +1,9 @@
 # Provider logo sources
 
+`flowcept.png` is the unmodified official `docs/img/flowcept-logo.png` from
+spotter-ai-genesis/flowcept at `e638b4e2072290a2921965a03a150db124e11c2e`.
+It is displayed as an image. HPE CMF currently uses a neutral lineage icon.
+
 Every icon here is either an official vendor mark pinned to an upstream
 commit, or an explicit, documented neutral placeholder — never a hand-drawn
 approximation of a vendor's mark. All files are inlined via `?raw` imports

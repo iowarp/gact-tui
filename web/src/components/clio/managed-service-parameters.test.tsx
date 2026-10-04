@@ -139,7 +139,7 @@ describe('model runtime server parameters', () => {
     expect(screen.getByRole('button', { name: 'Install' })).toBeEnabled();
   });
 
-  it('shows what is in force on a running server with each value source', () => {
+  it('shows what is in force on a running server with each value source', async () => {
     renderCard(
       vllm({
         state: 'running',
@@ -178,11 +178,13 @@ describe('model runtime server parameters', () => {
       }),
     );
 
+    await userEvent.click(screen.getByRole('tab', { name: 'Configuration' }));
     const inForce = screen.getByRole('region', { name: 'vLLM parameters in force' });
     expect(within(inForce).getByText('4096')).toBeInTheDocument();
     expect(within(inForce).getByText('Reported by the server')).toBeInTheDocument();
     expect(within(inForce).getByText('Container launch')).toBeInTheDocument();
     expect(within(inForce).getByText('Engine default')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Storage' }));
     expect(screen.getByText('Created on this host (2)')).toBeInTheDocument();
     expect(screen.queryByText('Server parameters')).not.toBeInTheDocument();
   });
@@ -214,7 +216,7 @@ describe('model runtime server parameters', () => {
 });
 
 describe('deployments CLIO lost track of', () => {
-  it('offers uninstall for a record in no known state that still owns resources', () => {
+  it('offers uninstall for a record in no known state that still owns resources', async () => {
     renderCard(
       vllm({
         state: 'unknown',
@@ -224,6 +226,7 @@ describe('deployments CLIO lost track of', () => {
       }),
     );
 
+    await userEvent.click(screen.getByRole('tab', { name: 'Storage' }));
     expect(screen.getByRole('button', { name: 'Uninstall' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Install' })).not.toBeInTheDocument();
     expect(screen.getByText('Created on this host (1)')).toBeInTheDocument();
@@ -248,7 +251,7 @@ describe('deployments CLIO lost track of', () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel operation' }));
     expect(onCancel).toHaveBeenCalledOnce();
   });
 

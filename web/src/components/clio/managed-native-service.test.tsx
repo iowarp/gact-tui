@@ -98,6 +98,7 @@ describe('native service lifecycle', () => {
 
   it('requires a separate explicit confirmation to delete retained data', async () => {
     const onAction = mount('not_installed');
+    await userEvent.click(screen.getByRole('tab', { name: 'Storage' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete retained data' }));
     expect(onAction).not.toHaveBeenCalled();
     expect(screen.getByRole('alertdialog', { name: 'Delete retained vLLM data?' })).toBeVisible();

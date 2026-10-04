@@ -1,6 +1,6 @@
 import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
@@ -19,6 +19,7 @@ const connection = vi.hoisted(() => ({
   settings: { endpoint: 'http://127.0.0.1:17800', token: 'test-token' },
 }));
 const repository = vi.hoisted(() => ({
+  infrastructureInventory: vi.fn(),
   infrastructureTargets: vi.fn(),
   createInfrastructureTarget: vi.fn(),
   updateInfrastructureTarget: vi.fn(),
@@ -59,57 +60,7 @@ vi.mock('@/tauri/ssh-credentials', () => ({
 }));
 
 import { ManagedServices } from './managed-services';
-import type { ManagedServiceDefinition } from '@clio/core/v3';
-
-const serviceLabels: Array<[ManagedServiceDefinition['id'], string]> = [
-  ['vllm', 'vLLM'],
-  ['llama_cpp', 'llama.cpp'],
-  ['web_search', 'CLIO Web Search'],
-  ['relay', 'CLIO Relay'],
-];
-
-const services = serviceLabels.map<ManagedServiceDefinition>(([id, label]) => ({
-  id,
-  category:
-    id === 'vllm' || id === 'llama_cpp'
-      ? 'model_runtime'
-      : id === 'relay'
-        ? 'remote_access'
-        : 'scientific_service',
-  label,
-  description: `${label} deployment`,
-  supports_api_key: id === 'vllm' || id === 'llama_cpp',
-  recommended_variant: `${id}-default`,
-  supports_stop: id !== 'relay',
-  state: id === 'web_search' ? 'running' : 'not_installed',
-  connection_url: id === 'web_search' ? 'http://127.0.0.1:8089' : undefined,
-  configuration_fields: [],
-  parameters: [],
-  effective_parameters: [],
-  configuration: {},
-  owned_resources: [],
-  variants: [
-    {
-      id: `${id}-default`,
-      label: 'Recommended',
-      version: 'pinned',
-      install_type: 'container',
-      artifact: `example/${id}:pinned`,
-      compatible: true,
-      reason: 'Compatible with target',
-    },
-  ],
-}));
-
-services[0].configuration_fields = [
-  {
-    id: 'reasoning_parser',
-    label: 'Reasoning parser',
-    placeholder: 'Automatic for common reasoning models',
-    required: false,
-    options: ['qwen3', 'deepseek_r1'],
-  },
-];
+import { services } from '@/test-fixtures/managed-services';
 
 function renderServices(props: ComponentProps<typeof ManagedServices> = {}) {
   return render(
@@ -122,6 +73,7 @@ function renderServices(props: ComponentProps<typeof ManagedServices> = {}) {
 }
 
 beforeEach(() => {
+  repository.infrastructureInventory.mockResolvedValue({ operations: [] });
   localStorage.clear();
   runtime.desktop = true;
   connection.isManagedConnection = true;
@@ -214,6 +166,84 @@ afterEach(() => {
 });
 
 describe('ManagedServices', () => {
+  it('lets a browser select an already registered remote host without creating a Desktop transport', async () => {
+    runtime.desktop = false;
+    repository.infrastructureTargets.mockResolvedValue([
+      { id: 'local', label: 'Local', kind: 'local', transport_state: 'connected' },
+      {
+        id: 'homelab',
+        label: 'Homelab',
+        kind: 'ssh',
+        transport_state: 'connected',
+        ssh: { profile: 'homelab' },
+      },
+    ]);
+    renderServices();
+    await userEvent.click(screen.getByText(/Execution host ·/u));
+    await userEvent.click(
+      await screen.findByRole('combobox', { name: 'Registered execution host' }),
+    );
+    await userEvent.click(screen.getByRole('option', { name: 'Homelab · Connected' }));
+    await waitFor(() =>
+      expect(repository.managedServiceCatalog).toHaveBeenCalledWith(
+        'homelab',
+        expect.any(AbortSignal),
+      ),
+    );
+    expect(repository.createInfrastructureTarget).not.toHaveBeenCalled();
+    expect(screen.queryByRole('combobox', { name: 'Saved SSH host' })).not.toBeInTheDocument();
+  });
+  it('restores a server-owned operation after reloading the page', async () => {
+    repository.infrastructureInventory.mockResolvedValue({
+      operations: [
+        {
+          id: 'resumed-operation',
+          target_id: 'local',
+          service_id: 'web_search',
+          action: 'start',
+          state: 'running',
+          progress: 'Waiting for the existing server',
+        },
+      ],
+    });
+    renderServices();
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    expect(await screen.findByText('Waiting for the existing server')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Check status' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel operation' })).toBeEnabled();
+    expect(repository.runManagedServiceAction).not.toHaveBeenCalled();
+  });
+
+  it('keeps unsaved configuration out of status and stop requests', async () => {
+    deployment.managedServiceCatalog.mockResolvedValue({
+      facts: { os: 'linux', arch: 'x86_64', accelerator: 'none' },
+      services: services.map((row) =>
+        row.id === 'web_search'
+          ? {
+              ...row,
+              configuration: { port: '8089' },
+              configuration_fields: [
+                { id: 'port', label: 'Port', placeholder: '8089', required: false },
+              ],
+            }
+          : row,
+      ),
+    });
+    renderServices();
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Configuration' }));
+    await userEvent.clear(screen.getByLabelText('CLIO Web Search Port'));
+    await userEvent.type(screen.getByLabelText('CLIO Web Search Port'), '9999');
+    await userEvent.click(screen.getByRole('tab', { name: 'Status' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Check status' }));
+    await waitFor(() => expect(repository.runManagedServiceAction).toHaveBeenCalled());
+    expect(repository.runManagedServiceAction.mock.calls.at(-1)?.[1].configuration.port).toBe(
+      '8089',
+    );
+    await userEvent.click(screen.getByRole('tab', { name: 'Configuration' }));
+    expect(screen.getByLabelText('CLIO Web Search Port')).toHaveValue('9999');
+  });
+
   it('offers connection-only services separately from deployment ownership', async () => {
     const user = userEvent.setup();
     const onConnectExistingService = vi.fn();
@@ -254,32 +284,20 @@ describe('ManagedServices', () => {
     expect(screen.getByText('http://127.0.0.1:8089')).toBeVisible();
     expect(screen.getByText('Runs on Ares')).toBeVisible();
     expect(screen.getByText('Runs on relay.lab.example')).toBeVisible();
-    expect(screen.getByRole('button', { name: /Manage deployments/u })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
+    expect(screen.getByRole('button', { name: 'Deploy new' })).toBeVisible();
   });
 
-  it('keeps model management available without a per-visit opt-in switch', async () => {
+  it('shows installed inventory before choosing a new runtime', async () => {
     const user = userEvent.setup();
     renderServices();
-
-    expect(
-      await screen.findByRole('heading', { name: 'Where should this capability run?' }),
-    ).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Scientific services' })).toBeVisible();
-    expect(await screen.findByRole('heading', { name: 'CLIO Web Search' })).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'CLIO Relay' })).not.toBeInTheDocument();
-    expect(screen.getByText('Running')).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Manage CLIO Web Search' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'vLLM' })).not.toBeInTheDocument();
-
-    expect(screen.getByLabelText('Runtime', { exact: true })).toBeEnabled();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
-    await user.click(screen.getByLabelText('Runtime'));
-    await user.click(screen.getByRole('option', { name: 'vLLM' }));
+    await user.click(screen.getByRole('button', { name: 'Deploy new' }));
+    await user.click(screen.getByRole('button', { name: 'Set up vLLM' }));
     expect(screen.getByRole('heading', { name: 'vLLM' })).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'llama.cpp' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('vLLM Reasoning parser')).toBeVisible();
+    expect(repository.runManagedServiceAction).not.toHaveBeenCalled();
     expect(deployment.managedServiceCatalog).toHaveBeenCalledTimes(1);
   });
 
@@ -311,23 +329,33 @@ describe('ManagedServices', () => {
     });
     renderServices();
 
-    expect(await screen.findByText('Not available on this target')).toBeVisible();
-    expect(screen.getByText('Requires Docker.')).toHaveClass('text-destructive/90');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Deploy new' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Deploy new' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Review CLIO Web Search requirements' }),
+    );
+    expect(screen.getByText(/Not available on this target. Requires Docker./u)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Install' })).toBeDisabled();
   });
 
   it('connects a running service to CLIO without repeating its state as command output', async () => {
     const user = userEvent.setup();
     const connect = vi.fn();
     renderServices({ onConnectWebSearch: connect, webSearchConnected: false });
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
 
     expect(
       await screen.findByRole('button', { name: `Connect to ${brand.agentName}` }),
     ).toBeVisible();
-    expect(screen.getAllByText('Running')).toHaveLength(1);
+    expect(screen.getByRole('article', { name: 'CLIO Web Search management' })).toHaveTextContent(
+      'Running',
+    );
     await user.click(screen.getByRole('button', { name: `Connect to ${brand.agentName}` }));
     expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
     await user.click(screen.getByRole('button', { name: 'Check status' }));
-    expect(await screen.findAllByText('Running')).toHaveLength(1);
+    expect(screen.getByRole('article', { name: 'CLIO Web Search management' })).toHaveTextContent(
+      'Running',
+    );
     expect(screen.getByText('Status refreshed.')).toBeVisible();
     expect(screen.queryByText('running')).not.toBeInTheDocument();
   });
@@ -352,6 +380,7 @@ describe('ManagedServices', () => {
         retryable: false,
       },
     });
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
 
     const action = await screen.findByRole('button', { name: 'Disconnect' });
     expect(screen.queryByRole('link', { name: 'View tools' })).not.toBeInTheDocument();
@@ -378,9 +407,12 @@ describe('ManagedServices', () => {
         error: 'Web Search document conversion is not ready',
       },
     });
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
 
     expect(await screen.findByText('Connection needs attention')).toBeVisible();
-    expect(screen.getByText('Web Search document conversion is not ready')).toBeVisible();
+    expect(
+      within(screen.getByRole('dialog')).getByText('Web Search document conversion is not ready'),
+    ).toBeVisible();
     expect(screen.queryByText(`Connected to ${brand.agentName}`)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: `Connect to ${brand.agentName}` })).toBeVisible();
   });
@@ -401,6 +433,7 @@ describe('ManagedServices', () => {
     );
     const user = userEvent.setup();
     renderServices();
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
     expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled();
@@ -419,6 +452,7 @@ describe('ManagedServices', () => {
   it('sends the service id in the path only, never as an extra action body key', async () => {
     const user = userEvent.setup();
     renderServices();
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
 
@@ -435,6 +469,7 @@ describe('ManagedServices', () => {
     );
     const user = userEvent.setup();
     renderServices();
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
 
@@ -453,14 +488,15 @@ describe('ManagedServices', () => {
     });
     const user = userEvent.setup();
     renderServices();
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Logs' }));
 
     await user.click(await screen.findByRole('button', { name: 'View logs' }));
 
     const panel = await screen.findByRole('region', { name: 'CLIO Web Search recent logs' });
     expect(panel).toHaveTextContent('Recent logs');
-    expect(panel).toHaveTextContent('Last 80 lines');
     expect(panel).toHaveTextContent('line one');
-    expect(panel.querySelector('pre')).toHaveClass('max-h-72', 'overflow-auto');
+    expect(panel.querySelector('pre')).toHaveClass('max-h-80', 'overflow-auto');
   });
 
   it('does not claim a selected deployment is connected when CLIO points elsewhere', async () => {
@@ -483,6 +519,7 @@ describe('ManagedServices', () => {
         retryable: false,
       },
     });
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
 
     expect(await screen.findByText('Another Web Search deployment is connected')).toBeVisible();
     const action = screen.getByRole('button', { name: `Connect to ${brand.agentName}` });
@@ -496,6 +533,7 @@ describe('ManagedServices', () => {
       connectedAgentLabel: 'Utah CLIO',
       connectedAgentLocation: 'Utah',
     });
+    await userEvent.click(screen.getByText(/Execution host ·/u));
 
     expect(
       await screen.findByRole('radio', {
@@ -531,6 +569,7 @@ describe('ManagedServices', () => {
       connectedAgentLocation: 'Homelab',
       onConnectWebSearch: connect,
     });
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
 
     await user.click(await screen.findByRole('button', { name: `Connect to ${brand.agentName}` }));
 
@@ -542,9 +581,7 @@ describe('ManagedServices', () => {
     deployment.managedServiceCatalog.mockReturnValue(new Promise(() => undefined));
     renderServices();
 
-    expect(
-      screen.getByRole('heading', { name: 'Where should this capability run?' }),
-    ).toBeVisible();
+    expect(screen.getByText(/Execution host ·/u)).toBeVisible();
     expect(screen.getByText('Inspecting this computer')).toBeVisible();
   });
 
@@ -570,6 +607,7 @@ describe('ManagedServices', () => {
           }),
     );
     renderServices();
+    await userEvent.click(screen.getByText(/Execution host ·/u));
 
     await user.click(screen.getByRole('radio', { name: /Another computer/u }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
@@ -610,6 +648,7 @@ describe('ManagedServices', () => {
       .mockResolvedValue([registered]);
     repository.updateInfrastructureTarget.mockResolvedValue(registered);
     renderServices();
+    await userEvent.click(screen.getByText(/Execution host ·/u));
 
     await user.click(screen.getByRole('radio', { name: /Another computer/u }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
@@ -627,6 +666,7 @@ describe('ManagedServices', () => {
   it('adds a manual SSH host beside imported profiles and uses it for inspection', async () => {
     const user = userEvent.setup();
     renderServices();
+    await userEvent.click(screen.getByText(/Execution host ·/u));
 
     await user.click(screen.getByRole('radio', { name: /Another computer/u }));
     await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
@@ -666,10 +706,9 @@ describe('ManagedServices', () => {
     runtime.desktop = false;
     connection.isManagedConnection = false;
     renderServices();
+    await userEvent.click(screen.getByText(/Execution host ·/u));
 
-    expect(
-      await screen.findByRole('heading', { name: 'Where should this capability run?' }),
-    ).toBeVisible();
+    expect(await screen.findByText(/Execution host ·/u)).toBeVisible();
     expect(
       screen.getByRole('radio', { name: new RegExp(`This ${brand.agentName}’s computer`, 'u') }),
     ).toBeVisible();
@@ -682,7 +721,7 @@ describe('ManagedServices', () => {
     renderServices();
 
     expect(await screen.findByText('Finish setting up your local model runtime')).toBeVisible();
-    expect(screen.getByLabelText('Runtime', { exact: true })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Deploy new' })).toBeEnabled();
 
     await user.click(screen.getByRole('button', { name: 'Finish setup' }));
 
@@ -695,7 +734,7 @@ describe('ManagedServices', () => {
     installerInfra.installerRequestedLlamaCpp.mockResolvedValue(false);
     renderServices();
 
-    await screen.findByRole('heading', { name: 'Where should this capability run?' });
+    await screen.findByText(/Execution host ·/u);
     expect(
       screen.queryByText('Finish setting up your local model runtime'),
     ).not.toBeInTheDocument();
@@ -719,7 +758,7 @@ describe('ManagedServices', () => {
     });
     renderServices();
 
-    await screen.findByRole('heading', { name: 'Where should this capability run?' });
+    await screen.findByText(/Execution host ·/u);
     expect(
       screen.queryByText('Finish setting up your local model runtime'),
     ).not.toBeInTheDocument();

@@ -7,11 +7,12 @@ import type {
   ManagedServiceDefinition,
 } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ChevronDownIcon, CpuIcon, LaptopIcon, PackageOpenIcon, ServerIcon } from 'lucide-react';
+import { CpuIcon, LaptopIcon, ServerIcon } from 'lucide-react';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
+import { useManagedOperations } from '@/hooks/use-managed-operations';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -58,7 +59,7 @@ import {
   waitForOperation,
 } from './managed-service-target-utils';
 import { ManagedServiceHostFacts } from './managed-service-host-facts';
-import { InfoTip } from './info-tip';
+import { ManagedServiceInventory } from './managed-service-inventory';
 
 type Target = ManagedTargetKind;
 /** Desktop controls for CLIO-managed providers and supporting resources. */
@@ -72,6 +73,8 @@ export function ManagedServices({
   connectedAgentLabel,
   connectedAgentLocation,
   onConnectExistingService,
+  onManageWebSearch,
+  onManageRelay,
   relayStatus,
 }: {
   onConnectWebSearch?: (remoteUrl: string) => void;
@@ -83,6 +86,8 @@ export function ManagedServices({
   connectedAgentLabel?: string;
   connectedAgentLocation?: string;
   onConnectExistingService?: () => void;
+  onManageWebSearch?: () => void;
+  onManageRelay?: () => void;
   relayStatus?: RelayStatus;
 }) {
   const desktop = inTauri();
@@ -102,10 +107,20 @@ export function ManagedServices({
   const [transportStatus, setTransportStatus] = useInfrastructureState<
     SshTransportStatus | undefined
   >(settings.endpoint, 'transport', undefined);
-  const [managerOpen, setManagerOpen] = useInfrastructureState(
+  const [deploying, setDeploying] = useInfrastructureState(
     settings.endpoint,
-    'manager-open',
-    true,
+    `${targetId}:deploying`,
+    false,
+  );
+  const [hostDetailsOpen, setHostDetailsOpen] = useInfrastructureState(
+    settings.endpoint,
+    'host-details-open',
+    false,
+  );
+  const [tabs, setTabs] = useInfrastructureState<Record<string, string>>(
+    settings.endpoint,
+    `${targetId}:service-tabs`,
+    {},
   );
   const [selectedProvider, setSelectedProvider] = useInfrastructureState(
     settings.endpoint,
@@ -126,6 +141,7 @@ export function ManagedServices({
     {},
   );
   const savedServers = useSavedServers();
+  const runningOperations = useManagedOperations(settings.endpoint, targetId);
   const [progress, setProgress] = useInfrastructureState<Record<string, string>>(
     settings.endpoint,
     `${targetId}:progress`,
@@ -136,7 +152,7 @@ export function ManagedServices({
     `${targetId}:operations`,
     {},
   );
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const requestedTarget = searchParams.get('target');
   const requestedModel = searchParams.get('model');
   const appliedModelLink = useRef('');
@@ -155,7 +171,7 @@ export function ManagedServices({
     if (!selected || modelSelection.data?.unavailable_reason) return;
     appliedModelLink.current = key;
     setSelectedProvider('vllm');
-    setManagerOpen(true);
+    setDeploying(true);
     setConfiguration((current) => ({
       ...current,
       vllm: {
@@ -171,7 +187,7 @@ export function ManagedServices({
     settings.endpoint,
     targetId,
     setSelectedProvider,
-    setManagerOpen,
+    setDeploying,
     setConfiguration,
   ]);
   const visitedTargetLink = useRef('');
@@ -313,6 +329,7 @@ export function ManagedServices({
             targets.data?.find((row) => row.id === targetId)?.transport_state === 'connected'),
       ),
     queryKey: ['managed-service-catalog', settings.endpoint, targetId],
+    refetchInterval: Object.keys(runningOperations).length ? 3000 : false,
     queryFn: ({ signal }) => repository.managedServiceCatalog(targetId, signal),
     retry: false,
     staleTime: 30_000,
@@ -357,6 +374,7 @@ export function ManagedServices({
                       : `${result.action} completed.`,
         },
       }));
+      if (['install', 'reinstall'].includes(result.action)) setDeploying(false);
       await catalog.refetch();
     },
     onError: (error, input) => {
@@ -371,29 +389,27 @@ export function ManagedServices({
     },
   });
   const services = catalog.data?.services ?? [];
-  const providers = services.filter((service) => service.category === 'model_runtime');
-  const resources = services.filter((service) => service.category === 'scientific_service');
-  const monitoring = services.filter((service) => service.category === 'monitoring');
-  const remoteAccess = services.filter(
-    (service) => service.category === 'remote_access' && target === 'ssh',
-  );
-  const provider = providers.find((service) => service.id === selectedProvider);
   // The installer banner follows observed installation state across navigation.
   const llamaCppService = services.find((service) => service.id === 'llama_cpp');
   const llamaCppInstalled =
     llamaCppService?.state === 'running' || llamaCppService?.state === 'stopped';
 
-  const renderService = (service: ManagedServiceDefinition) => {
+  const renderService = (service: ManagedServiceDefinition, setup = false) => {
     const agentConnectionUrl = service.connection_url;
     const webSearchTargetConnected =
       service.id === 'web_search' &&
       webSearchConnectionMatchesTarget(webSearchConnected, webSearchConnection, agentConnectionUrl);
     return (
       <ManagedServiceCard
+        setup={setup}
+        hostLabel={targetLabel(target, sshHost)}
+        targetId={targetId}
+        tab={tabs[service.id] ?? 'status'}
+        onTab={(value) => setTabs((current) => ({ ...current, [service.id]: value }))}
         activeAction={
           action.isPending && action.variables?.service_id === service.id
             ? action.variables.action
-            : undefined
+            : (runningOperations[service.id]?.action as ServiceAction | undefined)
         }
         configuration={{ ...service.configuration, ...configuration[service.id] }}
         connectionStatus={
@@ -407,22 +423,30 @@ export function ManagedServices({
         }
         key={service.id}
         onAction={(requestedAction) => {
-          const variant = variants[service.id] ?? service.recommended_variant;
+          const applying = requestedAction === 'install' || requestedAction === 'reinstall';
+          const variant = applying
+            ? (variants[service.id] ?? service.recommended_variant)
+            : service.recommended_variant;
           action.mutate({
             service_id: service.id,
             target_id: targetId,
             action: requestedAction,
             variant_id: variant,
             configuration: configurationForVariant(
-              { ...service.configuration, ...configuration[service.id] },
+              applying
+                ? { ...service.configuration, ...configuration[service.id] }
+                : service.configuration,
               service.parameters ?? [],
               variant,
             ),
           });
         }}
         onCancel={
-          operationIds[service.id]
-            ? () => void repository.cancelInfrastructureOperation(operationIds[service.id])
+          operationIds[service.id] || runningOperations[service.id]?.id
+            ? () =>
+                void repository.cancelInfrastructureOperation(
+                  operationIds[service.id] || runningOperations[service.id].id,
+                )
             : undefined
         }
         onConfiguration={(field, value) =>
@@ -468,7 +492,7 @@ export function ManagedServices({
                 }
               : undefined
         }
-        progress={progress[service.id]}
+        progress={progress[service.id] || runningOperations[service.id]?.progress}
         result={results[service.id]}
         service={service}
         variant={variants[service.id] ?? service.recommended_variant}
@@ -477,273 +501,218 @@ export function ManagedServices({
   };
 
   return (
-    <section aria-labelledby="agent-services-title" className="mt-8 space-y-6">
+    <section aria-labelledby="agent-services-title" className="mt-6 space-y-6">
       <AgentServicesOverview
         agentLabel={connectedAgentLabel}
         agentLocation={connectedAgentLocation}
         relay={relayStatus}
         webSearch={webSearchConnection}
         webSearchConnected={webSearchConnected}
+        onManageWebSearch={onManageWebSearch}
+        onManageRelay={onManageRelay}
       />
-
-      {onConnectExistingService ? (
-        <div className="flex justify-end">
-          <Button onClick={onConnectExistingService} type="button" variant="outline">
-            Connect existing service…
-          </Button>
-        </div>
-      ) : null}
-
-      <section className="border-y">
-        <button
-          aria-expanded={managerOpen}
-          className="flex w-full items-center justify-between gap-4 py-4 text-left"
-          onClick={() => setManagerOpen((open) => !open)}
-          type="button"
-        >
-          <div>
-            <h2 className="font-semibold">Manage deployments</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Inspect a computer, then install, connect, start, or stop its services.
-            </p>
-          </div>
-          <ChevronDownIcon
-            aria-hidden="true"
-            className={`size-4 shrink-0 transition-transform ${managerOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
-        {managerOpen ? (
-          <div className="space-y-10 pb-8">
-            <div className="relative overflow-hidden border-y bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_42%)] py-6">
-              <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-primary" />
-              <div className="grid gap-6 px-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(24rem,1.2fr)] lg:items-center">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
-                    Deployment target
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold" id="managed-services-title">
-                    Where should this capability run?
-                  </h2>
-                  <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                    {canManageSshTargets
-                      ? `Choose this computer or another computer over SSH. ${vocab.agent} owns the target and every managed deployment.`
-                      : `Deploy directly on this ${vocab.agent}’s computer. The existing ${vocab.agent} connection carries every lifecycle request.`}
-                  </p>
-                  {catalog.data ? <ManagedServiceHostFacts facts={catalog.data.facts} /> : null}
-                  <Button
-                    className="mt-4"
-                    disabled={catalog.isFetching}
-                    onClick={() => catalog.refetch()}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    {catalog.isFetching ? <Spinner aria-hidden="true" /> : <RefreshIcon />}
-                    Inspect again
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  <RadioGroup
-                    className={`grid gap-2 ${canManageSshTargets ? 'sm:grid-cols-2' : ''}`}
-                    onValueChange={(value) => {
-                      const next = value as Target;
-                      setTarget(next);
-                      if (next === 'local') {
-                        setTargetId('local');
-                        setSshHost(undefined);
-                      }
-                    }}
-                    value={target}
-                  >
-                    <TargetChoice
-                      description={
-                        canManageSshTargets
-                          ? 'Install and run services on this computer'
-                          : `Install and run services beside this ${vocab.agent}`
-                      }
-                      icon={LaptopIcon}
-                      label={
-                        canManageSshTargets ? 'This computer' : `This ${vocab.agent}’s computer`
-                      }
-                      selected={target === 'local'}
-                      value="local"
-                    />
-                    {canManageSshTargets ? (
-                      <TargetChoice
-                        description={`Let ${vocab.agent} manage a computer reached through Desktop SSH`}
-                        icon={ServerIcon}
-                        label="Another computer…"
-                        selected={target === 'ssh'}
-                        value="ssh"
-                      />
-                    ) : null}
-                  </RadioGroup>
-                  {target === 'ssh' ? (
-                    <Field>
-                      <FieldLabel>Saved SSH host</FieldLabel>
-                      <SshHostPicker
-                        onChange={(host) => {
-                          setSshHost(host);
-                          if (host) registerTarget.mutate(host);
-                        }}
-                        value={sshHost}
-                      />
-                      {registerTarget.error ? (
-                        <p className="text-xs text-destructive">{registerTarget.error.message}</p>
-                      ) : null}
-                      {sshHost ? (
-                        <div className="flex items-center justify-between gap-3 text-xs">
-                          <span
-                            className={
-                              transportStatus?.state === 'connected'
-                                ? 'text-success'
-                                : transportStatus?.state === 'reauthentication_required'
-                                  ? 'text-warning'
-                                  : 'text-muted-foreground'
-                            }
-                            role="status"
-                          >
-                            {registerTarget.isPending
-                              ? 'Reconnecting'
-                              : transportStateLabel(
-                                  transportStatus?.state ??
-                                    targets.data?.find((item) => item.id === targetId)
-                                      ?.transport_state ??
-                                    'state_unknown',
-                                )}
-                          </span>
-                          {transportStatus &&
-                          ['disconnected', 'state_unknown'].includes(transportStatus.state) ? (
-                            <Button
-                              onClick={() => registerTarget.mutate(sshHost)}
-                              size="sm"
-                              type="button"
-                              variant="outline"
-                            >
-                              Connect
-                            </Button>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      {transportStatus?.prompt && transportStatus.state !== 'connected' ? (
-                        <SshAuthentication
-                          prompt={transportStatus.prompt}
-                          sessionId={transportStatus.session_id}
-                        />
-                      ) : null}
-                    </Field>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
-              <InspectionProgress host={sshHost} target={target} />
-            ) : null}
-            {catalog.error ? (
-              <Alert variant="destructive">
-                <AlertTitle>Could not inspect {targetLabel(target, sshHost)}</AlertTitle>
-                <AlertDescription className="space-y-3">
-                  <p>{catalog.error.message}</p>
-                  <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
-                    Try again
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            <CapabilitySection
-              description="Add one local model runtime only when this target needs it. Existing providers stay in Settings."
-              icon={CpuIcon}
-              title="Model runtime"
+      <details
+        className="rounded-xl border p-4"
+        open={hostDetailsOpen}
+        onToggle={(event) => setHostDetailsOpen(event.currentTarget.open)}
+      >
+        <summary className="cursor-pointer text-sm font-medium">
+          Execution host · {targetLabel(target, sshHost)}{' '}
+          <span className="ml-2 text-xs font-normal text-muted-foreground">Change or inspect</span>
+        </summary>
+        <div className="mt-4 space-y-4">
+          {targets.data?.some((row) => row.kind === 'ssh') ? (
+            <Field>
+              <FieldLabel htmlFor="managed-known-host">Registered execution host</FieldLabel>
+              <Select
+                value={targetId}
+                onValueChange={(value) =>
+                  setSearchParams(
+                    (previous) => {
+                      const next = new URLSearchParams(previous);
+                      next.set('target', value);
+                      next.delete('model');
+                      return next;
+                    },
+                    { replace: true },
+                  )
+                }
+              >
+                <SelectTrigger id="managed-known-host">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {targets.data
+                    .filter((row) => row.kind !== 'direct')
+                    .map((row) => (
+                      <SelectItem key={row.id} value={row.id}>
+                        {row.label}
+                        {row.kind === 'ssh' ? ` · ${transportStateLabel(row.transport_state)}` : ''}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          ) : null}
+          {canManageSshTargets || !targets.data?.some((row) => row.kind === 'ssh') ? (
+            <RadioGroup
+              className={`grid gap-2 ${canManageSshTargets ? 'sm:grid-cols-2' : ''}`}
+              onValueChange={(value) => {
+                const next = value as Target;
+                setTarget(next);
+                if (next === 'local') {
+                  setTargetId('local');
+                  setSshHost(undefined);
+                }
+                setSearchParams(
+                  (previous) => {
+                    const params = new URLSearchParams(previous);
+                    params.delete('target');
+                    params.delete('model');
+                    return params;
+                  },
+                  { replace: true },
+                );
+              }}
+              value={target}
             >
-              {installerLlamaCpp.data && !llamaCppInstalled ? (
-                <Alert className="mb-4">
-                  <CpuIcon aria-hidden="true" />
-                  <AlertTitle>Finish setting up your local model runtime</AlertTitle>
-                  <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-                    <span>Finish configuring the llama.cpp runtime selected during setup.</span>
+              <TargetChoice
+                description={
+                  canManageSshTargets
+                    ? 'Install and run services on this computer'
+                    : `Install and run services beside this ${vocab.agent}`
+                }
+                icon={LaptopIcon}
+                label={canManageSshTargets ? 'This computer' : `This ${vocab.agent}’s computer`}
+                selected={target === 'local'}
+                value="local"
+              />
+              {canManageSshTargets ? (
+                <TargetChoice
+                  description={`Let ${vocab.agent} manage a computer reached through Desktop SSH`}
+                  icon={ServerIcon}
+                  label="Another computer…"
+                  selected={target === 'ssh'}
+                  value="ssh"
+                />
+              ) : null}
+            </RadioGroup>
+          ) : null}
+          {target === 'ssh' && canManageSshTargets ? (
+            <Field>
+              <FieldLabel>Saved SSH host</FieldLabel>
+              <SshHostPicker
+                onChange={(host) => {
+                  setSshHost(host);
+                  if (host) registerTarget.mutate(host);
+                }}
+                value={sshHost}
+              />
+              {registerTarget.error ? (
+                <p className="text-xs text-destructive">{registerTarget.error.message}</p>
+              ) : null}
+              {sshHost ? (
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span
+                    className={
+                      transportStatus?.state === 'connected'
+                        ? 'text-success'
+                        : transportStatus?.state === 'reauthentication_required'
+                          ? 'text-warning'
+                          : 'text-muted-foreground'
+                    }
+                    role="status"
+                  >
+                    {registerTarget.isPending
+                      ? 'Reconnecting'
+                      : transportStateLabel(
+                          transportStatus?.state ??
+                            targets.data?.find((item) => item.id === targetId)?.transport_state ??
+                            'state_unknown',
+                        )}
+                  </span>
+                  {transportStatus &&
+                  ['disconnected', 'state_unknown'].includes(transportStatus.state) ? (
                     <Button
-                      onClick={() => {
-                        setSelectedProvider('llama_cpp');
-                      }}
+                      onClick={() => registerTarget.mutate(sshHost)}
                       size="sm"
+                      type="button"
                       variant="outline"
                     >
-                      Finish setup
+                      Connect
                     </Button>
-                  </AlertDescription>
-                </Alert>
+                  ) : null}
+                </div>
               ) : null}
-              <div className="grid gap-4 border-y py-5">
-                <Field>
-                  <div className="flex items-center gap-2">
-                    <FieldLabel htmlFor="managed-provider-choice">Runtime</FieldLabel>
-                    <InfoTip label="About model runtimes">
-                      Deploy and manage model servers on the selected host. Session model choices
-                      and other provider connections remain in Providers.
-                    </InfoTip>
-                  </div>
-                  <Select
-                    disabled={!providers.length}
-                    onValueChange={setSelectedProvider}
-                    value={selectedProvider}
-                  >
-                    <SelectTrigger id="managed-provider-choice">
-                      <SelectValue placeholder="Choose a compatible runtime" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {providers.map((service) => (
-                        <SelectItem key={service.id} value={service.id}>
-                          {service.label}
-                          {service.variants.some((variant) => variant.compatible)
-                            ? ''
-                            : ' — unavailable on this target'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-              {provider ? <div className="border-b">{renderService(provider)}</div> : null}
-            </CapabilitySection>
-
-            <CapabilitySection
-              description="Independent execution provenance and artifact lineage services."
-              icon={PackageOpenIcon}
-              title="Monitoring and provenance"
-            >
-              <div className="divide-y border-y">{monitoring.map(renderService)}</div>
-            </CapabilitySection>
-            <CapabilitySection
-              description={
-                target === 'local'
-                  ? 'Search, document conversion, and other scientific services available on this computer.'
-                  : 'Search, document conversion, and remote-work services available on this host.'
-              }
-              icon={PackageOpenIcon}
-              title="Scientific services"
-            >
-              <div className="divide-y border-y">{resources.map(renderService)}</div>
-              {!catalog.isPending && !resources.length ? (
-                <p className="border-y py-6 text-sm text-muted-foreground">
-                  Choose a target to see the services {vocab.agent} can manage there.
-                </p>
+              {transportStatus?.prompt && transportStatus.state !== 'connected' ? (
+                <SshAuthentication
+                  prompt={transportStatus.prompt}
+                  sessionId={transportStatus.session_id}
+                />
               ) : null}
-            </CapabilitySection>
+            </Field>
+          ) : null}
 
-            {remoteAccess.length ? (
-              <CapabilitySection
-                description="Persistent access services for this remote computer."
-                icon={ServerIcon}
-                title="Remote access"
-              >
-                <div className="divide-y border-y">{remoteAccess.map(renderService)}</div>
-              </CapabilitySection>
-            ) : null}
-          </div>
-        ) : null}
-      </section>
+          {catalog.data ? <ManagedServiceHostFacts facts={catalog.data.facts} /> : null}
+          <Button
+            disabled={catalog.isFetching}
+            onClick={() => catalog.refetch()}
+            size="sm"
+            variant="outline"
+          >
+            {catalog.isFetching ? <Spinner aria-hidden="true" /> : <RefreshIcon />}Inspect again
+          </Button>
+        </div>
+      </details>
+      {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
+        <InspectionProgress host={sshHost} target={target} />
+      ) : null}
+      {catalog.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Could not inspect {targetLabel(target, sshHost)}</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{catalog.error.message}</p>
+            <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {installerLlamaCpp.data && !llamaCppInstalled ? (
+        <Alert>
+          <CpuIcon aria-hidden="true" />
+          <AlertTitle>Finish setting up your local model runtime</AlertTitle>
+          <AlertDescription>
+            <Button
+              onClick={() => {
+                setSelectedProvider('llama_cpp');
+                setDeploying(true);
+              }}
+              size="sm"
+              variant="outline"
+            >
+              Finish setup
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <ManagedServiceInventory
+        endpoint={settings.endpoint}
+        targetId={targetId}
+        hostLabel={targetLabel(target, sshHost)}
+        services={services.filter((row) => row.category !== 'remote_access' || target === 'ssh')}
+        selected={selectedProvider}
+        onSelected={setSelectedProvider}
+        deploying={deploying}
+        onDeploying={setDeploying}
+        renderService={renderService}
+        onConnectExisting={onConnectExistingService}
+        operations={{
+          ...Object.fromEntries(Object.entries(runningOperations).map(([id, row]) => [id, row.id])),
+          ...operationIds,
+        }}
+        loading={catalog.isFetching}
+      />
     </section>
   );
 }
@@ -756,31 +725,4 @@ function transportStateLabel(state: SshTransportStatus['state']): string {
     disconnected: 'Disconnected',
     state_unknown: 'State unknown',
   }[state];
-}
-
-function CapabilitySection({
-  children,
-  description,
-  icon: Icon,
-  title,
-}: {
-  children: ReactNode;
-  description: string;
-  icon: typeof CpuIcon;
-  title: string;
-}) {
-  return (
-    <section>
-      <header className="mb-4 flex items-start gap-3">
-        <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-          <Icon aria-hidden="true" className="size-4" />
-        </span>
-        <div>
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        </div>
-      </header>
-      {children}
-    </section>
-  );
 }
