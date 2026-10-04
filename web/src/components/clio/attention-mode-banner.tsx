@@ -10,6 +10,7 @@ import { formatSharePercent as pct } from '@/lib/attention-text';
 import { truncate } from '@/lib/format';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { AttentionProfileEditor } from './attention-profile-editor';
+import { InfoTip } from './info-tip';
 import type { AttentionProfile } from '@clio/core/v3';
 
 const QUOTE_TRUNCATE_CHARS = 160;
@@ -135,8 +136,17 @@ function AttentionBreakdown({ data }: { data: AttentionAvailable }) {
         </Tooltip>
         {dominant ? (
           <Badge className="border-chart-5/40 text-chart-5" variant="outline">
-            Mostly influenced by tool results
+            Tool results lead captured content
           </Badge>
+        ) : null}
+        {data.unmapped_content?.length ? (
+          <span className="inline-flex items-center gap-1.5">
+            {data.unmapped_content.length} unmapped {data.unmapped_content.length === 1 ? 'block' : 'blocks'}
+            <InfoTip label="About unmapped attention content">
+              These blocks have no unique compatible passage in the captured prompt. Their content
+              may be absent, transformed, or repeated. No transcript heat is inferred.
+            </InfoTip>
+          </span>
         ) : null}
       </div>
     </div>

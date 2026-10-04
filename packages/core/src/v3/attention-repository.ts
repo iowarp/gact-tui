@@ -21,6 +21,7 @@ export class AttentionRepository extends SessionHistoryRepository {
     selection: {
       text: string;
       part_id?: string;
+      content_revision?: string;
       field?: string;
       start?: number;
       end?: number;

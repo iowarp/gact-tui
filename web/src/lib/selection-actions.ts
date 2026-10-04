@@ -23,6 +23,8 @@ export interface AgentAnswerTextSelection {
   sessionId: string;
   /** The answer message the text belongs to. */
   messageId: string;
+  partId?: string;
+  contentRevision?: string;
 }
 
 /**
@@ -128,7 +130,15 @@ export function agentAnswerSelection(
   const sessionId = surface?.dataset.sessionId ?? '';
   const messageId = surface?.dataset.messageId ?? '';
   if (!surface || !sessionId || !messageId) return undefined;
-  return { kind: 'agent-answer-text', text, sessionId, messageId };
+  const identity = (textBlock as HTMLElement).dataset;
+  return {
+    kind: 'agent-answer-text',
+    text,
+    sessionId,
+    messageId,
+    ...(identity.partId ? { partId: identity.partId } : {}),
+    ...(identity.contentRevision ? { contentRevision: identity.contentRevision } : {}),
+  };
 }
 
 function elementOf(node: Node): Element | null {

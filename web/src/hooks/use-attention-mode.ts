@@ -92,7 +92,12 @@ export function useAttentionMode(
         const result = await repository.getAttention(
           target.sessionId,
           target.messageId,
-          { text: target.text, ...(selectedProfile ? { profile: selectedProfile } : {}) },
+          {
+            text: target.text,
+            ...(target.partId ? { part_id: target.partId } : {}),
+            ...(target.contentRevision ? { content_revision: target.contentRevision } : {}),
+            ...(selectedProfile ? { profile: selectedProfile } : {}),
+          },
           controller.signal,
         );
         if (requestTokenRef.current !== token) return; // superseded by a newer selection

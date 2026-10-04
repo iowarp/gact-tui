@@ -122,7 +122,10 @@ describe('useAttentionMode', () => {
     });
     expect(result.current.attention.state.status).toBe('idle');
     await waitFor(() => expect(mocks.attentionAvailability).toHaveBeenCalledTimes(2));
-    expect((mocks.getAttention.mock.calls[0]?.[3] as AbortSignal).aborted).toBe(true);
+    const signal = mocks.getAttention.mock.calls[0]?.[3];
+    expect(signal).toBeInstanceOf(AbortSignal);
+    if (!(signal instanceof AbortSignal)) throw new Error('Expected request cancellation signal');
+    expect(signal.aborted).toBe(true);
   });
   it('starts idle and registers the understand-attention selection action', async () => {
     const { result } = renderHook(

@@ -94,6 +94,17 @@ const attentionAvailableSchema = z
     flags: z.array(attentionFlagSchema).default([]),
     blocks: z.array(attentionBlockSchema).default([]),
     tokens: z.array(attentionTokenSchema).optional(),
+    unmapped_content: z
+      .array(
+        z.object({
+          message_id: z.string(),
+          part_id: z.string(),
+          field: z.string(),
+          content_revision: z.string(),
+          reason: z.string(),
+        }),
+      )
+      .optional(),
   })
   .passthrough();
 

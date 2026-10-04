@@ -122,6 +122,13 @@ export interface AttentionAvailable {
   flags: readonly AttentionFlag[];
   blocks: readonly AttentionBlock[];
   tokens?: readonly AttentionToken[];
+  unmapped_content?: readonly {
+    message_id: string;
+    part_id: string;
+    field: string;
+    content_revision: string;
+    reason: string;
+  }[];
 }
 
 export interface AttentionUnavailable {
