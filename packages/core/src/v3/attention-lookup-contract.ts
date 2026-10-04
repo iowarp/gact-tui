@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export { attentionEvidenceInspectionGeneratedSchema as attentionEvidenceInspectionSchema } from '../generated/clio-schemas/attention-evidence-inspection.schema.js';
 import { attentionProfileGeneratedSchema } from '../generated/clio-schemas/attention-profile.schema.js';
 import { contentSelectionGeneratedSchema } from '../generated/clio-schemas/content-selection.schema.js';
 import { attentionAvailableSchema, attentionUnavailableSchema } from './attention-schemas.js';

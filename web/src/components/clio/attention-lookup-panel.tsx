@@ -181,8 +181,16 @@ function ScopedAttentionLookup({
       void inspect(selected, link.direction, link.profile, 0, link);
     };
     restore();
+    const reopen = () => {
+      inspectedHash.current = '';
+      restore();
+    };
     window.addEventListener('hashchange', restore);
-    return () => window.removeEventListener('hashchange', restore);
+    window.addEventListener('clio:inspect-attention', reopen);
+    return () => {
+      window.removeEventListener('hashchange', restore);
+      window.removeEventListener('clio:inspect-attention', reopen);
+    };
   }, [inspect, sessionId]);
   const add = useCallback(
     (target: SelectionTarget, trace = false) => {

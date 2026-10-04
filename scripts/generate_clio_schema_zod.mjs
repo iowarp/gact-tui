@@ -6,6 +6,12 @@ import { jsonSchemaToZod } from 'json-schema-to-zod';
 
 const contracts = [
   {
+    file: 'attention_evidence_inspection.json',
+    output: 'attention-evidence-inspection.schema.ts',
+    schema: 'attentionEvidenceInspectionGeneratedSchema',
+    type: 'AttentionEvidenceInspection',
+  },
+  {
     file: 'attention_profile.json',
     output: 'attention-profile.schema.ts',
     schema: 'attentionProfileGeneratedSchema',
@@ -117,14 +123,14 @@ function nonEmptyArrayOverride(schema) {
   if (
     schema?.type !== 'array' ||
     schema.minItems !== 1 ||
-    schema.maxItems !== undefined ||
     typeof items !== 'object' ||
     items === null ||
     Array.isArray(items)
   ) {
     return undefined;
   }
-  return `z.array(${jsonSchemaToZod(items, ZOD_OPTIONS)}).nonempty()`;
+  const maximum = schema.maxItems === undefined ? '' : `.max(${schema.maxItems})`;
+  return `z.array(${jsonSchemaToZod(items, ZOD_OPTIONS)}).nonempty()${maximum}`;
 }
 
 const ZOD_OPTIONS = {

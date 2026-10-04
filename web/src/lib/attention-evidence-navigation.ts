@@ -1,18 +1,14 @@
 import { toast } from 'sonner';
 import { findPartElement } from './attention-highlight-dom';
-import { attentionProfileSchema, contentSelectionSchema } from '@clio/core/v3';
+import {
+  attentionEvidenceInspectionSchema as inspectionSchema,
+  type ContentSelection,
+} from '@clio/core/v3';
 import { z } from 'zod';
 
-const inspectionSchema = z.object({
-  schema_version: z.literal(1),
-  selections: z.array(contentSelectionSchema).min(1).max(32),
-  direction: z.enum(['generated_to_source', 'source_to_generation']),
-  profile: attentionProfileSchema,
-  profile_revision: z.string().min(1),
-  lm_call_id: z.string().min(1),
-  capture_sha256: z.string().min(1),
-});
-export type AttentionEvidenceInspection = z.infer<typeof inspectionSchema>;
+export type AttentionEvidenceInspection = Omit<z.infer<typeof inspectionSchema>, 'selections'> & {
+  selections: ContentSelection[];
+};
 
 /** A finding link can restore only this session's validated, revision-bound inspection. */
 export function readAttentionEvidence(

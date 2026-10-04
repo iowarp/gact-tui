@@ -157,10 +157,13 @@ export type PriorVersion = number | null;
 export type Version3 = number;
 export type Versions = ArtifactVersion[];
 export type WorkspaceId = string;
+export type CaptureSha256 = string;
+export type Direction = 'generated_to_source' | 'source_to_generation';
+export type LmCallId = string;
 export type BlockReduction = 'sum' | 'mean' | 'max';
 export type ContentSteps = 'all_selected_captured_steps';
 export type DecayBase = number;
-export type Direction = 'forward' | 'reverse';
+export type Direction1 = 'forward' | 'reverse';
 export type DisplayScaling = 'max' | 'none';
 export type Metric = 'mean' | 'max';
 export type Name4 = string;
@@ -168,6 +171,39 @@ export type SchemaVersion = 1;
 export type Version4 = 1;
 export type WeightNormalization = 'sum' | 'none';
 export type Weighting = 'uniform' | 'exponential';
+export type ProfileRevision = string;
+export type SchemaVersion1 = 1;
+/**
+ * @minItems 1
+ * @maxItems 32
+ */
+export type Selections = [ContentSelection, ...ContentSelection[]];
+export type ArtifactRef = string | null;
+export type CallId = string | null;
+export type ContentRevision = string;
+export type Field = 'text' | 'thought' | 'input' | 'result' | 'content';
+export type MessageId = string;
+export type PartId = string;
+export type SchemaVersion2 = 1;
+export type Selection = TextSelection | WholeSelection | ImageSelection | StructuredSelection;
+export type End = number;
+export type Kind1 = 'text';
+export type Start = number;
+export type Kind2 = 'whole';
+export type Height = number;
+export type Kind3 = 'image_region';
+export type Width = number;
+export type X = number;
+export type Y = number;
+export type ComponentId = string;
+/**
+ * @minItems 1
+ */
+export type Keys = [string, ...string[]];
+export type Kind4 = 'structured';
+export type SourceRef = string;
+export type SurfaceId = string;
+export type SessionId = string;
 export type $Id = string;
 export type $Schema = string;
 export type Catalogid2 = string;
@@ -207,34 +243,8 @@ export type HostId = string;
 export type Provider = 'local' | 'sftp' | 'google_drive' | 'globus';
 export type Revision = string | null;
 export type Root = string;
-export type SchemaVersion1 = 1;
+export type SchemaVersion3 = 1;
 export type WorkspaceId1 = string | null;
-export type ArtifactRef = string | null;
-export type CallId = string | null;
-export type ContentRevision = string;
-export type Field = 'text' | 'thought' | 'input' | 'result' | 'content';
-export type MessageId = string;
-export type PartId = string;
-export type SchemaVersion2 = 1;
-export type Selection = TextSelection | WholeSelection | ImageSelection | StructuredSelection;
-export type End = number;
-export type Kind1 = 'text';
-export type Start = number;
-export type Kind2 = 'whole';
-export type Height = number;
-export type Kind3 = 'image_region';
-export type Width = number;
-export type X = number;
-export type Y = number;
-export type ComponentId = string;
-/**
- * @minItems 1
- */
-export type Keys = [string, ...string[]];
-export type Kind4 = 'structured';
-export type SourceRef = string;
-export type SurfaceId = string;
-export type SessionId = string;
 export type Arch = string;
 export type ClioVersion = string;
 export type ImageDigest = string;
@@ -706,6 +716,7 @@ export interface ClioSchemaRegistry {
   AcceptedParameter?: AcceptedParameter;
   ArtifactRecord?: ArtifactRecord;
   ArtifactVersion?: ArtifactVersion;
+  AttentionEvidenceInspection?: AttentionEvidenceInspection;
   AttentionProfile?: AttentionProfile;
   CatalogFile?: CatalogFile;
   CatalogSidecar?: CatalogSidecar;
@@ -973,13 +984,25 @@ export interface Producer {
   [k: string]: unknown | undefined;
 }
 /**
+ * An exact inspection to revalidate against the owning session's capture.
+ */
+export interface AttentionEvidenceInspection {
+  capture_sha256: CaptureSha256;
+  direction: Direction;
+  lm_call_id: LmCallId;
+  profile: AttentionProfile;
+  profile_revision: ProfileRevision;
+  schema_version: SchemaVersion1;
+  selections: Selections;
+}
+/**
  * Resolved, immutable assumptions for one selected item's heat display.
  */
 export interface AttentionProfile {
   block_reduction?: BlockReduction;
   content_steps?: ContentSteps;
   decay_base?: DecayBase;
-  direction?: Direction;
+  direction?: Direction1;
   display_scaling?: DisplayScaling;
   metric?: Metric;
   name?: Name4;
@@ -987,6 +1010,54 @@ export interface AttentionProfile {
   version?: Version4;
   weight_normalization?: WeightNormalization;
   weighting?: Weighting;
+}
+/**
+ * An inspectable transcript reference with revision-bound selection coordinates.
+ */
+export interface ContentSelection {
+  artifact_ref?: ArtifactRef;
+  call_id?: CallId;
+  content_revision: ContentRevision;
+  field?: Field;
+  message_id: MessageId;
+  part_id: PartId;
+  schema_version?: SchemaVersion2;
+  selection: Selection;
+  session_id: SessionId;
+}
+/**
+ * Character offsets within an identified content part, using Unicode code points.
+ */
+export interface TextSelection {
+  end: End;
+  kind?: Kind1;
+  start: Start;
+}
+/**
+ * The whole identified block or artifact.
+ */
+export interface WholeSelection {
+  kind?: Kind2;
+}
+/**
+ * Normalized image coordinates, independent of display size.
+ */
+export interface ImageSelection {
+  height: Height;
+  kind?: Kind3;
+  width: Width;
+  x: X;
+  y: Y;
+}
+/**
+ * Stable A2UI component and source keys, never inferred from display order.
+ */
+export interface StructuredSelection {
+  component_id: ComponentId;
+  keys: Keys;
+  kind?: Kind4;
+  source_ref: SourceRef;
+  surface_id: SurfaceId;
 }
 /**
  * One official-shape A2UI catalog document (a ``catalog.json`` file).
@@ -1076,7 +1147,7 @@ export interface ConnectedSource {
   provider: Provider;
   revision?: Revision;
   root: Root;
-  schema_version?: SchemaVersion1;
+  schema_version?: SchemaVersion3;
   workspace_id?: WorkspaceId1;
 }
 /**
@@ -1103,54 +1174,6 @@ export interface UnavailableReasons {
 export interface ResourceOwner {
   clio_id: ClioId;
   host_id: HostId;
-}
-/**
- * An inspectable transcript reference with revision-bound selection coordinates.
- */
-export interface ContentSelection {
-  artifact_ref?: ArtifactRef;
-  call_id?: CallId;
-  content_revision: ContentRevision;
-  field?: Field;
-  message_id: MessageId;
-  part_id: PartId;
-  schema_version?: SchemaVersion2;
-  selection: Selection;
-  session_id: SessionId;
-}
-/**
- * Character offsets within an identified content part, using Unicode code points.
- */
-export interface TextSelection {
-  end: End;
-  kind?: Kind1;
-  start: Start;
-}
-/**
- * The whole identified block or artifact.
- */
-export interface WholeSelection {
-  kind?: Kind2;
-}
-/**
- * Normalized image coordinates, independent of display size.
- */
-export interface ImageSelection {
-  height: Height;
-  kind?: Kind3;
-  width: Width;
-  x: X;
-  y: Y;
-}
-/**
- * Stable A2UI component and source keys, never inferred from display order.
- */
-export interface StructuredSelection {
-  component_id: ComponentId;
-  keys: Keys;
-  kind?: Kind4;
-  source_ref: SourceRef;
-  surface_id: SurfaceId;
 }
 /**
  * Nested schema for a transform's non-secret execution environment.

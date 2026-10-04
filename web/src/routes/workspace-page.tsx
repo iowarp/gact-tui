@@ -271,6 +271,7 @@ export function WorkspacePage() {
     updateQueuedMessage,
     updateSessionBehavior,
   } = useSessionMutations({
+    openSubagent,
     activeModel,
     activeProvider,
     session,

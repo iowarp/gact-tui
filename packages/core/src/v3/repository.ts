@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { agentTaskRecordSchema } from './agent-task-domain.js';
 import type {
   Artifact,
   ArtifactDetail,
@@ -773,18 +774,11 @@ export class ClioRepository extends SystemRepository {
   public agentTask(
     taskId: string,
     signal?: AbortSignal,
-  ): Promise<{ task_id: string; parent_session_id: string; child_session_id: string }> {
+  ): Promise<import('./agent-task-domain.js').AgentTaskRecord> {
     return this.transport.request({
       method: 'GET',
       path: `/v1/agent-tasks/${encodeURIComponent(taskId)}`,
-      decode: (value) =>
-        z
-          .object({
-            task_id: z.string(),
-            parent_session_id: z.string(),
-            child_session_id: z.string(),
-          })
-          .parse(value),
+      decode: (value) => agentTaskRecordSchema.parse(value),
       signal,
     });
   }

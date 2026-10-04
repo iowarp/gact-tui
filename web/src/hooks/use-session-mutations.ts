@@ -10,6 +10,7 @@ import type {
   PendingInteractionResponse,
   QueuedMessage,
   Session,
+  SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
@@ -23,6 +24,7 @@ import {
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
+import { useActionCard } from './use-action-card';
 import {
   uploadWorkspaceResources,
   type ResourceUploadProgress,
@@ -34,6 +36,7 @@ import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { firstMessageMetadata } from '@/lib/a2ui/first-message-metadata';
 
 interface UseSessionMutationsInput {
+  openSubagent?: (subagent: SubagentRun, target: 'canvas') => void;
   activeModel?: string;
   activeProvider?: string;
   session?: Session;
@@ -66,15 +69,9 @@ function sessionModeForExecution(
   return 'edit';
 }
 
-interface ActionCardInput {
-  id: string;
-  label: string;
-  enabled: boolean;
-  behavior: { kind: string; handle_id?: string; reason?: string };
-}
-
 /** Owns session-changing operations and their authoritative query reconciliation. */
 export function useSessionMutations({
+  openSubagent,
   activeModel,
   activeProvider,
   session,
@@ -521,17 +518,7 @@ export function useSessionMutations({
     },
   });
 
-  const actionCard = useMutation({
-    mutationFn: async (action: ActionCardInput) => {
-      if (action.behavior.kind !== 'focus_session' || !action.behavior.handle_id) {
-        throw new Error(action.behavior.reason || 'This action is not available.');
-      }
-      return repository.agentTask(action.behavior.handle_id);
-    },
-    onSuccess: (task) => {
-      void navigate(`/workspaces/${workspaceId}/sessions/${task.child_session_id}`);
-    },
-  });
+  const actionCard = useActionCard(sessionId, workspaceId, openSubagent);
 
   return {
     actionCard,

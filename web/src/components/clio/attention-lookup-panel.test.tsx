@@ -107,8 +107,13 @@ it.each([true, false])(
         expect.any(AbortSignal),
       ),
     );
-    if (matches) await waitFor(() => expect(heat).toHaveBeenLastCalledWith(generated));
-    else {
+    if (matches) {
+      await waitFor(() => expect(heat).toHaveBeenLastCalledWith(generated));
+      fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+      expect(heat).toHaveBeenLastCalledWith(undefined);
+      act(() => window.dispatchEvent(new Event('clio:inspect-attention')));
+      await waitFor(() => expect(heat).toHaveBeenLastCalledWith(generated));
+    } else {
       expect(await screen.findByRole('alert')).toHaveTextContent(
         'referenced capture or aggregation profile is unavailable',
       );

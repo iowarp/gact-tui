@@ -1,3 +1,4 @@
+import { ActionCardButton } from './action-card-button';
 import type {
   A2UIActionLifecycle,
   A2UISurface,
@@ -259,16 +260,7 @@ function MessageBlockView({
           </AlertDescription>
           <div className="col-start-2 mt-3 flex flex-wrap gap-2">
             {block.actions.map((action) => (
-              <Button
-                disabled={!action.enabled || !onActionCardAction}
-                key={action.id}
-                onClick={() => void onActionCardAction?.(action)}
-                size="sm"
-                title={!action.enabled ? action.behavior.reason : undefined}
-                variant="outline"
-              >
-                {action.label}
-              </Button>
+              <ActionCardButton action={action} key={action.id} onAction={onActionCardAction} />
             ))}
           </div>
         </Alert>

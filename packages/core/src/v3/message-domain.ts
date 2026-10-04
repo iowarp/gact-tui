@@ -8,6 +8,8 @@ export interface ActionCardAction {
     kind: string;
     handle_id?: string;
     reason?: string;
+    /** Validated against the shared inspection contract at the action boundary. */
+    inspection?: unknown;
   };
 }
 
