@@ -312,12 +312,25 @@ test('a detached surface never overlaps the subagent card in the message before 
   const card = page.getByRole('article', { name: 'Child conversation unavailable for Station evidence specialist' });
   const surface = page.locator('[aria-label^="Interactive surface,"]').last();
   await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
-  const cardBox = await card.boundingBox();
-  const surfaceBox = await surface.boundingBox();
-  expect(cardBox).not.toBeNull();
-  expect(surfaceBox).not.toBeNull();
-  const gap = surfaceBox!.y - (cardBox!.y + cardBox!.height);
-  expect(gap).toBeGreaterThanOrEqual(0);
+  // Both rectangles must come from the same layout. Separate Playwright
+  // roundtrips let transcript auto-scroll move the viewport between reads,
+  // producing a fictitious overlap even though their relative gap is intact.
+  const geometry = await card.evaluate((element) => {
+    const frame = Array.from(
+      document.querySelectorAll('[aria-label^="Interactive surface,"]'),
+    ).at(-1);
+    if (!frame) throw new Error('Detached interactive surface is missing');
+    const cardRect = element.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
+    return {
+      cardHeight: cardRect.height,
+      surfaceHeight: frameRect.height,
+      gap: frameRect.top - cardRect.bottom,
+    };
+  });
+  expect(geometry.cardHeight).toBeGreaterThan(0);
+  expect(geometry.surfaceHeight).toBeGreaterThan(0);
+  expect(geometry.gap).toBeGreaterThanOrEqual(0);
   // Re-screenshot the seam itself (#1533 coordinator review) — the numeric
   // gap above is the real proof, but a visual capture of the card sitting
   // just above the frame, with normal spacing between them, is what the
