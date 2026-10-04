@@ -6,7 +6,7 @@ import {
   XCircleIcon,
 } from 'lucide-react';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import {
   Frame,
@@ -31,6 +31,8 @@ import {
   describeUpdateError,
   DESKTOP_UPDATE_TOAST_ID,
   installDesktopUpdate,
+  isDesktopUpdateInstalling,
+  subscribeDesktopUpdate,
   type DesktopUpdateInfo,
   type DesktopUpdateProgress,
 } from '@/tauri/desktop-updater';
@@ -47,6 +49,11 @@ type UpdateState =
 export function DesktopSettings() {
   const desktop = inTauri();
   const updateChannel = useUpdateChannel();
+  const desktopInstalling = useSyncExternalStore(
+    subscribeDesktopUpdate,
+    isDesktopUpdateInstalling,
+    isDesktopUpdateInstalling,
+  );
   const updateInFlight = useUpdateFlowStore((state) => isUpdateInFlight(state.step));
   const [updateState, setUpdateState] = useState<UpdateState>({ kind: 'idle' });
 
@@ -158,6 +165,7 @@ export function DesktopSettings() {
               checked={updateChannel === 'beta'}
               disabled={
                 updateInFlight ||
+                desktopInstalling ||
                 updateState.kind === 'checking' ||
                 updateState.kind === 'installing'
               }
