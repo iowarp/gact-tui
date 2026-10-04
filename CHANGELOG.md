@@ -6,6 +6,16 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.3] — 2026-10-03
+
+- Add an explicit **Enable beta updates** setting with an instability warning.
+  Stable installations remain on stable releases; opted-in users and existing
+  beta installations receive published beta releases. An explicit opt-out wins.
+- Compare numbered beta versions correctly across Python, GitHub, and Desktop.
+  Ignore draft releases and discard checks completed after a channel change.
+- Keep native signature verification and prohibit version downgrades for beta updates.
+- Preserve typed input when an unchanged legacy interactive form rerenders.
+
 ## [0.11.3-beta.2] — 2026-10-03
 
 ### Added

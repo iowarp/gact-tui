@@ -17,6 +17,8 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { compareReleaseVersions, displayReleaseVersion, releaseTag } from '@/lib/release-version';
+import { latestPublishedRelease } from '@/lib/github-releases';
+import { initializeUpdateChannel, useUpdateChannel } from '@/lib/update-channel';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
@@ -116,6 +118,7 @@ async function runUpdate(
 
 /** One bottom-bar control for checking and updating both installed products. */
 export function SystemVersionStatus() {
+  const updateChannel = useUpdateChannel();
   const repository = useRepository();
   const { credentialsReady, isManagedConnection, settings } = useConnectionSettings();
   // Read once: the runtime never changes under a mounted page. Outside the
@@ -140,15 +143,23 @@ export function SystemVersionStatus() {
     queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
   });
-  // The latest published CLIO release. The browser (and the desktop webview,
-  // which is subject to the same fetch CORS rules) cannot reach a GitHub
-  // release asset directly -- GitHub sends no CORS headers on it -- so the
-  // CONNECTED SERVER does that fetch (GET /v1/system/latest-release) and
-  // hands back just the version this row needs to compare against.
+  // Stable checks use the server's manifest route. Beta metadata comes from
+  // GitHub's CORS-enabled API, so an older connected agent needs no upgrade
+  // before the UI can discover its next beta.
   const latestClioRelease = useQuery({
     enabled: credentialsReady,
-    queryKey: queryKeys.key('latest-release', settings.endpoint),
-    queryFn: ({ signal }) => repository.latestRelease(signal),
+    queryKey: [...queryKeys.key('latest-release', settings.endpoint), updateChannel],
+    queryFn: async ({ signal }) => {
+      if (updateChannel === 'stable') return repository.latestRelease(signal);
+      if (!brand.agentReleaseUrl) throw new Error('No beta release feed is configured.');
+      const release = await latestPublishedRelease(brand.agentReleaseUrl, updateChannel, signal);
+      return {
+        version: release.tag_name,
+        source: `${brand.agentReleaseUrl}/tag/${release.tag_name}`,
+        checked_at: new Date().toISOString(),
+        degradation: null,
+      };
+    },
     staleTime: 5 * 60 * 1000,
   });
 
@@ -159,7 +170,10 @@ export function SystemVersionStatus() {
       .then(({ getVersion }) => getVersion())
       .then(
         (version) => {
-          if (!disposed) setDesktopVersion(version);
+          if (!disposed) {
+            initializeUpdateChannel(version);
+            setDesktopVersion(version);
+          }
         },
         () => {
           if (!disposed) setDesktopVersion(undefined);
@@ -174,6 +188,9 @@ export function SystemVersionStatus() {
     ? displayReleaseVersion(desktopVersion)
     : webBuildVersion();
   const agentVersion = displayReleaseVersion(capabilities.data?.service?.version);
+  useEffect(() => {
+    if (!desktopShell) initializeUpdateChannel(agentVersion);
+  }, [desktopShell, agentVersion]);
   const latestClioVersion = displayReleaseVersion(latestClioRelease.data?.version ?? undefined);
   // The desktop's own update target comes ONLY from a real signed-manifest
   // check that found something newer -- never a fallback to its own current

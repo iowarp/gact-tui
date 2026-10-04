@@ -20,6 +20,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { setUpdateChannel, useUpdateChannel } from '@/lib/update-channel';
+import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { formatBytes } from '@/lib/format';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -43,6 +46,8 @@ type UpdateState =
 
 export function DesktopSettings() {
   const desktop = inTauri();
+  const updateChannel = useUpdateChannel();
+  const updateInFlight = useUpdateFlowStore((state) => isUpdateInFlight(state.step));
   const [updateState, setUpdateState] = useState<UpdateState>({ kind: 'idle' });
 
   const checkUpdate = async () => {
@@ -134,6 +139,35 @@ export function DesktopSettings() {
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="grid gap-1">
+              <label className="text-sm font-medium" htmlFor="enable-beta-updates">
+                Enable beta updates
+              </label>
+              <p className="text-sm text-muted-foreground" id="beta-updates-warning">
+                Beta releases may be unstable. Receive published beta updates for {vocab.product}{' '}
+                and {vocab.agent}. Turn this off to receive stable releases only.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Changing channels never installs an update or downgrades your current version.
+              </p>
+            </div>
+            <Switch
+              id="enable-beta-updates"
+              aria-describedby="beta-updates-warning"
+              checked={updateChannel === 'beta'}
+              disabled={
+                updateInFlight ||
+                updateState.kind === 'checking' ||
+                updateState.kind === 'installing'
+              }
+              onCheckedChange={(enabled) => {
+                setUpdateChannel(enabled ? 'beta' : 'stable');
+                setUpdateState({ kind: 'idle' });
+                if (desktop) void checkUpdate();
+              }}
+            />
+          </div>
           {!desktop ? (
             <Alert>
               <AppWindowIcon aria-hidden="true" />

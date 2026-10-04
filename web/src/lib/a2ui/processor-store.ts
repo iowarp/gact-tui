@@ -584,7 +584,14 @@ export function useA2uiSurfaceModel(
         degradedProtocolReportedRef.current = true;
         reportDegradedProtocol(onValidationFailed);
       }
-      if (!isRecreate && entry.partId !== undefined && surface.revision <= entry.appliedRevision) {
+      // A legacy surface may omit part_id entirely. An unchanged revision
+      // still is not a server edit: replaying it on a parent rerender erases
+      // typed form values. A newly supplied part_id or a lower legacy
+      // revision can denote a fresh lifecycle and must still rebuild.
+      const unchangedLegacyRevision =
+        entry.partId === surface.part_id && surface.revision === entry.appliedRevision;
+      if (!isRecreate && (unchangedLegacyRevision ||
+        (entry.partId !== undefined && surface.revision <= entry.appliedRevision))) {
         return;
       }
       // No stamps to incrementally trust -- tear down and replay the WHOLE

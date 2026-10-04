@@ -6,6 +6,23 @@ GitHub releases whether a newer build exists; if one does it surfaces a toast,
 and on the user's confirmation it downloads + signature-verifies + installs the
 new bundle and relaunches into it.
 
+### Stable and beta channels
+
+**Settings → Desktop → App updates → Enable beta updates** controls both the
+Agent version indicator and the signed Desktop updater. The switch warns that
+betas may be unstable. Stable installations default to stable; existing beta
+installations default to beta. A saved explicit choice takes precedence.
+
+Stable checks retain the configured latest-release endpoint. Beta checks choose
+the highest published stable or numbered beta release from the branded GitHub
+repository, excluding drafts and releases without update manifests. The native
+bridge changes only the release tag in the configured endpoint; the configured
+public key, platform selection, signature verification, and newer-version check
+remain in force. Switching channels never installs or downgrades software.
+
+CLIO Desktop beta 1 predates this setting and has a stable-only updater. Those
+installations need one manual Desktop upgrade to gain channel-aware updates.
+
 This document covers the parts that are NOT in the repo: the signing keypair and
 the release CI that builds, signs, and publishes `latest.json`. The client
 plumbing (plugin registration, config, capability, and the launch check) is
