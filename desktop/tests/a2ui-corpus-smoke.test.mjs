@@ -187,7 +187,7 @@ test(
         '@playwright/test is not resolvable from the web workspace. Run: pnpm install in web/',
       );
     }
-    const { chromium } = (await import(pathToFileURL(playwrightEntry).href)).default;
+    const { chromium, expect } = (await import(pathToFileURL(playwrightEntry).href)).default;
 
     const fixture = spawnAndCapture('node', ['e2e/fixture-server.mjs'], {
       cwd: webRoot,
@@ -255,11 +255,22 @@ test(
       const renderedIds = new Set();
       for (let index = 0; index < corpus.count; index += 1) {
         const host = hosts.nth(index);
-        await host.scrollIntoViewIfNeeded();
-        const surface = host.getByRole('region', { name: /^Interactive surface,/ });
-        await surface.waitFor({ state: 'visible', timeout: 15_000 });
-        renderedIds.add(await surface.getAttribute('id'));
-        const text = await surface.innerText();
+        let rendered;
+        await expect(async () => {
+          await host.scrollIntoViewIfNeeded({ timeout: 2_000 });
+          // Read identity and content in one frame. Lazy surface height changes
+          // can unmount a neighboring example between separate locator reads.
+          rendered = await host.evaluate((element) => {
+            const surface = element.querySelector('section[aria-label^="Interactive surface,"]');
+            if (!surface) return null;
+            const box = surface.getBoundingClientRect();
+            if (box.height <= 0 || box.bottom <= 0 || box.top >= innerHeight) return null;
+            return { id: surface.id, text: surface.innerText };
+          });
+          assert.ok(rendered?.id, `example ${index} must render in the viewport`);
+        }).toPass({ timeout: 15_000 });
+        renderedIds.add(rendered.id);
+        const text = rendered.text;
         assert.doesNotMatch(text, /Unknown component/u, `example ${index} has an unknown component`);
         assert.doesNotMatch(
           text,
