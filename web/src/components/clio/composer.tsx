@@ -68,6 +68,7 @@ import { composerModelLabel } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useRegionCaptureAnnotation } from './use-region-capture-annotation';
 import { ComposerAddContextButton } from './composer-add-context-button';
+import { ConnectedSourcePicker } from './connected-source-picker';
 
 const focusComposerEditor = focusEditorAtOffset;
 
@@ -205,11 +206,7 @@ export function ClioComposer({
   variant = 'docked',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
-  const { selectedOption, selectModel } = useComposerModelSelection(
-    modelOptions,
-    provider,
-    model,
-  );
+  const { selectedOption, selectModel } = useComposerModelSelection(modelOptions, provider, model);
   useEffect(() => {
     setModelImageInput(Boolean(selectedOption?.modalities?.includes('image')));
   }, [selectedOption?.modalities]);
@@ -284,6 +281,7 @@ export function ClioComposer({
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
   const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
     [],
   );
@@ -304,7 +302,9 @@ export function ClioComposer({
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
   const lastInsertedDraftRef = useRef<{ sourceKey: string; text: string } | undefined>(undefined);
-  useEffect(() => { latestInputRef.current = input; }, [input]);
+  useEffect(() => {
+    latestInputRef.current = input;
+  }, [input]);
   const setInput = useCallback(
     (nextValue: string) => {
       latestInputRef.current = nextValue;
@@ -319,11 +319,17 @@ export function ClioComposer({
       if (typeof detail?.text !== 'string') return;
       const current = latestInputRef.current;
       const previous = lastInsertedDraftRef.current;
-      const replacePrevious = previous && detail.sourceKey === previous.sourceKey && current.includes(previous.text);
-      setInput(replacePrevious
-        ? current.replace(previous.text, detail.text)
-        : current ? `${current}\n\n${detail.text}` : detail.text);
-      if (detail.sourceKey) lastInsertedDraftRef.current = { sourceKey: detail.sourceKey, text: detail.text };
+      const replacePrevious =
+        previous && detail.sourceKey === previous.sourceKey && current.includes(previous.text);
+      setInput(
+        replacePrevious
+          ? current.replace(previous.text, detail.text)
+          : current
+            ? `${current}\n\n${detail.text}`
+            : detail.text,
+      );
+      if (detail.sourceKey)
+        lastInsertedDraftRef.current = { sourceKey: detail.sourceKey, text: detail.text };
       window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
     };
     window.addEventListener('clio:use-message-draft', useDraft);
@@ -490,6 +496,17 @@ export function ClioComposer({
         </div>
       ) : null}
       {pendingInteractions}
+      {workspaceId && (
+        <ConnectedSourcePicker
+          workspaceId={workspaceId}
+          open={sourcePickerOpen}
+          onOpenChange={setSourcePickerOpen}
+          onSelect={(reference) => {
+            composerReferences.select(reference);
+            setSourcePickerOpen(false);
+          }}
+        />
+      )}
       {queuedMessages.length > 0 &&
       onDeleteQueuedMessage &&
       onPromoteQueuedMessage &&
@@ -607,7 +624,9 @@ export function ClioComposer({
         ) : null}
         <ClioComposerAttachments
           annotations={annotations}
-          onRemoveCapture={(gone) => onAnnotationsChange?.(annotations.filter((item) => item !== gone))}
+          onRemoveCapture={(gone) =>
+            onAnnotationsChange?.(annotations.filter((item) => item !== gone))
+          }
           onPrepareFiles={onPrepareFiles}
           resources={resources}
           uploadFailure={uploadFailure}
@@ -657,6 +676,7 @@ export function ClioComposer({
                 attachments={attachments}
                 contextReferences={contextReferences}
                 onOpenFileUpload={() => setFileUploadOpen(true)}
+                onOpenSources={workspaceId ? () => setSourcePickerOpen(true) : undefined}
                 onOpenReferences={composerReferences.openPicker}
               />
             ) : null}
@@ -726,7 +746,9 @@ export function ClioComposer({
           </PromptInputTools>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {catalogPreparing && state !== 'running' ? (
-              <span className="text-xs text-muted-foreground" role="status">Preparing views…</span>
+              <span className="text-xs text-muted-foreground" role="status">
+                Preparing views…
+              </span>
             ) : null}
             {state === 'running' ? (
               <PromptInputButton

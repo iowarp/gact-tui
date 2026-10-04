@@ -194,6 +194,7 @@ export interface WorkspaceResource {
   updated_at: string;
   completed_at: string;
   workspace_path?: string;
+  connected_source?: Record<string, string> | null;
   mime_mismatch: boolean;
   materialization?: WorkspaceResourceMaterialization;
   processing?: WorkspaceResourceProcessing;

@@ -33,6 +33,8 @@ export * from './artifact-preview-repository.js';
 export * from './composer-conflicts.js';
 export * from './composer-decoding.js';
 export * from './composer-domain.js';
+export * from './connected-storage-contract.js';
+export * from './connected-storage-repository.js';
 export * from './composer-schemas.js';
 export * from './composer-repository.js';
 export * from './interaction-repository.js';

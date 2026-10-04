@@ -28,7 +28,7 @@ export interface ResourceUploadProgress {
  * memory (gact-tui root cause B). Carrying `file` through removes that
  * dependency entirely instead of only patching the CSP.
  */
-export type UploadableFilePart = FileUIPart & { file?: File | Blob };
+export type UploadableFilePart = FileUIPart & { file?: File | Blob; clientUploadId?: string };
 
 export interface WorkspaceResourceUploadResult {
   parts: ComposerMessagePart[];
@@ -74,7 +74,7 @@ export async function uploadWorkspaceResources({
     const blob = await readAttachmentBytes(file, signal);
     const name = file.filename?.trim() || 'attachment';
     const mediaType = file.mediaType || blob.type || 'application/octet-stream';
-    const clientUploadId = await uploadFingerprint(name, mediaType, blob);
+    const clientUploadId = file.clientUploadId ?? (await uploadFingerprint(name, mediaType, blob));
     const created = await repository.createResource(
       workspaceId,
       { clientUploadId, mediaType, name, size: blob.size },
@@ -205,7 +205,9 @@ export async function readAttachmentBytes(
 
 /** A typed, named error for an attachment whose bytes could not be read at all. */
 function attachmentUnavailableError(name: string, detail: string): Error {
-  const error = new Error(`Unable to read ${name} for upload: no local file data was held, and ${detail}`);
+  const error = new Error(
+    `Unable to read ${name} for upload: no local file data was held, and ${detail}`,
+  );
   error.name = 'AttachmentUnavailableError';
   return error;
 }

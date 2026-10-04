@@ -1,4 +1,4 @@
-import { AtSignIcon, PaperclipIcon } from 'lucide-react';
+import { AtSignIcon, DatabaseIcon, PaperclipIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import {
   PromptInputActionMenu,
@@ -13,13 +13,15 @@ export function ComposerAddContextButton({
   contextReferences,
   onOpenFileUpload,
   onOpenReferences,
+  onOpenSources,
 }: {
   attachments: boolean;
   contextReferences: boolean;
   onOpenFileUpload: () => void;
   onOpenReferences: () => void;
+  onOpenSources?: () => void;
 }) {
-  if (!contextReferences) {
+  if (!contextReferences && !onOpenSources) {
     return (
       <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
         <AddIcon aria-hidden="true" />
@@ -42,14 +44,22 @@ export function ComposerAddContextButton({
             Attach
           </PromptInputActionMenuItem>
         ) : null}
-        <PromptInputActionMenuItem
-          aria-label="Reference existing context"
-          onSelect={onOpenReferences}
-          title="Reference existing context"
-        >
-          <AtSignIcon aria-hidden="true" />
-          Reference
-        </PromptInputActionMenuItem>
+        {onOpenSources && (
+          <PromptInputActionMenuItem aria-label="Connect data" onSelect={onOpenSources}>
+            <DatabaseIcon aria-hidden="true" />
+            Connect data
+          </PromptInputActionMenuItem>
+        )}
+        {contextReferences && (
+          <PromptInputActionMenuItem
+            aria-label="Reference existing context"
+            onSelect={onOpenReferences}
+            title="Reference existing context"
+          >
+            <AtSignIcon aria-hidden="true" />
+            Reference
+          </PromptInputActionMenuItem>
+        )}
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
   );

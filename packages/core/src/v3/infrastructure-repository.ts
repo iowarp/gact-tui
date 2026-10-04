@@ -14,7 +14,7 @@ import {
   type ManagedServiceCatalog,
   type ServiceActionInput,
 } from './infrastructure-contract.js';
-import { A2uiRepository } from './a2ui-repository.js';
+import { ConnectedStorageRepository } from './connected-storage-repository.js';
 import {
   hostStorageSettingsSchema,
   hostPathInspectionSchema,
@@ -24,7 +24,7 @@ import {
 } from './storage-contract.js';
 
 /** Infrastructure lifecycle and connection operations owned by the active CLIO. */
-export class InfrastructureRepository extends A2uiRepository {
+export class InfrastructureRepository extends ConnectedStorageRepository {
   public infrastructureInventory(signal?: AbortSignal): Promise<InfrastructureInventory> {
     return this.transport.request({
       method: 'GET',

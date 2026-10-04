@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { ConnectedSourcePicker } from './connected-source-picker';
 import type {
   AgentBlueprint,
   AgentBlueprintReference,
@@ -210,6 +211,7 @@ export function FileBrowser({
   onRefresh,
   onSelectedPathChange,
 }: FileBrowserProps) {
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
@@ -268,6 +270,12 @@ export function FileBrowser({
 
   return (
     <div className="h-full min-h-0" ref={hostRef}>
+      <ConnectedSourcePicker
+        workspaceId={workspaceId}
+        open={sourcesOpen}
+        onOpenChange={setSourcesOpen}
+        onChanged={onRefresh}
+      />
       <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
         <ResizablePanel
           defaultSize={stacked ? '42%' : '44%'}
@@ -276,6 +284,9 @@ export function FileBrowser({
         >
           <section aria-label="Workspace file tree" className="flex h-full min-h-0 flex-col">
             <div className="flex shrink-0 items-center gap-1.5 border-b p-2">
+              <Button size="sm" variant="outline" onClick={() => setSourcesOpen(true)}>
+                Sources
+              </Button>
               <div className="relative flex-1">
                 <SearchIcon
                   aria-hidden="true"
