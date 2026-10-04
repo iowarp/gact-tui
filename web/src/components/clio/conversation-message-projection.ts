@@ -8,16 +8,18 @@ export type SpecialMessageExecutionMode = 'plan' | 'deep_research';
 /** Keep a revised surface at its first transcript position, once per session. */
 export function foldA2UIRevisionBlocks(messages: readonly DomainMessage[]): DomainMessage[] {
   const placed = new Set<string>();
-  return messages.map((message) => ({
-    ...message,
-    blocks: message.blocks.filter((block) => {
+  return messages.map((message) => {
+    const blocks = message.blocks.filter((block) => {
       if (block.type !== 'a2ui') return true;
       const key = `${message.session_id}\u0000${block.surface_id}`;
       if (placed.has(key)) return false;
       placed.add(key);
       return true;
-    }),
-  }));
+    });
+    // Streaming replaces only the changed message. Preserve the other objects
+    // so memoized transcript rows do not all render again on every delta.
+    return blocks.length === message.blocks.length ? message : { ...message, blocks };
+  });
 }
 
 function actionContextFromText(text: string): Record<string, unknown> | undefined {

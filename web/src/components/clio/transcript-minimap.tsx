@@ -257,11 +257,12 @@ function MinimapRail({
                 <button
                   aria-label={`Jump to ${message.role} message ${row.index + 1}`}
                   aria-current={active ? 'location' : undefined}
-                  className="group absolute left-0 flex h-[11px] w-full items-center outline-none"
+                  className="group absolute left-0 flex w-full items-center outline-none"
                   onClick={() => onJump(row.index)}
                   style={{
+                    height: placed[position]?.height ?? ROW_HEIGHT,
                     transform: `translateY(${placed[position]?.y ?? row.start}px)`,
-                    transition: 'transform 120ms ease-out',
+                    transition: 'transform 120ms ease-out, height 120ms ease-out',
                   }}
                   type="button"
                 >

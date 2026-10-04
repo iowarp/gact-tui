@@ -9,8 +9,10 @@
  */
 
 export interface MagnifiedRow {
-  /** The row's y after magnification (px, same origin as the input starts). */
+  /** Top of the enlarged hit area (px, same origin as the input starts). */
   y: number;
+  /** Full hit area, including the extra space around the marker. */
+  height: number;
   /** 0 (far from the pointer) .. 1 (under it): how much the landmark grows. */
   lift: number;
 }
@@ -28,7 +30,7 @@ export function magnifyRows(
   pointerY: number | null,
   { radius = 26, spread = 12 }: MagnifyOptions = {},
 ): MagnifiedRow[] {
-  if (pointerY === null) return starts.map((y) => ({ y, lift: 0 }));
+  if (pointerY === null) return starts.map((y) => ({ y, height: rowHeight, lift: 0 }));
   const lifts = starts.map((start) => {
     const distance = start + rowHeight / 2 - pointerY;
     return Math.exp(-((distance / radius) ** 2));
@@ -48,9 +50,10 @@ export function magnifyRows(
   return starts.map((start, index) => {
     const lift = lifts[index] ?? 0;
     const extra = spread * lift;
-    // Center the row inside its own grown slot.
-    const y = start + cumulative + extra / 2 - anchor;
+    // The entire grown slot is clickable. Its marker remains centered, and
+    // adjacent slots meet even while magnified.
+    const y = start + cumulative - anchor;
     cumulative += extra;
-    return { y, lift };
+    return { y, height: rowHeight + extra, lift };
   });
 }
