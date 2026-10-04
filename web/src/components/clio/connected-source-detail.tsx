@@ -1,4 +1,5 @@
 import { vocab } from '@/lib/brand-vocabulary';
+import { connectionScope } from '@/lib/connection-scope';
 import type { ConnectedSourceState, SourceReview, WorkspaceReference } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -18,7 +19,9 @@ const bytes = (value: number) =>
     ? `${(value / 1024 ** 3).toFixed(1)} GB`
     : value >= 1024 ** 2
       ? `${(value / 1024 ** 2).toFixed(1)} MB`
-      : `${(value / 1024).toFixed(1)} KB`;
+      : value >= 1024
+        ? `${(value / 1024).toFixed(1)} KB`
+        : `${value} B`;
 
 /** Management of one source keeps refresh, reviewed writeback and disconnect explicit. */
 export function ConnectedSourceDetail({
@@ -48,7 +51,7 @@ export function ConnectedSourceDetail({
   const ready =
     Boolean(source.local_path) &&
     ['ready', 'stale', 'transferring'].includes(source.materialization ?? '');
-  const queryPrefix = ['connected-storage', settings.endpoint, workspaceId];
+  const queryPrefix = ['connected-storage', connectionScope(settings), workspaceId];
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: queryPrefix });
     onChanged();

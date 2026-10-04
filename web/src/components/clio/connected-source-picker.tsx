@@ -1,7 +1,8 @@
 import { vocab } from '@/lib/brand-vocabulary';
+import { connectionScope } from '@/lib/connection-scope';
 import type { SourceProvider, WorkspaceReference } from '@clio/core/v3';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRightIcon, DatabaseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +37,15 @@ export function ConnectedSourcePicker({
 }) {
   const { settings } = useConnectionSettings();
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const scope = `${connectionScope(settings)}:${workspaceId}`;
+  const activeScope = useRef(scope);
+  activeScope.current = scope;
+  useEffect(() => {
+    activeScope.current = scope;
+    return () => {
+      activeScope.current = '';
+    };
+  }, [scope]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -56,10 +66,18 @@ export function ConnectedSourcePicker({
         <div className="-mx-4 min-h-0 overflow-y-auto px-4">
           {open && (
             <PickerContents
-              key={`${settings.endpoint}:${workspaceId}`}
+              key={scope}
               workspaceId={workspaceId}
-              onSelect={onSelect}
-              onChanged={onChanged}
+              onSelect={
+                onSelect
+                  ? (reference) => {
+                      if (activeScope.current === scope) onSelect(reference);
+                    }
+                  : undefined
+              }
+              onChanged={() => {
+                if (activeScope.current === scope) onChanged?.();
+              }}
             />
           )}
         </div>
@@ -80,9 +98,10 @@ function PickerContents({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
-  const key = ['connected-storage', settings.endpoint, workspaceId];
+  const scope = connectionScope(settings);
+  const key = ['connected-storage', scope, workspaceId];
   // Endpoint-bound selection survives closing and reopening the same workspace picker.
-  const selectionKey = ['connected-storage-selection', settings.endpoint, workspaceId];
+  const selectionKey = ['connected-storage-selection', scope, workspaceId];
   const selection = useQuery({
     queryKey: selectionKey,
     queryFn: () => '',
@@ -104,7 +123,7 @@ function PickerContents({
     retry: false,
   });
   const host = useQuery({
-    queryKey: ['host-storage', settings.endpoint, 'local'],
+    queryKey: ['host-storage', scope, 'local'],
     queryFn: ({ signal }) => repository.hostStorageSettings('local', signal),
     retry: false,
   });

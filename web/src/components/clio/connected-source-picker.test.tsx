@@ -2,9 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { connectionScope } from '@/lib/connection-scope';
 
 const fixtures = vi.hoisted(() => ({
   endpoint: 'https://clio-one',
+  token: 'one',
   repository: {
     connectedSources: vi.fn(),
     storageProviders: vi.fn(),
@@ -18,7 +20,9 @@ const fixtures = vi.hoisted(() => ({
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => fixtures.repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: fixtures.endpoint } }),
+  useConnectionSettings: () => ({
+    settings: { endpoint: fixtures.endpoint, token: fixtures.token },
+  }),
 }));
 import { ConnectedSourcePicker } from './connected-source-picker';
 
@@ -38,6 +42,7 @@ const source = {
 beforeEach(() => {
   vi.resetAllMocks();
   fixtures.endpoint = 'https://clio-one';
+  fixtures.token = 'one';
   fixtures.repository.connectedSources.mockResolvedValue([source]);
   fixtures.repository.storageProviders.mockResolvedValue({
     providers: [
@@ -70,6 +75,33 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('connected source picker', () => {
+  it('does not attach a late result after switching credentials', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const onSelect = vi.fn();
+    let finish: ((value: unknown) => void) | undefined;
+    fixtures.repository.attachSourceFile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const view = () => (
+      <QueryClientProvider client={client}>
+        <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={onSelect} />
+      </QueryClientProvider>
+    );
+    const rendered = render(view());
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /OPAL inputs/ }));
+    await user.click(await screen.findByRole('button', { name: 'Attach' }));
+    await waitFor(() => expect(finish).toBeDefined());
+    fixtures.token = 'different';
+    fixtures.repository.connectedSources.mockResolvedValue([]);
+    rendered.rerender(view());
+    finish?.({ id: 'res_old', name: 'input.csv', revision: 1, detected_mime: 'text/csv' });
+    await screen.findByText('Bring your data into this workspace');
+    expect(onSelect).not.toHaveBeenCalled();
+  });
   it('keeps selection during refresh and attaches source-bound resource identity', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const onSelect = vi.fn();
@@ -130,23 +162,30 @@ describe('connected source picker', () => {
     expect(fixtures.repository.createConnectedSource).not.toHaveBeenCalled();
   });
 
-  it('does not carry a selected source into another connected CLIO', async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const view = () => (
-      <QueryClientProvider client={client}>
-        <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
-      </QueryClientProvider>
-    );
-    const rendered = render(view());
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: /OPAL inputs/ }));
-    fixtures.endpoint = 'https://clio-two';
-    fixtures.repository.connectedSources.mockResolvedValue([]);
-    rendered.rerender(view());
-    await screen.findByText('Bring your data into this workspace');
-    expect(screen.queryByRole('heading', { name: 'OPAL inputs' })).not.toBeInTheDocument();
-    expect(client.getQueryData(['connected-storage-selection', 'https://clio-one', 'w'])).toBe(
-      's1',
-    );
-  });
+  it.each(['endpoint', 'token'] as const)(
+    'does not carry a selected source across a changed %s',
+    async (field) => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const view = () => (
+        <QueryClientProvider client={client}>
+          <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
+        </QueryClientProvider>
+      );
+      const rendered = render(view());
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: /OPAL inputs/ }));
+      fixtures[field] = 'different';
+      fixtures.repository.connectedSources.mockResolvedValue([]);
+      rendered.rerender(view());
+      await screen.findByText('Bring your data into this workspace');
+      expect(screen.queryByRole('heading', { name: 'OPAL inputs' })).not.toBeInTheDocument();
+      expect(
+        client.getQueryData([
+          'connected-storage-selection',
+          connectionScope({ endpoint: 'https://clio-one', token: 'one' }),
+          'w',
+        ]),
+      ).toBe('s1');
+    },
+  );
 });
