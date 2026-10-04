@@ -6,7 +6,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import type { HtmlTagDescriptor, IndexHtmlTransformContext, Plugin, ViteDevServer } from 'vite';
+import type { HtmlTagDescriptor, IndexHtmlTransformContext, Plugin, ResolvedConfig, ViteDevServer } from 'vite';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { brandPlugin, loadBrand } from './vite-plugin-brand';
 
@@ -219,6 +219,27 @@ describe('loadBrand vocabulary fields', () => {
 });
 
 describe('custom brand icons', () => {
+  it.each(['svg', 'png', 'jpeg', 'webp'])('emits production %s artwork with a browser-recognized extension', (extension) => {
+    const content = extension === 'svg' ? GACT_LOGO_SVG : 'fixture-image-bytes';
+    const root = makeBrandingRoot('custom', {
+      name: 'Custom', logoImage: `mark.${extension}`, wordmarkImage: `wordmark.${extension}`,
+    }, { [`mark.${extension}`]: content, [`wordmark.${extension}`]: content });
+    const plugin = brandPlugin(root, 'custom');
+    const configure = plugin.configResolved;
+    const load = plugin.load;
+    if (!configure || !load) throw new Error('Brand production hooks are missing');
+    const configureFn = typeof configure === 'function' ? configure : configure.handler;
+    configureFn.call({} as never, { command: 'build' } as ResolvedConfig);
+    const loadFn = typeof load === 'function' ? load : load.handler;
+    const emitFile = vi.fn().mockReturnValue('brand_asset');
+    const module = loadFn.call({ emitFile } as never, '\0@brand');
+    expect(emitFile.mock.calls.map(([asset]) => asset.name)).toEqual([
+      `brand-logoImage.${extension}`, `brand-wordmarkImage.${extension}`,
+    ]);
+    expect(emitFile.mock.calls.every(([asset]) => asset.source.equals(Buffer.from(content)))).toBe(true);
+    expect(module).toContain('import.meta.ROLLUP_FILE_URL_brand_asset');
+  });
+
   it('loads separate artwork, monochrome icon and favicon from the selected profile', () => {
     const custom = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h4v4z"/></svg>';
     const root = makeBrandingRoot(

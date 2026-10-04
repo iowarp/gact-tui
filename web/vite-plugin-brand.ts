@@ -189,7 +189,9 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
           const value = brand[key];
           if (!value) continue;
           const comma = value.indexOf(',');
-          const extension = value.slice(5, value.indexOf(';')).split('/')[1];
+          const mime = value.slice(5, value.indexOf(';'));
+          // SVG's MIME suffix is not a file extension; static hosts must serve image/svg+xml.
+          const extension = mime === 'image/svg+xml' ? 'svg' : mime.split('/')[1];
           const ref = this.emitFile({
             type: 'asset',
             name: `brand-${key}.${extension}`,

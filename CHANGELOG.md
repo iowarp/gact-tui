@@ -6,6 +6,11 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.4] — 2026-10-03
+
+- Emit custom SVG logos and wordmarks with `.svg` filenames in production builds,
+  so static servers and native webviews serve them as images and display them.
+
 ## [0.11.3-beta.3] — 2026-10-03
 
 - Add an explicit **Enable beta updates** setting with an instability warning.
