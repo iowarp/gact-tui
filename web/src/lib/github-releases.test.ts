@@ -1,19 +1,35 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { latestPublishedRelease, releasesApi, selectPublishedRelease, type PublishedRelease } from './github-releases';
+import {
+  latestPublishedRelease,
+  releasesApi,
+  selectPublishedRelease,
+  type PublishedRelease,
+} from './github-releases';
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('release feed failures', () => {
   it('reports HTTP errors instead of claiming the installation is current', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 403 })));
-    await expect(latestPublishedRelease('https://github.com/example/product/releases', 'beta')).rejects.toThrow('HTTP 403');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 403 })),
+    );
+    await expect(
+      latestPublishedRelease('https://github.com/example/product/releases', 'beta'),
+    ).rejects.toThrow('HTTP 403');
   });
   it('rejects malformed metadata and missing published candidates', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ invalid: true }))
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ invalid: true }))
       .mockResolvedValueOnce(Response.json([release('v0.9.5-beta.2', { draft: true })]));
     vi.stubGlobal('fetch', fetcher);
-    await expect(latestPublishedRelease('https://github.com/example/product/releases', 'beta')).rejects.toThrow('invalid response');
-    await expect(latestPublishedRelease('https://github.com/example/product/releases', 'beta')).rejects.toThrow('No published beta');
+    await expect(
+      latestPublishedRelease('https://github.com/example/product/releases', 'beta'),
+    ).rejects.toThrow('invalid response');
+    await expect(
+      latestPublishedRelease('https://github.com/example/product/releases', 'beta'),
+    ).rejects.toThrow('No published beta');
   });
 });
 
