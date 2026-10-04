@@ -725,6 +725,11 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await expect(queue.getByText('7 queued messages')).toBeVisible();
   await expect(queue.getByText('New server update joined the queue.')).toBeVisible();
   await expect(queue.locator('[data-queue-live-item]')).toHaveCount(7);
+  // dnd-kit's drop animation temporarily dims the moved row to 0.4. Audit
+  // the settled queue, after that style is restored, rather than a drag frame.
+  const movedRow = queue.locator('[data-queue-live-item][data-value="queue_pdf"]');
+  await expect(movedRow).toHaveAttribute('data-dragging', 'false');
+  await expect(movedRow).toHaveCSS('opacity', '1');
   expect(
     (await new AxeBuilder({ page }).include('[aria-label="Queued messages"]').analyze()).violations,
   ).toEqual([]);
