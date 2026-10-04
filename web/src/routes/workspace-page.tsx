@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioMoreDetails } from '@/components/clio/more-details';
+import { AttentionModeBanner } from '@/components/clio/attention-mode-banner';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioChildSessionFooter } from '@/components/clio/child-session-footer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
@@ -33,6 +34,7 @@ import {
 import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
 import { useA2uiCatalogRegistry } from '@/lib/a2ui/processor-store';
 import { useRepository } from '@/hooks/use-repository';
+import { useAttentionMode } from '@/hooks/use-attention-mode';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import { useSessionCommands } from '@/hooks/use-session-commands';
@@ -157,6 +159,7 @@ export function WorkspacePage() {
       ),
     [sessionId],
   );
+  const attention = useAttentionMode(sessionId, transcript.data?.messages.length ?? 0);
   // messageCount lags transcript.isFetching by a render tick (it only
   // hydrates from transcript.data via use-workspace-data.ts's mergeSnapshots
   // effect), which used to flash the welcome variant -- remounting the
@@ -720,6 +723,7 @@ export function WorkspacePage() {
             streamError={streamError}
             transcriptError={messageCount > 0 ? transcriptError : undefined}
           />
+          <AttentionModeBanner onDismiss={attention.dismiss} state={attention.state} />
           <LayoutGroup id={`session-layout:${sessionId}`}>
             <AnimatePresence initial={false} mode="popLayout">
               {showConversationWelcome ? (
@@ -743,6 +747,7 @@ export function WorkspacePage() {
                 <TranscriptPresenceSurface className="min-h-0 flex-1" key="conversation">
                   <WorkspaceLiveConversation
                     artifacts={artifacts}
+                    attentionData={attention.state.status === 'shown' ? attention.state.data : undefined}
                     bottomInset={dockedComposerHeight}
                     error={transcriptError}
                     loading={transcript.isFetching}

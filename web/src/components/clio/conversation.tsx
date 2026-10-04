@@ -13,6 +13,7 @@ import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioCompactionProgress } from './conversation-summarization';
 import { placeCompactions } from './conversation-compaction-placement';
 import { ClioTranscriptMinimap } from './transcript-minimap';
+import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
 import {
   foldA2UIRevisionBlocks,
@@ -263,6 +264,8 @@ function ConversationBody({
     [disengage, markUserScrollIntent, messages, virtualized, virtualizer],
   );
 
+  useAttentionHighlights(scrollRef, entities.attentionData, messages, entities.tools);
+
   const conversationViewportWidth = useTranscriptWidth({
     virtualized,
     scrollRef,
@@ -327,12 +330,15 @@ function ConversationBody({
   return (
     <div className="relative h-full min-h-0">
       {messages.length > 0 ? (
-        <ClioTranscriptMinimap
-          activeIndex={activeMessageIndex}
-          messages={messages}
-          onJump={jumpToMessage}
-          visible={minimapVisible}
-        />
+        <>
+          <ClioTranscriptMinimap
+            activeIndex={activeMessageIndex}
+            attention={entities.attentionData}
+            messages={messages}
+            onJump={jumpToMessage}
+            visible={minimapVisible}
+          />
+        </>
       ) : null}
       {/* `overflow-anchor: none`: the virtualizer and the autoscroll hook own
           scroll position here. With the browser's own scroll anchoring on, it

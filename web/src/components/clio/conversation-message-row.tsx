@@ -38,6 +38,7 @@ import type {
   ConversationTurnCompactionRecord,
 } from './conversation-turn-model';
 import { useConversationTurn } from './use-conversation-turn';
+import { useMessageAttentionIndex } from './use-message-attention-index';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { brand } from '@brand';
@@ -82,6 +83,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     (block) => block.type === 'text' && block.text.trim().length > 0,
   );
   const executionMode = specialMessageExecutionMode(message);
+  const messageAttentionIndex = useMessageAttentionIndex(entities.attentionData, message);
 
   if (mcpAppResponse) {
     return (
@@ -285,6 +287,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     <MessageBlockSequence
                       blocks={[segment.block]}
                       key={segment.block.id}
+                      messageId={message.id}
+                      messageAttentionIndex={messageAttentionIndex}
                       messageSessionId={message.session_id}
                       {...entities}
                     />
@@ -297,6 +301,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                         interactions={entities.interactions}
                         iterations={segment.iterations}
                         mcpAppRepository={entities.mcpAppRepository}
+                        messageAttentionIndex={messageAttentionIndex}
                         messageSessionId={message.session_id}
                         mode={displayMode}
                         onOpenSubagent={entities.onOpenSubagent}
@@ -310,6 +315,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 <VariantRunsForMessage message={message} />
                 <MessageBlockSequence
                   blocks={visibleResidualBlocks}
+                  messageId={message.id}
+                  messageAttentionIndex={messageAttentionIndex}
                   messageSessionId={message.session_id}
                   {...entities}
                 />
@@ -319,6 +326,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 <VariantRunsForMessage message={message} />
                 <MessageBlockSequence
                   blocks={message.blocks}
+                  messageId={message.id}
+                  messageAttentionIndex={messageAttentionIndex}
                   messageSessionId={message.session_id}
                   resourcesFirst={message.role === 'user'}
                   compactReferences={message.role === 'user'}
@@ -457,6 +466,7 @@ export function conversationMessageRowPropsEqual(
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
     left.messageCompactions !== right.messageCompactions ||
+    left.attentionData !== right.attentionData ||
     !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
