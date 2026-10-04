@@ -358,8 +358,10 @@ function ModelRow({
             </Button>
           ) : (
             <Button asChild size="sm" variant="outline">
-              <Link to={`/infrastructure/services?target=${encodeURIComponent(targetId)}`}>
-                Manage runtimes
+              <Link
+                to={`/infrastructure/services?target=${encodeURIComponent(targetId)}&model=${encodeURIComponent(model.id)}`}
+              >
+                Set up runtime
               </Link>
             </Button>
           )}

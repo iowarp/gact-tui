@@ -21,11 +21,20 @@ export function ComposerAddContextButton({
   onOpenReferences: () => void;
   onOpenSources?: () => void;
 }) {
-  if (!contextReferences && !onOpenSources) {
+  if (!contextReferences) {
     return (
-      <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
-        <AddIcon aria-hidden="true" />
-      </PromptInputButton>
+      <>
+        {attachmentEnabled ? (
+          <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
+            <AddIcon aria-hidden="true" />
+          </PromptInputButton>
+        ) : null}
+        {onOpenSources ? (
+          <PromptInputButton aria-label="Connect data" onClick={onOpenSources} title="Connect data">
+            <DatabaseIcon aria-hidden="true" />
+          </PromptInputButton>
+        ) : null}
+      </>
     );
   }
   return (

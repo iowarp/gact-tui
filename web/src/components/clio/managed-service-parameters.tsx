@@ -145,9 +145,11 @@ const RESOURCE_LABELS: Record<OwnedResource['kind'], string> = {
 export function OwnedResources({
   rows,
   serviceLabel,
+  retained = false,
 }: {
   rows: OwnedResource[];
   serviceLabel: string;
+  retained?: boolean;
 }) {
   if (!rows.length) return null;
   return (
@@ -156,7 +158,9 @@ export function OwnedResources({
         Created on this host ({rows.length})
       </summary>
       <p className="mt-2 text-xs text-muted-foreground">
-        Uninstall removes these and nothing else.
+        {retained
+          ? 'Removing the runtime retains these folders. Delete retained data is a separate action.'
+          : 'Uninstall removes these and nothing else.'}
       </p>
       <ul aria-label={`${serviceLabel} created resources`} className="mt-2 space-y-1">
         {rows.map((row) => (

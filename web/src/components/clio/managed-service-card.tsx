@@ -14,7 +14,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
+import { InfoTip } from './info-tip';
 import { ServiceAccessChoice, ServiceAccessLine } from './managed-service-access';
 import {
   EffectiveParameters,
@@ -63,18 +74,22 @@ export function ManagedServiceCard({
   service: ManagedServiceDefinition;
   variant: string;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const compatible = service.variants.filter((item) => item.compatible);
+  const native = variant.startsWith('native-cuda');
+  const observation = service.observation;
   const installed = service.state === 'running' || service.state === 'stopped';
   // A record whose server is in no known state (an interrupted deploy, a
   // container removed outside CLIO) still owns things: offer uninstall.
   const recorded = (service.owned_resources ?? []).length > 0;
-  const operable = installed || compatible.length > 0;
+  const operable = installed || recorded || compatible.length > 0;
   const incompatibilityReasons = Array.from(
     new Set(service.variants.filter((item) => !item.compatible).map((item) => item.reason)),
   );
-  const missing = service.configuration_fields.some(
-    (field) => field.required && !configuration[field.id]?.trim(),
+  const fields = service.configuration_fields.filter(
+    (field) => !field.variants?.length || field.variants.includes(variant),
   );
+  const missing = fields.some((field) => field.required && !configuration[field.id]?.trim());
   const actions: ServiceAction[] =
     service.state === 'running'
       ? [
@@ -86,16 +101,43 @@ export function ManagedServiceCard({
         ]
       : service.state === 'stopped'
         ? ['start', 'status', 'logs', 'reinstall', 'uninstall']
-        : recorded
-          ? ['status', 'logs', 'uninstall']
-          : ['install'];
+        : recorded && native && observation?.phase === 'not_installed'
+          ? ['install', 'logs', 'delete_data']
+          : recorded
+            ? ['status', 'logs', 'uninstall']
+            : ['install'];
 
   return (
     <article className="grid gap-5 py-6 lg:grid-cols-[minmax(12rem,0.72fr)_minmax(0,1.28fr)]">
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="text-base font-semibold">{service.label}</h3>
-          <ServiceState compatible={Boolean(compatible.length)} state={service.state} />
+          {observation ? (
+            <ClioStatus
+              label={
+                observation.serving
+                  ? 'Serving'
+                  : observation.phase === 'installing'
+                    ? 'Installing'
+                    : observation.running
+                      ? 'Starting'
+                      : observation.installed
+                        ? 'Installed · stopped'
+                        : observation.phase === 'not_installed'
+                          ? 'Runtime removed'
+                          : observation.phase
+              }
+              value={observation.serving ? 'healthy' : 'degraded'}
+            />
+          ) : (
+            <ServiceState compatible={Boolean(compatible.length)} state={service.state} />
+          )}
+          {native ? (
+            <InfoTip label="About native runtime lifecycle">
+              Install prepares the pinned environment. Start loads the selected model. Removing the
+              runtime retains downloaded models, logs and captured evidence.
+            </InfoTip>
+          ) : null}
         </div>
         <p className="mt-1 max-w-sm text-sm text-muted-foreground">{service.description}</p>
         {service.connection_url ? (
@@ -147,8 +189,11 @@ export function ManagedServiceCard({
           </div>
         ) : null}
 
-        {compatible.length && service.state !== 'running' && !installed && !recorded
-          ? service.configuration_fields.map((field) => (
+        {compatible.length &&
+        service.state !== 'running' &&
+        !installed &&
+        (!recorded || observation?.phase === 'not_installed')
+          ? fields.map((field) => (
               <Field key={field.id}>
                 <FieldLabel>{field.label}</FieldLabel>
                 {field.options?.length ? (
@@ -215,7 +260,38 @@ export function ManagedServiceCard({
           />
         ) : null}
         {installed || recorded ? (
-          <OwnedResources rows={service.owned_resources ?? []} serviceLabel={service.label} />
+          <OwnedResources
+            rows={service.owned_resources ?? []}
+            serviceLabel={service.label}
+            retained={native}
+          />
+        ) : null}
+        {native && observation ? (
+          <details>
+            <summary className="cursor-pointer text-sm font-medium">Deployment receipt</summary>
+            <dl className="mt-3 grid gap-2 text-xs">
+              <div>
+                <dt className="text-muted-foreground">Compatibility profile</dt>
+                <dd className="break-all font-mono">{observation.definition_version}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Model</dt>
+                <dd className="break-all font-mono">{service.configuration.model}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Evidence on this host</dt>
+                <dd className="break-all font-mono">{observation.evidence_directory}</dd>
+              </div>
+              <div className="flex items-center gap-2">
+                <dt>Attention</dt>
+                <dd>{observation.attention_verified ? 'Verified' : 'Not verified'}</dd>
+                <InfoTip label="About attention verification">
+                  Installing the connector or serving a model does not verify attention. A fresh
+                  inference must produce a validated capture and token mapping.
+                </InfoTip>
+              </div>
+            </dl>
+          </details>
         ) : null}
 
         {connectionAction?.blockedReason ? (
@@ -249,12 +325,16 @@ export function ManagedServiceCard({
               <Button
                 disabled={Boolean(activeAction) || !variant || (name === 'install' && missing)}
                 key={name}
-                onClick={() => onAction(name)}
+                onClick={() => (name === 'delete_data' ? setConfirmDelete(true) : onAction(name))}
                 size="sm"
                 variant={name === 'start' ? 'default' : 'outline'}
               >
                 {activeAction === name ? <Spinner aria-hidden="true" /> : null}
-                {activeAction === name ? actionProgressLabel(name) : actionLabel(name)}
+                {activeAction === name
+                  ? actionProgressLabel(name)
+                  : name === 'uninstall' && native
+                    ? 'Remove runtime'
+                    : actionLabel(name)}
               </Button>
             ))}
           </div>
@@ -300,6 +380,26 @@ export function ManagedServiceCard({
           </p>
         ) : null}
       </div>
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete retained {service.label} data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes this deployment’s environment cache, logs and captured
+              evidence on its execution host. The separately downloaded model is retained.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="break-all font-mono text-xs">
+            {service.configuration['storage.service_directory']}
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep data</AlertDialogCancel>
+            <AlertDialogAction onClick={() => onAction('delete_data')}>
+              Delete retained data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </article>
   );
 }
@@ -366,6 +466,7 @@ function actionLabel(action: ServiceAction): string {
     stop: 'Stop',
     reinstall: 'Reinstall',
     uninstall: 'Uninstall',
+    delete_data: 'Delete retained data',
   };
   return labels[action];
 }
@@ -379,6 +480,7 @@ function actionProgressLabel(action: ServiceAction): string {
     stop: 'Stopping…',
     reinstall: 'Reinstalling…',
     uninstall: 'Uninstalling…',
+    delete_data: 'Deleting retained data…',
   };
   return labels[action];
 }

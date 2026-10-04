@@ -79,6 +79,7 @@ const serviceFieldSchema = z.object({
   placeholder: z.string(),
   required: z.boolean(),
   options: z.array(z.string()).default([]),
+  variants: z.array(z.string()).optional(),
 });
 
 /** A tweakable server parameter as the service's driver declares it. */
@@ -135,6 +136,21 @@ export const serviceAccessSchema = z.object({
   verified: z.boolean().default(false),
 });
 
+const serviceObservationSchema = z.object({
+  definition_version: z.string(),
+  configuration_revision: z.string(),
+  phase: z.enum(['not_installed', 'installing', 'stopped', 'running', 'failed', 'interrupted']),
+  installed: z.boolean(),
+  running: z.boolean(),
+  serving: z.boolean(),
+  worker_alive: z.boolean(),
+  provenance_ingesting: z.boolean(),
+  attention_verified: z.boolean(),
+  evidence_directory: z.string(),
+  error: z.string().nullish(),
+  observed_at: z.number(),
+});
+
 export const managedServiceDefinitionSchema = z.object({
   id: z.string(),
   category: z.enum(['model_runtime', 'scientific_service', 'remote_access']),
@@ -161,6 +177,8 @@ export const managedServiceDefinitionSchema = z.object({
   supports_api_key: z.boolean().default(false),
   /** Who can use the installed deployment. */
   access: serviceAccessSchema.nullish().transform((value) => value ?? undefined),
+  definition_version: z.string().optional(),
+  observation: serviceObservationSchema.nullish().transform((value) => value ?? undefined),
 });
 
 export const managedServiceCatalogSchema = z.object({
@@ -264,7 +282,15 @@ export type CreateInfrastructureTargetInput = {
 
 export type ServiceActionInput = {
   target_id: string;
-  action: 'install' | 'start' | 'status' | 'stop' | 'logs' | 'reinstall' | 'uninstall';
+  action:
+    | 'install'
+    | 'start'
+    | 'status'
+    | 'stop'
+    | 'logs'
+    | 'reinstall'
+    | 'uninstall'
+    | 'delete_data';
   variant_id: string;
   configuration: Record<string, string>;
 };

@@ -138,6 +138,42 @@ export function ManagedServices({
   );
   const [searchParams] = useSearchParams();
   const requestedTarget = searchParams.get('target');
+  const requestedModel = searchParams.get('model');
+  const appliedModelLink = useRef('');
+  const modelSelection = useQuery({
+    enabled: Boolean(requestedModel && requestedTarget === targetId),
+    queryKey: ['model-inventory', settings.endpoint, targetId],
+    queryFn: ({ signal }) => repository.modelInventory(targetId, signal),
+    retry: false,
+  });
+  useEffect(() => {
+    const key = `${settings.endpoint}:${targetId}:${requestedModel}`;
+    if (!requestedModel || requestedTarget !== targetId || appliedModelLink.current === key) return;
+    const selected = modelSelection.data?.models.find(
+      (row) => row.id === requestedModel && row.state === 'ready',
+    );
+    if (!selected || modelSelection.data?.unavailable_reason) return;
+    appliedModelLink.current = key;
+    setSelectedProvider('vllm');
+    setManagerOpen(true);
+    setConfiguration((current) => ({
+      ...current,
+      vllm: {
+        ...current.vllm,
+        model: selected.destination,
+        model_revision: selected.revision || '',
+      },
+    }));
+  }, [
+    modelSelection.data,
+    requestedModel,
+    requestedTarget,
+    settings.endpoint,
+    targetId,
+    setSelectedProvider,
+    setManagerOpen,
+    setConfiguration,
+  ]);
   const visitedTargetLink = useRef('');
   const canManageSshTargets = desktop && isManagedConnection;
   // The NSIS installer's Infrastructure page records a llama.cpp request as a
@@ -314,7 +350,11 @@ export function ManagedServices({
                 ? result.logs.trim() || 'No recent log output.'
                 : ['install', 'reinstall', 'start'].includes(result.action)
                   ? `${result.action[0].toUpperCase()}${result.action.slice(1)} completed. View logs for the server output.`
-                  : result.logs || `${result.action} completed.`,
+                  : result.action === 'uninstall'
+                    ? 'Runtime removal completed. Inspect storage for retained data.'
+                    : result.action === 'delete_data'
+                      ? 'Retained deployment data deleted.'
+                      : `${result.action} completed.`,
         },
       }));
       await catalog.refetch();
@@ -354,7 +394,7 @@ export function ManagedServices({
             ? action.variables.action
             : undefined
         }
-        configuration={configuration[service.id] ?? {}}
+        configuration={{ ...service.configuration, ...configuration[service.id] }}
         connectionStatus={
           service.id === 'web_search' && service.state === 'running' ? (
             <WebSearchServiceConnection
@@ -373,7 +413,7 @@ export function ManagedServices({
             action: requestedAction,
             variant_id: variant,
             configuration: configurationForVariant(
-              configuration[service.id] ?? {},
+              { ...service.configuration, ...configuration[service.id] },
               service.parameters ?? [],
               variant,
             ),
@@ -392,7 +432,10 @@ export function ManagedServices({
         }
         onVariant={(value) => setVariants((current) => ({ ...current, [service.id]: value }))}
         connectionAction={
-          service.category === 'model_runtime' && service.state === 'running' && agentConnectionUrl
+          service.category === 'model_runtime' &&
+          service.state === 'running' &&
+          (!service.observation || service.observation.serving) &&
+          agentConnectionUrl
             ? modelRuntimeInModels(savedServers.servers.data, service.id, agentConnectionUrl)
               ? { label: 'Open in Models', to: '/settings/providers' }
               : {
