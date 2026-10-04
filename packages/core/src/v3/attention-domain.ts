@@ -42,6 +42,7 @@ export type AttentionBlockKind =
 export interface AttentionSelection {
   part_id?: string;
   field?: string;
+  content_revision?: string;
   start?: number;
   end?: number;
   text: string;
@@ -67,6 +68,7 @@ export interface AttentionBlock {
   part_id: string;
   call_id?: string;
   content_revision?: string;
+  source_text?: string;
   field: string;
   kind: AttentionBlockKind;
   section?: number;

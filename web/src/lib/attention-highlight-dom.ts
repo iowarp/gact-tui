@@ -49,9 +49,15 @@ export function findPartElement(
   partId: string,
   field: string,
 ): Element | null {
+  const exact = container.querySelector(
+    `[data-message-id="${cssEscape(messageId)}"][data-part-id="${cssEscape(partId)}"][data-field="${cssEscape(field)}"]`,
+  );
+  if (exact) return exact;
   const messageRoot = container.querySelector(`[data-message-id="${cssEscape(messageId)}"]`);
   if (!messageRoot) return null;
-  return messageRoot.querySelector(`[data-part-id="${cssEscape(partId)}"][data-field="${cssEscape(field)}"]`);
+  return messageRoot.querySelector(
+    `[data-part-id="${cssEscape(partId)}"][data-field="${cssEscape(field)}"]`,
+  );
 }
 
 /** A `Range` spanning raw character offsets `[lo, hi)` of `element`'s text content, or `undefined` if out of bounds. */
@@ -132,7 +138,8 @@ export function buildSelectedRange(
   sourceText: string | undefined,
 ): Range | undefined {
   const { part_id: partId, field, start, end } = data.selection;
-  if (!partId || !field || start === undefined || end === undefined || !sourceText) return undefined;
+  if (!partId || !field || start === undefined || end === undefined || !sourceText)
+    return undefined;
   const element = findPartElement(container, data.message_id, partId, field);
   if (!element) return undefined;
   const domProjection = projectText(element.textContent ?? '', { source: false });

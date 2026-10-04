@@ -6,6 +6,8 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import { buildMessageAttentionIndex } from './attention-tool-index';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 
 export interface ResolvedAttentionBlock {
   block: AttentionBlock;
@@ -22,7 +24,9 @@ export function toolResultText(output: unknown): string {
       const text = content
         .filter(
           (item): item is { type: string; text: string } =>
-            Boolean(item) && typeof item === 'object' && (item as { type?: unknown }).type === 'text',
+            Boolean(item) &&
+            typeof item === 'object' &&
+            (item as { type?: unknown }).type === 'text',
         )
         .map((item) => item.text)
         .join('\n');
@@ -102,7 +106,8 @@ export function resolveAttentionSources(
       if (block.kind === 'thought') {
         if (toolBlock.thought) resolved.push({ block, sourceText: toolBlock.thought });
       } else if (block.kind === 'tool_input') {
-        if (tool?.input !== undefined) resolved.push({ block, sourceText: toolInputText(tool.input) });
+        if (tool?.input !== undefined)
+          resolved.push({ block, sourceText: block.source_text ?? toolInputText(tool.input) });
       } else if (block.kind === 'tool_result') {
         if (tool?.output !== undefined) {
           const text = toolResultText(tool.output);
@@ -111,5 +116,9 @@ export function resolveAttentionSources(
       }
     }
   }
-  return resolved;
+  return resolved.filter(
+    ({ block, sourceText }) =>
+      !block.content_revision ||
+      bytesToHex(sha256(new TextEncoder().encode(sourceText))) === block.content_revision,
+  );
 }

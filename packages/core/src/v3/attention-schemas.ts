@@ -8,6 +8,7 @@ const attentionSelectionSchema = z
   .object({
     part_id: z.string().optional(),
     field: z.string().optional(),
+    content_revision: z.string().optional(),
     start: z.number().optional(),
     end: z.number().optional(),
     text: z.string(),
@@ -38,6 +39,7 @@ const attentionBlockSchema = z
     part_id: z.string(),
     call_id: z.string().optional(),
     content_revision: z.string().optional(),
+    source_text: z.string().optional(),
     field: z.string(),
     kind: z.string(),
     section: z.number().optional(),
@@ -72,7 +74,7 @@ const attentionTokenSchema = z
   })
   .passthrough();
 
-const attentionAvailableSchema = z
+export const attentionAvailableSchema = z
   .object({
     schema: z.string().optional(),
     profile: attentionProfileGeneratedSchema.optional(),
@@ -108,7 +110,7 @@ const attentionAvailableSchema = z
   })
   .passthrough();
 
-const attentionUnavailableSchema = z
+export const attentionUnavailableSchema = z
   .object({
     available: z.literal(false),
     reason: z.string().optional(),

@@ -7,6 +7,7 @@ import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioMoreDetails } from '@/components/clio/more-details';
 import { AttentionModeBanner } from '@/components/clio/attention-mode-banner';
+import { AttentionLookupPanel } from '@/components/clio/attention-lookup-panel';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioChildSessionFooter } from '@/components/clio/child-session-footer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
@@ -712,6 +713,7 @@ export function WorkspacePage() {
             state={attention.state}
             onProfileChange={attention.changeProfile}
           />
+          <AttentionLookupPanel sessionId={sessionId} />
           <LayoutGroup id={`session-layout:${sessionId}`}>
             <AnimatePresence initial={false} mode="popLayout">
               {showConversationWelcome ? (

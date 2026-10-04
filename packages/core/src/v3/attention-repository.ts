@@ -5,6 +5,12 @@ import type {
 } from './attention-domain.js';
 import { attentionResultSchema, attentionSessionAvailabilitySchema } from './attention-schemas.js';
 import { SessionHistoryRepository } from './session-history-repository.js';
+import {
+  attentionLookupResultSchema,
+  type AttentionLookupDirection,
+  type AttentionLookupResult,
+} from './attention-lookup-contract.js';
+import type { ContentSelection } from './storage-contract.js';
 
 /**
  * "Understand attention": which earlier transcript text the model drew on to
@@ -15,6 +21,25 @@ import { SessionHistoryRepository } from './session-history-repository.js';
  * to branch on `available`.
  */
 export class AttentionRepository extends SessionHistoryRepository {
+  public lookupAttention(
+    sessionId: string,
+    input: {
+      selections: ContentSelection[];
+      direction: AttentionLookupDirection;
+      profile?: AttentionProfile;
+      cursor?: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<AttentionLookupResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/attention/lookup`,
+      body: input,
+      signal,
+      decode: (value) => attentionLookupResultSchema.parse(value),
+    });
+  }
+
   public getAttention(
     sessionId: string,
     messageId: string,

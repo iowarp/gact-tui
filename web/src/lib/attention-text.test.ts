@@ -45,6 +45,18 @@ describe('projectText', () => {
 });
 
 describe('findRunInRenderedText', () => {
+  it('maps repeated words directly and accounts for astral Unicode before the run', () => {
+    const source = '🧭 **north** then north';
+    const dom = projectText('🧭 north then north', { source: false });
+    const found = findRunInRenderedText(source, 17, 22, dom);
+    expect(found).toMatchObject({ domLo: 14, domHi: 19 });
+  });
+
+  it('refuses a stale rendering even if the selected word still occurs in it', () => {
+    expect(
+      findRunInRenderedText('old north', 4, 9, projectText('new north', { source: false })),
+    ).toBeUndefined();
+  });
   it('finds a source run inside differently-formatted rendered text', () => {
     const source = 'the **confirmed** column names';
     const domText = 'the confirmed column names'; // as rendered: no ** markers

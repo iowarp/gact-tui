@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { SentReferenceMessage } from './sent-reference-message';
 import { ClioStreamingText } from './streaming-text';
+import { bindTranscriptText } from '@/lib/transcript-content-selection';
 
 /** Bind selectable text to the exact source revision, without duplicating it in the DOM. */
 export function TranscriptTextBlock({
@@ -28,6 +29,19 @@ export function TranscriptTextBlock({
       data-part-id={block.id}
       data-content-revision={revision}
       data-slot="message-text"
+      ref={(element) =>
+        bindTranscriptText(
+          element,
+          revision
+            ? {
+                source: block.text,
+                partId: block.id,
+                revision,
+                field: 'text',
+              }
+            : undefined,
+        )
+      }
     >
       {block.streaming ? (
         <ClioStreamingText className="leading-7" active text={block.text} />

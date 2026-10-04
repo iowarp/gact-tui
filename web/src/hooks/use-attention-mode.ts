@@ -96,6 +96,13 @@ export function useAttentionMode(
             text: target.text,
             ...(target.partId ? { part_id: target.partId } : {}),
             ...(target.contentRevision ? { content_revision: target.contentRevision } : {}),
+            ...(target.reference?.selection.kind === 'text'
+              ? {
+                  start: target.reference.selection.start,
+                  end: target.reference.selection.end,
+                  field: target.reference.field,
+                }
+              : {}),
             ...(selectedProfile ? { profile: selectedProfile } : {}),
           },
           controller.signal,

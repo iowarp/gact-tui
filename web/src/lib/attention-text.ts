@@ -100,14 +100,21 @@ export function findRunInRenderedText(
   domProjection: TextProjection,
   searchFrom = 0,
 ): { domLo: number; domHi: number; projectedEnd: number } | undefined {
-  const needle = projectText(sourceText.slice(charLo, charHi), { source: true });
-  if (!needle.text) return undefined;
-  const from = Math.max(0, Math.min(searchFrom, domProjection.text.length));
-  const found = domProjection.text.indexOf(needle.text, from);
-  if (found < 0) return undefined;
-  const domLo = domProjection.index[found] as number;
-  const domHi = (domProjection.index[found + needle.text.length - 1] as number) + 1;
-  return { domLo, domHi, projectedEnd: found + needle.text.length };
+  const points = [...sourceText];
+  if (charLo < 0 || charHi > points.length || charHi <= charLo) return undefined;
+  const sourceLo = points.slice(0, charLo).join('').length;
+  const sourceHi = points.slice(0, charHi).join('').length;
+  const source = projectText(sourceText, { source: true });
+  // A substring match cannot distinguish repeated words or a stale rendering.
+  // Match the entire part before mapping its exact Unicode-point coordinates.
+  if (!source.text || source.text !== domProjection.text) return undefined;
+  const lo = source.index.findIndex((offset) => offset >= sourceLo);
+  const after = source.index.findIndex((offset) => offset >= sourceHi);
+  const hi = after < 0 ? source.index.length : after;
+  if (lo < searchFrom || lo < 0 || hi <= lo) return undefined;
+  const domLo = domProjection.index[lo] as number;
+  const domHi = (domProjection.index[hi - 1] as number) + 1;
+  return { domLo, domHi, projectedEnd: hi };
 }
 
 /**
@@ -132,7 +139,9 @@ export function formatSharePercent(share: number): string {
 }
 
 /** The highest single run value across every block, the denominator `bucketIntensity` scales against. */
-export function maxRunValue(blocks: readonly { runs: readonly (readonly [number, number, number])[] }[]): number {
+export function maxRunValue(
+  blocks: readonly { runs: readonly (readonly [number, number, number])[] }[],
+): number {
   let max = 0;
   for (const block of blocks) {
     for (const [, , value] of block.runs) {

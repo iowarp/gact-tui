@@ -10,6 +10,7 @@ export const contentSelectionGeneratedSchema: z.ZodType<ContentSelection> = z
     artifact_ref: z.union([z.string(), z.null()]).default(null),
     call_id: z.union([z.string(), z.null()]).default(null),
     content_revision: z.string().min(1),
+    field: z.enum(['text', 'thought', 'input', 'result', 'content']).default('text'),
     message_id: z.string().min(1),
     part_id: z.string().min(1),
     schema_version: z.literal(1).default(1),
