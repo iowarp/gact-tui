@@ -357,6 +357,12 @@ export function queryInvalidationKeysForEvent({
   workspaceId,
 }: QueryInvalidationEvent): QueryKey[] {
   const keys: QueryKey[] = [];
+  if (eventName === 'blueprint.authoring.changed' || eventName === 'blueprint.revision.changed') {
+    keys.push(
+      queryKeys.key('blueprint-authoring', endpoint),
+      queryKeys.key('blueprint-file', endpoint),
+    );
+  }
   if (eventName === 'blueprint.revision.changed') {
     keys.push(
       queryKeys.agentBlueprints(endpoint),

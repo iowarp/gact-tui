@@ -210,12 +210,13 @@ export class BlueprintRepository extends SessionObservabilityRepository {
     blueprintId: string,
     path: string,
     content: string,
-    options: { workspaceId?: string; sessionId?: string } = {},
+    options: { workspaceId?: string; sessionId?: string; expectedHash?: string } = {},
     signal?: AbortSignal,
   ): Promise<{
     entry: WorkspaceFileEntry;
     validation_errors: string[];
     validation_warnings: string[];
+    content_hash?: string;
   }> {
     const query = new URLSearchParams({ path });
     if (options.workspaceId) query.set('workspace_id', options.workspaceId);
@@ -223,7 +224,7 @@ export class BlueprintRepository extends SessionObservabilityRepository {
     return this.transport.request({
       method: 'PUT',
       path: `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}/files/write?${query.toString()}`,
-      body: { content },
+      body: { content, ...(options.expectedHash ? { expected_hash: options.expectedHash } : {}) },
       decode: (value) => {
         const parsed = z
           .object({
@@ -237,14 +238,98 @@ export class BlueprintRepository extends SessionObservabilityRepository {
               validation_errors: z.array(z.string()).default([]),
               validation_warnings: z.array(z.string()).default([]),
             }),
+            content_hash: z.string().optional(),
           })
           .parse(value);
         return {
           entry: parsed.entry as WorkspaceFileEntry,
           validation_errors: parsed.validation.validation_errors,
           validation_warnings: parsed.validation.validation_warnings,
+          ...(parsed.content_hash ? { content_hash: parsed.content_hash } : {}),
         };
       },
+      signal,
+    });
+  }
+
+  public readAgentBlueprintDraft(
+    blueprintId: string,
+    path: string,
+    options: { workspaceId?: string; sessionId?: string } = {},
+    signal?: AbortSignal,
+  ): Promise<{ content: string; content_hash: string }> {
+    const query = new URLSearchParams({ path });
+    if (options.workspaceId) query.set('workspace_id', options.workspaceId);
+    if (options.sessionId) query.set('session_id', options.sessionId);
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}/draft?${query}`,
+      decode: (value) => z.object({ content: z.string(), content_hash: z.string() }).parse(value),
+      signal,
+    });
+  }
+
+  public agentBlueprintAuthoring(
+    blueprintId: string,
+    options: { workspaceId?: string; sessionId?: string } = {},
+    signal?: AbortSignal,
+  ) {
+    const query = new URLSearchParams();
+    if (options.workspaceId) query.set('workspace_id', options.workspaceId);
+    if (options.sessionId) query.set('session_id', options.sessionId);
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}/authoring?${query}`,
+      decode: (value) =>
+        z
+          .object({
+            source: z.string(),
+            git_source: z.boolean().default(false),
+            scope: z.string(),
+            installed_revision: z.string(),
+            has_draft: z.boolean(),
+            unpublished_files: z.array(z.string()),
+            checkout_required: z.boolean(),
+            reload_required: z.boolean(),
+          })
+          .parse(value),
+      signal,
+    });
+  }
+
+  public publishAgentBlueprintDraft(
+    blueprintId: string,
+    options: {
+      workspaceId?: string;
+      sessionId?: string;
+      checkout?: string;
+      commitMessage?: string;
+      push?: boolean;
+    } = {},
+    signal?: AbortSignal,
+  ) {
+    const query = new URLSearchParams();
+    if (options.workspaceId) query.set('workspace_id', options.workspaceId);
+    if (options.sessionId) query.set('session_id', options.sessionId);
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/agent-blueprints/${encodeURIComponent(blueprintId)}/publish?${query}`,
+      body: {
+        checkout: options.checkout || '',
+        commit_message: options.commitMessage || '',
+        push: options.push || false,
+      },
+      decode: (value) =>
+        z
+          .object({
+            published: z.array(z.string()),
+            source: z.string(),
+            reload_required: z.boolean(),
+            git: z
+              .object({ commit: z.string(), branch: z.string(), pushed: z.boolean() })
+              .optional(),
+          })
+          .parse(value),
       signal,
     });
   }

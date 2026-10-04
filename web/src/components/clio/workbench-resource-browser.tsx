@@ -7,7 +7,7 @@ import type {
   SubagentRun,
   WorkspaceFileEntry,
 } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIcon,
   BotIcon,
@@ -546,9 +546,29 @@ interface BlueprintViewProps {
 export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintViewProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const queryClient = useQueryClient();
+  const catalog = useQuery({
+    queryKey: queryKeys.agentBlueprints(settings.endpoint, workspaceId),
+    queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
+  });
+  const currentBlueprint = catalog.data?.find((row) => row.id === blueprint.id) ?? blueprint;
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
-  const [selectedPath, setSelectedPath] = useState<string>();
+  const selectionKey = [
+    'blueprint-selected-file',
+    settings.endpoint,
+    blueprint.id,
+    workspaceId,
+    sessionId,
+  ];
+  const { data: selectedPath } = useQuery<string | null>({
+    queryKey: selectionKey,
+    queryFn: skipToken,
+    initialData: null,
+    enabled: false,
+    gcTime: Infinity,
+  });
+  const setSelectedPath = (path: string) => queryClient.setQueryData(selectionKey, path);
   const files = useQuery({
     queryKey: queryKeys.key(
       'blueprint-files',
@@ -581,26 +601,38 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
 
   return (
     <div className="h-full min-h-0" ref={hostRef}>
-      <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
+      <ResizablePanelGroup
+        key={stacked ? 'stacked' : 'beside'}
+        orientation={stacked ? 'vertical' : 'horizontal'}
+      >
         <ResizablePanel
-          defaultSize={stacked ? '38%' : '34%'}
+          defaultSize={stacked ? '24%' : '28%'}
           id={`blueprint-${blueprint.id}-tree`}
-          minSize={stacked ? '150px' : '210px'}
+          minSize={stacked ? '110px' : '210px'}
         >
-          <section aria-label={`${blueprint.display_name} files`} className="flex h-full flex-col">
+          <section
+            aria-label={`${currentBlueprint.display_name} files`}
+            className="flex h-full flex-col"
+          >
             <div className="shrink-0 border-b p-3">
               <div className="flex items-start gap-2">
                 <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{blueprint.display_name}</p>
+                  <p className="truncate text-sm font-medium">{currentBlueprint.display_name}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {blueprint.enabled === undefined ? null : (
-                      <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                    {currentBlueprint.enabled === undefined ? null : (
+                      <ClioStatus value={currentBlueprint.enabled ? 'healthy' : 'degraded'} />
                     )}
-                    {blueprint.version ? (
-                      <Badge variant="outline">Version {blueprint.version}</Badge>
+                    {currentBlueprint.version ? (
+                      <Badge variant="outline">Version {currentBlueprint.version}</Badge>
                     ) : null}
-                    {blueprint.scope ? <Badge variant="outline">{blueprint.scope}</Badge> : null}
+                    {currentBlueprint.scope ? (
+                      <Badge variant="outline">
+                        {currentBlueprint.scope === 'global'
+                          ? 'All workspaces'
+                          : currentBlueprint.scope}
+                      </Badge>
+                    ) : null}
                   </div>
                 </div>
               </div>

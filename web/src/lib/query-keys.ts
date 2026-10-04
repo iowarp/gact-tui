@@ -21,6 +21,7 @@ export type ClioQueryNamespace =
   | 'artifact-text'
   | 'blueprint-files'
   | 'blueprint-file'
+  | 'blueprint-authoring'
   | 'capabilities'
   | 'commands'
   | 'connection-availability'
