@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
 import { Link } from 'react-router-dom';
 import { LaptopIcon, ServerIcon, ArrowRightIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { HostStorageSettings } from './host-storage-settings';
+import { ModelAcquisitions } from './model-acquisition';
 import { InfoTip } from './info-tip';
 import { vocab } from '@/lib/brand-vocabulary';
 
@@ -25,7 +26,11 @@ export function InfrastructureInventory({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const [targetId, setTargetId] = useState('local');
+  const [targetId, setTargetId] = useInfrastructureState(
+    settings.endpoint,
+    'model-storage-target',
+    'local',
+  );
   const inventory = useQuery({
     queryKey: ['infrastructure-inventory', settings.endpoint],
     queryFn: ({ signal }) => repository.infrastructureInventory(signal),
@@ -61,15 +66,43 @@ export function InfrastructureInventory({
               ))}
           </SelectContent>
         </Select>
+        <ModelAcquisitions
+          key={`models:${targetId}`}
+          targetId={targetId}
+          hostLabel={data.targets.find((host) => host.id === targetId)?.label || targetId}
+        />
         <HostStorageSettings key={targetId} targetId={targetId} />
       </div>
     );
   if (section === 'activity')
     return (
       <div className="mt-6 divide-y rounded-lg border">
-        {!data.operations.length ? (
+        {!data.operations.length && !data.model_acquisitions.length ? (
           <p className="p-6 text-sm text-muted-foreground">No infrastructure operations yet.</p>
         ) : null}
+        {data.model_acquisitions.map((model) => (
+          <div className="space-y-2 p-4" key={`${model.target_id}:${model.id}`}>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium">Download · {model.repository}</span>
+              <span className="text-sm text-muted-foreground">
+                {data.targets.find((host) => host.id === model.target_id)?.label || model.target_id}
+              </span>
+              <Badge variant="outline">{model.state}</Badge>
+              <Button asChild variant="ghost" size="sm" className="ml-auto">
+                <Link
+                  to="/infrastructure/models"
+                  onClick={() => setTargetId(model.target_id || 'local')}
+                >
+                  Inspect
+                </Link>
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {model.phase} · Last observed{' '}
+              {new Date((model.observed_at ?? model.updated_at) * 1000).toLocaleString()}
+            </p>
+          </div>
+        ))}
         {data.operations.map((operation) => (
           <details className="p-4" key={operation.id}>
             <summary className="flex cursor-pointer flex-wrap items-center gap-3">

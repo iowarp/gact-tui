@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { modelAcquisitionSchema } from './model-acquisition-contract.js';
 
 export const infrastructureTransportStateSchema = z.enum([
   'connected',
@@ -237,6 +238,7 @@ export const infrastructureInventorySchema = z.object({
   ),
   connections: z.array(externalServiceConnectionSchema),
   operations: z.array(infrastructureOperationSchema),
+  model_acquisitions: z.array(modelAcquisitionSchema).default([]),
 });
 export type InfrastructureInventory = z.infer<typeof infrastructureInventorySchema>;
 export type InfrastructureTarget = z.infer<typeof infrastructureTargetSchema>;

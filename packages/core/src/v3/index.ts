@@ -35,6 +35,7 @@ export * from './composer-decoding.js';
 export * from './composer-domain.js';
 export * from './connected-storage-contract.js';
 export * from './connected-storage-repository.js';
+export * from './model-acquisition-contract.js';
 export * from './composer-schemas.js';
 export * from './composer-repository.js';
 export * from './interaction-repository.js';
