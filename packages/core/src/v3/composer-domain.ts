@@ -108,7 +108,8 @@ export interface MessageSubmissionInput {
   idempotency_key: string;
   delivery: MessageDelivery;
   behavior: MessageBehavior;
-  model: ComposerModelRef;
+  /** Absent uses the session's configured model on the owning service. */
+  model?: ComposerModelRef;
   metadata?: Record<string, unknown>;
 }
 
