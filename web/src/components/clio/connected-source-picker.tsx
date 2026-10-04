@@ -1,3 +1,4 @@
+import { vocab } from '@/lib/brand-vocabulary';
 import type { SourceProvider, WorkspaceReference } from '@clio/core/v3';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
@@ -49,7 +50,7 @@ export function ConnectedSourcePicker({
             Connected data
           </DialogTitle>
           <DialogDescription>
-            Choose inputs for this workspace on the connected CLIO.
+            Choose inputs for this workspace on the connected {vocab.agent}.
           </DialogDescription>
         </DialogHeader>
         <div className="-mx-4 min-h-0 overflow-y-auto px-4">
@@ -109,7 +110,7 @@ function PickerContents({
   });
   const hostLabel = host.data?.hostname
     ? `${host.data.host_label} · ${host.data.hostname}`
-    : (host.data?.host_label ?? 'the connected CLIO');
+    : (host.data?.host_label ?? `the connected ${vocab.agent}`);
   const source = sources.data?.find((row) => row.id === selection.data);
   if (desktopUpload)
     return (
@@ -160,8 +161,8 @@ function PickerContents({
         <DatabaseIcon aria-hidden="true" className="size-4" />
         <span className="min-w-0 truncate">{hostLabel}</span>
         <InfoTip label="About connected data">
-          Files are staged on this CLIO. Local paths refer to this machine. Desktop folders use the
-          explicit upload action; no background synchronization is implied.
+          Files are staged on this {vocab.agent}. Local paths refer to this machine. Desktop folders
+          use the explicit upload action; no background synchronization is implied.
         </InfoTip>
       </div>
       {(sources.error || providers.error) && (

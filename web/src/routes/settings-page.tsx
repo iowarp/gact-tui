@@ -508,7 +508,7 @@ function AppearanceSettings() {
         </RadioGroup>
       </ClioSettingsSection>
       <ClioSettingsSection
-        description="Choose whether the Files view includes dot files and folders in your workspace. CLIO keeps its managed sources and session state in its own storage."
+        description={`Choose whether the Files view includes dot files and folders in your workspace. ${vocab.agent} keeps its managed sources and session state in its own storage.`}
         title="Workspace files"
       >
         <FieldLabel htmlFor="hide-dot-files">

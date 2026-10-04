@@ -102,10 +102,4 @@ switched to `currentColor` (a multi-colour mark). Used for `argonne_metis`,
    filename; otherwise the identity fallback already resolves it.
 5. Add the raw import to `web/src/components/ai-elements/provider-logo-svgs.ts`.
 
-Connected data: `google-drive.png` is the original Google Drive product artwork
-linked by https://developers.google.com/workspace/drive/api/guides/branding
-(2026 product mark, 128 px). `globus-light.png` and `globus-dark.png` are the
-unaltered horizontal blue/white artwork from the official Globus logo pack:
-https://marketing.globuscs.info/production/strapi/uploads/Globus_Logo_88c8b619be.zip
-They identify the integrated service, with preserved aspect ratio and a display
-width of at least 54 px. Brand guidance: https://www.globus.org/legal/logo-usage-policy.
+Connected-data artwork lives in `branding/provider-logos/`; its README records the official sources.

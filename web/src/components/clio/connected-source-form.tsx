@@ -1,3 +1,4 @@
+import { vocab } from '@/lib/brand-vocabulary';
 import type {
   CreateSourceInput,
   SourceMode,
@@ -16,8 +17,7 @@ import { SourceProviderLogo } from './source-provider-logo';
 
 import { sourceModeNames } from './connected-source-labels';
 const modeDescriptions: Record<SourceMode, string> = {
-  read_only:
-    'Copy selected inputs into protected storage on this CLIO. Refresh explicitly to get upstream changes.',
+  read_only: `Copy selected inputs into protected storage on this ${vocab.agent}. Refresh explicitly to get upstream changes.`,
   working_copy:
     'Keep an immutable input baseline and a writable workspace copy. Review selected changes before applying them upstream.',
   write_enabled:
@@ -93,7 +93,7 @@ export function ConnectedSourceForm({
           />
         </Field>
         {provider.id === 'sftp' &&
-          configField('ssh_profile', 'SSH profile on this CLIO', 'research-storage')}
+          configField('ssh_profile', `SSH profile on this ${vocab.agent}`, 'research-storage')}
         {provider.id === 'globus' &&
           configField('collection_id', 'Source collection ID', 'Collection UUID')}
         <Field>
@@ -140,9 +140,13 @@ export function ConnectedSourceForm({
                 'Collection-visible folder',
                 '/data/clio',
               )}
-              {configField('destination_local_root', 'Same folder on this CLIO', '/data/clio')}
+              {configField(
+                'destination_local_root',
+                `Same folder on this ${vocab.agent}`,
+                '/data/clio',
+              )}
               <p className="text-xs text-muted-foreground">
-                CLIO source storage must be inside this mapped folder.
+                {vocab.agent} source storage must be inside this mapped folder.
               </p>
             </div>
           </details>

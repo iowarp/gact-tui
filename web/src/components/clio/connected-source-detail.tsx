@@ -1,3 +1,4 @@
+import { vocab } from '@/lib/brand-vocabulary';
 import type { ConnectedSourceState, SourceReview, WorkspaceReference } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -136,8 +137,8 @@ export function ConnectedSourceDetail({
             <Badge variant="outline">{sourceModeNames[source.mode ?? 'read_only']}</Badge>
             <span className="text-xs text-muted-foreground">{hostLabel}</span>
             <InfoTip label="About source identity">
-              This source belongs to CLIO {source.owner.clio_id}. References retain its provider,
-              folder, revision and file hash.
+              This source belongs to {vocab.agent} {source.owner.clio_id}. References retain its
+              provider, folder, revision and file hash.
             </InfoTip>
           </div>
         </div>
@@ -168,7 +169,7 @@ export function ConnectedSourceDetail({
                 ? 'Refresh inputs'
                 : latest?.state === 'interrupted'
                   ? 'Resume transfer'
-                  : 'Transfer to CLIO'}
+                  : `Transfer to ${vocab.agent}`}
             </Button>
           )}
           {source.mode === 'working_copy' && ready && (
@@ -229,8 +230,9 @@ export function ConnectedSourceDetail({
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-medium">Changes to apply upstream</h4>
             <InfoTip label="About reviewed updates">
-              Only selected files are applied. CLIO rechecks both copies before writing. Providers
-              may commit files individually; a directory-wide atomic update is not promised.
+              Only selected files are applied. {vocab.agent} rechecks both copies before writing.
+              Providers may commit files individually; a directory-wide atomic update is not
+              promised.
             </InfoTip>
           </div>
           {review.changes.length === 0 && (
@@ -457,7 +459,7 @@ export function ConnectedSourceDetail({
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm">
-                    Remove this CLIO copy
+                    Remove this {vocab.agent} copy
                     {source.mode === 'working_copy'
                       ? ' and any unsaved local edits'
                       : ' from the source browser'}

@@ -1,3 +1,4 @@
+import { vocab } from '@/lib/brand-vocabulary';
 import type { ModelAcquisition, ModelDownloadInput } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DownloadIcon, PackageCheckIcon, SearchIcon } from 'lucide-react';
@@ -98,9 +99,9 @@ export function ModelAcquisitions({
         <PackageCheckIcon className="size-5 text-primary" aria-hidden="true" />
         <h3 className="font-medium">Models</h3>
         <InfoTip label="About model downloads">
-          Download the repository's files into a dedicated folder on this host. CLIO resolves an
-          immutable revision, checks free space, and verifies the files. This does not load model
-          code or start inference.
+          Download the repository's files into a dedicated folder on this host. {vocab.agent}{' '}
+          resolves an immutable revision, checks free space, and verifies the files. This does not
+          load model code or start inference.
         </InfoTip>
         <span className="text-sm text-muted-foreground">{hostLabel}</span>
         <Button
