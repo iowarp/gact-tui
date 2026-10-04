@@ -12,6 +12,7 @@ import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
 import { ServiceAccessChoice } from './managed-service-access';
 import { ServerParametersForm } from './managed-service-parameters';
+import { MonitoringImageStorage } from './monitoring-image-storage';
 
 /** Shared definition-driven setup and reconfiguration form. Paths belong to the named host. */
 export function ManagedServiceForm({
@@ -79,36 +80,64 @@ export function ManagedServiceForm({
             ) : null}
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            {fields.map((field) => (
-              <Field key={field.id}>
-                <FieldLabel>{field.label}</FieldLabel>
-                {field.options?.length ? (
-                  <Select
-                    onValueChange={(value) => onConfiguration(field.id, value)}
-                    value={configuration[field.id]}
-                  >
-                    <SelectTrigger aria-label={`${service.label} ${field.label}`}>
-                      <SelectValue placeholder={field.placeholder} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {field.options.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    aria-label={`${service.label} ${field.label}`}
-                    onChange={(event) => onConfiguration(field.id, event.target.value)}
-                    placeholder={field.placeholder}
-                    required={field.required}
-                    value={configuration[field.id] ?? ''}
-                  />
-                )}
-              </Field>
-            ))}
+            {fields
+              .filter((field) => field.id !== 'image_storage')
+              .map((field) => (
+                <Field key={field.id}>
+                  <FieldLabel>{field.label}</FieldLabel>
+                  {field.options?.length ? (
+                    <Select
+                      onValueChange={(value) => onConfiguration(field.id, value)}
+                      value={configuration[field.id]}
+                      disabled={
+                        storageOwned &&
+                        service.category === 'monitoring' &&
+                        field.id === 'container_runtime'
+                      }
+                    >
+                      <SelectTrigger aria-label={`${service.label} ${field.label}`}>
+                        <SelectValue placeholder={field.placeholder} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {field.options.map((option) => (
+                          <SelectItem
+                            key={option}
+                            value={option}
+                            disabled={
+                              field.id === 'container_runtime' &&
+                              option !== 'podman' &&
+                              configuration.image_storage === 'service'
+                            }
+                          >
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      aria-label={`${service.label} ${field.label}`}
+                      onChange={(event) => onConfiguration(field.id, event.target.value)}
+                      placeholder={field.placeholder}
+                      required={field.required}
+                      value={configuration[field.id] ?? ''}
+                    />
+                  )}
+                </Field>
+              ))}
+            {fields.some((field) => field.id === 'image_storage') ? (
+              <MonitoringImageStorage
+                configuration={configuration}
+                runtime={
+                  configuration.container_runtime ||
+                  fields.find((field) => field.id === 'container_runtime')?.placeholder ||
+                  ''
+                }
+                owned={storageOwned}
+                hostLabel={hostLabel}
+                onChange={(value) => onConfiguration('image_storage', value)}
+              />
+            ) : null}
           </div>
           <ServiceAccessChoice
             configuration={configuration}
@@ -130,8 +159,8 @@ export function ManagedServiceForm({
             <FieldLabel>Service data on {hostLabel}</FieldLabel>
             <InfoTip label="About service storage">
               Choose a dedicated folder on this execution host. Databases, logs and evidence remain
-              here when the runtime is removed. Container images use the engine’s own storage,
-              checked separately.
+              here when the runtime is removed. Container images use the selected image storage,
+              checked separately. With Podman, Service folder also places images and downloads here.
               {storageOwned
                 ? ' This deployment already owns its folder. Reinstall does not move existing data; choose storage when creating a deployment.'
                 : ''}

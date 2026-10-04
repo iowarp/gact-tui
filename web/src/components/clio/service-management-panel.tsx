@@ -287,6 +287,18 @@ export function ManagedServiceCard({
                 </p>
               </div>
             ) : null}
+            {service.configuration['storage.container_images'] ? (
+              <div>
+                <p className="text-xs text-muted-foreground">Container images on {hostLabel}</p>
+                <p className="break-all font-mono text-sm">
+                  {service.configuration['storage.container_images']}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">Download scratch space</p>
+                <p className="break-all font-mono text-sm">
+                  {service.configuration['storage.container_downloads']}
+                </p>
+              </div>
+            ) : null}
             <OwnedResources
               rows={service.owned_resources ?? []}
               serviceLabel={service.label}
