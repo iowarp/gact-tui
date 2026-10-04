@@ -167,3 +167,39 @@ describe('marketplace ownership and outcomes', () => {
     expect(result.installed_blueprints).toEqual(source.installed_blueprints);
   });
 });
+
+it('saves source configuration without converting an existing source error into a failed save', async () => {
+  const transport = new RecordingTransport([
+    {
+      source: {
+        id: 'src_1',
+        name: 'Lab',
+        source: '/lab',
+        status: 'error',
+        error: 'Previous reload failed',
+        pinned_commit: 'a'.repeat(40),
+        working_checkout: '/checkout',
+        is_default: true,
+        reload_required: true,
+        updated_at: 'new-revision',
+      },
+    },
+  ]);
+  const repository = new BlueprintRepository(transport);
+  const row = await repository.configureAgentBlueprintSource('src_1', {
+    name: 'Lab',
+    source: '/lab',
+    expected_updated_at: 'old-revision',
+  });
+  expect(transport.requests[0]).toMatchObject({
+    method: 'PATCH',
+    path: '/v1/agent-blueprints/sources/src_1',
+    body: { name: 'Lab', source: '/lab', expected_updated_at: 'old-revision' },
+  });
+  expect(row).toMatchObject({
+    status: 'error',
+    reload_required: true,
+    working_checkout: '/checkout',
+    is_default: true,
+  });
+});

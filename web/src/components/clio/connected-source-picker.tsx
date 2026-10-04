@@ -2,7 +2,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { connectionScope } from '@/lib/connection-scope';
 import type { SourceProvider, WorkspaceReference } from '@clio/core/v3';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ArrowRightIcon, DatabaseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,8 +39,7 @@ export function ConnectedSourcePicker({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const scope = `${connectionScope(settings)}:${workspaceId}`;
   const activeScope = useRef(scope);
-  activeScope.current = scope;
-  useEffect(() => {
+  useLayoutEffect(() => {
     activeScope.current = scope;
     return () => {
       activeScope.current = '';

@@ -55,7 +55,15 @@ export class BlueprintRepository extends SessionObservabilityRepository {
   }
 
   public addAgentBlueprintSource(
-    input: { name: string; source: string; ref?: string; pinned_commit?: string },
+    input: {
+      name: string;
+      source: string;
+      ref?: string;
+      pinned_commit?: string;
+      working_checkout?: string;
+      scope?: 'global' | 'workspace';
+      workspace_id?: string;
+    },
     signal?: AbortSignal,
   ): Promise<AgentBlueprintSource> {
     return this.transport.request({
@@ -75,6 +83,28 @@ export class BlueprintRepository extends SessionObservabilityRepository {
       method: 'POST',
       path: `/v1/agent-blueprints/sources/${encodeURIComponent(sourceId)}/refresh`,
       decode: (value) => decodeSourceMutation(value),
+      signal,
+    });
+  }
+
+  /** Save marketplace selectors without replacing the installed runtime. */
+  public configureAgentBlueprintSource(
+    sourceId: string,
+    input: {
+      name: string;
+      source: string;
+      ref?: string;
+      pinned_commit?: string;
+      working_checkout?: string;
+      expected_updated_at: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<AgentBlueprintSource> {
+    return this.transport.request({
+      method: 'PATCH',
+      path: `/v1/agent-blueprints/sources/${encodeURIComponent(sourceId)}`,
+      body: input,
+      decode: (value) => agentBlueprintSourceSchema.parse((value as { source: unknown }).source),
       signal,
     });
   }

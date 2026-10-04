@@ -1,3 +1,4 @@
+import { SettingsNavigation } from '@/components/clio/settings-navigation';
 import { queryKeys } from '@/lib/query-keys';
 import { Input } from '@/components/ui/input';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -10,7 +11,6 @@ import {
   CableIcon,
   CalendarClockIcon,
   CheckCircle2Icon,
-  ChevronLeftIcon,
   CircleAlertIcon,
   CpuIcon,
   EyeOffIcon,
@@ -696,28 +696,12 @@ export function SettingsPage() {
   return (
     <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
-        <nav aria-label="Settings sections" className="grid content-start gap-1 md:sticky md:top-8">
-          <Button asChild className="mb-4 justify-start" variant="ghost">
-            <Link to={workspaceRoute}>
-              <ChevronLeftIcon aria-hidden="true" /> Workspace
-            </Link>
-          </Button>
-          {sections.map(({ id, label, icon: SectionIcon }) => (
-            <Button
-              asChild
-              className="justify-start"
-              key={id}
-              variant={id === section ? 'secondary' : 'ghost'}
-            >
-              <Link
-                state={{ endpoint: settings.endpoint, from: workspaceRoute }}
-                to={`/settings/${id}`}
-              >
-                <SectionIcon aria-hidden="true" /> {label}
-              </Link>
-            </Button>
-          ))}
-        </nav>
+        <SettingsNavigation
+          sections={sections}
+          section={section}
+          endpoint={settings.endpoint}
+          workspaceRoute={workspaceRoute}
+        />
         <section className="min-w-0 pb-16">
           <SettingsSection
             blueprintId={blueprintId}

@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { connectionScope } from '@/lib/connection-scope';
 
 /** A folder browser whose every request carries the selected execution host. */
 export function HostPathPicker({
@@ -36,7 +37,7 @@ export function HostPathPicker({
   const [folder, setFolder] = useState(path);
   const [entered, setEntered] = useState(path);
   const listing = useQuery({
-    queryKey: ['host-folder', settings.endpoint, targetId, folder],
+    queryKey: ['host-folder', connectionScope(settings), targetId, folder],
     enabled: open && Boolean(folder),
     queryFn: async ({ signal }) => {
       const checked = await repository.inspectHostPath(targetId, { path: folder }, signal);
