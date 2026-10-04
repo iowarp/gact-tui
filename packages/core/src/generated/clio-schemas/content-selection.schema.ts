@@ -43,5 +43,18 @@ export const contentSelectionGeneratedSchema: z.ZodType<ContentSelection> = z
         .strict(),
     ]),
     session_id: z.string().min(1),
+    surface: z
+      .union([
+        z
+          .object({
+            component_id: z.string().min(1).max(256),
+            revision: z.number().int().gte(0),
+            sha256: z.string().regex(new RegExp('^[a-f0-9]{64}$')),
+            surface_id: z.string().min(1).max(256),
+          })
+          .strict(),
+        z.null(),
+      ])
+      .default(null),
   })
   .strict();

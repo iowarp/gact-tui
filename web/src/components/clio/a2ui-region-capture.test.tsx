@@ -1,12 +1,34 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
 import { A2uiRegionCaptureProvider } from './a2ui-region-capture';
 import { SurfaceToolbar } from './surface-toolbar';
 
 afterEach(cleanup);
 
 describe('region capture mode', () => {
+  it('offers a keyboard region editor without enabling image submission to a text-only model', async () => {
+    const user = userEvent.setup();
+    render(<SurfaceAttentionContext.Provider value={{ image: vi.fn(), structured: vi.fn() }}>
+      <A2uiRegionCaptureProvider surface={{ id: 'surface', revision: 1, messages: [] }}>
+        <section className="group" data-slot="a2ui-image-viewport">
+          <SurfaceToolbar capabilities={{ captureComponentId: 'image', onCopy: () => true }} floating={false} />
+          <img alt="Recorded image" src="/fixture.png" />
+        </section>
+      </A2uiRegionCaptureProvider>
+    </SurfaceAttentionContext.Provider>);
+    await user.click(screen.getByRole('button', { name: 'Capture labelled regions' }));
+    await user.click(screen.getByRole('button', { name: 'Add region' }));
+    const left = screen.getByRole('spinbutton', { name: 'Region x percent' });
+    await user.clear(left);
+    await user.type(left, '10');
+    expect(left).toHaveValue(10);
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getByRole('button', { name: 'Add to attention set' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Add 1 region to message' })).toBeNull();
+  });
+
   it('toggles with the camera and exits when another surface tool is used', async () => {
     const user = userEvent.setup();
     render(<A2uiRegionCaptureProvider allowDemoCapture surface={{ id: 'surface', revision: 1, messages: [] }}>

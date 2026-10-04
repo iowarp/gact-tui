@@ -23,6 +23,25 @@ import { z } from 'zod';
  * to branch on `available`.
  */
 export class AttentionRepository extends SessionHistoryRepository {
+  public attentionSurfaceSelection(
+    sessionId: string,
+    surfaceId: string,
+    input: {
+      revision: number;
+      component_id: string;
+      source_ref: string;
+      selection: Extract<ContentSelection['selection'], { kind?: 'structured' | 'image_region' }>;
+    },
+    signal?: AbortSignal,
+  ): Promise<ContentSelection> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/attention/surfaces/${encodeURIComponent(surfaceId)}/selection`,
+      body: input,
+      signal,
+      decode: (value) => contentSelectionSchema.parse(value),
+    });
+  }
   public attentionContent(sessionId: string, messageId: string, cursor = 0, signal?: AbortSignal) {
     return this.transport.request({
       method: 'GET',

@@ -76,6 +76,17 @@ function ScopedAttentionLookup({
   const request = useRef<AbortController | undefined>(undefined);
   const expectedEvidence = useRef<AttentionEvidenceInspection | undefined>(undefined);
   const inspectedHash = useRef('');
+  const leaveEvidenceLink = useCallback(() => {
+    expectedEvidence.current = undefined;
+    if (readAttentionEvidence(window.location.hash, sessionId)) {
+      window.history.replaceState(
+        window.history.state,
+        '',
+        window.location.pathname + window.location.search,
+      );
+      inspectedHash.current = '';
+    }
+  }, [sessionId]);
   useEffect(
     () => () => {
       request.current?.abort();
@@ -96,6 +107,7 @@ function ScopedAttentionLookup({
       expected?: AttentionEvidenceInspection,
     ) => {
       request.current?.abort();
+      if (!expected) leaveEvidenceLink();
       expectedEvidence.current = expected;
       const controller = new AbortController();
       request.current = controller;
@@ -151,7 +163,7 @@ function ScopedAttentionLookup({
         if (!controller.signal.aborted) setBusy(false);
       }
     },
-    [profile, repository, sessionId, onHeatChange],
+    [profile, repository, sessionId, onHeatChange, leaveEvidenceLink],
   );
   useEffect(() => {
     const expected = expectedEvidence.current;
@@ -204,6 +216,7 @@ function ScopedAttentionLookup({
         return false;
       }
       request.current?.abort();
+      leaveEvidenceLink();
       setBusy(false);
       setResult(undefined);
       setItems(next);
@@ -213,7 +226,7 @@ function ScopedAttentionLookup({
       }
       return true;
     },
-    [items, inspect],
+    [items, inspect, leaveEvidenceLink],
   );
   const actions = useMemo<SelectionAction[]>(
     () => [
@@ -279,6 +292,7 @@ function ScopedAttentionLookup({
           size="sm"
           onClick={() => {
             request.current?.abort();
+            leaveEvidenceLink();
             setItems([]);
             setResult(undefined);
             setBusy(false);
@@ -299,6 +313,7 @@ function ScopedAttentionLookup({
             aria-label={`Remove selection ${index + 1}: ${item.label}`}
             onClick={() => {
               request.current?.abort();
+              leaveEvidenceLink();
               setBusy(false);
               setResult(undefined);
               setItems(items.filter((_, i) => i !== index));

@@ -204,6 +204,10 @@ export type Kind4 = 'structured';
 export type SourceRef = string;
 export type SurfaceId = string;
 export type SessionId = string;
+export type ComponentId1 = string;
+export type Revision = number;
+export type Sha2561 = string;
+export type SurfaceId1 = string;
 export type $Id = string;
 export type $Schema = string;
 export type Catalogid2 = string;
@@ -241,7 +245,7 @@ export type OperationId = string | null;
 export type ClioId = string;
 export type HostId = string;
 export type Provider = 'local' | 'sftp' | 'google_drive' | 'globus';
-export type Revision = string | null;
+export type Revision1 = string | null;
 export type Root = string;
 export type SchemaVersion3 = 1;
 export type WorkspaceId1 = string | null;
@@ -369,7 +373,7 @@ export type Channel8 = string | null;
 export type Id10 = string;
 export type Sequence8 = number | null;
 export type StreamSource8 = string | null;
-export type SurfaceId1 = string;
+export type SurfaceId2 = string;
 export type Type8 = 'a2ui';
 export type AgentId9 = string | null;
 export type Channel9 = string | null;
@@ -669,7 +673,7 @@ export type Path4 = string;
  * Which side of a transform a provenance edge sits on.
  */
 export type EdgeRole = 'used' | 'generated';
-export type Sha2561 = string | null;
+export type Sha2562 = string | null;
 export type Version5 = number | null;
 export type AgentId15 = string;
 /**
@@ -1024,6 +1028,7 @@ export interface ContentSelection {
   schema_version?: SchemaVersion2;
   selection: Selection;
   session_id: SessionId;
+  surface?: SurfaceSelectionIdentity | null;
 }
 /**
  * Character offsets within an identified content part, using Unicode code points.
@@ -1058,6 +1063,15 @@ export interface StructuredSelection {
   kind?: Kind4;
   source_ref: SourceRef;
   surface_id: SurfaceId;
+}
+/**
+ * The exact displayed A2UI revision, in addition to its transcript origin.
+ */
+export interface SurfaceSelectionIdentity {
+  component_id: ComponentId1;
+  revision: Revision;
+  sha256: Sha2561;
+  surface_id: SurfaceId1;
 }
 /**
  * One official-shape A2UI catalog document (a ``catalog.json`` file).
@@ -1145,7 +1159,7 @@ export interface ConnectedSource {
   operation_id?: OperationId;
   owner: ResourceOwner;
   provider: Provider;
-  revision?: Revision;
+  revision?: Revision1;
   root: Root;
   schema_version?: SchemaVersion3;
   workspace_id?: WorkspaceId1;
@@ -1352,7 +1366,7 @@ export interface A2UIMessageBlock {
   id: Id10;
   sequence?: Sequence8;
   stream_source?: StreamSource8;
-  surface_id: SurfaceId1;
+  surface_id: SurfaceId2;
   type: Type8;
 }
 /**
@@ -1668,7 +1682,7 @@ export interface ProvEdge {
   note?: Note;
   path?: Path4;
   role: EdgeRole;
-  sha256?: Sha2561;
+  sha256?: Sha2562;
   version?: Version5;
 }
 /**

@@ -111,6 +111,12 @@ it.each([true, false])(
       await waitFor(() => expect(heat).toHaveBeenLastCalledWith(generated));
       fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
       expect(heat).toHaveBeenLastCalledWith(undefined);
+      expect(window.location.hash).toBe('');
+      window.history.replaceState(
+        {},
+        '',
+        attentionEvidenceHash(target.reference!, 'profile-1', inspection),
+      );
       act(() => window.dispatchEvent(new Event('clio:inspect-attention')));
       await waitFor(() => expect(heat).toHaveBeenLastCalledWith(generated));
     } else {
@@ -121,6 +127,50 @@ it.each([true, false])(
     }
   },
 );
+
+it('does not resurrect an old evidence link after clearing and remounting with new selections', async () => {
+  const inspection = {
+    schema_version: 1 as const,
+    selections: [target.reference!],
+    direction: 'generated_to_source' as const,
+    profile,
+    profile_revision: 'profile-1',
+    lm_call_id: 'call-1',
+    capture_sha256: 'capture-1',
+  };
+  window.history.replaceState(
+    {},
+    '',
+    attentionEvidenceHash(target.reference!, 'profile-1', inspection),
+  );
+  mocks.lookup.mockResolvedValue(lookup);
+  const registry = createSelectionActionRegistry();
+  const content = (
+    <SelectionActionsContext.Provider value={registry}>
+      <AttentionLookupPanel sessionId="s" />
+    </SelectionActionsContext.Provider>
+  );
+  const mounted = render(content);
+  await screen.findByText('Generated selection · 2 captured tokens');
+  fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+  const next = {
+    ...target,
+    text: 'New source',
+    reference: { ...target.reference!, part_id: 'new-part' },
+  };
+  act(() =>
+    registry
+      .actionsFor(next)
+      .find((item) => item.id === 'attention-set')!
+      .run(next),
+  );
+  mounted.unmount();
+  mocks.lookup.mockClear();
+  render(content);
+  expect(screen.getByText('New source')).toBeInTheDocument();
+  expect(screen.queryByText('Evidence · text')).toBeNull();
+  expect(mocks.lookup).not.toHaveBeenCalled();
+});
 
 it('retains the basket across navigation but re-reads captures on explicit inspection', async () => {
   const registry = createSelectionActionRegistry();

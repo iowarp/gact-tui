@@ -8,6 +8,7 @@ export type {
   ContentSelection,
   ImageSelection,
   StructuredSelection,
+  SurfaceSelectionIdentity,
   TextSelection,
   WholeSelection,
 } from './_models';
