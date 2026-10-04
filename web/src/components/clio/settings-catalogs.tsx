@@ -83,17 +83,21 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
   };
   const addSource = useMutation({
     mutationFn: (input: MarketplaceSourceInput) => repository.addAgentBlueprintSource(input),
-    onSuccess: async () => {
+    onSuccess: async (source) => {
       setSourceDialogOpen(false);
       await invalidate();
-      toast.success('Source added');
+      if (source.status === 'degraded')
+        toast.warning(source.error || 'Marketplace needs attention');
+      else toast.success('Marketplace added');
     },
   });
   const refreshSource = useMutation({
     mutationFn: (id: string) => repository.refreshAgentBlueprintSource(id),
-    onSuccess: async () => {
+    onSuccess: async (source) => {
       await invalidate();
-      toast.success('Source refreshed');
+      if (source.status === 'degraded')
+        toast.warning(source.error || 'Marketplace needs attention');
+      else toast.success('Marketplace refreshed');
     },
     onError: (error) => toast.error(error.message),
   });
@@ -141,7 +145,14 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
     },
   });
   const installedBlueprints = blueprints.data?.filter((blueprint) => blueprint.kind !== 'pack');
-  const installedIds = new Set(installedBlueprints?.map((blueprint) => blueprint.id));
+  const isInstalled = (source: AgentBlueprintSource, id: string) =>
+    installedBlueprints?.some(
+      (blueprint) =>
+        (blueprint.blueprint_id ?? blueprint.id) === id &&
+        (blueprint.source_id === source.id ||
+          (blueprint.metadata.install as { source?: string } | undefined)?.source ===
+            source.source),
+    );
   useEffect(() => {
     if (!initialBlueprintId || openedDeepLink.current || !installedBlueprints) return;
     openedDeepLink.current = true;
@@ -216,10 +227,14 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
                       <EyeIcon aria-hidden="true" /> View details
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => update.mutate(blueprint)}>
-                      <RefreshIcon aria-hidden="true" /> Check for update
+                      <RefreshIcon aria-hidden="true" /> Update installed copy
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
+                      disabled={
+                        (blueprint.blueprint_id ?? blueprint.id) === 'base-agent' &&
+                        blueprint.scope === 'global'
+                      }
                       onSelect={() => setDeleteBlueprint(blueprint)}
                       variant="destructive"
                     >
@@ -256,6 +271,23 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
                   />
                 </div>
               </FrameHeader>
+              {source.error ? (
+                <p className="px-4 text-sm text-destructive" role="status">
+                  {source.error}
+                </p>
+              ) : null}
+              {source.skipped_blueprints?.length ? (
+                <details className="px-4 text-sm">
+                  <summary>Retained {source.skipped_blueprints.length} blueprint choices</summary>
+                  <ul>
+                    {source.skipped_blueprints.map((row) => (
+                      <li key={row.id}>
+                        {row.id}: {row.reason.replaceAll('_', ' ')}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
               <FramePanel className="grid gap-2 p-2">
                 {source.available_blueprints
                   .filter((available) => available.kind !== 'pack')
@@ -269,7 +301,7 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
                             {available.version || 'Version unavailable'}
                           </p>
                         </div>
-                        {installedIds.has(available.id) ? (
+                        {isInstalled(source, available.id) ? (
                           <Badge variant="secondary">Installed</Badge>
                         ) : (
                           <Button

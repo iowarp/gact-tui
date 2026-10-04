@@ -357,6 +357,17 @@ export function queryInvalidationKeysForEvent({
   workspaceId,
 }: QueryInvalidationEvent): QueryKey[] {
   const keys: QueryKey[] = [];
+  if (eventName === 'blueprint.revision.changed') {
+    keys.push(
+      queryKeys.agentBlueprints(endpoint),
+      queryKeys.key('agent-blueprint-sources', endpoint),
+      queryKeys.key('blueprint-files', endpoint),
+      queryKeys.key('blueprint-file', endpoint),
+      queryKeys.key('agents', endpoint),
+      queryKeys.key('sessions', endpoint),
+      queryKeys.capabilities(endpoint),
+    );
+  }
   if (isPendingInteractionEvent(eventName)) {
     // Approvals and questions are both read unscoped now (a descendant
     // session can raise either), so the invalidation must be the

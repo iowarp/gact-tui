@@ -20,6 +20,7 @@ export type ClioQueryNamespace =
   | 'artifact-table-query'
   | 'artifact-text'
   | 'blueprint-files'
+  | 'blueprint-file'
   | 'capabilities'
   | 'commands'
   | 'connection-availability'

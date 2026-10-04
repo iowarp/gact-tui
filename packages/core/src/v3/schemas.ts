@@ -302,6 +302,8 @@ export const workspaceFileEntrySchema = z.object({
 export const agentBlueprintSchema = z
   .object({
     id: z.string(),
+    identity: z.string().optional(),
+    source_id: z.string().optional(),
     version: z.string().default(''),
     title: z.string(),
     display_name: z.string().optional(),
@@ -315,6 +317,8 @@ export const agentBlueprintSchema = z
   })
   .transform((value) => ({
     ...value,
+    blueprint_id: value.id,
+    id: value.identity ?? value.id,
     display_name: value.display_name ?? value.name ?? value.title,
   }));
 
@@ -330,6 +334,19 @@ export const agentBlueprintSourceSchema = z.object({
   error: z.string().optional(),
   added_at: z.string().optional(),
   updated_at: z.string().optional(),
+  install_scope: z.string().optional(),
+  workspace_id: z.string().optional(),
+  installed_blueprints: z
+    .array(
+      z.object({
+        id: z.string(),
+        identity: z.string().optional(),
+        version: z.string().optional(),
+        scope: z.string().optional(),
+      }),
+    )
+    .optional(),
+  skipped_blueprints: z.array(z.object({ id: z.string(), reason: z.string() })).optional(),
   available_blueprints: z
     .array(
       z.object({

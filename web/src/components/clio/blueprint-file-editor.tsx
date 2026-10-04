@@ -37,7 +37,14 @@ export function BlueprintFileEditor({
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
-  const queryKey = ['blueprint-file', blueprintId, workspaceId, sessionId, path] as const;
+  const queryKey = [
+    'blueprint-file',
+    settings.endpoint,
+    blueprintId,
+    workspaceId,
+    sessionId,
+    path,
+  ] as const;
   const content = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
@@ -81,7 +88,7 @@ export function BlueprintFileEditor({
             sessionId,
           ),
         }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('agent-blueprints') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.agentBlueprints(settings.endpoint) }),
       ]);
       toast.success(`Saved ${fileName(path)}`);
     },

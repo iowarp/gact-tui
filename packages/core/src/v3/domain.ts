@@ -512,6 +512,9 @@ export interface AsyncProcess {
 
 export interface AgentBlueprint {
   id: string;
+  identity?: string;
+  source_id?: string;
+  blueprint_id?: string;
   version: string;
   title: string;
   display_name: string;
@@ -535,6 +538,10 @@ export interface AgentBlueprintSource {
   error?: string;
   added_at?: string;
   updated_at?: string;
+  install_scope?: string;
+  workspace_id?: string;
+  installed_blueprints?: Array<{ id: string; identity?: string; version?: string; scope?: string }>;
+  skipped_blueprints?: Array<{ id: string; reason: string }>;
   available_blueprints: Array<{
     id: string;
     title: string;

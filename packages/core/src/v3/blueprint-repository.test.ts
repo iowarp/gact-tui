@@ -46,7 +46,11 @@ describe('blueprint source update checks', () => {
     });
     expect(result.checked_at).toBe('2026-09-18T00:00:00Z');
     expect(result.sources).toEqual([
-      expect.objectContaining({ source_id: 'src_1', update_available: false, reason: 'up_to_date' }),
+      expect.objectContaining({
+        source_id: 'src_1',
+        update_available: false,
+        reason: 'up_to_date',
+      }),
       expect.objectContaining({
         source_id: 'src_2',
         update_available: true,
@@ -112,5 +116,54 @@ describe('blueprint source update checks', () => {
     const result = await repository.blueprintSourceUpdates();
 
     expect(result.sources[0]).toMatchObject({ reason: 'unknown', update_available: null });
+  });
+});
+
+describe('marketplace ownership and outcomes', () => {
+  it('keeps qualified identities distinct while retaining the author id', async () => {
+    const transport = new RecordingTransport([
+      {
+        agent_blueprints: [
+          { id: 'demo', identity: 'global::src_a::demo', source_id: 'src_a', title: 'Demo' },
+          { id: 'demo', identity: 'global::src_b::demo', source_id: 'src_b', title: 'Demo' },
+        ],
+      },
+    ]);
+    const rows = await new BlueprintRepository(transport).agentBlueprints();
+    expect(rows.map((row) => row.id)).toEqual(['global::src_a::demo', 'global::src_b::demo']);
+    expect(rows.map((row) => row.blueprint_id)).toEqual(['demo', 'demo']);
+  });
+
+  it('rejects an HTTP-success envelope whose installation actually failed', async () => {
+    const transport = new RecordingTransport([
+      {
+        source: {
+          id: 'src_a',
+          name: 'Demo',
+          source: '/demo',
+          status: 'error',
+          error: 'Unable to stage revision',
+        },
+      },
+    ]);
+    await expect(
+      new BlueprintRepository(transport).refreshAgentBlueprintSource('src_a'),
+    ).rejects.toThrow('Unable to stage revision');
+  });
+
+  it('retains partial results and durable user choices', async () => {
+    const source = {
+      id: 'src_a',
+      name: 'Demo',
+      source: '/demo',
+      status: 'degraded',
+      error: 'Invalid blueprint',
+      skipped_blueprints: [{ id: 'edited', reason: 'local_edits_present' }],
+      installed_blueprints: [{ id: 'demo', identity: 'global::src_a::demo' }],
+    };
+    const transport = new RecordingTransport([{ source }]);
+    const result = await new BlueprintRepository(transport).refreshAgentBlueprintSource('src_a');
+    expect(result.skipped_blueprints).toEqual(source.skipped_blueprints);
+    expect(result.installed_blueprints).toEqual(source.installed_blueprints);
   });
 });

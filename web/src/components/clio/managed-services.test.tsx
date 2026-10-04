@@ -207,7 +207,9 @@ describe('ManagedServices', () => {
       ],
     });
     renderServices();
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
     expect(await screen.findByText('Waiting for the existing server')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Check status' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel operation' })).toBeEnabled();
@@ -230,10 +232,12 @@ describe('ManagedServices', () => {
       ),
     });
     renderServices();
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
     await userEvent.click(screen.getByRole('tab', { name: 'Configuration' }));
-    await userEvent.clear(screen.getByLabelText('CLIO Web Search Port'));
-    await userEvent.type(screen.getByLabelText('CLIO Web Search Port'), '9999');
+    await userEvent.clear(screen.getByLabelText(`${vocab.agent} Web Search Port`));
+    await userEvent.type(screen.getByLabelText(`${vocab.agent} Web Search Port`), '9999');
     await userEvent.click(screen.getByRole('tab', { name: 'Status' }));
     await userEvent.click(screen.getByRole('button', { name: 'Check status' }));
     await waitFor(() => expect(repository.runManagedServiceAction).toHaveBeenCalled());
@@ -241,7 +245,7 @@ describe('ManagedServices', () => {
       '8089',
     );
     await userEvent.click(screen.getByRole('tab', { name: 'Configuration' }));
-    expect(screen.getByLabelText('CLIO Web Search Port')).toHaveValue('9999');
+    expect(screen.getByLabelText(`${vocab.agent} Web Search Port`)).toHaveValue('9999');
   });
 
   it('offers connection-only services separately from deployment ownership', async () => {
@@ -290,7 +294,9 @@ describe('ManagedServices', () => {
   it('shows installed inventory before choosing a new runtime', async () => {
     const user = userEvent.setup();
     renderServices();
-    expect(await screen.findByRole('button', { name: 'Manage CLIO Web Search' })).toBeVisible();
+    expect(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    ).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'vLLM' })).not.toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Deploy new' }));
@@ -332,7 +338,7 @@ describe('ManagedServices', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Deploy new' })).toBeEnabled());
     await userEvent.click(screen.getByRole('button', { name: 'Deploy new' }));
     await userEvent.click(
-      screen.getByRole('button', { name: 'Review CLIO Web Search requirements' }),
+      screen.getByRole('button', { name: `Review ${vocab.agent} Web Search requirements` }),
     );
     expect(screen.getByText(/Not available on this target. Requires Docker./u)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Install' })).toBeDisabled();
@@ -342,20 +348,22 @@ describe('ManagedServices', () => {
     const user = userEvent.setup();
     const connect = vi.fn();
     renderServices({ onConnectWebSearch: connect, webSearchConnected: false });
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
 
     expect(
       await screen.findByRole('button', { name: `Connect to ${brand.agentName}` }),
     ).toBeVisible();
-    expect(screen.getByRole('article', { name: 'CLIO Web Search management' })).toHaveTextContent(
-      'Running',
-    );
+    expect(
+      screen.getByRole('article', { name: `${vocab.agent} Web Search management` }),
+    ).toHaveTextContent('Running');
     await user.click(screen.getByRole('button', { name: `Connect to ${brand.agentName}` }));
     expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
     await user.click(screen.getByRole('button', { name: 'Check status' }));
-    expect(screen.getByRole('article', { name: 'CLIO Web Search management' })).toHaveTextContent(
-      'Running',
-    );
+    expect(
+      screen.getByRole('article', { name: `${vocab.agent} Web Search management` }),
+    ).toHaveTextContent('Running');
     expect(screen.getByText('Status refreshed.')).toBeVisible();
     expect(screen.queryByText('running')).not.toBeInTheDocument();
   });
@@ -380,7 +388,9 @@ describe('ManagedServices', () => {
         retryable: false,
       },
     });
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
 
     const action = await screen.findByRole('button', { name: 'Disconnect' });
     expect(screen.queryByRole('link', { name: 'View tools' })).not.toBeInTheDocument();
@@ -407,7 +417,9 @@ describe('ManagedServices', () => {
         error: 'Web Search document conversion is not ready',
       },
     });
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
 
     expect(await screen.findByText('Connection needs attention')).toBeVisible();
     expect(
@@ -433,7 +445,9 @@ describe('ManagedServices', () => {
     );
     const user = userEvent.setup();
     renderServices();
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
     expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled();
@@ -452,7 +466,9 @@ describe('ManagedServices', () => {
   it('sends the service id in the path only, never as an extra action body key', async () => {
     const user = userEvent.setup();
     renderServices();
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
 
@@ -469,7 +485,9 @@ describe('ManagedServices', () => {
     );
     const user = userEvent.setup();
     renderServices();
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
 
@@ -488,12 +506,16 @@ describe('ManagedServices', () => {
     });
     const user = userEvent.setup();
     renderServices();
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
     await userEvent.click(screen.getByRole('tab', { name: 'Logs' }));
 
     await user.click(await screen.findByRole('button', { name: 'View logs' }));
 
-    const panel = await screen.findByRole('region', { name: 'CLIO Web Search recent logs' });
+    const panel = await screen.findByRole('region', {
+      name: `${vocab.agent} Web Search recent logs`,
+    });
     expect(panel).toHaveTextContent('Recent logs');
     expect(panel).toHaveTextContent('line one');
     expect(panel.querySelector('pre')).toHaveClass('max-h-80', 'overflow-auto');
@@ -519,7 +541,9 @@ describe('ManagedServices', () => {
         retryable: false,
       },
     });
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
 
     expect(await screen.findByText('Another Web Search deployment is connected')).toBeVisible();
     const action = screen.getByRole('button', { name: `Connect to ${brand.agentName}` });
@@ -569,7 +593,9 @@ describe('ManagedServices', () => {
       connectedAgentLocation: 'Homelab',
       onConnectWebSearch: connect,
     });
-    await userEvent.click(await screen.findByRole('button', { name: 'Manage CLIO Web Search' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
+    );
 
     await user.click(await screen.findByRole('button', { name: `Connect to ${brand.agentName}` }));
 
@@ -764,3 +790,4 @@ describe('ManagedServices', () => {
     ).not.toBeInTheDocument();
   });
 });
+import { vocab } from '@/lib/brand-vocabulary';

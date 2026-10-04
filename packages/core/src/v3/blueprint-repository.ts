@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import type { AgentBlueprint, AgentBlueprintSource, WorkspaceFileEntry } from './domain.js';
-import type { AgentBlueprintSourceUpdate, AgentBlueprintSourceUpdates } from './blueprint-domain.js';
+import type {
+  AgentBlueprintSourceUpdate,
+  AgentBlueprintSourceUpdates,
+} from './blueprint-domain.js';
 import { SessionObservabilityRepository } from './session-observability-repository.js';
 import { agentBlueprintSourceSchema } from './schemas.js';
 import {
@@ -59,10 +62,7 @@ export class BlueprintRepository extends SessionObservabilityRepository {
       method: 'POST',
       path: '/v1/agent-blueprints/sources',
       body: input,
-      decode: (value) =>
-        agentBlueprintSourceSchema.parse(
-          z.object({ source: z.unknown() }).parse(value).source,
-        ) as AgentBlueprintSource,
+      decode: (value) => decodeSourceMutation(value),
       signal,
     });
   }
@@ -74,10 +74,7 @@ export class BlueprintRepository extends SessionObservabilityRepository {
     return this.transport.request({
       method: 'POST',
       path: `/v1/agent-blueprints/sources/${encodeURIComponent(sourceId)}/refresh`,
-      decode: (value) =>
-        agentBlueprintSourceSchema.parse(
-          z.object({ source: z.unknown() }).parse(value).source,
-        ) as AgentBlueprintSource,
+      decode: (value) => decodeSourceMutation(value),
       signal,
     });
   }
@@ -251,4 +248,17 @@ export class BlueprintRepository extends SessionObservabilityRepository {
       signal,
     });
   }
+}
+
+/** HTTP success must not turn a failed marketplace install into a success toast. */
+function decodeSourceMutation(value: unknown): AgentBlueprintSource {
+  const row = agentBlueprintSourceSchema.parse(
+    z.object({ source: z.unknown() }).parse(value).source,
+  );
+  if (row.status === 'error' || row.status === 'unknown') {
+    throw new Error(
+      row.error || 'Marketplace setup did not complete. Inspect its status and retry.',
+    );
+  }
+  return row as AgentBlueprintSource;
 }
