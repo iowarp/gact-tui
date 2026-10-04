@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArtifactView, BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
+import { connectionScope } from '@/lib/connection-scope';
 
 const { repository } = vi.hoisted(() => ({
   repository: {
@@ -108,6 +109,7 @@ describe('BlueprintFileEditor', () => {
         [
           'blueprint-file',
           'http://127.0.0.1:8790',
+          connectionScope({ endpoint: 'http://127.0.0.1:8790' }),
           'operator',
           'workspace_1',
           'session_1',

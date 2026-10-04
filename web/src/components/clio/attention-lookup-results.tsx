@@ -1,10 +1,36 @@
-import type { AttentionLookupResult } from '@clio/core/v3';
+import type { AttentionLookup, AttentionLookupResult } from '@clio/core/v3';
+import { Button } from '@/components/ui/button';
 import { formatSharePercent } from '@/lib/attention-text';
 import { InfoTip } from './info-tip';
-import { attentionEvidenceHash } from '@/lib/attention-evidence-navigation';
+import {
+  attentionEvidenceHash,
+  type AttentionEvidenceInspection,
+} from '@/lib/attention-evidence-navigation';
+
+function evidence(view: AttentionLookup['views'][number]): AttentionEvidenceInspection | undefined {
+  const selections = view.kind === 'generated' ? view.selected_references : view.sources;
+  if (!selections?.length || !view.profile) return;
+  return {
+    schema_version: 1,
+    selections,
+    profile: view.profile,
+    direction: view.kind === 'generated' ? 'generated_to_source' : 'source_to_generation',
+    lm_call_id: view.lm_call_id,
+    capture_sha256: view.capture_sha256,
+    profile_revision: view.profile_revision,
+  };
+}
 
 /** Keep capture identity, profile and missingness inspectable alongside the numerical result. */
-export function AttentionLookupResults({ result }: { result: AttentionLookupResult }) {
+export function AttentionLookupResults({
+  result,
+  heatCall,
+  onShowHeat,
+}: {
+  result: AttentionLookupResult;
+  heatCall?: string;
+  onShowHeat?: (view: AttentionLookup['views'][number]) => void;
+}) {
   if (!('views' in result))
     return <p className="text-sm text-muted-foreground">{result.message}</p>;
   return (
@@ -24,6 +50,16 @@ export function AttentionLookupResults({ result }: { result: AttentionLookupResu
           </summary>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>Capture {view.request_id.slice(-12)}</span>
+            {onShowHeat && (view.kind === 'generated' || view.heat?.blocks.length) ? (
+              <Button
+                size="sm"
+                variant={heatCall === view.lm_call_id ? 'secondary' : 'outline'}
+                aria-pressed={heatCall === view.lm_call_id}
+                onClick={() => onShowHeat(view)}
+              >
+                {heatCall === view.lm_call_id ? 'Heat shown in transcript' : 'Show transcript heat'}
+              </Button>
+            ) : null}
             <InfoTip label="About capture and profile identity">
               Capture SHA-256: {view.capture_sha256}. Profile: {view.profile_revision}. These
               identify the exact bytes and aggregation settings used for this view.
@@ -32,7 +68,7 @@ export function AttentionLookupResults({ result }: { result: AttentionLookupResu
               view.generated_references.map((reference) => (
                 <a
                   key={`${reference.message_id}:${reference.part_id}:${reference.field}`}
-                  href={attentionEvidenceHash(reference, view.profile_revision)}
+                  href={attentionEvidenceHash(reference, view.profile_revision, evidence(view))}
                   className="text-primary underline underline-offset-4"
                 >
                   Inspect {reference.field === 'thought' ? 'reasoning' : reference.field}
@@ -43,6 +79,7 @@ export function AttentionLookupResults({ result }: { result: AttentionLookupResu
                 href={attentionEvidenceHash(
                   { message_id: view.message_id, ...view.selection },
                   view.profile_revision,
+                  evidence(view),
                 )}
                 className="text-primary underline underline-offset-4"
               >
@@ -73,7 +110,7 @@ export function AttentionLookupResults({ result }: { result: AttentionLookupResu
               {view.blocks.map((block) => (
                 <li key={`${block.message_id}:${block.part_id}:${block.field}`}>
                   <a
-                    href={attentionEvidenceHash(block, view.profile_revision)}
+                    href={attentionEvidenceHash(block, view.profile_revision, evidence(view))}
                     className="text-primary underline underline-offset-4"
                   >
                     Inspect {block.kind.replaceAll('_', ' ')}

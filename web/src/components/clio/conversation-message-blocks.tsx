@@ -195,6 +195,7 @@ function MessageBlockView({
           artifacts={artifacts}
           messageId={messageId}
           messageAttentionIndex={messageAttentionIndex}
+          messageSessionId={messageSessionId}
           onInteractionResponse={onInteractionResponse}
           onOpenArtifact={onOpenArtifact}
           onOpenSubagent={onOpenSubagent}

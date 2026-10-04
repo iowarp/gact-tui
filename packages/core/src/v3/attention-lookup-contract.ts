@@ -22,6 +22,7 @@ const sourceView = z.object({
   profile: attentionProfileGeneratedSchema,
   sources: z.array(contentSelectionGeneratedSchema),
   generated_references: z.array(contentSelectionGeneratedSchema),
+  heat: attentionAvailableSchema.optional(),
   score: z.number(),
   mass: z.number(),
   residual: z.number(),

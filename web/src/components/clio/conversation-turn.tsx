@@ -33,10 +33,11 @@ import { ClioToolInvocation } from './tool-invocation';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
-import { GroundedMessageResponse } from './grounded-message-response';
 import { workflowDescriptor } from './workflow-tool-presentation';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
+import { TranscriptReasoning } from './transcript-reasoning';
+import { GroundedMessageResponse } from './grounded-message-response';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 type SubagentActivityEntry = Extract<
@@ -51,7 +52,9 @@ function toolAttentionBadge(
 ): { share: number; bucket: number } | undefined {
   const entries = index?.toolStepsByToolId.get(tool.id);
   const share = toolStepShare(entries);
-  return entries && share > 0 ? { share, bucket: bucketIntensity(share, index?.maxToolStepShare ?? 0) } : undefined;
+  return entries && share > 0
+    ? { share, bucket: bucketIntensity(share, index?.maxToolStepShare ?? 0) }
+    : undefined;
 }
 
 interface ConversationTurnProps {
@@ -475,12 +478,15 @@ function IterationDetail({
           : null}
 
         {iteration.nextThoughts.map((thought, index) => (
-          <GroundedMessageResponse
-            className="text-sm leading-5"
+          <TranscriptReasoning
+            text={thought}
+            source={iteration.nextThoughtSources?.[index]}
             key={`${iteration.id}:response:${index}`}
           >
-            {thought}
-          </GroundedMessageResponse>
+            <GroundedMessageResponse className="text-sm leading-5">
+              {thought}
+            </GroundedMessageResponse>
+          </TranscriptReasoning>
         ))}
 
         {/*
@@ -494,6 +500,8 @@ function IterationDetail({
               <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
                 <ClioToolInvocation
                   attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
+                  attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
+                  sessionId={messageSessionId}
                   tool={entry.tool}
                 />
                 {workflowDescriptor(entry.tool) ? (

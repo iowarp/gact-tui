@@ -15,6 +15,7 @@
 
 /** A [char_lo, char_hi, value) heat run, offsets into one part's source text. */
 import type { AttentionProfile } from '../generated/clio-schemas/attention_profile.js';
+import type { ContentSelection } from './storage-contract.js';
 export type { AttentionProfile } from '../generated/clio-schemas/attention_profile.js';
 
 export type AttentionRun = readonly [charLo: number, charHi: number, value: number];
@@ -112,6 +113,7 @@ export interface AttentionAvailable {
     missing: string;
   };
   selection: AttentionSelection;
+  selected_references?: readonly ContentSelection[];
   /**
    * Fraction of attention spread across the conversation's other prompt
    * positions: the ones below the connector's top-10%-per-segment capture

@@ -71,7 +71,7 @@ export interface SelectionAction {
   kinds: readonly SelectionTargetKind[];
   /** Further narrowing for one selection (e.g. only when a session is open). */
   isAvailable?: (target: SelectionTarget) => boolean;
-  run: (target: SelectionTarget) => void;
+  run: (target: SelectionTarget) => void | boolean;
 }
 
 /** The set of selection actions currently offered, owned by one provider. */

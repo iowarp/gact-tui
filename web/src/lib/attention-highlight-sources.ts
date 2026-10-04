@@ -19,7 +19,7 @@ export interface ResolvedAttentionBlock {
 export function toolResultText(output: unknown): string {
   if (typeof output === 'string') return output;
   if (output && typeof output === 'object') {
-    const content = (output as { content?: unknown }).content;
+    const content = Array.isArray(output) ? output : (output as { content?: unknown }).content;
     if (Array.isArray(content)) {
       const text = content
         .filter(

@@ -11,6 +11,8 @@ import {
   type AttentionLookupResult,
 } from './attention-lookup-contract.js';
 import type { ContentSelection } from './storage-contract.js';
+import { contentSelectionSchema } from './attention-lookup-contract.js';
+import { z } from 'zod';
 
 /**
  * "Understand attention": which earlier transcript text the model drew on to
@@ -21,6 +23,31 @@ import type { ContentSelection } from './storage-contract.js';
  * to branch on `available`.
  */
 export class AttentionRepository extends SessionHistoryRepository {
+  public attentionContent(sessionId: string, messageId: string, cursor = 0, signal?: AbortSignal) {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/attention/content?cursor=${cursor}`,
+      signal,
+      decode: (value) =>
+        z
+          .object({
+            items: z.array(
+              z.object({
+                reference: contentSelectionSchema,
+                kind: z.string(),
+                label: z.string(),
+                preview: z.string(),
+                characters: z.number(),
+                coordinate_support: z.enum(['text', 'unavailable']),
+                explanation: z.string().optional(),
+              }),
+            ),
+            next_cursor: z.number().nullable(),
+          })
+          .parse(value),
+    });
+  }
+
   public lookupAttention(
     sessionId: string,
     input: {
@@ -28,6 +55,7 @@ export class AttentionRepository extends SessionHistoryRepository {
       direction: AttentionLookupDirection;
       profile?: AttentionProfile;
       cursor?: number;
+      lm_call_id?: string;
     },
     signal?: AbortSignal,
   ): Promise<AttentionLookupResult> {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { attentionProfileGeneratedSchema } from '../generated/clio-schemas/attention-profile.schema.js';
+import { contentSelectionGeneratedSchema } from '../generated/clio-schemas/content-selection.schema.js';
 import type { AttentionResult, AttentionSessionAvailability } from './attention-domain.js';
 
 const attentionRunSchema = z.tuple([z.number(), z.number(), z.number()]);
@@ -91,6 +92,7 @@ export const attentionAvailableSchema = z
     available: z.literal(true),
     message_id: z.string(),
     selection: attentionSelectionSchema,
+    selected_references: z.array(contentSelectionGeneratedSchema).optional(),
     residual: z.number(),
     sources: z.array(attentionSourceSchema).default([]),
     flags: z.array(attentionFlagSchema).default([]),

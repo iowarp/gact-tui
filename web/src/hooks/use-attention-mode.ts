@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import type { AgentAnswerTextSelection, SelectionAction } from '@/lib/selection-actions';
 import { useRepository } from './use-repository';
 import { useSelectionAction } from './use-selection-action';
+import { connectionScope } from '@/lib/connection-scope';
 
 export type AttentionModeState =
   | { status: 'idle' }
@@ -35,16 +36,19 @@ export function useAttentionMode(
   state: AttentionModeState;
   dismiss: () => void;
   changeProfile: (profile: AttentionProfile) => void;
+  heat: AttentionAvailable | undefined;
+  showLookupHeat: (data: AttentionAvailable | undefined) => void;
 } {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const scope = `${settings.endpoint}\0${sessionId}`;
+  const scope = `${connectionScope(settings)}\0${sessionId}`;
+  const [lookupHeat, setLookupHeat] = useState<{ scope: string; data?: AttentionAvailable }>();
   const [profile, setProfile] = useState<AttentionProfile>();
   // Which answers can show attention. The action is offered only on those, so
   // a CLIO without attention capture, or an answer from another provider, never
   // shows it.
   const availability = useQuery({
-    queryKey: ['attention-availability', settings.endpoint, sessionId, transcriptRevision],
+    queryKey: ['attention-availability', scope, transcriptRevision],
     queryFn: ({ signal }) => repository.attentionAvailability(sessionId, signal),
     enabled: Boolean(sessionId),
     staleTime: Number.POSITIVE_INFINITY,
@@ -69,6 +73,7 @@ export function useAttentionMode(
     abortRef.current?.abort();
     requestTokenRef.current += 1;
     setState({ status: 'idle' });
+    setLookupHeat(undefined);
   }, [setState]);
 
   // Leaving the session (or the page) drops any in-flight request.
@@ -88,6 +93,7 @@ export function useAttentionMode(
       requestTokenRef.current += 1;
       const token = requestTokenRef.current;
       setState({ status: 'loading', selection: target });
+      setLookupHeat(undefined);
       try {
         const result = await repository.getAttention(
           target.sessionId,
@@ -140,10 +146,26 @@ export function useAttentionMode(
     [availableAnswers, request, sessionId],
   );
   useSelectionAction(action);
+  const showLookupHeat = useCallback(
+    (data: AttentionAvailable | undefined) => {
+      abortRef.current?.abort();
+      requestTokenRef.current += 1;
+      setState({ status: 'idle' });
+      setLookupHeat({ scope, data });
+    },
+    [scope, setState],
+  );
 
   return {
     state: current,
     dismiss,
+    showLookupHeat,
+    heat:
+      lookupHeat?.scope === scope && lookupHeat.data
+        ? lookupHeat.data
+        : current.status === 'shown'
+          ? current.data
+          : undefined,
     changeProfile: (next) => {
       setProfile(next);
       if (current.status !== 'idle') void request(current.selection, next);

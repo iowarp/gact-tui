@@ -713,7 +713,7 @@ export function WorkspacePage() {
             state={attention.state}
             onProfileChange={attention.changeProfile}
           />
-          <AttentionLookupPanel sessionId={sessionId} />
+          <AttentionLookupPanel sessionId={sessionId} onHeatChange={attention.showLookupHeat} />
           <LayoutGroup id={`session-layout:${sessionId}`}>
             <AnimatePresence initial={false} mode="popLayout">
               {showConversationWelcome ? (
@@ -737,9 +737,7 @@ export function WorkspacePage() {
                 <TranscriptPresenceSurface className="min-h-0 flex-1" key="conversation">
                   <WorkspaceLiveConversation
                     artifacts={artifacts}
-                    attentionData={
-                      attention.state.status === 'shown' ? attention.state.data : undefined
-                    }
+                    attentionData={attention.heat}
                     bottomInset={dockedComposerHeight}
                     error={transcriptError}
                     loading={transcript.isFetching}

@@ -3,6 +3,8 @@ import { type RefObject, useLayoutEffect } from 'react';
 import { buildAttentionHighlightRanges, buildSelectedRange } from '@/lib/attention-highlight-dom';
 import { findTextPartSource, resolveAttentionSources } from '@/lib/attention-highlight-sources';
 import { maxRunValue } from '@/lib/attention-text';
+import { bytesToHex } from '@noble/hashes/utils.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 
 const HEAT_LEVELS = 4;
 const HEAT_HIGHLIGHT_NAMES = Array.from(
@@ -59,10 +61,41 @@ export function useAttentionHighlights(
       heat.forEach((ranges, level) => {
         CSS.highlights.set(HEAT_HIGHLIGHT_NAMES[level] as string, new Highlight(...ranges));
       });
-      const selectedRange = buildSelectedRange(container, data, selectedSource);
+      const selectedRanges = data.selected_references?.flatMap((reference) => {
+        if (reference.field !== 'text') return [];
+        const source = findTextPartSource(messages, reference.message_id, reference.part_id);
+        if (
+          !source ||
+          bytesToHex(sha256(new TextEncoder().encode(source))) !== reference.content_revision
+        )
+          return [];
+        if (reference.selection.kind !== 'text' && reference.selection.kind !== 'whole') return [];
+        const selection =
+          reference.selection.kind === 'text'
+            ? reference.selection
+            : { start: 0, end: [...source].length };
+        const range = buildSelectedRange(
+          container,
+          {
+            ...data,
+            message_id: reference.message_id,
+            selection: {
+              part_id: reference.part_id,
+              field: reference.field,
+              text: source,
+              ...selection,
+            },
+          },
+          source,
+        );
+        return range ? [range] : [];
+      });
+      const selectedRange = selectedRanges
+        ? undefined
+        : buildSelectedRange(container, data, selectedSource);
       CSS.highlights.set(
         SELECTED_HIGHLIGHT_NAME,
-        new Highlight(...(selectedRange ? [selectedRange] : [])),
+        new Highlight(...(selectedRanges ?? (selectedRange ? [selectedRange] : []))),
       );
     };
     const scheduleApply = () => {

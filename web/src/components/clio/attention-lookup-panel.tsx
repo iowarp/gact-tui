@@ -1,5 +1,6 @@
 import type {
   AttentionLookupDirection,
+  AttentionAvailable,
   AttentionLookupResult,
   AttentionProfile,
   ContentSelection,
@@ -18,6 +19,10 @@ import { InfoTip } from './info-tip';
 import { readAttentionInspector, saveAttentionInspector } from '@/lib/attention-inspector-state';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+import {
+  readAttentionEvidence,
+  type AttentionEvidenceInspection,
+} from '@/lib/attention-evidence-navigation';
 
 type Item = { reference: ContentSelection; label: string };
 function itemFor(target: SelectionTarget): Item | undefined {
@@ -26,15 +31,36 @@ function itemFor(target: SelectionTarget): Item | undefined {
 }
 
 /** One connected-session basket; results never cross an endpoint or session switch. */
-export function AttentionLookupPanel({ sessionId }: { sessionId: string }) {
+export function AttentionLookupPanel({
+  sessionId,
+  onHeatChange,
+}: {
+  sessionId: string;
+  onHeatChange?: (data: AttentionAvailable | undefined) => void;
+}) {
   const { settings } = useConnectionSettings();
   // Never persist the credential. Its digest separates authenticated users on one endpoint.
   const identity = bytesToHex(sha256(utf8ToBytes(settings.token ?? '')));
   const scope = `clio:attention-inspector:${JSON.stringify([settings.endpoint, identity, sessionId])}`;
-  return <ScopedAttentionLookup key={scope} scope={scope} sessionId={sessionId} />;
+  return (
+    <ScopedAttentionLookup
+      key={scope}
+      scope={scope}
+      sessionId={sessionId}
+      onHeatChange={onHeatChange}
+    />
+  );
 }
 
-function ScopedAttentionLookup({ sessionId, scope }: { sessionId: string; scope: string }) {
+function ScopedAttentionLookup({
+  sessionId,
+  scope,
+  onHeatChange,
+}: {
+  sessionId: string;
+  scope: string;
+  onHeatChange?: (data: AttentionAvailable | undefined) => void;
+}) {
   const repository = useRepository();
   const [restored] = useState(() => readAttentionInspector(scope));
   const [items, setItems] = useState<Item[]>(restored.items);
@@ -43,18 +69,39 @@ function ScopedAttentionLookup({ sessionId, scope }: { sessionId: string; scope:
   const [profile, setProfile] = useState<AttentionProfile | undefined>(restored.profile);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [heatCall, setHeatCall] = useState<string>();
+  useEffect(() => {
+    onHeatChange?.(undefined);
+  }, [items, direction, profile, onHeatChange]);
   const request = useRef<AbortController | undefined>(undefined);
-  useEffect(() => () => request.current?.abort(), []);
+  const expectedEvidence = useRef<AttentionEvidenceInspection | undefined>(undefined);
+  const inspectedHash = useRef('');
+  useEffect(
+    () => () => {
+      request.current?.abort();
+      inspectedHash.current = '';
+    },
+    [],
+  );
   useEffect(
     () => saveAttentionInspector(scope, { items, direction, profile }),
     [scope, items, direction, profile],
   );
   const inspect = useCallback(
-    async (selected: Item[], mode: AttentionLookupDirection, nextProfile = profile, cursor = 0) => {
+    async (
+      selected: Item[],
+      mode: AttentionLookupDirection,
+      nextProfile = profile,
+      cursor = 0,
+      expected?: AttentionEvidenceInspection,
+    ) => {
       request.current?.abort();
+      expectedEvidence.current = expected;
       const controller = new AbortController();
       request.current = controller;
       setBusy(true);
+      setHeatCall(undefined);
+      onHeatChange?.(undefined);
       setError('');
       if (!cursor) setResult(undefined);
       try {
@@ -64,11 +111,28 @@ function ScopedAttentionLookup({ sessionId, scope }: { sessionId: string; scope:
             selections: selected.map((item) => item.reference),
             direction: mode,
             cursor,
+            ...(expected ? { lm_call_id: expected.lm_call_id } : {}),
             ...(nextProfile ? { profile: nextProfile } : {}),
           },
           controller.signal,
         );
         if (controller.signal.aborted) return;
+        if (
+          expected &&
+          (!('views' in data) ||
+            data.profile_revision !== expected.profile_revision ||
+            !data.views.some(
+              (view) =>
+                view.lm_call_id === expected.lm_call_id &&
+                view.capture_sha256 === expected.capture_sha256,
+            ))
+        ) {
+          setResult(undefined);
+          setError(
+            'The referenced capture or aggregation profile is unavailable. No replacement was selected.',
+          );
+          return;
+        }
         setResult((previous) =>
           cursor && previous && 'views' in previous && 'views' in data
             ? {
@@ -79,6 +143,7 @@ function ScopedAttentionLookup({ sessionId, scope }: { sessionId: string; scope:
             : data,
         );
         if ('profile' in data) setProfile(data.profile);
+        if (expected) setHeatCall(expected.lm_call_id);
       } catch (failure) {
         if (!controller.signal.aborted)
           setError(failure instanceof Error ? failure.message : 'Attention lookup failed.');
@@ -86,18 +151,49 @@ function ScopedAttentionLookup({ sessionId, scope }: { sessionId: string; scope:
         if (!controller.signal.aborted) setBusy(false);
       }
     },
-    [profile, repository, sessionId],
+    [profile, repository, sessionId, onHeatChange],
   );
+  useEffect(() => {
+    const expected = expectedEvidence.current;
+    if (!expected || !result || !('views' in result)) return;
+    const view = result.views.find(
+      (item) =>
+        item.lm_call_id === expected.lm_call_id && item.capture_sha256 === expected.capture_sha256,
+    );
+    if (!view || result.profile_revision !== expected.profile_revision) return;
+    onHeatChange?.(
+      (view.kind === 'generated' ? view : view.heat) as AttentionAvailable | undefined,
+    );
+  }, [result, onHeatChange]);
+  useEffect(() => {
+    const restore = () => {
+      if (inspectedHash.current === window.location.hash) return;
+      inspectedHash.current = window.location.hash;
+      const link = readAttentionEvidence(window.location.hash, sessionId);
+      if (!link) return;
+      const selected = link.selections.map((reference) => ({
+        reference,
+        label: `Evidence · ${reference.field ?? 'content'}`,
+      }));
+      setItems(selected);
+      setDirection(link.direction);
+      setProfile(link.profile);
+      void inspect(selected, link.direction, link.profile, 0, link);
+    };
+    restore();
+    window.addEventListener('hashchange', restore);
+    return () => window.removeEventListener('hashchange', restore);
+  }, [inspect, sessionId]);
   const add = useCallback(
     (target: SelectionTarget, trace = false) => {
       const item = itemFor(target);
-      if (!item) return;
+      if (!item) return false;
       const unique = new Map(items.map((entry) => [JSON.stringify(entry.reference), entry]));
       unique.set(JSON.stringify(item.reference), item);
       const next = [...unique.values()];
       if (next.length > 32) {
         setError('Inspect up to 32 selections at a time.');
-        return;
+        return false;
       }
       request.current?.abort();
       setBusy(false);
@@ -107,6 +203,7 @@ function ScopedAttentionLookup({ sessionId, scope }: { sessionId: string; scope:
         setDirection('source_to_generation');
         void inspect(next, 'source_to_generation');
       }
+      return true;
     },
     [items, inspect],
   );
@@ -218,7 +315,17 @@ function ScopedAttentionLookup({ sessionId, scope }: { sessionId: string; scope:
           {error}
         </p>
       ) : null}
-      {result ? <AttentionLookupResults result={result} /> : null}
+      {result ? (
+        <AttentionLookupResults
+          result={result}
+          heatCall={heatCall}
+          onShowHeat={(view) => {
+            const data = view.kind === 'generated' ? view : view.heat;
+            setHeatCall(view.lm_call_id);
+            onHeatChange?.(data as AttentionAvailable | undefined);
+          }}
+        />
+      ) : null}
       {result && 'next_cursor' in result && result.next_cursor !== null ? (
         <Button
           disabled={busy}

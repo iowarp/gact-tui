@@ -3,6 +3,9 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { createSelectionActionRegistry, type SelectionTarget } from '@/lib/selection-actions';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { AttentionLookupPanel } from './attention-lookup-panel';
+import { attentionProfileSchema } from '@clio/core/v3';
+import { attentionEvidenceHash } from '@/lib/attention-evidence-navigation';
+import { StrictMode } from 'react';
 
 const mocks = vi.hoisted(() => ({ endpoint: 'http://clio-a', lookup: vi.fn() }));
 vi.mock('@/hooks/use-repository', () => ({
@@ -16,7 +19,103 @@ afterEach(() => {
   sessionStorage.clear();
   mocks.lookup.mockReset();
   mocks.endpoint = 'http://clio-a';
+  window.history.replaceState({}, '', '/');
 });
+
+const profile = attentionProfileSchema.parse({});
+const generated = {
+  kind: 'generated',
+  available: true,
+  lm_call_id: 'call-1',
+  capture_sha256: 'capture-1',
+  request_id: 'request-1',
+  profile_revision: 'profile-1',
+  profile,
+  message_id: 'm',
+  selection: { part_id: 'p', field: 'text', text: 'selected' },
+  selected_steps: [1, 2],
+  blocks: [],
+  selected_references: [],
+};
+const lookup = {
+  available: true,
+  profile,
+  profile_revision: 'profile-1',
+  views: [generated],
+  unavailable: [],
+  next_cursor: null,
+};
+
+it('shows the chosen capture heat and removes it when the selection is cleared', async () => {
+  mocks.lookup.mockResolvedValue(lookup);
+  const registry = createSelectionActionRegistry();
+  const heat = vi.fn();
+  render(
+    <SelectionActionsContext.Provider value={registry}>
+      <AttentionLookupPanel sessionId="s" onHeatChange={heat} />
+    </SelectionActionsContext.Provider>,
+  );
+  act(() =>
+    registry
+      .actionsFor(target)
+      .find((item) => item.id === 'attention-set')!
+      .run(target),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Inspect sources' }));
+  await screen.findByText('Generated selection · 2 captured tokens');
+  fireEvent.click(screen.getByText('Generated selection · 2 captured tokens'));
+  fireEvent.click(screen.getByRole('button', { name: 'Show transcript heat' }));
+  expect(heat).toHaveBeenLastCalledWith(generated);
+  fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+  expect(heat).toHaveBeenLastCalledWith(undefined);
+});
+
+it.each([true, false])(
+  'restores the referenced capture and refuses a different result: match=%s',
+  async (matches) => {
+    const inspection = {
+      schema_version: 1 as const,
+      selections: [target.reference!],
+      direction: 'generated_to_source' as const,
+      profile,
+      profile_revision: 'profile-1',
+      lm_call_id: 'call-1',
+      capture_sha256: matches ? 'capture-1' : 'unavailable-capture',
+    };
+    window.history.replaceState(
+      {},
+      '',
+      attentionEvidenceHash(target.reference!, 'profile-1', inspection),
+    );
+    mocks.lookup.mockResolvedValue(lookup);
+    const heat = vi.fn();
+    render(
+      <StrictMode>
+        <SelectionActionsContext.Provider value={createSelectionActionRegistry()}>
+          <AttentionLookupPanel sessionId="s" onHeatChange={heat} />
+        </SelectionActionsContext.Provider>
+      </StrictMode>,
+    );
+    await waitFor(() =>
+      expect(mocks.lookup).toHaveBeenCalledWith(
+        's',
+        expect.objectContaining({
+          lm_call_id: 'call-1',
+          profile,
+          selections: inspection.selections.map((reference) => expect.objectContaining(reference)),
+        }),
+        expect.any(AbortSignal),
+      ),
+    );
+    if (matches) await waitFor(() => expect(heat).toHaveBeenLastCalledWith(generated));
+    else {
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'referenced capture or aggregation profile is unavailable',
+      );
+      expect(heat).not.toHaveBeenCalledWith(generated);
+    }
+  },
+);
 
 it('retains the basket across navigation but re-reads captures on explicit inspection', async () => {
   const registry = createSelectionActionRegistry();
@@ -39,7 +138,7 @@ it('retains the basket across navigation but re-reads captures on explicit inspe
   fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
   expect(sessionStorage.length).toBe(0);
 });
-const target: SelectionTarget = {
+const target = {
   kind: 'transcript-content',
   text: 'selected source',
   reference: {
@@ -50,7 +149,7 @@ const target: SelectionTarget = {
     content_revision: 'revision',
     selection: { kind: 'text', start: 3, end: 9 },
   },
-};
+} satisfies SelectionTarget;
 
 it('deduplicates selections and sends the exact source reference and requested direction', async () => {
   mocks.lookup.mockResolvedValue({ available: false, message: 'No captured image patches.' });

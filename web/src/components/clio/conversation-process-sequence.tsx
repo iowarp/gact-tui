@@ -19,6 +19,8 @@ import { ConversationInteractionActivity } from './conversation-interaction-acti
 import { GroundedMessageResponse } from './grounded-message-response';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 
 export type ProcessBlock = Extract<
   MessageBlock,
@@ -40,6 +42,7 @@ interface ConversationProcessSequenceProps {
     response: PendingInteractionResponse,
   ) => Promise<void>;
   messageId?: string;
+  messageSessionId?: string;
   messageAttentionIndex?: MessageAttentionIndex;
 }
 
@@ -58,6 +61,7 @@ export function ConversationProcessSequence({
   onOpenArtifact,
   onInteractionResponse,
   messageId,
+  messageSessionId,
   messageAttentionIndex,
 }: ConversationProcessSequenceProps) {
   return renderSingleProcessBlock(block, {
@@ -71,6 +75,7 @@ export function ConversationProcessSequence({
     onOpenArtifact,
     onInteractionResponse,
     messageId,
+    messageSessionId,
     messageAttentionIndex,
   });
 }
@@ -119,12 +124,18 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
               data-field={thoughtAttention?.field}
               data-message-id={thoughtAttention ? entities.messageId : undefined}
               data-part-id={thoughtAttention?.part_id}
+              data-content-revision={bytesToHex(sha256(new TextEncoder().encode(block.thought)))}
             >
               {block.thought}
             </ReasoningContent>
           </Reasoning>
         ) : null}
-        <ClioToolInvocation attention={attentionBadge} tool={tool} />
+        <ClioToolInvocation
+          attention={attentionBadge}
+          attentionFields={attentionEntries}
+          sessionId={entities.messageSessionId}
+          tool={tool}
+        />
         {questions.map((interaction) => (
           <ConversationInteractionActivity
             artifacts={entities.artifacts ?? {}}

@@ -1,7 +1,7 @@
-import type { ToolInvocation, WorkspaceResource } from '@clio/core/v3';
+import type { AttentionBlock, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
 import { WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
-import { useContext } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
@@ -13,9 +13,13 @@ import { PresentationLink } from './presentation-link';
 import { getToolHeaderMetadata, getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
 import { withWorkflowPresentation, workflowDescriptor } from './workflow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
+import { ToolAttentionField } from './tool-attention-fields';
+import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 
 export function ClioToolInvocation({
   attention,
+  attentionFields,
+  sessionId,
   tool,
   defaultOpen,
 }: {
@@ -24,8 +28,35 @@ export function ClioToolInvocation({
   embedded?: boolean;
   /** Attention-mode badge: this tool call's share of the selection's attention, and its intensity bucket. */
   attention?: { share: number; bucket: number };
+  attentionFields?: readonly AttentionBlock[];
+  sessionId?: string;
 }) {
   const navigation = useContext(PresentationNavigation);
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  useEffect(() => {
+    let frame = 0;
+    const inspect = () => {
+      const [target, raw] = window.location.hash.split('?');
+      const query = new URLSearchParams(raw);
+      const field = attentionFields?.find(
+        (entry) =>
+          target === `#message-${encodeURIComponent(entry.message_id)}` &&
+          entry.part_id === query.get('part') &&
+          entry.field === query.get('field') &&
+          entry.content_revision === query.get('revision') &&
+          ['input', 'result'].includes(entry.field),
+      );
+      if (!field) return;
+      setOpen(true);
+      frame = requestAnimationFrame(() => focusAttentionEvidence(field.message_id, query));
+    };
+    inspect();
+    window.addEventListener('hashchange', inspect);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('hashchange', inspect);
+    };
+  }, [attentionFields]);
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
   const workflow = workflowDescriptor(tool);
   const presentedTool = withMemoryPresentation(
@@ -47,7 +78,7 @@ export function ClioToolInvocation({
   const summaryInHeader =
     Boolean(headerMetadata) && headerMetadata === presentedTool.presentation?.summary?.trim();
   return (
-    <Dialog defaultOpen={defaultOpen ?? false}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <div
         className="flex min-w-0 scroll-m-6 flex-col gap-0.5 rounded-sm focus:outline-2 focus:outline-offset-2 focus:outline-primary"
         data-slot="tool-activity"
@@ -87,7 +118,9 @@ export function ClioToolInvocation({
           status={status}
           duration={tool.duration_ms}
           attention={
-            attention ? <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} /> : null
+            attention ? (
+              <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
+            ) : null
           }
           action={
             <DialogTrigger asChild>
@@ -112,8 +145,37 @@ export function ClioToolInvocation({
           title={`${actionLabel}: Technical details`}
           description="Original tool arguments, result, and diagnostics."
         >
-          {tool.input !== undefined ? <ToolInput input={(tool.input ?? {}) as never} /> : null}
-          <ToolOutput errorText={tool.error as never} output={tool.output as never} />
+          {attentionFields?.some((entry) => entry.kind === 'tool_input') ? (
+            attentionFields
+              .filter((entry) => entry.kind === 'tool_input')
+              .map((block) => (
+                <ToolAttentionField
+                  key={`${block.part_id}:${block.field}`}
+                  block={block}
+                  tool={tool}
+                  sessionId={sessionId}
+                />
+              ))
+          ) : tool.input !== undefined ? (
+            <ToolInput input={(tool.input ?? {}) as never} />
+          ) : null}
+          {attentionFields?.some((entry) => entry.kind === 'tool_result') ? (
+            attentionFields
+              .filter((entry) => entry.kind === 'tool_result')
+              .map((block) => (
+                <ToolAttentionField
+                  key={`${block.part_id}:${block.field}`}
+                  block={block}
+                  tool={tool}
+                  sessionId={sessionId}
+                />
+              ))
+          ) : (
+            <ToolOutput errorText={tool.error as never} output={tool.output as never} />
+          )}
+          {attentionFields?.some((entry) => entry.kind === 'tool_result') && tool.error ? (
+            <p role="alert">{String(tool.error)}</p>
+          ) : null}
           {tool.presentation?.diagnostic ? <p>{tool.presentation.diagnostic}</p> : null}
         </ResultDialogContent>
       </div>
