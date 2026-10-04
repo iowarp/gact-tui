@@ -28,9 +28,27 @@ const sonnerMocks = vi.hoisted(() => ({
     dismiss: vi.fn(),
   }),
 }));
+const channelMocks = vi.hoisted(() => ({
+  getVersion: vi.fn(async () => '0.7.2'),
+  latestRelease: vi.fn(async () => ({ tag_name: 'v0.9.5-beta.2' })),
+  invoke: vi.fn(async () => ({
+    rid: 42,
+    currentVersion: '0.9.5-1',
+    version: '0.9.5-2',
+    rawJson: {},
+  })),
+}));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => true }));
-vi.mock('@tauri-apps/plugin-updater', () => ({ check: mocks.check }));
+vi.mock('@tauri-apps/plugin-updater', () => ({
+  check: mocks.check,
+  Update: vi.fn(function (metadata) {
+    return { ...mocks.update, ...metadata };
+  }),
+}));
+vi.mock('@tauri-apps/api/app', () => ({ getVersion: channelMocks.getVersion }));
+vi.mock('@tauri-apps/api/core', () => ({ invoke: channelMocks.invoke }));
+vi.mock('@/lib/github-releases', () => ({ latestPublishedRelease: channelMocks.latestRelease }));
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: mocks.relaunch }));
 vi.mock('sonner', () => ({ toast: sonnerMocks.toast }));
 
@@ -46,14 +64,67 @@ import {
   installDesktopUpdate,
   runBackgroundUpdateCheck,
   scheduleBackgroundUpdateCheck,
+  getDesktopUpdateSnapshot,
 } from './desktop-updater';
+import { setUpdateChannel } from '@/lib/update-channel';
 
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  setUpdateChannel('stable');
+  channelMocks.getVersion.mockResolvedValue('0.7.2');
 });
 
 describe('desktop updater bridge', () => {
+  it('discards a beta result that arrives after opting back into stable', async () => {
+    setUpdateChannel('beta');
+    let finish!: (value: {
+      rid: number;
+      currentVersion: string;
+      version: string;
+      rawJson: object;
+    }) => void;
+    channelMocks.invoke.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const pending = checkForDesktopUpdate();
+    await vi.waitFor(() => expect(channelMocks.invoke).toHaveBeenCalled());
+    setUpdateChannel('stable');
+    finish({ rid: 42, currentVersion: '0.9.5-1', version: '0.9.5-2', rawJson: {} });
+    await expect(pending).resolves.toBeNull();
+    expect(getDesktopUpdateSnapshot()).toEqual({ status: 'unknown' });
+    await expect(installDesktopUpdate(() => undefined)).rejects.toThrow(
+      'Check for an available update',
+    );
+  });
+
+  it('uses a published beta manifest and preserves the native signature-verifying install path', async () => {
+    setUpdateChannel('beta');
+    await expect(checkForDesktopUpdate()).resolves.toMatchObject({ version: '0.9.5-2' });
+    expect(channelMocks.latestRelease).toHaveBeenCalledWith(expect.any(String), 'beta');
+    expect(channelMocks.invoke).toHaveBeenCalledWith('check_release_update', {
+      tag: 'v0.9.5-beta.2',
+    });
+    expect(mocks.check).not.toHaveBeenCalled();
+    setUpdateChannel('stable');
+    await expect(installDesktopUpdate(() => undefined)).rejects.toThrow(
+      'Check for an available update',
+    );
+  });
+
+  it('migrates existing beta installations without overriding an explicit stable choice', async () => {
+    localStorage.clear();
+    channelMocks.getVersion.mockResolvedValue('0.9.5-1');
+    await checkForDesktopUpdate();
+    expect(channelMocks.invoke).toHaveBeenCalledOnce();
+    setUpdateChannel('stable');
+    await checkForDesktopUpdate();
+    expect(mocks.check).toHaveBeenCalledOnce();
+  });
+
   it('checks the signed feed, reports real byte progress, installs, and relaunches', async () => {
     await expect(checkForDesktopUpdate()).resolves.toMatchObject({
       currentVersion: '0.7.2',

@@ -28,6 +28,8 @@ const updateManagedClio = vi.hoisted(() => vi.fn(async () => undefined));
 const restartClio = vi.hoisted(() => vi.fn(async () => undefined));
 const getVersion = vi.hoisted(() => vi.fn(async () => '0.9.4+3'));
 const runtime = vi.hoisted(() => ({ desktopShell: true }));
+const latestPublishedRelease = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/github-releases', () => ({ latestPublishedRelease }));
 
 vi.mock('@tauri-apps/api/app', () => ({ getVersion }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => runtime.desktopShell }));
@@ -52,6 +54,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { useUpdateFlowStore } from '@/store/update-flow-store';
 import { SystemVersionStatus } from './navigation-version-status';
+import { setUpdateChannel } from '@/lib/update-channel';
 
 Object.defineProperty(window, 'matchMedia', {
   configurable: true,
@@ -81,6 +84,9 @@ function renderStatus() {
 beforeEach(() => {
   useUpdateFlowStore.getState().reset();
   localStorage.clear();
+  setUpdateChannel('stable');
+  latestPublishedRelease.mockReset();
+  latestPublishedRelease.mockResolvedValue({ tag_name: 'v0.9.5-beta.2' });
   runtime.desktopShell = true;
   desktop.snapshot = { status: 'current' };
   desktop.install.mockClear();
@@ -110,6 +116,37 @@ afterEach(() => {
 });
 
 describe('SystemVersionStatus', () => {
+  it('offers the next beta Agent and passes its exact tag to the installer', async () => {
+    setUpdateChannel('beta');
+    repository.capabilities.mockResolvedValue({ service: { version: '0.9.5b1' } });
+    renderStatus();
+    fireEvent.click(await screen.findByRole('button', { name: 'Software update available' }));
+    const row = within(await screen.findByTestId('version-row-agent'));
+    fireEvent.click(row.getByRole('button', { name: /Update/ }));
+    await waitFor(() =>
+      expect(updateManagedClio).toHaveBeenCalledWith(
+        'v0.9.5-beta.2',
+        expect.objectContaining({ restartApp: true }),
+      ),
+    );
+    expect(latestPublishedRelease).toHaveBeenCalledWith(
+      brand.agentReleaseUrl,
+      'beta',
+      expect.any(AbortSignal),
+    );
+    expect(repository.latestRelease).not.toHaveBeenCalled();
+  });
+
+  it('keeps an explicit stable opt-out even when the installed Agent is beta', async () => {
+    repository.capabilities.mockResolvedValue({ service: { version: '0.9.5b1' } });
+    getVersion.mockResolvedValue('0.9.5-1');
+    renderStatus();
+    await screen.findByRole('button', {
+      name: `${brand.productName} and ${brand.agentName} are up to date`,
+    });
+    expect(latestPublishedRelease).not.toHaveBeenCalled();
+  });
+
   it('shows one compact version control and two branded software rows', async () => {
     renderStatus();
 

@@ -67,6 +67,7 @@ mod supervisor_update_verify;
 mod terminal_pty;
 mod terminal_reader;
 mod tray;
+mod update_channel;
 mod workspace_terminal;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -201,6 +202,7 @@ pub fn run() {
             credentials::provider_credential_read,
             credentials::ssh_identity_store,
             gact_http::gact_http,
+            update_channel::check_release_update,
             sse_bridge::gact_sse_open,
             sse_bridge::gact_sse_close,
             plugins::exec_plugin,
