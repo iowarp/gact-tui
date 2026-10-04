@@ -5,6 +5,7 @@ import type {
   RelayStatus,
   ServiceActionInput,
   ManagedServiceDefinition,
+  ProvenanceConnectionInput,
 } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CpuIcon, LaptopIcon, ServerIcon } from 'lucide-react';
@@ -73,6 +74,7 @@ export function ManagedServices({
   connectedAgentLabel,
   connectedAgentLocation,
   onConnectExistingService,
+  onConnectProvenance,
   onManageWebSearch,
   onManageRelay,
   relayStatus,
@@ -86,6 +88,7 @@ export function ManagedServices({
   connectedAgentLabel?: string;
   connectedAgentLocation?: string;
   onConnectExistingService?: () => void;
+  onConnectProvenance?: (input: ProvenanceConnectionInput) => void;
   onManageWebSearch?: () => void;
   onManageRelay?: () => void;
   relayStatus?: RelayStatus;
@@ -457,40 +460,59 @@ export function ManagedServices({
         }
         onVariant={(value) => setVariants((current) => ({ ...current, [service.id]: value }))}
         connectionAction={
-          service.category === 'model_runtime' &&
-          service.state === 'running' &&
-          (!service.observation || service.observation.serving) &&
-          agentConnectionUrl
-            ? modelRuntimeInModels(savedServers.servers.data, service.id, agentConnectionUrl)
-              ? { label: 'Open in Models', to: '/settings/providers' }
-              : {
-                  label: savedServers.save.isPending ? 'Adding to Models…' : 'Use in Models',
-                  pending: savedServers.save.isPending,
-                  onSelect: () =>
-                    savedServers.save.mutate({
-                      address: agentConnectionUrl,
-                      label: `${service.label} (${targetLabel(target, sshHost)})`,
-                      presetId: service.id,
-                    }),
-                }
-            : service.id === 'web_search' && service.state === 'running'
-              ? {
-                  label: webSearchTargetConnected
-                    ? webSearchDisconnecting
-                      ? 'Disconnecting…'
-                      : 'Disconnect'
-                    : webSearchConnecting
-                      ? 'Connecting…'
-                      : `Connect to ${vocab.agent}`,
-                  onSelect: webSearchTargetConnected
-                    ? onDisconnectWebSearch
-                    : !agentConnectionUrl
-                      ? undefined
-                      : () => onConnectWebSearch?.(agentConnectionUrl),
-                  pending: webSearchTargetConnected ? webSearchDisconnecting : webSearchConnecting,
-                  blockedReason: undefined,
-                }
-              : undefined
+          service.category === 'monitoring' && service.state === 'running' && onConnectProvenance
+            ? {
+                label: 'Use for provenance',
+                blockedReason:
+                  targetId !== 'local'
+                    ? `Connect to the ${vocab.agent} on this execution host to configure its local provenance settings.`
+                    : undefined,
+                onSelect: () =>
+                  onConnectProvenance({
+                    service_id: service.id === 'flowcept' ? 'flowcept' : 'cmf',
+                    label: service.label,
+                    url: agentConnectionUrl ?? service.connection_url ?? '',
+                    ...(service.id === 'flowcept'
+                      ? { settings_path: service.configuration.flowcept_settings ?? '' }
+                      : {}),
+                  }),
+              }
+            : service.category === 'model_runtime' &&
+                service.state === 'running' &&
+                (!service.observation || service.observation.serving) &&
+                agentConnectionUrl
+              ? modelRuntimeInModels(savedServers.servers.data, service.id, agentConnectionUrl)
+                ? { label: 'Open in Models', to: '/settings/providers' }
+                : {
+                    label: savedServers.save.isPending ? 'Adding to Models…' : 'Use in Models',
+                    pending: savedServers.save.isPending,
+                    onSelect: () =>
+                      savedServers.save.mutate({
+                        address: agentConnectionUrl,
+                        label: `${service.label} (${targetLabel(target, sshHost)})`,
+                        presetId: service.id,
+                      }),
+                  }
+              : service.id === 'web_search' && service.state === 'running'
+                ? {
+                    label: webSearchTargetConnected
+                      ? webSearchDisconnecting
+                        ? 'Disconnecting…'
+                        : 'Disconnect'
+                      : webSearchConnecting
+                        ? 'Connecting…'
+                        : `Connect to ${vocab.agent}`,
+                    onSelect: webSearchTargetConnected
+                      ? onDisconnectWebSearch
+                      : !agentConnectionUrl
+                        ? undefined
+                        : () => onConnectWebSearch?.(agentConnectionUrl),
+                    pending: webSearchTargetConnected
+                      ? webSearchDisconnecting
+                      : webSearchConnecting,
+                    blockedReason: undefined,
+                  }
+                : undefined
         }
         progress={progress[service.id] || runningOperations[service.id]?.progress}
         result={results[service.id]}

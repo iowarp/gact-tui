@@ -7,6 +7,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const repository = vi.hoisted(() => ({
   infrastructureInventory: vi.fn(),
+  provenanceConnections: vi.fn(),
   serviceHealth: vi.fn(),
   relayStatus: vi.fn(),
   mcpServers: vi.fn(),
@@ -39,6 +40,7 @@ import { InfrastructurePage } from './infrastructure-page';
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  repository.provenanceConnections.mockResolvedValue([]);
   repository.infrastructureInventory.mockResolvedValue({
     targets: [],
     services: [],

@@ -4,7 +4,7 @@ import { ClioStatus } from './status';
 import { BrandIcon } from './brand-icon';
 
 /** Packaged provider marks, with a neutral capability icon when no vendor mark exists. */
-export function ManagedServiceLogo({ service }: { service: ManagedServiceDefinition }) {
+export function ManagedServiceLogo({ service }: { service: Pick<ManagedServiceDefinition, 'id'> }) {
   const marks: Record<string, string> = { vllm: 'vllm', llama_cpp: 'llama-cpp', ollama: 'ollama' };
   const modelLogo = marks[service.id];
   return (

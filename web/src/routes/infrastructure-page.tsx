@@ -6,6 +6,7 @@ import type {
   RelayStatus,
   ServiceIntegrationHealth,
   ToolCatalogItem,
+  ProvenanceConnectionInput,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -30,6 +31,7 @@ import { RelayConnectionDialog } from '@/components/clio/relay-settings';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { ManagedServices } from '@/components/clio/managed-services';
+import { ProvenanceConnections } from '@/components/clio/provenance-connections';
 import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
 import { Frame, FrameFooter, FramePanel } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -60,6 +62,7 @@ import {
   integrationStatusLabel,
 } from './infrastructure-foundation';
 import { SandboxFoundationRow } from './infrastructure-sandbox-row';
+import { connectionScope } from '@/lib/connection-scope';
 export function InfrastructurePage() {
   const location = useLocation();
   const { section } = useParams();
@@ -73,6 +76,13 @@ export function InfrastructurePage() {
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const [connectServiceOpen, setConnectServiceOpen] = useState(false);
+  const provenanceScope = connectionScope(settings);
+  const [connectProvenance, setConnectProvenance] = useState<{
+    scope: string;
+    input: ProvenanceConnectionInput;
+  }>();
+  const openProvenance = (input: ProvenanceConnectionInput) =>
+    setConnectProvenance({ scope: provenanceScope, input });
   const [relayOpen, setRelayOpen] = useState(false);
   const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
@@ -339,6 +349,7 @@ export function InfrastructurePage() {
                 connectedAgentLabel={settings.label}
                 connectedAgentLocation={settings.location}
                 onConnectExistingService={() => setConnectServiceOpen(true)}
+                onConnectProvenance={openProvenance}
                 onManageWebSearch={() => setWebSearchOpen(true)}
                 onManageRelay={() => setRelayOpen(true)}
                 onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
@@ -348,6 +359,16 @@ export function InfrastructurePage() {
                 webSearchConnecting={connectDetectedWebSearch.isPending}
                 webSearchDisconnecting={disconnectWebSearch.isPending}
                 relayStatus={relay.data}
+              />
+              <ProvenanceConnections
+                connect={
+                  connectProvenance?.scope === provenanceScope ? connectProvenance.input : undefined
+                }
+                onClose={() =>
+                  setConnectProvenance((current) =>
+                    current?.scope === provenanceScope ? undefined : current,
+                  )
+                }
               />
               <Dialog open={connectServiceOpen} onOpenChange={setConnectServiceOpen}>
                 <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
@@ -359,6 +380,24 @@ export function InfrastructurePage() {
                     </DialogDescription>
                   </DialogHeader>
                   <section aria-label="Add services" className="grid gap-4">
+                    <div className="flex flex-wrap gap-2">
+                      {(['flowcept', 'cmf'] as const).map((service) => (
+                        <Button
+                          key={service}
+                          variant="outline"
+                          onClick={() => {
+                            setConnectServiceOpen(false);
+                            openProvenance({
+                              service_id: service,
+                              label: service === 'flowcept' ? 'Flowcept' : 'HPE CMF',
+                              url: '',
+                            });
+                          }}
+                        >
+                          Connect {service === 'flowcept' ? 'Flowcept' : 'HPE CMF'}
+                        </Button>
+                      ))}
+                    </div>
                     <SetupCard
                       action={
                         webSearchReady && webSearchConfiguration.data?.configured
