@@ -315,6 +315,24 @@ describe('A2UI surface revision recovery (G2 #23/#29; coordinator design 2026-10
     expect(await screen.findByLabelText('Full name')).toHaveValue('Alice');
   });
 
+  it('keeps legacy form input when an unchanged surface rerenders without part IDs', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const messages = [createMessage, {
+      version: 'v0.9.1',
+      updateDataModel: { surfaceId: SURFACE_ID, path: '/name', value: '' },
+    }, {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [{ id: 'root', component: 'TextField', label: 'Name', value: { path: '/name' } }],
+      },
+    }];
+    const { update } = renderSurface(legacyA2uiSurface(messages, 3));
+    await userEvent.setup().type(await screen.findByLabelText('Name'), 'Alice');
+    update(legacyA2uiSurface(messages, 3));
+    expect(screen.getByLabelText('Name')).toHaveValue('Alice');
+  });
+
   it('ignores a revision at or behind what is already applied', async () => {
     const { update } = renderSurface(
       a2uiSurface([createMessage, textRoot('Original')], 2, { messageRevisions: [1, 2] }),

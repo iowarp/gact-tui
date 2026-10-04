@@ -17,4 +17,19 @@ describe('release versions', () => {
     expect(compareReleaseVersions('0.9.4+3', '0.9.4.3')).toBe(0);
     expect(compareReleaseVersions('0.9.4.3-rc.1', '0.9.4.3')).toBeLessThan(0);
   });
+
+  it('normalizes Python and Tauri beta versions to real GitHub release tags', () => {
+    for (const version of ['0.9.5b2', '0.9.5-2', 'v0.9.5-beta.2']) {
+      expect(displayReleaseVersion(version)).toBe('0.9.5-beta.2');
+      expect(releaseTag(version)).toBe('v0.9.5-beta.2');
+    }
+  });
+
+  it('orders beta revisions numerically and final releases after betas', () => {
+    expect(compareReleaseVersions('0.9.5b1', '0.9.5-beta.2')).toBeLessThan(0);
+    expect(compareReleaseVersions('0.9.5-2', '0.9.5-beta.10')).toBeLessThan(0);
+    expect(compareReleaseVersions('0.9.5-beta.10', '0.9.5')).toBeLessThan(0);
+    expect(compareReleaseVersions('0.9.5b2', '0.9.5-2')).toBe(0);
+    expect(compareReleaseVersions('0.9.5b2', '0.9.4.24')).toBeGreaterThan(0);
+  });
 });

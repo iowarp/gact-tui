@@ -1,5 +1,13 @@
 import type { DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import { toast } from 'sonner';
+import { brand } from '@brand';
+import { latestPublishedRelease } from '@/lib/github-releases';
+import {
+  getUpdateChannel,
+  initializeUpdateChannel,
+  subscribeUpdateChannel,
+  type UpdateChannel,
+} from '@/lib/update-channel';
 import {
   BACKGROUND_UPDATE_CHECK_INTERVAL_MS,
   BACKGROUND_UPDATE_CHECK_MIN_INTERVAL_MS,
@@ -43,6 +51,8 @@ export type DesktopUpdateSnapshot =
   | { status: 'error'; message: string; reason: DesktopUpdateFailure };
 
 let availableUpdate: Update | null = null;
+let availableChannel: UpdateChannel = 'stable';
+let checkGeneration = 0;
 let updateSnapshot: DesktopUpdateSnapshot = { status: 'unknown' };
 const updateListeners = new Set<(snapshot: DesktopUpdateSnapshot) => void>();
 
@@ -70,6 +80,15 @@ export function subscribeDesktopUpdate(
  * real check attempt (manual button or background scheduler alike).
  */
 const LAST_CHECKED_STORAGE_KEY = 'clio.desktop-update.last-checked';
+
+subscribeUpdateChannel(() => {
+  checkGeneration += 1;
+  const previous = availableUpdate;
+  availableUpdate = null;
+  if (previous) void previous.close().catch(() => undefined);
+  publishUpdateSnapshot({ status: 'unknown' });
+  toast.dismiss(DESKTOP_UPDATE_TOAST_ID);
+});
 
 /**
  * Turns a raw updater-plugin failure into the honest, typed message the UI
@@ -151,15 +170,36 @@ function writeLastCheckedAt(value: number): void {
  */
 export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null> {
   if (!inTauri()) throw new Error('App updates are available only in the installed desktop app.');
+  const { getVersion } = await import('@tauri-apps/api/app');
+  initializeUpdateChannel(await getVersion());
+  const channel = getUpdateChannel();
+  const generation = ++checkGeneration;
   writeLastCheckedAt(Date.now());
   publishUpdateSnapshot({ status: 'checking' });
   try {
-    if (availableUpdate) {
-      await availableUpdate.close();
-      availableUpdate = null;
+    const previous = availableUpdate;
+    availableUpdate = null;
+    if (previous) await previous.close();
+    const { check, Update } = await import('@tauri-apps/plugin-updater');
+    let candidate: Update | null;
+    if (channel === 'beta') {
+      if (!brand.desktopReleaseUrl) throw new Error('No beta release feed is configured.');
+      const release = await latestPublishedRelease(brand.desktopReleaseUrl, channel);
+      const { invoke } = await import('@tauri-apps/api/core');
+      const metadata = await invoke<ConstructorParameters<typeof Update>[0] | null>(
+        'check_release_update',
+        { tag: release.tag_name },
+      );
+      candidate = metadata ? new Update(metadata) : null;
+    } else {
+      candidate = await check({ timeout: UPDATE_CHECK_TIMEOUT_MS });
     }
-    const { check } = await import('@tauri-apps/plugin-updater');
-    availableUpdate = await check({ timeout: UPDATE_CHECK_TIMEOUT_MS });
+    if (generation !== checkGeneration || channel !== getUpdateChannel()) {
+      await candidate?.close();
+      return null;
+    }
+    availableUpdate = candidate;
+    availableChannel = channel;
     const update = availableUpdate
       ? {
           currentVersion: availableUpdate.currentVersion,
@@ -171,7 +211,9 @@ export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null>
     publishUpdateSnapshot(update ? { status: 'available', update } : { status: 'current' });
     return update;
   } catch (error) {
-    publishUpdateSnapshot({ status: 'error', ...classifyUpdateError(error) });
+    if (generation === checkGeneration) {
+      publishUpdateSnapshot({ status: 'error', ...classifyUpdateError(error) });
+    }
     throw error;
   }
 }
@@ -181,6 +223,8 @@ export async function installDesktopUpdate(
   onProgress: (progress: DesktopUpdateProgress) => void,
 ): Promise<void> {
   if (!availableUpdate) throw new Error('Check for an available update before installing.');
+  if (availableChannel !== getUpdateChannel())
+    throw new Error('The update channel changed. Check for updates again.');
   let downloadedBytes = 0;
   let totalBytes: number | undefined;
   await availableUpdate.downloadAndInstall((event: DownloadEvent) => {
