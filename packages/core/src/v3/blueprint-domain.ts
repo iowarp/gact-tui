@@ -7,6 +7,9 @@ export interface AgentBlueprintReference {
   version?: string;
   scope?: string;
   enabled?: boolean;
+  materialized?: boolean;
+  registry_id?: string;
+  blueprint_id?: string;
 }
 
 /** Typed outcome of comparing an installed marketplace source against its remote ref. */

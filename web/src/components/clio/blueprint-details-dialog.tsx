@@ -47,7 +47,11 @@ export function BlueprintDetailsDialog({ blueprint, onOpenChange }: BlueprintDet
           <div className="grid gap-5">
             <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-2 rounded-xl border p-4 text-sm">
               <span className="text-muted-foreground">Status</span>
-              <ClioStatus value={blueprint?.enabled ? 'healthy' : 'degraded'} />
+              {blueprint?.materialized === false ? (
+                <span>Available to install</span>
+              ) : (
+                <ClioStatus value={blueprint?.enabled ? 'healthy' : 'degraded'} />
+              )}
               <span className="text-muted-foreground">Available to</span>
               <span>{blueprint?.scope === 'global' ? 'Every workspace' : 'This workspace'}</span>
               <span className="text-muted-foreground">Version</span>
@@ -56,7 +60,9 @@ export function BlueprintDetailsDialog({ blueprint, onOpenChange }: BlueprintDet
               <span>{serviceCount || 'None declared'}</span>
               {source ? (
                 <>
-                  <span className="text-muted-foreground">Installed from</span>
+                  <span className="text-muted-foreground">
+                    {blueprint?.materialized === false ? 'Marketplace' : 'Installed from'}
+                  </span>
                   <span className="truncate" title={source}>
                     {pathName(source)}
                   </span>

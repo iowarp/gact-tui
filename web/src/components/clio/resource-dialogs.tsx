@@ -387,6 +387,7 @@ function SessionFields(props: SessionFieldsProps) {
               .map((blueprint) => (
                 <SelectItem key={blueprint.id} value={blueprint.id}>
                   {blueprint.display_name}
+                  {blueprint.materialized === false ? ' · Installs on selection' : ''}
                 </SelectItem>
               ))}
           </SelectContent>

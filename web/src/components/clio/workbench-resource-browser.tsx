@@ -1,26 +1,15 @@
 import { queryKeys } from '@/lib/query-keys';
 import { ConnectedSourcePicker } from './connected-source-picker';
+import { BlueprintInstallView } from './blueprint-install-view';
 import type {
   AgentBlueprint,
   AgentBlueprintReference,
   Artifact,
-  SubagentRun,
   WorkspaceFileEntry,
 } from '@clio/core/v3';
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ActivityIcon,
-  BotIcon,
-  BoxesIcon,
-  BoxIcon,
-  FileTextIcon,
-  FolderIcon,
-  PaperclipIcon,
-  SearchIcon,
-  TerminalSquareIcon,
-  TriangleAlertIcon,
-} from 'lucide-react';
-import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { BoxIcon, BoxesIcon, FileTextIcon, FolderIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import {
   lazy,
   Suspense,
@@ -35,17 +24,6 @@ import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Empty,
   EmptyDescription,
@@ -73,13 +51,7 @@ const ArtifactView = lazy(() =>
 const BlueprintFileEditor = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
 );
-export type CanvasResourceKind =
-  | 'session'
-  | 'work'
-  | 'files'
-  | 'resources'
-  | 'artifacts'
-  | 'blueprints';
+export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
 interface FileBrowserProps {
   workspaceId: string;
@@ -112,91 +84,6 @@ interface BlueprintBrowserProps {
     blueprint: AgentBlueprint,
     event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
   ) => void;
-}
-
-/** Opens one peer canvas tab instead of nesting unrelated resource types. */
-export function CanvasLauncher({
-  onOpen,
-  onOpenSubagent,
-  onOpenTerminal,
-  subagents = [],
-}: {
-  onOpen: (kind: CanvasResourceKind) => void;
-  /** Opens one child agent of this session as a canvas tab beside the conversation. */
-  onOpenSubagent?: (subagent: SubagentRun) => void;
-  onOpenTerminal?: () => void;
-  subagents?: readonly SubagentRun[];
-}) {
-  const openableSubagents = subagents.filter((subagent) => subagent.child_session_id);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label="Open a canvas tab"
-          className="size-9 shrink-0 rounded-lg"
-          size="icon"
-          title="Open a canvas tab"
-          variant="ghost"
-        >
-          <AddIcon aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>Add to canvas</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => onOpen('session')}>
-          <ActivityIcon aria-hidden="true" /> Observability
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('work')}>
-          <ActivityIcon aria-hidden="true" /> Work
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onOpen('files')}>
-          <FolderIcon aria-hidden="true" /> File explorer
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('resources')}>
-          <PaperclipIcon aria-hidden="true" /> Workspace resources
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('artifacts')}>
-          <BoxIcon aria-hidden="true" /> Session artifacts
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('blueprints')}>
-          <BoxesIcon aria-hidden="true" /> Agent blueprints
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {openableSubagents.length && onOpenSubagent ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <BotIcon aria-hidden="true" /> Child agent
-              <span className="ml-auto text-[10px] text-muted-foreground">
-                {openableSubagents.length}
-              </span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="max-h-80 w-64 overflow-y-auto">
-              {openableSubagents.map((subagent) => (
-                <DropdownMenuItem key={subagent.id} onSelect={() => onOpenSubagent(subagent)}>
-                  <BotIcon aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{subagent.title}</span>
-                  <ClioStatus className="shrink-0 py-0" compact value={subagent.state} />
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ) : (
-          <DropdownMenuItem disabled>
-            <BotIcon aria-hidden="true" /> Child agent
-            <span className="ml-auto text-[10px] text-muted-foreground">None yet</span>
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={!onOpenTerminal} onSelect={onOpenTerminal}>
-          <TerminalSquareIcon aria-hidden="true" /> Terminal
-          {!onOpenTerminal ? (
-            <span className="ml-auto text-[10px] text-muted-foreground">Unavailable</span>
-          ) : null}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 }
 
 /** Keeps the workspace tree and the selected rendered file in one navigable canvas. */
@@ -517,7 +404,11 @@ export function BlueprintBrowser({
                   {blueprint.description || 'No description provided.'}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                  {blueprint.materialized === false ? (
+                    <Badge variant="outline">Available</Badge>
+                  ) : (
+                    <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                  )}
                   <Badge variant="outline">{blueprint.scope}</Badge>
                 </div>
               </div>
@@ -570,6 +461,7 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
   });
   const setSelectedPath = (path: string) => queryClient.setQueryData(selectionKey, path);
   const files = useQuery({
+    enabled: currentBlueprint.materialized !== false,
     queryKey: queryKeys.key(
       'blueprint-files',
       settings.endpoint,
@@ -597,7 +489,11 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
     const observer = new ResizeObserver(update);
     observer.observe(host);
     return () => observer.disconnect();
-  }, []);
+  }, [currentBlueprint.materialized]);
+
+  if (currentBlueprint.materialized === false) {
+    return <BlueprintInstallView blueprint={currentBlueprint} workspaceId={workspaceId} />;
+  }
 
   return (
     <div className="h-full min-h-0" ref={hostRef}>

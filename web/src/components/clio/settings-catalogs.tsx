@@ -144,7 +144,9 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
       toast.success('Blueprint removed');
     },
   });
-  const installedBlueprints = blueprints.data?.filter((blueprint) => blueprint.kind !== 'pack');
+  const installedBlueprints = blueprints.data?.filter(
+    (blueprint) => blueprint.kind !== 'pack' && blueprint.materialized !== false,
+  );
   const isInstalled = (source: AgentBlueprintSource, id: string) =>
     installedBlueprints?.some(
       (blueprint) =>

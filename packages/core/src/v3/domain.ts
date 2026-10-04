@@ -511,6 +511,8 @@ export interface AsyncProcess {
 }
 
 export interface AgentBlueprint {
+  materialized?: boolean;
+  registry_id?: string;
   id: string;
   identity?: string;
   source_id?: string;

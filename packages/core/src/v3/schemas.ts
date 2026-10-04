@@ -304,6 +304,8 @@ export const agentBlueprintSchema = z
     id: z.string(),
     identity: z.string().optional(),
     source_id: z.string().optional(),
+    registry_id: z.string().optional(),
+    materialized: z.boolean().optional(),
     version: z.string().default(''),
     title: z.string(),
     display_name: z.string().optional(),

@@ -185,6 +185,7 @@ export class ClioRepository extends SystemRepository {
       provider_id?: string;
       model_id?: string;
       pinned?: boolean;
+      blueprint_id?: string;
       mode?: 'plan' | 'edit' | 'architect';
       routing_mode?: 'auto' | 'chat' | 'experts' | 'reasoning_only';
       approval_mode?: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
@@ -200,7 +201,14 @@ export class ClioRepository extends SystemRepository {
         ...(input.provider_id || input.model_id
           ? { model: { provider_id: input.provider_id ?? '', model_id: input.model_id ?? '' } }
           : {}),
-        ...(input.pinned === undefined ? {} : { metadata: { pinned: input.pinned } }),
+        ...(input.pinned === undefined && !input.blueprint_id
+          ? {}
+          : {
+              metadata: {
+                ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
+                ...(input.blueprint_id ? { active_agent_blueprint_id: input.blueprint_id } : {}),
+              },
+            }),
         ...(input.mode ? { mode: input.mode } : {}),
         ...(input.routing_mode ? { routing_mode: input.routing_mode } : {}),
         ...(input.approval_mode ? { approval_mode: input.approval_mode } : {}),
