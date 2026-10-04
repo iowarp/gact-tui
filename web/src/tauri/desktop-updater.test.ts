@@ -65,6 +65,7 @@ import {
   runBackgroundUpdateCheck,
   scheduleBackgroundUpdateCheck,
   getDesktopUpdateSnapshot,
+  isDesktopUpdateInstalling,
 } from './desktop-updater';
 import { setUpdateChannel } from '@/lib/update-channel';
 
@@ -76,6 +77,28 @@ beforeEach(() => {
 });
 
 describe('desktop updater bridge', () => {
+  it('protects an active installation from background checks and channel changes', async () => {
+    await checkForDesktopUpdate();
+    mocks.update.close.mockClear();
+    let finish!: () => void;
+    mocks.update.downloadAndInstall.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const pending = installDesktopUpdate(() => undefined);
+    expect(isDesktopUpdateInstalling()).toBe(true);
+    await expect(checkForDesktopUpdate()).rejects.toThrow('already being installed');
+    setUpdateChannel('beta');
+    expect(mocks.update.close).not.toHaveBeenCalled();
+    finish();
+    await pending;
+    expect(mocks.update.close).toHaveBeenCalledOnce();
+    expect(mocks.relaunch).toHaveBeenCalledOnce();
+    expect(isDesktopUpdateInstalling()).toBe(false);
+  });
+
   it('discards a beta result that arrives after opting back into stable', async () => {
     setUpdateChannel('beta');
     let finish!: (value: {

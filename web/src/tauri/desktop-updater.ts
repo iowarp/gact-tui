@@ -51,6 +51,7 @@ export type DesktopUpdateSnapshot =
   | { status: 'error'; message: string; reason: DesktopUpdateFailure };
 
 let availableUpdate: Update | null = null;
+let installingUpdate: Update | null = null;
 let availableChannel: UpdateChannel = 'stable';
 let checkGeneration = 0;
 let updateSnapshot: DesktopUpdateSnapshot = { status: 'unknown' };
@@ -64,6 +65,11 @@ function publishUpdateSnapshot(snapshot: DesktopUpdateSnapshot): void {
 /** Read the last result shared by startup checks, Settings, and the navigation badge. */
 export function getDesktopUpdateSnapshot(): DesktopUpdateSnapshot {
   return updateSnapshot;
+}
+
+/** Keep channel controls locked during installs started from any UI entry point. */
+export function isDesktopUpdateInstalling(): boolean {
+  return installingUpdate !== null;
 }
 
 /** Subscribe without causing an additional network request. */
@@ -85,7 +91,7 @@ subscribeUpdateChannel(() => {
   checkGeneration += 1;
   const previous = availableUpdate;
   availableUpdate = null;
-  if (previous) void previous.close().catch(() => undefined);
+  if (previous && previous !== installingUpdate) void previous.close().catch(() => undefined);
   publishUpdateSnapshot({ status: 'unknown' });
   toast.dismiss(DESKTOP_UPDATE_TOAST_ID);
 });
@@ -170,8 +176,10 @@ function writeLastCheckedAt(value: number): void {
  */
 export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null> {
   if (!inTauri()) throw new Error('App updates are available only in the installed desktop app.');
+  if (installingUpdate) throw new Error('An app update is already being installed.');
   const { getVersion } = await import('@tauri-apps/api/app');
   initializeUpdateChannel(await getVersion());
+  if (installingUpdate) throw new Error('An app update is already being installed.');
   const channel = getUpdateChannel();
   const generation = ++checkGeneration;
   writeLastCheckedAt(Date.now());
@@ -222,28 +230,38 @@ export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null>
 export async function installDesktopUpdate(
   onProgress: (progress: DesktopUpdateProgress) => void,
 ): Promise<void> {
+  if (installingUpdate) throw new Error('An app update is already being installed.');
   if (!availableUpdate) throw new Error('Check for an available update before installing.');
   if (availableChannel !== getUpdateChannel())
     throw new Error('The update channel changed. Check for updates again.');
-  let downloadedBytes = 0;
-  let totalBytes: number | undefined;
-  await availableUpdate.downloadAndInstall((event: DownloadEvent) => {
-    if (event.event === 'Started') {
-      totalBytes = event.data.contentLength;
-      onProgress({ downloadedBytes, totalBytes, finished: false });
-      return;
-    }
-    if (event.event === 'Progress') {
-      downloadedBytes += event.data.chunkLength;
-      onProgress({ downloadedBytes, totalBytes, finished: false });
-      return;
-    }
-    onProgress({ downloadedBytes, totalBytes, finished: true });
-  });
-  await availableUpdate.close();
-  availableUpdate = null;
-  const { relaunch } = await import('@tauri-apps/plugin-process');
-  await relaunch();
+  const update = availableUpdate;
+  installingUpdate = update;
+  checkGeneration += 1;
+  publishUpdateSnapshot({ ...updateSnapshot });
+  try {
+    let downloadedBytes = 0;
+    let totalBytes: number | undefined;
+    await update.downloadAndInstall((event: DownloadEvent) => {
+      if (event.event === 'Started') {
+        totalBytes = event.data.contentLength;
+        onProgress({ downloadedBytes, totalBytes, finished: false });
+        return;
+      }
+      if (event.event === 'Progress') {
+        downloadedBytes += event.data.chunkLength;
+        onProgress({ downloadedBytes, totalBytes, finished: false });
+        return;
+      }
+      onProgress({ downloadedBytes, totalBytes, finished: true });
+    });
+    await update.close();
+    if (availableUpdate === update) availableUpdate = null;
+    const { relaunch } = await import('@tauri-apps/plugin-process');
+    await relaunch();
+  } finally {
+    installingUpdate = null;
+    publishUpdateSnapshot({ ...updateSnapshot });
+  }
 }
 
 /** Renders one download-progress update as the text of the "Restart to update" toast. */
