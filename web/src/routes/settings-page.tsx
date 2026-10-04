@@ -508,7 +508,7 @@ function AppearanceSettings() {
         </RadioGroup>
       </ClioSettingsSection>
       <ClioSettingsSection
-        description="A workspace's .clio folder holds uploaded sources and agent state. It is visible in the Files view by default — there is no reason to hide a workspace's own state from itself."
+        description="Choose whether the Files view includes dot files and folders in your workspace. CLIO keeps its managed sources and session state in its own storage."
         title="Workspace files"
       >
         <FieldLabel htmlFor="hide-dot-files">
@@ -518,8 +518,8 @@ function AppearanceSettings() {
               <FieldContent>
                 <FieldTitle>Hide dot files and folders</FieldTitle>
                 <FieldDescription>
-                  Hides paths with a dot-prefixed segment (including .clio) from the workspace Files
-                  view. Off by default.
+                  Hides paths with a dot-prefixed segment from the workspace Files view. Off by
+                  default.
                 </FieldDescription>
               </FieldContent>
               <Switch

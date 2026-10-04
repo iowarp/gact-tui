@@ -260,7 +260,7 @@ describe('ManagedServices', () => {
     );
   });
 
-  it('separates resources from an opt-in single-provider chooser', async () => {
+  it('keeps model management available without a per-visit opt-in switch', async () => {
     const user = userEvent.setup();
     renderServices();
 
@@ -273,8 +273,8 @@ describe('ManagedServices', () => {
     expect(screen.getByText('Running')).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'vLLM' })).not.toBeInTheDocument();
 
-    expect(screen.getByLabelText('Runtime')).toBeDisabled();
-    await user.click(screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`));
+    expect(screen.getByLabelText('Runtime', { exact: true })).toBeEnabled();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     await user.click(screen.getByLabelText('Runtime'));
     await user.click(screen.getByRole('option', { name: 'vLLM' }));
     expect(screen.getByRole('heading', { name: 'vLLM' })).toBeVisible();
@@ -676,26 +676,18 @@ describe('ManagedServices', () => {
     expect(screen.queryByRole('radio', { name: /Another computer/u })).not.toBeInTheDocument();
   });
 
-  it('surfaces the installer-requested llama.cpp finish-setup banner and wires it to the runtime switch', async () => {
+  it('opens the installer-requested runtime directly', async () => {
     installerInfra.installerRequestedLlamaCpp.mockResolvedValue(true);
     const user = userEvent.setup();
     renderServices();
 
     expect(await screen.findByText('Finish setting up your local model runtime')).toBeVisible();
-    expect(
-      screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`),
-    ).not.toBeChecked();
+    expect(screen.getByLabelText('Runtime', { exact: true })).toBeEnabled();
 
     await user.click(screen.getByRole('button', { name: 'Finish setup' }));
 
-    expect(screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`)).toBeChecked();
     expect(await screen.findByRole('heading', { name: 'llama.cpp' })).toBeVisible();
-    // The banner gates on the catalog's actual install state, not the
-    // managedProvidersEnabled switch just toggled above — llama.cpp is still
-    // "not_installed" in the mocked catalog, so it must still be showing.
-    // (Gating on that transient switch instead was the bug: it made the
-    // banner reappear on every visit, forever, regardless of whether the
-    // user had ever actually installed anything.)
+    // Choosing the form is not installation: the banner follows the catalog.
     expect(screen.getByText('Finish setting up your local model runtime')).toBeVisible();
   });
 

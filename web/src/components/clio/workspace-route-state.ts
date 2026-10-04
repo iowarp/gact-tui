@@ -6,7 +6,22 @@ import {
   type PendingInteractionResponse,
   type RunState,
   type ToolState,
+  type PendingSteer,
 } from '@clio/core/v3';
+
+/** Claimed steering remains pending in the transcript but can no longer be cancelled. */
+export function pendingSteerMessageIds(steers: readonly PendingSteer[]) {
+  return {
+    pendingMessageIds: new Set(
+      steers
+        .filter((steer) => steer.state === 'pending' || steer.state === 'claimed')
+        .map((steer) => steer.message_id),
+    ),
+    cancellablePendingMessageIds: new Set(
+      steers.filter((steer) => steer.state === 'pending').map((steer) => steer.message_id),
+    ),
+  };
+}
 
 /** Counts authoritative work that can still advance without inventing progress. */
 export function countActiveWork(

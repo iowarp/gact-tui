@@ -380,16 +380,8 @@ export function WorkspacePage() {
 
   const state: RunState =
     session.state === 'running' ? 'running' : send.isPending ? 'queued' : session.state;
-  const pendingMessageIds = new Set(
-    (pendingSteers.data ?? [])
-      .filter((steer) => steer.state === 'pending' || steer.state === 'claimed')
-      .map((steer) => steer.message_id),
-  );
-  const cancellablePendingMessageIds = new Set(
-    (pendingSteers.data ?? [])
-      .filter((steer) => steer.state === 'pending')
-      .map((steer) => steer.message_id),
-  );
+  const { pendingMessageIds, cancellablePendingMessageIds } =
+    workspaceRouteState.pendingSteerMessageIds(pendingSteers.data ?? []);
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
@@ -747,7 +739,9 @@ export function WorkspacePage() {
                 <TranscriptPresenceSurface className="min-h-0 flex-1" key="conversation">
                   <WorkspaceLiveConversation
                     artifacts={artifacts}
-                    attentionData={attention.state.status === 'shown' ? attention.state.data : undefined}
+                    attentionData={
+                      attention.state.status === 'shown' ? attention.state.data : undefined
+                    }
                     bottomInset={dockedComposerHeight}
                     error={transcriptError}
                     loading={transcript.isFetching}

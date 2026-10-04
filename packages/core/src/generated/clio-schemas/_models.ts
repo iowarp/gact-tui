@@ -176,6 +176,53 @@ export type Presets = {
 export type Instructions = string;
 export type Protocolversion = '0.9.1';
 export type Source1 = 'builtin' | 'pack';
+export type Browse = boolean;
+export type ConditionalWrite = boolean;
+export type Download = boolean;
+export type NativeTransfer = boolean;
+export type ReadOnlyMount = boolean;
+export type RevisionCheck = boolean;
+export type Search = boolean;
+export type SupportedModes = ('read_only' | 'working_copy' | 'write_enabled')[];
+export type WritableFolder = boolean;
+export type Id = string;
+export type Label1 = string;
+export type LocalPath = string | null;
+export type Materialization = 'not_materialized' | 'transferring' | 'ready' | 'stale' | 'failed';
+export type Mode = 'read_only' | 'working_copy' | 'write_enabled';
+export type OperationId = string | null;
+export type ClioId = string;
+export type HostId = string;
+export type Provider = 'local' | 'sftp' | 'google_drive' | 'globus';
+export type Revision = string | null;
+export type Root = string;
+export type SchemaVersion = 1;
+export type WorkspaceId1 = string | null;
+export type ArtifactRef = string | null;
+export type CallId = string | null;
+export type ContentRevision = string;
+export type MessageId = string;
+export type PartId = string;
+export type SchemaVersion1 = 1;
+export type Selection = TextSelection | WholeSelection | ImageSelection | StructuredSelection;
+export type End = number;
+export type Kind1 = 'text';
+export type Start = number;
+export type Kind2 = 'whole';
+export type Height = number;
+export type Kind3 = 'image_region';
+export type Width = number;
+export type X = number;
+export type Y = number;
+export type ComponentId = string;
+/**
+ * @minItems 1
+ */
+export type Keys = [string, ...string[]];
+export type Kind4 = 'structured';
+export type SourceRef = string;
+export type SurfaceId = string;
+export type SessionId = string;
 export type Arch = string;
 export type ClioVersion = string;
 export type ImageDigest = string;
@@ -193,6 +240,11 @@ export type SandboxReason = string;
  * How precisely an execution environment is pinned.
  */
 export type EnvironmentTier = 'declared' | 'lockfile-hash' | 'image-digest';
+export type Captures = string;
+export type Models = string;
+export type Root1 = string;
+export type ServiceData = string;
+export type Temporary = string;
 export type Cmd = string;
 export type ScriptArtifactId = string;
 export type ScriptHash = string;
@@ -218,7 +270,7 @@ export type MessageBlock =
   | NoticeMessageBlock;
 export type AgentId = string | null;
 export type Channel = string | null;
-export type Id = string;
+export type Id1 = string;
 export type Sequence = number | null;
 export type StreamSource = string | null;
 export type Streaming = boolean | null;
@@ -227,7 +279,7 @@ export type Type = 'text';
 export type AgentId1 = string | null;
 export type Channel1 = string | null;
 export type DefaultCollapsed = boolean | null;
-export type Id1 = string;
+export type Id2 = string;
 export type ProviderSource = string | null;
 export type Sequence1 = number | null;
 export type Source2 = string | null;
@@ -237,7 +289,7 @@ export type Text1 = string;
 export type Type1 = 'reasoning';
 export type AgentId2 = string | null;
 export type Channel2 = string | null;
-export type Id2 = string;
+export type Id3 = string;
 export type Sequence2 = number | null;
 export type StreamSource2 = string | null;
 export type Thought = string | null;
@@ -246,21 +298,21 @@ export type Type2 = 'tool';
 export type AgentId3 = string | null;
 export type Channel3 = string | null;
 export type Detail1 = string | null;
-export type Id3 = string;
+export type Id4 = string;
 export type Sequence3 = number | null;
 export type StreamSource3 = string | null;
 export type Title1 = string;
 export type Type3 = 'plan';
 export type AgentId4 = string | null;
 export type Channel4 = string | null;
-export type Id4 = string;
+export type Id5 = string;
 export type Sequence4 = number | null;
 export type StreamSource4 = string | null;
 export type TaskId = string;
 export type Type4 = 'task';
 export type AgentId5 = string | null;
 export type Channel5 = string | null;
-export type Id5 = string;
+export type Id6 = string;
 export type Sequence5 = number | null;
 export type StreamSource5 = string | null;
 export type SubagentId = string;
@@ -268,21 +320,21 @@ export type Type5 = 'subagent';
 export type AgentId6 = string | null;
 export type ArtifactId1 = string;
 export type Channel6 = string | null;
-export type Id6 = string;
+export type Id7 = string;
 export type Sequence6 = number | null;
 export type StreamSource6 = string | null;
 export type Type6 = 'artifact';
 export type HandleId = string | null;
-export type Kind1 = string;
+export type Kind5 = string;
 export type Reason = string | null;
 export type Enabled = boolean;
-export type Id7 = string;
-export type Label1 = string;
+export type Id8 = string;
+export type Label2 = string;
 export type Actions = ActionCardAction[];
 export type AgentId7 = string | null;
 export type Channel7 = string | null;
 export type Detail2 = string | null;
-export type Id8 = string;
+export type Id9 = string;
 export type Sequence7 = number | null;
 export type Severity = string | null;
 export type Source3 = string | null;
@@ -292,22 +344,22 @@ export type Title2 = string;
 export type Type7 = 'action_card';
 export type AgentId8 = string | null;
 export type Channel8 = string | null;
-export type Id9 = string;
+export type Id10 = string;
 export type Sequence8 = number | null;
 export type StreamSource8 = string | null;
-export type SurfaceId = string;
+export type SurfaceId1 = string;
 export type Type8 = 'a2ui';
 export type AgentId9 = string | null;
 export type Channel9 = string | null;
-export type Id10 = string;
-export type Label2 = string;
+export type Id11 = string;
+export type Label3 = string;
 export type Sequence9 = number | null;
 export type StreamSource9 = string | null;
 export type Type9 = 'citation';
 export type Uri = string;
 export type AgentId10 = string | null;
 export type Channel10 = string | null;
-export type Id11 = string;
+export type Id12 = string;
 export type Path3 = string;
 export type Sequence10 = number | null;
 export type StreamSource10 = string | null;
@@ -316,7 +368,7 @@ export type UnifiedDiff = string;
 export type AgentId11 = string | null;
 export type Channel11 = string | null;
 export type Code2 = string;
-export type Id12 = string;
+export type Id13 = string;
 export type Message2 = string;
 export type Recoverable = boolean;
 export type Sequence11 = number | null;
@@ -325,16 +377,16 @@ export type Type11 = 'error';
 export type AgentId12 = string | null;
 export type Channel12 = string | null;
 export type Detail3 = string | null;
-export type Id13 = string;
-export type Label3 = string;
+export type Id14 = string;
+export type Label4 = string;
 export type Sequence12 = number | null;
 export type StreamSource12 = string | null;
 export type Type12 = 'routing';
 export type AgentId13 = string | null;
-export type CallId = string | null;
+export type CallId1 = string | null;
 export type Channel13 = string | null;
 export type CompactionId = string | null;
-export type Id14 = string;
+export type Id15 = string;
 export type Sequence13 = number | null;
 export type Source4 = string;
 export type StreamSource13 = string | null;
@@ -347,7 +399,7 @@ export type AgentId14 = string | null;
 export type Channel14 = string | null;
 export type Code3 = string | null;
 export type CompactionId1 = string | null;
-export type Id15 = string;
+export type Id16 = string;
 export type Sequence14 = number | null;
 export type Source5 = string;
 export type StreamSource14 = string | null;
@@ -529,7 +581,7 @@ export type Total = number | null;
  * @minItems 1
  */
 export type Evidence10 = [TagEvidence, ...TagEvidence[]];
-export type Kind2 = 'usd' | 'variable' | 'subscription';
+export type Kind6 = 'usd' | 'variable' | 'subscription';
 /**
  * USD per 1M tokens for kind `usd`; null for `variable` and `subscription`.
  */
@@ -603,7 +655,7 @@ export type AgentId15 = string;
  */
 export type AgentRole = 'executing' | 'annotating';
 export type Annotation1 = string;
-export type CallId1 = string;
+export type CallId2 = string;
 export type Candidates = string[];
 export type EndedAt = string;
 export type EventId = string;
@@ -620,7 +672,7 @@ export type Notes = {
  */
 export type ReplayContract = 'reproducible' | 're-runnable';
 export type ReplayReason = string;
-export type SessionId = string;
+export type SessionId1 = string;
 export type StartedAt = string;
 /**
  * Whether the producing call succeeded.
@@ -628,7 +680,7 @@ export type StartedAt = string;
 export type TransformStatus = 'success' | 'failed';
 export type TurnId = string;
 export type Used = ProvEdge[];
-export type WorkspaceId1 = string;
+export type WorkspaceId2 = string;
 
 /**
  * Aggregate of all canonical clio-schemas records with shared definitions emitted once. Used to generate TypeScript without duplicate declarations.
@@ -644,7 +696,10 @@ export interface ClioSchemaRegistry {
   ArtifactVersion?: ArtifactVersion;
   CatalogFile?: CatalogFile;
   CatalogSidecar?: CatalogSidecar;
+  ConnectedSource?: ConnectedSource;
+  ContentSelection?: ContentSelection;
   EnvironmentRecord?: EnvironmentRecord;
+  HostStorageLocations?: HostStorageLocations;
   IdentityEvidence?: IdentityEvidence;
   Instrument?: Instrument;
   MessageBlock?: MessageBlock;
@@ -978,6 +1033,96 @@ export interface _Trust {
   source: Source1;
 }
 /**
+ * Approved source identity without credentials or authorization codes.
+ */
+export interface ConnectedSource {
+  capabilities: SourceCapabilities;
+  id: Id;
+  label: Label1;
+  local_path?: LocalPath;
+  materialization?: Materialization;
+  mode?: Mode;
+  operation_id?: OperationId;
+  owner: ResourceOwner;
+  provider: Provider;
+  revision?: Revision;
+  root: Root;
+  schema_version?: SchemaVersion;
+  workspace_id?: WorkspaceId1;
+}
+/**
+ * Observed provider/node capabilities; file access does not imply an OS mount.
+ */
+export interface SourceCapabilities {
+  browse?: Browse;
+  conditional_write?: ConditionalWrite;
+  download?: Download;
+  native_transfer?: NativeTransfer;
+  read_only_mount?: ReadOnlyMount;
+  revision_check?: RevisionCheck;
+  search?: Search;
+  supported_modes?: SupportedModes;
+  unavailable_reasons?: UnavailableReasons;
+  writable_folder?: WritableFolder;
+}
+export interface UnavailableReasons {
+  [k: string]: string | undefined;
+}
+/**
+ * The connected CLIO and execution host that own a resource or operation.
+ */
+export interface ResourceOwner {
+  clio_id: ClioId;
+  host_id: HostId;
+}
+/**
+ * An inspectable transcript reference with revision-bound selection coordinates.
+ */
+export interface ContentSelection {
+  artifact_ref?: ArtifactRef;
+  call_id?: CallId;
+  content_revision: ContentRevision;
+  message_id: MessageId;
+  part_id: PartId;
+  schema_version?: SchemaVersion1;
+  selection: Selection;
+  session_id: SessionId;
+}
+/**
+ * Character offsets within an identified content part, using Unicode code points.
+ */
+export interface TextSelection {
+  end: End;
+  kind?: Kind1;
+  start: Start;
+}
+/**
+ * The whole identified block or artifact.
+ */
+export interface WholeSelection {
+  kind?: Kind2;
+}
+/**
+ * Normalized image coordinates, independent of display size.
+ */
+export interface ImageSelection {
+  height: Height;
+  kind?: Kind3;
+  width: Width;
+  x: X;
+  y: Y;
+}
+/**
+ * Stable A2UI component and source keys, never inferred from display order.
+ */
+export interface StructuredSelection {
+  component_id: ComponentId;
+  keys: Keys;
+  kind?: Kind4;
+  source_ref: SourceRef;
+  surface_id: SurfaceId;
+}
+/**
  * Nested schema for a transform's non-secret execution environment.
  */
 export interface EnvironmentRecord {
@@ -995,6 +1140,16 @@ export interface EnvironmentRecord {
   sandbox_mechanism?: SandboxMechanism;
   sandbox_reason?: SandboxReason;
   tier?: EnvironmentTier;
+}
+/**
+ * Persistent paths on one host; empty overrides inherit the root's subfolders.
+ */
+export interface HostStorageLocations {
+  captures?: Captures;
+  models?: Models;
+  root?: Root1;
+  service_data?: ServiceData;
+  temporary?: Temporary;
 }
 /**
  * The tool or script that produced a transform.
@@ -1015,7 +1170,7 @@ export interface Args {
 export interface TextMessageBlock {
   agent_id?: AgentId;
   channel?: Channel;
-  id: Id;
+  id: Id1;
   sequence?: Sequence;
   stream_source?: StreamSource;
   streaming?: Streaming;
@@ -1029,7 +1184,7 @@ export interface ReasoningMessageBlock {
   agent_id?: AgentId1;
   channel?: Channel1;
   default_collapsed?: DefaultCollapsed;
-  id: Id1;
+  id: Id2;
   provider_source?: ProviderSource;
   sequence?: Sequence1;
   source?: Source2;
@@ -1044,7 +1199,7 @@ export interface ReasoningMessageBlock {
 export interface ToolMessageBlock {
   agent_id?: AgentId2;
   channel?: Channel2;
-  id: Id2;
+  id: Id3;
   sequence?: Sequence2;
   stream_source?: StreamSource2;
   thought?: Thought;
@@ -1058,7 +1213,7 @@ export interface PlanMessageBlock {
   agent_id?: AgentId3;
   channel?: Channel3;
   detail?: Detail1;
-  id: Id3;
+  id: Id4;
   sequence?: Sequence3;
   stream_source?: StreamSource3;
   title: Title1;
@@ -1070,7 +1225,7 @@ export interface PlanMessageBlock {
 export interface TaskMessageBlock {
   agent_id?: AgentId4;
   channel?: Channel4;
-  id: Id4;
+  id: Id5;
   sequence?: Sequence4;
   stream_source?: StreamSource4;
   task_id: TaskId;
@@ -1082,7 +1237,7 @@ export interface TaskMessageBlock {
 export interface SubagentMessageBlock {
   agent_id?: AgentId5;
   channel?: Channel5;
-  id: Id5;
+  id: Id6;
   sequence?: Sequence5;
   stream_source?: StreamSource5;
   subagent_id: SubagentId;
@@ -1095,7 +1250,7 @@ export interface ArtifactMessageBlock {
   agent_id?: AgentId6;
   artifact_id: ArtifactId1;
   channel?: Channel6;
-  id: Id6;
+  id: Id7;
   sequence?: Sequence6;
   stream_source?: StreamSource6;
   type: Type6;
@@ -1108,7 +1263,7 @@ export interface ActionCardMessageBlock {
   agent_id?: AgentId7;
   channel?: Channel7;
   detail?: Detail2;
-  id: Id8;
+  id: Id9;
   sequence?: Sequence7;
   severity?: Severity;
   source?: Source3;
@@ -1123,15 +1278,15 @@ export interface ActionCardMessageBlock {
 export interface ActionCardAction {
   behavior: ActionCardBehavior;
   enabled?: Enabled;
-  id: Id7;
-  label: Label1;
+  id: Id8;
+  label: Label2;
 }
 /**
  * Registered action-card behavior with forward-compatible parameters.
  */
 export interface ActionCardBehavior {
   handle_id?: HandleId;
-  kind: Kind1;
+  kind: Kind5;
   reason?: Reason;
   [k: string]: unknown | undefined;
 }
@@ -1141,10 +1296,10 @@ export interface ActionCardBehavior {
 export interface A2UIMessageBlock {
   agent_id?: AgentId8;
   channel?: Channel8;
-  id: Id9;
+  id: Id10;
   sequence?: Sequence8;
   stream_source?: StreamSource8;
-  surface_id: SurfaceId;
+  surface_id: SurfaceId1;
   type: Type8;
 }
 /**
@@ -1153,8 +1308,8 @@ export interface A2UIMessageBlock {
 export interface CitationMessageBlock {
   agent_id?: AgentId9;
   channel?: Channel9;
-  id: Id10;
-  label: Label2;
+  id: Id11;
+  label: Label3;
   sequence?: Sequence9;
   stream_source?: StreamSource9;
   type: Type9;
@@ -1166,7 +1321,7 @@ export interface CitationMessageBlock {
 export interface DiffMessageBlock {
   agent_id?: AgentId10;
   channel?: Channel10;
-  id: Id11;
+  id: Id12;
   path: Path3;
   sequence?: Sequence10;
   stream_source?: StreamSource10;
@@ -1180,7 +1335,7 @@ export interface ErrorMessageBlock {
   agent_id?: AgentId11;
   channel?: Channel11;
   code: Code2;
-  id: Id12;
+  id: Id13;
   message: Message2;
   recoverable: Recoverable;
   sequence?: Sequence11;
@@ -1194,8 +1349,8 @@ export interface RoutingMessageBlock {
   agent_id?: AgentId12;
   channel?: Channel12;
   detail?: Detail3;
-  id: Id13;
-  label: Label3;
+  id: Id14;
+  label: Label4;
   sequence?: Sequence12;
   stream_source?: StreamSource12;
   type: Type12;
@@ -1212,10 +1367,10 @@ export interface RoutingMessageBlock {
  */
 export interface InjectionMessageBlock {
   agent_id?: AgentId13;
-  call_id?: CallId;
+  call_id?: CallId1;
   channel?: Channel13;
   compaction_id?: CompactionId;
-  id: Id14;
+  id: Id15;
   sequence?: Sequence13;
   source: Source4;
   stream_source?: StreamSource13;
@@ -1235,7 +1390,7 @@ export interface NoticeMessageBlock {
   channel?: Channel14;
   code?: Code3;
   compaction_id?: CompactionId1;
-  id: Id15;
+  id: Id16;
   sequence?: Sequence14;
   source: Source5;
   stream_source?: StreamSource14;
@@ -1415,7 +1570,7 @@ export interface PricingValue {
  * One side (input or output) of a price, per 1M tokens.
  */
 export interface Price {
-  kind: Kind2;
+  kind: Kind6;
   per_1m: Per1M;
 }
 /**
@@ -1470,7 +1625,7 @@ export interface TransformRecord {
   agent_id?: AgentId15;
   agent_role?: AgentRole;
   annotation?: Annotation1;
-  call_id: CallId1;
+  call_id: CallId2;
   candidates?: Candidates;
   ended_at?: EndedAt;
   environment?: EnvironmentRecord;
@@ -1481,10 +1636,10 @@ export interface TransformRecord {
   notes?: Notes;
   replay?: ReplayContract;
   replay_reason?: ReplayReason;
-  session_id?: SessionId;
+  session_id?: SessionId1;
   started_at?: StartedAt;
   status?: TransformStatus;
   turn_id?: TurnId;
   used?: Used;
-  workspace_id?: WorkspaceId1;
+  workspace_id?: WorkspaceId2;
 }

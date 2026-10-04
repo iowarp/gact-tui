@@ -222,6 +222,23 @@ export const externalServiceConnectionSchema = z.object({
 });
 
 export type SshRoute = z.infer<typeof sshRouteSchema>;
+export const infrastructureInventorySchema = z.object({
+  targets: z.array(infrastructureTargetSchema),
+  services: z.array(
+    z.object({
+      id: z.string(),
+      target_id: z.string(),
+      service_id: z.string(),
+      state: z.enum(['running', 'stopped', 'not_installed', 'unknown']),
+      connection_url: z.string().nullish(),
+      updated_at: z.string(),
+      configuration: z.record(z.string()).default({}),
+    }),
+  ),
+  connections: z.array(externalServiceConnectionSchema),
+  operations: z.array(infrastructureOperationSchema),
+});
+export type InfrastructureInventory = z.infer<typeof infrastructureInventorySchema>;
 export type InfrastructureTarget = z.infer<typeof infrastructureTargetSchema>;
 export type TargetFacts = z.infer<typeof targetFactsSchema>;
 export type ContainerRuntimeFact = z.infer<typeof containerRuntimeFactSchema>;

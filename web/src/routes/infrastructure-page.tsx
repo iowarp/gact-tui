@@ -17,6 +17,9 @@ import {
   NetworkIcon,
   ServerIcon,
   WrenchIcon,
+  LayoutDashboardIcon,
+  HardDriveIcon,
+  HistoryIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
@@ -27,6 +30,7 @@ import { RelayConnectionDialog } from '@/components/clio/relay-settings';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { ManagedServices } from '@/components/clio/managed-services';
+import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
 import { Frame, FrameFooter, FramePanel } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -56,7 +60,7 @@ export function InfrastructurePage() {
   const { section } = useParams();
   const currentSection: InfrastructureSection = isInfrastructureSection(section)
     ? section
-    : 'services';
+    : 'overview';
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -218,9 +222,13 @@ export function InfrastructurePage() {
       <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[220px_minmax(0,1fr)]">
         <nav
           aria-label="Infrastructure sections"
-          className="grid content-start gap-1 md:sticky md:top-8"
+          className="grid grid-cols-2 content-start gap-1 md:sticky md:top-8 md:grid-cols-1"
         >
-          <Button asChild className="mb-4 justify-start" variant="ghost">
+          <Button
+            asChild
+            className="col-span-2 mb-2 justify-start md:col-span-1 md:mb-4"
+            variant="ghost"
+          >
             <Link to={workspaceRoute}>
               <ChevronLeftIcon aria-hidden="true" /> {capitalize(vocab.workspace)}
             </Link>
@@ -228,7 +236,7 @@ export function InfrastructurePage() {
           {INFRASTRUCTURE_SECTIONS.map(({ id, icon: SectionIcon, label }) => (
             <Button
               asChild
-              className="justify-start"
+              className="shrink-0 justify-start"
               key={id}
               variant={id === currentSection ? 'secondary' : 'ghost'}
             >
@@ -292,6 +300,12 @@ export function InfrastructurePage() {
                 </TechnicalDetails>
               </AlertDescription>
             </Alert>
+          ) : null}
+
+          {currentSection === 'overview' ||
+          currentSection === 'models' ||
+          currentSection === 'activity' ? (
+            <InfrastructureInventory section={currentSection} />
           ) : null}
 
           {currentSection === 'tools' ? (
@@ -393,18 +407,21 @@ export function InfrastructurePage() {
           ) : null}
 
           {currentSection === 'agent' ? (
-            <div className="mt-6 border-y">
-              <div className="divide-y">
-                {(health.data?.integrations ?? []).map((integration) => (
-                  <FoundationRow integration={integration} key={integration.name} />
-                ))}
+            <>
+              <InfrastructureInventory section="hosts" />
+              <div className="mt-6 border-y">
+                <div className="divide-y">
+                  {(health.data?.integrations ?? []).map((integration) => (
+                    <FoundationRow integration={integration} key={integration.name} />
+                  ))}
+                </div>
+                {!health.isPending && !health.data?.integrations.length ? (
+                  <p className="p-5 text-sm text-muted-foreground">
+                    No supporting-component details were reported.
+                  </p>
+                ) : null}
               </div>
-              {!health.isPending && !health.data?.integrations.length ? (
-                <p className="p-5 text-sm text-muted-foreground">
-                  No supporting-component details were reported.
-                </p>
-              ) : null}
-            </div>
+            </>
           ) : null}
 
           <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
@@ -480,20 +497,20 @@ function effectiveToolCatalog(
   return [...projected.values()];
 }
 
-type InfrastructureSection = 'agent' | 'tools' | 'services';
+type InfrastructureSection = 'overview' | 'agent' | 'tools' | 'services' | 'models' | 'activity';
 
 const INFRASTRUCTURE_SECTIONS = [
   {
-    id: 'agent',
-    label: vocab.agent,
-    icon: BotIcon,
-    description: `Confirm that ${vocab.agent} itself and the components it depends on are ready.`,
+    id: 'overview',
+    label: 'Overview',
+    icon: LayoutDashboardIcon,
+    description: 'Your connected hosts, services, and current work.',
   },
   {
-    id: 'tools',
-    label: 'Tools',
-    icon: WrenchIcon,
-    description: `Inspect the tools available to the selected session. Provider contracts are shown when reported.`,
+    id: 'agent',
+    label: `${vocab.agent} hosts`,
+    icon: BotIcon,
+    description: `Confirm that ${vocab.agent} itself and the components it depends on are ready.`,
   },
   {
     id: 'services',
@@ -501,10 +518,28 @@ const INFRASTRUCTURE_SECTIONS = [
     icon: CableIcon,
     description: `Install, connect, operate, and verify the services that give ${vocab.agent} more capabilities.`,
   },
+  {
+    id: 'models',
+    label: 'Models & storage',
+    icon: HardDriveIcon,
+    description: 'Choose where each host keeps models, service data, and evidence.',
+  },
+  {
+    id: 'tools',
+    label: 'Tools',
+    icon: WrenchIcon,
+    description: 'Inspect tools available to the selected session.',
+  },
+  {
+    id: 'activity',
+    label: 'Activity',
+    icon: HistoryIcon,
+    description: 'Follow deployments, downloads, and lifecycle operations.',
+  },
 ] as const;
 
 function isInfrastructureSection(value: string | undefined): value is InfrastructureSection {
-  return value === 'agent' || value === 'tools' || value === 'services';
+  return INFRASTRUCTURE_SECTIONS.some((item) => item.id === value);
 }
 
 function SetupCard({

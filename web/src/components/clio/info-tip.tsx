@@ -1,5 +1,5 @@
 import { InfoIcon } from '@/lib/icon-vocabulary';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -23,16 +23,26 @@ interface InfoTipProps {
  * who want it). Focusable, so the tip also opens from the keyboard.
  */
 export function InfoTip({ label, children, className, focusable = true }: InfoTipProps) {
+  const [open, setOpen] = useState(false);
   const iconClass = cn(
     'inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
     className,
   );
   return (
     <TooltipProvider delayDuration={150}>
-      <Tooltip>
+      <Tooltip open={open} onOpenChange={setOpen}>
         <TooltipTrigger asChild>
           {focusable ? (
-            <button aria-label={label} className={iconClass} data-slot="info-tip" type="button">
+            <button
+              aria-label={label}
+              className={iconClass}
+              data-slot="info-tip"
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                setOpen(true);
+              }}
+            >
               <InfoIcon aria-hidden="true" className="size-3.5" />
             </button>
           ) : (

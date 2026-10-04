@@ -9,8 +9,9 @@ import type {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ChevronDownIcon, CpuIcon, LaptopIcon, PackageOpenIcon, ServerIcon } from 'lucide-react';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -23,7 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -58,6 +58,7 @@ import {
   waitForOperation,
 } from './managed-service-target-utils';
 import { ManagedServiceHostFacts } from './managed-service-host-facts';
+import { InfoTip } from './info-tip';
 
 type Target = ManagedTargetKind;
 /** Desktop controls for CLIO-managed providers and supporting resources. */
@@ -87,19 +88,57 @@ export function ManagedServices({
   const desktop = inTauri();
   const repository = useRepository();
   const { isManagedConnection, settings } = useConnectionSettings();
-  const [target, setTarget] = useState<Target>('local');
-  const [targetId, setTargetId] = useState('local');
-  const [sshHost, setSshHost] = useState<SshHost>();
-  const [transportStatus, setTransportStatus] = useState<SshTransportStatus>();
-  const [managedProvidersEnabled, setManagedProvidersEnabled] = useState(false);
-  const [managerOpen, setManagerOpen] = useState(true);
-  const [selectedProvider, setSelectedProvider] = useState('');
-  const [variants, setVariants] = useState<Record<string, string>>({});
-  const [configuration, setConfiguration] = useState<Record<string, Record<string, string>>>({});
-  const [results, setResults] = useState<Record<string, ServiceActionFeedback>>({});
+  const [target, setTarget] = useInfrastructureState<Target>(
+    settings.endpoint,
+    'target-kind',
+    'local',
+  );
+  const [targetId, setTargetId] = useInfrastructureState(settings.endpoint, 'target-id', 'local');
+  const [sshHost, setSshHost] = useInfrastructureState<SshHost | undefined>(
+    settings.endpoint,
+    'ssh-host',
+    undefined,
+  );
+  const [transportStatus, setTransportStatus] = useInfrastructureState<
+    SshTransportStatus | undefined
+  >(settings.endpoint, 'transport', undefined);
+  const [managerOpen, setManagerOpen] = useInfrastructureState(
+    settings.endpoint,
+    'manager-open',
+    true,
+  );
+  const [selectedProvider, setSelectedProvider] = useInfrastructureState(
+    settings.endpoint,
+    `${targetId}:provider`,
+    '',
+  );
+  const [variants, setVariants] = useInfrastructureState<Record<string, string>>(
+    settings.endpoint,
+    `${targetId}:variants`,
+    {},
+  );
+  const [configuration, setConfiguration] = useInfrastructureState<
+    Record<string, Record<string, string>>
+  >(settings.endpoint, `${targetId}:configuration`, {});
+  const [results, setResults] = useInfrastructureState<Record<string, ServiceActionFeedback>>(
+    settings.endpoint,
+    `${targetId}:results`,
+    {},
+  );
   const savedServers = useSavedServers();
-  const [progress, setProgress] = useState<Record<string, string>>({});
-  const [operationIds, setOperationIds] = useState<Record<string, string>>({});
+  const [progress, setProgress] = useInfrastructureState<Record<string, string>>(
+    settings.endpoint,
+    `${targetId}:progress`,
+    {},
+  );
+  const [operationIds, setOperationIds] = useInfrastructureState<Record<string, string>>(
+    settings.endpoint,
+    `${targetId}:operations`,
+    {},
+  );
+  const [searchParams] = useSearchParams();
+  const requestedTarget = searchParams.get('target');
+  const visitedTargetLink = useRef('');
   const canManageSshTargets = desktop && isManagedConnection;
   // The NSIS installer's Infrastructure page records a llama.cpp request as a
   // PREFERENCE only — it never installs a runtime itself. When set, this
@@ -116,6 +155,41 @@ export function ManagedServices({
     queryFn: ({ signal }) => repository.infrastructureTargets(signal),
     staleTime: 30_000,
   });
+  useEffect(() => {
+    const linkKey = `${settings.endpoint}:${requestedTarget}`;
+    if (!requestedTarget || visitedTargetLink.current === linkKey) return;
+    const selected = targets.data?.find((row) => row.id === requestedTarget);
+    if (!selected || selected.kind === 'direct') return;
+    visitedTargetLink.current = linkKey;
+    setTargetId(selected.id);
+    setTarget(selected.kind);
+    setTransportStatus(undefined);
+    setSshHost(
+      selected.ssh
+        ? {
+            id: selected.id,
+            label: selected.label,
+            profile: selected.ssh.profile,
+            host: selected.ssh.host,
+            user: selected.ssh.user,
+            port: selected.ssh.port,
+            jumpHosts: selected.ssh.jump_hosts,
+            identityFile: selected.ssh.identity_file,
+            platform: selected.ssh.platform,
+            installRoot: selected.install_root,
+          }
+        : undefined,
+    );
+  }, [
+    settings.endpoint,
+    requestedTarget,
+    targets.data,
+    targetId,
+    setTargetId,
+    setTarget,
+    setTransportStatus,
+    setSshHost,
+  ]);
   const registerTarget = useMutation({
     mutationFn: async (host: SshHost) => {
       const definition = {
@@ -185,11 +259,23 @@ export function ManagedServices({
       active = false;
       cleanup.forEach((stop) => stop());
     };
-  }, [repository, settings.endpoint, settings.token, targetId, transportSessionId]);
+  }, [
+    repository,
+    settings.endpoint,
+    settings.token,
+    targetId,
+    transportSessionId,
+    setTransportStatus,
+  ]);
   const catalog = useQuery({
     enabled:
       target === 'local' ||
-      Boolean(sshHost && targetId !== 'local' && transportStatus?.state === 'connected'),
+      Boolean(
+        sshHost &&
+          targetId !== 'local' &&
+          (transportStatus?.state === 'connected' ||
+            targets.data?.find((row) => row.id === targetId)?.transport_state === 'connected'),
+      ),
     queryKey: ['managed-service-catalog', settings.endpoint, targetId],
     queryFn: ({ signal }) => repository.managedServiceCatalog(targetId, signal),
     retry: false,
@@ -251,11 +337,7 @@ export function ManagedServices({
     (service) => service.category === 'remote_access' && target === 'ssh',
   );
   const provider = providers.find((service) => service.id === selectedProvider);
-  // "Installed" mirrors ServiceCard's own definition (running or stopped, as
-  // opposed to never installed). This — not the transient managedProvidersEnabled
-  // switch — is what the finish-setup banner gates on: a useState toggle is
-  // per-visit and would make the banner reappear every time this page loads,
-  // even after the user already finished the installer's llama.cpp request.
+  // The installer banner follows observed installation state across navigation.
   const llamaCppService = services.find((service) => service.id === 'llama_cpp');
   const llamaCppInstalled =
     llamaCppService?.state === 'running' || llamaCppService?.state === 'stopped';
@@ -536,13 +618,9 @@ export function ManagedServices({
                   <CpuIcon aria-hidden="true" />
                   <AlertTitle>Finish setting up your local model runtime</AlertTitle>
                   <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-                    <span>
-                      {vocab.product} installed llama.cpp support during setup. Turn on model
-                      runtime management below to finish configuring it.
-                    </span>
+                    <span>Finish configuring the llama.cpp runtime selected during setup.</span>
                     <Button
                       onClick={() => {
-                        setManagedProvidersEnabled(true);
                         setSelectedProvider('llama_cpp');
                       }}
                       size="sm"
@@ -553,31 +631,17 @@ export function ManagedServices({
                   </AlertDescription>
                 </Alert>
               ) : null}
-              <div className="grid gap-4 border-y py-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)] lg:items-end">
-                <div className="flex items-start justify-between gap-4 lg:pr-8">
-                  <div>
-                    <FieldLabel htmlFor="managed-provider-enabled">
-                      Manage a model runtime with {vocab.agent}
-                    </FieldLabel>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Leave this off when you already use Codex, Claude, or another configured
-                      provider. Those connections live in{' '}
-                      <Link className="text-primary hover:underline" to="/settings/providers">
-                        Providers
-                      </Link>
-                      .
-                    </p>
-                  </div>
-                  <Switch
-                    checked={managedProvidersEnabled}
-                    id="managed-provider-enabled"
-                    onCheckedChange={setManagedProvidersEnabled}
-                  />
-                </div>
+              <div className="grid gap-4 border-y py-5">
                 <Field>
-                  <FieldLabel htmlFor="managed-provider-choice">Runtime</FieldLabel>
+                  <div className="flex items-center gap-2">
+                    <FieldLabel htmlFor="managed-provider-choice">Runtime</FieldLabel>
+                    <InfoTip label="About model runtimes">
+                      Deploy and manage model servers on the selected host. Session model choices
+                      and other provider connections remain in Providers.
+                    </InfoTip>
+                  </div>
                   <Select
-                    disabled={!managedProvidersEnabled || !providers.length}
+                    disabled={!providers.length}
                     onValueChange={setSelectedProvider}
                     value={selectedProvider}
                   >
@@ -597,9 +661,7 @@ export function ManagedServices({
                   </Select>
                 </Field>
               </div>
-              {managedProvidersEnabled && provider ? (
-                <div className="border-b">{renderService(provider)}</div>
-              ) : null}
+              {provider ? <div className="border-b">{renderService(provider)}</div> : null}
             </CapabilitySection>
 
             <CapabilitySection
