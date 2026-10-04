@@ -147,13 +147,14 @@ const serviceObservationSchema = z.object({
   provenance_ingesting: z.boolean(),
   attention_verified: z.boolean(),
   evidence_directory: z.string(),
+  effective_artifacts: z.record(z.string(), z.string()).optional(),
   error: z.string().nullish(),
   observed_at: z.number(),
 });
 
 export const managedServiceDefinitionSchema = z.object({
   id: z.string(),
-  category: z.enum(['model_runtime', 'scientific_service', 'remote_access']),
+  category: z.enum(['model_runtime', 'scientific_service', 'remote_access', 'monitoring']),
   label: z.string(),
   description: z.string(),
   recommended_variant: z.string(),
@@ -290,7 +291,8 @@ export type ServiceActionInput = {
     | 'logs'
     | 'reinstall'
     | 'uninstall'
-    | 'delete_data';
+    | 'delete_data'
+    | 'verify';
   variant_id: string;
   configuration: Record<string, string>;
 };

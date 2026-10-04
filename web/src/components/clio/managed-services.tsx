@@ -373,6 +373,7 @@ export function ManagedServices({
   const services = catalog.data?.services ?? [];
   const providers = services.filter((service) => service.category === 'model_runtime');
   const resources = services.filter((service) => service.category === 'scientific_service');
+  const monitoring = services.filter((service) => service.category === 'monitoring');
   const remoteAccess = services.filter(
     (service) => service.category === 'remote_access' && target === 'ssh',
   );
@@ -707,6 +708,13 @@ export function ManagedServices({
               {provider ? <div className="border-b">{renderService(provider)}</div> : null}
             </CapabilitySection>
 
+            <CapabilitySection
+              description="Independent execution provenance and artifact lineage services."
+              icon={PackageOpenIcon}
+              title="Monitoring and provenance"
+            >
+              <div className="divide-y border-y">{monitoring.map(renderService)}</div>
+            </CapabilitySection>
             <CapabilitySection
               description={
                 target === 'local'

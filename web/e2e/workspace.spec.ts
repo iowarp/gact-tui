@@ -306,7 +306,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
   await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(minimap).toHaveCSS('box-shadow', 'none');
-  await expect(minimap).toHaveCSS('width', '24px');
+  await expect(minimap).toHaveCSS('width', '28px');
   await expect
     .poll(async () => {
       const rail = await minimap.boundingBox();

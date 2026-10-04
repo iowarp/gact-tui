@@ -77,6 +77,8 @@ export function ManagedServiceCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const compatible = service.variants.filter((item) => item.compatible);
   const native = variant.startsWith('native-cuda');
+  const monitoring = service.category === 'monitoring';
+  const retainsData = native || monitoring;
   const observation = service.observation;
   const installed = service.state === 'running' || service.state === 'stopped';
   // A record whose server is in no known state (an interrupted deploy, a
@@ -95,13 +97,14 @@ export function ManagedServiceCard({
       ? [
           'status',
           'logs',
+          ...(monitoring ? (['verify'] as const) : []),
           ...(service.supports_stop ? (['stop'] as const) : []),
           'reinstall',
           'uninstall',
         ]
       : service.state === 'stopped'
         ? ['start', 'status', 'logs', 'reinstall', 'uninstall']
-        : recorded && native && observation?.phase === 'not_installed'
+        : recorded && retainsData && observation?.phase === 'not_installed'
           ? ['install', 'logs', 'delete_data']
           : recorded
             ? ['status', 'logs', 'uninstall']
@@ -263,10 +266,10 @@ export function ManagedServiceCard({
           <OwnedResources
             rows={service.owned_resources ?? []}
             serviceLabel={service.label}
-            retained={native}
+            retained={retainsData}
           />
         ) : null}
-        {native && observation ? (
+        {retainsData && observation ? (
           <details>
             <summary className="cursor-pointer text-sm font-medium">Deployment receipt</summary>
             <dl className="mt-3 grid gap-2 text-xs">
@@ -274,22 +277,38 @@ export function ManagedServiceCard({
                 <dt className="text-muted-foreground">Compatibility profile</dt>
                 <dd className="break-all font-mono">{observation.definition_version}</dd>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Model</dt>
-                <dd className="break-all font-mono">{service.configuration.model}</dd>
-              </div>
+              {native ? (
+                <div>
+                  <dt className="text-muted-foreground">Model</dt>
+                  <dd className="break-all font-mono">{service.configuration.model}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-muted-foreground">Evidence on this host</dt>
                 <dd className="break-all font-mono">{observation.evidence_directory}</dd>
               </div>
-              <div className="flex items-center gap-2">
-                <dt>Attention</dt>
-                <dd>{observation.attention_verified ? 'Verified' : 'Not verified'}</dd>
-                <InfoTip label="About attention verification">
-                  Installing the connector or serving a model does not verify attention. A fresh
-                  inference must produce a validated capture and token mapping.
-                </InfoTip>
-              </div>
+              {monitoring ? (
+                <div className="flex items-center gap-2">
+                  <dt>Provenance</dt>
+                  <dd>
+                    {observation.provenance_ingesting ? 'Write/readback verified' : 'Not verified'}
+                  </dd>
+                  <InfoTip label="About provenance verification">
+                    Verify setup writes a fresh test record and reads it back. CMF also checks input
+                    and output artifact lineage. Restarting or changing configuration requires a
+                    fresh check.
+                  </InfoTip>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <dt>Attention</dt>
+                  <dd>{observation.attention_verified ? 'Verified' : 'Not verified'}</dd>
+                  <InfoTip label="About attention verification">
+                    Installing the connector or serving a model does not verify attention. A fresh
+                    inference must produce a validated capture and token mapping.
+                  </InfoTip>
+                </div>
+              )}
             </dl>
           </details>
         ) : null}
@@ -332,7 +351,7 @@ export function ManagedServiceCard({
                 {activeAction === name ? <Spinner aria-hidden="true" /> : null}
                 {activeAction === name
                   ? actionProgressLabel(name)
-                  : name === 'uninstall' && native
+                  : name === 'uninstall' && retainsData
                     ? 'Remove runtime'
                     : actionLabel(name)}
               </Button>
@@ -385,8 +404,8 @@ export function ManagedServiceCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete retained {service.label} data?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes this deployment’s environment cache, logs and captured
-              evidence on its execution host. The separately downloaded model is retained.
+              This permanently deletes this deployment’s databases, environment cache, logs and
+              captured evidence on its execution host. Separately downloaded models are retained.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <p className="break-all font-mono text-xs">
@@ -467,6 +486,7 @@ function actionLabel(action: ServiceAction): string {
     reinstall: 'Reinstall',
     uninstall: 'Uninstall',
     delete_data: 'Delete retained data',
+    verify: 'Verify setup',
   };
   return labels[action];
 }
@@ -481,6 +501,7 @@ function actionProgressLabel(action: ServiceAction): string {
     reinstall: 'Reinstalling…',
     uninstall: 'Uninstalling…',
     delete_data: 'Deleting retained data…',
+    verify: 'Verifying…',
   };
   return labels[action];
 }
