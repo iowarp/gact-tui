@@ -133,20 +133,12 @@ export function WorkspacePage() {
     () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
     [attentionInteractions, navigationSessions],
   );
-  // Omit an owner this view has not discovered through the session hierarchy
-  // walk, or one it discovered without a usable title — either way the
-  // interaction surface renders a typed "not listed" state instead of an
-  // invented role rather than inventing a role for it here.
   const interactionOwnerLabels = useMemo(
     () =>
-      Object.fromEntries(
-        interactions.flatMap((interaction) => {
-          if (!interactionSessionIds.has(interaction.owner_session_id)) return [];
-          const owner = navigationSessions.find(
-            (candidate) => candidate.id === interaction.owner_session_id,
-          );
-          return owner?.title ? [[interaction.owner_session_id, owner.title] as const] : [];
-        }),
+      workspaceRouteState.interactionOwnerLabels(
+        interactions,
+        interactionSessionIds,
+        navigationSessions,
       ),
     [interactionSessionIds, interactions, navigationSessions],
   );
@@ -715,7 +707,11 @@ export function WorkspacePage() {
             streamError={streamError}
             transcriptError={messageCount > 0 ? transcriptError : undefined}
           />
-          <AttentionModeBanner onDismiss={attention.dismiss} state={attention.state} />
+          <AttentionModeBanner
+            onDismiss={attention.dismiss}
+            state={attention.state}
+            onProfileChange={attention.changeProfile}
+          />
           <LayoutGroup id={`session-layout:${sessionId}`}>
             <AnimatePresence initial={false} mode="popLayout">
               {showConversationWelcome ? (

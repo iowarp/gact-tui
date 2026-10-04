@@ -15,7 +15,10 @@ function block(overrides: Partial<AttentionBlock>): AttentionBlock {
   };
 }
 
-function payload(blocks: AttentionBlock[], selection: AttentionSelection = { text: 'x' }): AttentionResult {
+function payload(
+  blocks: AttentionBlock[],
+  selection: AttentionSelection = { text: 'x' },
+): AttentionResult {
   return {
     available: true,
     message_id: 'msg_1',
@@ -28,14 +31,14 @@ function payload(blocks: AttentionBlock[], selection: AttentionSelection = { tex
 }
 
 describe('groupToolSteps', () => {
-  it('starts a new step at each thought block', () => {
+  it('groups fields by recorded call identity', () => {
     const blocks = [
-      block({ part_id: 'call_0', kind: 'thought' }),
-      block({ part_id: 'call_0', kind: 'tool_input' }),
-      block({ part_id: 'result_0', kind: 'tool_result' }),
-      block({ part_id: 'call_1', kind: 'thought' }),
-      block({ part_id: 'call_1', kind: 'tool_input' }),
-      block({ part_id: 'result_1', kind: 'tool_result' }),
+      block({ part_id: 'call_0', call_id: 'stable_0', kind: 'thought' }),
+      block({ part_id: 'call_0', call_id: 'stable_0', kind: 'tool_input' }),
+      block({ part_id: 'result_0', call_id: 'stable_0', kind: 'tool_result' }),
+      block({ part_id: 'call_1', call_id: 'stable_1', kind: 'thought' }),
+      block({ part_id: 'call_1', call_id: 'stable_1', kind: 'tool_input' }),
+      block({ part_id: 'result_1', call_id: 'stable_1', kind: 'tool_result' }),
     ];
     const steps = groupToolSteps(blocks);
     expect(steps).toHaveLength(2);
@@ -45,10 +48,16 @@ describe('groupToolSteps', () => {
 
   it('treats a run with no leading thought as one step', () => {
     const blocks = [
-      block({ part_id: 'call_0', kind: 'tool_input' }),
-      block({ part_id: 'result_0', kind: 'tool_result' }),
+      block({ part_id: 'call_0', call_id: 'stable_0', kind: 'tool_input' }),
+      block({ part_id: 'result_0', call_id: 'stable_0', kind: 'tool_result' }),
     ];
     expect(groupToolSteps(blocks)).toHaveLength(1);
+  });
+
+  it('does not invent tool identity when capture omits it', () => {
+    expect(groupToolSteps([block({ kind: 'thought' }), block({ kind: 'tool_result' })])).toEqual(
+      [],
+    );
   });
 
   it('is empty for no blocks', () => {
@@ -66,42 +75,46 @@ describe('buildMessageAttentionIndex', () => {
     expect(index.textBlocksByPartId.get('u0')).toBe(textBlock);
   });
 
-  it('zips tool steps to tool MessageBlocks in document order, keyed by tool_id even when the block id differs', () => {
+  it('uses call IDs even when cards are reordered and part IDs differ', () => {
     const blocks = [
-      block({ part_id: 'call_0', kind: 'thought', share: 0.01 }),
-      block({ part_id: 'call_0', kind: 'tool_input', share: 0.02 }),
-      block({ part_id: 'result_0', kind: 'tool_result', share: 0.03 }),
-      block({ part_id: 'call_1', kind: 'thought', share: 0.04 }),
-      block({ part_id: 'call_1', kind: 'tool_input', share: 0.05 }),
-      block({ part_id: 'result_1', kind: 'tool_result', share: 0.06 }),
+      block({ part_id: 'call_0', call_id: 'stable_0', kind: 'thought', share: 0.01 }),
+      block({ part_id: 'call_0', call_id: 'stable_0', kind: 'tool_input', share: 0.02 }),
+      block({ part_id: 'result_0', call_id: 'stable_0', kind: 'tool_result', share: 0.03 }),
+      block({ part_id: 'call_1', call_id: 'stable_1', kind: 'thought', share: 0.04 }),
+      block({ part_id: 'call_1', call_id: 'stable_1', kind: 'tool_input', share: 0.05 }),
+      block({ part_id: 'result_1', call_id: 'stable_1', kind: 'tool_result', share: 0.06 }),
     ];
     // The reducer's own fixtures show block.id and tool_id can differ (e.g.
     // 'call_part' / 'call_1'); the index must key by tool_id regardless.
     const index = buildMessageAttentionIndex(payload(blocks), {
       id: 'msg_1',
       blocks: [
-        { id: 'call_part_0', type: 'tool', tool_id: 'call_0' },
-        { id: 'call_part_1', type: 'tool', tool_id: 'call_1' },
+        { id: 'call_part_1', type: 'tool', tool_id: 'stable_1' },
+        { id: 'call_part_0', type: 'tool', tool_id: 'stable_0' },
       ],
     });
-    expect(toolStepShare(index.toolStepsByToolId.get('call_0'))).toBeCloseTo(0.06, 5);
-    expect(toolStepShare(index.toolStepsByToolId.get('call_1'))).toBeCloseTo(0.15, 5);
+    expect(toolStepShare(index.toolStepsByToolId.get('stable_0'))).toBeCloseTo(0.06, 5);
+    expect(toolStepShare(index.toolStepsByToolId.get('stable_1'))).toBeCloseTo(0.15, 5);
   });
 
   it('drops extra tool steps beyond the number of rendered tool blocks, without crashing', () => {
     const blocks = [
-      block({ part_id: 'call_0', kind: 'thought' }),
-      block({ part_id: 'call_1', kind: 'thought' }),
+      block({ part_id: 'call_0', call_id: 'stable_0', kind: 'thought' }),
+      block({ part_id: 'call_1', call_id: 'stable_1', kind: 'thought' }),
     ];
     const index = buildMessageAttentionIndex(payload(blocks), {
       id: 'msg_1',
-      blocks: [{ id: 'call_0', type: 'tool', tool_id: 'call_0' }],
+      blocks: [{ id: 'call_0', type: 'tool', tool_id: 'stable_0' }],
     });
     expect(index.toolStepsByToolId.size).toBe(1);
   });
 
   it('echoes the selection part id and field only for the message the selection came from', () => {
-    const selection: AttentionSelection = { text: 'closest station is MTA1', part_id: 't1_answer', field: 'text' };
+    const selection: AttentionSelection = {
+      text: 'closest station is MTA1',
+      part_id: 't1_answer',
+      field: 'text',
+    };
     const forSelectionMessage = buildMessageAttentionIndex(payload([], selection), {
       id: 'msg_1', // payload().message_id defaults to 'msg_1'
       blocks: [],

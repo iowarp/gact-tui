@@ -8,6 +8,7 @@ import { useSelectionActionRegistry } from './use-selection-action';
 import { useAttentionMode } from './use-attention-mode';
 
 const mocks = vi.hoisted(() => ({
+  endpoint: 'http://attention-clio:8100',
   getAttention: vi.fn<(...args: unknown[]) => Promise<AttentionResult>>(),
   attentionAvailability: vi.fn<(...args: unknown[]) => Promise<AttentionSessionAvailability>>(),
 }));
@@ -19,8 +20,13 @@ vi.mock('./use-repository', () => ({
   }),
 }));
 
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: mocks.endpoint } }),
+}));
+
 let queryClient: QueryClient;
 beforeEach(() => {
+  mocks.endpoint = 'http://attention-clio:8100';
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.attentionAvailability.mockResolvedValue({ enabled: true, messages: { msg_1: true } });
 });
@@ -30,7 +36,12 @@ afterEach(() => {
   mocks.attentionAvailability.mockReset();
 });
 
-const selection = { kind: 'agent-answer-text' as const, text: 'confirmed columns', sessionId: 'sess_1', messageId: 'msg_1' };
+const selection = {
+  kind: 'agent-answer-text' as const,
+  text: 'confirmed columns',
+  sessionId: 'sess_1',
+  messageId: 'msg_1',
+};
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -41,8 +52,12 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 /** The action appears once the session's availability has loaded. */
-async function offered(result: { current: { registry: { actionsFor: (t: typeof selection) => unknown[] } } }) {
-  await waitFor(() => expect(result.current.registry.actionsFor(selection).length).toBeGreaterThan(0));
+async function offered(result: {
+  current: { registry: { actionsFor: (t: typeof selection) => unknown[] } };
+}) {
+  await waitFor(() =>
+    expect(result.current.registry.actionsFor(selection).length).toBeGreaterThan(0),
+  );
 }
 
 const available: AttentionResult = {
@@ -56,6 +71,59 @@ const available: AttentionResult = {
 };
 
 describe('useAttentionMode', () => {
+  it('recomputes the same selection with an explicitly chosen profile', async () => {
+    mocks.getAttention.mockResolvedValue(available);
+    const { result } = renderHook(
+      () => {
+        const attention = useAttentionMode('sess_1', 0);
+        return { attention, registry: useSelectionActionRegistry() };
+      },
+      { wrapper },
+    );
+    await offered(result);
+    act(() => result.current.registry.actionsFor(selection)[0]?.run(selection));
+    await waitFor(() => expect(result.current.attention.state.status).toBe('shown'));
+    act(() =>
+      result.current.attention.changeProfile({
+        name: 'custom',
+        decay_base: 0.3,
+        weighting: 'exponential',
+      }),
+    );
+    await waitFor(() => expect(mocks.getAttention).toHaveBeenCalledTimes(2));
+    expect(mocks.getAttention.mock.calls[1]?.[2]).toEqual({
+      text: selection.text,
+      profile: { name: 'custom', decay_base: 0.3, weighting: 'exponential' },
+    });
+  });
+
+  it('cannot apply an old host response after switching to the same session ID on another host', async () => {
+    let resolve: (value: AttentionResult) => void = () => undefined;
+    mocks.getAttention.mockReturnValue(
+      new Promise((done) => {
+        resolve = done;
+      }),
+    );
+    const { result, rerender } = renderHook(
+      () => {
+        const attention = useAttentionMode('sess_1', 0);
+        return { attention, registry: useSelectionActionRegistry() };
+      },
+      { wrapper },
+    );
+    await offered(result);
+    act(() => result.current.registry.actionsFor(selection)[0]?.run(selection));
+    mocks.endpoint = 'http://different-clio:8100';
+    rerender();
+    expect(result.current.attention.state.status).toBe('idle');
+    await act(async () => {
+      resolve(available);
+      await Promise.resolve();
+    });
+    expect(result.current.attention.state.status).toBe('idle');
+    await waitFor(() => expect(mocks.attentionAvailability).toHaveBeenCalledTimes(2));
+    expect((mocks.getAttention.mock.calls[0]?.[3] as AbortSignal).aborted).toBe(true);
+  });
   it('starts idle and registers the understand-attention selection action', async () => {
     const { result } = renderHook(
       () => {
@@ -100,7 +168,10 @@ describe('useAttentionMode', () => {
   });
 
   it('goes to unavailable with the server message when available is false', async () => {
-    mocks.getAttention.mockResolvedValue({ available: false, message: 'No attention for this model.' });
+    mocks.getAttention.mockResolvedValue({
+      available: false,
+      message: 'No attention for this model.',
+    });
     const { result } = renderHook(
       () => {
         const attention = useAttentionMode('sess_1', 0);
@@ -122,11 +193,14 @@ describe('useAttentionMode', () => {
 
   it('resets to idle on a transport failure', async () => {
     mocks.getAttention.mockRejectedValue(new Error('network down'));
-    const { result } = renderHook(() => {
-      const attention = useAttentionMode('sess_1', 0);
-      const registry = useSelectionActionRegistry();
-      return { attention, registry };
-    }, { wrapper });
+    const { result } = renderHook(
+      () => {
+        const attention = useAttentionMode('sess_1', 0);
+        const registry = useSelectionActionRegistry();
+        return { attention, registry };
+      },
+      { wrapper },
+    );
     await offered(result);
     act(() => {
       result.current.registry.actionsFor(selection)[0]?.run(selection);
@@ -136,11 +210,14 @@ describe('useAttentionMode', () => {
 
   it('dismiss resets to idle', async () => {
     mocks.getAttention.mockResolvedValue(available);
-    const { result } = renderHook(() => {
-      const attention = useAttentionMode('sess_1', 0);
-      const registry = useSelectionActionRegistry();
-      return { attention, registry };
-    }, { wrapper });
+    const { result } = renderHook(
+      () => {
+        const attention = useAttentionMode('sess_1', 0);
+        const registry = useSelectionActionRegistry();
+        return { attention, registry };
+      },
+      { wrapper },
+    );
     await offered(result);
     act(() => {
       result.current.registry.actionsFor(selection)[0]?.run(selection);
@@ -180,7 +257,9 @@ describe('useAttentionMode', () => {
     );
     await offered(result);
     const moreDetailsOrder = 20; // hooks/use-more-details.ts
-    const action = result.current.registry.actionsFor(selection).find((a) => a.id === 'understand-attention');
+    const action = result.current.registry
+      .actionsFor(selection)
+      .find((a) => a.id === 'understand-attention');
     expect(action?.order).toBeGreaterThan(moreDetailsOrder);
   });
 

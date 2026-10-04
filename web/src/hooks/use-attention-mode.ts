@@ -1,4 +1,5 @@
-import type { AttentionAvailable } from '@clio/core/v3';
+import type { AttentionAvailable, AttentionProfile } from '@clio/core/v3';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { useQuery } from '@tanstack/react-query';
 import { RadarIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -33,30 +34,35 @@ export function useAttentionMode(
 ): {
   state: AttentionModeState;
   dismiss: () => void;
+  changeProfile: (profile: AttentionProfile) => void;
 } {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const scope = `${settings.endpoint}\0${sessionId}`;
+  const [profile, setProfile] = useState<AttentionProfile>();
   // Which answers can show attention. The action is offered only on those, so
   // a CLIO without attention capture, or an answer from another provider, never
   // shows it.
   const availability = useQuery({
-    queryKey: ['attention-availability', sessionId, transcriptRevision],
+    queryKey: ['attention-availability', settings.endpoint, sessionId, transcriptRevision],
     queryFn: ({ signal }) => repository.attentionAvailability(sessionId, signal),
     enabled: Boolean(sessionId),
     staleTime: Number.POSITIVE_INFINITY,
     retry: false,
+    refetchInterval: (query) => (query.state.data?.enabled ? 5000 : false),
   });
   const availableAnswers = availability.data?.enabled ? availability.data.messages : undefined;
   const [held, setHeld] = useState<{ sessionId: string; state: AttentionModeState }>({
-    sessionId,
+    sessionId: scope,
     state: { status: 'idle' },
   });
-  const current = held.sessionId === sessionId ? held.state : { status: 'idle' as const };
+  const current = held.sessionId === scope ? held.state : { status: 'idle' as const };
   const requestTokenRef = useRef(0);
   const abortRef = useRef<AbortController | undefined>(undefined);
 
   const setState = useCallback(
-    (state: AttentionModeState) => setHeld({ sessionId, state }),
-    [sessionId],
+    (state: AttentionModeState) => setHeld({ sessionId: scope, state }),
+    [scope],
   );
 
   const dismiss = useCallback(() => {
@@ -66,10 +72,16 @@ export function useAttentionMode(
   }, [setState]);
 
   // Leaving the session (or the page) drops any in-flight request.
-  useEffect(() => () => abortRef.current?.abort(), [sessionId]);
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      requestTokenRef.current += 1;
+    },
+    [scope],
+  );
 
   const request = useCallback(
-    async (target: AgentAnswerTextSelection) => {
+    async (target: AgentAnswerTextSelection, selectedProfile = profile) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -80,7 +92,7 @@ export function useAttentionMode(
         const result = await repository.getAttention(
           target.sessionId,
           target.messageId,
-          { text: target.text },
+          { text: target.text, ...(selectedProfile ? { profile: selectedProfile } : {}) },
           controller.signal,
         );
         if (requestTokenRef.current !== token) return; // superseded by a newer selection
@@ -94,7 +106,7 @@ export function useAttentionMode(
         });
       }
     },
-    [repository, setState],
+    [repository, setState, profile],
   );
 
   const action = useMemo<SelectionAction>(
@@ -107,7 +119,8 @@ export function useAttentionMode(
       // Only this session's answers that the service reports attention for.
       isAvailable: (target) =>
         target.kind === 'agent-answer-text' &&
-        target.sessionId === sessionId && availableAnswers?.[target.messageId] === true,
+        target.sessionId === sessionId &&
+        availableAnswers?.[target.messageId] === true,
       run: (target) => {
         if (target.kind === 'agent-answer-text') void request(target);
       },
@@ -116,5 +129,12 @@ export function useAttentionMode(
   );
   useSelectionAction(action);
 
-  return { state: current, dismiss };
+  return {
+    state: current,
+    dismiss,
+    changeProfile: (next) => {
+      setProfile(next);
+      if (current.status !== 'idle') void request(current.selection, next);
+    },
+  };
 }

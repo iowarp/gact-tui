@@ -157,6 +157,17 @@ export type PriorVersion = number | null;
 export type Version3 = number;
 export type Versions = ArtifactVersion[];
 export type WorkspaceId = string;
+export type BlockReduction = 'sum' | 'mean' | 'max';
+export type ContentSteps = 'all_selected_captured_steps';
+export type DecayBase = number;
+export type Direction = 'forward' | 'reverse';
+export type DisplayScaling = 'max' | 'none';
+export type Metric = 'mean' | 'max';
+export type Name4 = string;
+export type SchemaVersion = 1;
+export type Version4 = 1;
+export type WeightNormalization = 'sum' | 'none';
+export type Weighting = 'uniform' | 'exponential';
 export type $Id = string;
 export type $Schema = string;
 export type Catalogid2 = string;
@@ -196,14 +207,14 @@ export type HostId = string;
 export type Provider = 'local' | 'sftp' | 'google_drive' | 'globus';
 export type Revision = string | null;
 export type Root = string;
-export type SchemaVersion = 1;
+export type SchemaVersion1 = 1;
 export type WorkspaceId1 = string | null;
 export type ArtifactRef = string | null;
 export type CallId = string | null;
 export type ContentRevision = string;
 export type MessageId = string;
 export type PartId = string;
-export type SchemaVersion1 = 1;
+export type SchemaVersion2 = 1;
 export type Selection = TextSelection | WholeSelection | ImageSelection | StructuredSelection;
 export type End = number;
 export type Kind1 = 'text';
@@ -636,7 +647,7 @@ export type CrossWorkspaceBind = boolean;
 export type EdgeEvidence = 'schema-arg' | 'hash-pair' | 'lease-window' | 'authority' | 'assertion';
 export type ExternalRef = string;
 export type FenceProven = boolean;
-export type Name4 = string;
+export type Name5 = string;
 export type NetAt = string;
 export type NetDomain = string;
 export type NetMechanism = string;
@@ -648,7 +659,7 @@ export type Path4 = string;
  */
 export type EdgeRole = 'used' | 'generated';
 export type Sha2561 = string | null;
-export type Version4 = number | null;
+export type Version5 = number | null;
 export type AgentId15 = string;
 /**
  * Whether the agent executed or annotated the transform.
@@ -694,6 +705,7 @@ export interface ClioSchemaRegistry {
   AcceptedParameter?: AcceptedParameter;
   ArtifactRecord?: ArtifactRecord;
   ArtifactVersion?: ArtifactVersion;
+  AttentionProfile?: AttentionProfile;
   CatalogFile?: CatalogFile;
   CatalogSidecar?: CatalogSidecar;
   ConnectedSource?: ConnectedSource;
@@ -960,6 +972,22 @@ export interface Producer {
   [k: string]: unknown | undefined;
 }
 /**
+ * Resolved, immutable assumptions for one selected item's heat display.
+ */
+export interface AttentionProfile {
+  block_reduction?: BlockReduction;
+  content_steps?: ContentSteps;
+  decay_base?: DecayBase;
+  direction?: Direction;
+  display_scaling?: DisplayScaling;
+  metric?: Metric;
+  name?: Name4;
+  schema_version?: SchemaVersion;
+  version?: Version4;
+  weight_normalization?: WeightNormalization;
+  weighting?: Weighting;
+}
+/**
  * One official-shape A2UI catalog document (a ``catalog.json`` file).
  */
 export interface CatalogFile {
@@ -1047,7 +1075,7 @@ export interface ConnectedSource {
   provider: Provider;
   revision?: Revision;
   root: Root;
-  schema_version?: SchemaVersion;
+  schema_version?: SchemaVersion1;
   workspace_id?: WorkspaceId1;
 }
 /**
@@ -1084,7 +1112,7 @@ export interface ContentSelection {
   content_revision: ContentRevision;
   message_id: MessageId;
   part_id: PartId;
-  schema_version?: SchemaVersion1;
+  schema_version?: SchemaVersion2;
   selection: Selection;
   session_id: SessionId;
 }
@@ -1607,7 +1635,7 @@ export interface ProvEdge {
   evidence: EdgeEvidence;
   external_ref?: ExternalRef;
   fence_proven?: FenceProven;
-  name?: Name4;
+  name?: Name5;
   net_at?: NetAt;
   net_domain?: NetDomain;
   net_mechanism?: NetMechanism;
@@ -1616,7 +1644,7 @@ export interface ProvEdge {
   path?: Path4;
   role: EdgeRole;
   sha256?: Sha2561;
-  version?: Version4;
+  version?: Version5;
 }
 /**
  * One coarse transform keyed by the observer call id.

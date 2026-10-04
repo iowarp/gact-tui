@@ -9,6 +9,8 @@ import { attentionDomainColor } from '@/lib/attention-domain-colors';
 import { formatSharePercent as pct } from '@/lib/attention-text';
 import { truncate } from '@/lib/format';
 import { CloseIcon } from '@/lib/icon-vocabulary';
+import { AttentionProfileEditor } from './attention-profile-editor';
+import type { AttentionProfile } from '@clio/core/v3';
 
 const QUOTE_TRUNCATE_CHARS = 160;
 
@@ -25,9 +27,11 @@ const SPREAD_THIN_TOOLTIP =
 export function AttentionModeBanner({
   onDismiss,
   state,
+  onProfileChange,
 }: {
   onDismiss: () => void;
   state: AttentionModeState;
+  onProfileChange?: (profile: AttentionProfile) => void;
 }) {
   if (state.status === 'idle') return null;
   return (
@@ -66,6 +70,9 @@ export function AttentionModeBanner({
           </p>
         ) : null}
         {state.status === 'shown' ? <AttentionBreakdown data={state.data} /> : null}
+        {state.status === 'shown' && state.data.profile && onProfileChange ? (
+          <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
+        ) : null}
       </div>
     </div>
   );
@@ -96,10 +103,7 @@ function AttentionBreakdown({ data }: { data: AttentionAvailable }) {
         ))}
         <Tooltip>
           <TooltipTrigger asChild>
-            <span
-              className="bg-muted-foreground/30"
-              style={{ width: `${data.residual * 100}%` }}
-            />
+            <span className="bg-muted-foreground/30" style={{ width: `${data.residual * 100}%` }} />
           </TooltipTrigger>
           <TooltipContent>
             Spread thin: {pct(data.residual)}. {SPREAD_THIN_TOOLTIP}

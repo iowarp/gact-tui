@@ -11,11 +11,8 @@ import type { Message as DomainMessage, MessageBlock } from '@clio/core/v3';
  * different one), while the client's reduced transcript merges a call and its
  * result into one `ToolInvocation` card addressed by `tool_id`. Text parts
  * pass through as `text` blocks with the same id as their part, so those
- * match directly. Tool steps do not: this groups the message's tool-kind
- * attention blocks in document order (a new step starts at each `thought`)
- * and zips them, in order, with the message's own `tool` blocks' `tool_id` —
- * a documented ordinal bridge, not a claim that the literal ids match. See
- * the attention-mode PR description for the gap this papers over.
+ * match directly. Tool fields are grouped by the server's recorded call_id.
+ * Missing identities are left unmapped; display order never supplies identity.
  */
 export interface MessageAttentionIndex {
   /** Text-part blocks (`user_text` | `assistant_text`), keyed by part id. */
@@ -38,17 +35,14 @@ export interface MessageAttentionIndex {
 const TOOL_KINDS = new Set(['thought', 'tool_input', 'tool_result']);
 
 export function groupToolSteps(blocks: readonly AttentionBlock[]): AttentionBlock[][] {
-  const steps: AttentionBlock[][] = [];
-  let current: AttentionBlock[] = [];
+  const steps = new Map<string, AttentionBlock[]>();
   for (const block of blocks) {
-    if (block.kind === 'thought' && current.length > 0) {
-      steps.push(current);
-      current = [];
-    }
+    if (!block.call_id) continue;
+    const current = steps.get(block.call_id) ?? [];
     current.push(block);
+    steps.set(block.call_id, current);
   }
-  if (current.length > 0) steps.push(current);
-  return steps;
+  return [...steps.values()];
 }
 
 export function buildMessageAttentionIndex(
@@ -69,14 +63,17 @@ export function buildMessageAttentionIndex(
     }
   }
   const steps = groupToolSteps(toolBlocks);
-  const toolIds = message.blocks
-    .filter((block): block is Extract<MessageBlock, { type: 'tool' }> => block.type === 'tool')
-    .map((block) => block.tool_id);
+  const toolIds = new Set(
+    message.blocks
+      .filter((block): block is Extract<MessageBlock, { type: 'tool' }> => block.type === 'tool')
+      .map((block) => block.tool_id),
+  );
   const toolStepsByToolId = new Map<string, readonly AttentionBlock[]>();
   let maxToolStepShare = 0;
-  for (let i = 0; i < Math.min(steps.length, toolIds.length); i += 1) {
-    const step = steps[i] as AttentionBlock[];
-    toolStepsByToolId.set(toolIds[i] as string, step);
+  for (const step of steps) {
+    const callId = step[0]?.call_id;
+    if (!callId || !toolIds.has(callId)) continue;
+    toolStepsByToolId.set(callId, step);
     maxToolStepShare = Math.max(maxToolStepShare, toolStepShare(step));
   }
   const isSelectionMessage = payload.message_id === message.id;

@@ -14,6 +14,9 @@
  */
 
 /** A [char_lo, char_hi, value) heat run, offsets into one part's source text. */
+import type { AttentionProfile } from '../generated/clio-schemas/attention_profile.js';
+export type { AttentionProfile } from '../generated/clio-schemas/attention_profile.js';
+
 export type AttentionRun = readonly [charLo: number, charHi: number, value: number];
 
 /** The domains attention can be attributed to. */
@@ -29,7 +32,12 @@ export type AttentionDomain =
   | 'template';
 
 /** Which transcript field a block's `runs` are offsets into. */
-export type AttentionBlockKind = 'user_text' | 'assistant_text' | 'thought' | 'tool_input' | 'tool_result';
+export type AttentionBlockKind =
+  | 'user_text'
+  | 'assistant_text'
+  | 'thought'
+  | 'tool_input'
+  | 'tool_result';
 
 export interface AttentionSelection {
   part_id?: string;
@@ -57,6 +65,8 @@ export interface AttentionFlag {
 export interface AttentionBlock {
   message_id: string;
   part_id: string;
+  call_id?: string;
+  content_revision?: string;
   field: string;
   kind: AttentionBlockKind;
   section?: number;
@@ -64,6 +74,10 @@ export interface AttentionBlock {
   mean: number;
   tokens?: number;
   runs: readonly AttentionRun[];
+  display_runs?: readonly AttentionRun[];
+  score?: number;
+  intensity?: number;
+  retained_tokens?: number;
 }
 
 export interface AttentionTokenSource {
@@ -86,6 +100,15 @@ export interface AttentionAvailable {
   schema?: string;
   available: true;
   message_id: string;
+  profile?: AttentionProfile;
+  profile_revision?: string;
+  display_semantics?: {
+    metric: string;
+    block_scale: number;
+    token_scale: number;
+    scope: string;
+    missing: string;
+  };
   selection: AttentionSelection;
   /**
    * Fraction of attention spread across the conversation's other prompt

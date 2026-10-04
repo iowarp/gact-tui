@@ -5,6 +5,7 @@
  */
 
 export * from './_models';
+export * from './attention-profile.schema.js';
 export * from './host-storage-locations.schema.js';
 export * from './connected-source.schema.js';
 export * from './content-selection.schema.js';

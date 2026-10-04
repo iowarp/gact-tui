@@ -1,4 +1,8 @@
-import type { AttentionResult, AttentionSessionAvailability } from './attention-domain.js';
+import type {
+  AttentionProfile,
+  AttentionResult,
+  AttentionSessionAvailability,
+} from './attention-domain.js';
 import { attentionResultSchema, attentionSessionAvailabilitySchema } from './attention-schemas.js';
 import { SessionHistoryRepository } from './session-history-repository.js';
 
@@ -14,7 +18,14 @@ export class AttentionRepository extends SessionHistoryRepository {
   public getAttention(
     sessionId: string,
     messageId: string,
-    selection: { text: string; part_id?: string; field?: string; start?: number; end?: number },
+    selection: {
+      text: string;
+      part_id?: string;
+      field?: string;
+      start?: number;
+      end?: number;
+      profile?: AttentionProfile;
+    },
     signal?: AbortSignal,
   ): Promise<AttentionResult> {
     return this.transport.request({

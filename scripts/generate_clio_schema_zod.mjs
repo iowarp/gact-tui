@@ -6,6 +6,12 @@ import { jsonSchemaToZod } from 'json-schema-to-zod';
 
 const contracts = [
   {
+    file: 'attention_profile.json',
+    output: 'attention-profile.schema.ts',
+    schema: 'attentionProfileGeneratedSchema',
+    type: 'AttentionProfile',
+  },
+  {
     file: 'host_storage_locations.json',
     output: 'host-storage-locations.schema.ts',
     schema: 'hostStorageLocationsGeneratedSchema',

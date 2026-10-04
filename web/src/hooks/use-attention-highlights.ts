@@ -1,9 +1,6 @@
 import type { AttentionAvailable, Message as DomainMessage, ToolInvocation } from '@clio/core/v3';
 import { type RefObject, useLayoutEffect } from 'react';
-import {
-  buildAttentionHighlightRanges,
-  buildSelectedRange,
-} from '@/lib/attention-highlight-dom';
+import { buildAttentionHighlightRanges, buildSelectedRange } from '@/lib/attention-highlight-dom';
 import { findTextPartSource, resolveAttentionSources } from '@/lib/attention-highlight-sources';
 import { maxRunValue } from '@/lib/attention-text';
 
@@ -44,8 +41,14 @@ export function useAttentionHighlights(
     const container = containerRef.current;
     if (!container) return undefined;
 
-    const resolved = resolveAttentionSources(data, messages, tools);
-    const maxValue = maxRunValue(data.blocks);
+    const heatData = data.profile
+      ? {
+          ...data,
+          blocks: data.blocks.map((block) => ({ ...block, runs: block.display_runs ?? [] })),
+        }
+      : data;
+    const resolved = resolveAttentionSources(heatData, messages, tools);
+    const maxValue = data.profile ? 1 : maxRunValue(data.blocks);
     const selectedSource = data.selection.part_id
       ? findTextPartSource(messages, data.message_id, data.selection.part_id)
       : undefined;
@@ -57,7 +60,10 @@ export function useAttentionHighlights(
         CSS.highlights.set(HEAT_HIGHLIGHT_NAMES[level] as string, new Highlight(...ranges));
       });
       const selectedRange = buildSelectedRange(container, data, selectedSource);
-      CSS.highlights.set(SELECTED_HIGHLIGHT_NAME, new Highlight(...(selectedRange ? [selectedRange] : [])));
+      CSS.highlights.set(
+        SELECTED_HIGHLIGHT_NAME,
+        new Highlight(...(selectedRange ? [selectedRange] : [])),
+      );
     };
     const scheduleApply = () => {
       cancelAnimationFrame(frame);
