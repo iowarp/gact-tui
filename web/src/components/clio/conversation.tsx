@@ -1,4 +1,5 @@
 import { inlineQuestionDomId } from '@/lib/inline-question';
+import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import type { McpAppIdentity, Message as DomainMessage } from '@clio/core/v3';
 import { AlertTriangleIcon, ArrowDownIcon, GitBranchIcon, LoaderCircleIcon } from 'lucide-react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
@@ -13,6 +14,7 @@ import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioCompactionProgress } from './conversation-summarization';
 import { placeCompactions } from './conversation-compaction-placement';
 import { ClioTranscriptMinimap } from './transcript-minimap';
+import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
 import {
   foldA2UIRevisionBlocks,
@@ -70,11 +72,15 @@ function ConversationBody({
   );
   const messages = useMemo(
     () =>
-      foldA2UIRevisionBlocks(projectA2UIActionMessages(sourceMessages.filter(
-        (message) =>
-          !isProjectionOnlyA2UIMessage(message) &&
-          !isProjectedQuestionResumeEnvelope(message, entities.interactions),
-      ))),
+      foldA2UIRevisionBlocks(
+        projectA2UIActionMessages(
+          sourceMessages.filter(
+            (message) =>
+              !isProjectionOnlyA2UIMessage(message) &&
+              !isProjectedQuestionResumeEnvelope(message, entities.interactions),
+          ),
+        ),
+      ),
     [entities.interactions, sourceMessages],
   );
   const compactionPlacement = useMemo(
@@ -263,6 +269,8 @@ function ConversationBody({
     [disengage, markUserScrollIntent, messages, virtualized, virtualizer],
   );
 
+  useAttentionHighlights(scrollRef, entities.attentionData, messages, entities.tools);
+
   const conversationViewportWidth = useTranscriptWidth({
     virtualized,
     scrollRef,
@@ -287,7 +295,7 @@ function ConversationBody({
     let frame = 0;
     const focusSearchResult = () => {
       if (!window.location.hash.startsWith('#message-')) return;
-      const target = window.location.hash.slice('#message-'.length);
+      const [target, query] = window.location.hash.slice('#message-'.length).split('?', 2);
       const [encodedMessageId, encodedActivityId] = target.split('/activity-', 2);
       const messageId = decodeURIComponent(encodedMessageId);
       const activityId = encodedActivityId ? decodeURIComponent(encodedActivityId) : undefined;
@@ -298,6 +306,7 @@ function ConversationBody({
       virtualizer.scrollToIndex(index, { align: 'center' });
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
+          if (focusAttentionEvidence(messageId, new URLSearchParams(query))) return;
           // An agent question's card is the landmark for its tool call when shown.
           const activity = activityId
             ? (document.getElementById(inlineQuestionDomId(activityId)) ??
@@ -327,12 +336,15 @@ function ConversationBody({
   return (
     <div className="relative h-full min-h-0">
       {messages.length > 0 ? (
-        <ClioTranscriptMinimap
-          activeIndex={activeMessageIndex}
-          messages={messages}
-          onJump={jumpToMessage}
-          visible={minimapVisible}
-        />
+        <>
+          <ClioTranscriptMinimap
+            activeIndex={activeMessageIndex}
+            attention={entities.attentionData}
+            messages={messages}
+            onJump={jumpToMessage}
+            visible={minimapVisible}
+          />
+        </>
       ) : null}
       {/* `overflow-anchor: none`: the virtualizer and the autoscroll hook own
           scroll position here. With the browser's own scroll anchoring on, it

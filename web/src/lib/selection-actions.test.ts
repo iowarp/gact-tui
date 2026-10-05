@@ -94,4 +94,15 @@ describe('agentAnswerSelection', () => {
     expect(agentAnswerSelection(select('user', 0, 'user', 7))).toBeUndefined();
     expect(agentAnswerSelection(select('a', 3, 'a', 3))).toBeUndefined();
   });
+
+  it('preserves the selected part identity and its content revision', () => {
+    transcript();
+    const block = document.getElementById('a')!.parentElement!;
+    block.dataset.partId = 'exact-part';
+    block.dataset.contentRevision = 'exact-revision';
+    expect(agentAnswerSelection(select('a', 31, 'a', 46))).toMatchObject({
+      partId: 'exact-part',
+      contentRevision: 'exact-revision',
+    });
+  });
 });

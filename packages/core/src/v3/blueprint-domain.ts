@@ -7,6 +7,9 @@ export interface AgentBlueprintReference {
   version?: string;
   scope?: string;
   enabled?: boolean;
+  materialized?: boolean;
+  registry_id?: string;
+  blueprint_id?: string;
 }
 
 /** Typed outcome of comparing an installed marketplace source against its remote ref. */
@@ -37,4 +40,34 @@ export interface AgentBlueprintSourceUpdate {
 export interface AgentBlueprintSourceUpdates {
   sources: AgentBlueprintSourceUpdate[];
   checked_at?: string;
+}
+
+export interface AgentBlueprintSource {
+  id: string;
+  name: string;
+  source: string;
+  ref?: string;
+  commit?: string;
+  pinned_commit?: string;
+  working_checkout?: string;
+  is_default?: boolean;
+  reload_required?: boolean;
+  source_kind?: string;
+  status: string;
+  error?: string;
+  added_at?: string;
+  updated_at?: string;
+  install_scope?: string;
+  workspace_id?: string;
+  installed_blueprints?: Array<{ id: string; identity?: string; version?: string; scope?: string }>;
+  skipped_blueprints?: Array<{ id: string; reason: string }>;
+  available_blueprints: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    version?: string;
+    kind: WireValue<'blueprint' | 'pack'>;
+    enabled: boolean;
+    validation_errors: string[];
+  }>;
 }

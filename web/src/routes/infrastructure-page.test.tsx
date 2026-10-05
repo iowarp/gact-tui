@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const repository = vi.hoisted(() => ({
+  infrastructureInventory: vi.fn(),
+  provenanceConnections: vi.fn(),
   serviceHealth: vi.fn(),
   relayStatus: vi.fn(),
   mcpServers: vi.fn(),
@@ -38,6 +40,13 @@ import { InfrastructurePage } from './infrastructure-page';
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  repository.provenanceConnections.mockResolvedValue([]);
+  repository.infrastructureInventory.mockResolvedValue({
+    targets: [],
+    services: [],
+    connections: [],
+    operations: [],
+  });
   repository.serviceHealth.mockResolvedValue({
     healthy: true,
     integrations: [{ name: 'api', status: 'ready' }],
@@ -242,11 +251,11 @@ function renderPage(
 }
 
 describe('InfrastructurePage', () => {
-  it('opens the services workspace from the bare infrastructure route', async () => {
+  it('opens the overview from the bare infrastructure route', async () => {
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Services', level: 1 })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Services' })).toHaveAttribute('aria-current', 'page');
+    expect(await screen.findByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('separates agent, tools, and services while opening on the requested section', async () => {
@@ -255,7 +264,7 @@ describe('InfrastructurePage', () => {
     expect(screen.getByRole('main')).toHaveClass('h-full', 'min-h-0', 'overflow-y-auto');
     expect(await screen.findByRole('heading', { name: 'Tools', level: 1 })).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Infrastructure sections' })).toBeVisible();
-    expect(screen.getByRole('link', { name: brand.agentName })).toBeVisible();
+    expect(screen.getByRole('link', { name: `${brand.agentName} hosts` })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Services' })).toBeVisible();
   });
@@ -317,7 +326,7 @@ describe('InfrastructurePage', () => {
       details: {},
     });
 
-    renderPage();
+    renderPage(undefined, 'services');
 
     expect(await screen.findByText('Needs attention')).toBeVisible();
     // "Needs attention" is a severity, not an explanation. The service already
@@ -545,7 +554,7 @@ describe('InfrastructurePage', () => {
       details: {},
     });
 
-    renderPage();
+    renderPage(undefined, 'services');
 
     expect(await screen.findByText('Credential rejected')).toBeVisible();
   });
@@ -563,8 +572,9 @@ describe('InfrastructurePage', () => {
       },
     ]);
     const user = userEvent.setup();
-    renderPage();
+    renderPage(undefined, 'services');
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: /Connect web search/u }));
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     expect(screen.getByText('Connect an existing service')).toBeVisible();
@@ -604,8 +614,9 @@ describe('InfrastructurePage', () => {
       retryable: false,
     });
     const user = userEvent.setup();
-    renderPage();
+    renderPage(undefined, 'services');
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
 
     await waitFor(() => expect(repository.removeMcpConfiguration).toHaveBeenCalledWith('web'));
@@ -628,8 +639,9 @@ describe('InfrastructurePage', () => {
       retryable: true,
     });
     const user = userEvent.setup();
-    renderPage();
+    renderPage(undefined, 'services');
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: /Repair connection/u }));
     expect(await screen.findByDisplayValue('http://offline:8089')).toBeVisible();
     expect(screen.getByText('Configuration saved, service unavailable')).toBeVisible();
@@ -639,12 +651,14 @@ describe('InfrastructurePage', () => {
 
   it('keeps Web Search and Relay setup aligned at the same top position and width', async () => {
     const user = userEvent.setup();
-    renderPage();
+    renderPage(undefined, 'services');
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: /Connect web search/u }));
     expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
+    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(screen.getByRole('button', { name: 'Connect Relay' }));
     expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
   });

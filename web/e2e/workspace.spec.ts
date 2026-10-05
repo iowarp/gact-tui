@@ -306,7 +306,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
   await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(minimap).toHaveCSS('box-shadow', 'none');
-  await expect(minimap).toHaveCSS('width', '24px');
+  await expect(minimap).toHaveCSS('width', '28px');
   await expect
     .poll(async () => {
       const rail = await minimap.boundingBox();
@@ -316,7 +316,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
     })
     .toBe(true);
   const activeMarker = activeLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  await expect(activeMarker).toHaveCSS('width', '20px');
+  await expect(activeMarker).toHaveCSS('width', '24px');
   await expect(activeMarker).toHaveCSS('height', '4px');
   await expect(activeMarker).toHaveCSS('opacity', '1');
   const previousLandmark = minimap.getByRole('button', {
@@ -328,7 +328,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(previousMarker).toHaveCSS('height', '2px');
   await expect(previousMarker).toHaveCSS('opacity', '0.6');
   await previousLandmark.hover();
-  await expect(previousMarker).toHaveCSS('width', '20px');
+  await expect(previousMarker).toHaveCSS('width', '24px');
   await expect(previousMarker).toHaveCSS('height', '4px');
   await expect(previousMarker).toHaveCSS('opacity', '1');
   const previousBounds = await previousLandmark.boundingBox();

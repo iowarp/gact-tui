@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { CloseIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { m } from 'motion/react';
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import {
@@ -38,9 +38,12 @@ import type {
   ConversationTurnCompactionRecord,
 } from './conversation-turn-model';
 import { useConversationTurn } from './use-conversation-turn';
+import { useMessageAttentionIndex } from './use-message-attention-index';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { brand } from '@brand';
+import { TranscriptContentPicker } from './transcript-content-picker';
+import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -55,6 +58,10 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   messageCompactions,
   ...entities
 }: ConversationMessageRowProps) {
+  useAttentionEvidenceTarget(
+    message.id,
+    useCallback(() => onDisplayModeChange('full'), [onDisplayModeChange]),
+  );
   const emptyResponseErrorCode =
     typeof message.error_info?.error === 'string' ? message.error_info.error : undefined;
   const emptyResponseErrorMessage =
@@ -82,6 +89,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     (block) => block.type === 'text' && block.text.trim().length > 0,
   );
   const executionMode = specialMessageExecutionMode(message);
+  const messageAttentionIndex = useMessageAttentionIndex(entities.attentionData, message);
 
   if (mcpAppResponse) {
     return (
@@ -136,6 +144,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           )}
         </MessageAction>
       ) : null}
+      <TranscriptContentPicker sessionId={message.session_id} messageId={message.id} />
       <ClioMessageHistoryActions
         forking={entities.forkingMessageId === message.id}
         onFork={
@@ -285,6 +294,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     <MessageBlockSequence
                       blocks={[segment.block]}
                       key={segment.block.id}
+                      messageId={message.id}
+                      messageAttentionIndex={messageAttentionIndex}
                       messageSessionId={message.session_id}
                       {...entities}
                     />
@@ -297,6 +308,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                         interactions={entities.interactions}
                         iterations={segment.iterations}
                         mcpAppRepository={entities.mcpAppRepository}
+                        messageAttentionIndex={messageAttentionIndex}
                         messageSessionId={message.session_id}
                         mode={displayMode}
                         onOpenSubagent={entities.onOpenSubagent}
@@ -310,6 +322,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 <VariantRunsForMessage message={message} />
                 <MessageBlockSequence
                   blocks={visibleResidualBlocks}
+                  messageId={message.id}
+                  messageAttentionIndex={messageAttentionIndex}
                   messageSessionId={message.session_id}
                   {...entities}
                 />
@@ -319,6 +333,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 <VariantRunsForMessage message={message} />
                 <MessageBlockSequence
                   blocks={message.blocks}
+                  messageId={message.id}
+                  messageAttentionIndex={messageAttentionIndex}
                   messageSessionId={message.session_id}
                   resourcesFirst={message.role === 'user'}
                   compactReferences={message.role === 'user'}
@@ -457,6 +473,7 @@ export function conversationMessageRowPropsEqual(
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
     left.messageCompactions !== right.messageCompactions ||
+    left.attentionData !== right.attentionData ||
     !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||

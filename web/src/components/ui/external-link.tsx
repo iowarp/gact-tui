@@ -2,8 +2,10 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { openExternalUrl } from '@/tauri/external-url';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 
-export interface ExternalLinkProps extends Omit<React.ComponentPropsWithoutRef<'a'>, 'target' | 'rel'> {
+export interface ExternalLinkProps
+  extends Omit<React.ComponentPropsWithoutRef<'a'>, 'target' | 'rel'> {
   href: string;
   /**
    * Reports a failed open. Defaults to a toast; pass this to surface the
@@ -33,6 +35,8 @@ export const ExternalLink = React.forwardRef<HTMLAnchorElement, ExternalLinkProp
     const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
       onClick?.(event);
       if (event.defaultPrevented) return;
+      // Let browsers follow the actual anchor, retaining the user's click gesture.
+      if (!inTauri()) return;
       event.preventDefault();
       openExternalUrl(href).catch((error: unknown) => {
         if (onOpenError) onOpenError(error);

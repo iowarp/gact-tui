@@ -1,14 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { TransportError } from '@clio/core/v3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArtifactView, BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
+import { connectionScope } from '@/lib/connection-scope';
 
 const { repository } = vi.hoisted(() => ({
   repository: {
     readAgentBlueprintFile: vi.fn(),
+    readAgentBlueprintDraft: vi.fn(),
+    agentBlueprintAuthoring: vi.fn(),
+    publishAgentBlueprintDraft: vi.fn(),
+    updateAgentBlueprint: vi.fn(),
     readArtifactBytesFor: vi.fn(),
     readArtifactTextFor: vi.fn(),
     readWorkspaceFile: vi.fn(),
@@ -65,14 +70,90 @@ afterEach(() => {
 });
 
 describe('BlueprintFileEditor', () => {
+  it('retains unsaved work across navigation and requires a choice after another editor saves', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    repository.readAgentBlueprintDraft.mockResolvedValue({
+      content: 'Original',
+      content_hash: 'original-hash',
+    });
+    repository.agentBlueprintAuthoring.mockResolvedValue({
+      source: '/marketplace/operator',
+      scope: 'workspace',
+      installed_revision: 'abc123',
+      has_draft: false,
+      unpublished_files: [],
+      checkout_required: false,
+      reload_required: false,
+    });
+    const view = () => (
+      <QueryClientProvider client={queryClient}>
+        <BlueprintFileEditor
+          blueprintId="operator"
+          path="AGENT.md"
+          sessionId="session_1"
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>
+    );
+    const first = render(view());
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Blueprint source AGENT.md' }), {
+      target: { value: 'My unsaved edit' },
+    });
+    first.unmount();
+    render(view());
+    expect(await screen.findByRole('textbox', { name: 'Blueprint source AGENT.md' })).toHaveValue(
+      'My unsaved edit',
+    );
+    await act(async () => {
+      queryClient.setQueryData(
+        [
+          'blueprint-file',
+          'http://127.0.0.1:8790',
+          connectionScope({ endpoint: 'http://127.0.0.1:8790' }),
+          'operator',
+          'workspace_1',
+          'session_1',
+          'AGENT.md',
+        ],
+        { content: 'Other editor version', content_hash: 'other-hash' },
+      );
+    });
+    expect(
+      await screen.findByText('Another editor changed this file. Your edits are retained.'),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Blueprint source AGENT.md' })).toHaveValue(
+      'My unsaved edit',
+    );
+    await user.click(screen.getByText('Review saved version'));
+    expect(screen.getByText('Other editor version')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Keep my edits' }));
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+    expect(repository.writeAgentBlueprintFile).not.toHaveBeenCalled();
+  });
+
   it('persists an edited blueprint file through the connected repository', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    repository.readAgentBlueprintFile.mockResolvedValue('title: Operator');
+    repository.readAgentBlueprintDraft.mockResolvedValue({
+      content: 'title: Operator',
+      content_hash: 'original-hash',
+    });
+    repository.agentBlueprintAuthoring.mockResolvedValue({
+      source: '/marketplace/operator',
+      scope: 'workspace',
+      installed_revision: 'abc123',
+      has_draft: false,
+      unpublished_files: [],
+      checkout_required: false,
+      reload_required: false,
+    });
     repository.writeAgentBlueprintFile.mockResolvedValue({
       entry: { path: 'experts/operator.md', type: 'file', size: 22 },
       validation_errors: [],
       validation_warnings: [],
+      content_hash: 'saved-hash',
     });
 
     render(
@@ -89,18 +170,29 @@ describe('BlueprintFileEditor', () => {
     const editor = await screen.findByRole('textbox', {
       name: 'Blueprint source experts/operator.md',
     });
-    await screen.findByText('Source is saved.');
+    await screen.findByText('Applied revision.');
     fireEvent.change(editor, { target: { value: 'title: Cluster Operator' } });
     await screen.findByText('Unsaved');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    repository.agentBlueprintAuthoring.mockResolvedValue({
+      source: '/marketplace/operator',
+      scope: 'workspace',
+      installed_revision: 'abc123',
+      has_draft: true,
+      unpublished_files: ['experts/operator.md'],
+      checkout_required: false,
+      reload_required: false,
+    });
+    await user.click(screen.getByRole('button', { name: 'Save draft' }));
 
     expect(repository.writeAgentBlueprintFile).toHaveBeenCalledWith(
       'operator',
       'experts/operator.md',
       'title: Cluster Operator',
-      { workspaceId: 'workspace_1', sessionId: 'session_1' },
+      { workspaceId: 'workspace_1', sessionId: 'session_1', expectedHash: 'original-hash' },
     );
-    expect(await screen.findByText('Source is saved.')).toBeVisible();
+    expect(await screen.findByText('Draft saved; runtime unchanged.')).toBeVisible();
+    expect(repository.publishAgentBlueprintDraft).not.toHaveBeenCalled();
+    expect(repository.updateAgentBlueprint).not.toHaveBeenCalled();
   });
 });
 

@@ -21,6 +21,7 @@ import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 import { A2uiRegionCaptureProvider } from './a2ui-region-capture';
+import { SurfaceAttentionProvider } from '@/lib/a2ui/attention-selection';
 
 function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
@@ -141,7 +142,10 @@ function ClioA2UISurfaceContent({
     catalogs,
     isLoading: catalogsLoading,
   } = useA2uiCatalogRegistry(surface.session_id);
-  const [validationPostFailure, setValidationPostFailure] = useState<{ revision: number; message: string }>();
+  const [validationPostFailure, setValidationPostFailure] = useState<{
+    revision: number;
+    message: string;
+  }>();
   const [validationNotice, setValidationNotice] = useState<{ revision: number; message: string }>();
   const [localNotice, setLocalNotice] = useState<string>();
   const [localActionPending, setLocalActionPending] = useState(false);
@@ -221,7 +225,8 @@ function ClioA2UISurfaceContent({
         // never an unhandled rejection — worded in the card, typed locally.
         setValidationPostFailure({
           revision: surface.revision,
-          message: postError instanceof Error ? postError.message : 'The request could not be completed.',
+          message:
+            postError instanceof Error ? postError.message : 'The request could not be completed.',
         });
       }
     },
@@ -310,9 +315,11 @@ function ClioA2UISurfaceContent({
         <A2uiUrlViolationProvider value={reportUrlViolation}>
           <A2uiReferenceSessionProvider value={surface.session_id}>
             <AutoDatasetSelectionProvider>
-              <A2uiRegionCaptureProvider surface={surface}>
-                <A2uiSurface surface={model} />
-              </A2uiRegionCaptureProvider>
+              <SurfaceAttentionProvider surface={surface}>
+                <A2uiRegionCaptureProvider surface={surface}>
+                  <A2uiSurface surface={model} />
+                </A2uiRegionCaptureProvider>
+              </SurfaceAttentionProvider>
             </AutoDatasetSelectionProvider>
           </A2uiReferenceSessionProvider>
         </A2uiUrlViolationProvider>

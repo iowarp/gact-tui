@@ -224,6 +224,7 @@ export const workspaceResourceSchema = z.object({
   updated_at: z.string(),
   completed_at: z.string().default(''),
   workspace_path: z.string().default(''),
+  connected_source: z.record(z.string()).nullable().optional(),
   mime_mismatch: z.boolean().default(false),
   materialization: resourceMaterializationSchema.optional(),
   processing: workspaceResourceProcessingSchema.optional(),

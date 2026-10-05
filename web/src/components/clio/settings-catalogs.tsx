@@ -1,18 +1,12 @@
 import { queryKeys } from '@/lib/query-keys';
+import { connectionScope } from '@/lib/connection-scope';
+import { vocab } from '@/lib/brand-vocabulary';
 import type { AgentBlueprint, AgentBlueprintSource } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BoxesIcon, EyeIcon } from 'lucide-react';
-import { AddIcon, DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { BoxesIcon } from 'lucide-react';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  Frame,
-  FrameDescription,
-  FrameFooter,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,52 +17,95 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ClioInteractiveRow } from './interactive-row';
-import { ClioStatus } from './status';
+import { InstalledBlueprints } from './installed-blueprints';
 import { BlueprintDetailsDialog } from './blueprint-details-dialog';
 import { MarketplaceSourceDialog, type MarketplaceSourceInput } from './marketplace-source-dialog';
+import { MarketplaceSourceRow } from './marketplace-source-row';
+import { marketplaceErrorSummary } from './marketplace-errors';
+import { MarketplaceFeedback } from './marketplace-feedback';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
     <header>
       <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
     </header>
   );
 }
 
 export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?: string }) {
+  const { settings } = useConnectionSettings();
+  return (
+    <BlueprintSettingsContent
+      key={connectionScope(settings)}
+      initialBlueprintId={initialBlueprintId}
+    />
+  );
+}
+
+function BlueprintSettingsContent({ initialBlueprintId }: { initialBlueprintId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [editingSource, setEditingSource] = useState<AgentBlueprintSource>();
+  const [search, setSearch] = useState('');
+  const cacheOwner = connectionScope(settings);
+  const viewKey = ['marketplace-view', cacheOwner];
+  const view = useQuery({
+    queryKey: viewKey,
+    queryFn: () =>
+      queryClient.getQueryData<{ workspaceId: string; tab: string }>(viewKey) ?? {
+        workspaceId: 'global',
+        tab: 'installed',
+      },
+    initialData: { workspaceId: 'global', tab: 'installed' },
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+  const workspaceId = view.data.workspaceId;
+  const host = useQuery({
+    queryKey: ['host-storage', cacheOwner, 'local'],
+    queryFn: ({ signal }) => repository.hostStorageSettings('local', signal),
+    retry: false,
+  });
+  const hostLabel = host.data?.hostname
+    ? `${settings.label || host.data.host_label} · ${host.data.hostname}`
+    : settings.label || settings.endpoint;
   const [selectedBlueprint, setSelectedBlueprint] = useState<AgentBlueprint>();
   const [deleteBlueprint, setDeleteBlueprint] = useState<AgentBlueprint>();
   const [deleteSource, setDeleteSource] = useState<AgentBlueprintSource>();
   const openedDeepLink = useRef(false);
   const blueprints = useQuery({
-    queryKey: queryKeys.key('agent-blueprints', settings.endpoint, 'settings'),
-    queryFn: ({ signal }) => repository.agentBlueprints(undefined, signal),
+    queryKey: queryKeys.key(
+      'agent-blueprints',
+      settings.endpoint,
+      cacheOwner,
+      'settings',
+      workspaceId,
+    ),
+    queryFn: ({ signal }) =>
+      repository.agentBlueprints(workspaceId === 'global' ? undefined : workspaceId, signal),
   });
   const sources = useQuery({
-    queryKey: queryKeys.key('agent-blueprint-sources', settings.endpoint),
+    queryKey: queryKeys.key('agent-blueprint-sources', settings.endpoint, cacheOwner),
     queryFn: ({ signal }) => repository.agentBlueprintSources(signal),
   });
   const workspaces = useQuery({
-    queryKey: queryKeys.key('workspaces', settings.endpoint),
+    queryKey: queryKeys.key('workspaces', settings.endpoint, cacheOwner),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const invalidate = async () => {
@@ -83,19 +120,51 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
   };
   const addSource = useMutation({
     mutationFn: (input: MarketplaceSourceInput) => repository.addAgentBlueprintSource(input),
-    onSuccess: async () => {
+    onSuccess: async (source) => {
       setSourceDialogOpen(false);
       await invalidate();
-      toast.success('Source added');
+      if (source.status === 'degraded')
+        toast.warning(marketplaceErrorSummary(source.error || 'Marketplace needs attention'));
+      else toast.success('Marketplace added');
+    },
+    // Failed setup can still save a registration for repair. Reflect that row
+    // immediately instead of letting the next Add fail as a hidden duplicate.
+    onError: () => {
+      void invalidate();
+    },
+  });
+  const configureSource = useMutation({
+    mutationFn: ({
+      source,
+      input,
+    }: {
+      source: AgentBlueprintSource;
+      input: MarketplaceSourceInput;
+    }) => {
+      const { scope: _scope, workspace_id: _workspace, ...configuration } = input;
+      return repository.configureAgentBlueprintSource(source.id, {
+        ...configuration,
+        expected_updated_at: source.updated_at ?? '',
+      });
+    },
+    onSuccess: async () => {
+      setEditingSource(undefined);
+      await invalidate();
+      toast.success('Configuration saved');
     },
   });
   const refreshSource = useMutation({
     mutationFn: (id: string) => repository.refreshAgentBlueprintSource(id),
-    onSuccess: async () => {
+    onSuccess: async (source) => {
       await invalidate();
-      toast.success('Source refreshed');
+      if (source.status === 'degraded')
+        toast.warning(marketplaceErrorSummary(source.error || 'Marketplace needs attention'));
+      else toast.success('Marketplace reloaded');
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => {
+      void invalidate();
+      toast.error(marketplaceErrorSummary(error.message));
+    },
   });
   const removeSource = useMutation({
     mutationFn: (id: string) => repository.deleteAgentBlueprintSource(id),
@@ -104,44 +173,69 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
       await invalidate();
       toast.success('Source removed');
     },
+    onError: (error) => toast.error(marketplaceErrorSummary(error.message)),
   });
   const install = useMutation({
-    mutationFn: ({ sourceId, blueprintId }: { sourceId: string; blueprintId: string }) =>
+    mutationFn: ({ source, blueprintId }: { source: AgentBlueprintSource; blueprintId: string }) =>
       repository.installAgentBlueprint({
-        source_id: sourceId,
+        source_id: source.id,
         blueprint_id: blueprintId,
-        scope: 'global',
+        scope: source.install_scope === 'workspace' ? 'workspace' : 'global',
+        workspace_id: source.workspace_id,
       }),
     onSuccess: async () => {
       await invalidate();
       toast.success('Blueprint installed');
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(marketplaceErrorSummary(error.message)),
   });
   const update = useMutation({
     mutationFn: (blueprint: AgentBlueprint) =>
-      repository.updateAgentBlueprint(blueprint.id, {
+      repository.updateAgentBlueprint(blueprint.identity || blueprint.id, {
         scope: blueprint.scope === 'global' ? 'global' : 'workspace',
+        workspace_id: workspaceId === 'global' ? undefined : workspaceId,
       }),
     onSuccess: async () => {
       await invalidate();
       toast.success('Blueprint updated');
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(marketplaceErrorSummary(error.message)),
   });
   const removeBlueprint = useMutation({
     mutationFn: (blueprint: AgentBlueprint) =>
-      repository.deleteAgentBlueprint(blueprint.id, {
+      repository.deleteAgentBlueprint(blueprint.identity || blueprint.id, {
         scope: blueprint.scope === 'global' ? 'global' : 'workspace',
+        workspace_id: workspaceId === 'global' ? undefined : workspaceId,
       }),
     onSuccess: async () => {
       setDeleteBlueprint(undefined);
       await invalidate();
       toast.success('Blueprint removed');
     },
+    onError: (error) => toast.error(marketplaceErrorSummary(error.message)),
   });
-  const installedBlueprints = blueprints.data?.filter((blueprint) => blueprint.kind !== 'pack');
-  const installedIds = new Set(installedBlueprints?.map((blueprint) => blueprint.id));
+  const installedBlueprints = blueprints.data?.filter(
+    (blueprint) =>
+      blueprint.kind !== 'pack' &&
+      blueprint.materialized !== false &&
+      (workspaceId !== 'global' || blueprint.scope === 'global'),
+  );
+  const matchesSearch = (text: string) =>
+    text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
+  const visibleSources = sources.data?.filter(
+    (source) =>
+      (source.install_scope !== 'workspace' || source.workspace_id === workspaceId) &&
+      matchesSearch(`${source.name} ${source.source}`),
+  );
+  const installedFrom = (source: AgentBlueprintSource, id: string) =>
+    installedBlueprints?.find(
+      (blueprint) =>
+        (blueprint.blueprint_id ?? blueprint.id) === id &&
+        (blueprint.source_id === source.id ||
+          (!blueprint.source_id &&
+            (blueprint.metadata.install as { source?: string } | undefined)?.source ===
+              source.source)),
+    );
   useEffect(() => {
     if (!initialBlueprintId || openedDeepLink.current || !installedBlueprints) return;
     openedDeepLink.current = true;
@@ -151,172 +245,162 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
   }, [initialBlueprintId, installedBlueprints]);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4">
       <SectionHeading
-        description="Manage installed agent blueprints and the marketplaces that publish them. Marketplace status, commit, validation, and availability come from the connected service."
+        description={`Connected ${vocab.agent} · ${hostLabel}`}
         title="Marketplaces and blueprints"
       />
-      <Tabs defaultValue="installed">
+      <div className="grid gap-1.5">
+        <label htmlFor="marketplace-workspace" className="text-xs font-medium">
+          Workspace view
+        </label>
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <Select
+            value={workspaceId}
+            onValueChange={(workspaceId) => {
+              setSelectedBlueprint(undefined);
+              setDeleteBlueprint(undefined);
+              queryClient.setQueryData(viewKey, { ...view.data, workspaceId });
+            }}
+          >
+            <SelectTrigger
+              id="marketplace-workspace"
+              aria-label="Workspace access"
+              className="w-full min-w-0 sm:w-60"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="global">Shared across workspaces</SelectItem>
+              {workspaces.data?.map((workspace) => (
+                <SelectItem key={workspace.id} value={workspace.id}>
+                  Workspace: {workspace.display_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {workspaceId === 'global'
+            ? 'Shared blueprints and marketplaces are available in every workspace.'
+            : 'Includes shared blueprints and marketplaces, plus those added only to this workspace.'}
+        </p>
+      </div>
+      <Input
+        className="min-w-0"
+        aria-label={
+          view.data.tab === 'sources' ? 'Search marketplaces' : 'Search installed blueprints'
+        }
+        placeholder={
+          view.data.tab === 'sources' ? 'Search marketplaces' : 'Search installed blueprints'
+        }
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+      />
+      {blueprints.error || sources.error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {blueprints.error?.message || sources.error?.message}
+        </p>
+      ) : null}
+      {blueprints.isPending || sources.isPending ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Loading marketplaces…
+        </p>
+      ) : null}
+      <Tabs
+        value={view.data.tab}
+        onValueChange={(tab) => {
+          setSearch('');
+          queryClient.setQueryData(viewKey, { ...view.data, tab });
+        }}
+      >
         <TabsList>
           <TabsTrigger value="installed">Installed</TabsTrigger>
           <TabsTrigger value="sources">Marketplaces</TabsTrigger>
         </TabsList>
-        <TabsContent className="mt-4 grid gap-3" value="installed">
-          {installedBlueprints?.map((blueprint) => (
-            <Frame key={blueprint.id} spacing="sm">
-              <FramePanel className="flex items-start gap-4">
-                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                  <BoxesIcon aria-hidden="true" className="size-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <button
-                      className="min-w-0 flex-1 truncate rounded-sm text-left font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => setSelectedBlueprint(blueprint)}
-                      type="button"
-                    >
-                      {blueprint.display_name}
-                    </button>
-                    <ClioStatus
-                      className="shrink-0"
-                      value={blueprint.enabled ? 'healthy' : 'degraded'}
-                    />
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <Badge variant="outline">
-                      {blueprint.scope === 'global' ? 'All workspaces' : 'This workspace'}
-                    </Badge>
-                    <Badge variant="outline">
-                      {blueprint.version ? `Version ${blueprint.version}` : 'Version unavailable'}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 min-h-10 line-clamp-2 text-sm leading-5 text-muted-foreground">
-                    {blueprint.description || 'No description provided.'}
-                  </p>
-                  {blueprint.validation_errors.length ? (
-                    <ul className="mt-3 grid gap-1 text-xs text-destructive">
-                      {blueprint.validation_errors.map((error) => (
-                        <li key={error}>{error}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      aria-label={`Actions for ${blueprint.display_name}`}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <MoreIcon aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
-                    <DropdownMenuItem onSelect={() => setSelectedBlueprint(blueprint)}>
-                      <EyeIcon aria-hidden="true" /> View details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => update.mutate(blueprint)}>
-                      <RefreshIcon aria-hidden="true" /> Check for update
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={() => setDeleteBlueprint(blueprint)}
-                      variant="destructive"
-                    >
-                      <DeleteIcon aria-hidden="true" /> Remove
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </FramePanel>
-            </Frame>
-          ))}
-          {!blueprints.isPending && !installedBlueprints?.length ? (
-            <EmptyCatalog icon={BoxesIcon} label="No agent blueprints are installed" />
-          ) : null}
+        <TabsContent className="mt-4" value="installed">
+          {update.error && (
+            <div className="mb-3">
+              <MarketplaceFeedback error={update.error.message} />
+            </div>
+          )}
+          {removeBlueprint.error && (
+            <div className="mb-3">
+              <MarketplaceFeedback error={removeBlueprint.error.message} />
+            </div>
+          )}
+          <InstalledBlueprints
+            key={workspaceId}
+            blueprints={installedBlueprints ?? []}
+            sources={sources.data ?? []}
+            search={search}
+            loading={blueprints.isPending}
+            onClearSearch={() => setSearch('')}
+            onDetails={setSelectedBlueprint}
+            onReload={(row) => update.mutate(row)}
+            onRemove={setDeleteBlueprint}
+            reloadingId={
+              update.isPending ? update.variables.identity || update.variables.id : undefined
+            }
+          />
         </TabsContent>
         <TabsContent className="mt-4 grid gap-4" value="sources">
-          <div className="flex justify-end">
-            <Button onClick={() => setSourceDialogOpen(true)} size="sm">
+          {install.error && <MarketplaceFeedback error={install.error.message} />}
+          {removeSource.error && <MarketplaceFeedback error={removeSource.error.message} />}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Browse collections of agent blueprints or add your own.
+            </p>
+            <Button
+              onClick={() => {
+                addSource.reset();
+                setSourceDialogOpen(true);
+              }}
+              size="sm"
+            >
               <AddIcon aria-hidden="true" /> Add marketplace
             </Button>
           </div>
-          {sources.data?.map((source) => (
-            <Frame key={source.id} spacing="sm">
-              <FrameHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <FrameTitle>{source.name}</FrameTitle>
-                    <FrameDescription className="mt-1 break-all font-mono text-xs">
-                      {source.source}
-                    </FrameDescription>
-                  </div>
-                  <ClioStatus
-                    label={source.status === 'ready' ? 'Ready' : source.status}
-                    value={source.status === 'ready' ? 'healthy' : 'degraded'}
-                  />
-                </div>
-              </FrameHeader>
-              <FramePanel className="grid gap-2 p-2">
-                {source.available_blueprints
-                  .filter((available) => available.kind !== 'pack')
-                  .map((available) => (
-                    <ClioInteractiveRow key={available.id}>
-                      <div className="flex items-center gap-3">
-                        <BoxesIcon aria-hidden="true" className="size-4 text-primary" />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{available.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {available.version || 'Version unavailable'}
-                          </p>
-                        </div>
-                        {installedIds.has(available.id) ? (
-                          <Badge variant="secondary">Installed</Badge>
-                        ) : (
-                          <Button
-                            disabled={!available.enabled || install.isPending}
-                            onClick={() =>
-                              install.mutate({ sourceId: source.id, blueprintId: available.id })
-                            }
-                            size="sm"
-                            variant="outline"
-                          >
-                            Install
-                          </Button>
-                        )}
-                      </div>
-                    </ClioInteractiveRow>
-                  ))}
-                {!source.available_blueprints.some((available) => available.kind !== 'pack') ? (
-                  <p className="p-4 text-sm text-muted-foreground">
-                    This source reported no available blueprints.
-                  </p>
-                ) : null}
-              </FramePanel>
-              <FrameFooter className="flex-row items-center justify-between">
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {source.commit ? `Commit ${source.commit.slice(0, 12)}` : 'Commit unavailable'}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    disabled={refreshSource.isPending}
-                    onClick={() => refreshSource.mutate(source.id)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <RefreshIcon aria-hidden="true" /> Refresh
-                  </Button>
-                  <Button
-                    aria-label={`Remove source ${source.name}`}
-                    onClick={() => setDeleteSource(source)}
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <DeleteIcon aria-hidden="true" />
-                  </Button>
-                </div>
-              </FrameFooter>
-            </Frame>
+          {visibleSources?.map((source) => (
+            <MarketplaceSourceRow
+              key={source.id}
+              source={source}
+              scopeLabel={
+                source.install_scope === 'workspace'
+                  ? workspaces.data?.find((row) => row.id === source.workspace_id)?.display_name ||
+                    'Workspace'
+                  : 'Shared across workspaces'
+              }
+              pending={
+                (refreshSource.isPending && refreshSource.variables === source.id) ||
+                install.isPending
+              }
+              reloading={refreshSource.isPending && refreshSource.variables === source.id}
+              installingId={
+                install.isPending && install.variables.source.id === source.id
+                  ? install.variables.blueprintId
+                  : undefined
+              }
+              isInstalled={(id) => Boolean(installedFrom(source, id))}
+              installedVersion={(id) => installedFrom(source, id)?.version}
+              onReload={() => refreshSource.mutate(source.id)}
+              onConfigure={() => {
+                configureSource.reset();
+                setEditingSource(source);
+              }}
+              onRemove={() => setDeleteSource(source)}
+              onInstall={(blueprintId) => install.mutate({ source, blueprintId })}
+              onDetails={(id) => setSelectedBlueprint(installedFrom(source, id))}
+            />
           ))}
+          {!sources.isPending && !visibleSources?.length ? (
+            <EmptyCatalog
+              icon={BoxesIcon}
+              label={
+                search ? 'No marketplaces match your search' : 'No marketplaces connected here'
+              }
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
 
@@ -328,10 +412,31 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
           open
           pending={addSource.isPending}
           workspaces={workspaces.data ?? []}
+          hostLabel={hostLabel}
+          defaultWorkspaceId={workspaceId}
+        />
+      ) : null}
+      {editingSource ? (
+        <MarketplaceSourceDialog
+          key={editingSource.id}
+          initial={editingSource}
+          error={configureSource.error?.message}
+          onAdd={(input) => configureSource.mutate({ source: editingSource, input })}
+          onOpenChange={(open) => !open && setEditingSource(undefined)}
+          open
+          pending={configureSource.isPending}
+          workspaces={workspaces.data ?? []}
+          hostLabel={hostLabel}
         />
       ) : null}
       <BlueprintDetailsDialog
-        blueprint={selectedBlueprint}
+        blueprint={
+          selectedBlueprint &&
+          blueprints.data?.find(
+            (row) =>
+              (row.identity || row.id) === (selectedBlueprint.identity || selectedBlueprint.id),
+          )
+        }
         onOpenChange={(open) => !open && setSelectedBlueprint(undefined)}
       />
 

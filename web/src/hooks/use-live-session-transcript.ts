@@ -8,6 +8,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { recordById } from '@/lib/entities';
+import { connectionScope } from '@/lib/connection-scope';
 import { queryKeys } from '@/lib/query-keys';
 import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
@@ -35,8 +36,9 @@ export function useLiveSessionTranscript(
 ) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const scope = connectionScope(settings);
   const transcript = useQuery({
-    queryKey: queryKeys.key('transcript', settings.endpoint, sessionId, view),
+    queryKey: queryKeys.key('transcript', scope, sessionId, view),
     queryFn: ({ signal }) => repository.transcript(sessionId!, signal),
     enabled: Boolean(sessionId),
   });
@@ -45,10 +47,14 @@ export function useLiveSessionTranscript(
     [transcript.data],
   );
   const [liveState, setLiveState] = useState<{
+    scope: string;
     snapshot?: TranscriptSnapshot;
     entities: EntityState;
-  }>(() => ({ snapshot: transcript.data, entities: snapshotEntities }));
-  const entities = liveState.snapshot === transcript.data ? liveState.entities : snapshotEntities;
+  }>(() => ({ scope, snapshot: transcript.data, entities: snapshotEntities }));
+  const entities =
+    liveState.scope === scope && liveState.snapshot === transcript.data
+      ? liveState.entities
+      : snapshotEntities;
 
   useEffect(() => {
     if (!sessionId || !transcript.data) return;
@@ -57,8 +63,11 @@ export function useLiveSessionTranscript(
     let cursor = snapshot.cursor;
     const updateEntities = (project: (base: EntityState) => EntityState) => {
       setLiveState((current) => {
-        const base = current.snapshot === snapshot ? current.entities : snapshotEntities;
-        return { snapshot, entities: project(base) };
+        const base =
+          current.scope === scope && current.snapshot === snapshot
+            ? current.entities
+            : snapshotEntities;
+        return { scope, snapshot, entities: project(base) };
       });
     };
     const batcher = new FrameBatcher<TransportFrame>((frames) => {
@@ -99,9 +108,9 @@ export function useLiveSessionTranscript(
 
     return () => {
       controller.abort();
-      batcher.stop({ flush: true });
+      batcher.stop({ flush: false });
     };
-  }, [sessionId, repository, snapshotEntities, transcript.data, workspaceId]);
+  }, [scope, sessionId, repository, snapshotEntities, transcript.data, workspaceId]);
 
   const messages = useMemo(
     () =>

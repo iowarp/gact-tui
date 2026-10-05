@@ -27,6 +27,16 @@ const shareResultSchema = z.object({
 export class SessionHistoryRepository {
   public constructor(protected readonly transport: ClioTransport) {}
 
+  /** Read the authoritative session, including its parent and current behavior. */
+  public session(sessionId: string, workspaceId: string, signal?: AbortSignal): Promise<Session> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}?workspace_id=${encodeURIComponent(workspaceId)}`,
+      decode: (value) => sessionSchema.parse(value),
+      signal,
+    });
+  }
+
   public exportSession(sessionId: string, signal?: AbortSignal): Promise<unknown> {
     return this.transport.request({
       method: 'GET',

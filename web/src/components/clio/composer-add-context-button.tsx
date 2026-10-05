@@ -13,17 +13,27 @@ export function ComposerAddContextButton({
   contextReferences,
   onOpenFileUpload,
   onOpenReferences,
+  onOpenSources,
 }: {
   attachments: boolean;
   contextReferences: boolean;
   onOpenFileUpload: () => void;
   onOpenReferences: () => void;
+  onOpenSources?: () => void;
 }) {
   if (!contextReferences) {
     return (
-      <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
-        <AddIcon aria-hidden="true" />
-      </PromptInputButton>
+      <>
+        {attachmentEnabled || onOpenSources ? (
+          <PromptInputButton
+            aria-label="Attach"
+            onClick={onOpenSources ?? onOpenFileUpload}
+            title="Attach"
+          >
+            <AddIcon aria-hidden="true" />
+          </PromptInputButton>
+        ) : null}
+      </>
     );
   }
   return (
@@ -31,25 +41,27 @@ export function ComposerAddContextButton({
       <PromptInputActionMenuTrigger aria-label="Add context" title="Add context">
         <AddIcon aria-hidden="true" />
       </PromptInputActionMenuTrigger>
-      <PromptInputActionMenuContent>
-        {attachmentEnabled ? (
+      <PromptInputActionMenuContent className="w-auto min-w-44 whitespace-nowrap">
+        {attachmentEnabled || onOpenSources ? (
           <PromptInputActionMenuItem
-            aria-label="Attach a new file"
-            onSelect={onOpenFileUpload}
-            title="Attach a new file"
+            aria-label="Attach"
+            onSelect={onOpenSources ?? onOpenFileUpload}
+            title="Attach files, folders, or connected data"
           >
             <PaperclipIcon aria-hidden="true" />
             Attach
           </PromptInputActionMenuItem>
         ) : null}
-        <PromptInputActionMenuItem
-          aria-label="Reference existing context"
-          onSelect={onOpenReferences}
-          title="Reference existing context"
-        >
-          <AtSignIcon aria-hidden="true" />
-          Reference
-        </PromptInputActionMenuItem>
+        {contextReferences && (
+          <PromptInputActionMenuItem
+            aria-label="Reference existing context"
+            onSelect={onOpenReferences}
+            title="Reference existing context"
+          >
+            <AtSignIcon aria-hidden="true" />
+            Reference
+          </PromptInputActionMenuItem>
+        )}
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
   );

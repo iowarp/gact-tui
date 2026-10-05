@@ -51,6 +51,7 @@ export function SshAuthentication({ prompt, sessionId }: { prompt: SshPrompt; se
           className="flex gap-2"
           onSubmit={(event) => {
             event.preventDefault();
+            event.stopPropagation();
             const response = answer;
             setAnswer('');
             setError(undefined);

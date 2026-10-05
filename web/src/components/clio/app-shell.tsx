@@ -217,7 +217,7 @@ export function ClioAppShell({
             <ResizablePanel
               collapsedSize="0px"
               collapsible
-              defaultSize="420px"
+              defaultSize={workbenchOpen ? '420px' : '0px'}
               maxSize="70%"
               minSize="320px"
               panelRef={workbenchPanelRef}

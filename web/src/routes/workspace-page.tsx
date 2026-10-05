@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioMoreDetails } from '@/components/clio/more-details';
+import { AttentionModeBanner } from '@/components/clio/attention-mode-banner';
+import { AttentionLookupPanel } from '@/components/clio/attention-lookup-panel';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioChildSessionFooter } from '@/components/clio/child-session-footer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
@@ -33,6 +35,7 @@ import {
 import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
 import { useA2uiCatalogRegistry } from '@/lib/a2ui/processor-store';
 import { useRepository } from '@/hooks/use-repository';
+import { useAttentionMode } from '@/hooks/use-attention-mode';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import { useSessionCommands } from '@/hooks/use-session-commands';
@@ -131,20 +134,12 @@ export function WorkspacePage() {
     () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
     [attentionInteractions, navigationSessions],
   );
-  // Omit an owner this view has not discovered through the session hierarchy
-  // walk, or one it discovered without a usable title — either way the
-  // interaction surface renders a typed "not listed" state instead of an
-  // invented role rather than inventing a role for it here.
   const interactionOwnerLabels = useMemo(
     () =>
-      Object.fromEntries(
-        interactions.flatMap((interaction) => {
-          if (!interactionSessionIds.has(interaction.owner_session_id)) return [];
-          const owner = navigationSessions.find(
-            (candidate) => candidate.id === interaction.owner_session_id,
-          );
-          return owner?.title ? [[interaction.owner_session_id, owner.title] as const] : [];
-        }),
+      workspaceRouteState.interactionOwnerLabels(
+        interactions,
+        interactionSessionIds,
+        navigationSessions,
       ),
     [interactionSessionIds, interactions, navigationSessions],
   );
@@ -157,6 +152,7 @@ export function WorkspacePage() {
       ),
     [sessionId],
   );
+  const attention = useAttentionMode(sessionId, transcript.data?.messages.length ?? 0);
   // messageCount lags transcript.isFetching by a render tick (it only
   // hydrates from transcript.data via use-workspace-data.ts's mergeSnapshots
   // effect), which used to flash the welcome variant -- remounting the
@@ -267,6 +263,7 @@ export function WorkspacePage() {
     pendingSteers,
     promoteQueuedMessage,
     prepareFiles,
+    discardFiles,
     queuedMessages,
     reorderQueuedMessages,
     respondInteraction,
@@ -275,6 +272,7 @@ export function WorkspacePage() {
     updateQueuedMessage,
     updateSessionBehavior,
   } = useSessionMutations({
+    openSubagent,
     activeModel,
     activeProvider,
     session,
@@ -377,16 +375,8 @@ export function WorkspacePage() {
 
   const state: RunState =
     session.state === 'running' ? 'running' : send.isPending ? 'queued' : session.state;
-  const pendingMessageIds = new Set(
-    (pendingSteers.data ?? [])
-      .filter((steer) => steer.state === 'pending' || steer.state === 'claimed')
-      .map((steer) => steer.message_id),
-  );
-  const cancellablePendingMessageIds = new Set(
-    (pendingSteers.data ?? [])
-      .filter((steer) => steer.state === 'pending')
-      .map((steer) => steer.message_id),
-  );
+  const { pendingMessageIds, cancellablePendingMessageIds } =
+    workspaceRouteState.pendingSteerMessageIds(pendingSteers.data ?? []);
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
@@ -505,6 +495,7 @@ export function WorkspacePage() {
             await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
           }}
           onPrepareFiles={prepareFiles}
+          onDiscardFiles={discardFiles}
           onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
           onSubmit={async (value) => {
             const startedFromWelcome = showConversationWelcome;
@@ -720,6 +711,12 @@ export function WorkspacePage() {
             streamError={streamError}
             transcriptError={messageCount > 0 ? transcriptError : undefined}
           />
+          <AttentionModeBanner
+            onDismiss={attention.dismiss}
+            state={attention.state}
+            onProfileChange={attention.changeProfile}
+          />
+          <AttentionLookupPanel sessionId={sessionId} onHeatChange={attention.showLookupHeat} />
           <LayoutGroup id={`session-layout:${sessionId}`}>
             <AnimatePresence initial={false} mode="popLayout">
               {showConversationWelcome ? (
@@ -743,6 +740,7 @@ export function WorkspacePage() {
                 <TranscriptPresenceSurface className="min-h-0 flex-1" key="conversation">
                   <WorkspaceLiveConversation
                     artifacts={artifacts}
+                    attentionData={attention.heat}
                     bottomInset={dockedComposerHeight}
                     error={transcriptError}
                     loading={transcript.isFetching}

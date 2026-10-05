@@ -24,7 +24,15 @@ export interface ToolPresentationBlock {
   sha256?: string;
   /** "workspace_file" (PDF) only: the 1-based pages the agent actually viewed. */
   pages?: number[];
-  target?: 'artifact' | 'resource' | 'session' | 'url' | 'file' | 'work' | 'surface';
+  target?:
+    | 'artifact'
+    | 'resource'
+    | 'session'
+    | 'url'
+    | 'file'
+    | 'work'
+    | 'surface'
+    | 'connected_data';
   state?: 'pending' | 'in_progress' | 'completed';
   previous_state?: 'pending' | 'in_progress' | 'completed';
   change?: 'added' | 'removed' | 'status_changed' | 'unchanged';

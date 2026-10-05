@@ -1,3 +1,4 @@
+export type { AgentBlueprintSource } from './blueprint-domain.js';
 import type { A2UIActionLifecycle } from './a2ui/lifecycle.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
@@ -512,7 +513,12 @@ export interface AsyncProcess {
 }
 
 export interface AgentBlueprint {
+  materialized?: boolean;
+  registry_id?: string;
   id: string;
+  identity?: string;
+  source_id?: string;
+  blueprint_id?: string;
   version: string;
   title: string;
   display_name: string;
@@ -522,28 +528,6 @@ export interface AgentBlueprint {
   validation_errors: string[];
   kind: WireValue<'blueprint' | 'pack'>;
   metadata: Record<string, unknown>;
-}
-
-export interface AgentBlueprintSource {
-  id: string;
-  name: string;
-  source: string;
-  ref?: string;
-  commit?: string;
-  pinned_commit?: string;
-  source_kind?: string;
-  status: string;
-  error?: string;
-  added_at?: string;
-  updated_at?: string;
-  available_blueprints: Array<{
-    id: string;
-    title: string;
-    version?: string;
-    kind: WireValue<'blueprint' | 'pack'>;
-    enabled: boolean;
-    validation_errors: string[];
-  }>;
 }
 
 export interface RelayStatus {

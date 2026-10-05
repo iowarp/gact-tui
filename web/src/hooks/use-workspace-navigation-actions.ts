@@ -56,8 +56,8 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
           mode,
           routing_mode: routingMode,
           approval_mode: approvalMode,
+          blueprint_id: blueprintId,
         });
-        if (blueprintId) await repository.setSessionAgentBlueprint(created.id, blueprintId);
         await refreshNavigation(targetWorkspaceId);
         await navigate(
           `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(created.id)}`,

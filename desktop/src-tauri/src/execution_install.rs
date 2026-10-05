@@ -9,11 +9,17 @@ pub(crate) fn install_command(runtime: &Path, workspace: &Path, user: &Path) -> 
     let python = if cfg!(windows) {
         "python/python.exe"
     } else {
-        "python/bin/python3.12"
+        "python/bin/python3.13"
     };
     let mut command = Command::new(runtime.join(python));
     command
-        .args(["-m", "clio_agent.runtime.document_install", "--workspace"])
+        .args([
+            "-I",
+            "-B",
+            "-m",
+            "clio_agent.runtime.document_install",
+            "--workspace",
+        ])
         .arg(workspace)
         .env("GACT_BUNDLED_RUNTIME_DIR", runtime)
         .stdin(Stdio::null());
@@ -69,13 +75,15 @@ mod tests {
         let python = if cfg!(windows) {
             "python/python.exe"
         } else {
-            "python/bin/python3.12"
+            "python/bin/python3.13"
         };
         assert_eq!(command.get_program(), runtime.join(python));
         let args: Vec<_> = command.get_args().collect();
         assert_eq!(
             args,
             [
+                "-I",
+                "-B",
                 "-m",
                 "clio_agent.runtime.document_install",
                 "--workspace",

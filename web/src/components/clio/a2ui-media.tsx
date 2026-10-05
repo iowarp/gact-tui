@@ -112,12 +112,16 @@ function imageDownloadFilename(name: string, mediaType: string | undefined): str
 }
 
 function ReferenceImage({
+  componentId,
+  sourceRef,
   label,
   objectFit,
   onError,
   state,
   variant,
 }: {
+  componentId: string;
+  sourceRef: string;
   label: string | undefined;
   objectFit: CSSProperties['objectFit'];
   onError: () => void;
@@ -135,11 +139,13 @@ function ReferenceImage({
       filters: [],
       previewColumns: [],
       previewRows: [],
-      query: { name, mediaType: state.resolution?.media_type },
+      query: { name, sourceRef, mediaType: state.resolution?.media_type },
       zoneDescription: 'the whole image',
     });
 
   const capabilities: SurfaceCapabilities = {
+    imageAttention: true,
+    captureComponentId: componentId,
     buildReference,
     exportFormats: [
       {
@@ -183,12 +189,13 @@ function ReferenceImage({
 }
 
 function ReferenceMedia({
+  componentId,
   kind,
   label,
   objectFit,
   url,
   variant,
-}: Omit<A2uiMediaProps, 'componentId'>) {
+}: A2uiMediaProps) {
   const state = useA2uiReference(url);
   const [undisplayable, setUndisplayable] = useState<string>();
   const failure =
@@ -212,6 +219,8 @@ function ReferenceMedia({
   if (kind === 'image') {
     return (
       <ReferenceImage
+        componentId={componentId}
+        sourceRef={url}
         label={label}
         objectFit={objectFit}
         onError={onError}
@@ -257,6 +266,6 @@ export function A2uiMedia({ componentId, kind, label, objectFit, url, variant }:
   }
   if (!isClioReference(url)) return <A2uiExternalMedia kind={kind} url={url} />;
   return (
-    <ReferenceMedia kind={kind} label={label} objectFit={objectFit} url={url} variant={variant} />
+    <ReferenceMedia componentId={componentId} kind={kind} label={label} objectFit={objectFit} url={url} variant={variant} />
   );
 }

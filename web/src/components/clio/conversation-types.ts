@@ -3,6 +3,7 @@ import type {
   Artifact,
   A2UIActionLifecycle,
   A2UISurface,
+  AttentionAvailable,
   ClioRepository,
   Message as DomainMessage,
   PendingCompaction,
@@ -77,6 +78,8 @@ export interface ClioConversationProps {
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
   ) => Promise<void>;
+  /** "Understand attention" result currently shown, if any (`useAttentionMode`, status `shown`). */
+  attentionData?: AttentionAvailable;
 }
 
 export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {

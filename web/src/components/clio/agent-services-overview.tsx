@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { ClioStatus } from '@/components/clio/status';
 import { vocab } from '@/lib/brand-vocabulary';
 import { remoteUrlFromSpec } from './web-search-configuration';
+import { InfoTip } from './info-tip';
+import { humanizeProtocolValue } from './presentation-labels';
 
 /** Compact topology for services attached to the currently connected agent. */
 export function AgentServicesOverview({
@@ -11,12 +13,16 @@ export function AgentServicesOverview({
   relay,
   webSearch,
   webSearchConnected,
+  onManageWebSearch,
+  onManageRelay,
 }: {
   agentLabel?: string;
   agentLocation?: string;
   relay?: RelayStatus;
   webSearch?: McpUserConfiguration;
   webSearchConnected: boolean;
+  onManageWebSearch?: () => void;
+  onManageRelay?: () => void;
 }) {
   const webSearchUrl = remoteUrlFromSpec(webSearch?.spec);
   const agent = agentIdentity(agentLabel, agentLocation);
@@ -31,38 +37,63 @@ export function AgentServicesOverview({
             {agent}
           </h2>
         </div>
-        <p className="max-w-md text-xs text-muted-foreground">
-          These are attached to this agent. Switch agents from the top-left menu to inspect another
-          agent; deployment targets below are computers, not agent connections.
-        </p>
+        <InfoTip label={`About the connected ${vocab.agent}`}>
+          Services shown here are attached to this {vocab.agent}. Change the {vocab.agent}{' '}
+          connection from the top-left menu. The execution host below identifies where a managed
+          service runs.
+        </InfoTip>
       </header>
       <div className="divide-y border-t">
-        <ServiceConnectionRow
-          detail={webSearchUrl ?? 'No service address configured'}
-          location={serviceLocation(webSearchUrl, agentLocation)}
-          name={`${vocab.agent} Web Search`}
-          status={
-            webSearchConnected
-              ? 'Connected'
-              : webSearch?.configured
-                ? 'Unavailable'
-                : 'Not connected'
-          }
-          statusValue={
-            webSearchConnected ? 'healthy' : webSearch?.configured ? 'degraded' : 'unavailable'
-          }
-        />
-        <ServiceConnectionRow
-          detail={relay?.mcp_url ?? 'No service address configured'}
-          location={relay?.host ?? serviceLocation(relay?.mcp_url, agentLocation)}
-          name={`${vocab.agent} Relay`}
-          status={
-            relay?.reachable ? 'Connected' : relay?.configured ? 'Unavailable' : 'Not connected'
-          }
-          statusValue={
-            relay?.reachable ? 'healthy' : relay?.configured ? 'degraded' : 'unavailable'
-          }
-        />
+        {webSearch?.configured || webSearchConnected ? (
+          <ServiceConnectionRow
+            action={
+              onManageWebSearch
+                ? { label: 'Manage Web Search connection', onSelect: onManageWebSearch }
+                : undefined
+            }
+            error={!webSearchConnected ? webSearch?.error : undefined}
+            detail={webSearchUrl ?? 'No service address configured'}
+            location={serviceLocation(webSearchUrl, agentLocation)}
+            name={`${vocab.agent} Web Search`}
+            status={
+              webSearchConnected
+                ? 'Connected'
+                : webSearch?.configured
+                  ? 'Unavailable'
+                  : 'Not connected'
+            }
+            statusValue={
+              webSearchConnected ? 'healthy' : webSearch?.configured ? 'degraded' : 'unavailable'
+            }
+          />
+        ) : null}
+        {relay?.configured ? (
+          <ServiceConnectionRow
+            action={
+              onManageRelay
+                ? { label: 'Manage Relay connection', onSelect: onManageRelay }
+                : undefined
+            }
+            error={
+              !relay.reachable
+                ? relay.detail || (relay.reason ? humanizeProtocolValue(relay.reason) : undefined)
+                : undefined
+            }
+            detail={relay?.mcp_url ?? 'No service address configured'}
+            location={relay?.host ?? serviceLocation(relay?.mcp_url, agentLocation)}
+            name={`${vocab.agent} Relay`}
+            status={
+              relay?.reachable
+                ? 'Connected'
+                : relay?.configured
+                  ? 'Needs attention'
+                  : 'Not connected'
+            }
+            statusValue={
+              relay?.reachable ? 'healthy' : relay?.configured ? 'degraded' : 'unavailable'
+            }
+          />
+        ) : null}
       </div>
     </section>
   );
@@ -75,6 +106,7 @@ function ServiceConnectionRow({
   name,
   status,
   statusValue,
+  error,
 }: {
   action?: { disabled?: boolean; label: string; onSelect: () => void };
   detail: string;
@@ -82,12 +114,18 @@ function ServiceConnectionRow({
   name: string;
   status: string;
   statusValue: 'healthy' | 'degraded' | 'unavailable';
+  error?: string;
 }) {
   return (
     <div className="grid gap-3 py-3 sm:grid-cols-[minmax(10rem,0.8fr)_minmax(0,1.3fr)_auto] sm:items-center">
       <div>
         <p className="font-medium">{name}</p>
         <p className="text-xs text-muted-foreground">Runs on {location}</p>
+        {error ? (
+          <p className="mt-1 text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
       <p className="truncate font-mono text-xs text-muted-foreground" title={detail}>
         {detail}

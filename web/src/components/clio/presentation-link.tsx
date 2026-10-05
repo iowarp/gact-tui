@@ -7,6 +7,7 @@ import { ExternalLink } from '@/components/ui/external-link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { a2uiSurfaceDomId } from './a2ui-presentation';
+import { ConnectedDataSetupLink } from './connected-data-setup-link';
 
 /** Resolve declared result links through the conversation's existing workbench. */
 export function PresentationLink({
@@ -18,6 +19,7 @@ export function PresentationLink({
 }) {
   const navigation = useContext(PresentationNavigation);
   const uri = block.uri ?? '';
+  if (block.target === 'connected_data') return <ConnectedDataSetupLink block={block} />;
   const label = block.label || block.text || uri;
   const filename = compact && block.target === 'file';
   const text = filename ? (

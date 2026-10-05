@@ -3,6 +3,31 @@ import { ClioRepository } from './repository.js';
 import { RecordingTransport } from './recording-transport.test-helper.js';
 
 describe('ClioRepository session contract', () => {
+  it('reads one child with a workspace guard and decodes its current route', async () => {
+    const transport = new RecordingTransport([
+      {
+        id: 'child',
+        workspace_id: 'ws',
+        parent_session_id: 'parent',
+        title: 'Reviewer',
+        state: 'running',
+        created_at: '',
+        updated_at: '',
+        provider_id: 'codex',
+        model_id: 'luna',
+        mode: 'plan',
+        approval_mode: 'ask',
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+    await expect(repository.session('child', 'ws')).resolves.toMatchObject({
+      parent_session_id: 'parent',
+      provider_id: 'codex',
+      model_id: 'luna',
+      mode: 'plan',
+    });
+    expect(transport.requests[0]?.path).toBe('/v1/sessions/child?workspace_id=ws');
+  });
   it('preserves the authoritative active blueprint identity on session rows', async () => {
     const transport = new RecordingTransport([
       {

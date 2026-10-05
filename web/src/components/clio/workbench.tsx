@@ -122,27 +122,28 @@ function isWorkbenchTab(value: unknown): value is WorkbenchTab {
   );
 }
 
-function restoredWorkbenchState(workspaceId: string): {
+function restoredWorkbenchState(workspaceId: string, hasSession = true): {
   tabs: WorkbenchTab[];
   activeTabId: string;
 } {
-  if (typeof window === 'undefined') return { tabs: [sessionTab], activeTabId: sessionTab.id };
+  const defaultTab = hasSession ? sessionTab : fileBrowserTab;
+  if (typeof window === 'undefined') return { tabs: [defaultTab], activeTabId: defaultTab.id };
   try {
     const parsed = JSON.parse(
       window.localStorage.getItem(workbenchTabsStorageKey(workspaceId)) ?? 'null',
     ) as unknown;
     if (!parsed || typeof parsed !== 'object')
-      return { tabs: [sessionTab], activeTabId: sessionTab.id };
+      return { tabs: [defaultTab], activeTabId: defaultTab.id };
     const record = parsed as Record<string, unknown>;
     const storedTabs = Array.isArray(record.tabs) ? record.tabs.filter(isWorkbenchTab) : [];
-    const tabs = storedTabs.length ? storedTabs : [sessionTab];
+    const tabs = storedTabs.length ? storedTabs : [defaultTab];
     const requestedActive = typeof record.activeTabId === 'string' ? record.activeTabId : '';
     return {
       tabs,
       activeTabId: tabs.some((tab) => tab.id === requestedActive) ? requestedActive : tabs[0].id,
     };
   } catch {
-    return { tabs: [sessionTab], activeTabId: sessionTab.id };
+    return { tabs: [defaultTab], activeTabId: defaultTab.id };
   }
 }
 
@@ -231,7 +232,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
   ) {
     // Lazy useState initializer (not useRef().current, which reads a ref
     // during render) computes the restored state exactly once.
-    const [initialState] = useState(() => restoredWorkbenchState(workspaceId));
+    const [initialState] = useState(() => restoredWorkbenchState(workspaceId, Boolean(sessionId)));
     const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
     const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
     const [maximized, setMaximized] = useState(false);

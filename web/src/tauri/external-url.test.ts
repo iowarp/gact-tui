@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   inTauri: vi.fn(),
@@ -10,7 +10,9 @@ vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: mocks.openUrl }));
 vi.mock('sonner', () => ({ toast: { error: mocks.toastError } }));
 
-import { openExternalUrl, openExternalUrlOrToast } from './external-url';
+import { openExternalUrl, openExternalUrlOrToast, prepareExternalUrl } from './external-url';
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('external URL bridge', () => {
   beforeEach(() => {
@@ -39,6 +41,33 @@ describe('external URL bridge', () => {
       '_blank',
       'noopener,noreferrer',
     );
+  });
+
+  it('does not mistake an isolated tab for a blocked popup', async () => {
+    mocks.inTauri.mockReturnValue(false);
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    await expect(openExternalUrl('https://auth.globus.org/example')).resolves.toBeUndefined();
+  });
+
+  it('reserves the tab synchronously and removes its opener before later navigation', async () => {
+    mocks.inTauri.mockReturnValue(false);
+    const replace = vi.fn();
+    const popup = { opener: window, closed: false, location: { replace }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+    const pending = prepareExternalUrl();
+    expect(open).toHaveBeenCalledWith('about:blank', '_blank');
+    expect(popup.opener).toBeNull();
+    expect(replace).not.toHaveBeenCalled();
+    await pending.open('https://auth.globus.org/example');
+    expect(replace).toHaveBeenCalledWith('https://auth.globus.org/example');
+  });
+
+  it('closes an unused tab when authorization setup fails', () => {
+    mocks.inTauri.mockReturnValue(false);
+    const popup = { opener: window, closed: false, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+    prepareExternalUrl().cancel();
+    expect(popup.close).toHaveBeenCalledOnce();
   });
 });
 

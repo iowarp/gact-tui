@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { CameraIcon, ChevronDownIcon } from 'lucide-react';
@@ -60,12 +61,14 @@ export function ClioComposerAttachments({
   annotations = [],
   onRemoveCapture,
   onPrepareFiles,
+  onDiscardFiles,
   resources = [],
   uploadFailure,
   uploadProgress,
 }: {
   annotations?: readonly ComposerAnnotation[];
   onRemoveCapture?: (annotation: RegionCaptureAnnotation) => void;
+  onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
   onPrepareFiles?: (
     files: readonly UploadableFilePart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
@@ -160,6 +163,17 @@ export function ClioComposerAttachments({
     }
   }, [attachments.files, onPrepareFiles, preparedResources]);
 
+  const removeFile = async (file: (typeof attachments.files)[number]) => {
+    preparationControllers.current.get(file.id)?.abort();
+    preparationControllers.current.delete(file.id);
+    try {
+      await onDiscardFiles?.([file]);
+      attachments.remove(file.id);
+    } catch (error) {
+      toast.error('Could not remove attachment', { description: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
   const preview = attachments.files.find((file) => file.id === previewId);
   const previewItems = useMemo(
     () =>
@@ -225,7 +239,7 @@ export function ClioComposerAttachments({
                     </PopoverTrigger>
                     <PopoverContent align="end" className="max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] overflow-y-auto text-xs"><MarkdownText mode="static">{capture.markdown}</MarkdownText></PopoverContent>
                   </Popover>
-                  <Button aria-label={`Remove ${capture.title}`} className="size-6 shrink-0" onClick={() => { attachments.remove(file.id); onRemoveCapture?.(capture); }} size="icon" title="Remove" type="button" variant="ghost"><RemoveIcon aria-hidden="true" className="size-3.5" /></Button>
+                  <Button aria-label={`Remove ${capture.title}`} className="size-6 shrink-0" onClick={() => { void removeFile(file).then(() => onRemoveCapture?.(capture)); }} size="icon" title="Remove" type="button" variant="ghost"><RemoveIcon aria-hidden="true" className="size-3.5" /></Button>
                 </div>
               );
             }
@@ -234,11 +248,7 @@ export function ClioComposerAttachments({
                 <AttachmentHoverCardTrigger asChild>
                   <Attachment
                     data={file}
-                    onRemove={() => {
-                      preparationControllers.current.get(file.id)?.abort();
-                      preparationControllers.current.delete(file.id);
-                      attachments.remove(file.id);
-                    }}
+                    onRemove={() => void removeFile(file)}
                   >
                     <button
                       aria-label={`Open ${filename}`}

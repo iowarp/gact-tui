@@ -1,9 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
+import type { WorkspaceReference } from '@clio/core/v3';
+import { toast } from 'sonner';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
 import { ClioNavigation } from '@/components/clio/navigation';
+import { ClioWorkbench } from '@/components/clio/workbench';
 import {
   WorkspaceActionAlerts,
   WorkspaceUnavailable,
@@ -16,6 +20,9 @@ import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
+import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
+import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
+import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
 import { useWorkspaceWarmup } from '@/hooks/use-workspace-warmup';
@@ -23,6 +30,8 @@ import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { queryKeys } from '@/lib/query-keys';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { navigateComposerReference } from '@/lib/composer-reference-navigation';
+import { openExternalUrlOrToast } from '@/tauri/external-url';
 
 /** An entry composer has no session identity, persistence, or session stream. */
 export function NewConversationPage() {
@@ -36,7 +45,14 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const navigate = useNavigate();
   const repository = useRepository();
   const draft = useComposerDraft(workspaceId, { persist: false });
-  const data = useWorkspaceData({ contextTargetId: '', sessionId: '', workspaceId });
+  const [filesViewActive, setFilesViewActive] = useState(false);
+  const data = useWorkspaceData({
+    contextTargetId: '',
+    sessionId: '',
+    workspaceId,
+    filesViewActive,
+  });
+  const diffActions = useSessionDiffActions();
   const defaults = useQuery({
     queryKey: queryKeys.key('session-defaults', settings.endpoint),
     queryFn: ({ signal }) => repository.sessionDefaults(signal),
@@ -47,7 +63,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     data.capabilities.data?.active_model?.provider_id;
   const model =
     defaults.data?.model_id || data.activeModel || data.capabilities.data?.active_model?.model_id;
-  const { send, prepareFiles } = useSessionMutations({
+  const { send, prepareFiles, discardFiles } = useSessionMutations({
     activeProvider: provider,
     activeModel: model,
     sessionId: '',
@@ -57,6 +73,51 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
   const sessions = data.allSessions.data ?? data.sessions.data ?? [];
   const workspace = data.workspaces.data?.find((item) => item.id === workspaceId);
+  const {
+    activeRequest,
+    revealWorkbench,
+    openSubagent,
+    openWorkspaceFile,
+    openWorkspaceResource,
+    openArtifact,
+    openDiff,
+  } = useWorkbenchNavigation({
+    allSessions: sessions,
+    workspaceId,
+  });
+  const openReference = async (reference: WorkspaceReference): Promise<void> => {
+    try {
+      const outcome = await navigateComposerReference({
+        artifacts: [],
+        diffs: [],
+        openArtifact,
+        openDiff,
+        openExternal: openExternalUrlOrToast,
+        openSession: (targetWorkspaceId, targetSessionId) =>
+          void navigate(
+            `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+          ),
+        openWorkspaceFile,
+        openWorkspaceResource,
+        reference,
+        repository,
+        resources: Object.fromEntries(
+          (data.workspaceResources.data ?? []).map((item) => [item.id, item]),
+        ),
+        revealSession: () => revealWorkbench({ kind: 'session' }),
+        sessionId: '',
+        workspaceId,
+      });
+      if (outcome.status === 'unresolved')
+        toast.error('Could not open reference', { description: outcome.reason });
+    } catch (error) {
+      toast.error('Could not open reference', {
+        description:
+          error instanceof Error ? error.message : 'Refresh the reference and try again.',
+      });
+    }
+  };
+  const terminalActions = useWorkspaceTerminalActions(workspace?.path, revealWorkbench);
   const warmup = useWorkspaceWarmup(
     workspaceId,
     Boolean(
@@ -90,6 +151,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           attentions={buildSessionAttentionMap(sessions, data.attentionInteractions)}
           blueprints={data.agentBlueprints.data ?? []}
           endpoint={settings.endpoint}
+          onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
           sessions={sessions}
           workspaces={data.workspaces.data ?? []}
         />
@@ -115,7 +177,44 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         </label>
       }
       statusStrip={null}
-      workbench={null}
+      workbenchRevealKey={activeRequest?.key}
+      workbench={
+        <ClioWorkbench
+          workspaceId={workspaceId}
+          sessionId=""
+          files={data.workspaceFiles.data?.entries ?? []}
+          filesError={data.workspaceFiles.error?.message}
+          filesPending={data.workspaceFiles.isPending}
+          filesFetching={data.workspaceFiles.isFetching}
+          filesTruncated={data.workspaceFiles.data?.truncated ?? false}
+          onFilesViewActiveChange={setFilesViewActive}
+          onRefreshFiles={() => void data.workspaceFiles.refetch()}
+          resources={data.workspaceResources.data ?? []}
+          resourcesError={data.workspaceResources.error?.message}
+          resourcesPending={data.workspaceResources.isPending}
+          blueprints={data.agentBlueprints.data ?? []}
+          blueprintsError={data.agentBlueprints.error?.message}
+          blueprintsPending={data.agentBlueprints.isPending}
+          artifacts={[]}
+          diffs={[]}
+          sessionView={
+            <p className="p-6 text-sm text-muted-foreground">
+              Session activity appears after you send your first message.
+            </p>
+          }
+          onApplyDiff={(sessionId, workspaceId, path) =>
+            diffActions.apply.mutateAsync({ sessionId, workspaceId, path })
+          }
+          onRejectDiff={(sessionId, workspaceId, path) =>
+            diffActions.reject.mutateAsync({ sessionId, workspaceId, path })
+          }
+          diffActionError={(diffActions.apply.error ?? diffActions.reject.error)?.message}
+          diffActionPending={diffActions.apply.isPending || diffActions.reject.isPending}
+          onOpenSubagent={openSubagent}
+          onOpenTerminal={terminalActions.onOpenTerminal}
+          requestedOpen={activeRequest}
+        />
+      }
     >
       <div className="flex h-full min-h-0 flex-col justify-center overflow-y-auto px-4 py-8 sm:px-8">
         <WorkspaceActionAlerts
@@ -150,6 +249,9 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             }
             onRetryModelCatalog={() => void data.providerCatalog.refetch()}
             onPrepareFiles={prepareFiles}
+            onDiscardFiles={discardFiles}
+            onOpenReference={(reference) => void openReference(reference)}
+            onOpenResource={openWorkspaceResource}
             onSubmit={async (value) => {
               await send.mutateAsync(value);
             }}
