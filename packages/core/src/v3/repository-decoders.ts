@@ -86,6 +86,7 @@ export const providerHandshakeSchema = z.object({
   generated_at: z.string(),
 });
 export const artifactVersionSchema = z.object({
+  media_type: z.string().optional(),
   artifact_id: z.string(),
   workspace_id: z.string(),
   name: z.string(),

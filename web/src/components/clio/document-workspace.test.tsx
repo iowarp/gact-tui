@@ -80,6 +80,8 @@ describe('ClioDocumentWorkspace', () => {
       renderWorkspace();
 
       expect(await screen.findByText('PDF preview')).toBeVisible();
+      expect(screen.getByText('Saved PDF preview')).toBeVisible();
+      expect(screen.queryByText('PDF document')).not.toBeInTheDocument();
       expect(repository.documentContent).toHaveBeenCalledWith('artifact_pdf', expect.anything());
       expect(repository.createDocumentRendition).not.toHaveBeenCalled();
       expect(screen.getByRole('button', { name: 'Open in desktop app' })).toBeVisible();

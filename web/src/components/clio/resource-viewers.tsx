@@ -264,10 +264,16 @@ export function ArtifactView({
     queryKey: queryKeys.key('artifact-text', settings.endpoint, artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
       try {
-        return await repository.readArtifactTextFor(artifact, signal);
+        return {
+          content: await repository.readArtifactTextFor(artifact, signal),
+          recovered: false,
+        };
       } catch (error) {
         if (!isMissingArtifactPayload(error) || !fallbackPath) throw error;
-        return repository.readWorkspaceFile(workspaceId, fallbackPath, signal);
+        return {
+          content: await repository.readWorkspaceFile(workspaceId, fallbackPath, signal),
+          recovered: true,
+        };
       }
     },
     enabled: canPreviewText && canLoadInline,
@@ -276,10 +282,13 @@ export function ArtifactView({
     queryKey: queryKeys.key('artifact-image', settings.endpoint, artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
       try {
-        return await repository.readArtifactBytesFor(artifact, signal);
+        return { bytes: await repository.readArtifactBytesFor(artifact, signal), recovered: false };
       } catch (error) {
         if (!isMissingArtifactPayload(error) || !fallbackPath) throw error;
-        return repository.readWorkspaceFileBytes(workspaceId, fallbackPath, signal);
+        return {
+          bytes: await repository.readWorkspaceFileBytes(workspaceId, fallbackPath, signal),
+          recovered: true,
+        };
       }
     },
     enabled: canPreviewImage && canLoadInline,
@@ -291,15 +300,19 @@ export function ArtifactView({
       isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <article className="min-w-0 overflow-hidden rounded-lg border bg-background px-5 py-4">
           <MessageResponse className={DOCUMENT_MARKDOWN_CLASS_NAME}>
-            {normalizeConvertedMarkdown(text.data)}
+            {normalizeConvertedMarkdown(text.data.content)}
           </MessageResponse>
         </article>
       ) : isCsvPath(artifact.name) || artifact.media_type === 'text/csv' ? (
-        <ClioCsvView content={text.data} title={artifact.name} />
+        <ClioCsvView content={text.data.content} title={artifact.name} />
       ) : isJsonPath(artifact.name) || artifact.media_type === 'application/json' ? (
-        <ClioJsonResourceView content={text.data} title={artifact.name} />
+        <ClioJsonResourceView content={text.data.content} title={artifact.name} />
       ) : (
-        <CodeBlock code={text.data} language={languageForPath(artifact.name)} showLineNumbers />
+        <CodeBlock
+          code={text.data.content}
+          language={languageForPath(artifact.name)}
+          showLineNumbers
+        />
       )
     ) : text.error ? (
       <ResourceUnavailable
@@ -312,7 +325,7 @@ export function ArtifactView({
   ) : canPreviewImage ? (
     canLoadInline ? (
       <ImageResourceView
-        bytes={image.data}
+        bytes={image.data?.bytes}
         error={image.error?.message}
         mediaType={artifact.media_type || imageMediaType(artifact.name)}
         name={artifact.name}
@@ -339,7 +352,7 @@ export function ArtifactView({
         {canPreviewImage ? (
           <div className="flex h-full min-h-0 flex-col gap-3 p-3">
             <div className="min-h-0 flex-1">{preview}</div>
-            {fallbackPath ? (
+            {image.data?.recovered ? (
               <p className="shrink-0 text-xs text-muted-foreground">
                 Recovered from the matching workspace file.
               </p>
@@ -356,7 +369,7 @@ export function ArtifactView({
             ) : (
               preview
             )}
-            {fallbackPath ? (
+            {text.data?.recovered ? (
               <p className="mt-3 text-xs text-muted-foreground">
                 Recovered from the matching workspace file.
               </p>

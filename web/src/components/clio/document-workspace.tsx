@@ -231,7 +231,12 @@ export function ClioDocumentWorkspace({
       <Tabs className="grid min-w-0 gap-3 overflow-hidden" defaultValue="preview">
         <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
           <div className="mr-auto min-w-0">
-            <p className="text-sm font-medium">{profileLabel(effectiveManifest)}</p>
+            <p className="text-sm font-medium">
+              {profileLabel(manifest.data ?? effectiveManifest)}
+            </p>
+            {savedPreview.data && !overrideManifest ? (
+              <p className="text-xs text-muted-foreground">Saved PDF preview</p>
+            ) : null}
             <p className="truncate font-mono text-[10px] text-muted-foreground">
               {effectiveManifest
                 ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256.slice(0, 12)}`
@@ -520,7 +525,12 @@ function DocumentPreview({
       // view, which needs a bounded box to scroll inside — the same one the
       // editor branch above uses.
       <div className="h-[70vh] min-h-[540px] w-full">
-        <ClioPdfPreview bytes={content} name={manifest.name} onSelection={onPdfSelection} />
+        <ClioPdfPreview
+          bytes={content}
+          fit="page"
+          name={manifest.name}
+          onSelection={onPdfSelection}
+        />
       </div>
     );
   }
