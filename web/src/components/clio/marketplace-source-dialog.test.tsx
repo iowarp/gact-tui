@@ -49,6 +49,71 @@ const source: AgentBlueprintSource = {
 afterEach(cleanup);
 
 describe('MarketplaceSourceDialog', () => {
+  it('starts with simple fields and the selected workspace, keeping Git options optional', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(
+      <MarketplaceSourceDialog
+        hostLabel="Delta"
+        defaultWorkspaceId="ws_science"
+        onAdd={onAdd}
+        onOpenChange={vi.fn()}
+        open
+        pending={false}
+        workspaces={[workspace]}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: 'Available in' })).toHaveTextContent(
+      'Science workspace',
+    );
+    expect(screen.getByRole('textbox', { name: 'Branch or tag' })).not.toBeVisible();
+    await user.type(
+      screen.getByRole('textbox', { name: 'Repository URL' }),
+      'https://github.com/example/science',
+    );
+    await user.click(screen.getByRole('button', { name: 'Add marketplace' }));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'workspace',
+        workspace_id: 'ws_science',
+        ref: '',
+        pinned_commit: '',
+      }),
+    );
+    await user.click(screen.getByText('Advanced settings'));
+    expect(screen.getByRole('textbox', { name: 'Branch or tag' })).toBeVisible();
+  });
+
+  it('clears repository-only selectors when changing to a folder', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(
+      <MarketplaceSourceDialog
+        hostLabel="Delta"
+        initial={source}
+        onAdd={onAdd}
+        onOpenChange={vi.fn()}
+        open
+        pending={false}
+        workspaces={[workspace]}
+      />,
+    );
+    await user.click(screen.getByRole('tab', { name: `Folder on ${vocab.agent}` }));
+    await user.type(
+      screen.getByRole('textbox', { name: 'Marketplace folder' }),
+      '/work/science/marketplace',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save configuration' }));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: '/work/science/marketplace',
+        ref: '',
+        pinned_commit: '',
+        working_checkout: '',
+      }),
+    );
+  });
+
   it('browses the connected host and submits a workspace-scoped folder', async () => {
     const user = userEvent.setup();
     const onAdd = vi.fn();
@@ -62,8 +127,7 @@ describe('MarketplaceSourceDialog', () => {
         workspaces={[workspace]}
       />,
     );
-    await user.click(screen.getByRole('combobox', { name: 'Source type' }));
-    await user.click(screen.getByRole('option', { name: `Folder on ${vocab.agent}` }));
+    await user.click(screen.getByRole('tab', { name: `Folder on ${vocab.agent}` }));
     const browse = screen.getByRole('button', { name: 'Browse Marketplace folder on Delta' });
     expect(browse).toHaveAttribute('data-target', 'local');
     await user.click(browse);

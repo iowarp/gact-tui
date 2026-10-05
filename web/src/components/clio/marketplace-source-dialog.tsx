@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import {
 import { HostPathPicker } from './host-path-picker';
 import { InfoTip } from './info-tip';
 import { vocab } from '@/lib/brand-vocabulary';
+import { MarketplaceFeedback } from './marketplace-feedback';
 
 export interface MarketplaceSourceInput {
   name: string;
@@ -39,6 +41,7 @@ interface MarketplaceSourceDialogProps {
   workspaces: readonly Workspace[];
   hostLabel: string;
   initial?: AgentBlueprintSource;
+  defaultWorkspaceId?: string;
   onOpenChange: (open: boolean) => void;
   onAdd: (input: MarketplaceSourceInput) => void;
 }
@@ -51,6 +54,7 @@ export function MarketplaceSourceDialog({
   workspaces,
   hostLabel,
   initial,
+  defaultWorkspaceId = 'global',
   onOpenChange,
   onAdd,
 }: MarketplaceSourceDialogProps) {
@@ -63,7 +67,11 @@ export function MarketplaceSourceDialog({
   const [pin, setPin] = useState(initial?.pinned_commit ?? '');
   const [checkout, setCheckout] = useState(initial?.working_checkout ?? '');
   const [scope, setScope] = useState(
-    initial?.install_scope === 'workspace' ? (initial.workspace_id ?? '') : 'global',
+    initial?.install_scope === 'workspace'
+      ? (initial.workspace_id ?? '')
+      : initial
+        ? 'global'
+        : defaultWorkspaceId,
   );
   const firstFolder = workspaces[0]?.path ?? '~';
   const validPin = !pin.trim() || /^[a-f\d]{40}$/iu.test(pin.trim());
@@ -72,9 +80,7 @@ export function MarketplaceSourceDialog({
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <div className="flex items-center gap-2 pr-6">
-            <DialogTitle>
-              {initial ? 'Marketplace configuration' : 'Add blueprint marketplace'}
-            </DialogTitle>
+            <DialogTitle>{initial ? 'Marketplace settings' : 'Add marketplace'}</DialogTitle>
             {initial ? (
               <InfoTip label="About saving configuration">
                 Saving changes the registered source settings. Installed blueprints keep their
@@ -83,56 +89,31 @@ export function MarketplaceSourceDialog({
             ) : null}
           </div>
           <DialogDescription>
-            Connected {vocab.agent} · {hostLabel}
+            {initial
+              ? `Manage where ${vocab.agent} finds these blueprints.`
+              : 'Add a collection of agent blueprints from a repository or folder.'}
           </DialogDescription>
         </DialogHeader>
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="blueprint-source-name">Name</FieldLabel>
-            <Input
-              id="blueprint-source-name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Scientific marketplace"
-              value={name}
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="blueprint-source-kind">Source type</FieldLabel>
-              <Select
-                onValueChange={(value) => {
-                  setKind(value as typeof kind);
-                  setSource('');
-                  setSourceRef('');
-                }}
-                value={kind}
-              >
-                <SelectTrigger id="blueprint-source-kind">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="repository">Repository URL</SelectItem>
-                  <SelectItem value="folder">Folder on {vocab.agent}</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="blueprint-source-scope">Available in</FieldLabel>
-              <Select disabled={Boolean(initial)} onValueChange={setScope} value={scope}>
-                <SelectTrigger id="blueprint-source-scope">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="global">All workspaces</SelectItem>
-                  {workspaces.map((workspace) => (
-                    <SelectItem key={workspace.id} value={workspace.id}>
-                      {workspace.display_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
+          <Tabs
+            onValueChange={(value) => {
+              setKind(value as typeof kind);
+              setSource('');
+              setSourceRef('');
+              setPin('');
+              setCheckout('');
+            }}
+            value={kind}
+          >
+            <TabsList className="w-full" aria-label="Marketplace location">
+              <TabsTrigger className="flex-1" value="repository">
+                Git repository
+              </TabsTrigger>
+              <TabsTrigger className="flex-1" value="folder">
+                Folder on {vocab.agent}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Field>
             <FieldLabel htmlFor="blueprint-source-location">
               {kind === 'repository' ? 'Repository URL' : 'Marketplace folder'}
@@ -160,20 +141,54 @@ export function MarketplaceSourceDialog({
               ) : null}
             </div>
           </Field>
-          {kind === 'repository' ? (
+          <p className="-mt-2 text-xs text-muted-foreground">
+            {kind === 'folder'
+              ? `Choose a folder on ${hostLabel}.`
+              : `${vocab.agent} opens this repository from ${hostLabel}, using Git access configured there.`}
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="blueprint-source-ref">Branch or tag</FieldLabel>
+              <FieldLabel htmlFor="blueprint-source-name">
+                Name <span className="font-normal text-muted-foreground">(optional)</span>
+              </FieldLabel>
               <Input
-                id="blueprint-source-ref"
-                onChange={(event) => setSourceRef(event.target.value)}
-                placeholder="Repository default"
-                value={sourceRef}
+                id="blueprint-source-name"
+                onChange={(event) => setName(event.target.value)}
+                placeholder="My marketplace"
+                value={name}
               />
             </Field>
-          ) : null}
-          <details open={Boolean(pin || checkout)} className="rounded-lg border p-3">
-            <summary className="cursor-pointer text-sm font-medium">Revision and authoring</summary>
+            <Field>
+              <FieldLabel htmlFor="blueprint-source-scope">Available in</FieldLabel>
+              <Select disabled={Boolean(initial)} onValueChange={setScope} value={scope}>
+                <SelectTrigger id="blueprint-source-scope">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">All workspaces</SelectItem>
+                  {workspaces.map((workspace) => (
+                    <SelectItem key={workspace.id} value={workspace.id}>
+                      {workspace.display_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <details open={Boolean(pin || checkout || sourceRef)} className="rounded-lg border p-3">
+            <summary className="cursor-pointer text-sm font-medium">Advanced settings</summary>
             <div className="mt-4 grid gap-4">
+              {kind === 'repository' ? (
+                <Field>
+                  <FieldLabel htmlFor="blueprint-source-ref">Branch or tag</FieldLabel>
+                  <Input
+                    id="blueprint-source-ref"
+                    onChange={(event) => setSourceRef(event.target.value)}
+                    placeholder="Repository default"
+                    value={sourceRef}
+                  />
+                </Field>
+              ) : null}
               <Field>
                 <div className="flex items-center gap-2">
                   <FieldLabel htmlFor="blueprint-source-pin">Pinned commit</FieldLabel>
@@ -200,8 +215,8 @@ export function MarketplaceSourceDialog({
                   <FieldLabel htmlFor="blueprint-working-checkout">Working checkout</FieldLabel>
                   <InfoTip label="About working checkouts">
                     An editable copy on {hostLabel}. Save draft keeps your edits on this host.
-                    Publish writes selected edits here. Reload applies the configured source
-                    revision to sessions at a safe turn boundary.
+                    Publish writes selected edits here. Reload uses the updated blueprints once
+                    current work finishes.
                   </InfoTip>
                 </div>
                 <div className="flex gap-2">
@@ -224,11 +239,7 @@ export function MarketplaceSourceDialog({
             </div>
           </details>
         </FieldGroup>
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
+        {error ? <MarketplaceFeedback error={error} /> : null}
         <DialogFooter>
           <Button disabled={pending} onClick={() => onOpenChange(false)} variant="outline">
             Cancel

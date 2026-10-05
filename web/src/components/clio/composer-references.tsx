@@ -31,11 +31,11 @@ const groups: Array<{
   kinds: WorkspaceReference['kind'][];
   label: string;
 }> = [
-  { defaultOpen: true, kinds: ['artifact'], label: 'Artifacts' },
-  { defaultOpen: false, kinds: ['workspace_file'], label: 'Workspace files' },
+  { defaultOpen: true, kinds: ['workspace_file'], label: 'Workspace files' },
   // Uploaded files and tool-observed evidence have different wire identities, but both are
   // user-facing sources. Artifacts remain reserved for generated or registered outputs.
   { defaultOpen: true, kinds: ['resource', 'evidence_source'], label: 'Sources' },
+  { defaultOpen: true, kinds: ['artifact'], label: 'Artifacts' },
   { defaultOpen: false, kinds: ['session'], label: 'Conversations' },
   { defaultOpen: false, kinds: ['agent_run'], label: 'Agents and runs' },
   { defaultOpen: false, kinds: ['context_frame'], label: 'Context records' },
@@ -152,8 +152,8 @@ export function ClioComposerReferenceMenu({
     // A kind this build has no group for cannot be offered — selecting it would
     // put a `ref_kind` on the wire that neither side agreed on. It is counted so
     // the footer can say the listing is short rather than hiding the gap.
-    const supported = deduplicated.filter((reference) =>
-      groups.some((group) => group.kinds.includes(reference.kind)),
+    const supported = groups.flatMap((group) =>
+      deduplicated.filter((reference) => group.kinds.includes(reference.kind)),
     );
     return {
       rows: supported.slice(0, REFERENCE_ROW_LIMIT),
@@ -175,10 +175,11 @@ export function ClioComposerReferenceMenu({
 
   const visibleRows = useMemo(
     () =>
-      rows.filter((row) => {
-        const group = groups.find((candidate) => candidate.kinds.includes(row.kind));
-        return Boolean(group && (isSearching || openGroups[group.label]));
-      }),
+      groups.flatMap((group) =>
+        isSearching || openGroups[group.label]
+          ? rows.filter((row) => group.kinds.includes(row.kind))
+          : [],
+      ),
     [isSearching, openGroups, rows],
   );
 
@@ -242,7 +243,7 @@ export function ClioComposerReferenceMenu({
         </PromptInputCommandEmpty>
         {groups.map((group) => {
           const matches = rows.filter((row) => group.kinds.includes(row.kind));
-          const alwaysVisible = group.label === 'Artifacts' || group.label === 'Workspace files';
+          const alwaysVisible = !isSearching && group.label === 'Workspace files';
           if (!matches.length && !alwaysVisible) return null;
           const open = isSearching || openGroups[group.label];
           return (
@@ -309,6 +310,9 @@ export function ClioComposerReferenceMenu({
           );
         })}
       </PromptInputCommandList>
+      <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+        Reference existing material. Type to search · ↑↓ to choose · Enter to add · Esc to close
+      </div>
       {unreadable + listing.unsupported > 0 ? (
         <div
           className="flex flex-col gap-0.5 border-t px-2 py-1.5 text-xs text-muted-foreground"

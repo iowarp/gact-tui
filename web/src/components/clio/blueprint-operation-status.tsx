@@ -1,4 +1,5 @@
 import { blueprintOperationPending, type BlueprintOperation } from '@clio/core/v3';
+import { marketplaceErrorSummary } from './marketplace-errors';
 const labels: Record<string, string> = {
   waiting_for_turns: 'Reload queued until running turns finish',
   preparing: 'Validating the revision and preparing its MCP services',
@@ -11,7 +12,13 @@ const labels: Record<string, string> = {
 };
 
 /** Retain the outcome, exact checksums, and per-blueprint checks after navigation. */
-export function BlueprintOperationStatus({ operation }: { operation?: BlueprintOperation }) {
+export function BlueprintOperationStatus({
+  operation,
+  compact = false,
+}: {
+  operation?: BlueprintOperation;
+  compact?: boolean;
+}) {
   if (!operation) return null;
   const pending = blueprintOperationPending(operation);
   return (
@@ -20,12 +27,19 @@ export function BlueprintOperationStatus({ operation }: { operation?: BlueprintO
         {labels[operation.status] ?? operation.status}
       </p>
       {operation.error ? (
-        <p className="mt-1 break-words text-destructive">{operation.error}</p>
+        <p className="mt-1 break-words text-destructive">
+          {compact ? marketplaceErrorSummary(operation.error) : operation.error}
+        </p>
       ) : null}
       {!pending ? (
         <details className="mt-1 text-muted-foreground">
-          <summary className="cursor-pointer">Inspect Reload receipt</summary>
+          <summary className="cursor-pointer">
+            {compact ? 'Reload details' : 'Inspect Reload receipt'}
+          </summary>
           <div className="mt-2 space-y-2 rounded-md border p-2">
+            {compact && operation.error ? (
+              <p className="whitespace-pre-wrap break-words">{operation.error}</p>
+            ) : null}
             <p>
               Operation <span className="font-mono break-all">{operation.id}</span>
             </p>

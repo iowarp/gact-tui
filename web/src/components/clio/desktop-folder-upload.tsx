@@ -15,20 +15,25 @@ export function DesktopFolderUpload({
   hostLabel,
   onComplete,
   onBack,
+  initialFiles = [],
 }: {
   workspaceId: string;
   hostLabel: string;
   onComplete: (source: ConnectedSourceState) => void;
   onBack: () => void;
+  initialFiles?: File[];
 }) {
   const repository = useRepository();
-  const [files, setFiles] = useState<File[]>([]);
-  const [label, setLabel] = useState('');
+  const uploadId = useRef('');
+  const folderInput = useRef<HTMLInputElement>(null);
+  const [files, setFiles] = useState<File[]>(initialFiles);
+  const [label, setLabel] = useState(initialFiles[0]?.webkitRelativePath.split('/')[0] ?? '');
   const [progress, setProgress] = useState({ loaded: 0, total: 0, stage: '' });
   const controller = useRef<AbortController | undefined>(undefined);
   useEffect(() => () => controller.current?.abort(), []);
   const upload = useMutation({
     mutationFn: async () => {
+      uploadId.current ||= String(Date.now()) + Math.random().toString(36).slice(2);
       if (!files.length || files.length > 10000)
         throw new Error('Choose a folder containing between 1 and 10,000 files');
       const abort = new AbortController();
@@ -61,7 +66,7 @@ export function DesktopFolderUpload({
               filename: file.name,
               mediaType: file.type || 'application/octet-stream',
               url: '',
-              clientUploadId: `folder-${id}`,
+              clientUploadId: `folder-${uploadId.current}-${id}`,
             },
           ],
           onProgress: (current) =>
@@ -90,17 +95,19 @@ export function DesktopFolderUpload({
     <section className="space-y-4" aria-label="Upload desktop folder">
       <div className="flex items-center gap-2">
         <FolderUpIcon aria-hidden="true" className="size-5" />
-        <h3 className="text-sm font-medium">Transfer a desktop folder</h3>
+        <h3 className="text-sm font-medium">Upload a folder</h3>
         <InfoTip label="About desktop folder transfers">
           Files and their folder structure are uploaded to {hostLabel}. The desktop original stays
           unchanged. Empty folders are not exposed by the browser picker. If interrupted, select the
           same folder to resume from uploaded bytes.
         </InfoTip>
       </div>
-      <label className="block space-y-2 text-sm">
-        Folder on your computer
+      <div className="space-y-2 text-sm">
+        <p>From your computer → {hostLabel}</p>
         <input
-          className="block w-full rounded-md border p-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1"
+          ref={folderInput}
+          className="hidden"
+          aria-label="Folder on your computer"
           type="file"
           multiple
           {...{ webkitdirectory: '' }}
@@ -112,7 +119,22 @@ export function DesktopFolderUpload({
             upload.reset();
           }}
         />
-      </label>
+        <div className="flex items-center gap-3 rounded-md border p-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={upload.isPending}
+            onClick={() => folderInput.current?.click()}
+          >
+            Choose folder
+          </Button>
+          <span role="status" className="min-w-0 break-all text-muted-foreground">
+            {files.length
+              ? files[0]?.webkitRelativePath.split('/')[0] || 'Selected folder'
+              : 'No folder chosen'}
+          </span>
+        </div>
+      </div>
       {files.length > 0 && (
         <>
           <label className="block space-y-2 text-sm">
@@ -124,7 +146,7 @@ export function DesktopFolderUpload({
             />
           </label>
           <p className="text-sm text-muted-foreground">
-            {files.length} files ·{' '}
+            {files.length} files,{' '}
             {(files.reduce((sum, file) => sum + file.size, 0) / 1024 ** 2).toFixed(1)} MB →{' '}
             {hostLabel}
           </p>
@@ -161,7 +183,7 @@ export function DesktopFolderUpload({
           </Button>
         ) : (
           <Button disabled={!files.length} onClick={() => upload.mutate()}>
-            Transfer folder
+            Upload folder
           </Button>
         )}
       </div>

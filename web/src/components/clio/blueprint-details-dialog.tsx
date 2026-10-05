@@ -1,8 +1,8 @@
 import type { AgentBlueprint } from '@clio/core/v3';
-import { BookOpenTextIcon, BoxesIcon } from 'lucide-react';
+import { BoxesIcon } from 'lucide-react';
 import { MarkdownText } from '@/components/ai-elements/markdown';
-import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,10 @@ export function BlueprintDetailsDialog({ blueprint, onOpenChange }: BlueprintDet
   const instructions = stringValue(blueprint?.metadata.body);
   const installedAt = stringValue(installation?.installed_at);
   const source = stringValue(installation?.source);
-  const serviceCount = Object.keys(recordValue(blueprint?.metadata.mcp_servers) ?? {}).length;
+  const services = Object.keys(recordValue(blueprint?.metadata.mcp_servers) ?? {});
+  const requirements = Object.entries(recordValue(blueprint?.metadata.requires) ?? {}).filter(
+    ([, value]) => typeof value === 'string',
+  );
 
   return (
     <Dialog onOpenChange={onOpenChange} open={Boolean(blueprint)}>
@@ -38,67 +41,134 @@ export function BlueprintDetailsDialog({ blueprint, onOpenChange }: BlueprintDet
             <div className="min-w-0">
               <DialogTitle>{blueprint?.display_name}</DialogTitle>
               <DialogDescription className="mt-1">
-                {blueprint?.description || 'No description was provided.'}
+                {blueprint?.version ? `Version ${blueprint.version} · ` : ''}
+                {blueprint?.scope === 'global' ? 'Shared blueprint' : 'Workspace blueprint'}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
-        <ScrollArea className="min-h-0 pr-3">
-          <div className="grid gap-5">
-            <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-2 rounded-xl border p-4 text-sm">
-              <span className="text-muted-foreground">Status</span>
-              {blueprint?.materialized === false ? (
-                <span>Available to install</span>
-              ) : (
-                <ClioStatus value={blueprint?.enabled ? 'healthy' : 'degraded'} />
+        <Tabs
+          key={blueprint?.identity || blueprint?.id}
+          defaultValue="overview"
+          className="flex min-h-0 flex-col"
+        >
+          <TabsList className="shrink-0">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="instructions">Instructions</TabsTrigger>
+            <TabsTrigger value="installation">Installation</TabsTrigger>
+          </TabsList>
+          <ScrollArea className="mt-4 min-h-0 pr-3">
+            <TabsContent value="overview" className="mt-0 space-y-5">
+              <p className="text-sm leading-6">
+                {blueprint?.description || 'No description was provided.'}
+              </p>
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-3 text-sm">
+                <dt className="text-muted-foreground">Status</dt>
+                <dd>
+                  {blueprint?.materialized === false ? (
+                    'Available to install'
+                  ) : (
+                    <ClioStatus
+                      value={
+                        blueprint?.enabled && !blueprint.validation_errors.length
+                          ? 'healthy'
+                          : 'degraded'
+                      }
+                      label={
+                        blueprint?.enabled && !blueprint.validation_errors.length
+                          ? 'Installed'
+                          : 'Needs attention'
+                      }
+                    />
+                  )}
+                </dd>
+                <dt className="text-muted-foreground">Available to</dt>
+                <dd>{blueprint?.scope === 'global' ? 'Every workspace' : 'This workspace'}</dd>
+                <dt className="text-muted-foreground">Version</dt>
+                <dd>{blueprint?.version || 'Unavailable'}</dd>
+              </dl>
+              <section className="space-y-2 border-t pt-4">
+                <h3 className="text-sm font-medium">Connected services</h3>
+                <p className="text-xs text-muted-foreground">
+                  Services this blueprint declares for its tools.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {services.length ? (
+                    services.map((name) => (
+                      <Badge key={name} variant="outline">
+                        {name}
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No additional services declared.
+                    </p>
+                  )}
+                </div>
+              </section>
+              {requirements.length > 0 && (
+                <section className="space-y-2 border-t pt-4">
+                  <h3 className="text-sm font-medium">Requirements</h3>
+                  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-2 text-sm">
+                    {requirements.map(([name, value]) => (
+                      <div key={name} className="contents">
+                        <dt>{name.replaceAll('_', ' ')}</dt>
+                        <dd className="text-muted-foreground">{String(value)}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
               )}
-              <span className="text-muted-foreground">Available to</span>
-              <span>{blueprint?.scope === 'global' ? 'Every workspace' : 'This workspace'}</span>
-              <span className="text-muted-foreground">Version</span>
-              <span>{blueprint?.version || 'Unavailable'}</span>
-              <span className="text-muted-foreground">Connected services</span>
-              <span>{serviceCount || 'None declared'}</span>
-              {source ? (
-                <>
-                  <span className="text-muted-foreground">
-                    {blueprint?.materialized === false ? 'Marketplace' : 'Installed from'}
-                  </span>
-                  <span className="truncate" title={source}>
-                    {pathName(source)}
-                  </span>
-                </>
+              {blueprint?.validation_errors.length ? (
+                <section className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                  <h3 className="font-medium text-destructive">Needs attention</h3>
+                  <ul className="mt-2 space-y-1 text-destructive">
+                    {blueprint.validation_errors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </section>
               ) : null}
-              {installedAt ? (
-                <>
-                  <span className="text-muted-foreground">Installed</span>
-                  <ClioRelativeTime label="Installed" timestamp={installedAt} />
-                </>
-              ) : null}
-            </div>
-            {blueprint?.validation_errors.length ? (
-              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-                <p className="font-medium text-destructive">Needs attention</p>
-                <ul className="mt-2 grid gap-1 text-sm text-destructive">
-                  {blueprint.validation_errors.map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {instructions ? (
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button className="w-full justify-start" variant="outline">
-                    <BookOpenTextIcon aria-hidden="true" /> View blueprint instructions
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-3 rounded-xl border p-4">
-                  <MarkdownText className="text-sm leading-6">{instructions}</MarkdownText>
-                </CollapsibleContent>
-              </Collapsible>
-            ) : null}
-          </div>
-        </ScrollArea>
+            </TabsContent>
+            <TabsContent value="instructions" className="mt-0">
+              {instructions ? (
+                <MarkdownText className="text-sm leading-6">{instructions}</MarkdownText>
+              ) : (
+                <p className="text-sm text-muted-foreground">No instructions were provided.</p>
+              )}
+            </TabsContent>
+            <TabsContent value="installation" className="mt-0">
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-3 text-sm">
+                <dt className="text-muted-foreground">Source</dt>
+                <dd className="break-all">{source || 'Not recorded'}</dd>
+                {installedAt && (
+                  <>
+                    <dt className="text-muted-foreground">Installed</dt>
+                    <dd>
+                      <ClioRelativeTime label="Installed" timestamp={installedAt} />
+                    </dd>
+                  </>
+                )}
+                {(['ref', 'commit', 'pinned_commit'] as const).map((key) =>
+                  stringValue(installation?.[key]) ? (
+                    <div key={key} className="contents">
+                      <dt className="text-muted-foreground">
+                        {key === 'ref'
+                          ? 'Branch or tag'
+                          : key === 'commit'
+                            ? 'Revision'
+                            : 'Pinned revision'}
+                      </dt>
+                      <dd className="break-all font-mono text-xs">{String(installation?.[key])}</dd>
+                    </div>
+                  ) : null,
+                )}
+                <dt className="text-muted-foreground">Blueprint ID</dt>
+                <dd className="break-all">{blueprint?.blueprint_id || blueprint?.id}</dd>
+              </dl>
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -112,8 +182,4 @@ function recordValue(value: unknown): Record<string, unknown> | undefined {
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined;
-}
-
-function pathName(value: string): string {
-  return value.split(/[\\/]/u).filter(Boolean).at(-1) ?? value;
 }

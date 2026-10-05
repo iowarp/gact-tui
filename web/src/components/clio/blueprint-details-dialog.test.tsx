@@ -32,15 +32,14 @@ describe('BlueprintDetailsDialog', () => {
     render(<BlueprintDetailsDialog blueprint={blueprint} onOpenChange={vi.fn()} />);
 
     expect(screen.getByText('Every workspace')).toBeVisible();
-    expect(screen.getByText('earthscope')).toHaveAttribute(
-      'title',
-      '/marketplaces/science/earthscope',
-    );
+    expect(screen.getByText('earthscope')).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Evidence workflow' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'View blueprint instructions' }));
+    await user.click(screen.getByRole('tab', { name: 'Instructions' }));
 
     expect(await screen.findByRole('heading', { name: 'Evidence workflow' })).toBeVisible();
     expect(screen.getByText(/Review stations before drawing a conclusion/)).toBeVisible();
+    await user.click(screen.getByRole('tab', { name: 'Installation' }));
+    expect(screen.getByText('/marketplaces/science/earthscope')).toBeVisible();
   });
 });

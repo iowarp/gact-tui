@@ -8,6 +8,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
+import { GlobusReceivingStorage } from './globus-receiving-storage';
 
 const labels: Record<keyof HostStorageLocations, string> = {
   root: 'Storage root',
@@ -38,7 +39,12 @@ export function HostStorageSettings({ targetId }: { targetId: string }) {
         Loading storage locations…
       </p>
     );
-  return <StorageForm key={`${settings.endpoint}:${targetId}`} data={query.data} />;
+  return (
+    <div className="space-y-4" key={`${settings.endpoint}:${targetId}`}>
+      <StorageForm data={query.data} />
+      {targetId === 'local' && <GlobusReceivingStorage hostLabel={query.data.host_label} />}
+    </div>
+  );
 }
 
 function StorageForm({ data }: { data: Settings }) {
@@ -119,7 +125,7 @@ function StorageForm({ data }: { data: Settings }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span role="status" className="text-sm text-muted-foreground">
           {check.data
-            ? `${(check.data.free_bytes / 1024 ** 3).toFixed(1)} GiB available · ${check.data.writable ? 'Writable' : 'Not writable'}`
+            ? `${(check.data.free_bytes / 1024 ** 3).toFixed(1)} GiB available, ${check.data.writable ? 'writable' : 'not writable'}`
             : check.isFetching
               ? 'Checking capacity…'
               : ''}

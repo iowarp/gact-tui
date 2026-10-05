@@ -35,7 +35,7 @@ export function SettingsNavigation({
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              className="ml-auto min-w-0"
+              className="ml-auto min-w-0 shrink"
               aria-label="Choose settings section"
             >
               <span className="truncate">{active?.label ?? 'Settings'}</span>

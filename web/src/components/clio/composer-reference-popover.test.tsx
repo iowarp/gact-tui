@@ -212,20 +212,20 @@ describe('composer reference popover contract', () => {
 
     const search = await openPicker(user);
 
-    await user.click(await screen.findByRole('button', { name: 'Expand Workspace files' }));
+    await user.click(await screen.findByRole('button', { name: 'Collapse Workspace files' }));
     await waitFor(() => expect(search).toHaveFocus());
 
-    await user.click(screen.getByRole('button', { name: 'Collapse Workspace files' }));
+    await user.click(screen.getByRole('button', { name: 'Expand Workspace files' }));
     await waitFor(() => expect(search).toHaveFocus());
   });
 
-  it('returns focus to the editor after a group is expanded from a typed mention', async () => {
+  it('returns focus to the editor after a group is collapsed from a typed mention', async () => {
     repositoryMocks.workspaceReferences.mockResolvedValue([readmeReference]);
     const user = userEvent.setup();
     renderComposer();
 
     await user.type(composerEditor(), '@');
-    await user.click(await screen.findByRole('button', { name: 'Expand Workspace files' }));
+    await user.click(await screen.findByRole('button', { name: 'Collapse Workspace files' }));
 
     await waitFor(() => expect(composerEditor()).toHaveFocus());
   });

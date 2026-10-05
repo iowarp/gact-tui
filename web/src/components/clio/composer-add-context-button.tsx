@@ -1,4 +1,4 @@
-import { AtSignIcon, DatabaseIcon, PaperclipIcon } from 'lucide-react';
+import { AtSignIcon, PaperclipIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import {
   PromptInputActionMenu,
@@ -24,14 +24,13 @@ export function ComposerAddContextButton({
   if (!contextReferences) {
     return (
       <>
-        {attachmentEnabled ? (
-          <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
+        {attachmentEnabled || onOpenSources ? (
+          <PromptInputButton
+            aria-label="Attach"
+            onClick={onOpenSources ?? onOpenFileUpload}
+            title="Attach"
+          >
             <AddIcon aria-hidden="true" />
-          </PromptInputButton>
-        ) : null}
-        {onOpenSources ? (
-          <PromptInputButton aria-label="Connect data" onClick={onOpenSources} title="Connect data">
-            <DatabaseIcon aria-hidden="true" />
           </PromptInputButton>
         ) : null}
       </>
@@ -42,23 +41,17 @@ export function ComposerAddContextButton({
       <PromptInputActionMenuTrigger aria-label="Add context" title="Add context">
         <AddIcon aria-hidden="true" />
       </PromptInputActionMenuTrigger>
-      <PromptInputActionMenuContent>
-        {attachmentEnabled ? (
+      <PromptInputActionMenuContent className="w-auto min-w-44 whitespace-nowrap">
+        {attachmentEnabled || onOpenSources ? (
           <PromptInputActionMenuItem
-            aria-label="Attach a new file"
-            onSelect={onOpenFileUpload}
-            title="Attach a new file"
+            aria-label="Attach"
+            onSelect={onOpenSources ?? onOpenFileUpload}
+            title="Attach files, folders, or connected data"
           >
             <PaperclipIcon aria-hidden="true" />
             Attach
           </PromptInputActionMenuItem>
         ) : null}
-        {onOpenSources && (
-          <PromptInputActionMenuItem aria-label="Connect data" onSelect={onOpenSources}>
-            <DatabaseIcon aria-hidden="true" />
-            Connect data
-          </PromptInputActionMenuItem>
-        )}
         {contextReferences && (
           <PromptInputActionMenuItem
             aria-label="Reference existing context"

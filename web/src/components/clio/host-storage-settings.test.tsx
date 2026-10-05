@@ -7,6 +7,8 @@ const repository = vi.hoisted(() => ({
   hostStorageSettings: vi.fn(),
   saveHostStorageSettings: vi.fn(),
   inspectHostPath: vi.fn(),
+  globusDestination: vi.fn(),
+  saveGlobusDestination: vi.fn(),
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -32,6 +34,16 @@ beforeEach(() => {
     effective: { ...defaults, root: '/data/old' },
   }));
   repository.inspectHostPath.mockResolvedValue({ free_bytes: 1024 ** 3, writable: true });
+  repository.globusDestination.mockResolvedValue({
+    origin: 'unavailable',
+    destination: null,
+    storage_root: '/data/clio/sources',
+  });
+  repository.saveGlobusDestination.mockImplementation(async (destination) => ({
+    origin: 'configured',
+    destination,
+    storage_root: '/data/clio/sources',
+  }));
   repository.saveHostStorageSettings.mockImplementation(
     async (id: string, paths: typeof requested) => ({
       target_id: id,
@@ -45,6 +57,26 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('host storage settings', () => {
+  it('keeps the receiving collection on the connected host and saves it once', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <HostStorageSettings targetId="local" />
+      </QueryClientProvider>,
+    );
+    await screen.findByText('No receiving collection found on this host');
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Connect an existing collection'));
+    await user.type(screen.getByLabelText('Collection ID'), '22222222-2222-4222-8222-222222222222');
+    await user.type(screen.getByLabelText('Collection folder'), '/data/clio/sources');
+    await user.click(screen.getByRole('button', { name: 'Save receiving storage' }));
+    await screen.findByText('Receiving collection saved');
+    expect(repository.saveGlobusDestination).toHaveBeenCalledWith({
+      collection_id: '22222222-2222-4222-8222-222222222222',
+      collection_root: '/data/clio/sources',
+      local_root: '/data/clio/sources',
+    });
+  });
   it('previews inherited paths before saving, resets success when edited, and isolates hosts', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = (targetId: string) => (

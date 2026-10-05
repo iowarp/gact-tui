@@ -93,6 +93,7 @@ export function useSessionMutations({
   const uploadController = useRef<AbortController | null>(null);
   const preparedUploads = useRef(new Map<string, Promise<WorkspaceResourceUploadResult>>());
   const draftSession = useRef<Promise<Session> | null>(null);
+  const draftUploads = useRef(new Map<string, string>());
   useEffect(() => {
     const controller = new AbortController();
     uploadController.current = controller;
@@ -147,8 +148,13 @@ export function useSessionMutations({
           const uploadSignal = signal
             ? AbortSignal.any([controller.signal, signal])
             : controller.signal;
+          let uploadId = draftUploads.current.get(cacheKey);
+          if (!uploadId) {
+            uploadId = `draft-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            draftUploads.current.set(cacheKey, uploadId);
+          }
           pending = uploadWorkspaceResources({
-            files: [file],
+            files: [{ ...file, clientUploadId: uploadId, pendingAttachment: true }],
             onProgress,
             repository,
             signal: uploadSignal,
@@ -184,6 +190,19 @@ export function useSessionMutations({
     },
     [queryClient, repository, sessionId, settings.endpoint, workspaceId],
   );
+
+  const discardFiles = useCallback(async (files: readonly UploadableFilePart[]) => {
+    for (const file of files) {
+      const key = `${sessionId}\u0000${file.url}`;
+      const uploadId = draftUploads.current.get(key);
+      if (!uploadId) continue;
+      await repository.discardResourceUpload(workspaceId, uploadId);
+      preparedUploads.current.delete(key);
+      draftUploads.current.delete(key);
+    }
+    await queryClient.invalidateQueries({ predicate: (query) =>
+      query.queryKey.includes('workspace-resources') || query.queryKey.includes('workspace-files') });
+  }, [queryClient, repository, sessionId, workspaceId]);
 
   const sendIdentities = useRef(new SendIdentities());
   const reconcileTurnMode = async (behavior: MessageBehavior, target = session) => {
@@ -530,6 +549,7 @@ export function useSessionMutations({
     pendingSteers,
     promoteQueuedMessage,
     prepareFiles,
+    discardFiles,
     queuedMessages,
     reorderQueuedMessages,
     respondInteraction,

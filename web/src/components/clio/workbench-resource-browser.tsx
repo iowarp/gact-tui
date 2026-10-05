@@ -167,6 +167,7 @@ export function FileBrowser({
   return (
     <div className="h-full min-h-0" ref={hostRef}>
       <ConnectedSourcePicker
+        manageOnly
         workspaceId={workspaceId}
         open={sourcesOpen}
         onOpenChange={setSourcesOpen}

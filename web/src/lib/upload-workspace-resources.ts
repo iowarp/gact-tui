@@ -28,7 +28,7 @@ export interface ResourceUploadProgress {
  * memory (gact-tui root cause B). Carrying `file` through removes that
  * dependency entirely instead of only patching the CSP.
  */
-export type UploadableFilePart = FileUIPart & { file?: File | Blob; clientUploadId?: string };
+export type UploadableFilePart = FileUIPart & { file?: File | Blob; clientUploadId?: string; pendingAttachment?: boolean };
 
 export interface WorkspaceResourceUploadResult {
   parts: ComposerMessagePart[];
@@ -77,7 +77,7 @@ export async function uploadWorkspaceResources({
     const clientUploadId = file.clientUploadId ?? (await uploadFingerprint(name, mediaType, blob));
     const created = await repository.createResource(
       workspaceId,
-      { clientUploadId, mediaType, name, size: blob.size },
+      { clientUploadId, mediaType, name, size: blob.size, ...(file.pendingAttachment ? { pendingAttachment: true } : {}) },
       signal,
     );
     resources.push(created);

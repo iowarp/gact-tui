@@ -37,6 +37,7 @@ mod sse_message;
 mod sse_parse;
 mod sse_registry;
 mod sse_stream;
+mod storage_oauth;
 #[cfg(test)]
 mod sse_stream_tests;
 mod ssh_profile_blocks;
@@ -168,8 +169,12 @@ pub fn run() {
             rand::random::<[u8; 16]>(),
         )))
         .manage(sse_registry::SseRegistry::new())
+        .manage(storage_oauth::StorageOAuth::default())
         .manage(terminal_pty::TerminalRegistry::new())
         .invoke_handler(tauri::generate_handler![
+            storage_oauth::storage_oauth_listen,
+            storage_oauth::storage_oauth_receive,
+            storage_oauth::storage_oauth_cancel,
             commands::get_backend,
             commands::retry_backend,
             commands::install_clio,

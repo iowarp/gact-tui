@@ -60,7 +60,7 @@ import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
 import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-reference-domain';
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
-import { focusEditorAtOffset } from './composer-editor-model';
+import { focusEditorAtOffset as focusComposerEditor } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { messageTextWithAnnotations, type ComposerAnnotation } from '@/lib/composer-annotations';
@@ -68,9 +68,11 @@ import { composerModelLabel } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useRegionCaptureAnnotation } from './use-region-capture-annotation';
 import { ComposerAddContextButton } from './composer-add-context-button';
-import { ConnectedSourcePicker } from './connected-source-picker';
-
-const focusComposerEditor = focusEditorAtOffset;
+import { useComposerSources } from './use-composer-sources';
+import {
+  isSourceAttachment,
+  useComposerSourceAttachments,
+} from './use-composer-source-attachments';
 
 export interface ClioComposerProps {
   state: RunState;
@@ -116,6 +118,7 @@ export interface ClioComposerProps {
     onUploadProgress: (progress: ResourceUploadProgress) => void;
   }) => Promise<void>;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
+  onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
   onPrepareFiles?: (
     files: readonly UploadableFilePart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
@@ -180,6 +183,7 @@ export function ClioComposer({
   onSubmit,
   onBehaviorChange,
   onPrepareFiles,
+  onDiscardFiles,
   onStop,
   onCommand,
   onRetryModelCatalog,
@@ -281,7 +285,6 @@ export function ClioComposer({
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
-  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
   const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
     [],
   );
@@ -358,20 +361,28 @@ export function ClioComposer({
   }, [commandQuery, commands]);
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
   const commandPopoverId = `${useId()}-composer-commands`;
+  const sourceAttachments = useComposerSourceAttachments(selectedReferences, setSelectedReferences, workspaceId);
   const composerReferences = useComposerReferenceController({
     contextReferences,
     editorRef: inputRef,
     focusEditor: focusEditorSoon,
     input,
-    selectedReferences,
+    selectedReferences: sourceAttachments.inlineReferences,
     setInput,
-    setSelectedReferences,
+    setSelectedReferences: sourceAttachments.setInlineReferences,
     workspaceId,
   });
   const showReferences = composerReferences.open;
+  const connectedSources = useComposerSources(
+    workspaceId,
+    (reference) =>
+      isSourceAttachment(reference)
+        ? sourceAttachments.add(reference)
+        : composerReferences.select(reference),
+    attachments ? () => setFileUploadOpen(true) : undefined,
+  );
   const popoverOpen = showCommands || showReferences;
-  // Sends the person's pick when the selected model offers it, else nothing (the
-  // service applies the configured level). Defaults are displayed, never sent.
+  // Send an explicit supported pick; the service applies configured defaults.
   const messageBehavior: MessageBehavior = {
     ...behavior,
     reasoning_effort: effectiveReasoningEffort(
@@ -496,17 +507,7 @@ export function ClioComposer({
         </div>
       ) : null}
       {pendingInteractions}
-      {workspaceId && (
-        <ConnectedSourcePicker
-          workspaceId={workspaceId}
-          open={sourcePickerOpen}
-          onOpenChange={setSourcePickerOpen}
-          onSelect={(reference) => {
-            composerReferences.select(reference);
-            setSourcePickerOpen(false);
-          }}
-        />
-      )}
+      {connectedSources.picker}
       {queuedMessages.length > 0 &&
       onDeleteQueuedMessage &&
       onPromoteQueuedMessage &&
@@ -530,6 +531,8 @@ export function ClioComposer({
         multiple
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}
         onSubmit={async ({ files, text }) => {
+          if (connectedSources.pending)
+            throw new Error('Wait for the folder attachment or remove it before sending.');
           const trimmed = text.trim();
           if (trimmed || files.length > 0 || selectedReferences.length > 0 || annotations.length) {
             if (trimmed.startsWith('/')) {
@@ -604,6 +607,7 @@ export function ClioComposer({
               restoreInputFocusWhenReady();
             }
             nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
+            await sourceAttachments.keep();
             if (latestInputRef.current.trim() === trimmed) setInput('');
             setSelectedReferences([]);
             onAnnotationsChange?.([]);
@@ -615,6 +619,7 @@ export function ClioComposer({
           enabled={attachments}
           onOpenChange={setFileUploadOpen}
           open={fileUploadOpen}
+          onFolderFiles={connectedSources.drop}
         />
         {workSummary}
         {activityControl ? (
@@ -628,10 +633,13 @@ export function ClioComposer({
             onAnnotationsChange?.(annotations.filter((item) => item !== gone))
           }
           onPrepareFiles={onPrepareFiles}
+          onDiscardFiles={onDiscardFiles}
           resources={resources}
           uploadFailure={uploadFailure}
           uploadProgress={uploadProgress}
         />
+        {sourceAttachments.tray(onOpenReference, connectedSources.openReference)}
+        {connectedSources.attachments}
         {uploadProgress ? (
           <div className="px-3 pt-1 text-xs text-muted-foreground" role="status">
             Uploading {uploadProgress.filename}{' '}
@@ -651,11 +659,11 @@ export function ClioComposer({
           onCaretChange={composerReferences.onCaretChange}
           onChange={setInput}
           onOpenReference={onOpenReference}
-          onReferencesChange={setSelectedReferences}
+          onReferencesChange={sourceAttachments.setInlineReferences}
           placeholder={`Ask ${brand.name} to investigate, build, explain, or act…`}
           popoverId={showCommands ? commandPopoverId : composerReferences.popoverId}
           ref={inputRef}
-          references={selectedReferences}
+          references={sourceAttachments.inlineReferences}
           value={input}
           onKeyDown={(event) => {
             if (composerReferences.handleKeyDown(event)) return;
@@ -676,7 +684,7 @@ export function ClioComposer({
                 attachments={attachments}
                 contextReferences={contextReferences}
                 onOpenFileUpload={() => setFileUploadOpen(true)}
-                onOpenSources={workspaceId ? () => setSourcePickerOpen(true) : undefined}
+                onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
               />
             ) : null}
@@ -754,7 +762,11 @@ export function ClioComposer({
               <PromptInputButton
                 aria-label="Steer current work"
                 className="gap-1.5 border-action/40 text-action hover:bg-action/10 hover:text-action"
-                disabled={disabled || (!input.trim() && selectedReferences.length === 0)}
+                disabled={
+                  disabled ||
+                  connectedSources.pending ||
+                  (!input.trim() && selectedReferences.length === 0)
+                }
                 onClick={() => {
                   nextDeliveryRef.current = 'steer';
                 }}
@@ -769,7 +781,10 @@ export function ClioComposer({
               <ClioStatus value={state} />
             ) : null}
             <PromptInputSubmit
-              disabled={(disabled || catalogPreparing) && state !== 'running'}
+              disabled={
+                ((disabled || catalogPreparing) && state !== 'running') ||
+                (connectedSources.pending && state !== 'running')
+              }
               onStop={onStop}
               status={chatStatus(state)}
             />

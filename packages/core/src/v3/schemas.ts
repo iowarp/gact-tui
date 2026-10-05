@@ -357,6 +357,7 @@ export const agentBlueprintSourceSchema = z.object({
       z.object({
         id: z.string(),
         title: z.string(),
+        description: z.string().optional(),
         version: z.string().optional(),
         kind: forwardCompatibleEnum(['blueprint', 'pack']).default('blueprint'),
         enabled: z.boolean().default(false),

@@ -23,6 +23,9 @@ export function HostPathPicker({
   path,
   onChoose,
   disabled,
+  startPath,
+  triggerLabel = 'Browse…',
+  browse,
 }: {
   targetId: string;
   hostLabel: string;
@@ -30,6 +33,17 @@ export function HostPathPicker({
   path: string;
   onChoose: (path: string) => void;
   disabled?: boolean;
+  startPath?: string;
+  triggerLabel?: string;
+  browse?: (
+    path: string,
+    signal: AbortSignal,
+  ) => Promise<{
+    path: string;
+    parent: string;
+    entries: { name: string; path: string }[];
+    truncated: boolean;
+  }>;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -38,8 +52,9 @@ export function HostPathPicker({
   const [entered, setEntered] = useState(path);
   const listing = useQuery({
     queryKey: ['host-folder', connectionScope(settings), targetId, folder],
-    enabled: open && Boolean(folder),
+    enabled: open && (Boolean(folder) || Boolean(browse)),
     queryFn: async ({ signal }) => {
+      if (browse) return browse(folder, signal);
       const checked = await repository.inspectHostPath(targetId, { path: folder }, signal);
       return repository.inspectHostPath(
         targetId,
@@ -60,12 +75,12 @@ export function HostPathPicker({
         variant="outline"
         aria-label={`Browse ${label.toLowerCase()} on ${hostLabel}`}
         onClick={() => {
-          setFolder(path);
-          setEntered(path);
+          setFolder(path || startPath || '');
+          setEntered(path || startPath || '');
           setOpen(true);
         }}
       >
-        Browse…
+        {triggerLabel}
       </Button>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
@@ -76,6 +91,7 @@ export function HostPathPicker({
           className="flex gap-2"
           onSubmit={(event) => {
             event.preventDefault();
+            event.stopPropagation();
             setFolder(entered);
           }}
         >

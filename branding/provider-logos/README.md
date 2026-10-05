@@ -7,3 +7,7 @@ unaltered horizontal blue/white artwork from the official Globus logo pack:
 https://marketing.globuscs.info/production/strapi/uploads/Globus_Logo_88c8b619be.zip
 They identify the integrated service, with preserved aspect ratio and a display
 width of at least 54 px. Brand guidance: https://www.globus.org/legal/logo-usage-policy.
+
+`github-black.svg` and `github-white.svg` are the unaltered Invertocat artwork
+from https://brand.github.com/GitHub_Logos.zip, used to identify the GitHub
+integration. Guidance: https://brand.github.com/foundations/logo.

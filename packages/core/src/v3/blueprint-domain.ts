@@ -64,6 +64,7 @@ export interface AgentBlueprintSource {
   available_blueprints: Array<{
     id: string;
     title: string;
+    description?: string;
     version?: string;
     kind: WireValue<'blueprint' | 'pack'>;
     enabled: boolean;

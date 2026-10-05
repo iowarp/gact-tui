@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import { FileUploadDropzone } from '@/components/reui/file-upload-dropzone';
+import { readDroppedFolders } from '@/lib/dropped-folders';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -18,10 +20,12 @@ export function ClioComposerFileUpload({
   enabled,
   onOpenChange,
   open,
+  onFolderFiles,
 }: {
   enabled: boolean;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  onFolderFiles?: (files: File[]) => void;
 }) {
   const attachments = usePromptInputAttachments();
   const [dragging, setDragging] = useState(false);
@@ -43,21 +47,50 @@ export function ClioComposerFileUpload({
       if (!carriesFiles(event)) return;
       event.preventDefault();
       setDragging(false);
+      const entries = Array.from(event.dataTransfer?.items ?? []).flatMap((item) => {
+        const entry = item.webkitGetAsEntry?.();
+        return entry ? [entry] : [];
+      });
+      if (entries.some((entry) => entry.isDirectory)) {
+        event.stopImmediatePropagation();
+        onOpenChange(false);
+        void readDroppedFolders(entries)
+          .then((files) => {
+            if (onFolderFiles) onFolderFiles(files);
+            else toast.error('Choose a workspace before attaching a folder');
+          })
+          .catch((error: unknown) =>
+            toast.error(error instanceof Error ? error.message : 'Could not read this folder'),
+          );
+        return;
+      }
+      // Ordinary file drops are handled at their original target or during bubbling.
+      if (event.eventPhase === Event.CAPTURING_PHASE) return;
       if (event.dataTransfer && event.dataTransfer.files.length > 0) {
         attachments.add(event.dataTransfer.files);
       }
       onOpenChange(false);
     };
+    const captureFolder = (event: globalThis.DragEvent) => {
+      if (
+        Array.from(event.dataTransfer?.items ?? []).some(
+          (item) => item.webkitGetAsEntry?.()?.isDirectory,
+        )
+      )
+        handleDrop(event);
+    };
 
     document.addEventListener('dragenter', handleDragEnter);
     document.addEventListener('dragover', handleDragOver);
     document.addEventListener('drop', handleDrop);
+    document.addEventListener('drop', captureFolder, true);
     return () => {
       document.removeEventListener('dragenter', handleDragEnter);
       document.removeEventListener('dragover', handleDragOver);
       document.removeEventListener('drop', handleDrop);
+      document.removeEventListener('drop', captureFolder, true);
     };
-  }, [attachments, enabled, onOpenChange]);
+  }, [attachments, enabled, onOpenChange, onFolderFiles]);
 
   return (
     <Dialog

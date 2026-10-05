@@ -263,6 +263,7 @@ export function WorkspacePage() {
     pendingSteers,
     promoteQueuedMessage,
     prepareFiles,
+    discardFiles,
     queuedMessages,
     reorderQueuedMessages,
     respondInteraction,
@@ -494,6 +495,7 @@ export function WorkspacePage() {
             await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
           }}
           onPrepareFiles={prepareFiles}
+          onDiscardFiles={discardFiles}
           onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
           onSubmit={async (value) => {
             const startedFromWelcome = showConversationWelcome;
