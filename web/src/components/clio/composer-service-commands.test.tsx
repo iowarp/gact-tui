@@ -96,6 +96,7 @@ function renderComposer({
   onCommand = vi.fn(async () => undefined),
   onOpenReference,
   onPrepareFiles,
+  onDiscardFiles,
   onStop = vi.fn(),
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
@@ -109,6 +110,7 @@ function renderComposer({
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onOpenReference?: ClioComposerProps['onOpenReference'];
   onPrepareFiles?: ClioComposerProps['onPrepareFiles'];
+  onDiscardFiles?: ClioComposerProps['onDiscardFiles'];
   onStop?: () => void;
   onSubmit?: ClioComposerProps['onSubmit'];
   state?: 'completed' | 'running';
@@ -135,6 +137,7 @@ function renderComposer({
           onCommand={onCommand}
           onOpenReference={onOpenReference}
           onPrepareFiles={onPrepareFiles}
+          onDiscardFiles={onDiscardFiles}
           onStop={onStop}
           onSubmit={onSubmit}
           provider={selection.provider ?? 'codex'}
@@ -398,6 +401,19 @@ describe('ClioComposer service commands', () => {
     await user.hover(attachment);
     expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
     expect(screen.getByRole('status', { name: 'Conversion status: Queued' })).toBeVisible();
+  });
+
+  it('cleans up an ordinary prepared file when its attachment is removed', async () => {
+    const user = userEvent.setup();
+    const onDiscardFiles = vi.fn<NonNullable<ClioComposerProps['onDiscardFiles']>>(async () => undefined);
+    const onPrepareFiles = vi.fn(async () => ({ parts: [], resources: [] }));
+    renderComposer({ attachments: true, onPrepareFiles, onDiscardFiles });
+    await user.upload(screen.getByLabelText('Upload files'), new File(['draft'], 'draft.txt', { type: 'text/plain' }));
+    await waitFor(() => expect(onPrepareFiles).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole('button', { name: 'Remove draft.txt' }));
+    await waitFor(() => expect(onDiscardFiles).toHaveBeenCalledOnce());
+    expect(onDiscardFiles.mock.calls[0][0][0].filename).toBe('draft.txt');
+    expect(screen.queryByRole('button', { name: 'Open draft.txt' })).toBeNull();
   });
 
   it('cancels an in-flight preparation when its attachment is removed', async () => {

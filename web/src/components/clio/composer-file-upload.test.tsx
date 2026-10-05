@@ -6,7 +6,14 @@ import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { ClioComposer } from './composer';
 
 vi.mock('@/hooks/use-repository', () => ({
-  useRepository: () => ({ workspaceReferences: vi.fn().mockResolvedValue([]) }),
+  useRepository: () => ({
+    workspaceReferences: vi.fn().mockResolvedValue([]),
+    connectedSources: vi.fn().mockResolvedValue([]),
+    storageProviders: vi.fn().mockResolvedValue({ providers: [] }),
+    hostStorageSettings: vi
+      .fn()
+      .mockResolvedValue({ hostname: 'Test host', effective: { root: '/data' } }),
+  }),
 }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
@@ -41,7 +48,8 @@ describe('ClioComposer file upload surface', () => {
     const picker = screen.getByLabelText('Upload files');
     const open = vi.spyOn(picker, 'click');
 
-    await user.click(screen.getByRole('button', { name: 'Add files' }));
+    await user.click(screen.getByRole('button', { name: 'Attach' }));
+    await user.click(screen.getByRole('button', { name: 'Choose files' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Add attachments' });
     expect(dialog).toBeVisible();
@@ -57,7 +65,8 @@ describe('ClioComposer file upload surface', () => {
     renderComposer(true);
 
     await user.click(screen.getByRole('button', { name: 'Add context' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Attach a new file' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Attach' }));
+    await user.click(screen.getByRole('button', { name: 'Choose files' }));
 
     expect(screen.getByRole('dialog', { name: 'Add attachments' })).toBeVisible();
   });
@@ -85,7 +94,8 @@ describe('ClioComposer file upload surface', () => {
     renderComposer();
     const file = new File(['data'], 'observations.csv', { type: 'text/csv' });
 
-    await user.click(screen.getByRole('button', { name: 'Add files' }));
+    await user.click(screen.getByRole('button', { name: 'Attach' }));
+    await user.click(screen.getByRole('button', { name: 'Choose files' }));
     fireEvent.drop(screen.getByRole('region', { name: 'File drop area' }), {
       dataTransfer: { files: [file], types: ['Files'] },
     });

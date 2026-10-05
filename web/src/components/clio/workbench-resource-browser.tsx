@@ -1,25 +1,24 @@
 import { queryKeys } from '@/lib/query-keys';
+import { ConnectedSourcePicker } from './connected-source-picker';
+import { BlueprintInstallView } from './blueprint-install-view';
+import { BlueprintOwnership } from './blueprint-ownership';
+import { connectionScope } from '@/lib/connection-scope';
 import type {
   AgentBlueprint,
   AgentBlueprintReference,
   Artifact,
-  SubagentRun,
   WorkspaceFileEntry,
 } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ActivityIcon,
-  BotIcon,
-  BoxesIcon,
   BoxIcon,
+  BoxesIcon,
   FileTextIcon,
   FolderIcon,
-  PaperclipIcon,
   SearchIcon,
-  TerminalSquareIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
-import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import {
   lazy,
   Suspense,
@@ -34,17 +33,6 @@ import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Empty,
   EmptyDescription,
@@ -72,13 +60,7 @@ const ArtifactView = lazy(() =>
 const BlueprintFileEditor = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
 );
-export type CanvasResourceKind =
-  | 'session'
-  | 'work'
-  | 'files'
-  | 'resources'
-  | 'artifacts'
-  | 'blueprints';
+export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
 interface FileBrowserProps {
   workspaceId: string;
@@ -113,91 +95,6 @@ interface BlueprintBrowserProps {
   ) => void;
 }
 
-/** Opens one peer canvas tab instead of nesting unrelated resource types. */
-export function CanvasLauncher({
-  onOpen,
-  onOpenSubagent,
-  onOpenTerminal,
-  subagents = [],
-}: {
-  onOpen: (kind: CanvasResourceKind) => void;
-  /** Opens one child agent of this session as a canvas tab beside the conversation. */
-  onOpenSubagent?: (subagent: SubagentRun) => void;
-  onOpenTerminal?: () => void;
-  subagents?: readonly SubagentRun[];
-}) {
-  const openableSubagents = subagents.filter((subagent) => subagent.child_session_id);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label="Open a canvas tab"
-          className="size-9 shrink-0 rounded-lg"
-          size="icon"
-          title="Open a canvas tab"
-          variant="ghost"
-        >
-          <AddIcon aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>Add to canvas</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => onOpen('session')}>
-          <ActivityIcon aria-hidden="true" /> Observability
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('work')}>
-          <ActivityIcon aria-hidden="true" /> Work
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onOpen('files')}>
-          <FolderIcon aria-hidden="true" /> File explorer
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('resources')}>
-          <PaperclipIcon aria-hidden="true" /> Workspace resources
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('artifacts')}>
-          <BoxIcon aria-hidden="true" /> Session artifacts
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('blueprints')}>
-          <BoxesIcon aria-hidden="true" /> Agent blueprints
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {openableSubagents.length && onOpenSubagent ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <BotIcon aria-hidden="true" /> Child agent
-              <span className="ml-auto text-[10px] text-muted-foreground">
-                {openableSubagents.length}
-              </span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="max-h-80 w-64 overflow-y-auto">
-              {openableSubagents.map((subagent) => (
-                <DropdownMenuItem key={subagent.id} onSelect={() => onOpenSubagent(subagent)}>
-                  <BotIcon aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{subagent.title}</span>
-                  <ClioStatus className="shrink-0 py-0" compact value={subagent.state} />
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ) : (
-          <DropdownMenuItem disabled>
-            <BotIcon aria-hidden="true" /> Child agent
-            <span className="ml-auto text-[10px] text-muted-foreground">None yet</span>
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={!onOpenTerminal} onSelect={onOpenTerminal}>
-          <TerminalSquareIcon aria-hidden="true" /> Terminal
-          {!onOpenTerminal ? (
-            <span className="ml-auto text-[10px] text-muted-foreground">Unavailable</span>
-          ) : null}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 /** Keeps the workspace tree and the selected rendered file in one navigable canvas. */
 export function FileBrowser({
   workspaceId,
@@ -210,6 +107,7 @@ export function FileBrowser({
   onRefresh,
   onSelectedPathChange,
 }: FileBrowserProps) {
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
@@ -268,6 +166,13 @@ export function FileBrowser({
 
   return (
     <div className="h-full min-h-0" ref={hostRef}>
+      <ConnectedSourcePicker
+        manageOnly
+        workspaceId={workspaceId}
+        open={sourcesOpen}
+        onOpenChange={setSourcesOpen}
+        onChanged={onRefresh}
+      />
       <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
         <ResizablePanel
           defaultSize={stacked ? '42%' : '44%'}
@@ -276,6 +181,9 @@ export function FileBrowser({
         >
           <section aria-label="Workspace file tree" className="flex h-full min-h-0 flex-col">
             <div className="flex shrink-0 items-center gap-1.5 border-b p-2">
+              <Button size="sm" variant="outline" onClick={() => setSourcesOpen(true)}>
+                Sources
+              </Button>
               <div className="relative flex-1">
                 <SearchIcon
                   aria-hidden="true"
@@ -502,12 +410,19 @@ export function BlueprintBrowser({
               <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{blueprint.display_name}</p>
+                <BlueprintOwnership blueprint={blueprint} />
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
                   {blueprint.description || 'No description provided.'}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
-                  <Badge variant="outline">{blueprint.scope}</Badge>
+                  {blueprint.materialized === false ? (
+                    <Badge variant="outline">Available</Badge>
+                  ) : (
+                    <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                  )}
+                  <Badge variant="outline">
+                    {blueprint.scope === 'global' ? 'All workspaces' : 'This workspace'}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -535,16 +450,40 @@ interface BlueprintViewProps {
 export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintViewProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const owner = connectionScope(settings);
+  const queryClient = useQueryClient();
+  const catalog = useQuery({
+    queryKey: [...queryKeys.agentBlueprints(settings.endpoint, workspaceId), owner],
+    queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
+  });
+  const currentBlueprint = catalog.data?.find((row) => row.id === blueprint.id) ?? blueprint;
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
-  const [selectedPath, setSelectedPath] = useState<string>();
+  const selectionKey = [
+    'blueprint-selected-file',
+    settings.endpoint,
+    owner,
+    blueprint.id,
+    workspaceId,
+    sessionId,
+  ];
+  const { data: selectedPath } = useQuery<string | null>({
+    queryKey: selectionKey,
+    queryFn: skipToken,
+    initialData: null,
+    enabled: false,
+    gcTime: Infinity,
+  });
+  const setSelectedPath = (path: string) => queryClient.setQueryData(selectionKey, path);
   const files = useQuery({
+    enabled: currentBlueprint.materialized !== false,
     queryKey: queryKeys.key(
       'blueprint-files',
       settings.endpoint,
       blueprint.id,
       workspaceId,
       sessionId,
+      owner,
     ),
     queryFn: ({ signal }) =>
       repository.agentBlueprintFiles(blueprint.id, { workspaceId, sessionId }, signal),
@@ -566,30 +505,47 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
     const observer = new ResizeObserver(update);
     observer.observe(host);
     return () => observer.disconnect();
-  }, []);
+  }, [currentBlueprint.materialized]);
+
+  if (currentBlueprint.materialized === false) {
+    return <BlueprintInstallView blueprint={currentBlueprint} workspaceId={workspaceId} />;
+  }
 
   return (
     <div className="h-full min-h-0" ref={hostRef}>
-      <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
+      <ResizablePanelGroup
+        key={stacked ? 'stacked' : 'beside'}
+        orientation={stacked ? 'vertical' : 'horizontal'}
+      >
         <ResizablePanel
-          defaultSize={stacked ? '38%' : '34%'}
+          defaultSize={stacked ? '24%' : '28%'}
           id={`blueprint-${blueprint.id}-tree`}
-          minSize={stacked ? '150px' : '210px'}
+          minSize={stacked ? '110px' : '210px'}
         >
-          <section aria-label={`${blueprint.display_name} files`} className="flex h-full flex-col">
+          <section
+            aria-label={`${currentBlueprint.display_name} files`}
+            className="flex h-full flex-col"
+          >
             <div className="shrink-0 border-b p-3">
               <div className="flex items-start gap-2">
                 <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{blueprint.display_name}</p>
+                  <p className="truncate text-sm font-medium">{currentBlueprint.display_name}</p>
+                  <BlueprintOwnership blueprint={currentBlueprint} />
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {blueprint.enabled === undefined ? null : (
-                      <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
+                    {currentBlueprint.enabled === undefined ? null : (
+                      <ClioStatus value={currentBlueprint.enabled ? 'healthy' : 'degraded'} />
                     )}
-                    {blueprint.version ? (
-                      <Badge variant="outline">Version {blueprint.version}</Badge>
+                    {currentBlueprint.version ? (
+                      <Badge variant="outline">Version {currentBlueprint.version}</Badge>
                     ) : null}
-                    {blueprint.scope ? <Badge variant="outline">{blueprint.scope}</Badge> : null}
+                    {currentBlueprint.scope ? (
+                      <Badge variant="outline">
+                        {currentBlueprint.scope === 'global'
+                          ? 'All workspaces'
+                          : currentBlueprint.scope}
+                      </Badge>
+                    ) : null}
                   </div>
                 </div>
               </div>

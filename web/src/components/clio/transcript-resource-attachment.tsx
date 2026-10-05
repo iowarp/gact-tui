@@ -1,6 +1,6 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { PaperclipIcon } from 'lucide-react';
+import { FolderIcon, PaperclipIcon } from 'lucide-react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -172,7 +172,9 @@ function TranscriptResourceAttachmentDisplay({
   previewUrl,
   visual,
 }: TranscriptResourceAttachmentProps & { previewUrl?: string; visual: boolean }) {
-  const filename = resource?.name ?? block.name;
+  const folder =
+    resource?.connected_source?.kind === 'folder' ? resource.connected_source : undefined;
+  const filename = folder?.label ?? resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
   const availability = resourceAvailability(resource, block.delivery);
   const stages = resourcePipelineStages(resource, availability);
@@ -198,8 +200,14 @@ function TranscriptResourceAttachmentDisplay({
             onClick={open}
             type="button"
           >
-            <AttachmentPreview />
-            <AttachmentInfo className="text-xs" showMediaType />
+            <AttachmentPreview
+              fallbackIcon={
+                folder ? (
+                  <FolderIcon aria-label="Folder" className="size-7 text-muted-foreground" />
+                ) : undefined
+              }
+            />
+            <AttachmentInfo className="text-xs" showMediaType={!folder} />
             <span className="absolute right-2 bottom-2 shrink-0">
               <ResourcePipelineSummaryIcon overlay stages={stages} />
             </span>
@@ -208,7 +216,13 @@ function TranscriptResourceAttachmentDisplay({
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
         <p className="truncate text-sm font-medium">{filename}</p>
-        {mediaType ? <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p> : null}
+        {folder ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {folder.linked === 'true' ? 'Linked folder' : 'Downloaded folder'}
+          </p>
+        ) : mediaType ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p>
+        ) : null}
         <div className="mt-2">
           <ResourcePipelineStatusLines stages={stages} />
         </div>

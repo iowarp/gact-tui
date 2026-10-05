@@ -13,6 +13,13 @@ keys. Add an upstream presenter or MCP adapter for new semantics; do not add a
 frontend `if tool.name` branch. Resource and artifact links reuse conversation
 workbench navigation. Unsupported URI schemes are never executable links.
 
+The `connected_data` link target opens trusted source setup. Its `uri` is the
+owning CLIO identity, and `workspace_id` must match the surrounding conversation.
+The renderer checks the currently connected CLIO before opening the shared picker;
+changing endpoint or credentials closes the action. The link carries no browser
+authorization URL, callback, token, or source-creation authority. Authentication
+stays outside the tool observation; the agent reads approved status separately.
+
 Presenters may declare a short `action` and a `subject` block ID. A text/link
 subject is rendered once inside the action row: `Write (filename)`, `Fetch (URL)`,
 or `Collect (child)`. The renderer never extracts the payload or guesses which

@@ -19,6 +19,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   repository.a2uiAction.mockClear();
   repository.a2uiCatalogs.mockClear();
 });
@@ -162,7 +163,9 @@ describe('ClioPendingInteractions', () => {
 
   it('shows URL identity and never navigates before explicit consent', async () => {
     const user = userEvent.setup();
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const open = vi.spyOn(window, 'open').mockImplementation(() => {
+      throw new Error('Navigation rejected');
+    });
     const interaction = pending('question', {
       prompt: 'Open the result?',
       requires_human_response: true,
@@ -192,6 +195,33 @@ describe('ClioPendingInteractions', () => {
       screen.getByText('The browser blocked this link. It has not been accepted.'),
     ).toBeVisible();
     expect(onResponse).not.toHaveBeenCalled();
+  });
+
+  it('accepts explicitly requested navigation when noopener returns no window handle', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const interaction = pending('question', {
+      requires_human_response: true,
+      actions: ['answer', 'cancel'],
+      payload: { mode: 'url', url: 'https://example.com/report' },
+    });
+    const onResponse = renderPending([interaction]);
+    expect(open).not.toHaveBeenCalled();
+    expect(onResponse).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Open link' }));
+    expect(open).toHaveBeenCalledWith(
+      'https://example.com/report',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    await waitFor(() =>
+      expect(onResponse).toHaveBeenCalledWith(interaction, {
+        action: 'answer',
+        metadata: { elicitation_action: 'accept' },
+      }),
+    );
+    expect(
+      screen.queryByText('The browser blocked this link. It has not been accepted.'),
+    ).toBeNull();
   });
 
   it('submits multiple choices and preserves comments for selected options', async () => {

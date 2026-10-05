@@ -1,6 +1,7 @@
 import type { Message, MessageBlock, Task, ToolInvocation } from '@clio/core/v3';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
+import type { ThoughtSource } from './transcript-reasoning';
 
 /**
  * One correlated unit of work inside an iteration, carrying the kind so the
@@ -36,6 +37,7 @@ export interface ConversationIteration {
     streaming: boolean;
   }>;
   nextThoughts: string[];
+  nextThoughtSources?: ThoughtSource[];
   /**
    * Tools and tasks in one lane, in the order the transcript delivered them.
    * A `Task` carries no owning-tool field, so its wire position beside a tool
@@ -155,6 +157,12 @@ function fallbackIterations(
     if (block.type === 'text' && block.channel === 'next_thought') {
       if (current.activity.length > 0) flush();
       current.nextThoughts.push(block.text);
+      (current.nextThoughtSources ??= []).push({
+        messageId: message.id,
+        sessionId: message.session_id,
+        partId: block.id,
+        field: 'text',
+      });
       current.streaming ||= Boolean(block.streaming);
       consumed.add(block.id);
       continue;
@@ -169,6 +177,13 @@ function fallbackIterations(
       }
       if (block.thought && current.nextThoughts.length === 0) {
         current.nextThoughts.push(block.thought);
+        (current.nextThoughtSources ??= []).push({
+          messageId: message.id,
+          sessionId: message.session_id,
+          partId: block.id,
+          field: 'thought',
+          callId: block.tool_id,
+        });
       }
       current.streaming ||= ['pending', 'running'].includes(tool.state);
       consumed.add(block.id);

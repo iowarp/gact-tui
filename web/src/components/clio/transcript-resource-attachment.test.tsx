@@ -92,6 +92,24 @@ function renderAttachment(element: ReactElement) {
 }
 
 describe('TranscriptResourceAttachment availability', () => {
+  it('presents a folder using its source name and folder icon', () => {
+    const folder = {
+      ...resource('application/json', processing('not_started')),
+      name: 'folder-index.json',
+      connected_source: {
+        kind: 'folder',
+        id: 'source_1',
+        label: 'Research inputs',
+        linked: 'true',
+      },
+    };
+    renderAttachment(
+      <TranscriptResourceAttachment block={block} resource={folder} onOpen={vi.fn()} />,
+    );
+    expect(screen.getByRole('button', { name: 'Open Research inputs' })).toBeEnabled();
+    expect(screen.getByLabelText('Folder')).toBeInTheDocument();
+    expect(screen.queryByText('folder-index.json')).toBeNull();
+  });
   it('opens an attachment with the complete adjacent message group', async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();

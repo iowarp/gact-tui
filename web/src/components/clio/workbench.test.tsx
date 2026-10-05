@@ -75,6 +75,27 @@ function BrokenCanvasItem(): never {
 }
 
 describe('ClioWorkbench canvas', () => {
+  it('opens workspace files without allocating a session and keeps session-only panels idle', async () => {
+    const handle = createRef<ClioWorkbenchHandle>();
+    render(
+      <ClioWorkbench
+        ref={handle}
+        workspaceId="workspace_1"
+        sessionId=""
+        files={[]}
+        artifacts={[]}
+        blueprints={[]}
+        diffs={[]}
+        onApplyDiff={vi.fn()}
+        onRejectDiff={vi.fn()}
+        onOpenSubagent={vi.fn()}
+        sessionView={<p>Send your first message to see session activity.</p>}
+      />,
+    );
+    expect(screen.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+    await act(async () => handle.current?.open({ kind: 'resources', section: 'work' }));
+    expect(screen.getByText('Send your first message to see session activity.')).toBeVisible();
+  });
   it('contains a broken canvas item without replacing the workspace', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const user = userEvent.setup();

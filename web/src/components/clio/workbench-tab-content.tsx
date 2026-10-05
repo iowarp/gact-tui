@@ -13,7 +13,12 @@ import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { ClioWorkflowCanvasView } from './workflow-canvas-view';
-import { ArtifactBrowser, BlueprintBrowser, BlueprintView, FileBrowser } from './workbench-resource-browser';
+import {
+  ArtifactBrowser,
+  BlueprintBrowser,
+  BlueprintView,
+  FileBrowser,
+} from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 
@@ -110,7 +115,7 @@ export function WorkbenchTabContent({
 }: WorkbenchTabContentProps): ReactNode {
   switch (tab.kind) {
     case 'work':
-      return <SessionWorkView key={sessionId} sessionId={sessionId} />;
+      return sessionId ? <SessionWorkView key={sessionId} sessionId={sessionId} /> : sessionView;
     case 'session':
       return sessionView;
     case 'files':
@@ -267,7 +272,11 @@ export function WorkbenchTabContent({
       );
     case 'blueprint':
       return (
-        <BlueprintView blueprint={tab.blueprint} sessionId={tab.sessionId} workspaceId={tab.workspaceId} />
+        <BlueprintView
+          blueprint={tab.blueprint}
+          sessionId={tab.sessionId}
+          workspaceId={tab.workspaceId}
+        />
       );
     case 'subagent':
       return (
@@ -308,7 +317,13 @@ export function WorkbenchTabContent({
         />
       );
     case 'workflow':
-      return <ClioWorkflowCanvasView onOpenSubagent={onOpenSubagent} subagents={subagents} tool={tab.tool} />;
+      return (
+        <ClioWorkflowCanvasView
+          onOpenSubagent={onOpenSubagent}
+          subagents={subagents}
+          tool={tab.tool}
+        />
+      );
     case 'terminal':
       return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
     default:

@@ -5,6 +5,7 @@ import { BrandTagline } from './brand-tagline';
 
 const opener = vi.hoisted(() => ({ openExternalUrl: vi.fn(async () => undefined) }));
 vi.mock('@/tauri/external-url', () => opener);
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => true }));
 
 afterEach(() => {
   cleanup();

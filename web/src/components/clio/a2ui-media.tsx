@@ -107,12 +107,16 @@ function imageDownloadFilename(name: string, mediaType: string | undefined): str
 }
 
 function ReferenceImage({
+  componentId,
+  sourceRef,
   label,
   objectFit,
   onError,
   state,
   variant,
 }: {
+  componentId: string;
+  sourceRef: string;
   label: string | undefined;
   objectFit: CSSProperties['objectFit'];
   onError: () => void;
@@ -130,11 +134,13 @@ function ReferenceImage({
       filters: [],
       previewColumns: [],
       previewRows: [],
-      query: { name, mediaType: state.resolution?.media_type },
+      query: { name, sourceRef, mediaType: state.resolution?.media_type },
       zoneDescription: 'the whole image',
     });
 
   const capabilities: SurfaceCapabilities = {
+    imageAttention: true,
+    captureComponentId: componentId,
     buildReference,
     exportFormats: [
       {
@@ -170,7 +176,7 @@ function ReferenceImage({
   );
 }
 
-function ReferenceMedia({ kind, label, objectFit, url, variant }: Omit<A2uiMediaProps, 'componentId'>) {
+function ReferenceMedia({ componentId, kind, label, objectFit, url, variant }: A2uiMediaProps) {
   const state = useA2uiReference(url);
   const [undisplayable, setUndisplayable] = useState<string>();
   const failure =
@@ -192,7 +198,7 @@ function ReferenceMedia({ kind, label, objectFit, url, variant }: Omit<A2uiMedia
   }
   const onError = () => setUndisplayable(state.objectUrl);
   if (kind === 'image') {
-    return <ReferenceImage label={label} objectFit={objectFit} onError={onError} state={state} variant={variant} />;
+    return <ReferenceImage componentId={componentId} sourceRef={url} label={label} objectFit={objectFit} onError={onError} state={state} variant={variant} />;
   }
   if (kind === 'video') {
     return (
@@ -230,5 +236,5 @@ export function A2uiMedia({ componentId, kind, label, objectFit, url, variant }:
     );
   }
   if (!isClioReference(url)) return <A2uiExternalMedia kind={kind} url={url} />;
-  return <ReferenceMedia kind={kind} label={label} objectFit={objectFit} url={url} variant={variant} />;
+  return <ReferenceMedia componentId={componentId} kind={kind} label={label} objectFit={objectFit} url={url} variant={variant} />;
 }

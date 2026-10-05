@@ -254,6 +254,7 @@ describe('ClioRepository interaction contracts', () => {
       workspace_id: 'ws_1',
       title: 'Evidence review',
       pinned: true,
+      blueprint_id: 'workspace::src_lab::research',
       mode: 'plan',
       routing_mode: 'experts',
       approval_mode: 'spotter-ai',
@@ -279,7 +280,7 @@ describe('ClioRepository interaction contracts', () => {
         body: {
           workspace_id: 'ws_1',
           title: 'Evidence review',
-          metadata: { pinned: true },
+          metadata: { pinned: true, active_agent_blueprint_id: 'workspace::src_lab::research' },
           mode: 'plan',
           routing_mode: 'experts',
           approval_mode: 'spotter-ai',

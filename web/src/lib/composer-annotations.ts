@@ -8,7 +8,10 @@ import type { SelectionTarget } from './selection-actions';
  * Annotations travel as part of the message text, so the service needs no new
  * message part to receive them and the transcript shows exactly what was sent.
  */
-export type ComposerAnnotation = TextQuoteAnnotation | DataZoneQuoteAnnotation | RegionCaptureAnnotation;
+export type ComposerAnnotation =
+  | TextQuoteAnnotation
+  | DataZoneQuoteAnnotation
+  | RegionCaptureAnnotation;
 
 export interface TextQuoteAnnotation {
   id: string;
@@ -57,7 +60,11 @@ export function annotationFromSelection(target: SelectionTarget): ComposerAnnota
       title: target.title,
     };
   }
-  return { id, kind: 'text-quote', messageId: target.messageId, sessionId: target.sessionId, text: target.text };
+  const { messageId, sessionId } =
+    target.kind === 'transcript-content'
+      ? { messageId: target.reference.message_id, sessionId: target.reference.session_id }
+      : target;
+  return { id, kind: 'text-quote', messageId, sessionId, text: target.text };
 }
 
 function quoted(text: string): string {

@@ -37,6 +37,26 @@ Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
 afterEach(cleanup);
 
 describe('conversation message projections', () => {
+  it('preserves unchanged rows when the last message streams', () => {
+    const messages: Message[] = Array.from({ length: 1_000 }, (_, index) => ({
+      id: `message-${index}`,
+      session_id: 'session_1',
+      role: index % 2 ? 'assistant' : 'user',
+      created_at: '2026-10-04T00:00:00Z',
+      blocks: [{ id: `text-${index}`, type: 'text', text: `Message ${index}` }],
+    }));
+    const before = foldA2UIRevisionBlocks(projectA2UIActionMessages(messages));
+    const streamed: Message = {
+      ...messages[999]!,
+      blocks: [{ id: 'text-999', type: 'text', text: 'More text', streaming: true }],
+    };
+    const after = foldA2UIRevisionBlocks(projectA2UIActionMessages([
+      ...messages.slice(0, -1), streamed,
+    ]));
+    expect(after.slice(0, -1).every((message, index) => message === before[index])).toBe(true);
+    expect(after[999]).toBe(streamed);
+  });
+
   it('shows an approval choice without protocol receipts or raw JSON', () => {
     const messages: Message[] = [
       {

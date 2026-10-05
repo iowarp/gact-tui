@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { modelAcquisitionSchema } from './model-acquisition-contract.js';
 
 export const infrastructureTransportStateSchema = z.enum([
   'connected',
@@ -78,6 +79,7 @@ const serviceFieldSchema = z.object({
   placeholder: z.string(),
   required: z.boolean(),
   options: z.array(z.string()).default([]),
+  variants: z.array(z.string()).optional(),
 });
 
 /** A tweakable server parameter as the service's driver declares it. */
@@ -134,9 +136,25 @@ export const serviceAccessSchema = z.object({
   verified: z.boolean().default(false),
 });
 
+const serviceObservationSchema = z.object({
+  definition_version: z.string(),
+  configuration_revision: z.string(),
+  phase: z.enum(['not_installed', 'installing', 'stopped', 'running', 'failed', 'interrupted']),
+  installed: z.boolean(),
+  running: z.boolean(),
+  serving: z.boolean(),
+  worker_alive: z.boolean(),
+  provenance_ingesting: z.boolean(),
+  attention_verified: z.boolean(),
+  evidence_directory: z.string(),
+  effective_artifacts: z.record(z.string(), z.string()).optional(),
+  error: z.string().nullish(),
+  observed_at: z.number(),
+});
+
 export const managedServiceDefinitionSchema = z.object({
   id: z.string(),
-  category: z.enum(['model_runtime', 'scientific_service', 'remote_access']),
+  category: z.enum(['model_runtime', 'scientific_service', 'remote_access', 'monitoring']),
   label: z.string(),
   description: z.string(),
   recommended_variant: z.string(),
@@ -160,6 +178,8 @@ export const managedServiceDefinitionSchema = z.object({
   supports_api_key: z.boolean().default(false),
   /** Who can use the installed deployment. */
   access: serviceAccessSchema.nullish().transform((value) => value ?? undefined),
+  definition_version: z.string().optional(),
+  observation: serviceObservationSchema.nullish().transform((value) => value ?? undefined),
 });
 
 export const managedServiceCatalogSchema = z.object({
@@ -222,6 +242,24 @@ export const externalServiceConnectionSchema = z.object({
 });
 
 export type SshRoute = z.infer<typeof sshRouteSchema>;
+export const infrastructureInventorySchema = z.object({
+  targets: z.array(infrastructureTargetSchema),
+  services: z.array(
+    z.object({
+      id: z.string(),
+      target_id: z.string(),
+      service_id: z.string(),
+      state: z.enum(['running', 'stopped', 'not_installed', 'unknown']),
+      connection_url: z.string().nullish(),
+      updated_at: z.string(),
+      configuration: z.record(z.string()).default({}),
+    }),
+  ),
+  connections: z.array(externalServiceConnectionSchema),
+  operations: z.array(infrastructureOperationSchema),
+  model_acquisitions: z.array(modelAcquisitionSchema).default([]),
+});
+export type InfrastructureInventory = z.infer<typeof infrastructureInventorySchema>;
 export type InfrastructureTarget = z.infer<typeof infrastructureTargetSchema>;
 export type TargetFacts = z.infer<typeof targetFactsSchema>;
 export type ContainerRuntimeFact = z.infer<typeof containerRuntimeFactSchema>;
@@ -245,7 +283,16 @@ export type CreateInfrastructureTargetInput = {
 
 export type ServiceActionInput = {
   target_id: string;
-  action: 'install' | 'start' | 'status' | 'stop' | 'logs' | 'reinstall' | 'uninstall';
+  action:
+    | 'install'
+    | 'start'
+    | 'status'
+    | 'stop'
+    | 'logs'
+    | 'reinstall'
+    | 'uninstall'
+    | 'delete_data'
+    | 'verify';
   variant_id: string;
   configuration: Record<string, string>;
 };

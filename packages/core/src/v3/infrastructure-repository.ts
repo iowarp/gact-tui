@@ -4,6 +4,8 @@ import {
   infrastructureOperationSchema,
   infrastructureTargetSchema,
   managedServiceCatalogSchema,
+  infrastructureInventorySchema,
+  type InfrastructureInventory,
   type CreateInfrastructureTargetInput,
   type ExternalServiceConnection,
   type ExternalServiceConnectionInput,
@@ -12,10 +14,62 @@ import {
   type ManagedServiceCatalog,
   type ServiceActionInput,
 } from './infrastructure-contract.js';
-import { A2uiRepository } from './a2ui-repository.js';
+import { ProvenanceConnectionRepository } from './provenance-connections.js';
+import {
+  hostStorageSettingsSchema,
+  hostPathInspectionSchema,
+  type HostStorageSettings,
+  type HostPathInspection,
+  type HostStorageLocations,
+} from './storage-contract.js';
 
 /** Infrastructure lifecycle and connection operations owned by the active CLIO. */
-export class InfrastructureRepository extends A2uiRepository {
+export class InfrastructureRepository extends ProvenanceConnectionRepository {
+  public infrastructureInventory(signal?: AbortSignal): Promise<InfrastructureInventory> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/infrastructure/inventory',
+      decode: (value) => infrastructureInventorySchema.parse(value),
+      signal,
+    });
+  }
+  public hostStorageSettings(targetId: string, signal?: AbortSignal): Promise<HostStorageSettings> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/infrastructure/targets/${encodeURIComponent(targetId)}/storage`,
+      decode: (value) => hostStorageSettingsSchema.parse(value),
+      signal,
+    });
+  }
+
+  public saveHostStorageSettings(
+    targetId: string,
+    locations: HostStorageLocations,
+    signal?: AbortSignal,
+  ): Promise<HostStorageSettings> {
+    return this.transport.request({
+      method: 'PUT',
+      path: `/v1/infrastructure/targets/${encodeURIComponent(targetId)}/storage`,
+      body: locations,
+      decode: (value) => hostStorageSettingsSchema.parse(value),
+      signal,
+    });
+  }
+
+  public inspectHostPath(
+    targetId: string,
+    input: { path: string; browse?: boolean; required_bytes?: number },
+    signal?: AbortSignal,
+  ): Promise<HostPathInspection> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/infrastructure/targets/${encodeURIComponent(targetId)}/storage/inspect`,
+      body: input,
+      decode: (value) => hostPathInspectionSchema.parse(value),
+      signal,
+    });
+  }
+
   public async infrastructureTargets(signal?: AbortSignal): Promise<InfrastructureTarget[]> {
     const response = await this.transport.request({
       method: 'GET',

@@ -6,7 +6,37 @@ import {
   type PendingInteractionResponse,
   type RunState,
   type ToolState,
+  type PendingSteer,
 } from '@clio/core/v3';
+
+/** Name only owners discovered through this session's hierarchy. */
+export function interactionOwnerLabels(
+  interactions: readonly { owner_session_id: string }[],
+  discovered: ReadonlySet<string>,
+  sessions: readonly { id: string; title?: string }[],
+): Record<string, string> {
+  const owners = new Map(sessions.map((session) => [session.id, session.title]));
+  return Object.fromEntries(
+    interactions.flatMap(({ owner_session_id: id }) => {
+      const title = discovered.has(id) ? owners.get(id) : undefined;
+      return title ? [[id, title]] : [];
+    }),
+  );
+}
+
+/** Claimed steering remains pending in the transcript but can no longer be cancelled. */
+export function pendingSteerMessageIds(steers: readonly PendingSteer[]) {
+  return {
+    pendingMessageIds: new Set(
+      steers
+        .filter((steer) => steer.state === 'pending' || steer.state === 'claimed')
+        .map((steer) => steer.message_id),
+    ),
+    cancellablePendingMessageIds: new Set(
+      steers.filter((steer) => steer.state === 'pending').map((steer) => steer.message_id),
+    ),
+  };
+}
 
 /** Counts authoritative work that can still advance without inventing progress. */
 export function countActiveWork(

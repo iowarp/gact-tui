@@ -7,6 +7,7 @@ import { ClioConversation } from './conversation';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
+import { ChildConversationFollowup } from './child-conversation-followup';
 
 export interface ClioSubagentCanvasViewProps {
   activeSessionId: string;
@@ -109,6 +110,11 @@ export function ClioSubagentCanvasView({
           workspaceId={workspaceId}
         />
       </div>
+      <ChildConversationFollowup
+        sessionId={childSessionId}
+        parentSessionId={subagent.session_id}
+        workspaceId={workspaceId}
+      />
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
+import type { ContentSelection } from '@clio/core/v3';
+import { transcriptContentSelection } from './transcript-content-selection';
 
 /**
  * What a person selected, and where. One discriminated union carries every
@@ -12,7 +14,16 @@ import type { LucideIcon } from 'lucide-react';
  * declare which kinds they apply to, so adding a kind never changes an action
  * that does not handle it.
  */
-export type SelectionTarget = AgentAnswerTextSelection | DataSurfaceZoneSelection;
+export type SelectionTarget =
+  | AgentAnswerTextSelection
+  | DataSurfaceZoneSelection
+  | TranscriptContentSelection;
+
+export interface TranscriptContentSelection {
+  kind: 'transcript-content';
+  text: string;
+  reference: ContentSelection;
+}
 
 /** A contiguous run of text inside one agent answer in the transcript. */
 export interface AgentAnswerTextSelection {
@@ -23,6 +34,9 @@ export interface AgentAnswerTextSelection {
   sessionId: string;
   /** The answer message the text belongs to. */
   messageId: string;
+  partId?: string;
+  contentRevision?: string;
+  reference?: ContentSelection;
 }
 
 /**
@@ -57,7 +71,7 @@ export interface SelectionAction {
   kinds: readonly SelectionTargetKind[];
   /** Further narrowing for one selection (e.g. only when a session is open). */
   isAvailable?: (target: SelectionTarget) => boolean;
-  run: (target: SelectionTarget) => void;
+  run: (target: SelectionTarget) => void | boolean;
 }
 
 /** The set of selection actions currently offered, owned by one provider. */
@@ -128,7 +142,27 @@ export function agentAnswerSelection(
   const sessionId = surface?.dataset.sessionId ?? '';
   const messageId = surface?.dataset.messageId ?? '';
   if (!surface || !sessionId || !messageId) return undefined;
-  return { kind: 'agent-answer-text', text, sessionId, messageId };
+  const identity = (textBlock as HTMLElement).dataset;
+  const reference = transcriptContentSelection(selection);
+  return {
+    kind: 'agent-answer-text',
+    text,
+    sessionId,
+    messageId,
+    ...(identity.partId ? { partId: identity.partId } : {}),
+    ...(identity.contentRevision ? { contentRevision: identity.contentRevision } : {}),
+    ...(reference ? { reference } : {}),
+  };
+}
+
+/** User text and structured renderers share the registry without being called agent answers. */
+export function transcriptSelection(selection: Selection | null): SelectionTarget | undefined {
+  const answer = agentAnswerSelection(selection);
+  if (answer) return answer;
+  const reference = transcriptContentSelection(selection);
+  return reference
+    ? { kind: 'transcript-content', reference, text: selection?.toString() ?? '' }
+    : undefined;
 }
 
 function elementOf(node: Node): Element | null {

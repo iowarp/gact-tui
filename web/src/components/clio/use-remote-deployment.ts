@@ -9,7 +9,6 @@ import {
   attachInfrastructureSshTransport,
   cancelSshTransport,
   sshTransportLog,
-  sshTransportStatus,
   writeSshTransport,
   type SshStateEvent,
   type SshStepEvent,
@@ -22,16 +21,16 @@ import {
   type DeployProgress,
 } from './deploy-progress-model';
 import {
-  abortableDelay,
   claimClioAgent,
   savedSshRoute,
   sshTargetDefinition,
-  targetMatchesHost,
   waitForConflictAnswer,
   type ConflictAnswer,
   type FoundConflict,
   NewClioInstance,
 } from './managed-service-target-utils';
+
+import { connectSshTarget, registerSshTarget } from './ssh-target-connection';
 
 export type RemoteDeploymentPhase = 'idle' | 'running' | 'cancelling' | 'failed' | 'cancelled';
 
@@ -177,25 +176,8 @@ export function useRemoteDeployment(
         activeRepository.current = repository;
         let deployedHost = host;
         let port = options.port;
-        let registered = await registerTarget(repository, deployedHost);
-        let status = await attachInfrastructureSshTransport(
-          settings.endpoint,
-          settings.token,
-          registered,
-        );
-        observe(status);
-        while (status.state !== 'connected') {
-          if (status.state === 'disconnected')
-            throw new Error(
-              status.failure ||
-                `OpenSSH disconnected from ${host.label} before authentication finished.`,
-            );
-          await abortableDelay(250, controller.signal);
-          status = await sshTransportStatus(status.session_id);
-          observe(status);
-        }
-        await repository.setInfrastructureTransportState(registered.id, 'connected');
-        await attachInfrastructureSshTransport(settings.endpoint, settings.token, registered);
+        let registered = await registerSshTarget(repository, deployedHost);
+        await connectSshTarget(repository, settings, registered, controller.signal, observe);
         for (;;) {
           try {
             await runInstallToCompletion(repository, registered, controller.signal, {
@@ -327,20 +309,4 @@ async function checkHealth(endpoint: string, signal: AbortSignal): Promise<void>
       `${vocab.agent} did not answer through the tunnel: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-}
-
-/** Create or update the durable infrastructure target for this host. */
-async function registerTarget(
-  repository: ReturnType<typeof createRepository>,
-  host: SshHost,
-): Promise<InfrastructureTarget> {
-  const targets = await repository.infrastructureTargets();
-  const definition = sshTargetDefinition(host);
-  const existing = targets.find(
-    (candidate) =>
-      targetMatchesHost(candidate, host) && candidate.install_root === (host.installRoot || ''),
-  );
-  return existing
-    ? repository.updateInfrastructureTarget(existing.id, definition)
-    : repository.createInfrastructureTarget(definition);
 }

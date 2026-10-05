@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { DataReferenceThisButton } from './data-reference-this-button';
 import type { DataZoneReference } from './data-zone-reference';
 import { A2uiRegionCaptureContext } from './a2ui-region-capture';
+import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
 
 /**
  * The ONE shared affordance framework (G0): a per-component capability
@@ -82,6 +83,8 @@ export interface SurfaceFullScreenControl {
 }
 
 export interface SurfaceCapabilities {
+  /** Image-region attention is provided by the capture controls instead of row selection. */
+  imageAttention?: boolean;
   /** Preserve the protocol component identity when a full-screen toolbar is portalled outside it. */
   captureComponentId?: string;
   /** The download menu, nested in the overflow. Omit entirely when the component has nothing to export. */
@@ -297,6 +300,7 @@ export interface SurfaceToolbarProps {
 /** Renders every affordance `capabilities` declares, in the same order and shape everywhere. */
 export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbarProps) {
   const capture = useContext(A2uiRegionCaptureContext);
+  const attention = useContext(SurfaceAttentionContext);
   const [menuOpen, setMenuOpen] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -327,7 +331,8 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
     overflowContent,
     selectionHint,
   } = capabilities;
-  const hasOverflow = Boolean(exportFormats?.length || overflowContent || selectionHint || onCopy);
+  const hasAttentionSelection = attention && buildReference && !capabilities.imageAttention;
+  const hasOverflow = Boolean(exportFormats?.length || overflowContent || selectionHint || onCopy || hasAttentionSelection);
   // Stays revealed (and clickable) while one of its own menus/popovers is
   // open, even if the pointer or focus has moved off the surface in the
   // meantime (e.g. a Filters popover opened upward, or a long "More" menu).
@@ -450,6 +455,13 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
                 />
               ) : null}
               {overflowContent}
+              {hasAttentionSelection ? <DropdownMenuItem onSelect={() => {
+                const componentId = capabilities.captureComponentId ?? rootRef.current?.closest<HTMLElement>('[data-a2ui-component-id]')?.dataset.a2uiComponentId;
+                const reference = buildReference();
+                void attention.structured(componentId, reference.query, reference.summary)
+                  .then(() => toast.success('Selection added to attention set'))
+                  .catch((error: unknown) => toast.error('Could not add this selection', { description: exportFailureReason(error) }));
+              }}>Add selection to attention set</DropdownMenuItem> : null}
               {selectionHint ? (
                 // A disabled `DropdownMenuItem`, not a bare `<div>` (#516
                 // review item 16): a plain div sits outside the menu's roving

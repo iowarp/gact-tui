@@ -396,5 +396,8 @@ export function parametersForVariant(
   parameters: ServerParameter[],
   variant: string,
 ): ServerParameter[] {
-  return parameters.filter((row) => !row.variants.length || row.variants.includes(variant));
+  const effectiveVariant = variant.startsWith('native-cuda') ? 'cuda' : variant;
+  return parameters.filter(
+    (row) => !row.variants.length || row.variants.includes(effectiveVariant),
+  );
 }

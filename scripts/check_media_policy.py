@@ -39,6 +39,7 @@ _ALLOWED_IMAGE_PREFIXES: tuple[str, ...] = (
     "ref/",                           # design reference
     "logo/",                          # logo art
     "desktop/src-tauri/icons/",       # functional desktop app icons (build input)
+    "web/public/provider-logos/",     # provider identity assets used by the product UI
     "web/tests/",                     # visual-test fixtures (build input)
 )
 
@@ -97,6 +98,7 @@ def _selftest() -> int:
         "docs/screenshots/02-streaming.png",     # the sole curated screenshot home
         "docs/screenshots/multi-backend-picker.png",
         "docs/ref/ours.png",
+        "web/public/provider-logos/flowcept.png",
         "desktop/src-tauri/icons/icon.png",  # functional desktop app icon
         "web/tests/visual/fixtures/MTA1_GNSS_timeseries_displacement.png",  # visual-test fixture
         "tui/testdata/tapes/x.tape",
