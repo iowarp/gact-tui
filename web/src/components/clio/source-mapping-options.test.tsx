@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useState } from 'react';
+import { vocab } from '@/lib/brand-vocabulary';
 import { SourceMappingOptions } from './source-mapping-options';
 import { type LinkAccess, type DownloadAccess } from './connected-source-labels';
 
@@ -51,7 +52,7 @@ it('keeps copy access independent and requires acknowledgement for live writes',
     'publish_later',
   );
   expect(
-    screen.getByText('Keep edits in CLIO. Review and publish when you are ready.'),
+    screen.getByText(`Keep edits in ${vocab.agent}. Review and publish when you are ready.`),
   ).toBeVisible();
 });
 

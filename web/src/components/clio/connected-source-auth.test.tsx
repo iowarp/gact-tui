@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 
 const mocks = vi.hoisted(() => ({
   startSourceSignIn: vi.fn(),
@@ -116,7 +117,9 @@ describe.each(['source', 'account'])('automatic Google %s sign-in', (kind) => {
   it('completes from the receiver without asking the user to copy a callback', async () => {
     renderGoogle();
     await startGoogle();
-    expect(screen.getByRole('status')).toHaveTextContent('CLIO will connect automatically');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      `${vocab.agent} will connect automatically`,
+    );
     expect(screen.queryByLabelText('Return URL after authorization')).not.toBeInTheDocument();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);

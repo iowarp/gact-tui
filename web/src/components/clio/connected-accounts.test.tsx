@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 
 const fixtures = vi.hoisted(() => ({
   endpoint: 'https://clio-one',
@@ -285,7 +286,9 @@ describe('connected provider accounts', () => {
     expect(screen.getByRole('button', { name: 'Connect' })).toBeEnabled();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Sign out of Globus' }));
-    expect(screen.getByText(/across all workspaces on this CLIO/)).toBeVisible();
+    expect(
+      screen.getByText(new RegExp(`across all workspaces on this ${vocab.agent}`)),
+    ).toBeVisible();
     expect(fixtures.repository.signOutStorageAccount).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() =>
