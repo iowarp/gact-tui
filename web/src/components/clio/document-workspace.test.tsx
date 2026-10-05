@@ -39,7 +39,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 vi.mock('@/tauri/documents', () => ({ openDocumentWorkingCopy: vi.fn().mockResolvedValue(false) }));
 vi.mock('./document-pdf-viewer', () => ({
-  ClioDocumentPdfViewer: () => <div>PDF preview</div>,
+  ClioDocumentPdfViewer: ({ fit }: { fit: string }) => <div data-fit={fit}>PDF preview</div>,
 }));
 
 afterEach(() => {
@@ -80,6 +80,10 @@ describe('ClioDocumentWorkspace', () => {
       renderWorkspace();
 
       expect(await screen.findByText('PDF preview')).toBeVisible();
+      expect(screen.getByText('PDF preview')).toHaveAttribute(
+        'data-fit',
+        profile === 'ooxml-sheet' ? 'width' : 'page',
+      );
       expect(screen.getByText('Saved PDF preview')).toBeVisible();
       expect(screen.queryByText('PDF document')).not.toBeInTheDocument();
       expect(repository.documentContent).toHaveBeenCalledWith('artifact_pdf', expect.anything());

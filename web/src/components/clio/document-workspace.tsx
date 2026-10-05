@@ -389,6 +389,12 @@ export function ClioDocumentWorkspace({
               content={content.data}
               editor={editor}
               fallback={fallbackPreview}
+              fit={
+                manifest.data &&
+                ['ooxml-word', 'ooxml-slides', 'odf-text', 'odf-slides'].includes(manifest.data.profile)
+                  ? 'page'
+                  : 'width'
+              }
               manifest={effectiveManifest}
               onPdfSelection={setSelection}
               text={textContent}
@@ -494,6 +500,7 @@ function DocumentPreview({
   content,
   editor,
   fallback,
+  fit,
   manifest,
   onPdfSelection,
   text,
@@ -501,6 +508,7 @@ function DocumentPreview({
   content?: Uint8Array;
   editor?: DocumentEditorSession;
   fallback: ReactNode;
+  fit: 'page' | 'width';
   manifest?: DocumentManifest;
   onPdfSelection: (anchor: DocumentAnchor) => void;
   text?: string;
@@ -527,7 +535,7 @@ function DocumentPreview({
       <div className="h-[70vh] min-h-[540px] w-full">
         <ClioPdfPreview
           bytes={content}
-          fit="page"
+          fit={fit}
           name={manifest.name}
           onSelection={onPdfSelection}
         />
