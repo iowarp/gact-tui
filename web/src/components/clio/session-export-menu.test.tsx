@@ -24,7 +24,7 @@ describe('session export modes', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Actions' }));
     await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
-    expect(screen.getByRole('menuitem', { name: 'Download transcript archive' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Download transcript HTML' })).toBeVisible();
     fireEvent.click(
       screen.getByRole('menuitemcheckbox', { name: 'Full: include workspace files' }),
     );

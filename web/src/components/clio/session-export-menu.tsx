@@ -22,7 +22,7 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
         <DownloadIcon aria-hidden="true" /> Export session
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-72">
-        <DropdownMenuLabel>Offline visual review + raw transcript</DropdownMenuLabel>
+        <DropdownMenuLabel>Transcript: one self-contained HTML</DropdownMenuLabel>
         <DropdownMenuCheckboxItem
           checked={effects}
           onSelect={(event) => event.preventDefault()}
@@ -45,7 +45,8 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onExport(mode)}>
-          <DownloadIcon aria-hidden="true" /> Download {mode} archive
+          <DownloadIcon aria-hidden="true" /> Download{' '}
+          {mode === 'transcript' ? 'transcript HTML' : `${mode} archive`}
         </DropdownMenuItem>
       </DropdownMenuSubContent>
     </DropdownMenuSub>
