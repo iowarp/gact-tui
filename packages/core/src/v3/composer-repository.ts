@@ -262,7 +262,13 @@ export class ComposerRepository extends ArtifactPreviewRepository {
 
   public createResource(
     workspaceId: string,
-    file: { name: string; size: number; mediaType: string; clientUploadId: string },
+    file: {
+      name: string;
+      size: number;
+      mediaType: string;
+      clientUploadId: string;
+      pendingAttachment?: boolean;
+    },
     signal?: AbortSignal,
   ): Promise<WorkspaceResource> {
     return this.transport.request({
@@ -273,9 +279,19 @@ export class ComposerRepository extends ArtifactPreviewRepository {
         size: file.size,
         media_type: file.mediaType,
         client_upload_id: file.clientUploadId,
+        ...(file.pendingAttachment ? { pending_attachment: true } : {}),
       },
       decode: (value) => workspaceResourceSchema.parse(value),
       signal,
+    });
+  }
+
+  public discardResourceUpload(workspaceId: string, clientUploadId: string) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/resources/discard-upload`,
+      body: { client_upload_id: clientUploadId },
+      decode: () => undefined,
     });
   }
 

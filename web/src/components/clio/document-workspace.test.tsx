@@ -39,7 +39,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 vi.mock('@/tauri/documents', () => ({ openDocumentWorkingCopy: vi.fn().mockResolvedValue(false) }));
 vi.mock('./document-pdf-viewer', () => ({
-  ClioDocumentPdfViewer: () => <div>PDF preview</div>,
+  ClioDocumentPdfViewer: ({ fit }: { fit: string }) => <div data-fit={fit}>PDF preview</div>,
 }));
 
 afterEach(() => {
@@ -67,6 +67,31 @@ function renderWorkspace() {
 }
 
 describe('ClioDocumentWorkspace', () => {
+  it.each(['ooxml-word', 'ooxml-slides', 'ooxml-sheet'] as const)(
+    'opens the saved PDF for a %s artifact without converting it again',
+    async (profile) => {
+      repository.documentManifest.mockImplementation(async (id: string) =>
+        id === 'artifact_pdf'
+          ? { ...manifest, artifact_id: id, name: 'preview.pdf', profile: 'pdf' }
+          : { ...manifest, profile, pdf_rendition_artifact_id: 'artifact_pdf' },
+      );
+      repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-1.7'));
+      repository.artifactReviews.mockResolvedValue([]);
+      renderWorkspace();
+
+      expect(await screen.findByText('PDF preview')).toBeVisible();
+      expect(screen.getByText('PDF preview')).toHaveAttribute(
+        'data-fit',
+        profile === 'ooxml-sheet' ? 'width' : 'page',
+      );
+      expect(screen.getByText('Saved PDF preview')).toBeVisible();
+      expect(screen.queryByText('PDF document')).not.toBeInTheDocument();
+      expect(repository.documentContent).toHaveBeenCalledWith('artifact_pdf', expect.anything());
+      expect(repository.createDocumentRendition).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Open in desktop app' })).toBeVisible();
+    },
+  );
+
   it('renders immutable content and sends a selected quote to the agent', async () => {
     const user = userEvent.setup();
     repository.documentManifest.mockResolvedValue(manifest);

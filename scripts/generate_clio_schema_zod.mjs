@@ -6,6 +6,36 @@ import { jsonSchemaToZod } from 'json-schema-to-zod';
 
 const contracts = [
   {
+    file: 'attention_evidence_inspection.json',
+    output: 'attention-evidence-inspection.schema.ts',
+    schema: 'attentionEvidenceInspectionGeneratedSchema',
+    type: 'AttentionEvidenceInspection',
+  },
+  {
+    file: 'attention_profile.json',
+    output: 'attention-profile.schema.ts',
+    schema: 'attentionProfileGeneratedSchema',
+    type: 'AttentionProfile',
+  },
+  {
+    file: 'host_storage_locations.json',
+    output: 'host-storage-locations.schema.ts',
+    schema: 'hostStorageLocationsGeneratedSchema',
+    type: 'HostStorageLocations',
+  },
+  {
+    file: 'connected_source.json',
+    output: 'connected-source.schema.ts',
+    schema: 'connectedSourceGeneratedSchema',
+    type: 'ConnectedSource',
+  },
+  {
+    file: 'content_selection.json',
+    output: 'content-selection.schema.ts',
+    schema: 'contentSelectionGeneratedSchema',
+    type: 'ContentSelection',
+  },
+  {
     file: 'accepted_parameter.json',
     output: 'accepted-parameter.schema.ts',
     schema: 'acceptedParameterGeneratedSchema',
@@ -86,18 +116,21 @@ ${typeVocabulary}
  * `z.ZodType<Contract>` would not typecheck.
  */
 function nonEmptyArrayOverride(schema) {
+  if (schema?.discriminator?.propertyName && Array.isArray(schema.oneOf)) {
+    return `z.discriminatedUnion(${JSON.stringify(schema.discriminator.propertyName)}, [${schema.oneOf.map((entry) => jsonSchemaToZod(entry, ZOD_OPTIONS)).join(', ')}])`;
+  }
   const items = schema?.items;
   if (
     schema?.type !== 'array' ||
     schema.minItems !== 1 ||
-    schema.maxItems !== undefined ||
     typeof items !== 'object' ||
     items === null ||
     Array.isArray(items)
   ) {
     return undefined;
   }
-  return `z.array(${jsonSchemaToZod(items, ZOD_OPTIONS)}).nonempty()`;
+  const maximum = schema.maxItems === undefined ? '' : `.max(${schema.maxItems})`;
+  return `z.array(${jsonSchemaToZod(items, ZOD_OPTIONS)}).nonempty()${maximum}`;
 }
 
 const ZOD_OPTIONS = {
@@ -122,7 +155,12 @@ async function main() {
   }
 
   const barrel = join(args.out, 'index.ts');
-  const existing = readFileSync(barrel, 'utf8').trimEnd();
+  const exportedFiles = contracts.map((contract) => contract.output.replace(/\.ts$/u, '.js'));
+  const existing = readFileSync(barrel, 'utf8')
+    .split(/\r?\n/u)
+    .filter((line) => !exportedFiles.some((file) => line === `export * from './${file}';`))
+    .join('\n')
+    .trimEnd();
   const reexports = contracts
     .map((contract) => `export * from './${contract.output.replace(/\.ts$/u, '.js')}';`)
     .join('\n');

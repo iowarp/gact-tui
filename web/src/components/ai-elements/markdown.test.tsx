@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ openExternalUrl: vi.fn() }));
 
 vi.mock('@/tauri/external-url', () => ({ openExternalUrl: mocks.openExternalUrl }));
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => true }));
 
 vi.mock('streamdown', () => ({
   // A thin stand-in for the real renderer: it still resolves `components.a`

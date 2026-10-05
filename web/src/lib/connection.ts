@@ -62,6 +62,25 @@ export class InfrastructureTargetGoneError extends Error {
 
 export const DEFAULT_ENDPOINT = 'http://127.0.0.1:8787';
 
+/** Explicit remote routes take precedence over a direct loopback connection. */
+export function connectionIsLocal(settings: ConnectionSettings, managed = false): boolean {
+  if (settings.infrastructure) {
+    return !settings.infrastructure.route && settings.infrastructure.targetId === 'local';
+  }
+  if (managed) return true;
+  const location = settings.location?.trim().toLowerCase();
+  if (location) return ['local', 'this computer', 'this device'].includes(location);
+  try {
+    const url = new URL(settings.endpoint);
+    return (
+      ['http:', 'https:'].includes(url.protocol) &&
+      ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function normalizeEndpoint(value: string): string {
   const url = new URL(value);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {

@@ -44,7 +44,16 @@ export const toolPresentationSchema = z.object({
         .nullish()
         .transform((value) => value ?? undefined),
       target: z
-        .enum(['artifact', 'resource', 'session', 'url', 'file', 'work', 'surface'])
+        .enum([
+          'artifact',
+          'resource',
+          'session',
+          'url',
+          'file',
+          'work',
+          'surface',
+          'connected_data',
+        ])
         .optional(),
       state: z.enum(['pending', 'in_progress', 'completed']).optional(),
       previous_state: z.enum(['pending', 'in_progress', 'completed']).optional(),

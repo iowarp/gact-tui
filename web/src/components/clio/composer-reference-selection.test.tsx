@@ -161,7 +161,6 @@ describe('composer reference selection', () => {
     renderComposer();
 
     await user.type(composerEditor(), '@');
-    await user.click(await screen.findByRole('button', { name: 'Expand Workspace files' }));
     await screen.findByRole('option', { name: /README.md/ });
 
     const stack = composerEditor().closest('[data-slot="clio-composer-stack"]');
@@ -318,10 +317,27 @@ describe('composer reference selection', () => {
 
     await user.type(composerEditor(), '@');
 
-    await user.click(await screen.findByRole('button', { name: 'Expand Workspace files' }));
     await screen.findByText('file-0.txt');
     expect(screen.getAllByRole('option')).toHaveLength(100);
     expect(screen.queryByText('file-124.txt')).not.toBeInTheDocument();
+  });
+
+  it('keeps files first even when the artifact inventory fills the result limit', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([
+      ...Array.from({ length: 100 }, (_, index) => ({
+        ...artifactReference,
+        id: `artifact-${index}`,
+        label: `Plot ${index}`,
+      })),
+      readmeReference,
+    ]);
+    const user = userEvent.setup();
+    renderComposer();
+    await user.type(composerEditor(), '@');
+    await screen.findByRole('option', { name: /README.md/ });
+    expect(screen.getAllByRole('option')[0]).toHaveTextContent('README.md');
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('button', { name: 'Open local file README.md' })).toBeVisible();
   });
 
   it('allows a structured reference to steer without text', async () => {

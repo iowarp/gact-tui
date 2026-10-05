@@ -281,6 +281,7 @@ export function SessionDefaultsSettings() {
                   .map((blueprint) => (
                     <SelectItem key={blueprint.id} value={blueprint.id}>
                       {blueprint.display_name}
+                      {blueprint.materialized === false ? ' · Installs when used' : ''}
                     </SelectItem>
                   ))}
               </SelectContent>

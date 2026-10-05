@@ -16,8 +16,12 @@ const requiredImports = {
     '@/components/ai-elements/code-block',
     '@/components/ai-elements/plan',
     './artifact-card',
-    './grounded-message-response',
+    './transcript-text-block',
     './conversation-process-sequence',
+  ],
+  // Source text rendering now owns the stable part/revision selection binding.
+  'web/src/components/clio/transcript-text-block.tsx': [
+    './grounded-message-response', './sent-reference-message', './streaming-text',
   ],
   'web/src/components/clio/conversation-process-sequence.tsx': [
     '@/components/ai-elements/reasoning',

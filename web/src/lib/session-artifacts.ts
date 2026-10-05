@@ -76,7 +76,9 @@ export function artifactDetailVersionEntity(
   artifactId: string,
   sessionId: string,
 ): Artifact {
-  const version = detail.artifact.versions.find((candidate) => candidate.artifact_id === artifactId);
+  const version = detail.artifact.versions.find(
+    (candidate) => candidate.artifact_id === artifactId,
+  );
   if (!version) throw new Error(`Artifact ${artifactId} has no readable version.`);
   return artifactVersionEntity(detail.artifact, version, sessionId, 'produced');
 }
@@ -104,7 +106,7 @@ function artifactVersionEntity(
     session_id: sessionId,
     workspace_id: record.workspace_id,
     name: record.name,
-    media_type: mediaTypeForArtifact(record.name, record.kind),
+    media_type: version.media_type || mediaTypeForArtifact(record.name, record.kind),
     uri: version.uri,
     fetch_path: version.fetch_url,
     custody: version.custody,
@@ -124,6 +126,7 @@ function mediaTypeForArtifact(name: string, kind: string): string {
   const byExtension: Record<string, string> = {
     avif: 'image/avif',
     csv: 'text/csv',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     gif: 'image/gif',
     geojson: 'application/geo+json',
     html: 'text/html',
@@ -133,11 +136,13 @@ function mediaTypeForArtifact(name: string, kind: string): string {
     md: 'text/markdown',
     parquet: 'application/vnd.apache.parquet',
     pdf: 'application/pdf',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     png: 'image/png',
     svg: 'image/svg+xml',
     tsv: 'text/tab-separated-values',
     txt: 'text/plain',
     webp: 'image/webp',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     yaml: 'application/yaml',
     yml: 'application/yaml',
     zip: 'application/zip',

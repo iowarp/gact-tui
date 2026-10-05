@@ -53,6 +53,7 @@ export interface DocumentManifest {
   native_open: boolean;
   embedded_editors: Array<'onlyoffice' | 'collabora'>;
   rendition_formats: string[];
+  pdf_rendition_artifact_id?: string;
   provenance: Record<string, unknown>;
 }
 

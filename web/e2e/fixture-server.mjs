@@ -202,10 +202,60 @@ const geojsonArtifactId = 'artifact_geojson_demo';
 const geojsonDemo = {
   type: 'FeatureCollection',
   features: [
-    { type: 'Feature', id: 'west', properties: { name: 'Western region', group: 'Region', score: 42 }, geometry: { type: 'Polygon', coordinates: [[[-121, 36], [-116, 36], [-116, 40], [-121, 40], [-121, 36]]] } },
-    { type: 'Feature', id: 'east', properties: { name: 'Eastern region', group: 'Region', score: 75 }, geometry: { type: 'Polygon', coordinates: [[[-114, 36], [-109, 36], [-109, 40], [-114, 40], [-114, 36]]] } },
-    { type: 'Feature', id: 'route', properties: { name: 'Cross-region route', group: 'Route', score: 55 }, geometry: { type: 'LineString', coordinates: [[-119, 37], [-117, 38], [-112, 38], [-110, 39]] } },
-    { type: 'Feature', id: 'station', properties: { name: 'Field station', group: 'Site', score: 30 }, geometry: { type: 'Point', coordinates: [-115, 35.5] } },
+    {
+      type: 'Feature',
+      id: 'west',
+      properties: { name: 'Western region', group: 'Region', score: 42 },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-121, 36],
+            [-116, 36],
+            [-116, 40],
+            [-121, 40],
+            [-121, 36],
+          ],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      id: 'east',
+      properties: { name: 'Eastern region', group: 'Region', score: 75 },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-114, 36],
+            [-109, 36],
+            [-109, 40],
+            [-114, 40],
+            [-114, 36],
+          ],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      id: 'route',
+      properties: { name: 'Cross-region route', group: 'Route', score: 55 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [-119, 37],
+          [-117, 38],
+          [-112, 38],
+          [-110, 39],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      id: 'station',
+      properties: { name: 'Field station', group: 'Site', score: 30 },
+      geometry: { type: 'Point', coordinates: [-115, 35.5] },
+    },
   ],
 };
 const geojsonDemoBytes = Buffer.from(JSON.stringify(geojsonDemo), 'utf8');
@@ -359,15 +409,35 @@ function geojsonDemoSurface() {
   const surfaceId = 'surface_geojson_demo';
   const catalogId = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
   return {
-    id: surfaceId, session_id: sessionId, run_id: 'run_geojson_demo',
-    message_id: 'message_geojson_demo', part_id: 'part_geojson_demo', catalog_id: catalogId,
-    protocol_version: '0.9.1', revision: 1, state: 'ready', message_revisions: [1, 1],
+    id: surfaceId,
+    session_id: sessionId,
+    run_id: 'run_geojson_demo',
+    message_id: 'message_geojson_demo',
+    part_id: 'part_geojson_demo',
+    catalog_id: catalogId,
+    protocol_version: '0.9.1',
+    revision: 1,
+    state: 'ready',
+    message_revisions: [1, 1],
     messages: [
       { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
-      { version: 'v0.9.1', updateComponents: { surfaceId, components: [
-        { id: 'root', component: 'Column', children: ['map'] },
-        { id: 'map', component: 'clio.map.v1', title: 'Regions, route and station', geojsonUri: `artifact://${geojsonArtifactId}`, labelField: 'name', categoryField: 'group' },
-      ] } },
+      {
+        version: 'v0.9.1',
+        updateComponents: {
+          surfaceId,
+          components: [
+            { id: 'root', component: 'Column', children: ['map'] },
+            {
+              id: 'map',
+              component: 'clio.map.v1',
+              title: 'Regions, route and station',
+              geojsonUri: `artifact://${geojsonArtifactId}`,
+              labelField: 'name',
+              categoryField: 'group',
+            },
+          ],
+        },
+      },
     ],
   };
 }
@@ -381,15 +451,37 @@ function boxplotDemoSurface() {
     latitude: 18 + (index % 3) * 10 + ((index * 7) % 9),
   }));
   return {
-    id: surfaceId, session_id: sessionId, run_id: 'run_boxplot_demo',
-    message_id: 'message_boxplot_demo', part_id: 'part_boxplot_demo', catalog_id: catalogId,
-    protocol_version: '0.9.1', revision: 1, state: 'ready', message_revisions: [1, 1],
+    id: surfaceId,
+    session_id: sessionId,
+    run_id: 'run_boxplot_demo',
+    message_id: 'message_boxplot_demo',
+    part_id: 'part_boxplot_demo',
+    catalog_id: catalogId,
+    protocol_version: '0.9.1',
+    revision: 1,
+    state: 'ready',
+    message_revisions: [1, 1],
     messages: [
       { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
-      { version: 'v0.9.1', updateComponents: { surfaceId, components: [
-        { id: 'root', component: 'Column', children: ['chart'] },
-        { id: 'chart', component: 'clio.chart.v1', title: 'Latitude by country', preset: 'boxplot', xField: 'country', yField: 'latitude', entityField: 'id', data },
-      ] } },
+      {
+        version: 'v0.9.1',
+        updateComponents: {
+          surfaceId,
+          components: [
+            { id: 'root', component: 'Column', children: ['chart'] },
+            {
+              id: 'chart',
+              component: 'clio.chart.v1',
+              title: 'Latitude by country',
+              preset: 'boxplot',
+              xField: 'country',
+              yField: 'latitude',
+              entityField: 'id',
+              data,
+            },
+          ],
+        },
+      },
     ],
   };
 }
@@ -402,14 +494,30 @@ function composedDemoSurface() {
   surface.part_id = 'part_composed_demo';
   surface.messages[0].createSurface.surfaceId = surfaceId;
   surface.messages[1].updateComponents.surfaceId = surfaceId;
-  const chart = surface.messages[1].updateComponents.components.find((component) => component.id === 'chart');
+  const chart = surface.messages[1].updateComponents.components.find(
+    (component) => component.id === 'chart',
+  );
   const rows = chart.data;
   surface.messages[1].updateComponents.components = [
     { id: 'root', component: 'Frame', title: 'Latitude explorer', child: 'tabs' },
-    { id: 'tabs', component: 'Tabs', tabs: [{ title: 'Explore', child: 'grid' }, { title: 'Rows', child: 'table' }] },
+    {
+      id: 'tabs',
+      component: 'Tabs',
+      tabs: [
+        { title: 'Explore', child: 'grid' },
+        { title: 'Rows', child: 'table' },
+      ],
+    },
     { id: 'grid', component: 'Grid', columns: 2, gap: 4, children: ['chart', 'map'] },
     chart,
-    { id: 'map', component: 'clio.map.v1', title: 'Regions, route and station', geojsonUri: `artifact://${geojsonArtifactId}`, labelField: 'name', categoryField: 'group' },
+    {
+      id: 'map',
+      component: 'clio.map.v1',
+      title: 'Regions, route and station',
+      geojsonUri: `artifact://${geojsonArtifactId}`,
+      labelField: 'name',
+      categoryField: 'group',
+    },
     { id: 'table', component: 'clio.data-table.v1', columns: ['id', 'country', 'latitude'], rows },
   ];
   return surface;
@@ -417,54 +525,108 @@ function composedDemoSurface() {
 
 const modelObjId = 'artifact_model_obj';
 const modelMtlId = 'artifact_model_mtl';
-const modelObjBytes = Buffer.from('mtllib sample.mtl\no Pyramid\nv -1 0 -1\nv 1 0 -1\nv 1 0 1\nv -1 0 1\nv 0 1.8 0\nusemtl Blue\nf 1 2 5\nf 2 3 5\nf 3 4 5\nf 4 1 5\nf 1 4 3\nf 1 3 2\n');
+const modelObjBytes = Buffer.from(
+  'mtllib sample.mtl\no Pyramid\nv -1 0 -1\nv 1 0 -1\nv 1 0 1\nv -1 0 1\nv 0 1.8 0\nusemtl Blue\nf 1 2 5\nf 2 3 5\nf 3 4 5\nf 4 1 5\nf 1 4 3\nf 1 3 2\n',
+);
 const modelMtlBytes = Buffer.from('newmtl Blue\nKd 0.12 0.48 0.82\n');
 const galleryTerrainGlb = makeGalleryTerrainGlb();
 const triangleBin = Buffer.alloc(44);
 new Float32Array(triangleBin.buffer, triangleBin.byteOffset, 9).set([0, 0, 0, 1, 0, 0, 0, 1, 0]);
 new Uint16Array(triangleBin.buffer, triangleBin.byteOffset + 36, 3).set([0, 1, 2]);
 const triangleGltf = (uri) => ({
-  asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }],
+  asset: { version: '2.0' },
+  scene: 0,
+  scenes: [{ nodes: [0] }],
+  nodes: [{ mesh: 0 }],
   meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] }],
   buffers: [{ byteLength: triangleBin.length, ...(uri ? { uri } : {}) }],
-  bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 36 }, { buffer: 0, byteOffset: 36, byteLength: 6 }],
+  bufferViews: [
+    { buffer: 0, byteOffset: 0, byteLength: 36 },
+    { buffer: 0, byteOffset: 36, byteLength: 6 },
+  ],
   accessors: [
     { bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 0] },
     { bufferView: 1, componentType: 5123, count: 3, type: 'SCALAR' },
   ],
 });
 const triangleGlbJson = Buffer.from(JSON.stringify(triangleGltf()));
-const triangleGlbJsonPadded = Buffer.concat([triangleGlbJson, Buffer.alloc((4 - triangleGlbJson.length % 4) % 4, 32)]);
+const triangleGlbJsonPadded = Buffer.concat([
+  triangleGlbJson,
+  Buffer.alloc((4 - (triangleGlbJson.length % 4)) % 4, 32),
+]);
 const triangleGlb = Buffer.alloc(12 + 8 + triangleGlbJsonPadded.length + 8 + triangleBin.length);
-triangleGlb.write('glTF', 0); triangleGlb.writeUInt32LE(2, 4); triangleGlb.writeUInt32LE(triangleGlb.length, 8);
-triangleGlb.writeUInt32LE(triangleGlbJsonPadded.length, 12); triangleGlb.write('JSON', 16);
+triangleGlb.write('glTF', 0);
+triangleGlb.writeUInt32LE(2, 4);
+triangleGlb.writeUInt32LE(triangleGlb.length, 8);
+triangleGlb.writeUInt32LE(triangleGlbJsonPadded.length, 12);
+triangleGlb.write('JSON', 16);
 triangleGlbJsonPadded.copy(triangleGlb, 20);
 const triangleGlbBinOffset = 20 + triangleGlbJsonPadded.length;
-triangleGlb.writeUInt32LE(triangleBin.length, triangleGlbBinOffset); triangleGlb.write('BIN\0', triangleGlbBinOffset + 4);
+triangleGlb.writeUInt32LE(triangleBin.length, triangleGlbBinOffset);
+triangleGlb.write('BIN\0', triangleGlbBinOffset + 4);
 triangleBin.copy(triangleGlb, triangleGlbBinOffset + 8);
 const modelTriangle = {
   // A self-contained triangle 3MF (the ZIP contains _rels/.rels and 3D/3dmodel.model).
-  '3mf': Buffer.from('UEsDBBQAAAAIAG6/QV2vG3e9sQAAAAIBAAALAAAAX3JlbHMvLnJlbHNlz0FqwzAQheGriNlXI8dQSrCcTQhkG5wDCHksi0oaISnBuX0JpdCQ7f/ggzccthjEnUr1nDR0UoGgZHn2yWm4TqePLziMw4WCaZ5TXX2uYoshVQ1ra3mPWO1K0VTJmdIWw8IlmlYlF4fZ2G/jCHdKfWL5b8CrKc6zhkJBgZgemd7s6G3hykuTliP2czTpthjbbsUnhzvV9ai6Z+eZAojJFEdNA/bHvyh/JxwHfDkz/gBQSwMEFAAAAAgAbr9BXbih+u/mAAAAkgEAABAAAAAzRC8zZG1vZGVsLm1vZGVsdY9NasMwEIWvImZfj+UQKEVSdj1BewBHnthT9BMk2Tg9fbBciDfdPAa+eW/mqcvqnVgoZY5Bg2xaEBRsHDiMGr6/Pt/e4WKUjwM5MQcuGjw7x54KJRCrdyFrmEq5fyBmO5Hvc+PZppjjrTQ2ejwNvg/zrbdlThxGtDERdq08Y9uBUYlynJOlbFS8/pAtggcNEkR53ElDvQxGecqTUQulwnV3m2gVq4YWxKPq76Z4RPJ/tLvkC+EruyTuw+iOo1hk9SxdNS0nDV11HXZx/xH3Gkbhodp1ZjcYxYW82Pnecov4Y1irmidQSwECFAAUAAAACABuv0Fdrxt3vbEAAAACAQAACwAAAAAAAAAAAAAAgAEAAAAAX3JlbHMvLnJlbHNQSwECFAAUAAAACABuv0FduKH67+YAAACSAQAAEAAAAAAAAAAAAAAAgAHaAAAAM0QvM2Rtb2RlbC5tb2RlbFBLBQYAAAAAAgACAHcAAADuAQAAAAA=', 'base64'),
+  '3mf': Buffer.from(
+    'UEsDBBQAAAAIAG6/QV2vG3e9sQAAAAIBAAALAAAAX3JlbHMvLnJlbHNlz0FqwzAQheGriNlXI8dQSrCcTQhkG5wDCHksi0oaISnBuX0JpdCQ7f/ggzccthjEnUr1nDR0UoGgZHn2yWm4TqePLziMw4WCaZ5TXX2uYoshVQ1ra3mPWO1K0VTJmdIWw8IlmlYlF4fZ2G/jCHdKfWL5b8CrKc6zhkJBgZgemd7s6G3hykuTliP2czTpthjbbsUnhzvV9ai6Z+eZAojJFEdNA/bHvyh/JxwHfDkz/gBQSwMEFAAAAAgAbr9BXbih+u/mAAAAkgEAABAAAAAzRC8zZG1vZGVsLm1vZGVsdY9NasMwEIWvImZfj+UQKEVSdj1BewBHnthT9BMk2Tg9fbBciDfdPAa+eW/mqcvqnVgoZY5Bg2xaEBRsHDiMGr6/Pt/e4WKUjwM5MQcuGjw7x54KJRCrdyFrmEq5fyBmO5Hvc+PZppjjrTQ2ejwNvg/zrbdlThxGtDERdq08Y9uBUYlynJOlbFS8/pAtggcNEkR53ElDvQxGecqTUQulwnV3m2gVq4YWxKPq76Z4RPJ/tLvkC+EruyTuw+iOo1hk9SxdNS0nDV11HXZx/xH3Gkbhodp1ZjcYxYW82Pnecov4Y1irmidQSwECFAAUAAAACABuv0Fdrxt3vbEAAAACAQAACwAAAAAAAAAAAAAAgAEAAAAAX3JlbHMvLnJlbHNQSwECFAAUAAAACABuv0FduKH67+YAAACSAQAAEAAAAAAAAAAAAAAAgAHaAAAAM0QvM2Rtb2RlbC5tb2RlbFBLBQYAAAAAAgACAHcAAADuAQAAAAA=',
+    'base64',
+  ),
   glb: triangleGlb,
-  gltf: Buffer.from(JSON.stringify(triangleGltf(`data:application/octet-stream;base64,${triangleBin.toString('base64')}`))),
-  stl: Buffer.from('solid Triangle\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid Triangle\n'),
-  ply: Buffer.from('ply\nformat ascii 1.0\nelement vertex 3\nproperty float x\nproperty float y\nproperty float z\nelement face 1\nproperty list uchar int vertex_indices\nend_header\n0 0 0\n1 0 0\n0 1 0\n3 0 1 2\n'),
-  vtk: Buffer.from('# vtk DataFile Version 3.0\nTriangle\nASCII\nDATASET POLYDATA\nPOINTS 3 float\n0 0 0 1 0 0 0 1 0\nPOLYGONS 1 4\n3 0 1 2\n'),
-  vtp: Buffer.from('<VTKFile type="PolyData"><PolyData><Piece NumberOfPoints="3" NumberOfPolys="1"><Points><DataArray format="ascii" NumberOfComponents="3">0 0 0 1 0 0 0 1 0</DataArray></Points><Polys><DataArray Name="connectivity" format="ascii">0 1 2</DataArray><DataArray Name="offsets" format="ascii">3</DataArray></Polys></Piece></PolyData></VTKFile>'),
+  gltf: Buffer.from(
+    JSON.stringify(
+      triangleGltf(`data:application/octet-stream;base64,${triangleBin.toString('base64')}`),
+    ),
+  ),
+  stl: Buffer.from(
+    'solid Triangle\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid Triangle\n',
+  ),
+  ply: Buffer.from(
+    'ply\nformat ascii 1.0\nelement vertex 3\nproperty float x\nproperty float y\nproperty float z\nelement face 1\nproperty list uchar int vertex_indices\nend_header\n0 0 0\n1 0 0\n0 1 0\n3 0 1 2\n',
+  ),
+  vtk: Buffer.from(
+    '# vtk DataFile Version 3.0\nTriangle\nASCII\nDATASET POLYDATA\nPOINTS 3 float\n0 0 0 1 0 0 0 1 0\nPOLYGONS 1 4\n3 0 1 2\n',
+  ),
+  vtp: Buffer.from(
+    '<VTKFile type="PolyData"><PolyData><Piece NumberOfPoints="3" NumberOfPolys="1"><Points><DataArray format="ascii" NumberOfComponents="3">0 0 0 1 0 0 0 1 0</DataArray></Points><Polys><DataArray Name="connectivity" format="ascii">0 1 2</DataArray><DataArray Name="offsets" format="ascii">3</DataArray></Polys></Piece></PolyData></VTKFile>',
+  ),
 };
 
 function meshDemoSurface() {
   const surfaceId = 'surface_mesh_demo';
   const catalogId = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
   return {
-    id: surfaceId, session_id: sessionId, run_id: 'run_mesh_demo', message_id: 'message_mesh_demo', part_id: 'part_mesh_demo',
-    catalog_id: catalogId, protocol_version: '0.9.1', revision: meshDemoRevision, state: 'ready', message_revisions: [1, meshDemoRevision],
+    id: surfaceId,
+    session_id: sessionId,
+    run_id: 'run_mesh_demo',
+    message_id: 'message_mesh_demo',
+    part_id: 'part_mesh_demo',
+    catalog_id: catalogId,
+    protocol_version: '0.9.1',
+    revision: meshDemoRevision,
+    state: 'ready',
+    message_revisions: [1, meshDemoRevision],
     messages: [
       { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
-      { version: 'v0.9.1', updateComponents: { surfaceId, components: [
-        { id: 'root', component: 'Column', children: ['mesh'] },
-        { id: 'mesh', component: 'clio.mesh-viewport.v1', title: meshDemoFormat === 'obj' ? 'Pyramid model' : `${meshDemoFormat.toUpperCase()} triangle`, meshUri: `artifact://${meshDemoFormat === 'obj' ? modelObjId : `artifact_model_${meshDemoFormat}`}`, format: meshDemoFormat, ...(meshDemoFormat === 'obj' ? { materialUri: `artifact://${modelMtlId}` } : {}) },
-      ] } },
+      {
+        version: 'v0.9.1',
+        updateComponents: {
+          surfaceId,
+          components: [
+            { id: 'root', component: 'Column', children: ['mesh'] },
+            {
+              id: 'mesh',
+              component: 'clio.mesh-viewport.v1',
+              title:
+                meshDemoFormat === 'obj'
+                  ? 'Pyramid model'
+                  : `${meshDemoFormat.toUpperCase()} triangle`,
+              meshUri: `artifact://${meshDemoFormat === 'obj' ? modelObjId : `artifact_model_${meshDemoFormat}`}`,
+              format: meshDemoFormat,
+              ...(meshDemoFormat === 'obj' ? { materialUri: `artifact://${modelMtlId}` } : {}),
+            },
+          ],
+        },
+      },
     ],
   };
 }
@@ -475,14 +637,35 @@ function rasterDemoSurface() {
   const surfaceId = 'surface_raster_demo';
   const catalogId = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
   return {
-    id: surfaceId, session_id: sessionId, run_id: 'run_raster_demo', message_id: 'message_raster_demo', part_id: 'part_raster_demo',
-    catalog_id: catalogId, protocol_version: '0.9.1', revision: 1, state: 'ready', message_revisions: [1, 1],
+    id: surfaceId,
+    session_id: sessionId,
+    run_id: 'run_raster_demo',
+    message_id: 'message_raster_demo',
+    part_id: 'part_raster_demo',
+    catalog_id: catalogId,
+    protocol_version: '0.9.1',
+    revision: 1,
+    state: 'ready',
+    message_revisions: [1, 1],
     messages: [
       { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
-      { version: 'v0.9.1', updateComponents: { surfaceId, components: [
-        { id: 'root', component: 'Column', children: ['raster'] },
-        { id: 'raster', component: 'clio.raster-viewport.v1', title: 'Temperature field', rasterUri: `artifact://${rasterArtifactId}`, colormap: 'viridis', unit: '°C' },
-      ] } },
+      {
+        version: 'v0.9.1',
+        updateComponents: {
+          surfaceId,
+          components: [
+            { id: 'root', component: 'Column', children: ['raster'] },
+            {
+              id: 'raster',
+              component: 'clio.raster-viewport.v1',
+              title: 'Temperature field',
+              rasterUri: `artifact://${rasterArtifactId}`,
+              colormap: 'viridis',
+              unit: '°C',
+            },
+          ],
+        },
+      },
     ],
   };
 }
@@ -1403,7 +1586,9 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && url.pathname === '/__test/a2ui-mesh-demo') {
-    meshDemoFormat = Object.hasOwn(modelTriangle, url.searchParams.get('format')) ? url.searchParams.get('format') : 'obj';
+    meshDemoFormat = Object.hasOwn(modelTriangle, url.searchParams.get('format'))
+      ? url.searchParams.get('format')
+      : 'obj';
     meshDemoRevision += 1;
     a2uiMeshDemo = true;
     const surface = meshDemoSurface();
@@ -1575,6 +1760,18 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && url.pathname === '/v1/sessions') {
     sendJson(response, { sessions: [session] });
+    return;
+  }
+  if (
+    request.method === 'GET' &&
+    url.pathname === `/v1/sessions/${sessionId}/attention/availability`
+  ) {
+    sendJson(response, {
+      enabled: false,
+      reason: 'not_configured',
+      message: 'This fixture has no attention capture.',
+      messages: {},
+    });
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/messages`) {
@@ -1843,46 +2040,83 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/artifacts/${geojsonArtifactId}/bytes`) {
-    response.writeHead(200, { ...commonHeaders('application/geo+json'), 'Content-Length': String(geojsonDemoBytes.length) });
+    response.writeHead(200, {
+      ...commonHeaders('application/geo+json'),
+      'Content-Length': String(geojsonDemoBytes.length),
+    });
     response.end(geojsonDemoBytes);
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/artifacts/${modelObjId}/bytes`) {
-    response.writeHead(200, { ...commonHeaders('model/obj'), 'Content-Length': String(modelObjBytes.length) });
+    response.writeHead(200, {
+      ...commonHeaders('model/obj'),
+      'Content-Length': String(modelObjBytes.length),
+    });
     response.end(modelObjBytes);
     return;
   }
-  if (request.method === 'POST' && url.pathname === `/v1/artifacts/${rasterArtifactId}/raster-query`) {
+  if (
+    request.method === 'POST' &&
+    url.pathname === `/v1/artifacts/${rasterArtifactId}/raster-query`
+  ) {
     const body = await readJson(request);
     const width = Math.min(768, Number(body.width) || 512);
     const height = Math.min(768, Number(body.height) || 512);
     const extent = body.extent ?? [0, 0, 100, 100];
     const values = [];
-    for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
-      const gx = extent[0] + (x + 0.5) / width * (extent[2] - extent[0]);
-      const gy = extent[1] + (y + 0.5) / height * (extent[3] - extent[1]);
-      const hot = Math.exp(-((gx - 32) ** 2 + (gy - 38) ** 2) / 180);
-      const cool = Math.exp(-((gx - 70) ** 2 + (gy - 64) ** 2) / 220);
-      values.push(Math.round((16 + 18 * hot - 9 * cool + gx * 0.04) * 100) / 100);
-    }
-    sendJson(response, { width, height, extent, sourceBounds: [0, 0, 100, 100], sourceShape: [100, 100], xLabel: 'Easting', yLabel: 'Northing', min: values.reduce((a, b) => Math.min(a, b), Infinity), max: values.reduce((a, b) => Math.max(a, b), -Infinity), values });
+    for (let y = 0; y < height; y += 1)
+      for (let x = 0; x < width; x += 1) {
+        const gx = extent[0] + ((x + 0.5) / width) * (extent[2] - extent[0]);
+        const gy = extent[1] + ((y + 0.5) / height) * (extent[3] - extent[1]);
+        const hot = Math.exp(-((gx - 32) ** 2 + (gy - 38) ** 2) / 180);
+        const cool = Math.exp(-((gx - 70) ** 2 + (gy - 64) ** 2) / 220);
+        values.push(Math.round((16 + 18 * hot - 9 * cool + gx * 0.04) * 100) / 100);
+      }
+    sendJson(response, {
+      width,
+      height,
+      extent,
+      sourceBounds: [0, 0, 100, 100],
+      sourceShape: [100, 100],
+      xLabel: 'Easting',
+      yLabel: 'Northing',
+      min: values.reduce((a, b) => Math.min(a, b), Infinity),
+      max: values.reduce((a, b) => Math.max(a, b), -Infinity),
+      values,
+    });
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/artifacts/${modelMtlId}/bytes`) {
-    response.writeHead(200, { ...commonHeaders('text/plain'), 'Content-Length': String(modelMtlBytes.length) });
+    response.writeHead(200, {
+      ...commonHeaders('text/plain'),
+      'Content-Length': String(modelMtlBytes.length),
+    });
     response.end(modelMtlBytes);
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/artifacts/artifact_gallery_terrain_glb/bytes') {
-    response.writeHead(200, { ...commonHeaders('model/gltf-binary'), 'Content-Length': String(galleryTerrainGlb.length) });
+  if (
+    request.method === 'GET' &&
+    url.pathname === '/v1/artifacts/artifact_gallery_terrain_glb/bytes'
+  ) {
+    response.writeHead(200, {
+      ...commonHeaders('model/gltf-binary'),
+      'Content-Length': String(galleryTerrainGlb.length),
+    });
     response.end(galleryTerrainGlb);
     return;
   }
-  if (request.method === 'GET' && url.pathname.startsWith('/v1/artifacts/artifact_model_') && url.pathname.endsWith('/bytes')) {
+  if (
+    request.method === 'GET' &&
+    url.pathname.startsWith('/v1/artifacts/artifact_model_') &&
+    url.pathname.endsWith('/bytes')
+  ) {
     const format = url.pathname.slice('/v1/artifacts/artifact_model_'.length, -'/bytes'.length);
     const bytes = modelTriangle[format];
     if (bytes) {
-      response.writeHead(200, { ...commonHeaders('application/octet-stream'), 'Content-Length': String(bytes.length) });
+      response.writeHead(200, {
+        ...commonHeaders('application/octet-stream'),
+        'Content-Length': String(bytes.length),
+      });
       response.end(bytes);
       return;
     }

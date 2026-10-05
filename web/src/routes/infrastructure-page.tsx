@@ -6,6 +6,7 @@ import type {
   RelayStatus,
   ServiceIntegrationHealth,
   ToolCatalogItem,
+  ProvenanceConnectionInput,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,6 +18,9 @@ import {
   NetworkIcon,
   ServerIcon,
   WrenchIcon,
+  LayoutDashboardIcon,
+  HardDriveIcon,
+  HistoryIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
@@ -27,15 +31,23 @@ import { RelayConnectionDialog } from '@/components/clio/relay-settings';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { ManagedServices } from '@/components/clio/managed-services';
+import { ProvenanceConnections } from '@/components/clio/provenance-connections';
+import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
 import { Frame, FrameFooter, FramePanel } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { CatalogToolset } from '@/components/clio/catalog-toolset';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { inTauri } from '@/lib/transport/tauri-runtime';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import {
@@ -50,19 +62,27 @@ import {
   integrationStatusLabel,
 } from './infrastructure-foundation';
 import { SandboxFoundationRow } from './infrastructure-sandbox-row';
+import { connectionScope } from '@/lib/connection-scope';
 export function InfrastructurePage() {
-  const desktop = inTauri();
   const location = useLocation();
   const { section } = useParams();
   const currentSection: InfrastructureSection = isInfrastructureSection(section)
     ? section
-    : 'services';
+    : 'overview';
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
+  const [connectServiceOpen, setConnectServiceOpen] = useState(false);
+  const provenanceScope = connectionScope(settings);
+  const [connectProvenance, setConnectProvenance] = useState<{
+    scope: string;
+    input: ProvenanceConnectionInput;
+  }>();
+  const openProvenance = (input: ProvenanceConnectionInput) =>
+    setConnectProvenance({ scope: provenanceScope, input });
   const [relayOpen, setRelayOpen] = useState(false);
   const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
@@ -218,9 +238,13 @@ export function InfrastructurePage() {
       <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[220px_minmax(0,1fr)]">
         <nav
           aria-label="Infrastructure sections"
-          className="grid content-start gap-1 md:sticky md:top-8"
+          className="grid grid-cols-2 content-start gap-1 md:sticky md:top-8 md:grid-cols-1"
         >
-          <Button asChild className="mb-4 justify-start" variant="ghost">
+          <Button
+            asChild
+            className="col-span-2 mb-2 justify-start md:col-span-1 md:mb-4"
+            variant="ghost"
+          >
             <Link to={workspaceRoute}>
               <ChevronLeftIcon aria-hidden="true" /> {capitalize(vocab.workspace)}
             </Link>
@@ -228,7 +252,7 @@ export function InfrastructurePage() {
           {INFRASTRUCTURE_SECTIONS.map(({ id, icon: SectionIcon, label }) => (
             <Button
               asChild
-              className="justify-start"
+              className="shrink-0 justify-start"
               key={id}
               variant={id === currentSection ? 'secondary' : 'ghost'}
             >
@@ -294,6 +318,12 @@ export function InfrastructurePage() {
             </Alert>
           ) : null}
 
+          {currentSection === 'overview' ||
+          currentSection === 'models' ||
+          currentSection === 'activity' ? (
+            <InfrastructureInventory section={currentSection} />
+          ) : null}
+
           {currentSection === 'tools' ? (
             <div className="mt-6">
               {toolsPending ? (
@@ -318,7 +348,10 @@ export function InfrastructurePage() {
               <ManagedServices
                 connectedAgentLabel={settings.label}
                 connectedAgentLocation={settings.location}
-                onConnectExistingService={() => setWebSearchOpen(true)}
+                onConnectExistingService={() => setConnectServiceOpen(true)}
+                onConnectProvenance={openProvenance}
+                onManageWebSearch={() => setWebSearchOpen(true)}
+                onManageRelay={() => setRelayOpen(true)}
                 onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
                 onDisconnectWebSearch={() => disconnectWebSearch.mutate()}
                 webSearchConnected={webSearchReady}
@@ -327,84 +360,133 @@ export function InfrastructurePage() {
                 webSearchDisconnecting={disconnectWebSearch.isPending}
                 relayStatus={relay.data}
               />
-              {!desktop ? (
-                <section aria-label="Add services" className="mt-6 grid gap-4 md:grid-cols-2">
-                  <SetupCard
-                    action={
-                      webSearchReady && webSearchConfiguration.data?.configured
-                        ? disconnectWebSearch.isPending
-                          ? 'Disconnecting…'
-                          : 'Disconnect'
-                        : webSearchReady
-                          ? 'View tools'
+              <ProvenanceConnections
+                connect={
+                  connectProvenance?.scope === provenanceScope ? connectProvenance.input : undefined
+                }
+                onClose={() =>
+                  setConnectProvenance((current) =>
+                    current?.scope === provenanceScope ? undefined : current,
+                  )
+                }
+              />
+              <Dialog open={connectServiceOpen} onOpenChange={setConnectServiceOpen}>
+                <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>Connect an existing service</DialogTitle>
+                    <DialogDescription>
+                      Attach a service to {settings.label || vocab.agent}. Its deployment remains
+                      under your control.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <section aria-label="Add services" className="grid gap-4">
+                    <div className="flex flex-wrap gap-2">
+                      {(['flowcept', 'cmf'] as const).map((service) => (
+                        <Button
+                          key={service}
+                          variant="outline"
+                          onClick={() => {
+                            setConnectServiceOpen(false);
+                            openProvenance({
+                              service_id: service,
+                              label: service === 'flowcept' ? 'Flowcept' : 'HPE CMF',
+                              url: '',
+                            });
+                          }}
+                        >
+                          Connect {service === 'flowcept' ? 'Flowcept' : 'HPE CMF'}
+                        </Button>
+                      ))}
+                    </div>
+                    <SetupCard
+                      action={
+                        webSearchReady && webSearchConfiguration.data?.configured
+                          ? disconnectWebSearch.isPending
+                            ? 'Disconnecting…'
+                            : 'Disconnect'
+                          : webSearchReady
+                            ? 'View tools'
+                            : webSearchConfigured
+                              ? 'Repair connection'
+                              : 'Connect web search'
+                      }
+                      description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
+                      icon={BookOpenCheckIcon}
+                      onAction={() =>
+                        webSearchReady && webSearchConfiguration.data?.configured
+                          ? disconnectWebSearch.mutate()
+                          : (setConnectServiceOpen(false), setWebSearchOpen(true))
+                      }
+                      status={
+                        webSearchReady
+                          ? 'healthy'
                           : webSearchConfigured
-                            ? 'Repair connection'
-                            : 'Connect web search'
-                    }
-                    description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
-                    icon={BookOpenCheckIcon}
-                    onAction={() =>
-                      webSearchReady && webSearchConfiguration.data?.configured
-                        ? disconnectWebSearch.mutate()
-                        : setWebSearchOpen(true)
-                    }
-                    status={
-                      webSearchReady ? 'healthy' : webSearchConfigured ? 'degraded' : 'unavailable'
-                    }
-                    statusLabel={
-                      webSearchReady
-                        ? 'Connected'
-                        : webSearchConfigured
-                          ? 'Needs attention'
-                          : 'Not connected'
-                    }
-                    title="Research and documents"
-                    to={
-                      webSearchReady && !webSearchConfiguration.data?.configured
-                        ? '/infrastructure/tools'
-                        : undefined
-                    }
-                  />
-                  <SetupCard
-                    action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
-                    description="Run and follow work on lab computers or clusters through CLIO Relay."
-                    detail={relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)}
-                    icon={NetworkIcon}
-                    onAction={() => setRelayOpen(true)}
-                    status={
-                      relay.data?.reachable
-                        ? 'healthy'
-                        : relay.data?.configured
-                          ? 'degraded'
-                          : 'unavailable'
-                    }
-                    statusLabel={
-                      relay.data?.reachable
-                        ? 'Connected'
-                        : relay.data?.configured
-                          ? 'Needs attention'
-                          : 'Not connected'
-                    }
-                    title="Remote computers"
-                  />
-                </section>
-              ) : null}
+                            ? 'degraded'
+                            : 'unavailable'
+                      }
+                      statusLabel={
+                        webSearchReady
+                          ? 'Connected'
+                          : webSearchConfigured
+                            ? 'Needs attention'
+                            : 'Not connected'
+                      }
+                      title="Research and documents"
+                      to={
+                        webSearchReady && !webSearchConfiguration.data?.configured
+                          ? '/infrastructure/tools'
+                          : undefined
+                      }
+                    />
+                    <SetupCard
+                      action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
+                      description="Run and follow work on lab computers or clusters through CLIO Relay."
+                      detail={
+                        relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)
+                      }
+                      icon={NetworkIcon}
+                      onAction={() => (setConnectServiceOpen(false), setRelayOpen(true))}
+                      status={
+                        relay.data?.reachable
+                          ? 'healthy'
+                          : relay.data?.configured
+                            ? 'degraded'
+                            : 'unavailable'
+                      }
+                      statusLabel={
+                        relay.data?.reachable
+                          ? 'Connected'
+                          : relay.data?.configured
+                            ? 'Needs attention'
+                            : 'Not connected'
+                      }
+                      title="Remote computers"
+                    />
+                  </section>
+                  <Button asChild variant="outline">
+                    <Link to="/settings/providers">Connect an inference provider</Link>
+                  </Button>
+                </DialogContent>
+              </Dialog>
             </>
           ) : null}
 
           {currentSection === 'agent' ? (
-            <div className="mt-6 border-y">
-              <div className="divide-y">
-                {(health.data?.integrations ?? []).map((integration) => (
-                  <FoundationRow integration={integration} key={integration.name} />
-                ))}
+            <>
+              <InfrastructureInventory section="hosts" />
+              <div className="mt-6 border-y">
+                <div className="divide-y">
+                  {(health.data?.integrations ?? []).map((integration) => (
+                    <FoundationRow integration={integration} key={integration.name} />
+                  ))}
+                </div>
+                {!health.isPending && !health.data?.integrations.length ? (
+                  <p className="p-5 text-sm text-muted-foreground">
+                    No supporting-component details were reported.
+                  </p>
+                ) : null}
               </div>
-              {!health.isPending && !health.data?.integrations.length ? (
-                <p className="p-5 text-sm text-muted-foreground">
-                  No supporting-component details were reported.
-                </p>
-              ) : null}
-            </div>
+            </>
           ) : null}
 
           <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
@@ -480,20 +562,20 @@ function effectiveToolCatalog(
   return [...projected.values()];
 }
 
-type InfrastructureSection = 'agent' | 'tools' | 'services';
+type InfrastructureSection = 'overview' | 'agent' | 'tools' | 'services' | 'models' | 'activity';
 
 const INFRASTRUCTURE_SECTIONS = [
   {
-    id: 'agent',
-    label: vocab.agent,
-    icon: BotIcon,
-    description: `Confirm that ${vocab.agent} itself and the components it depends on are ready.`,
+    id: 'overview',
+    label: 'Overview',
+    icon: LayoutDashboardIcon,
+    description: 'Your connected hosts, services, and current work.',
   },
   {
-    id: 'tools',
-    label: 'Tools',
-    icon: WrenchIcon,
-    description: `Inspect the tools available to the selected session. Provider contracts are shown when reported.`,
+    id: 'agent',
+    label: `${vocab.agent} hosts`,
+    icon: BotIcon,
+    description: `Confirm that ${vocab.agent} itself and the components it depends on are ready.`,
   },
   {
     id: 'services',
@@ -501,10 +583,28 @@ const INFRASTRUCTURE_SECTIONS = [
     icon: CableIcon,
     description: `Install, connect, operate, and verify the services that give ${vocab.agent} more capabilities.`,
   },
+  {
+    id: 'models',
+    label: 'Models & storage',
+    icon: HardDriveIcon,
+    description: 'Choose where each host keeps models, service data, and evidence.',
+  },
+  {
+    id: 'tools',
+    label: 'Tools',
+    icon: WrenchIcon,
+    description: 'Inspect tools available to the selected session.',
+  },
+  {
+    id: 'activity',
+    label: 'Activity',
+    icon: HistoryIcon,
+    description: 'Follow deployments, downloads, and lifecycle operations.',
+  },
 ] as const;
 
 function isInfrastructureSection(value: string | undefined): value is InfrastructureSection {
-  return value === 'agent' || value === 'tools' || value === 'services';
+  return INFRASTRUCTURE_SECTIONS.some((item) => item.id === value);
 }
 
 function SetupCard({

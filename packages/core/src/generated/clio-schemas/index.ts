@@ -5,6 +5,11 @@
  */
 
 export * from './_models';
+export * from './attention-evidence-inspection.schema.js';
+export * from './attention-profile.schema.js';
+export * from './host-storage-locations.schema.js';
+export * from './connected-source.schema.js';
+export * from './content-selection.schema.js';
 export * from './accepted-parameter.schema.js';
 export * from './message-block.schema.js';
 export * from './model-capability-tags.schema.js';

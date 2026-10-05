@@ -1,3 +1,5 @@
+import type { SftpCredentials } from '@clio/core/v3';
+import { SftpAuthenticationFields } from './sftp-authentication-fields';
 import { CheckCircle2Icon, ChevronDownIcon, FileKey2Icon } from 'lucide-react';
 import { RemoveIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -59,6 +61,7 @@ export function SshHostDialog({
   options,
   step,
   via,
+  fileConnection,
 }: {
   /**
    * The key a brand-new computer starts with: the previous hop's, since
@@ -78,6 +81,11 @@ export function SshHostDialog({
    * them read-only instead of offering a second route field.
    */
   via?: readonly string[];
+  fileConnection?: {
+    hostLabel: string;
+    test: (host: SshHost, credentials: SftpCredentials) => Promise<void>;
+    save: (host: SshHost, credentials: SftpCredentials) => Promise<void>;
+  };
 }) {
   // Initialized once per open: the picker remounts this dialog (a new `key`)
   // every time it opens, so the form always starts from `initial`.
@@ -89,6 +97,7 @@ export function SshHostDialog({
     initial ? (initial.identityFile ?? '') : (defaultIdentityFile ?? ''),
   );
   const [privateKey, setPrivateKey] = useState('');
+  const [fileCredentials, setFileCredentials] = useState<SftpCredentials>({});
   const [installRoot, setInstallRoot] = useState(initial?.installRoot ?? '');
   const [jumpHosts, setJumpHosts] = useState<string[]>(initial?.jumpHosts ?? []);
   const [platform, setPlatform] = useState<'auto' | 'linux' | 'windows'>(
@@ -129,10 +138,17 @@ export function SshHostDialog({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    // A portalled host editor must not submit its enclosing attachment form.
+    event.stopPropagation();
     setSaving(true);
     setAuthError(undefined);
     try {
       const candidate = await prepareDraft();
+      if (fileConnection) {
+        await fileConnection.save(candidate, fileCredentials);
+        onSaved(candidate);
+        return;
+      }
       const profile = await saveSshProfile({
         name:
           editingProfile ?? uniqueProfileName(candidate.label, candidate.host ?? '', takenNames),
@@ -176,6 +192,11 @@ export function SshHostDialog({
     setTestSucceeded(false);
     try {
       const candidate = await prepareDraft();
+      if (fileConnection) {
+        await fileConnection.test(candidate, fileCredentials);
+        setTestSucceeded(true);
+        return;
+      }
       const test = await openSshConnectionTest({
         profile: candidate.profile ?? '',
         host: candidate.host ?? '',
@@ -342,52 +363,60 @@ export function SshHostDialog({
               </Field>
             )}
 
-            <Field>
-              <FieldLabel className="flex items-center gap-1.5">
-                Authentication
-                <InfoTip label="About authentication">
-                  {`Passwords, Duo, security keys, and Kerberos are asked for by OpenSSH when you connect and never saved. A key is optional.`}
-                </InfoTip>
-              </FieldLabel>
-              <Field className="mt-2">
-                <FieldLabel htmlFor="ssh-host-private-key">Paste a private key</FieldLabel>
-                <Textarea
-                  autoComplete="off"
-                  className="min-h-28 font-mono text-xs"
-                  id="ssh-host-private-key"
-                  onChange={(event) => {
-                    setPrivateKey(event.target.value);
-                    if (event.target.value) setIdentityFile('');
-                  }}
-                  placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                  spellCheck={false}
-                  value={privateKey}
-                />
-              </Field>
-              <div className="mt-3 flex items-center gap-3">
-                <Button onClick={chooseIdentityFile} size="sm" type="button" variant="outline">
-                  <FileKey2Icon aria-hidden="true" /> Choose key file
-                </Button>
-                <span
-                  className="min-w-0 truncate text-xs text-muted-foreground"
-                  title={identityFile || undefined}
-                >
-                  {identityFile || 'Or use your SSH agent / OpenSSH configuration'}
-                </span>
-                {identityFile ? (
-                  <Button
-                    aria-label="Use the SSH agent or OpenSSH configuration instead"
-                    onClick={() => setIdentityFile('')}
-                    size="icon-sm"
-                    title="Use the SSH agent or OpenSSH configuration instead"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <RemoveIcon aria-hidden="true" />
+            {fileConnection ? (
+              <SftpAuthenticationFields
+                hostLabel={fileConnection.hostLabel}
+                value={fileCredentials}
+                onChange={setFileCredentials}
+              />
+            ) : (
+              <Field>
+                <FieldLabel className="flex items-center gap-1.5">
+                  Authentication
+                  <InfoTip label="About authentication">
+                    {`Passwords, Duo, security keys, and Kerberos are asked for by OpenSSH when you connect and never saved. A key is optional.`}
+                  </InfoTip>
+                </FieldLabel>
+                <Field className="mt-2">
+                  <FieldLabel htmlFor="ssh-host-private-key">Paste a private key</FieldLabel>
+                  <Textarea
+                    autoComplete="off"
+                    className="min-h-28 font-mono text-xs"
+                    id="ssh-host-private-key"
+                    onChange={(event) => {
+                      setPrivateKey(event.target.value);
+                      if (event.target.value) setIdentityFile('');
+                    }}
+                    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                    spellCheck={false}
+                    value={privateKey}
+                  />
+                </Field>
+                <div className="mt-3 flex items-center gap-3">
+                  <Button onClick={chooseIdentityFile} size="sm" type="button" variant="outline">
+                    <FileKey2Icon aria-hidden="true" /> Choose key file
                   </Button>
-                ) : null}
-              </div>
-            </Field>
+                  <span
+                    className="min-w-0 truncate text-xs text-muted-foreground"
+                    title={identityFile || undefined}
+                  >
+                    {identityFile || 'Or use your SSH agent / OpenSSH configuration'}
+                  </span>
+                  {identityFile ? (
+                    <Button
+                      aria-label="Use the SSH agent or OpenSSH configuration instead"
+                      onClick={() => setIdentityFile('')}
+                      size="icon-sm"
+                      title="Use the SSH agent or OpenSSH configuration instead"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <RemoveIcon aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </div>
+              </Field>
+            )}
 
             <Collapsible className="border-t pt-3">
               <CollapsibleTrigger asChild>

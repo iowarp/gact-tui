@@ -15,6 +15,7 @@ describe('ClioRepository artifact contracts', () => {
       evidence_class: 'strong',
       sha256: 'abc',
       size_bytes: 12,
+      media_type: 'text/csv',
       authority: 'tool',
       path: 'result.csv',
       created_at: '2026-08-23T00:00:00Z',

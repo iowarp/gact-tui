@@ -10,7 +10,11 @@ import {
   type FactSpec,
   type TagSpec,
 } from '@/test-fixtures/model-picker/capability-rows';
-import { renderPicker, repository, setWideViewport } from '@/test-fixtures/model-picker/provider-actions';
+import {
+  renderPicker,
+  repository,
+  setWideViewport,
+} from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
 
 vi.mock('@/hooks/use-repository', async () => {
@@ -22,6 +26,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 const openExternalUrl = vi.hoisted(() => vi.fn(async () => undefined));
 vi.mock('@/tauri/external-url', () => ({ openExternalUrl }));
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => true }));
 
 function row(id: string, tags: TagSpec, facts: FactSpec): ClioModelOption {
   return capabilityRow(id, tags, { modelFacts: modelFacts(id, facts) });
@@ -65,7 +70,12 @@ afterEach(() => {
 async function openPicker() {
   const user = userEvent.setup();
   renderPicker(
-    <ClioModelPicker onChange={vi.fn()} options={catalog} provider="openrouter" trigger={<Button>Change model</Button>} />,
+    <ClioModelPicker
+      onChange={vi.fn()}
+      options={catalog}
+      provider="openrouter"
+      trigger={<Button>Change model</Button>}
+    />,
   );
   await user.click(screen.getByRole('button', { name: 'Change model' }));
   return user;
@@ -75,19 +85,29 @@ const field = () => screen.getByRole('combobox', { name: 'Search providers and m
 const panel = () => document.querySelector<HTMLElement>('[data-slot="facet-panel"]')!;
 const barCount = () => document.querySelector('[data-slot="model-count"]')?.textContent ?? '';
 const tokens = () =>
-  [...document.querySelectorAll('[data-slot="filter-tokens"] [data-token]')].map((chip) => chip.getAttribute('data-token'));
+  [...document.querySelectorAll('[data-slot="filter-tokens"] [data-token]')].map((chip) =>
+    chip.getAttribute('data-token'),
+  );
 const slider = (name: string) => within(panel()).getAllByRole('slider', { name });
 const modelNames = () =>
-  [...document.querySelectorAll('[data-slot="cascader-column-bounds"][data-depth="1"] [data-slot="model-row-name"]')].map(
-    (name) => name.textContent,
-  );
+  [
+    ...document.querySelectorAll(
+      '[data-slot="cascader-column-bounds"][data-depth="1"] [data-slot="model-row-name"]',
+    ),
+  ].map((name) => name.textContent);
 
 describe('ClioModelPicker model facts', () => {
   it('the demo query: recent, over 32B, image and text in, text out', async () => {
     const user = await openPicker();
     await user.type(field(), 'released:<6mo size:>32B input:image ');
 
-    expect(tokens()).toEqual(['input:text', 'output:text', 'released:<6mo', 'size:>32B', 'input:image']);
+    expect(tokens()).toEqual([
+      'input:text',
+      'output:text',
+      'released:<6mo',
+      'size:>32B',
+      'input:image',
+    ]);
     // "> 32B" means KNOWN to be over 32B (D24): the model of unknown size is out.
     await waitFor(() => expect(modelNames()).toEqual(['qwen3-vl-235b']));
     expect(barCount()).toBe('1 / 6');
@@ -125,7 +145,9 @@ describe('ClioModelPicker model facts', () => {
     await user.type(field(), 'cost:<1 ');
     await user.click(field());
     const variable = within(panel()).getByRole('checkbox', { name: 'Variable price (routers)' });
-    const subscription = within(panel()).getByRole('checkbox', { name: 'Subscription (billed by a plan)' });
+    const subscription = within(panel()).getByRole('checkbox', {
+      name: 'Subscription (billed by a plan)',
+    });
     const unpriced = within(panel()).getByRole('checkbox', { name: 'Unpriced (no price stated)' });
     for (const box of [variable, subscription, unpriced]) {
       expect(box).toBeEnabled();
@@ -162,7 +184,9 @@ describe('ClioModelPicker model facts', () => {
 
   it('rows carry Recent and size tags; clicking Recent filters by it', async () => {
     const user = await openPicker();
-    const deepseek = screen.getByText('deepseek-v4').closest<HTMLElement>('[data-slot="cascader-item"]')!;
+    const deepseek = screen
+      .getByText('deepseek-v4')
+      .closest<HTMLElement>('[data-slot="cascader-item"]')!;
     expect(within(deepseek).getByText('A37B / 671B')).toBeVisible();
     await user.click(within(deepseek).getByText('Recent'));
     expect(tokens()).toContain('released:<6mo');
@@ -173,7 +197,12 @@ describe('ClioModelPicker model facts', () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
     renderPicker(
-      <ClioModelPicker onChange={onChange} options={catalog} provider="openrouter" trigger={<Button>Change model</Button>} />,
+      <ClioModelPicker
+        onChange={onChange}
+        options={catalog}
+        provider="openrouter"
+        trigger={<Button>Change model</Button>}
+      />,
     );
     await user.click(screen.getByRole('button', { name: 'Change model' }));
     // Only the router gets one.

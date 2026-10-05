@@ -5,7 +5,10 @@ export function resolveActiveBlueprint(
   session: Session | undefined,
   blueprints: readonly AgentBlueprint[] | undefined,
 ): AgentBlueprintReference | undefined {
-  const installed = blueprints?.find((blueprint) => blueprint.id === session?.active_blueprint_id);
+  const matching = blueprints?.filter((blueprint) =>
+    [blueprint.id, blueprint.blueprint_id].includes(session?.active_blueprint_id),
+  );
+  const installed = matching?.length === 1 ? matching[0] : undefined;
   if (installed) return installed;
   if (!session?.active_blueprint_id || !session.active_blueprint_name) return undefined;
   return {

@@ -1,3 +1,4 @@
+import { ActionCardButton } from './action-card-button';
 import type {
   A2UIActionLifecycle,
   A2UISurface,
@@ -44,14 +45,13 @@ import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { referenceKindIcon } from './composer-reference-presentation';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
-import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
-import { GroundedMessageResponse } from './grounded-message-response';
-import { SentReferenceMessage } from './sent-reference-message';
+import { TranscriptTextBlock } from './transcript-text-block';
 import { toolOutputDiffKey } from './declared-diff-key';
 import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SummarizationInjection, TranscriptNotice } from './conversation-summarization';
+import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -92,7 +92,9 @@ export function DeferredA2UISurface({
     observer.observe(host);
     updateProximity();
     window.addEventListener('scroll', onScroll, true);
-    function onScroll() { updateProximity(); }
+    function onScroll() {
+      updateProximity();
+    }
     return () => {
       observer.disconnect();
       window.removeEventListener('scroll', onScroll, true);
@@ -141,6 +143,8 @@ export function DeferredA2UISurface({
 type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
   activeMcpAppId?: string;
   block: MessageBlock;
+  messageId?: string;
+  messageAttentionIndex?: MessageAttentionIndex;
   messageSessionId?: string;
   reasoningDefaultOpen?: boolean;
   compactReferences?: boolean;
@@ -164,27 +168,23 @@ function MessageBlockView({
   reasoningDefaultOpen,
   activeMcpAppId,
   mcpAppRepository,
+  messageId,
+  messageAttentionIndex,
   messageSessionId,
   interactions,
   onInteractionResponse,
   compactReferences,
 }: MessageBlockViewProps) {
   switch (block.type) {
-    case 'text':
+    case 'text': {
       return (
-        <div
-          className="min-w-0 max-w-full group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3"
-          data-slot="message-text"
-        >
-          {block.streaming ? (
-            <ClioStreamingText className="leading-7" active text={block.text} />
-          ) : compactReferences ? (
-            <SentReferenceMessage text={block.text} />
-          ) : (
-            <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
-          )}
-        </div>
+        <TranscriptTextBlock
+          block={block}
+          messageId={messageId}
+          compactReferences={compactReferences}
+        />
       );
+    }
     case 'reasoning':
     case 'tool':
     case 'task':
@@ -194,6 +194,9 @@ function MessageBlockView({
         <ConversationProcessSequence
           block={block}
           artifacts={artifacts}
+          messageId={messageId}
+          messageAttentionIndex={messageAttentionIndex}
+          messageSessionId={messageSessionId}
           onInteractionResponse={onInteractionResponse}
           onOpenArtifact={onOpenArtifact}
           onOpenSubagent={onOpenSubagent}
@@ -257,16 +260,7 @@ function MessageBlockView({
           </AlertDescription>
           <div className="col-start-2 mt-3 flex flex-wrap gap-2">
             {block.actions.map((action) => (
-              <Button
-                disabled={!action.enabled || !onActionCardAction}
-                key={action.id}
-                onClick={() => void onActionCardAction?.(action)}
-                size="sm"
-                title={!action.enabled ? action.behavior.reason : undefined}
-                variant="outline"
-              >
-                {action.label}
-              </Button>
+              <ActionCardButton action={action} key={action.id} onAction={onActionCardAction} />
             ))}
           </div>
         </Alert>

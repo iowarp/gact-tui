@@ -2,16 +2,19 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  inTauri: vi.fn(),
   openExternalUrl: vi.fn(),
   toastError: vi.fn(),
 }));
 
 vi.mock('@/tauri/external-url', () => ({ openExternalUrl: mocks.openExternalUrl }));
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
 vi.mock('sonner', () => ({ toast: { error: mocks.toastError } }));
 
 import { ExternalLink } from './external-link';
 
 beforeEach(() => {
+  mocks.inTauri.mockReturnValue(true);
   mocks.openExternalUrl.mockReset();
   mocks.toastError.mockReset();
 });
@@ -19,6 +22,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ExternalLink', () => {
+  it('keeps native anchor navigation in a browser without a scripted popup', () => {
+    mocks.inTauri.mockReturnValue(false);
+    render(<ExternalLink href="https://auth.globus.org/example">Log in</ExternalLink>);
+    expect(fireEvent.click(screen.getByRole('link', { name: 'Log in' }))).toBe(true);
+    expect(mocks.openExternalUrl).not.toHaveBeenCalled();
+  });
   it('prevents default navigation and opens the href through the external-url bridge', () => {
     mocks.openExternalUrl.mockResolvedValue(undefined);
     render(<ExternalLink href="https://example.com/docs">Docs</ExternalLink>);

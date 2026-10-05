@@ -42,7 +42,13 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(page.getByRole('combobox', { name: 'Conversation workspace' })).toHaveValue(
     'ws_flat_ndp',
   );
-  await expect(page.getByRole('button', { name: 'Open workspace canvas' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Open workspace canvas' }).click();
+  await expect(page.getByRole('tab', { name: 'Files', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Open a canvas tab' }).click();
+  await page.getByRole('menuitem', { name: 'Agent blueprints' }).click();
+  await expect(page.getByRole('tab', { name: 'Blueprints', exact: true })).toBeVisible();
+  expect(sessionCreations).toEqual([]);
+  await page.getByRole('button', { name: 'Close workspace canvas' }).click();
   await composer.fill('This is a temporary draft');
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('link', { name: 'Notifications', exact: true }).click();

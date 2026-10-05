@@ -34,6 +34,7 @@ const manifest = {
   native_open: true,
   embedded_editors: [],
   rendition_formats: ['pdf'],
+  pdf_rendition_artifact_id: 'artifact_pdf',
   provenance: { custody: 'managed' },
 };
 
@@ -88,6 +89,7 @@ describe('DocumentRepository', () => {
     await expect(repository.documentManifest('artifact/3')).resolves.toMatchObject({
       profile: 'markdown',
       version: 3,
+      pdf_rendition_artifact_id: 'artifact_pdf',
     });
     await expect(repository.documentContent('artifact/3')).resolves.toEqual(bytes);
     await expect(repository.artifactReviews('artifact/3')).resolves.toHaveLength(1);
@@ -99,8 +101,9 @@ describe('DocumentRepository', () => {
       text: 'State the evidence boundary.',
       idempotency_key: 'review-once',
     });
-    await expect(repository.createDocumentRendition('artifact/3', 'session/one')).resolves
-      .toMatchObject({ converter: 'pandoc', artifact: { artifact_id: 'artifact/3' } });
+    await expect(
+      repository.createDocumentRendition('artifact/3', 'session/one'),
+    ).resolves.toMatchObject({ converter: 'pandoc', artifact: { artifact_id: 'artifact/3' } });
 
     expect(
       transport.requests.map(({ method, path, responseType }) => ({

@@ -1,10 +1,14 @@
 import { toCanvas } from 'html-to-image';
 import { CheckIcon, GripVerticalIcon, ListIcon, SendIcon } from 'lucide-react';
 import { CloseIcon, DeleteIcon } from '@/lib/icon-vocabulary';
-import { createContext, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
+import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { useModelImageInput } from '@/lib/model-image-input';
+import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
+import { RegionCoordinateInputs } from './region-coordinate-inputs';
+import { imageAttentionRegion } from '@/lib/a2ui/attention-selection-coordinates';
+import { InfoTip } from './info-tip';
 import { mapPngBlob } from './map-export';
 import type { MapDebugSurface } from './scientific-map-view';
 
@@ -59,7 +63,7 @@ function mapSurface(target: HTMLElement): MapDebugSurface | null {
     : target.querySelector<MapDebugSurface>('[data-slot="a2ui-map-surface"]');
 }
 
-function geographicBounds(target: HTMLElement, region: Region): Region['geographicBounds'] {
+function geographicBounds(target: HTMLElement, region: Pick<Region, 'x' | 'y' | 'width' | 'height'>): Region['geographicBounds'] {
   const map = mapSurface(target)?.__clioMap;
   if (!map) return undefined;
   const targetRect = target.getBoundingClientRect();
@@ -341,7 +345,8 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
 /** A surface-level camera mode with persistent, labelled visual regions. */
 export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture = false }: { children: ReactNode; surface: CaptureSurface; allowDemoCapture?: boolean }) {
   const acceptsImages = useModelImageInput();
-  const allowed = allowDemoCapture || acceptsImages;
+  const attention = useContext(SurfaceAttentionContext);
+  const allowed = allowDemoCapture || acceptsImages || Boolean(attention);
   const [target, setTarget] = useState<CaptureTarget>();
   const [bounds, setBounds] = useState<DOMRect>();
   const [, updateMapFrame] = useState(0);
@@ -557,12 +562,34 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
               <Button aria-label="Selections list" aria-expanded={listOpen} onClick={() => setListOpen((open) => !open)} size="icon-sm" variant="ghost"><ListIcon aria-hidden="true" className="size-4" /></Button>
               <Button aria-label="Close capture" className="ml-auto" onClick={close} size="icon-sm" variant="ghost"><CloseIcon aria-hidden="true" className="size-4" /></Button>
             </div>
+            <Button className="mt-2 w-full" size="sm" variant="outline" disabled={busy || regions.length >= 32} onClick={() => {
+              const region: Region = { id: `S${nextId.current++}`, x: .25, y: .25, width: .5, height: .5, comment: '' };
+              setRegions((current) => [...current, { ...region, geographicBounds: geographicBounds(target.element, region) }]);
+              setEditingId(region.id); setEditText('');
+            }}>Add region</Button>
             {listOpen ? <div className="mt-2 max-h-44 space-y-1 overflow-auto border-t pt-2 text-xs">{regions.length ? regions.map((region) => <button className="block w-full truncate rounded p-1 text-left hover:bg-muted" key={region.id} onClick={() => { setEditingId(region.id); setEditText(region.comment); }} type="button">{region.id} · {region.comment || 'Add a comment'}</button>) : <p className="text-muted-foreground">Drag over the surface to add a region.</p>}</div> : null}
-            {regions.length ? <Button className="mt-2 w-full" disabled={busy || !!editingId} onClick={() => void send()} size="sm" type="button"><SendIcon aria-hidden="true" className="size-3.5" />{busy ? 'Capturing…' : `Add ${regions.length} ${regions.length === 1 ? 'region' : 'regions'} to message`}</Button> : null}
+            {regions.length && (allowDemoCapture || acceptsImages) ? <Button className="mt-2 w-full" disabled={busy || !!editingId} onClick={() => void send()} size="sm" type="button"><SendIcon aria-hidden="true" className="size-3.5" />{busy ? 'Capturing…' : `Add ${regions.length} ${regions.length === 1 ? 'region' : 'regions'} to message`}</Button> : null}
+            {attention && regions.length ? <div className="mt-2 flex items-center gap-2">
+              <Button className="flex-1" size="sm" variant="outline" type="button" disabled={busy || !!editingId}
+                onClick={() => void (async () => {
+                  setError(''); setBusy(true);
+                  try {
+                    const image = target.element.querySelector('img');
+                    const query = target.reference?.().query as { sourceRef?: string } | undefined;
+                    if (!image || !query?.sourceRef) throw new Error('For data views, select rows or points and use More → Add selection to attention set. Image regions require a referenced image.');
+                    if (regions.length > 32) throw new Error('Select at most 32 image regions.');
+                    for (const region of regions) await attention.image(target.componentId, query.sourceRef, imageAttentionRegion(image, target.element, displayedRegion(target.element, region)));
+                    close();
+                  } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not add image regions.'); }
+                  finally { setBusy(false); }
+                })()}>Add to attention set</Button>
+              <InfoTip label="About image attention">Keeps the image region and recorded source. Heat is available only when the capture includes a verified image-patch mapping.</InfoTip>
+            </div> : null}
             {error ? <p className="mt-2 text-xs text-destructive" role="alert">{error}</p> : null}
           </div>
-          {editorRegion ? <div className="fixed z-40 w-[min(26rem,calc(100vw-1rem))] rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl" data-capture-ui="true" style={{ left: clamp(bounds.left + (displayedRegion(target.element, editorRegion).x + displayedRegion(target.element, editorRegion).width) * bounds.width - 260, 8, window.innerWidth - 424), top: clamp(bounds.top + (displayedRegion(target.element, editorRegion).y + displayedRegion(target.element, editorRegion).height) * bounds.height + 12, 8, window.innerHeight - 230) }}>
+          {editorRegion ? <div className="fixed z-40 max-h-[calc(100dvh-1rem)] w-[min(26rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl" data-capture-ui="true" style={{ left: clamp(bounds.left + (displayedRegion(target.element, editorRegion).x + displayedRegion(target.element, editorRegion).width) * bounds.width - 260, 8, Math.max(8, window.innerWidth - 424)), top: clamp(bounds.top + (displayedRegion(target.element, editorRegion).y + displayedRegion(target.element, editorRegion).height) * bounds.height + 12, 8, Math.max(8, window.innerHeight - 340)) }}>
             <p className="mb-2 text-sm font-semibold">{editorRegion.id} · {target.title}</p>
+            <RegionCoordinateInputs box={displayedRegion(target.element, editorRegion)} onChange={(box) => setRegions((current) => current.map((region) => region.id === editorRegion.id ? { ...region, ...box, geographicBounds: geographicBounds(target.element, box) } : region))} />
             <textarea autoFocus aria-label={`Comment for ${editorRegion.id}`} className="min-h-28 w-full resize-y rounded-md border bg-background p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary" onChange={(event) => setEditText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') setEditingId(undefined); else if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); done(); } }} placeholder="What should the agent notice here?" value={editText} />
             <div className="mt-2 flex justify-end gap-2">
               <Button aria-label={`Delete ${editorRegion.id}`} className="mr-auto" onClick={() => { setRegions((current) => current.filter((region) => region.id !== editorRegion.id)); setEditingId(undefined); }} size="icon-sm" variant="ghost"><DeleteIcon aria-hidden="true" className="size-4" /></Button>

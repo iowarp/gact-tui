@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import type { ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SubagentRun, TranscriptSnapshot, TransportFrame } from '@clio/core/v3';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 
 const mocks = vi.hoisted(() => ({
+  settings: { endpoint: 'http://127.0.0.1:8790', token: 'a' },
   repository: {
     stream: vi.fn(),
     transcript: vi.fn(),
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => mocks.repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
+  useConnectionSettings: () => ({ settings: mocks.settings }),
 }));
 vi.mock('@tanstack/react-virtual', () => ({
   defaultRangeExtractor: () => [],
@@ -51,6 +52,7 @@ afterEach(() => {
   cleanup();
   mocks.repository.stream.mockReset();
   mocks.repository.transcript.mockReset();
+  mocks.settings.token = 'a';
 });
 
 const subagent: SubagentRun = {
@@ -105,13 +107,15 @@ function messageFrame(cursor: string, id: string, text: string): TransportFrame 
 
 function renderCanvas(element: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <AppearanceProvider>
-        <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
-      </AppearanceProvider>
-    </QueryClientProvider>,
-  );
+  return render(element, {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={client}>
+        <AppearanceProvider>
+          <ConversationDisplayProvider>{children}</ConversationDisplayProvider>
+        </AppearanceProvider>
+      </QueryClientProvider>
+    ),
+  });
 }
 
 function canvas() {
@@ -129,6 +133,20 @@ function canvas() {
 }
 
 describe('ClioSubagentCanvasView live stream', () => {
+  it('does not reuse a transcript from another account on the same endpoint', async () => {
+    mocks.repository.transcript.mockResolvedValue(snapshot);
+    mocks.repository.stream.mockImplementation(async function* () {
+      yield messageFrame('41', 'private_child', 'Private child answer');
+    });
+    const view = renderCanvas(canvas());
+    await screen.findByText('Snapshot answer');
+    mocks.repository.transcript.mockReturnValue(new Promise(() => {}));
+    mocks.settings.token = 'b';
+    // Rerender inside the same query client and providers.
+    view.rerender(canvas());
+    expect(screen.queryByText('Snapshot answer')).not.toBeInTheDocument();
+    await waitFor(() => expect(mocks.repository.transcript).toHaveBeenCalledTimes(2));
+  });
   it('contains one unreadable frame instead of losing its batch', async () => {
     mocks.repository.transcript.mockResolvedValue(snapshot);
     mocks.repository.stream.mockImplementation(async function* (

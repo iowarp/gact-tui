@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { useSelectionActionRegistry } from '@/hooks/use-selection-action';
 import {
-  agentAnswerSelection,
+  transcriptSelection,
   createSelectionActionRegistry,
   type SelectionTarget,
 } from '@/lib/selection-actions';
@@ -28,7 +28,7 @@ const TOOLBAR_GAP_PX = 8;
 
 function currentAnchor(): Anchor | undefined {
   const selection = window.getSelection();
-  const target = agentAnswerSelection(selection);
+  const target = transcriptSelection(selection);
   if (!target || !selection) return undefined;
   const range = selection.getRangeAt(0);
   // Environments without layout (tests, some embedded views) have no range geometry.

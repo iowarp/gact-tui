@@ -9,8 +9,23 @@ export async function openExternalUrl(url: string): Promise<void> {
     return;
   }
 
-  const opened = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!opened) throw new Error('The browser blocked the sign-in page. Use the link again.');
+  // With noopener, browsers can return null even when the tab opened successfully.
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+/** Reserve a browser tab during a user click, before an async authorization request. */
+export function prepareExternalUrl(): { open: (url: string) => Promise<void>; cancel: () => void } {
+  const pending = inTauri() ? null : window.open('about:blank', '_blank');
+  if (pending) pending.opener = null;
+  return {
+    open: async (url: string) => {
+      if (pending && !pending.closed) pending.location.replace(url);
+      else await openExternalUrl(url);
+    },
+    cancel: () => {
+      if (pending && !pending.closed) pending.close();
+    },
+  };
 }
 
 /**

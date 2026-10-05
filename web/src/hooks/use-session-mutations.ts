@@ -10,6 +10,7 @@ import type {
   PendingInteractionResponse,
   QueuedMessage,
   Session,
+  SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
@@ -23,6 +24,7 @@ import {
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
+import { useActionCard } from './use-action-card';
 import {
   uploadWorkspaceResources,
   type ResourceUploadProgress,
@@ -34,6 +36,7 @@ import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { firstMessageMetadata } from '@/lib/a2ui/first-message-metadata';
 
 interface UseSessionMutationsInput {
+  openSubagent?: (subagent: SubagentRun, target: 'canvas') => void;
   activeModel?: string;
   activeProvider?: string;
   session?: Session;
@@ -66,15 +69,9 @@ function sessionModeForExecution(
   return 'edit';
 }
 
-interface ActionCardInput {
-  id: string;
-  label: string;
-  enabled: boolean;
-  behavior: { kind: string; handle_id?: string; reason?: string };
-}
-
 /** Owns session-changing operations and their authoritative query reconciliation. */
 export function useSessionMutations({
+  openSubagent,
   activeModel,
   activeProvider,
   session,
@@ -96,6 +93,7 @@ export function useSessionMutations({
   const uploadController = useRef<AbortController | null>(null);
   const preparedUploads = useRef(new Map<string, Promise<WorkspaceResourceUploadResult>>());
   const draftSession = useRef<Promise<Session> | null>(null);
+  const draftUploads = useRef(new Map<string, string>());
   useEffect(() => {
     const controller = new AbortController();
     uploadController.current = controller;
@@ -150,8 +148,13 @@ export function useSessionMutations({
           const uploadSignal = signal
             ? AbortSignal.any([controller.signal, signal])
             : controller.signal;
+          let uploadId = draftUploads.current.get(cacheKey);
+          if (!uploadId) {
+            uploadId = `draft-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            draftUploads.current.set(cacheKey, uploadId);
+          }
           pending = uploadWorkspaceResources({
-            files: [file],
+            files: [{ ...file, clientUploadId: uploadId, pendingAttachment: true }],
             onProgress,
             repository,
             signal: uploadSignal,
@@ -187,6 +190,19 @@ export function useSessionMutations({
     },
     [queryClient, repository, sessionId, settings.endpoint, workspaceId],
   );
+
+  const discardFiles = useCallback(async (files: readonly UploadableFilePart[]) => {
+    for (const file of files) {
+      const key = `${sessionId}\u0000${file.url}`;
+      const uploadId = draftUploads.current.get(key);
+      if (!uploadId) continue;
+      await repository.discardResourceUpload(workspaceId, uploadId);
+      preparedUploads.current.delete(key);
+      draftUploads.current.delete(key);
+    }
+    await queryClient.invalidateQueries({ predicate: (query) =>
+      query.queryKey.includes('workspace-resources') || query.queryKey.includes('workspace-files') });
+  }, [queryClient, repository, sessionId, workspaceId]);
 
   const sendIdentities = useRef(new SendIdentities());
   const reconcileTurnMode = async (behavior: MessageBehavior, target = session) => {
@@ -521,17 +537,7 @@ export function useSessionMutations({
     },
   });
 
-  const actionCard = useMutation({
-    mutationFn: async (action: ActionCardInput) => {
-      if (action.behavior.kind !== 'focus_session' || !action.behavior.handle_id) {
-        throw new Error(action.behavior.reason || 'This action is not available.');
-      }
-      return repository.agentTask(action.behavior.handle_id);
-    },
-    onSuccess: (task) => {
-      void navigate(`/workspaces/${workspaceId}/sessions/${task.child_session_id}`);
-    },
-  });
+  const actionCard = useActionCard(sessionId, workspaceId, openSubagent);
 
   return {
     actionCard,
@@ -543,6 +549,7 @@ export function useSessionMutations({
     pendingSteers,
     promoteQueuedMessage,
     prepareFiles,
+    discardFiles,
     queuedMessages,
     reorderQueuedMessages,
     respondInteraction,
