@@ -93,6 +93,7 @@ const documentManifestSchema = z.object({
   native_open: z.boolean(),
   embedded_editors: z.array(z.enum(['onlyoffice', 'collabora'])).default([]),
   rendition_formats: z.array(z.string()).default([]),
+  pdf_rendition_artifact_id: optionalString,
   provenance: z.record(z.string(), z.unknown()).default({}),
 });
 const artifactReviewSchema = z.object({

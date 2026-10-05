@@ -12,6 +12,7 @@ mod clio_core_daemon;
 mod clio_core_registry;
 mod commands;
 mod credentials;
+mod execution_install;
 mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
@@ -406,8 +407,13 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
     let managed_storage =
         sidecar_setup::prepare_managed_storage_root(resource_dir, &resource_dir.join("data"))
             .map_err(|error| format!("prepare installer-managed storage: {error}"))?;
-    runtime_pack::prepare_bundled_runtime(resource_dir, &managed_storage)?
+    let runtime = runtime_pack::prepare_bundled_runtime(resource_dir, &managed_storage)?
         .ok_or_else(|| "the installer did not include a bundled CLIO runtime".to_string())?;
+    let workspace = sidecar_setup::prepare_desktop_workspace(&managed_storage)
+        .map_err(|error| format!("prepare package workspace: {error}"))?;
+    let user = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
+        .map_err(|error| format!("prepare package storage: {error}"))?;
+    execution_install::prepare_packages(&runtime, &workspace, &user)?;
     Ok(())
 }
 

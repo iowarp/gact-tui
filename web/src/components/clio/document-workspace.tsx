@@ -93,7 +93,16 @@ export function ClioDocumentWorkspace({
     queryKey: queryKeys.key('document-manifest', settings.endpoint, artifact.id),
     queryFn: ({ signal }) => repository.documentManifest(artifact.id, signal),
   });
-  const effectiveManifest = overrideManifest ?? manifest.data;
+  const previewId =
+    manifest.data && !directProfiles.has(manifest.data.profile)
+      ? manifest.data.pdf_rendition_artifact_id
+      : undefined;
+  const savedPreview = useQuery({
+    queryKey: queryKeys.key('document-manifest', settings.endpoint, previewId),
+    queryFn: ({ signal }) => repository.documentManifest(previewId!, signal),
+    enabled: Boolean(previewId && !overrideManifest),
+  });
+  const effectiveManifest = overrideManifest ?? savedPreview.data ?? manifest.data;
   const content = useQuery({
     queryKey: queryKeys.key('document-content', settings.endpoint, effectiveManifest?.artifact_id),
     queryFn: ({ signal }) => repository.documentContent(effectiveManifest!.artifact_id, signal),
@@ -330,7 +339,11 @@ export function ClioDocumentWorkspace({
               variant="outline"
             >
               <FileOutputIcon aria-hidden="true" />
-              {rendition.isPending ? 'Rendering…' : 'Render PDF preview'}
+              {rendition.isPending
+                ? 'Rendering…'
+                : previewId
+                  ? 'Show PDF preview'
+                  : 'Render PDF preview'}
             </Button>
           ) : null}
           <Button
@@ -346,11 +359,11 @@ export function ClioDocumentWorkspace({
           </Button>
         </div>
         {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
-        {createWorkingCopy.error || rendition.error ? (
+        {createWorkingCopy.error || rendition.error || savedPreview.error ? (
           <Alert variant="destructive">
             <AlertTitle>Document action failed</AlertTitle>
             <AlertDescription>
-              {(createWorkingCopy.error ?? rendition.error)?.message}
+              {(createWorkingCopy.error ?? rendition.error ?? savedPreview.error)?.message}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -545,8 +558,7 @@ function DocumentPreview({
         <FileCheck2Icon aria-hidden="true" />
         <AlertTitle>{profileLabel(manifest)} remains canonical</AlertTitle>
         <AlertDescription>
-          Open it in a desktop editor, use an available embedded editor, or create a read-only PDF
-          rendition. No browser conversion has been invented.
+          Open it in a desktop editor, use an available embedded editor, or render a PDF preview.
         </AlertDescription>
       </Alert>
     );
