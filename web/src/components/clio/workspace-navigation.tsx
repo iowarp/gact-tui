@@ -54,7 +54,11 @@ interface WorkspaceNavigationProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onDownloadSession: (sessionId: string, title: string) => Promise<void>;
+  onDownloadSession: (
+    sessionId: string,
+    title: string,
+    mode: import('@clio/core/v3').SessionExportMode,
+  ) => Promise<void>;
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   attentions: Readonly<Record<string, SessionAttention>>;
@@ -224,7 +228,11 @@ interface WorkspaceTreeItemProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onDownloadSession: (sessionId: string, title: string) => Promise<void>;
+  onDownloadSession: (
+    sessionId: string,
+    title: string,
+    mode: import('@clio/core/v3').SessionExportMode,
+  ) => Promise<void>;
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisitSession: (session: Session) => void;

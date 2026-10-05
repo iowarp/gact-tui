@@ -71,7 +71,10 @@ export interface ResourceActions {
   restoreSession: (sessionId: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
-  exportSession: (sessionId: string) => Promise<unknown>;
+  exportSession: (
+    sessionId: string,
+    mode: import('@clio/core/v3').SessionExportMode,
+  ) => Promise<{ download_path: string; filename: string }>;
   importSession: (value: unknown) => Promise<void>;
 }
 

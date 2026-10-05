@@ -167,7 +167,7 @@ const BRAND_FAVICON_PATH = '/brand-favicon.svg';
 /** The tracked, product-neutral fallback shipped in web/public. */
 const NEUTRAL_FAVICON_PATH = '/favicon.svg';
 
-export function brandPlugin(brandingRoot: string, profile: string): Plugin {
+export function brandPlugin(brandingRoot: string, profile: string, inlineAssets = false): Plugin {
   let cached: ResolvedBrand | undefined;
   let production = false;
   const getBrand = () => (cached ??= loadBrand(brandingRoot, profile));
@@ -184,7 +184,7 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
       if (id !== RESOLVED_ID) return null;
       const brand = { ...getBrand() };
       const assets: string[] = [];
-      if (production) {
+      if (production && !inlineAssets) {
         for (const key of ['logoImage', 'wordmarkImage'] as const) {
           const value = brand[key];
           if (!value) continue;

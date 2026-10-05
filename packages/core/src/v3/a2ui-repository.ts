@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import {
   a2uiCapabilitiesResponseSchema,
-  a2uiReferenceResolutionSchema,
   decodeA2uiCatalogRows,
   mergeA2uiClientMetadata,
 } from './a2ui/index.js';
@@ -10,7 +9,7 @@ import type {
   A2uiCatalogListDecodeResult,
   A2uiReferenceResolution,
 } from './a2ui/index.js';
-import { readArtifactWithCustodyFallback, readBytesPath } from './artifact-custody.js';
+import { resolveSessionReference, readResolvedReferenceBytes } from './a2ui/reference-transport.js';
 import { PresentationRepository } from './presentation-repository.js';
 
 /**
@@ -93,13 +92,7 @@ export class A2uiRepository extends PresentationRepository {
     uri: string,
     signal?: AbortSignal,
   ): Promise<A2uiReferenceResolution> {
-    const query = new URLSearchParams({ uri });
-    return this.transport.request({
-      method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/references/resolve?${query.toString()}`,
-      decode: (value) => a2uiReferenceResolutionSchema.parse(value),
-      signal,
-    });
+    return resolveSessionReference(this.transport, sessionId, uri, signal);
   }
 
   /**
@@ -111,16 +104,6 @@ export class A2uiRepository extends PresentationRepository {
     resolution: A2uiReferenceResolution,
     signal?: AbortSignal,
   ): Promise<Uint8Array> {
-    const read = (path: string, requestSignal?: AbortSignal) =>
-      readBytesPath(this.transport, path, requestSignal);
-    if (resolution.kind === 'artifact') {
-      return readArtifactWithCustodyFallback(
-        resolution.artifact_id ?? '',
-        resolution.fetch_path,
-        read,
-        signal,
-      );
-    }
-    return read(resolution.fetch_path, signal);
+    return readResolvedReferenceBytes(this.transport, resolution, signal);
   }
 }

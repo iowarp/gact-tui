@@ -11,7 +11,6 @@ import {
   A2uiSurface,
   Button as A2UIButton,
   CheckBox,
-  ChoicePicker,
   Column,
   DateTimeInput,
   Card,
@@ -46,6 +45,7 @@ import {
 } from '@/components/clio/a2ui-accessibility';
 import { ClioArtifactCatalogComponent } from '@/components/clio/a2ui-artifact';
 import { A2uiMedia } from '@/components/clio/a2ui-media';
+import { ClioChoicePicker } from '@/components/clio/a2ui-choice-picker';
 import { refinedStrictObject } from '@/components/clio/a2ui-refined-schema';
 import { ClioChartCatalogComponent } from '@/components/clio/a2ui-chart-catalog';
 import { ClioDataTableCatalogComponent } from '@/components/clio/a2ui-data-table';
@@ -683,7 +683,7 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   A2UIButton,
   TextField,
   CheckBox,
-  ChoicePicker,
+  ClioChoicePicker,
   Slider,
   DateTimeInput,
   Grid,

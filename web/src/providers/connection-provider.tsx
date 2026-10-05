@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type PropsWithChildren,
+  type ReactNode,
 } from 'react';
 import {
   DEFAULT_ENDPOINT,
@@ -134,6 +135,32 @@ interface ConnectionContextValue {
 }
 
 const ConnectionContext = createContext<ConnectionContextValue | undefined>(undefined);
+
+/** An archive has no live connection or credential storage. */
+export function ArchiveConnectionProvider({ children }: { children: ReactNode }) {
+  const unavailable = async (): Promise<never> => {
+    throw new Error('This archive has no live connection.');
+  };
+  return (
+    <ConnectionContext.Provider
+      value={{
+        settings: { endpoint: 'https://archive.invalid', label: 'Offline archive' },
+        recents: [],
+        credentialsReady: true,
+        managedConnectionReady: true,
+        isManagedConnection: false,
+        resolveConnection: unavailable,
+        connect: unavailable,
+        forget: unavailable,
+        rename: () => {
+          throw new Error('This archive is read-only.');
+        },
+      }}
+    >
+      {children}
+    </ConnectionContext.Provider>
+  );
+}
 
 function readRecents(): SavedConnection[] {
   try {

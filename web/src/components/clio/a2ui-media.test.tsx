@@ -241,6 +241,18 @@ describe('A2uiMedia', () => {
   });
 
   describe('G0: Image affordances (download, full screen, Reference this)', () => {
+    it('enlarges by clicking the figure and by activating its keyboard button', async () => {
+      const user = userEvent.setup();
+      fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_abc'));
+      fake.readA2uiReferenceBytes.mockResolvedValue(PNG);
+      renderMedia(<A2uiMedia componentId="img" kind="image" label="Plot" url="artifact_abc" />);
+      await user.click(await screen.findByRole('img', { name: 'Plot' }));
+      expect(screen.getByRole('dialog')).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'Exit full screen' }));
+      screen.getByRole('button', { name: `Enlarge ${AWKWARD}` }).focus();
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('dialog')).toBeVisible();
+    });
     it('bounds figures inline and fits portrait figures within the fullscreen viewport', async () => {
       fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_abc'));
       fake.readA2uiReferenceBytes.mockResolvedValue(PNG);

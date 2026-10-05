@@ -36,11 +36,16 @@ export interface A2uiMediaProps {
 /** Preserve the catalog's image sizing without letting a figure fill the transcript. */
 function imageVariantStyle(variant: A2uiMediaProps['variant']): CSSProperties {
   switch (variant) {
-    case 'icon': return { width: 24, height: 24 };
-    case 'avatar': return { width: 40, height: 40, borderRadius: '50%' };
-    case 'smallFeature': return { maxWidth: 100, maxHeight: 100 };
-    case 'header': return { width: '100%', height: 200 };
-    default: return { maxWidth: '100%', maxHeight: 'min(400px, 45vh)' };
+    case 'icon':
+      return { width: 24, height: 24 };
+    case 'avatar':
+      return { width: 40, height: 40, borderRadius: '50%' };
+    case 'smallFeature':
+      return { maxWidth: 100, maxHeight: 100 };
+    case 'header':
+      return { width: '100%', height: 200 };
+    default:
+      return { maxWidth: '100%', maxHeight: 'min(400px, 45vh)' };
   }
 }
 
@@ -149,6 +154,19 @@ function ReferenceImage({
     fullScreen: { isOpen: fullscreen, onToggle: () => setFullscreen(!fullscreen) },
   };
 
+  const image = <img
+          alt={label ?? ''}
+          className={
+            fullscreen ? 'mx-auto block max-w-full object-contain' : 'max-w-full rounded-md'
+          }
+          onError={onError}
+          src={state.objectUrl}
+          style={
+            fullscreen
+              ? { maxHeight: 'calc(100dvh - 6rem)', objectFit: 'contain' }
+              : { ...imageVariantStyle(variant), objectFit }
+          }
+        />;
   return (
     <div className="group relative" data-slot="a2ui-media-image">
       <SurfaceToolbar capabilities={capabilities} />
@@ -158,19 +176,19 @@ function ReferenceImage({
         onOpenChange={setFullscreen}
         title={name}
       >
-        <img
-          alt={label ?? ''}
-          className={fullscreen ? 'mx-auto block max-w-full object-contain' : 'max-w-full rounded-md'}
-          onError={onError}
-          src={state.objectUrl}
-          style={fullscreen ? { maxHeight: 'calc(100dvh - 6rem)', objectFit: 'contain' } : { ...imageVariantStyle(variant), objectFit }}
-        />
+        {fullscreen ? image : <button aria-label={`Enlarge ${name}`} type="button" className="block max-w-full cursor-zoom-in rounded-md text-left focus-visible:outline-2 focus-visible:outline-primary" onClick={() => setFullscreen(true)}>{image}</button>}
       </SurfaceFullScreenHost>
     </div>
   );
 }
 
-function ReferenceMedia({ kind, label, objectFit, url, variant }: Omit<A2uiMediaProps, 'componentId'>) {
+function ReferenceMedia({
+  kind,
+  label,
+  objectFit,
+  url,
+  variant,
+}: Omit<A2uiMediaProps, 'componentId'>) {
   const state = useA2uiReference(url);
   const [undisplayable, setUndisplayable] = useState<string>();
   const failure =
@@ -192,7 +210,15 @@ function ReferenceMedia({ kind, label, objectFit, url, variant }: Omit<A2uiMedia
   }
   const onError = () => setUndisplayable(state.objectUrl);
   if (kind === 'image') {
-    return <ReferenceImage label={label} objectFit={objectFit} onError={onError} state={state} variant={variant} />;
+    return (
+      <ReferenceImage
+        label={label}
+        objectFit={objectFit}
+        onError={onError}
+        state={state}
+        variant={variant}
+      />
+    );
   }
   if (kind === 'video') {
     return (
@@ -230,5 +256,7 @@ export function A2uiMedia({ componentId, kind, label, objectFit, url, variant }:
     );
   }
   if (!isClioReference(url)) return <A2uiExternalMedia kind={kind} url={url} />;
-  return <ReferenceMedia kind={kind} label={label} objectFit={objectFit} url={url} variant={variant} />;
+  return (
+    <ReferenceMedia kind={kind} label={label} objectFit={objectFit} url={url} variant={variant} />
+  );
 }

@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from 'node:url';
 import { resolveBrandConfig } from '../branding/brand-config.mjs';
 import { brandPlugin } from './vite-plugin-brand.js';
 import { maplibreWorkerPlugin } from './vite-plugin-maplibre-worker.js';
+import { offlineReviewPlugin } from './vite-plugin-offline-review.js';
 
 const brandConfig = resolveBrandConfig();
 const remoteDevelopmentTarget = process.env.CLIO_DEV_REMOTE_ENDPOINT;
@@ -25,6 +26,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     maplibreWorkerPlugin(),
+    offlineReviewPlugin(),
   ],
   resolve: {
     alias: {
