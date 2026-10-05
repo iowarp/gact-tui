@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
+import { TransportError } from '@clio/core/v3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArtifactView, BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
 
@@ -104,6 +105,38 @@ describe('BlueprintFileEditor', () => {
 });
 
 describe('ArtifactView', () => {
+  it.each([false, true])('reports workspace recovery only when it occurs (%s)', async (missing) => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    if (missing) {
+      repository.readArtifactTextFor.mockRejectedValue(new TransportError('missing', 404));
+    } else {
+      repository.readArtifactTextFor.mockResolvedValue('Saved result');
+    }
+    repository.readWorkspaceFile.mockResolvedValue('Recovered result');
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ArtifactView
+          artifact={{
+            id: 'artifact_text',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'result.txt',
+            media_type: 'text/plain',
+            size: 30,
+            uri: 'artifact://workspace_1/result.txt@v1',
+          }}
+          files={[{ path: 'result.txt', type: 'file', size: 30, internal: false }]}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+    await screen.findByText(missing ? 'Recovered result' : 'Saved result');
+    expect(Boolean(screen.queryByText('Recovered from the matching workspace file.'))).toBe(
+      missing,
+    );
+    expect(repository.readWorkspaceFile).toHaveBeenCalledTimes(missing ? 1 : 0);
+  });
+
   it('renders Markdown as a readable wrapping document instead of source code', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     repository.readArtifactTextFor.mockResolvedValue(
@@ -200,7 +233,11 @@ describe('WorkspaceFileView', () => {
   it('shows the read error instead of an endless PDF loading state', async () => {
     repository.readWorkspaceFileBytes.mockRejectedValue(new Error('file not found: missing.pdf'));
     renderFile(
-      <WorkspaceFileView mediaType="application/pdf" path="missing.pdf" workspaceId="workspace_1" />,
+      <WorkspaceFileView
+        mediaType="application/pdf"
+        path="missing.pdf"
+        workspaceId="workspace_1"
+      />,
     );
 
     expect(await screen.findByText('PDF preview unavailable')).toBeVisible();

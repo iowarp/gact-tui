@@ -76,6 +76,19 @@ pub(crate) fn boot_sidecar(
     };
 
     // 4. Spawn our own.
+    // Installer packages are downloaded into managed storage. DMG/AppImage installs
+    // have no post-install hook, so finish their setup here before starting the agent.
+    if let (Some(runtime), Some(workspace), Some(user)) = (
+        bundled_runtime.as_deref(),
+        working_dir.as_deref(),
+        user_dir.as_deref(),
+    ) {
+        if let Err(error) = crate::execution_install::prepare_packages(runtime, workspace, user) {
+            boot_log_line(&error);
+            state.set_status(BackendStatus::Error(error));
+            return;
+        }
+    }
     state.set_status(BackendStatus::Starting(
         BackendStartupStage::StartingService,
     ));

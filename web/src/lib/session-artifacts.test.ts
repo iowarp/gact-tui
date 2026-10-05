@@ -30,6 +30,25 @@ function record(id: string, name: string): ArtifactRecord {
 }
 
 describe('sessionArtifactEntities', () => {
+  it.each([
+    ['docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    ['pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+    ['xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ])('retains the editable %s media type with an older service', (extension, mediaType) => {
+    const listing = {
+      artifacts: [record('office_1', `result.${extension}`)],
+      used: [],
+      count: 1,
+      include_children: false,
+      child_session_ids: [],
+    };
+    expect(sessionArtifactEntities(listing, [], 'session_1')[0]?.media_type).toBe(mediaType);
+    listing.artifacts[0]!.versions[0]!.media_type = 'application/x-custom-office';
+    expect(sessionArtifactEntities(listing, [], 'session_1')[0]?.media_type).toBe(
+      'application/x-custom-office',
+    );
+  });
+
   it('retains every immutable version for transcript links while the asset list shows the head', () => {
     const first = record('report_v1', 'report.md');
     const second = record('report_v2', 'report.md');

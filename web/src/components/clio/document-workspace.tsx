@@ -93,7 +93,16 @@ export function ClioDocumentWorkspace({
     queryKey: queryKeys.key('document-manifest', settings.endpoint, artifact.id),
     queryFn: ({ signal }) => repository.documentManifest(artifact.id, signal),
   });
-  const effectiveManifest = overrideManifest ?? manifest.data;
+  const previewId =
+    manifest.data && !directProfiles.has(manifest.data.profile)
+      ? manifest.data.pdf_rendition_artifact_id
+      : undefined;
+  const savedPreview = useQuery({
+    queryKey: queryKeys.key('document-manifest', settings.endpoint, previewId),
+    queryFn: ({ signal }) => repository.documentManifest(previewId!, signal),
+    enabled: Boolean(previewId && !overrideManifest),
+  });
+  const effectiveManifest = overrideManifest ?? savedPreview.data ?? manifest.data;
   const content = useQuery({
     queryKey: queryKeys.key('document-content', settings.endpoint, effectiveManifest?.artifact_id),
     queryFn: ({ signal }) => repository.documentContent(effectiveManifest!.artifact_id, signal),
@@ -222,7 +231,12 @@ export function ClioDocumentWorkspace({
       <Tabs className="grid min-w-0 gap-3 overflow-hidden" defaultValue="preview">
         <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
           <div className="mr-auto min-w-0">
-            <p className="text-sm font-medium">{profileLabel(effectiveManifest)}</p>
+            <p className="text-sm font-medium">
+              {profileLabel(manifest.data ?? effectiveManifest)}
+            </p>
+            {savedPreview.data && !overrideManifest ? (
+              <p className="text-xs text-muted-foreground">Saved PDF preview</p>
+            ) : null}
             <p className="truncate font-mono text-[10px] text-muted-foreground">
               {effectiveManifest
                 ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256.slice(0, 12)}`
@@ -330,7 +344,11 @@ export function ClioDocumentWorkspace({
               variant="outline"
             >
               <FileOutputIcon aria-hidden="true" />
-              {rendition.isPending ? 'Rendering…' : 'Render PDF preview'}
+              {rendition.isPending
+                ? 'Rendering…'
+                : previewId
+                  ? 'Show PDF preview'
+                  : 'Render PDF preview'}
             </Button>
           ) : null}
           <Button
@@ -346,11 +364,11 @@ export function ClioDocumentWorkspace({
           </Button>
         </div>
         {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
-        {createWorkingCopy.error || rendition.error ? (
+        {createWorkingCopy.error || rendition.error || savedPreview.error ? (
           <Alert variant="destructive">
             <AlertTitle>Document action failed</AlertTitle>
             <AlertDescription>
-              {(createWorkingCopy.error ?? rendition.error)?.message}
+              {(createWorkingCopy.error ?? rendition.error ?? savedPreview.error)?.message}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -371,6 +389,12 @@ export function ClioDocumentWorkspace({
               content={content.data}
               editor={editor}
               fallback={fallbackPreview}
+              fit={
+                manifest.data &&
+                ['ooxml-word', 'ooxml-slides', 'odf-text', 'odf-slides'].includes(manifest.data.profile)
+                  ? 'page'
+                  : 'width'
+              }
               manifest={effectiveManifest}
               onPdfSelection={setSelection}
               text={textContent}
@@ -476,6 +500,7 @@ function DocumentPreview({
   content,
   editor,
   fallback,
+  fit,
   manifest,
   onPdfSelection,
   text,
@@ -483,6 +508,7 @@ function DocumentPreview({
   content?: Uint8Array;
   editor?: DocumentEditorSession;
   fallback: ReactNode;
+  fit: 'page' | 'width';
   manifest?: DocumentManifest;
   onPdfSelection: (anchor: DocumentAnchor) => void;
   text?: string;
@@ -507,7 +533,12 @@ function DocumentPreview({
       // view, which needs a bounded box to scroll inside — the same one the
       // editor branch above uses.
       <div className="h-[70vh] min-h-[540px] w-full">
-        <ClioPdfPreview bytes={content} name={manifest.name} onSelection={onPdfSelection} />
+        <ClioPdfPreview
+          bytes={content}
+          fit={fit}
+          name={manifest.name}
+          onSelection={onPdfSelection}
+        />
       </div>
     );
   }
@@ -545,8 +576,7 @@ function DocumentPreview({
         <FileCheck2Icon aria-hidden="true" />
         <AlertTitle>{profileLabel(manifest)} remains canonical</AlertTitle>
         <AlertDescription>
-          Open it in a desktop editor, use an available embedded editor, or create a read-only PDF
-          rendition. No browser conversion has been invented.
+          Open it in a desktop editor, use an available embedded editor, or render a PDF preview.
         </AlertDescription>
       </Alert>
     );

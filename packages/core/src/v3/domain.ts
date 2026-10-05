@@ -318,6 +318,7 @@ export interface Artifact {
 }
 
 export interface ArtifactVersion {
+  media_type?: string;
   artifact_id: string;
   workspace_id: string;
   name: string;

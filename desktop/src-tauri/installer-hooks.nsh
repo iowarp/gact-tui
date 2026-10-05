@@ -673,7 +673,7 @@ FunctionEnd
   ; processing tens of thousands of Python files. Expand it here, invisibly,
   ; before the user can launch CLIO. The executable installs it below $INSTDIR
   ; so a D: selection includes the runtime, CTE, workspace, and model cache.
-  DetailPrint "Installing the CLIO runtime..."
+  DetailPrint "Installing the CLIO runtime and downloading Python/Node document packages..."
   nsExec::ExecToStack '"$INSTDIR\clio-desktop.exe" --prepare-runtime'
   Pop $0
   Pop $1
