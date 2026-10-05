@@ -6,6 +6,16 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.5] — 2026-10-05
+
+- Infrastructure views support runtime and monitoring lifecycle actions, connected
+  sources and accounts, and attention evidence review for CLIO beta 3.
+- PDF, Word, PowerPoint and spreadsheet artifacts retain editable sources and
+  display saved PDF previews bound to the document version.
+- Document editing exposes working copies, review and publication actions.
+- The Desktop package installer uses the bundled Python 3.13 interpreter.
+- Align browser and Desktop navigation tests with their actual opening behavior.
+
 ## [0.11.3-beta.4] — 2026-10-03
 
 - Emit custom SVG logos and wordmarks with `.svg` filenames in production builds,
