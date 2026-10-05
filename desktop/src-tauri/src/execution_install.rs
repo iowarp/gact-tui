@@ -13,7 +13,13 @@ pub(crate) fn install_command(runtime: &Path, workspace: &Path, user: &Path) -> 
     };
     let mut command = Command::new(runtime.join(python));
     command
-        .args(["-m", "clio_agent.runtime.document_install", "--workspace"])
+        .args([
+            "-I",
+            "-B",
+            "-m",
+            "clio_agent.runtime.document_install",
+            "--workspace",
+        ])
         .arg(workspace)
         .env("GACT_BUNDLED_RUNTIME_DIR", runtime)
         .stdin(Stdio::null());
@@ -76,6 +82,8 @@ mod tests {
         assert_eq!(
             args,
             [
+                "-I",
+                "-B",
                 "-m",
                 "clio_agent.runtime.document_install",
                 "--workspace",
