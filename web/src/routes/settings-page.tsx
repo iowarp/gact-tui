@@ -48,6 +48,7 @@ import { PermissionPoliciesPanel } from '@/components/clio/settings-permissions'
 import { ToolsSettings } from '@/components/clio/settings-tools';
 import { ScheduleSettings } from '@/components/clio/settings-schedules';
 import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
+import { RuntimeSettingsPanel } from '@/components/clio/settings-runtime';
 import { ModelsSettings } from '@/components/clio/settings-models';
 import { ProvidersSettings } from '@/components/clio/settings-providers';
 import { DataSourceSettings } from '@/components/clio/settings-data-sources';
@@ -168,6 +169,13 @@ const sections: SettingsDestination[] = [
     icon: BotIcon,
     group: 'Agent',
     keywords: 'instructions capabilities routing',
+  },
+  {
+    id: 'runtime',
+    label: 'Execution & history',
+    icon: AdjustIcon,
+    group: 'Agent',
+    keywords: 'configuration timeout retries transcript reasoning compaction defaults',
   },
   {
     id: 'blueprints',
@@ -655,6 +663,7 @@ function SettingsSection({
   if (section === 'connections') return <ConnectionsSettings />;
   if (section === 'data-sources') return <DataSourceSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
+  if (section === 'runtime') return <RuntimeSettingsPanel />;
   if (section === 'providers') return <ProvidersSettings />;
   if (section === 'models') return <ModelsSettings />;
   if (section === 'agents') return <AgentSettings />;

@@ -59,6 +59,7 @@ export type ClioQueryNamespace =
   | 'relay-status'
   | 'runs'
   | 'runtime-metrics'
+  | 'runtime-settings'
   | 'sandbox-status'
   | 'saved-servers'
   | 'service-health'
