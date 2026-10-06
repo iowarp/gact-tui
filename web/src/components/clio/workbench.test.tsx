@@ -1,7 +1,15 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render as renderComponent,
+  type RenderResult,
+  screen,
+  within,
+} from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
-import { createRef } from 'react';
+import { createRef, type PropsWithChildren, type ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 // Rendered workspace files resolve the Markdown renderer behind a React.lazy
 // boundary (MessageResponse -> ./markdown: streamdown, math, cjk). Loaded
@@ -52,6 +60,18 @@ afterEach(() => {
   // read unless it is cleared here.
   window.localStorage.clear();
 });
+
+/** Give standalone canvas tests the query context used by the real workspace. */
+function render(ui: ReactElement): RenderResult {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  return renderComponent(ui, {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  });
+}
 
 function renderWorkbench() {
   return render(
