@@ -1,14 +1,19 @@
 import { createRoot } from 'react-dom/client';
 import { Component, useEffect, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ClioRepository, a2uiSurfaceSchema, type SessionReviewSnapshot } from '@clio/core/v3';
+import {
+  ClioRepository,
+  a2uiSurfaceSchema,
+  type SessionReviewSnapshot,
+  type Artifact,
+} from '@clio/core/v3';
 import { ArchiveConnectionProvider } from './providers/connection-provider';
 import { RepositoryOverrideProvider } from './providers/repository-override';
 import { ArchiveTransport } from './lib/session-export/archive-transport';
 import { ArchiveFileList } from './lib/session-export/archive-file-list';
+import { archiveFileHref } from './lib/session-export/archive-file-reference';
 import { ArchiveEvidence } from './lib/session-export/archive-evidence';
 import {
-  RecordedActivity,
   type RecordedPart,
   type RecordedTool,
   type SavedToolOutput,
@@ -16,14 +21,17 @@ import {
 import { useA2uiSessionRegistry } from './lib/a2ui/processor-store';
 import { A2uiReferenceSessionProvider } from './lib/a2ui/reference-session';
 import { ClioA2UISurface } from './components/clio/a2ui-surface';
-import { GroundedMessageResponse } from './components/clio/grounded-message-response';
-import { A2uiMedia } from './components/clio/a2ui-media';
-import { ARTIFACT_IMAGE_PATH } from './lib/remark-artifact-images';
 import './index.css';
 import { setWorkerUrl } from 'maplibre-gl';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import { vocab } from './lib/brand-vocabulary';
+import {
+  ArchiveConversation,
+  type ArchiveTranscriptView,
+} from './lib/session-export/archive-conversation';
+import { ArtifactView, TextResourceView } from './components/clio/resource-viewers';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 
 declare global {
   interface Window {
@@ -43,12 +51,14 @@ interface TranscriptRow {
   recording: unknown;
 }
 interface ArchiveData {
+  transcript_views: Record<string, ArchiveTranscriptView>;
   transcript: TranscriptRow & { children: TranscriptRow[]; exported_at: string };
   manifest: {
     mode: string;
     omissions: unknown[];
-    files: { archive_path: string; bytes: number }[];
-    artifacts: { artifact_id: string; name: string; archive_path?: string | null }[];
+    files: { archive_path: string; bytes: number; source_path?: string }[];
+    artifacts: { artifact_id: string; name: string; archive_path?: string | null; path?: string }[];
+    workspace_folders?: { source_path: string; archive_path: string }[];
     tool_output_files?: SavedToolOutput[];
   };
   snapshot: SessionReviewSnapshot & { tool_output_text?: Record<string, string> };
@@ -89,177 +99,13 @@ function sourceLink(uri: string | undefined, references: RecordedPart[] = []): s
       ),
     ];
     if (matches.length === 1) return sourceLink(matches[0]);
-    return data.manifest.files.some((file) => file.archive_path === uri)
-      ? uri.split('/').map(encodeURIComponent).join('/')
-      : undefined;
+    return archiveFileHref(uri, data.manifest);
   }
-  const id = uri.slice('artifact://'.length).split('/')[0];
-  const path = data.manifest.artifacts.find((item) => item.artifact_id === id)?.archive_path;
-  return path?.split('/').map(encodeURIComponent).join('/');
-}
-function RecordedText({
-  text,
-  identity,
-  references,
-}: {
-  text: string;
-  identity: string;
-  references: RecordedPart[];
-}) {
-  return (
-    <GroundedMessageResponse
-      components={{
-        a: ({ href, children }) => {
-          const target = sourceLink(href, references);
-          return target ? (
-            <a href={target} className="underline">
-              {children}
-            </a>
-          ) : (
-            <span>{children} (source file requires Effects or Full)</span>
-          );
-        },
-        img: ({ src, alt }) =>
-          typeof src === 'string' && src.startsWith(ARTIFACT_IMAGE_PATH) ? (
-            <A2uiMedia
-              componentId={identity}
-              kind="image"
-              url={decodeURIComponent(src.slice(ARTIFACT_IMAGE_PATH.length))}
-              label={alt}
-              objectFit="contain"
-            />
-          ) : (
-            <span>Uncaptured image: {alt}</span>
-          ),
-      }}
-    >
-      {text}
-    </GroundedMessageResponse>
-  );
-}
-function Conversation({ row }: { row: TranscriptRow }) {
-  const surfaces = data.snapshot.sessions[row.session.id] ?? [];
-  return (
-    <A2uiReferenceSessionProvider value={row.session.id}>
-      <section id={row.session.id} className="space-y-6">
-        {rows.length > 1 && <h2 className="text-2xl font-semibold">{row.session.title}</h2>}
-        {row.messages.map((message) => {
-          const views = surfaces.filter(
-            (value) => (value as { message_id?: string }).message_id === message.id,
-          );
-          const firstView = message.parts.findIndex((part) => part.type === 'a2ui');
-          return (
-            <article
-              key={message.id}
-              className={`rounded-xl border p-5 ${message.role === 'user' ? 'bg-primary/5' : 'bg-background'}`}
-            >
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <h3 className="text-sm font-semibold">
-                  {message.role === 'user'
-                    ? 'You'
-                    : message.role === 'assistant'
-                      ? vocab.product
-                      : message.role}
-                </h3>
-                {message.created_at && (
-                  <time className="text-xs text-muted-foreground" dateTime={message.created_at}>
-                    {new Date(message.created_at).toLocaleTimeString(undefined, {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </time>
-                )}
-              </div>
-              {message.parts.map((part, i) => {
-                const key = part.id ?? `${message.id}-${i}`;
-                if (part.type === 'text')
-                  return (
-                    <div className="my-4" key={key}>
-                      <RecordedText
-                        text={part.text ?? ''}
-                        identity={key}
-                        references={message.parts}
-                      />
-                    </div>
-                  );
-                if (['thinking', 'injection', 'tool_call', 'tool_result'].includes(part.type))
-                  return (
-                    <RecordedActivity
-                      key={key}
-                      part={part}
-                      tools={row.tool_records}
-                      outputs={data.manifest.tool_output_files?.map((item) => ({
-                        ...item,
-                        text: data.snapshot.tool_output_text?.[item.source_path],
-                        embedded: data.manifest.mode === 'transcript',
-                      }))}
-                    />
-                  );
-                if (part.type === 'image' && part.url)
-                  return (
-                    <A2uiMedia
-                      key={key}
-                      componentId={key}
-                      kind="image"
-                      url={part.url}
-                      objectFit="contain"
-                    />
-                  );
-                if (part.type === 'resource_link') {
-                  const target = sourceLink(part.uri);
-                  return (
-                    <p className="my-2 text-sm" key={key}>
-                      {target ? (
-                        <a className="underline" href={target}>
-                          {part.name || 'Recorded file'}
-                        </a>
-                      ) : (
-                        <span>
-                          {part.name || 'Recorded file'} · source file requires Effects or Full
-                        </span>
-                      )}
-                    </p>
-                  );
-                }
-                if (part.type === 'a2ui')
-                  return i === firstView ? (
-                    <div key={key}>
-                      {views.map((view, j) => (
-                        <SavedView key={j} value={view} />
-                      ))}
-                    </div>
-                  ) : null;
-                return (
-                  <p className="my-3 text-sm text-muted-foreground" key={key}>
-                    Recorded {part.type.replaceAll('_', ' ')} · exact record in Evidence.
-                  </p>
-                );
-              })}
-              {firstView < 0 && views.map((view, i) => <SavedView key={i} value={view} />)}
-              {!message.parts.length && (
-                <p className="text-sm text-muted-foreground">
-                  No visible content was recorded for this message.
-                </p>
-              )}
-            </article>
-          );
-        })}
-        {surfaces
-          .filter(
-            (value) =>
-              !row.messages.some(
-                (message) => message.id === (value as { message_id?: string }).message_id,
-              ),
-          )
-          .map((view, i) => (
-            <SavedView key={i} value={view} />
-          ))}
-      </section>
-    </A2uiReferenceSessionProvider>
-  );
+  return archiveFileHref(uri, data.manifest);
 }
 export function Review() {
   useA2uiSessionRegistry(ids);
+  const [opened, setOpened] = useState<Artifact | string>();
   const [section, setSection] = useState(
     location.hash === '#evidence'
       ? 'evidence'
@@ -331,7 +177,14 @@ export function Review() {
         </div>
         <TabsContent value="conversation">
           {rows.map((row) => (
-            <Conversation key={row.session.id} row={row} />
+            <ArchiveConversation
+              key={row.session.id}
+              sessionId={row.session.id}
+              view={data.transcript_views[row.session.id]}
+              snapshot={data.snapshot}
+              onOpenArtifact={setOpened}
+              onOpenFile={setOpened}
+            />
           ))}
         </TabsContent>
         <TabsContent value="results">
@@ -366,6 +219,61 @@ export function Review() {
           />
         </TabsContent>
       </Tabs>
+      <Dialog
+        open={opened !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setOpened(undefined);
+        }}
+      >
+        <DialogContent className="flex h-[85dvh] max-w-[95vw] flex-col sm:max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>
+              {typeof opened === 'string' ? opened.split(/[\\/]/).at(-1) : opened?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {typeof opened === 'string' ? (
+              data.snapshot.tool_output_text?.[opened] !== undefined ? (
+                <TextResourceView path={opened} content={data.snapshot.tool_output_text[opened]} />
+              ) : (
+                <p className="p-4">
+                  {sourceLink(opened) ? (
+                    <a className="underline" href={sourceLink(opened)}>
+                      Open included file
+                    </a>
+                  ) : (
+                    'This source file was not included. Choose Effects or Full to include recorded inputs and artifacts.'
+                  )}
+                </p>
+              )
+            ) : opened ? (
+              <>
+                {sourceLink(`artifact://${opened.id}`) && (
+                  <p className="p-3 text-sm">
+                    <a className="underline" href={sourceLink(`artifact://${opened.id}`)}>
+                      Open included source file: {opened.name}
+                    </a>
+                  </p>
+                )}
+                {data.snapshot.responses[
+                  `GET ${opened.fetch_path || `/v1/artifacts/${opened.id}/bytes`}`
+                ] ? (
+                  <ArtifactView
+                    artifact={opened}
+                    workspaceId={opened.workspace_id ?? ''}
+                    files={[]}
+                  />
+                ) : (
+                  <p className="p-3 text-sm">
+                    This file has no embedded preview. Effects and Full include recorded artifacts
+                    as separate files; use the source-file link above when available.
+                  </p>
+                )}
+              </>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
       <footer className="border-t pt-5 text-xs text-muted-foreground">
         Exported {new Date(data.transcript.exported_at).toLocaleString()} ·{' '}
         {data.manifest.mode === 'transcript' ? (

@@ -66,6 +66,7 @@ export async function captureSessionReview(
     captured.request({ method: body ? 'POST' : 'GET', path, body, decode: (v) => v });
   for (const sid of sessionIds) {
     const prefix = `/v1/sessions/${encodeURIComponent(sid)}`;
+    await json(`${prefix}/interactions?include_recent_resolved=true&resolved_limit=100`);
     type SummaryRow = {
       session?: { id?: string };
       surfaces?: unknown[];

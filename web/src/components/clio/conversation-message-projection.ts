@@ -5,6 +5,16 @@ type McpAppBlock = Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>
 
 export type SpecialMessageExecutionMode = 'plan' | 'deep_research';
 
+/** Hide transport-only surface revisions in both live and archived transcripts. */
+export function isProjectionOnlyA2UIMessage(message: DomainMessage): boolean {
+  return (
+    message.role === 'assistant' &&
+    message.id.startsWith('msg_a2ui_') &&
+    !message.turn_id &&
+    message.blocks.every((block) => block.type === 'a2ui')
+  );
+}
+
 /** Keep a revised surface at its first transcript position, once per session. */
 export function foldA2UIRevisionBlocks(messages: readonly DomainMessage[]): DomainMessage[] {
   const placed = new Set<string>();
