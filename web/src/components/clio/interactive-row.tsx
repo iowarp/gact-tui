@@ -7,6 +7,7 @@ export interface ClioInteractiveRowProps extends HTMLAttributes<HTMLDivElement> 
   destructive?: boolean;
   disabled?: boolean;
   actions?: ReactNode;
+  appearance?: 'default' | 'navigation';
 }
 
 export function ClioInteractiveRow({
@@ -15,6 +16,7 @@ export function ClioInteractiveRow({
   destructive,
   disabled,
   actions,
+  appearance = 'default',
   className,
   children,
   onKeyDown,
@@ -49,6 +51,8 @@ export function ClioInteractiveRow({
         'data-[selected]:border-primary/50 data-[selected]:bg-primary/10 data-[running]:border-info/35 data-[running]:bg-info/5',
         'data-[destructive]:hover:border-destructive/40 data-[destructive]:hover:bg-destructive/10',
         'aria-disabled:pointer-events-none aria-disabled:opacity-50',
+        appearance === 'navigation' &&
+          'min-h-8 rounded-md border-0 px-2 py-0 hover:bg-sidebar-accent focus-within:bg-sidebar-accent data-[selected]:bg-sidebar-accent data-[running]:bg-info/5',
         className,
       )}
       {...props}
@@ -56,7 +60,10 @@ export function ClioInteractiveRow({
       <div className="min-w-0 flex-1 self-stretch">{children}</div>
       {actions ? (
         <div
-          className="relative z-10 ml-auto flex shrink-0 items-center gap-1 text-muted-foreground opacity-65 transition-[color,opacity] group-hover/row:text-foreground group-hover/row:opacity-100 group-focus-within/row:text-foreground group-focus-within/row:opacity-100 group-data-[collapsible=icon]:hidden"
+          className={cn(
+            'relative z-10 ml-auto flex shrink-0 items-center gap-1 text-muted-foreground transition-[color,opacity] group-hover/row:text-foreground group-hover/row:opacity-100 group-focus-within/row:text-foreground group-focus-within/row:opacity-100 group-data-[collapsible=icon]:hidden',
+            appearance === 'navigation' ? 'opacity-0' : 'opacity-65',
+          )}
           onClick={(event) => event.stopPropagation()}
         >
           {actions}

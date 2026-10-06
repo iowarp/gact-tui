@@ -81,7 +81,7 @@ function DesktopNavigationLayout({
         <ResizablePanel
           collapsedSize="56px"
           collapsible
-          defaultSize="280px"
+          defaultSize="248px"
           groupResizeBehavior="preserve-pixel-size"
           id="workspace-navigation"
           maxSize="440px"

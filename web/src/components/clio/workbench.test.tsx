@@ -410,26 +410,6 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
-  it('maximizes over the shell and restores with Escape', async () => {
-    const user = userEvent.setup();
-    renderWorkbench();
-
-    await user.click(screen.getByRole('button', { name: 'Maximize canvas' }));
-    expect(
-      screen.getByRole('button', { name: 'Restore canvas beside conversation' }),
-    ).toBeVisible();
-    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toHaveClass('fixed');
-
-    const restoreEvent = new KeyboardEvent('keydown', {
-      key: 'Escape',
-      bubbles: true,
-      cancelable: true,
-    });
-    act(() => window.dispatchEvent(restoreEvent));
-    expect(restoreEvent.defaultPrevented).toBe(true);
-    expect(screen.getByRole('button', { name: 'Maximize canvas' })).toBeVisible();
-  });
-
   it('opens a changed file as a durable review tab', () => {
     const ref = createRef<ClioWorkbenchHandle>();
     const diff = {

@@ -603,10 +603,10 @@ export function ZoomPan({
       hasCentered.current = false;
       isFitView.current = true;
 
-      // Fill-mode viewports already have their final geometry. Image-aspect
-      // viewports center from their ResizeObserver after the intrinsic ratio is
-      // applied to the stage.
-      if (viewportMode === 'fill') {
+      // Fit each decoded image, including replacements with the same aspect
+      // ratio (which don't trigger ResizeObserver). If the ratio changes,
+      // ResizeObserver refits again after the new geometry is applied.
+      {
         const center = getCenterTransform();
         if (center) {
           targetRef.current = center;
@@ -644,7 +644,7 @@ export function ZoomPan({
         <div
           className={cn(
             'relative overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none',
-            viewportMode === 'fill' ? 'size-full' : 'max-h-full max-w-full shadow-sm',
+            viewportMode === 'fill' ? 'size-full' : 'shrink-0 max-h-full max-w-full shadow-sm',
             viewportClassName,
           )}
           ref={viewportRef}

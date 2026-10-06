@@ -344,20 +344,25 @@ export class ClioRepository extends SystemRepository {
   public async workspaceFiles(
     workspaceId: string,
     signal?: AbortSignal,
-    options?: { includeHidden?: boolean; excludeServiceStorage?: boolean },
+    options?: {
+      includeHidden?: boolean;
+      excludeServiceStorage?: boolean;
+      directory?: string;
+      offset?: number;
+    },
   ): Promise<WorkspaceFileListing> {
-    // includeHidden -> server `include_hidden` (default true): the Files-view
-    // toggle. It hides EVERY dotfile/dot-directory, so a caller that only wants
-    // CLIO's own service storage excluded (the `@`-picker, artifact-card path
-    // resolution — which must still let a user @-mention .gitignore or
-    // .github/workflows/ci.yml) passes excludeServiceStorage instead, which
-    // maps to the server's narrower exclude_service_storage flag.
+    // Files can hide all dot paths; reference pickers exclude only service storage
+    // so ordinary files such as .gitignore and .github/workflows remain available.
     const includeHidden = options?.includeHidden ?? true;
     const excludeServiceStorage = options?.excludeServiceStorage ?? false;
     const query = new URLSearchParams({
       include_hidden: String(includeHidden),
       exclude_service_storage: String(excludeServiceStorage),
     });
+    if (options?.directory !== undefined) {
+      query.set('directory', options.directory);
+      query.set('offset', String(options.offset ?? 0));
+    }
     const result = await this.transport.request({
       method: 'GET',
       path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/files?${query.toString()}`,

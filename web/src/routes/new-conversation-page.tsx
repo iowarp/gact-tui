@@ -187,6 +187,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           filesPending={data.workspaceFiles.isPending}
           filesFetching={data.workspaceFiles.isFetching}
           filesTruncated={data.workspaceFiles.data?.truncated ?? false}
+          filesNextOffset={data.workspaceFiles.data?.next_offset}
           onFilesViewActiveChange={setFilesViewActive}
           onRefreshFiles={() => void data.workspaceFiles.refetch()}
           resources={data.workspaceResources.data ?? []}

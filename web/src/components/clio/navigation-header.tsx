@@ -68,18 +68,18 @@ export function NavigationHeader({
   const otherConnections = recentConnections.filter((recent) => recent.endpoint !== endpoint);
 
   return (
-    <SidebarHeader className="gap-2 border-b border-sidebar-border/70 p-2">
+    <SidebarHeader className="gap-1 px-2 pb-2 pt-2">
       <SidebarMenu className="in-data-[mobile=true]:pr-10">
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
-                className="h-11"
+                className="h-10 gap-2"
                 size="lg"
                 tooltip={`${brand.name}: ${activeAvailability.label}. ${activeAvailability.detail}`}
               >
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
-                  <BrandIcon className="size-7" />
+                <span className="grid size-6 shrink-0 place-items-center text-primary">
+                  <BrandIcon className="size-5" />
                 </span>
                 <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="flex min-w-0 items-center gap-1.5">
@@ -222,7 +222,7 @@ export function NavigationHeader({
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 aria-label="Create or import"
-                className="size-8 bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                className="size-8 hover:bg-sidebar-accent"
                 tooltip="Create or import"
                 type="button"
               >
