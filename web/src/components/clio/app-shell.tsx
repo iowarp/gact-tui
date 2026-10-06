@@ -1,7 +1,6 @@
 import { PanelRightIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
-import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
   Sheet,
@@ -13,6 +12,8 @@ import {
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
+import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
+import { ToolbarAction } from './viewer-toolbar';
 
 export interface ClioAppShellProps {
   navigation: ReactNode;
@@ -172,20 +173,19 @@ export function ClioAppShell({
       className="flex h-full min-w-0 flex-col bg-background"
       aria-label="Conversation workspace"
     >
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/90 px-3 backdrop-blur">
-        <SidebarTrigger />
+      <DesktopWorkspaceToolbar navigation={<SidebarTrigger />}>
         <div className="min-w-0 flex-1">{contextBar}</div>
         {hasWorkbench && (
-          <Button
-            aria-label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
+          <ToolbarAction
+            label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
             onClick={toggleWorkbench}
             size="icon-sm"
             variant={workbenchOpen ? 'secondary' : 'ghost'}
           >
             <PanelRightIcon aria-hidden="true" />
-          </Button>
+          </ToolbarAction>
         )}
-      </header>
+      </DesktopWorkspaceToolbar>
       <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
       {statusStrip && (
         <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>

@@ -8,15 +8,15 @@ import type {
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  BookOpenIcon,
   CircleAlertIcon,
   FileCheck2Icon,
   FileCode2Icon,
   FileOutputIcon,
   MessageSquareTextIcon,
+  ExternalLinkIcon,
   ShieldCheckIcon,
 } from 'lucide-react';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { InfoIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   CodeBlock,
@@ -50,9 +50,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DocumentViewControls } from './document-view-controls';
+import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import {
   Popover,
   PopoverContent,
@@ -87,6 +88,7 @@ export function ClioDocumentWorkspace({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewText, setReviewText] = useState('');
   const [status, setStatus] = useState('');
+  const [documentView, setDocumentView] = useState('preview');
   const [workingCopy, setWorkingCopy] = useState<DocumentWorkingCopy>();
   const [editor, setEditor] = useState<DocumentEditorSession>();
   const manifest = useQuery({
@@ -227,142 +229,135 @@ export function ClioDocumentWorkspace({
   };
 
   return (
-    <section aria-label="Document workspace" className="grid min-w-0 gap-3 overflow-hidden">
-      <Tabs className="grid min-w-0 gap-3 overflow-hidden" defaultValue="preview">
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
-          <div className="mr-auto min-w-0">
-            <p className="text-sm font-medium">
-              {profileLabel(manifest.data ?? effectiveManifest)}
-            </p>
-            {savedPreview.data && !overrideManifest ? (
-              <p className="text-xs text-muted-foreground">Saved PDF preview</p>
-            ) : null}
-            <p className="truncate font-mono text-[10px] text-muted-foreground">
-              {effectiveManifest
-                ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256.slice(0, 12)}`
-                : manifest.error
-                  ? 'Saved content is readable.'
-                  : 'Checking document capabilities…'}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {manifest.error ? (
-              <Popover>
-                <PopoverTrigger
-                  aria-label="Preview only: document features unavailable"
-                  className={badgeVariants({
-                    variant: 'warning-light',
-                    radius: 'full',
-                    size: 'lg',
-                    className: 'h-8 cursor-pointer px-2.5',
-                  })}
-                >
-                  <CircleAlertIcon aria-hidden="true" />
-                  Preview only
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-80">
-                  <PopoverHeader>
-                    <PopoverTitle className="flex items-center gap-1.5 text-warning-foreground dark:text-warning">
-                      <CircleAlertIcon aria-hidden="true" className="size-4" />
-                      Document features unavailable
-                    </PopoverTitle>
-                    <PopoverDescription>
-                      This saved result remains readable, but comments, revision history, and
-                      editing are unavailable because its original registered revision could not be
-                      loaded.
-                    </PopoverDescription>
-                  </PopoverHeader>
-                  <TechnicalDetails
-                    className="text-xs text-muted-foreground"
-                    summaryClassName="text-foreground"
-                    title="Technical details"
-                  >
-                    <code className="mt-1 block break-all">{manifest.error.message}</code>
-                  </TechnicalDetails>
-                </PopoverContent>
-              </Popover>
-            ) : null}
-            <TooltipProvider delayDuration={240}>
-              <TabsList aria-label="Document details" className="h-8 shrink-0" variant="default">
-                <DocumentDetailTab
-                  icon={<BookOpenIcon aria-hidden="true" />}
-                  label="Read document"
-                  value="preview"
-                />
-                {effectiveManifest?.profile === 'markdown' ? (
-                  <DocumentDetailTab
-                    icon={<FileCode2Icon aria-hidden="true" />}
-                    label="Read raw"
-                    value="raw"
-                  />
+    <section
+      aria-label="Document workspace"
+      className="@container/viewer grid min-w-0 gap-3 overflow-hidden"
+    >
+      <Tabs
+        className="grid min-w-0 gap-2 overflow-hidden"
+        value={documentView}
+        onValueChange={setDocumentView}
+      >
+        <ViewerToolbarContent>
+          <div className="flex min-w-0 shrink-0 items-center gap-0.5" data-slot="document-controls">
+            <Popover>
+              <PopoverTrigger asChild>
+                <ToolbarAction label="Document information">
+                  <InfoIcon aria-hidden="true" />
+                </ToolbarAction>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 space-y-1.5">
+                <p className="text-sm font-medium">
+                  {profileLabel(manifest.data ?? effectiveManifest)}
+                </p>
+                {savedPreview.data && !overrideManifest ? (
+                  <p className="text-xs text-muted-foreground">Saved PDF preview</p>
                 ) : null}
-                <DocumentDetailTab
-                  icon={<MessageSquareTextIcon aria-hidden="true" />}
-                  label={`Reviews${reviews.data?.length ? `, ${reviews.data.length}` : ''}`}
-                  value="reviews"
-                />
-                <DocumentDetailTab
-                  icon={<ShieldCheckIcon aria-hidden="true" />}
-                  label="Document safety"
-                  value="policy"
-                />
-              </TabsList>
-            </TooltipProvider>
+                <p className="break-all font-mono text-xs text-muted-foreground">
+                  {effectiveManifest
+                    ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256}`
+                    : manifest.error
+                      ? 'Saved content is readable.'
+                      : 'Checking document capabilities…'}
+                </p>
+              </PopoverContent>
+            </Popover>
+            <div className="flex shrink-0 items-center gap-0.5">
+              {manifest.error ? (
+                <Popover>
+                  <PopoverTrigger
+                    aria-label="Preview only: document features unavailable"
+                    className={badgeVariants({
+                      variant: 'warning-light',
+                      radius: 'full',
+                      size: 'lg',
+                      className: 'h-8 cursor-pointer px-2.5',
+                    })}
+                  >
+                    <CircleAlertIcon aria-hidden="true" />
+                    <span className="@max-[480px]/viewer:sr-only">Preview only</span>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-80">
+                    <PopoverHeader>
+                      <PopoverTitle className="flex items-center gap-1.5 text-warning-foreground dark:text-warning">
+                        <CircleAlertIcon aria-hidden="true" className="size-4" />
+                        Document features unavailable
+                      </PopoverTitle>
+                      <PopoverDescription>
+                        This saved result remains readable, but comments, revision history, and
+                        editing are unavailable because its original registered revision could not
+                        be loaded.
+                      </PopoverDescription>
+                    </PopoverHeader>
+                    <TechnicalDetails
+                      className="text-xs text-muted-foreground"
+                      summaryClassName="text-foreground"
+                      title="Technical details"
+                    >
+                      <code className="mt-1 block break-all">{manifest.error.message}</code>
+                    </TechnicalDetails>
+                  </PopoverContent>
+                </Popover>
+              ) : null}
+              <DocumentViewControls
+                value={documentView}
+                markdown={effectiveManifest?.profile === 'markdown'}
+                reviewCount={reviews.data?.length ?? 0}
+                onChange={setDocumentView}
+              />
+            </div>
+            {selection ? (
+              <Button onClick={() => setReviewOpen(true)} size="sm" variant="secondary">
+                <MessageSquareTextIcon aria-hidden="true" /> Review selection
+              </Button>
+            ) : null}
+            {manifest.data?.native_open ? (
+              <ToolbarAction
+                label="Open in desktop app"
+                disabled={createWorkingCopy.isPending}
+                onClick={() => createWorkingCopy.mutate('native')}
+              >
+                <ExternalLinkIcon aria-hidden="true" />
+              </ToolbarAction>
+            ) : null}
+            {manifest.data?.embedded_editors.map((provider) => (
+              <Button
+                disabled={createWorkingCopy.isPending}
+                key={provider}
+                onClick={() => createWorkingCopy.mutate(provider)}
+                size="sm"
+                variant="outline"
+              >
+                Edit in {editorLabel(provider)}
+              </Button>
+            ))}
+            {manifest.data?.rendition_formats.includes('pdf') &&
+            !directProfiles.has(manifest.data.profile) ? (
+              <Button
+                disabled={rendition.isPending}
+                onClick={() => rendition.mutate()}
+                size="sm"
+                variant="outline"
+              >
+                <FileOutputIcon aria-hidden="true" />
+                {rendition.isPending
+                  ? 'Rendering…'
+                  : previewId
+                    ? 'Show PDF preview'
+                    : 'Render PDF preview'}
+              </Button>
+            ) : null}
+            <ToolbarAction
+              label="Refresh document revision"
+              onClick={() => {
+                setOverrideManifest(undefined);
+                void Promise.all([manifest.refetch(), reviews.refetch()]);
+              }}
+            >
+              <RefreshIcon aria-hidden="true" />
+            </ToolbarAction>
           </div>
-          {selection ? (
-            <Button onClick={() => setReviewOpen(true)} size="sm" variant="secondary">
-              <MessageSquareTextIcon aria-hidden="true" /> Review selection
-            </Button>
-          ) : null}
-          {manifest.data?.native_open ? (
-            <Button
-              disabled={createWorkingCopy.isPending}
-              onClick={() => createWorkingCopy.mutate('native')}
-              size="sm"
-              variant="outline"
-            >
-              Open in desktop app
-            </Button>
-          ) : null}
-          {manifest.data?.embedded_editors.map((provider) => (
-            <Button
-              disabled={createWorkingCopy.isPending}
-              key={provider}
-              onClick={() => createWorkingCopy.mutate(provider)}
-              size="sm"
-              variant="outline"
-            >
-              Edit in {editorLabel(provider)}
-            </Button>
-          ))}
-          {manifest.data?.rendition_formats.includes('pdf') &&
-          !directProfiles.has(manifest.data.profile) ? (
-            <Button
-              disabled={rendition.isPending}
-              onClick={() => rendition.mutate()}
-              size="sm"
-              variant="outline"
-            >
-              <FileOutputIcon aria-hidden="true" />
-              {rendition.isPending
-                ? 'Rendering…'
-                : previewId
-                  ? 'Show PDF preview'
-                  : 'Render PDF preview'}
-            </Button>
-          ) : null}
-          <Button
-            aria-label="Refresh document revision"
-            onClick={() => {
-              setOverrideManifest(undefined);
-              void Promise.all([manifest.refetch(), reviews.refetch()]);
-            }}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <RefreshIcon aria-hidden="true" />
-          </Button>
-        </div>
+        </ViewerToolbarContent>
         {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
         {createWorkingCopy.error || rendition.error || savedPreview.error ? (
           <Alert variant="destructive">
@@ -391,7 +386,9 @@ export function ClioDocumentWorkspace({
               fallback={fallbackPreview}
               fit={
                 manifest.data &&
-                ['ooxml-word', 'ooxml-slides', 'odf-text', 'odf-slides'].includes(manifest.data.profile)
+                ['ooxml-word', 'ooxml-slides', 'odf-text', 'odf-slides'].includes(
+                  manifest.data.profile,
+                )
                   ? 'page'
                   : 'width'
               }
@@ -471,28 +468,6 @@ export function ClioDocumentWorkspace({
         </DialogContent>
       </Dialog>
     </section>
-  );
-}
-
-function DocumentDetailTab({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <TabsTrigger aria-label={label} className="size-7 flex-none p-0" value={value}>
-          {icon}
-          <span className="sr-only">{label}</span>
-        </TabsTrigger>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
   );
 }
 

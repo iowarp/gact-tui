@@ -68,13 +68,13 @@ export const ChainOfThoughtHeader = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          'flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
+          'flex w-fit max-w-full items-center gap-1.5 text-muted-foreground text-[13px] leading-5 transition-colors hover:text-foreground',
           className,
         )}
         {...props}
       >
         <BrainIcon className="size-4" />
-        <span className="flex-1 text-left">{children ?? 'Chain of Thought'}</span>
+        <span className="min-w-0 text-left">{children ?? 'Chain of Thought'}</span>
         <ChevronDownIcon
           className={cn('size-4 transition-transform', isOpen ? 'rotate-180' : 'rotate-0')}
         />
@@ -119,7 +119,7 @@ export const ChainOfThoughtStep = memo(
         <Icon className="size-4" />
         <div className="absolute top-7 bottom-0 left-1/2 -mx-px w-px bg-border" />
       </div>
-      <div className="flex-1 space-y-2 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-hidden">
         <div>{label}</div>
         {description && <div className="text-muted-foreground text-xs">{description}</div>}
         {children}

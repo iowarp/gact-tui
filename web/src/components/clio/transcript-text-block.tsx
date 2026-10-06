@@ -23,7 +23,7 @@ export function TranscriptTextBlock({
   );
   return (
     <div
-      className="min-w-0 max-w-full group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3"
+      className="min-w-0 max-w-full group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-2.5"
       data-field="text"
       data-message-id={messageId}
       data-part-id={block.id}

@@ -278,7 +278,7 @@ export const ComposerInlineReferenceEditor = forwardRef<
         aria-expanded={expanded}
         aria-label={placeholder}
         className={cn(
-          'max-h-48 min-h-16 w-full flex-1 overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-2 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
+          'max-h-48 min-h-11 w-full flex-1 overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-2 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
           disabled && 'cursor-not-allowed opacity-50',
           className,
         )}

@@ -92,7 +92,7 @@ export function ClioToolInvocation({
               <span className="mr-1 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {workflow ? 'Workflow' : 'Tool'}
               </span>
-              <span className="shrink-0">{actionLabel}</span>
+              <span className="min-w-0 [overflow-wrap:anywhere]">{actionLabel}</span>
               {subject ? (
                 <>
                   <span aria-hidden="true">(</span>
@@ -129,7 +129,7 @@ export function ClioToolInvocation({
                 size="icon-sm"
                 className="size-5"
                 aria-label={`Technical details for ${actionLabel}`}
-                title="Technical details"
+                title="View command, input, result, and timing"
               >
                 <InfoIcon className="size-4" />
               </Button>

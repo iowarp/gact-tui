@@ -146,7 +146,7 @@ for (const item of cases) {
     await expect(document.getByText(`Page 1 of ${item.pages}`, { exact: true })).toBeVisible();
     await expect(document.getByText(item.text, { exact: true })).toBeVisible();
     await expect(document.locator('.react-pdf__Page__canvas').first()).toBeVisible();
-    await expect(document.getByRole('button', { name: 'Open in desktop app' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Open in desktop app' })).toBeVisible();
     if (item.pages > 1) {
       await document.getByRole('button', { name: 'Next PDF page' }).click();
       await expect(document.getByText('Evidence slide 2', { exact: true })).toBeVisible();

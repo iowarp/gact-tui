@@ -62,7 +62,7 @@ export function ClioSessionContextBar({
           they still render regardless of host. */}
       {inTauri() ? null : (
         <div className="flex min-w-0 items-center gap-1.5">
-          <h1 className="truncate text-base font-medium">
+          <h1 className="truncate text-sm font-medium">
             {session?.title ?? 'Session unavailable'}
           </h1>
           {activeBlueprint ? (

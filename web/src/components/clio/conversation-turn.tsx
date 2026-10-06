@@ -1,5 +1,5 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { BrainIcon, ChevronDownIcon, ListChecksIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
+import { ChevronDownIcon, ListChecksIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { Fragment, useState, type ReactNode } from 'react';
 import {
   ChainOfThought,
@@ -215,8 +215,8 @@ export function ConversationTurn({
         )
       }
     >
-      <ChainOfThoughtHeader className="min-h-8">Activity</ChainOfThoughtHeader>
-      <ChainOfThoughtContent>
+      <ChainOfThoughtHeader className="min-h-7">Activity</ChainOfThoughtHeader>
+      <ChainOfThoughtContent className="mt-1 space-y-1">
         {iterations.map((iteration) => (
           <IterationSummary
             iteration={iteration}
@@ -330,18 +330,16 @@ function IterationSummary({
     <>
       <Collapsible onOpenChange={setManualOpen} open={open}>
         <ChainOfThoughtStep
-          icon={BrainIcon}
           label={
             <CollapsibleTrigger
               aria-label={disclosureLabel}
-              className="group flex w-full min-w-0 items-start gap-2 rounded-md py-0.5 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="group flex w-fit max-w-full min-w-0 items-start gap-1.5 rounded-md py-0.5 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm text-foreground">{summary}</span>
+              <span className="min-w-0">
+                <span className="block text-[13px] leading-5 text-foreground">{summary}</span>
                 {tool && !open ? (
-                  <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 text-xs leading-4 text-muted-foreground">
                     <WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                    <span className="shrink-0 font-medium">Tool</span>
                     <span className="truncate">{tool.title}</span>
                     {toolSummary ? <span className="min-w-0 truncate">{toolSummary}</span> : null}
                     {toolState ? <span className="shrink-0">{toolState}</span> : null}
@@ -369,7 +367,10 @@ function IterationSummary({
               </span>
               <ChevronDownIcon
                 aria-hidden="true"
-                className={cn('mt-1 size-4 shrink-0 transition-transform', open && 'rotate-180')}
+                className={cn(
+                  'mt-0.5 size-3.5 shrink-0 transition-transform',
+                  open && 'rotate-180',
+                )}
               />
             </CollapsibleTrigger>
           }
@@ -387,7 +388,7 @@ function IterationSummary({
               ))}
             </div>
           ) : null}
-          <CollapsibleContent className="pt-2">
+          <CollapsibleContent className="pt-1">
             <IterationDetail
               activeMcpAppId={activeMcpAppId}
               hiddenMcpAppIds={appEvents.map((entry) => entry.block.app_instance_id)}
