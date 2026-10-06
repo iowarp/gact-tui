@@ -52,7 +52,7 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await composer.fill('This is a temporary draft');
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('link', { name: 'Notifications', exact: true }).click();
-  await page.getByRole('link', { name: 'Workspace', exact: true }).click();
+  await page.getByRole('link', { name: 'Back to workspace', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
   await expect(composer).toHaveText('');
   await expect.poll(() => warmups.length).toBe(2);
@@ -61,7 +61,7 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('link', { name: 'Notifications', exact: true }).click();
-  await page.getByRole('link', { name: 'Workspace', exact: true }).click();
+  await page.getByRole('link', { name: 'Back to workspace', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
