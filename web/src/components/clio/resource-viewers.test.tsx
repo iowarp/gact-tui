@@ -455,22 +455,36 @@ describe('WorkspaceFileView', () => {
   it('presents unsupported binary metadata and controls instead of a code block', async () => {
     renderFile(
       <WorkspaceFileView
-        mediaType="application/x-hdf5"
-        path="data/run.h5"
+        mediaType="application/x-netcdf"
+        path="data/run.nc"
         size={4096}
         workspaceId="workspace_1"
       />,
     );
 
-    expect(screen.getByText('run.h5')).toBeVisible();
-    expect(screen.getByText(/application\/x-hdf5/u)).toBeVisible();
+    expect(screen.getByText('run.nc')).toBeVisible();
+    expect(screen.getByText(/application\/x-netcdf/u)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open' })).toBeVisible();
     expect(screen.getAllByRole('button', { name: 'Download file' })).toHaveLength(1);
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
-    expect(screen.queryByText('data/run.h5')).not.toBeInTheDocument();
+    expect(screen.queryByText('data/run.nc')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'File information' }));
-    expect(await screen.findByText('data/run.h5')).toBeVisible();
+    expect(await screen.findByText('data/run.nc')).toBeVisible();
+  });
+
+  it.each([
+    ['application/x-hdf5', 'data/run.h5'],
+    [undefined, 'data/scan.nxs'],
+    [undefined, 'data/swath.he5'],
+  ])('opens HDF5 (%s, %s) in the HDF5 viewer without reading the whole file', async (mediaType, path) => {
+    renderFile(
+      <WorkspaceFileView mediaType={mediaType} path={path} size={4096} workspaceId="workspace_1" />,
+    );
+
+    expect(await screen.findByTitle(`HDF5 viewer: ${path}`)).toBeInTheDocument();
+    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+    expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
   });
 
   it('aborts the previous text preview when selection changes', async () => {
