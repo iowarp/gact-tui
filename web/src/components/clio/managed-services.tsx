@@ -9,7 +9,7 @@ import type {
 } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CpuIcon, LaptopIcon, ServerIcon } from 'lucide-react';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Spinner } from '@/components/ui/spinner';
 import { useRepository } from '@/hooks/use-repository';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -676,14 +675,15 @@ export function ManagedServices({
           ) : null}
 
           {catalog.data ? <ManagedServiceHostFacts facts={catalog.data.facts} /> : null}
-          <Button
-            disabled={catalog.isFetching}
-            onClick={() => catalog.refetch()}
+          <RefreshButton
+            label="Inspect again"
+            refreshing={catalog.isFetching}
+            onRefresh={() => catalog.refetch()}
             size="sm"
             variant="outline"
           >
-            {catalog.isFetching ? <Spinner aria-hidden="true" /> : <RefreshIcon />}Inspect again
-          </Button>
+            Inspect again
+          </RefreshButton>
         </div>
       </details>
       {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
@@ -694,9 +694,13 @@ export function ManagedServices({
           <AlertTitle>Could not inspect {targetLabel(target, sshHost)}</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>{catalog.error.message}</p>
-            <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
-              Try again
-            </Button>
+            <RefreshButton
+              label="Try again"
+              refreshing={catalog.isFetching}
+              onRefresh={() => catalog.refetch()}
+              size="sm"
+              variant="outline"
+            />
           </AlertDescription>
         </Alert>
       ) : null}

@@ -1,5 +1,5 @@
 import { LoaderCircleIcon, LogOutIcon } from 'lucide-react';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { Button } from '@/components/ui/button';
 import type { ProviderActions } from './provider-setup-state';
 
@@ -32,26 +32,28 @@ export function ProviderPanelFooter({ actions, logOut, error }: ProviderPanelFoo
       className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-t px-2 py-1.5"
       data-slot="provider-panel-footer"
     >
-      <Button
+      <RefreshButton
+        label="Refresh"
+        refreshing={actions.handshake.isPending}
         disabled={busy}
-        onClick={() => actions.handshake.mutate()}
+        onRefresh={() => actions.handshake.mutateAsync()}
         size="sm"
         type="button"
         variant="ghost"
       >
-        <RefreshIcon data-icon="inline-start" />
         Refresh
-      </Button>
-      <Button
+      </RefreshButton>
+      <RefreshButton
+        label="Reload models"
+        refreshing={actions.refreshModels.isPending}
         disabled={busy}
-        onClick={() => actions.refreshModels.mutate()}
+        onRefresh={() => actions.refreshModels.mutateAsync()}
         size="sm"
         type="button"
         variant="ghost"
       >
-        <RefreshIcon data-icon="inline-start" />
         Reload models
-      </Button>
+      </RefreshButton>
       {logOut ? (
         <Button disabled={busy} onClick={logOut.run} size="sm" type="button" variant="ghost">
           <LogOutIcon data-icon="inline-start" />

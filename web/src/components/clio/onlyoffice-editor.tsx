@@ -29,7 +29,8 @@ export function ClioOnlyOfficeEditor({
     let cancelled = false;
     void loadOnlyOfficeApi(onlyOfficeScriptUrl(editorUrl))
       .then(() => {
-        if (cancelled || !window.DocsAPI) return;
+        if (cancelled) return;
+        if (!window.DocsAPI) throw new Error('ONLYOFFICE did not provide its editor API.');
         editor = new window.DocsAPI.DocEditor(id, {
           ...config,
           width: '100%',
@@ -48,7 +49,7 @@ export function ClioOnlyOfficeEditor({
   }, [config, editorUrl, id]);
 
   if (error) return <p className="p-4 text-sm text-destructive">{error}</p>;
-  return <div className="h-full min-h-[540px] w-full" id={id} />;
+  return <div className="h-full min-h-0 w-full" id={id} />;
 }
 
 function onlyOfficeScriptUrl(editorUrl: string) {
@@ -65,9 +66,13 @@ function loadOnlyOfficeApi(url: string): Promise<void> {
   if (existing) {
     return new Promise((resolve, reject) => {
       existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('ONLYOFFICE API failed to load.')), {
-        once: true,
-      });
+      existing.addEventListener(
+        'error',
+        () => reject(new Error('ONLYOFFICE API failed to load.')),
+        {
+          once: true,
+        },
+      );
     });
   }
   return new Promise((resolve, reject) => {

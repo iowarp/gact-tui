@@ -15,7 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { RefreshIndicator } from './refresh-button';
 import { ClioStatus } from './status';
 
 type Props = {
@@ -202,9 +203,13 @@ export function InstalledBlueprints({
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           disabled={reloadingId === (row.identity || row.id)}
-                          onSelect={() => onReload(row)}
+                          aria-busy={reloadingId === (row.identity || row.id)}
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            onReload(row);
+                          }}
                         >
-                          <RefreshIcon aria-hidden="true" />
+                          <RefreshIndicator refreshing={reloadingId === (row.identity || row.id)} />
                           Reload installed copy
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />

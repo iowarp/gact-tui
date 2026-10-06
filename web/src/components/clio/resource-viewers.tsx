@@ -6,6 +6,9 @@ import {
   CopyIcon,
   DownloadIcon,
   ExternalLinkIcon,
+  EyeIcon,
+  HistoryIcon,
+  GitBranchIcon,
   FileIcon,
   FileCode2Icon,
   ImageIcon,
@@ -373,7 +376,7 @@ export function ArtifactView({
     <ViewerToolbarHost.Provider value={toolbarHost}>
       <Tabs className="@container/viewer h-full min-w-0 gap-0" defaultValue="preview">
         <div
-          className="flex min-h-9 shrink-0 items-center gap-1 border-b px-2"
+          className="flex min-h-9 shrink-0 items-center gap-1 overflow-x-auto border-b px-2"
           data-slot="viewer-toolbar"
         >
           <TabsList
@@ -381,14 +384,29 @@ export function ArtifactView({
             className="h-7 shrink-0 gap-0.5 bg-transparent p-0"
             variant="line"
           >
-            <TabsTrigger className="px-2 text-xs" value="preview">
-              Preview
+            <TabsTrigger
+              className="px-2 text-xs @max-[520px]/viewer:size-7 @max-[520px]/viewer:p-0"
+              title="Preview"
+              value="preview"
+            >
+              <EyeIcon aria-hidden="true" className="hidden @max-[520px]/viewer:block" />
+              <span className="@max-[520px]/viewer:sr-only">Preview</span>
             </TabsTrigger>
-            <TabsTrigger className="px-2 text-xs" value="versions">
-              Versions
+            <TabsTrigger
+              className="px-2 text-xs @max-[520px]/viewer:size-7 @max-[520px]/viewer:p-0"
+              title="Versions"
+              value="versions"
+            >
+              <HistoryIcon aria-hidden="true" className="hidden @max-[520px]/viewer:block" />
+              <span className="@max-[520px]/viewer:sr-only">Versions</span>
             </TabsTrigger>
-            <TabsTrigger className="px-2 text-xs" value="lineage">
-              Lineage
+            <TabsTrigger
+              className="px-2 text-xs @max-[520px]/viewer:size-7 @max-[520px]/viewer:p-0"
+              title="Lineage"
+              value="lineage"
+            >
+              <GitBranchIcon aria-hidden="true" className="hidden @max-[520px]/viewer:block" />
+              <span className="@max-[520px]/viewer:sr-only">Lineage</span>
             </TabsTrigger>
           </TabsList>
           <div className="ml-auto flex shrink-0 items-center gap-0.5" ref={setToolbarHost} />
@@ -403,17 +421,15 @@ export function ArtifactView({
                 </p>
               ) : null}
             </div>
+          ) : isDocumentArtifact(artifact.media_type, artifact.name) ? (
+            <ClioDocumentWorkspace
+              artifact={artifact}
+              fallbackPreview={preview}
+              key={artifact.id}
+            />
           ) : (
             <ScrollArea className="h-full min-w-0 p-3">
-              {isDocumentArtifact(artifact.media_type, artifact.name) ? (
-                <ClioDocumentWorkspace
-                  artifact={artifact}
-                  fallbackPreview={preview}
-                  key={artifact.id}
-                />
-              ) : (
-                preview
-              )}
+              {preview}
               {text.data?.recovered ? (
                 <p className="mt-3 text-xs text-muted-foreground">
                   Recovered from the matching workspace file.

@@ -5,7 +5,7 @@ import {
   TriangleAlertIcon,
   XCircleIcon,
 } from 'lucide-react';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import {
@@ -210,19 +210,17 @@ export function DesktopSettings() {
               <DownloadIcon aria-hidden="true" /> Install and restart
             </Button>
           ) : (
-            <Button
+            <RefreshButton
+              label="Check for updates"
+              refreshing={updateState.kind === 'checking'}
               disabled={
                 !desktop || updateState.kind === 'checking' || updateState.kind === 'installing'
               }
-              onClick={() => void checkUpdate()}
+              onRefresh={checkUpdate}
               variant="outline"
             >
-              <RefreshIcon
-                aria-hidden="true"
-                className={updateState.kind === 'checking' ? 'animate-spin' : undefined}
-              />
               {updateState.kind === 'checking' ? 'Checking for updates…' : 'Check for updates'}
-            </Button>
+            </RefreshButton>
           )}
         </FrameFooter>
       </Frame>

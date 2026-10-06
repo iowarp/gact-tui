@@ -12,7 +12,8 @@ import {
   ScrollTextIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { RefreshIndicator } from './refresh-button';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -337,8 +338,20 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                     </DropdownMenuItem>
                     {isRuntimeConnection(server) ? (
                       <>
-                        <DropdownMenuItem onSelect={() => reconnect.mutate(server)}>
-                          <RefreshIcon aria-hidden="true" /> Reconnect
+                        <DropdownMenuItem
+                          aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
+                          disabled={reconnect.isPending}
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            reconnect.mutate(server);
+                          }}
+                        >
+                          <RefreshIndicator
+                            refreshing={
+                              reconnect.isPending && reconnect.variables?.id === server.id
+                            }
+                          />{' '}
+                          Reconnect
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

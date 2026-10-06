@@ -11,6 +11,30 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The maximized canvas is at 80. Portalled controls and dialogs must remain
+   above it, including controls opened from a dialog or a mobile canvas sheet. */
+@layer utilities {
+  [data-slot='dialog-overlay'][data-state],
+  [data-slot='alert-dialog-overlay'][data-state] {
+    z-index: 90;
+  }
+  [data-slot='dialog-content'][data-state],
+  [data-slot='alert-dialog-content'][data-state] {
+    z-index: 100;
+  }
+  [data-slot='dropdown-menu-content'][data-state],
+  [data-slot='dropdown-menu-sub-content'][data-state],
+  [data-slot='context-menu-content'][data-state],
+  [data-slot='context-menu-sub-content'][data-state],
+  [data-slot='popover-content'][data-state],
+  [data-slot='select-content'][data-state] {
+    z-index: 110;
+  }
+  [data-slot='tooltip-content'][data-state] {
+    z-index: 120;
+  }
+}
+
 @theme inline {
   --font-heading: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
   --font-sans: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
@@ -216,11 +240,14 @@
 /* A chart needs room for axes and its legend even when the transcript itself
    remains wider than the generic two-column breakpoint. */
 @container (max-width: 900px) {
-  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart']) {
+  [data-slot='a2ui-surface-root']
+    > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart']) {
     flex-direction: column !important;
   }
 
-  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart']) > * {
+  [data-slot='a2ui-surface-root']
+    > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart'])
+    > * {
     flex: 0 1 auto !important;
     width: 100%;
   }

@@ -51,6 +51,11 @@ for (const item of cases) {
     const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
     const errors: string[] = [];
     const conversions: string[] = [];
+    let holdRefresh = false;
+    let finishRefresh!: () => void;
+    const refreshResponse = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
     page.on('pageerror', (error) => errors.push(error.message));
     await page.request.post(`${endpoint}/__test/reset`);
     await page.addInitScript((value) => {
@@ -102,6 +107,7 @@ for (const item of cases) {
         body.resolved = body.artifact.versions[0];
         await route.fulfill({ response, json: body });
       } else if (path === `/v1/artifacts/${sourceId}/document`) {
+        if (holdRefresh) await refreshResponse;
         await route.fulfill({ json: manifest });
       } else if (path === `/v1/artifacts/${pdfId}/document`) {
         await route.fulfill({
@@ -145,8 +151,8 @@ for (const item of cases) {
     await expect(
       document.getByText(`${item.pages} ${item.pages === 1 ? 'page' : 'pages'}`, { exact: true }),
     ).toBeVisible();
-    await document.getByRole('button', { name: 'Use paged PDF view' }).click();
-    await expect(document.getByText(`Page 1 of ${item.pages}`, { exact: true })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Use paged PDF view' })).toHaveCount(0);
+    await expect(canvas.getByRole('button', { name: 'Zoom PDF in' })).toBeVisible();
     await expect(document.getByText(item.text, { exact: true })).toBeVisible();
     await expect(document.locator('.react-pdf__Page__canvas').first()).toBeVisible();
     const pageCanvas = document.locator('.react-pdf__Page__canvas').first();
@@ -161,15 +167,47 @@ for (const item of cases) {
         }),
       )
       .toBeGreaterThanOrEqual(0.99);
-    await expect(canvas.getByRole('button', { name: 'Open in desktop app' })).toBeVisible();
+    await canvas.getByRole('button', { name: 'Open in', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'PDF preview', exact: true })).toBeVisible();
+    await page.getByRole('menuitem', { name: 'PDF preview', exact: true }).click();
+    const scroller = document.locator('[data-pdf-scroller]');
+    const scrollerBounds = await scroller.boundingBox();
+    const canvasBounds = await canvas.boundingBox();
+    expect(
+      canvasBounds!.y + canvasBounds!.height - scrollerBounds!.y - scrollerBounds!.height,
+    ).toBeLessThan(45);
     if (item.pages > 1) {
-      await document.getByRole('button', { name: 'Next PDF page' }).click();
+      await scroller.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
       await expect(document.getByText('Evidence slide 2', { exact: true })).toBeVisible();
     }
     await page.screenshot({
       path: testInfo.outputPath(`${item.extension}-pdf-preview.png`),
       fullPage: true,
     });
+    holdRefresh = true;
+    await canvas.getByRole('button', { name: 'Refresh document revision', exact: true }).click();
+    const refreshing = canvas.getByRole('button', {
+      name: 'Refresh document revision — refreshing',
+      exact: true,
+    });
+    await expect(refreshing).toBeDisabled();
+    await expect(refreshing).toHaveAttribute('aria-busy', 'true');
+    const icon = refreshing.locator('svg');
+    await expect(icon).toHaveCSS('animation-name', 'spin');
+    const before = await icon.evaluate((element) => getComputedStyle(element).transform);
+    await page.waitForTimeout(100);
+    const after = await icon.evaluate((element) => getComputedStyle(element).transform);
+    expect(after).not.toBe(before);
+    await page.screenshot({
+      path: testInfo.outputPath(`${item.extension}-refresh-pending.png`),
+      fullPage: true,
+    });
+    finishRefresh();
+    await expect(
+      canvas.getByRole('button', { name: 'Refresh document revision', exact: true }),
+    ).toBeEnabled();
     expect(conversions).toEqual([]);
     expect(errors).toEqual([]);
   });

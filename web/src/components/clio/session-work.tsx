@@ -16,6 +16,7 @@ import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from './refresh-button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -340,9 +341,12 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
     return (
       <div role="alert" className="p-4">
         <p>Session work could not be loaded.</p>
-        <Button variant="outline" onClick={() => void query.refetch()}>
-          Retry
-        </Button>
+        <RefreshButton
+          label="Retry"
+          variant="outline"
+          refreshing={query.isFetching}
+          onRefresh={() => query.refetch()}
+        />
       </div>
     );
   const data = query.data;

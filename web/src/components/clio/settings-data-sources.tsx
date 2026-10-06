@@ -6,6 +6,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from './refresh-button';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ConnectedAccountActions } from './connected-account-actions';
 import { ConnectedAccountSignIn } from './connected-source-auth';
@@ -66,14 +67,16 @@ export function DataSourceSettings() {
           {providers.error ? (
             <div role="alert" className="py-4 text-sm text-destructive">
               {providers.error.message}
-              <Button
+              <RefreshButton
+                label="Retry"
+                refreshing={providers.isFetching}
                 className="ml-3"
                 size="sm"
                 variant="outline"
-                onClick={() => void providers.refetch()}
+                onRefresh={() => providers.refetch()}
               >
                 Retry
-              </Button>
+              </RefreshButton>
             </div>
           ) : null}
           {accounts.map((row) => (
