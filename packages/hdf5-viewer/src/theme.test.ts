@@ -31,9 +31,13 @@ describe('hostDarkRules', () => {
     addStyle(H5WEB_CSS);
     const rules = hostDarkRules(Array.from(document.styleSheets));
     expect(rules).toHaveLength(2);
-    expect(rules[0]).toMatch(/^:root\[data-theme="dark"\] \._root_abc \{ filter: invert\(1\);? \}$/u);
+    expect(rules[0]).toMatch(
+      /^:root\[data-theme="dark"\] \._root_abc \{ filter: invert\(1\);? \}$/u,
+    );
     expect(rules[1]).toContain(':root[data-theme="dark"] ._root_abc [data-keep-colors]');
-    expect(rules[1]).toContain(':root[data-theme="dark"] ._root_abc [data-keep-canvas-colors] canvas');
+    expect(rules[1]).toContain(
+      ':root[data-theme="dark"] ._root_abc [data-keep-canvas-colors] canvas',
+    );
     expect(rules.join('\n')).not.toContain('data-allow-dark-mode');
   });
 

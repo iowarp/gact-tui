@@ -63,7 +63,12 @@ describe('Hdf5ViewerFrame', () => {
     const { view, posted, send } = renderFrame();
     send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 });
     view.rerender(
-      <Hdf5ViewerFrame locator="/entry/I" path="runs/water.h5" revision={1} workspaceId="workspace_1" />,
+      <Hdf5ViewerFrame
+        locator="/entry/I"
+        path="runs/water.h5"
+        revision={1}
+        workspaceId="workspace_1"
+      />,
     );
     expect(lastMessage(posted)).toMatchObject({ type: 'init', locator: '/entry/I', revision: 1 });
   });
@@ -97,7 +102,9 @@ describe('Hdf5ViewerFrame', () => {
       { file: 'runs/water.h5', path: '/entry/I', selection: '0:3' },
       expect.any(AbortSignal),
     );
-    await vi.waitFor(() => expect(lastMessage(posted)).toMatchObject({ type: 'response', id: 4, ok: true }));
+    await vi.waitFor(() =>
+      expect(lastMessage(posted)).toMatchObject({ type: 'response', id: 4, ok: true }),
+    );
     const [message, , transfer] = posted.mock.calls.at(-1) as unknown as [
       { body: ArrayBuffer },
       string,
@@ -112,7 +119,13 @@ describe('Hdf5ViewerFrame', () => {
       new TransportError('/nope is not a valid path in water.h5', 404),
     );
     const { posted, send } = renderFrame();
-    send({ source: VIEWER_SOURCE, type: 'fetch', id: 1, endpoint: 'meta', params: { path: '/nope' } });
+    send({
+      source: VIEWER_SOURCE,
+      type: 'fetch',
+      id: 1,
+      endpoint: 'meta',
+      params: { path: '/nope' },
+    });
     await vi.waitFor(() =>
       expect(lastMessage(posted)).toEqual({
         source: HOST_SOURCE,

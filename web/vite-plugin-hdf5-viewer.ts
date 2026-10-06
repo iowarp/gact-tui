@@ -65,7 +65,11 @@ export function hdf5ViewerPlugin(distDir: string = defaultDist()): Plugin {
         }
         const name = decodeURIComponent(pathname.slice(HDF5_VIEWER_BASE.length)) || 'index.html';
         const path = join(distDir, name);
-        if (relative(distDir, path).startsWith('..') || !existsSync(path) || !statSync(path).isFile()) {
+        if (
+          relative(distDir, path).startsWith('..') ||
+          !existsSync(path) ||
+          !statSync(path).isFile()
+        ) {
           res.statusCode = 404;
           res.end(
             existsSync(distDir)

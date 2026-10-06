@@ -84,9 +84,9 @@ describe('HostBridge.fetcher', () => {
     const { bridge: b, postMessage } = bridge();
     const controller = new AbortController();
     controller.abort();
-    await expect(
-      b.fetcher('/data', {}, { abortSignal: controller.signal }),
-    ).rejects.toBeInstanceOf(AbortError);
+    await expect(b.fetcher('/data', {}, { abortSignal: controller.signal })).rejects.toBeInstanceOf(
+      AbortError,
+    );
     expect(postMessage).not.toHaveBeenCalled();
   });
 
@@ -121,9 +121,27 @@ describe('endpointOf', () => {
 
 describe('protocol guards', () => {
   it('rejects malformed messages', () => {
-    expect(isViewerMessage({ source: VIEWER_SOURCE, type: 'fetch', id: 1, endpoint: 'files', params: {} })).toBe(false);
-    expect(isViewerMessage({ source: VIEWER_SOURCE, type: 'fetch', id: 1, endpoint: 'data', params: { path: 3 } })).toBe(false);
-    expect(isHostMessage({ source: HOST_SOURCE, type: 'response', id: 1, ok: true, body: 'x' })).toBe(false);
+    expect(
+      isViewerMessage({
+        source: VIEWER_SOURCE,
+        type: 'fetch',
+        id: 1,
+        endpoint: 'files',
+        params: {},
+      }),
+    ).toBe(false);
+    expect(
+      isViewerMessage({
+        source: VIEWER_SOURCE,
+        type: 'fetch',
+        id: 1,
+        endpoint: 'data',
+        params: { path: 3 },
+      }),
+    ).toBe(false);
+    expect(
+      isHostMessage({ source: HOST_SOURCE, type: 'response', id: 1, ok: true, body: 'x' }),
+    ).toBe(false);
   });
 });
 
@@ -188,7 +206,12 @@ describe('createExportURL', () => {
 
   it('uses the built-in exporter for CSV and JSON', async () => {
     const fetcher = vi.fn();
-    const exporter = createExportURL(fetcher, 'f.h5')('csv', numeric as never, undefined, () => 'a,b');
+    const exporter = createExportURL(fetcher, 'f.h5')(
+      'csv',
+      numeric as never,
+      undefined,
+      () => 'a,b',
+    );
     const blob = await (exporter as () => Promise<Blob>)();
     expect(await blob.text()).toBe('a,b');
     expect(fetcher).not.toHaveBeenCalled();
@@ -196,7 +219,10 @@ describe('createExportURL', () => {
 
   it('offers no binary export for non-numeric or scalar datasets', () => {
     const getExportURL = createExportURL(vi.fn(), 'f.h5');
-    const text = { ...numeric, type: { class: 'String', strPad: 'null-terminated', charSet: 'UTF-8' } };
+    const text = {
+      ...numeric,
+      type: { class: 'String', strPad: 'null-terminated', charSet: 'UTF-8' },
+    };
     const scalar = { ...numeric, shape: { class: 'Scalar' } };
     expect(getExportURL('npy', text as never, undefined, undefined)).toBeUndefined();
     expect(getExportURL('tiff', scalar as never, undefined, undefined)).toBeUndefined();
