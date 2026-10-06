@@ -8,6 +8,9 @@ import { expect, test } from '@playwright/test';
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const sessionId = 'sess_flat_ndp';
 const workspaceId = 'ws_flat_ndp';
+// The documentation recorder uses a scaled display. Its source PDF should still
+// have enough raster resolution to keep text sharp at the CSS viewing size.
+test.use({ deviceScaleFactor: 0.8 });
 const cases = [
   {
     extension: 'docx',
@@ -146,6 +149,18 @@ for (const item of cases) {
     await expect(document.getByText(`Page 1 of ${item.pages}`, { exact: true })).toBeVisible();
     await expect(document.getByText(item.text, { exact: true })).toBeVisible();
     await expect(document.locator('.react-pdf__Page__canvas').first()).toBeVisible();
+    const pageCanvas = document.locator('.react-pdf__Page__canvas').first();
+    await expect
+      .poll(async () =>
+        pageCanvas.evaluate((canvas) => {
+          const bounds = canvas.getBoundingClientRect();
+          const density = (canvas as HTMLCanvasElement).width / bounds.width;
+          // Large pages may reach the allocation cap before 2x density.
+          const required = Math.min(2, Math.sqrt(8_000_000 / (bounds.width * bounds.height)));
+          return density / required;
+        }),
+      )
+      .toBeGreaterThanOrEqual(0.99);
     await expect(canvas.getByRole('button', { name: 'Open in desktop app' })).toBeVisible();
     if (item.pages > 1) {
       await document.getByRole('button', { name: 'Next PDF page' }).click();

@@ -1,10 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import {
+  pdfRenderDensity,
   estimatedPdfPageHeight,
   fitPdfPageWidth,
   pdfPageNumbers,
   pdfPageWindow,
 } from './document-pdf-window';
+
+describe('PDF rendering density', () => {
+  it.each([0.8, 1, 1.5, 2])(
+    'keeps fine text at two pixels per CSS pixel on a %s display',
+    (displayDensity) => {
+      expect(pdfRenderDensity({ width: 600, aspectRatio: 11 / 8.5, displayDensity })).toBe(2);
+    },
+  );
+
+  it('preserves high display density and limits the pixel allocation of a large zoomed page', () => {
+    expect(pdfRenderDensity({ width: 600, aspectRatio: 9 / 16, displayDensity: 3 })).toBe(3);
+    const width = 3200;
+    const aspectRatio = 11 / 8.5;
+    const density = pdfRenderDensity({ width, aspectRatio, displayDensity: 3 });
+    expect(width ** 2 * aspectRatio * density ** 2).toBeCloseTo(8_000_000);
+  });
+});
 
 describe('pdfPageWindow', () => {
   it('renders a bounded window of a long document instead of every page', () => {
