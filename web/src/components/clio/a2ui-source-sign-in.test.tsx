@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 import { A2uiSourceSignIn, A2uiSourceSignInHost } from './a2ui-source-sign-in';
 import { useSourceSignIn } from '@/lib/a2ui/source-sign-in-context';
 import { PresentationNavigation } from './presentation-navigation';
@@ -62,7 +63,7 @@ it('explains an unconfigured provider without mounting authorization', async () 
     providers: [{ id: 'google_drive', name: 'Google Drive', configured: false }],
   });
   mount();
-  expect(await screen.findByRole('alert')).toHaveTextContent('unavailable on this CLIO');
+  expect(await screen.findByRole('alert')).toHaveTextContent(`unavailable on this ${vocab.agent}`);
   expect(screen.queryByText('Private google_drive authorization')).toBeNull();
 });
 

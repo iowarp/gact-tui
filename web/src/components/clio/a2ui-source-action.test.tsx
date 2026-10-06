@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 import { CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioA2UISurface } from './a2ui-surface';
@@ -97,7 +98,9 @@ it('does not start sign-in when an older server routes the action to an agent', 
   });
   mount();
   await userEvent.click(await screen.findByRole('button', { name: 'Sign in to Drive' }));
-  expect(await screen.findByText('CLIO did not accept this private sign-in action.')).toBeVisible();
+  expect(
+    await screen.findByText(`${vocab.agent} did not accept this private sign-in action.`),
+  ).toBeVisible();
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(repository.openSignIn).not.toHaveBeenCalled();
 });
