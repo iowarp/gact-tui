@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
+import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { Label } from '@/components/ui/label';
 import {
@@ -33,7 +34,7 @@ export function DataSourceSettings({ initialWorkspaceId }: { initialWorkspaceId?
     <div className="grid gap-6">
       <SettingsSectionHeading
         title="Data sources"
-        description="Sign in to provider accounts and manage the data connected to a workspace. Accounts are shared across workspaces on this CLIO; sources belong to the workspace you choose."
+        description={`Sign in to provider accounts and manage the data connected to a workspace. Accounts are shared across workspaces on this ${vocab.agent}; sources belong to the workspace you choose.`}
       />
       {workspaces.error ? <p role="alert">{workspaces.error.message}</p> : null}
       <div className="flex flex-wrap items-end justify-between gap-3">

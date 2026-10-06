@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
 import { dataSourceIntent } from '@/lib/a2ui/data-source-action';
 import { useSourceSignIn } from '@/lib/a2ui/source-sign-in-context';
+import { vocab } from '@/lib/brand-vocabulary';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
@@ -196,7 +197,7 @@ function ClioA2UISurfaceContent({
             },
           );
           if (reply.destination !== 'client' || reply.state !== 'consumed') {
-            throw new Error('CLIO did not accept this private sign-in action.');
+            throw new Error(`${vocab.agent} did not accept this private sign-in action.`);
           }
           openSourceSignIn(intent);
         } catch (sourceError) {

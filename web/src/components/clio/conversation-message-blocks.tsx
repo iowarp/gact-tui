@@ -472,7 +472,9 @@ export function HarnessInjection({ block }: { block: InjectionBlock }) {
         <DialogContent className="flex max-h-[88dvh] flex-col sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{label}</DialogTitle>
-            <DialogDescription>The recorded content CLIO gave the agent.</DialogDescription>
+            <DialogDescription>
+              The recorded content {vocab.agent} gave the agent.
+            </DialogDescription>
           </DialogHeader>
           <pre className="min-h-0 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 text-xs leading-5">
             {block.text}

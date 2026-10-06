@@ -14,6 +14,7 @@ import type { DataSourceIntent } from '@/lib/a2ui/data-source-action';
 import { SourceSignInContext } from '@/lib/a2ui/source-sign-in-context';
 import { PresentationNavigation } from './presentation-navigation';
 import { ConnectedAccountSignIn } from './connected-source-auth';
+import { vocab } from '@/lib/brand-vocabulary';
 
 /** Keep private authorization mounted while an accepted surface changes hosts. */
 export function A2uiSourceSignInHost({
@@ -82,10 +83,12 @@ export function A2uiSourceSignIn({
         {!sameWorkspace ? <p role="alert">Open the original workspace to sign in.</p> : null}
         {sameWorkspace && owner.isFetching ? <p role="status">Checking this connection…</p> : null}
         {sameWorkspace && !owner.isFetching && (!matches || owner.error) ? (
-          <p role="alert">This sign-in action could not be checked against the connected CLIO.</p>
+          <p role="alert">
+            This sign-in action could not be checked against the connected {vocab.agent}.
+          </p>
         ) : null}
         {matches && !owner.isFetching && (!provider || !provider.configured) ? (
-          <p role="alert">Sign-in for this provider is unavailable on this CLIO.</p>
+          <p role="alert">Sign-in for this provider is unavailable on this {vocab.agent}.</p>
         ) : null}
         {matches && provider?.configured && !owner.isFetching ? (
           <ConnectedAccountSignIn
