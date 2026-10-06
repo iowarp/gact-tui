@@ -104,6 +104,71 @@ test.afterEach(async ({ page }) => {
   expect(unexpectedErrors.get(page) ?? []).toEqual([]);
 });
 
+test('reveals workspace creation and overflow actions without changing disclosure', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.goto(workspaceUrl);
+  const disclosure = page.getByRole('button', {
+    name: /^(?:Collapse|Expand) workspace flat-NDP$/u,
+    includeHidden: true,
+  });
+  await expect(disclosure).toBeVisible();
+  await waitForArtifactPreview(page);
+  const newSession = page.getByRole('button', {
+    name: 'New session in flat-NDP',
+    exact: true,
+    includeHidden: true,
+  });
+  const overflow = page.getByRole('button', {
+    name: 'Workspace actions for flat-NDP',
+    exact: true,
+  });
+  const actions = newSession.locator('..');
+  await page.mouse.move(1090, 790);
+  await expect(actions).toHaveCSS('opacity', '0');
+  await page.screenshot({ path: testInfo.outputPath('workspace-row-at-rest.png') });
+  await newSession.hover();
+  await expect(actions).toHaveCSS('opacity', '1');
+  await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('workspace-row-hover.png') });
+  await newSession.click();
+  const create = page.getByRole('dialog', { name: 'Create', exact: true });
+  await expect(create.getByRole('tab', { name: 'Session', exact: true })).toHaveAttribute(
+    'data-state',
+    'active',
+  );
+  await expect(create.getByRole('combobox', { name: 'Workspace', exact: true })).toHaveText(
+    'flat-NDP',
+  );
+  await create.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+  await disclosure.click();
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+  await page.mouse.move(1090, 790);
+  await overflow.focus();
+  await expect(actions).toHaveCSS('opacity', '1');
+  await overflow.click();
+  const menu = page.getByRole('menu');
+  await testInfo.attach('workspace-menu-trigger', {
+    body: JSON.stringify(
+      await actions.evaluate((element) => ({
+        expandedTrigger: element.querySelector('[aria-expanded="true"]')?.outerHTML,
+      })),
+      null,
+      2,
+    ),
+    contentType: 'application/json',
+  });
+  await expect(menu.getByRole('menuitem', { name: 'Edit workspace', exact: true })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'New session', exact: true })).toHaveCount(0);
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+  await menu.getByRole('menuitem', { name: 'Edit workspace', exact: true }).hover();
+  await expect(actions).toHaveCSS('opacity', '1');
+  await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('workspace-row-menu.png') });
+});
+
 test('keeps same-named sessions on one line and reveals details on hover or focus', async ({
   page,
 }, testInfo) => {
