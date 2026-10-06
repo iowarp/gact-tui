@@ -79,6 +79,7 @@ export function SavedView({ value }: { value: unknown }) {
     <section className="my-5">
       <ClioA2UISurface
         surface={result.data}
+        readOnly
         onRemoteAction={async () => {
           throw new Error('This archive is read-only. Open a live session to ask the agent.');
         }}

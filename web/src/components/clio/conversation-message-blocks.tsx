@@ -33,6 +33,13 @@ import {
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
@@ -409,6 +416,7 @@ function MessageBlockView({
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
 const INJECTION_LABELS: Record<string, string> = {
+  earlier_turns: 'Recovered conversation context',
   todos: 'Todo list',
   plan_mode: 'Plan reminder',
   replan: 'Replanning suggestion',
@@ -430,6 +438,7 @@ const INJECTION_LABELS: Record<string, string> = {
  */
 export function HarnessInjection({ block }: { block: InjectionBlock }) {
   const [expanded, setExpanded] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const label = INJECTION_LABELS[block.source] ?? humanizeProtocolValue(block.source);
   return (
     <section className="min-w-0 max-w-full" data-slot="harness-injection">
@@ -446,12 +455,30 @@ export function HarnessInjection({ block }: { block: InjectionBlock }) {
         >
           {expanded ? 'Hide' : 'Show what it got'}
         </button>
+        <button
+          className="text-xs font-medium text-primary hover:underline"
+          onClick={() => setDetailsOpen(true)}
+          type="button"
+        >
+          Open exact details
+        </button>
       </div>
       {expanded ? (
         <pre className="mt-2 min-w-0 max-w-full whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-xs leading-5">
           {block.text}
         </pre>
       ) : null}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="flex max-h-[88dvh] flex-col sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{label}</DialogTitle>
+            <DialogDescription>The recorded content CLIO gave the agent.</DialogDescription>
+          </DialogHeader>
+          <pre className="min-h-0 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 text-xs leading-5">
+            {block.text}
+          </pre>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

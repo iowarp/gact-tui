@@ -4,6 +4,72 @@
     "approval.respond": {
       "destination": "permission"
     },
+    "data_source/login/github": {
+      "context_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "clio_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "workspace_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "clio_id",
+          "workspace_id"
+        ],
+        "type": "object"
+      },
+      "destination": "client",
+      "narration": "Open private github sign-in on this CLIO."
+    },
+    "data_source/login/globus": {
+      "context_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "clio_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "workspace_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "clio_id",
+          "workspace_id"
+        ],
+        "type": "object"
+      },
+      "destination": "client",
+      "narration": "Open private globus sign-in on this CLIO."
+    },
+    "data_source/login/google_drive": {
+      "context_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "clio_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "workspace_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "clio_id",
+          "workspace_id"
+        ],
+        "type": "object"
+      },
+      "destination": "client",
+      "narration": "Open private google_drive sign-in on this CLIO."
+    },
     "run.cancel": {
       "destination": "run",
       "operation": "cancel"

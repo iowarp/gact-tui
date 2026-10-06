@@ -17,6 +17,8 @@ import { AutoDatasetSelectionProvider } from '@/lib/a2ui/auto-dataset-selection'
 import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
 import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
+import { dataSourceIntent } from '@/lib/a2ui/data-source-action';
+import { useSourceSignIn } from '@/lib/a2ui/source-sign-in-context';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
@@ -120,6 +122,7 @@ function ClioA2UISurfaceContent({
   onRemoteAction,
   surface,
   viewport,
+  readOnly,
 }: {
   /**
    * The server-truth footer's data (dispatcher slice S5,
@@ -134,6 +137,7 @@ function ClioA2UISurfaceContent({
   onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
   viewport: 'inline' | 'fullscreen';
+  readOnly: boolean;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -150,6 +154,7 @@ function ClioA2UISurfaceContent({
   const [localNotice, setLocalNotice] = useState<string>();
   const [localActionPending, setLocalActionPending] = useState(false);
   const [localActionStatus, setLocalActionStatus] = useState<string>();
+  const openSourceSignIn = useSourceSignIn();
   const { error, isPending, mutateAsync } = useMutation({
     mutationFn: async (clientAction: A2uiClientAction) => {
       const message = { version: `v${A2UI_VERSION}`, action: clientAction };
@@ -166,6 +171,41 @@ function ClioA2UISurfaceContent({
   });
   const handleAction = useCallback(
     async (clientAction: A2uiClientAction) => {
+      if (clientAction.name.startsWith('data_source/')) {
+        try {
+          const intent = dataSourceIntent(clientAction);
+          if (readOnly) {
+            setLocalNotice('Private sign-in is unavailable in this archive.');
+            return;
+          }
+          if (!intent || !openSourceSignIn) {
+            throw new Error('Private sign-in is unavailable in this workspace view.');
+          }
+          if (
+            registry.eventRoute(surface.catalog_id, clientAction.name)?.destination !== 'client'
+          ) {
+            throw new Error('This workspace does not support private sign-in actions.');
+          }
+          const reply = await repository.a2uiAction(
+            surface.session_id,
+            { version: `v${A2UI_VERSION}`, action: clientAction },
+            {
+              run_id: surface.run_id,
+              message_id: surface.message_id,
+              part_id: surface.part_id,
+            },
+          );
+          if (reply.destination !== 'client' || reply.state !== 'consumed') {
+            throw new Error('CLIO did not accept this private sign-in action.');
+          }
+          openSourceSignIn(intent);
+        } catch (sourceError) {
+          setLocalNotice(
+            sourceError instanceof Error ? sourceError.message : 'Sign-in is unavailable.',
+          );
+        }
+        return;
+      }
       if (LEGACY_LOCAL_ACTIONS.has(clientAction.name)) {
         if (!onLocalAction) {
           setLocalNotice(`${clientAction.name} is unavailable in this workspace.`);
@@ -187,7 +227,7 @@ function ClioA2UISurfaceContent({
       }
       await mutateAsync(clientAction);
     },
-    [mutateAsync, onLocalAction],
+    [mutateAsync, onLocalAction, readOnly, registry, repository, surface, openSourceSignIn],
   );
   const handleValidationFailed = useCallback(
     async (validationError: { code: string; path?: string; message: string }) => {
@@ -385,12 +425,14 @@ export function ClioA2UISurface({
   onRemoteAction,
   surface,
   viewport = 'inline',
+  readOnly = false,
 }: {
   actionLifecycle?: A2UIActionLifecycle;
   onLocalAction?: A2UILocalActionHandler;
   onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
   viewport?: 'inline' | 'fullscreen';
+  readOnly?: boolean;
 }) {
   return (
     <SurfaceBoundary key={surface.id}>
@@ -400,6 +442,7 @@ export function ClioA2UISurface({
         onRemoteAction={onRemoteAction}
         surface={surface}
         viewport={viewport}
+        readOnly={readOnly}
       />
     </SurfaceBoundary>
   );

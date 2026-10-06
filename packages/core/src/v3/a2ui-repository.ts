@@ -24,7 +24,7 @@ export class A2uiRepository extends PresentationRepository {
     message: unknown,
     correlation?: { run_id?: string; message_id?: string; part_id?: string },
     signal?: AbortSignal,
-  ): Promise<{ status: string }> {
+  ): Promise<{ status: string; destination?: string; state?: string; delivery?: string }> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/actions`,
@@ -33,7 +33,16 @@ export class A2uiRepository extends PresentationRepository {
         correlation,
         metadata: mergeA2uiClientMetadata(sessionId, undefined, { includeDataModel: true }),
       },
-      decode: (value) => z.object({ status: z.string() }).passthrough().parse(value),
+      decode: (value) =>
+        z
+          .object({
+            status: z.string(),
+            destination: z.string().optional(),
+            state: z.string().optional(),
+            delivery: z.string().optional(),
+          })
+          .passthrough()
+          .parse(value),
       signal,
     });
   }
