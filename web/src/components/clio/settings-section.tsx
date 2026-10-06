@@ -6,7 +6,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 
 interface ClioSettingsSectionProps {
   children: ReactNode;
@@ -15,7 +15,7 @@ interface ClioSettingsSectionProps {
   title: ReactNode;
 }
 
-/** A flat settings composition built from the sourced ReUI Frame primitives. */
+/** A flat settings group with a heading, controls, and optional actions. */
 export function ClioSettingsSection({
   children,
   description,

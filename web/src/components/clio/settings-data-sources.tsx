@@ -1,75 +1,134 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { SourceProvider } from '@clio/core/v3';
+import { ArrowLeftIcon, CheckIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
-import { vocab } from '@/lib/brand-vocabulary';
-import { queryKeys } from '@/lib/query-keys';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { SettingsSectionHeading } from './settings-section-heading';
-import { ConnectedSourceContents } from './connected-source-picker';
+import { ConnectedAccountActions } from './connected-account-actions';
+import { ConnectedAccountSignIn } from './connected-source-auth';
+import { SourceProviderLogo } from './source-provider-logo';
 
-/** Accounts belong to this CLIO; saved datasets belong to the selected workspace. */
-export function DataSourceSettings({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
+/** Global accounts never list, create or change workspace data sources. */
+export function DataSourceSettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const scope = connectionScope(settings);
-  const [preference, setPreference] = useState('');
-  const [headerActions, setHeaderActions] = useState<HTMLDivElement | null>(null);
-  const workspaces = useQuery({
-    queryKey: queryKeys.key('workspaces', scope, 'data-source-settings'),
-    queryFn: ({ signal }) => repository.workspaces(signal),
+  const client = useQueryClient();
+  const [selection, setSelection] = useState<{ scope: string; provider: SourceProvider }>();
+  const login = selection?.scope === scope ? selection.provider : undefined;
+  const setLogin = (provider?: SourceProvider) =>
+    setSelection(provider ? { scope, provider } : undefined);
+  const providers = useQuery({
+    queryKey: ['connected-storage', scope, 'accounts'],
+    queryFn: ({ signal }) => repository.storageProviders(signal),
+    refetchInterval: 30_000,
+    retry: false,
   });
-  const requested = preference || initialWorkspaceId;
-  const workspaceId =
-    workspaces.data?.find((row) => row.id === requested)?.id || workspaces.data?.[0]?.id || '';
+  const accounts =
+    providers.data?.providers.filter((row) => row.authentication === 'browser') ?? [];
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading
         title="Data sources"
-        description={`Sign in to provider accounts and manage the data connected to a workspace. Accounts are shared across workspaces on this ${vocab.agent}; sources belong to the workspace you choose.`}
+        description="Sign in to accounts used by this service. Choose specific folders and datasets from Attach in a workspace."
       />
-      {workspaces.error ? <p role="alert">{workspaces.error.message}</p> : null}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="grid min-w-56 gap-2">
-          <Label htmlFor="source-settings-workspace">Workspace</Label>
-          <Select value={workspaceId} onValueChange={setPreference} disabled={!workspaceId}>
-            <SelectTrigger id="source-settings-workspace" aria-label="Workspace">
-              <SelectValue placeholder="Choose a workspace" />
-            </SelectTrigger>
-            <SelectContent>
-              {workspaces.data?.map((row) => (
-                <SelectItem key={row.id} value={row.id}>
-                  {row.display_name || row.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div ref={setHeaderActions} className="flex items-center gap-1" />
-      </div>
-      {!workspaces.isPending && !workspaces.error && !workspaceId ? (
-        <p>Register a workspace to connect a dataset. You can sign in to accounts here first.</p>
-      ) : null}
-      {workspaces.isPending ? (
-        <p role="status">Loading workspaces…</p>
+      {login ? (
+        <section
+          key={`${scope}:${login.id}`}
+          className="grid gap-4"
+          aria-label={`${login.name} account`}
+        >
+          <Button className="w-fit" size="sm" variant="ghost" onClick={() => setLogin(undefined)}>
+            <ArrowLeftIcon aria-hidden="true" /> All accounts
+          </Button>
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <SourceProviderLogo provider={login.id} /> Sign in to {login.name}
+          </h2>
+          <ConnectedAccountSignIn
+            provider={login.id}
+            appUrl={login.account_url}
+            onComplete={() => {
+              void client.invalidateQueries({ queryKey: ['connected-storage', scope] });
+              setLogin(undefined);
+            }}
+          />
+        </section>
       ) : (
-        <ConnectedSourceContents
-          key={`${scope}:${workspaceId}`}
-          workspaceId={workspaceId}
-          manageOnly={false}
-          settingsView
-          headerActions={headerActions}
-          onDiscard={() => undefined}
-        />
+        <section aria-label="Data source accounts" className="divide-y divide-border/60">
+          {providers.isPending ? (
+            <p role="status" className="py-4 text-sm text-muted-foreground">
+              Loading accounts…
+            </p>
+          ) : null}
+          {providers.error ? (
+            <div role="alert" className="py-4 text-sm text-destructive">
+              {providers.error.message}
+              <Button
+                className="ml-3"
+                size="sm"
+                variant="outline"
+                onClick={() => void providers.refetch()}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : null}
+          {accounts.map((row) => (
+            <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div className="flex min-w-48 items-center gap-3">
+                <SourceProviderLogo provider={row.id} />
+                <div>
+                  <h2 className="text-sm font-medium">{row.name}</h2>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {row.authenticated ? (
+                      <span className="inline-flex items-center gap-1">
+                        <CheckIcon aria-hidden="true" className="size-3.5" />
+                        Signed in
+                      </span>
+                    ) : row.configured ? (
+                      'Signed out'
+                    ) : (
+                      'Setup needed'
+                    )}
+                  </p>
+                  {!row.configured && row.setup_requirement ? (
+                    <p className="mt-1 max-w-xl text-xs text-muted-foreground">
+                      {row.setup_requirement}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {row.authenticated ? (
+                  <ConnectedAccountActions provider={row} />
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={`Sign in to ${row.name}`}
+                    disabled={!row.configured}
+                    onClick={() => setLogin(row)}
+                  >
+                    Sign in
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+          {!providers.isPending && !providers.error && !accounts.length ? (
+            <p className="py-4 text-sm text-muted-foreground">
+              No account providers are available on this service.
+            </p>
+          ) : null}
+        </section>
       )}
+      <p className="text-sm leading-5 text-muted-foreground">
+        Accounts are shared across workspaces on this service. Signing in does not attach data or
+        grant an agent access to a dataset. Manage attached sources in the workspace Files view.
+      </p>
     </div>
   );
 }

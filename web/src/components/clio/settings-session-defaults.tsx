@@ -5,10 +5,10 @@ import { BotIcon, BrainCircuitIcon, ShieldCheckIcon } from 'lucide-react';
 import { SaveIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Frame, FramePanel } from '@/components/reui/frame';
+import { Frame, FramePanel } from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { FieldGroup } from '@/components/ui/field';
 import {
   Select,
   SelectContent,
@@ -22,6 +22,7 @@ import { approvalOptionViews, unavailableApprovalNotice } from './approval-optio
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
+import { SettingsRow } from './settings-row';
 import { ReasoningLevelField } from './reasoning-level-field';
 import { sessionDefaultsPatch } from './session-defaults-patch';
 import { ClioSettingsSection } from './settings-section';
@@ -37,9 +38,8 @@ const standardBlueprint = '__standard__';
 function SectionHeading() {
   return (
     <header>
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight">New session defaults</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+      <h1 className="text-xl font-semibold tracking-tight">New session defaults</h1>
+      <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">
         Choose how newly created sessions begin. Existing sessions keep their current agent, model,
         working mode, and access rules.
       </p>
@@ -164,9 +164,8 @@ export function SessionDefaultsSettings() {
           </>
         }
       >
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="session-default-provider">Model source</FieldLabel>
+        <FieldGroup className="gap-0">
+          <SettingsRow htmlFor="session-default-provider" title="Model source">
             <Select
               onValueChange={(value) => {
                 if (value === inheritedModel) {
@@ -210,10 +209,21 @@ export function SessionDefaultsSettings() {
                 ))}
               </SelectContent>
             </Select>
-          </Field>
+          </SettingsRow>
           {form.provider_id ? (
-            <Field>
-              <FieldLabel htmlFor="session-default-model">Model</FieldLabel>
+            <SettingsRow
+              htmlFor="session-default-model"
+              title="Model"
+              description={
+                <span title={modelCatalog.data?.source}>
+                  {modelCatalog.error
+                    ? `Live choices unavailable: ${modelCatalog.error.message}`
+                    : modelCatalog.data?.source
+                      ? 'Available models were checked by the connected agent.'
+                      : 'Availability comes from the connected service.'}
+                </span>
+              }
+            >
               <Select
                 disabled={modelCatalog.isFetching}
                 onValueChange={(value) => update('model_id', value)}
@@ -230,14 +240,7 @@ export function SessionDefaultsSettings() {
                   ))}
                 </SelectContent>
               </Select>
-              <FieldDescription title={modelCatalog.data?.source}>
-                {modelCatalog.error
-                  ? `Live choices unavailable: ${modelCatalog.error.message}`
-                  : modelCatalog.data?.source
-                    ? 'Available models were checked by the connected agent.'
-                    : 'Availability comes from the connected service.'}
-              </FieldDescription>
-            </Field>
+            </SettingsRow>
           ) : null}
           <ReasoningLevelField
             allowModelDefault
@@ -247,6 +250,7 @@ export function SessionDefaultsSettings() {
                 : 'Sets the starting thinking depth for new sessions, from the levels this model offers. You can change it again from the composer.'
             }
             id="session-default-effort"
+            layout="row"
             onChange={(effort) => update('effort', effort)}
             reasoning={reasoning}
             value={form.effort}
@@ -262,9 +266,8 @@ export function SessionDefaultsSettings() {
           </>
         }
       >
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="session-default-blueprint">Agent blueprint</FieldLabel>
+        <FieldGroup className="gap-0">
+          <SettingsRow htmlFor="session-default-blueprint" title="Agent blueprint">
             <Select
               onValueChange={(value) =>
                 update('blueprint_id', value === standardBlueprint ? '' : value)
@@ -286,9 +289,12 @@ export function SessionDefaultsSettings() {
                   ))}
               </SelectContent>
             </Select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="session-default-mode">Default work mode</FieldLabel>
+          </SettingsRow>
+          <SettingsRow
+            htmlFor="session-default-mode"
+            title="Default work mode"
+            description={<>{selectedMode.description}</>}
+          >
             <Select
               onValueChange={(value) => {
                 const patch = SESSION_MODE_PATCHES[value as SessionDefaults['mode']];
@@ -310,8 +316,7 @@ export function SessionDefaultsSettings() {
                 })}
               </SelectContent>
             </Select>
-            <FieldDescription>{selectedMode.description}</FieldDescription>
-          </Field>
+          </SettingsRow>
         </FieldGroup>
       </ClioSettingsSection>
 
@@ -334,8 +339,18 @@ export function SessionDefaultsSettings() {
           </>
         }
       >
-        <Field>
-          <FieldLabel htmlFor="session-default-approval">Default confirmation policy</FieldLabel>
+        <SettingsRow
+          htmlFor="session-default-approval"
+          title="Default confirmation policy"
+          description={
+            <>
+              {selectedApproval.description}
+              {unavailableApprovalNotice(approvalOptions) ? (
+                <p className="mt-1">{unavailableApprovalNotice(approvalOptions)}</p>
+              ) : null}
+            </>
+          }
+        >
           <Select
             onValueChange={(value) =>
               update('approval_mode', value as SessionDefaults['approval_mode'])
@@ -357,11 +372,7 @@ export function SessionDefaultsSettings() {
               })}
             </SelectContent>
           </Select>
-          <FieldDescription>{selectedApproval.description}</FieldDescription>
-          {unavailableApprovalNotice(approvalOptions) ? (
-            <FieldDescription>{unavailableApprovalNotice(approvalOptions)}</FieldDescription>
-          ) : null}
-        </Field>
+        </SettingsRow>
       </ClioSettingsSection>
     </div>
   );

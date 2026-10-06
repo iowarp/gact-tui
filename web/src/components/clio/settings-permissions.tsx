@@ -17,7 +17,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import {
   AlertDialog,
   AlertDialogAction,

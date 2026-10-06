@@ -13,17 +13,17 @@ export function SettingsSectionHeading({
   title,
   description,
   info,
-  eyebrow = 'Settings',
+  eyebrow,
 }: SettingsSectionHeadingProps) {
   return (
     <header>
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">{eyebrow}</p>
-      <h1 className="mt-2 flex items-center gap-2 text-4xl font-semibold tracking-tight">
+      {eyebrow ? <p className="mb-2 text-xs font-medium text-muted-foreground">{eyebrow}</p> : null}
+      <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
         {title}
         {info ? <InfoTip label={`About ${title}`}>{info}</InfoTip> : null}
       </h1>
       {description ? (
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
+        <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>
       ) : null}
     </header>
   );

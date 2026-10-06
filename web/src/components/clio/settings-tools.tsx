@@ -21,7 +21,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -370,8 +370,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         <FrameHeader>
           <FrameTitle>Available tools</FrameTitle>
           <FrameDescription>
-            Provider-supplied titles and descriptions remain primary; exact identifiers stay
-            secondary for debugging and configuration.
+            Tools available in this workspace. Expand a tool to inspect its inputs and actions.
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-2 p-2">

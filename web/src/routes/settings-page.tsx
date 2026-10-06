@@ -1,9 +1,14 @@
-import { SettingsNavigation } from '@/components/clio/settings-navigation';
+import { vocab } from '@/lib/brand-vocabulary';
+import { SettingsRow, SettingsChoice } from '@/components/clio/settings-row';
+import { connectionScope } from '@/lib/connection-scope';
+import {
+  SettingsNavigation,
+  type SettingsDestination,
+} from '@/components/clio/settings-navigation';
 import { queryKeys } from '@/lib/query-keys';
 import { Input } from '@/components/ui/input';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  AccessibilityIcon,
   BellRingIcon,
   BotIcon,
   BoxesIcon,
@@ -14,10 +19,8 @@ import {
   CircleAlertIcon,
   CpuIcon,
   DatabaseIcon,
-  EyeOffIcon,
   HeartPulseIcon,
   KeyRoundIcon,
-  Minimize2Icon,
   MonitorCogIcon,
   MoonIcon,
   PackageIcon,
@@ -26,19 +29,16 @@ import {
   ScrollTextIcon,
   ServerIcon,
   ShieldCheckIcon,
-  StretchHorizontalIcon,
   SunIcon,
   Volume2Icon,
-  VolumeXIcon,
   WrenchIcon,
 } from 'lucide-react';
 import { AdjustIcon, DeleteIcon, InfoIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { useTheme } from 'next-themes';
-import { useEffect, type ComponentType, type SVGProps } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
-import { ClioSettingsSection } from '@/components/clio/settings-section';
 import { BlueprintSettings } from '@/components/clio/settings-catalogs';
 import { RelaySettings } from '@/components/clio/relay-settings';
 import { AgentSettings } from '@/components/clio/settings-agents';
@@ -63,7 +63,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,18 +74,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-  FieldTitle,
-} from '@/components/ui/field';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
-import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   type AttentionSoundMode,
@@ -107,28 +98,140 @@ import {
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 
-type Icon = ComponentType<SVGProps<SVGSVGElement>>;
-
-const sections: Array<{ id: string; label: string; icon: Icon }> = [
-  { id: 'connections', label: 'Connections', icon: CableIcon },
-  { id: 'data-sources', label: 'Data sources', icon: DatabaseIcon },
-  { id: 'session-defaults', label: 'New session defaults', icon: AdjustIcon },
-  { id: 'providers', label: 'Providers', icon: ServerIcon },
-  { id: 'models', label: 'Models', icon: CpuIcon },
-  { id: 'agents', label: 'Agents', icon: BotIcon },
-  { id: 'blueprints', label: 'Marketplaces & blueprints', icon: BoxesIcon },
-  { id: 'expert-packs', label: 'Expert packs', icon: PackageIcon },
-  { id: 'tools', label: 'MCP tools', icon: WrenchIcon },
-  { id: 'prompts', label: 'Prompts & commands', icon: ScrollTextIcon },
-  { id: 'schedules', label: 'Scheduled work', icon: CalendarClockIcon },
-  { id: 'relays', label: 'Remote computers', icon: PlugZapIcon },
-  { id: 'permissions', label: 'Permissions', icon: ShieldCheckIcon },
-  { id: 'memory', label: 'Memory', icon: BrainCircuitIcon },
-  { id: 'system', label: 'System', icon: HeartPulseIcon },
-  { id: 'notifications', label: 'Notifications', icon: BellRingIcon },
-  { id: 'appearance', label: 'Appearance', icon: PaletteIcon },
-  { id: 'desktop', label: 'Desktop', icon: MonitorCogIcon },
-  { id: 'about', label: 'About', icon: InfoIcon },
+const sections: SettingsDestination[] = [
+  {
+    id: 'appearance',
+    label: 'Appearance',
+    icon: PaletteIcon,
+    group: 'Personal',
+    keywords: 'theme dark light width motion preview files',
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: BellRingIcon,
+    group: 'Personal',
+    keywords: 'sound attention alerts',
+  },
+  {
+    id: 'desktop',
+    label: 'Desktop',
+    icon: MonitorCogIcon,
+    group: 'Personal',
+    keywords: 'app updates release channel',
+  },
+  {
+    id: 'connections',
+    label: `${vocab.agent} connections`,
+    icon: CableIcon,
+    group: 'Connections',
+    keywords: 'service address endpoint server',
+  },
+  {
+    id: 'providers',
+    label: 'Model providers',
+    icon: ServerIcon,
+    group: 'Connections',
+    keywords: 'api keys sign in local model server',
+  },
+  {
+    id: 'models',
+    label: 'Models',
+    icon: CpuIcon,
+    group: 'Connections',
+    keywords: 'default reasoning response parameters',
+  },
+  {
+    id: 'data-sources',
+    label: 'Data sources',
+    icon: DatabaseIcon,
+    group: 'Connections',
+    keywords: 'accounts sign in github drive globus',
+  },
+  {
+    id: 'relays',
+    label: 'Remote computers',
+    icon: PlugZapIcon,
+    group: 'Connections',
+    keywords: 'relay ssh remote host',
+  },
+  {
+    id: 'session-defaults',
+    label: 'New session defaults',
+    icon: AdjustIcon,
+    group: 'Agent',
+    keywords: 'model reasoning blueprint work mode confirmations',
+  },
+  {
+    id: 'agents',
+    label: 'Agents',
+    icon: BotIcon,
+    group: 'Agent',
+    keywords: 'instructions capabilities routing',
+  },
+  {
+    id: 'blueprints',
+    label: 'Marketplaces & blueprints',
+    icon: BoxesIcon,
+    group: 'Agent',
+    keywords: 'catalog install skills',
+  },
+  {
+    id: 'expert-packs',
+    label: 'Expert packs',
+    icon: PackageIcon,
+    group: 'Agent',
+    keywords: 'specialist agents install',
+  },
+  {
+    id: 'tools',
+    label: 'MCP tools',
+    icon: WrenchIcon,
+    group: 'Agent',
+    keywords: 'services tools connections',
+  },
+  {
+    id: 'prompts',
+    label: 'Prompts & commands',
+    icon: ScrollTextIcon,
+    group: 'Agent',
+    keywords: 'instructions overrides commands',
+  },
+  {
+    id: 'schedules',
+    label: 'Scheduled work',
+    icon: CalendarClockIcon,
+    group: 'Agent',
+    keywords: 'recurring automation repeat',
+  },
+  {
+    id: 'permissions',
+    label: 'Permissions',
+    icon: ShieldCheckIcon,
+    group: 'Access & system',
+    keywords: 'approvals requests access rules policy',
+  },
+  {
+    id: 'memory',
+    label: 'Memory',
+    icon: BrainCircuitIcon,
+    group: 'Access & system',
+    keywords: 'context search recall compaction',
+  },
+  {
+    id: 'system',
+    label: 'System',
+    icon: HeartPulseIcon,
+    group: 'Access & system',
+    keywords: 'health storage metrics hooks',
+  },
+  {
+    id: 'about',
+    label: 'About',
+    icon: InfoIcon,
+    group: 'Access & system',
+    keywords: 'version updates build',
+  },
 ];
 
 function ConnectionsSettings() {
@@ -157,7 +260,7 @@ function ConnectionsSettings() {
     <div className="grid gap-6">
       <SectionHeading
         description="Choose where your workspace runs and manage addresses you have connected to before."
-        title="Connections"
+        title={`${vocab.agent} connections`}
       />
       <Frame spacing="lg">
         <FrameHeader>
@@ -178,7 +281,7 @@ function ConnectionsSettings() {
             {limitationLabels.length ? (
               <div className="mt-2 flex items-start gap-1.5 text-xs text-warning">
                 <CircleAlertIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-                <span>{limitationLabels.join(' ')}</span>
+                <span>Some features are unavailable on this connection.</span>
               </div>
             ) : null}
           </div>
@@ -186,7 +289,9 @@ function ConnectionsSettings() {
             detail={
               capabilities.isError
                 ? 'This agent could not be reached.'
-                : limitationLabels.join(' ') || undefined
+                : limitationLabels.length
+                  ? 'Open Unavailable features to see what this service provides.'
+                  : undefined
             }
             label={
               connectionState === 'healthy'
@@ -198,6 +303,18 @@ function ConnectionsSettings() {
             value={connectionState}
           />
         </FramePanel>
+        {limitationLabels.length ? (
+          <details className="text-sm">
+            <summary className="w-fit cursor-pointer rounded py-1 text-muted-foreground hover:text-foreground focus-visible:outline-ring">
+              Unavailable features ({limitationLabels.length})
+            </summary>
+            <ul className="mt-2 grid list-disc gap-2 pl-5 text-sm leading-5 text-muted-foreground">
+              {limitationLabels.map((reason, index) => (
+                <li key={`${index}-${reason}`}>{reason}</li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
         <FrameFooter className="items-start">
           <Button asChild size="sm" variant="outline">
             <Link to="/?intent=connect">Add or test a service</Link>
@@ -344,16 +461,83 @@ function AppearanceSettings() {
   return (
     <div className="grid gap-6">
       <SectionHeading
-        description="Choose how the workspace looks, moves, and presents conversation activity."
         title="Appearance"
+        description={`Choose how ${vocab.agent} looks and presents your conversations.`}
       />
-      <ClioSettingsSection
-        title="Transcript previews"
-        description="Maximum preview lines per result; diffs allow twice as many. Show more reveals the full result, opening large output separately."
-      >
-        <Field>
-          <FieldLabel htmlFor="transcript-preview-lines">Preview lines</FieldLabel>
+      <div>
+        <SettingsRow title="Theme" description={`System currently uses ${resolvedTheme}.`}>
+          <SettingsChoice
+            id="theme"
+            label="Theme"
+            value={theme ?? 'system'}
+            onChange={setTheme}
+            options={[
+              { value: 'system', label: 'System', icon: MonitorCogIcon },
+              { value: 'light', label: 'Light', icon: SunIcon },
+              { value: 'dark', label: 'Dark', icon: MoonIcon },
+            ]}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Conversation width"
+          description="Use a focused reading column or give tables and diagrams more room."
+        >
+          <SettingsChoice
+            id="conversation-width"
+            label="Conversation width"
+            value={conversationWidth}
+            onChange={(value) => setConversationWidth(value as ConversationWidth)}
+            options={[
+              { value: 'focused', label: 'Focused' },
+              { value: 'wide', label: 'Wide' },
+            ]}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Motion"
+          description="Follow this device's preference or reduce interface animation."
+        >
+          <SettingsChoice
+            id="motion"
+            label="Motion"
+            value={motion}
+            onChange={(value) => setMotion(value as MotionPreference)}
+            options={[
+              { value: 'system', label: 'Follow system' },
+              { value: 'reduced', label: 'Reduce motion' },
+            ]}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Conversation activity"
+          description="Group agent activity by turn or show each event. Full details remain available in both views."
+        >
+          <SettingsChoice
+            id="conversation-mode"
+            label="Conversation activity"
+            value={conversationMode}
+            onChange={(value) => setConversationMode(value as ConversationDisplayMode)}
+            options={[
+              {
+                value: 'chain',
+                label: 'Grouped',
+                description: 'Groups reasoning, updates, tools and delegated work by turn.',
+              },
+              {
+                value: 'full',
+                label: 'Full activity',
+                description: 'Shows every event in its recorded order.',
+              },
+            ]}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Transcript preview lines"
+          htmlFor="transcript-preview-lines"
+          description="Show more opens the full result. Diff previews use twice this limit."
+        >
           <Input
+            className="w-20"
             id="transcript-preview-lines"
             type="number"
             min={1}
@@ -361,179 +545,15 @@ function AppearanceSettings() {
             value={collapseThreshold}
             onChange={(event) => setCollapseThreshold(Number(event.target.value))}
           />
-        </Field>
-      </ClioSettingsSection>
-      <ClioSettingsSection
-        description="System follows the operating system; light and dark use distinct palettes."
-        title="Theme"
-      >
-        <RadioGroup
-          className="grid sm:grid-cols-3"
-          onValueChange={setTheme}
-          value={theme ?? 'system'}
+        </SettingsRow>
+        <SettingsRow
+          title="Hide dot files and folders"
+          htmlFor="hide-dot-files"
+          description="Hide dot-prefixed paths from the workspace Files view."
         >
-          {[
-            { value: 'system', label: 'System', icon: MonitorCogIcon },
-            { value: 'dark', label: 'Dark', icon: MoonIcon },
-            { value: 'light', label: 'Light', icon: SunIcon },
-          ].map(({ value, label, icon: ThemeIcon }) => (
-            <FieldLabel htmlFor={`theme-${value}`} key={value}>
-              <Field>
-                <span className="flex items-center gap-3">
-                  <ThemeIcon aria-hidden="true" className="size-5 text-primary" />
-                  <FieldContent>
-                    <FieldTitle>{label}</FieldTitle>
-                    <FieldDescription>
-                      {value === 'system' ? `Currently ${resolvedTheme}` : `${label} palette`}
-                    </FieldDescription>
-                  </FieldContent>
-                  <RadioGroupItem id={`theme-${value}`} value={value} />
-                </span>
-              </Field>
-            </FieldLabel>
-          ))}
-        </RadioGroup>
-      </ClioSettingsSection>
-      <ClioSettingsSection
-        description="Choose a focused reading column or let diagrams, tables, and long-form work use more of the available canvas."
-        title="Conversation width"
-      >
-        <RadioGroup
-          className="grid gap-3 sm:grid-cols-2"
-          onValueChange={(value) => setConversationWidth(value as ConversationWidth)}
-          value={conversationWidth}
-        >
-          {[
-            {
-              value: 'focused',
-              label: 'Focused',
-              icon: Minimize2Icon,
-              description: 'A comfortable reading width for conversation and code review.',
-            },
-            {
-              value: 'wide',
-              label: 'Wide',
-              icon: StretchHorizontalIcon,
-              description: 'More horizontal room for scientific views, tables, and diagrams.',
-            },
-          ].map(({ value, label, icon: WidthIcon, description }) => (
-            <FieldLabel htmlFor={`conversation-width-${value}`} key={value}>
-              <Field className="h-full">
-                <span className="flex items-start gap-3">
-                  <WidthIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <FieldContent>
-                    <FieldTitle>{label}</FieldTitle>
-                    <FieldDescription>{description}</FieldDescription>
-                  </FieldContent>
-                  <RadioGroupItem id={`conversation-width-${value}`} value={value} />
-                </span>
-              </Field>
-            </FieldLabel>
-          ))}
-        </RadioGroup>
-      </ClioSettingsSection>
-      <ClioSettingsSection
-        description="Keep the operating system preference, or reduce motion explicitly for this workspace. State labels and immediate feedback remain available in both modes."
-        title="Motion"
-      >
-        <RadioGroup
-          className="grid gap-3 sm:grid-cols-2"
-          onValueChange={(value) => setMotion(value as MotionPreference)}
-          value={motion}
-        >
-          {[
-            {
-              value: 'system',
-              label: 'Follow system',
-              icon: MonitorCogIcon,
-              description: 'Uses the reduced-motion preference from this device.',
-            },
-            {
-              value: 'reduced',
-              label: 'Reduce motion',
-              icon: AccessibilityIcon,
-              description: `Removes spatial transitions and indefinite movement in ${vocab.agent}.`,
-            },
-          ].map(({ value, label, icon: MotionIcon, description }) => (
-            <FieldLabel htmlFor={`motion-${value}`} key={value}>
-              <Field className="h-full">
-                <span className="flex items-start gap-3">
-                  <MotionIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <FieldContent>
-                    <FieldTitle>{label}</FieldTitle>
-                    <FieldDescription>{description}</FieldDescription>
-                  </FieldContent>
-                  <RadioGroupItem id={`motion-${value}`} value={value} />
-                </span>
-              </Field>
-            </FieldLabel>
-          ))}
-        </RadioGroup>
-      </ClioSettingsSection>
-      <ClioSettingsSection
-        description="Choose the default level of detail for reasoning and agent work. This changes only presentation; the complete causal record remains available."
-        title="Conversation activity"
-      >
-        <RadioGroup
-          className="grid gap-3 sm:grid-cols-2"
-          onValueChange={(value) => setConversationMode(value as ConversationDisplayMode)}
-          value={conversationMode}
-        >
-          {[
-            {
-              value: 'chain',
-              label: 'Chain of thought',
-              icon: BrainCircuitIcon,
-              description:
-                'Groups reasoning, updates, tools, and delegated work into an evolving turn. Every chain can open its full activity.',
-            },
-            {
-              value: 'full',
-              label: 'Full activity',
-              icon: ScrollTextIcon,
-              description:
-                'Shows each reasoning, text, tool, task, child-agent, UI, and artifact block directly in causal order.',
-            },
-          ].map(({ value, label, icon: ModeIcon, description }) => (
-            <FieldLabel htmlFor={`conversation-mode-${value}`} key={value}>
-              <Field className="h-full">
-                <span className="flex items-start gap-3">
-                  <ModeIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <FieldContent>
-                    <FieldTitle>{label}</FieldTitle>
-                    <FieldDescription>{description}</FieldDescription>
-                  </FieldContent>
-                  <RadioGroupItem id={`conversation-mode-${value}`} value={value} />
-                </span>
-              </Field>
-            </FieldLabel>
-          ))}
-        </RadioGroup>
-      </ClioSettingsSection>
-      <ClioSettingsSection
-        description={`Choose whether the Files view includes dot files and folders in your workspace. ${vocab.agent} keeps its managed sources and session state in its own storage.`}
-        title="Workspace files"
-      >
-        <FieldLabel htmlFor="hide-dot-files">
-          <Field>
-            <span className="flex items-center gap-3">
-              <EyeOffIcon aria-hidden="true" className="size-5 shrink-0 text-primary" />
-              <FieldContent>
-                <FieldTitle>Hide dot files and folders</FieldTitle>
-                <FieldDescription>
-                  Hides paths with a dot-prefixed segment from the workspace Files view. Off by
-                  default.
-                </FieldDescription>
-              </FieldContent>
-              <Switch
-                checked={hideDotFiles}
-                id="hide-dot-files"
-                onCheckedChange={setHideDotFiles}
-              />
-            </span>
-          </Field>
-        </FieldLabel>
-      </ClioSettingsSection>
+          <Switch id="hide-dot-files" checked={hideDotFiles} onCheckedChange={setHideDotFiles} />
+        </SettingsRow>
+      </div>
     </div>
   );
 }
@@ -541,7 +561,6 @@ function AppearanceSettings() {
 function NotificationSettings() {
   const { attentionSound, desktopNotifications, setAttentionSound, setDesktopNotifications } =
     useNotificationPreferences();
-
   const updateDesktopNotifications = async (enabled: boolean) => {
     if (!enabled) {
       setDesktopNotifications(false);
@@ -563,93 +582,61 @@ function NotificationSettings() {
     }
     setDesktopNotifications(true);
   };
-
   return (
     <div className="grid gap-6">
       <SectionHeading
-        description={`Choose how ${vocab.agent} alerts you when a session is blocked on your approval or answer. The sidebar attention marker remains visible regardless of these preferences.`}
         title="Notifications"
+        description={`Choose how ${vocab.agent} alerts you when a session needs your approval or answer.`}
       />
-      <ClioSettingsSection
-        description="Play a short two-note chime when a new permission or question needs your response."
-        title="Attention sound"
-      >
-        <RadioGroup
-          className="grid gap-3 sm:grid-cols-3"
-          onValueChange={(value) => setAttentionSound(value as AttentionSoundMode)}
-          value={attentionSound}
+      <div>
+        <SettingsRow
+          title="Attention sound"
+          description="Play a short chime when a session needs your response."
         >
-          {[
-            {
-              value: 'background',
-              label: 'In background',
-              description: 'Sound only while this app is not focused.',
-              icon: Volume2Icon,
-            },
-            {
-              value: 'always',
-              label: 'Always',
-              description: 'Sound for every newly blocked session.',
-              icon: BellRingIcon,
-            },
-            {
-              value: 'off',
-              label: 'Off',
-              description: 'Keep visual attention signals only.',
-              icon: VolumeXIcon,
-            },
-          ].map(({ value, label, description, icon: SoundIcon }) => (
-            <FieldLabel htmlFor={`attention-sound-${value}`} key={value}>
-              <Field className="h-full">
-                <span className="flex items-start gap-3">
-                  <SoundIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <FieldContent>
-                    <FieldTitle>{label}</FieldTitle>
-                    <FieldDescription>{description}</FieldDescription>
-                  </FieldContent>
-                  <RadioGroupItem id={`attention-sound-${value}`} value={value} />
-                </span>
-              </Field>
-            </FieldLabel>
-          ))}
-        </RadioGroup>
-        <Button
-          className="mt-3 w-fit"
-          onClick={() => {
-            void playAttentionSound().then((played) => {
-              if (!played) toast.error('This browser could not play the attention sound');
-            });
-          }}
-          size="sm"
-          type="button"
-          variant="outline"
+          <SettingsChoice
+            id="attention-sound"
+            label="Attention sound"
+            value={attentionSound}
+            onChange={(value) => setAttentionSound(value as AttentionSoundMode)}
+            options={[
+              {
+                value: 'background',
+                label: 'In background',
+                description: 'Sound only while this app is not focused.',
+              },
+              { value: 'always', label: 'Always' },
+              { value: 'off', label: 'Off' },
+            ]}
+          />
+        </SettingsRow>
+        <SettingsRow title="Test sound" description="Hear the chime used for attention requests.">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              void playAttentionSound().then((played) => {
+                if (!played) toast.error('This browser could not play the attention sound');
+              });
+            }}
+          >
+            <Volume2Icon aria-hidden="true" /> Play test sound
+          </Button>
+        </SettingsRow>
+        <SettingsRow
+          title="Desktop notifications"
+          htmlFor="desktop-attention-notifications"
+          description="Notify when a session needs a response while the app is in the background. Your browser may ask for permission."
         >
-          <Volume2Icon aria-hidden="true" /> Play test sound
-        </Button>
-      </ClioSettingsSection>
-      <ClioSettingsSection
-        description="Show an operating-system notification when a new response is needed while this app is in the background."
-        title="Desktop notification"
-      >
-        <FieldLabel htmlFor="desktop-attention-notifications">
-          <Field>
-            <span className="flex items-center gap-3">
-              <BellRingIcon aria-hidden="true" className="size-5 shrink-0 text-primary" />
-              <FieldContent>
-                <FieldTitle>Notify while in background</FieldTitle>
-                <FieldDescription>
-                  Your browser or operating system may ask for notification permission.
-                </FieldDescription>
-              </FieldContent>
-              <Switch
-                checked={desktopNotifications}
-                id="desktop-attention-notifications"
-                onCheckedChange={(enabled) => void updateDesktopNotifications(enabled)}
-              />
-            </span>
-          </Field>
-        </FieldLabel>
-      </ClioSettingsSection>
+          <Switch
+            id="desktop-attention-notifications"
+            checked={desktopNotifications}
+            onCheckedChange={(enabled) => void updateDesktopNotifications(enabled)}
+          />
+        </SettingsRow>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        The sidebar attention marker stays visible with sound and notifications turned off.
+      </p>
     </div>
   );
 }
@@ -666,7 +653,7 @@ function SettingsSection({
   workspaceId?: string;
 }) {
   if (section === 'connections') return <ConnectionsSettings />;
-  if (section === 'data-sources') return <DataSourceSettings initialWorkspaceId={workspaceId} />;
+  if (section === 'data-sources') return <DataSourceSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
   if (section === 'providers') return <ProvidersSettings />;
   if (section === 'models') return <ModelsSettings />;
@@ -690,31 +677,37 @@ export function SettingsPage() {
   const { section = 'appearance' } = useParams();
   const location = useLocation();
   const { settings } = useConnectionSettings();
+  const content = useRef<HTMLElement>(null);
   useEffect(() => {
-    window.scrollTo({ left: 0, top: 0 });
+    content.current?.scrollTo({ left: 0, top: 0 });
   }, [section]);
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const blueprintId = new URLSearchParams(location.search).get('blueprint') || undefined;
   return (
-    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
-      <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
-        <SettingsNavigation
-          sections={sections}
-          section={section}
-          endpoint={settings.endpoint}
-          workspaceRoute={workspaceRoute}
-        />
-        <section className="min-w-0 pb-16">
+    <main className="flex h-full min-h-0 flex-col overflow-hidden bg-background md:flex-row">
+      <SettingsNavigation
+        sections={sections}
+        section={section}
+        endpoint={settings.endpoint}
+        workspaceRoute={workspaceRoute}
+      />
+      <section
+        ref={content}
+        aria-label="Settings content"
+        className="clio-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8"
+      >
+        <div className="mx-auto max-w-4xl pb-12">
           <SettingsSection
+            key={connectionScope(settings)}
             blueprintId={blueprintId}
             section={section}
             sessionId={sessionId}
             workspaceId={workspaceId}
           />
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
