@@ -1,9 +1,10 @@
-import { Minimize2Icon } from 'lucide-react';
-import { useCallback, useState, type ReactNode } from 'react';
+import { Minimize2Icon, XIcon } from 'lucide-react';
+import { useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { SurfaceReferenceContext } from './surface-reference-context';
 
 /**
  * Per-component full screen for each data view.
@@ -42,6 +43,7 @@ export function SurfaceFullScreenHost({
   children,
   fullscreen,
   headerExtra,
+  layout = 'workspace',
   onOpenChange,
   title,
 }: {
@@ -56,11 +58,26 @@ export function SurfaceFullScreenHost({
    * no way to use them while actually full screen (#516 review item 7).
    */
   headerExtra?: ReactNode;
+  /** Media uses a fitted stage with footer controls instead of a document title bar. */
+  layout?: 'workspace' | 'media';
   onOpenChange: (open: boolean) => void;
   title: string;
 }) {
   const [inlineHost] = useState(() => document.createElement('div'));
-  const [dialogHost] = useState(() => document.createElement('div'));
+  const [dialogHost] = useState(() => {
+    const node = document.createElement('div');
+    if (layout === 'media') node.className = 'h-full min-h-0 w-full min-w-0';
+    return node;
+  });
+  const pendingReference = useRef<(() => void) | undefined>(undefined);
+  const enclosingReference = useContext(SurfaceReferenceContext);
+  const referenceAndClose = useCallback(
+    (reference: () => void) => {
+      pendingReference.current = reference;
+      onOpenChange(false);
+    },
+    [onOpenChange],
+  );
   const attachInline = useCallback(
     (node: HTMLDivElement | null) => {
       node?.appendChild(inlineHost);
@@ -75,16 +92,33 @@ export function SurfaceFullScreenHost({
   );
   const host = fullscreen ? dialogHost : inlineHost;
   return (
-    <>
+    <SurfaceReferenceContext.Provider value={fullscreen ? referenceAndClose : enclosingReference}>
       <div className="contents" data-slot="surface-inline-host" ref={attachInline} />
       <Dialog onOpenChange={onOpenChange} open={fullscreen}>
         <DialogContent
           aria-describedby={undefined}
-          className="grid h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none"
+          className={
+            layout === 'media'
+              ? 'group fixed inset-0 h-dvh max-h-none w-screen max-w-none translate-x-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-none bg-black p-0 text-white ring-0 sm:max-w-none'
+              : 'grid h-[calc(100dvh-2rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none'
+          }
+          onCloseAutoFocus={(event) => {
+            const reference = pendingReference.current;
+            if (!reference) return;
+            pendingReference.current = undefined;
+            event.preventDefault();
+            reference();
+          }}
           showCloseButton={false}
         >
-          <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-            <DialogTitle className="min-w-0 truncate text-sm">{title}</DialogTitle>
+          <div
+            className={
+              layout === 'media'
+                ? 'order-last flex min-w-0 items-center justify-between gap-2 px-4 py-3 sm:px-7'
+                : 'flex items-center justify-between gap-2 border-b px-4 py-3'
+            }
+          >
+            <DialogTitle className="min-w-0 truncate text-sm font-normal">{title}</DialogTitle>
             <TooltipProvider delayDuration={150}>
               <div className="group flex shrink-0 items-center gap-2">
                 {headerExtra}
@@ -92,12 +126,21 @@ export function SurfaceFullScreenHost({
                   <TooltipTrigger asChild>
                     <Button
                       aria-label="Exit full screen"
+                      className={
+                        layout === 'media'
+                          ? 'absolute right-4 top-4 rounded-full border border-white/30 bg-black/70 text-white hover:bg-white/15 hover:text-white'
+                          : undefined
+                      }
                       onClick={() => onOpenChange(false)}
                       size="icon-sm"
                       type="button"
                       variant="ghost"
                     >
-                      <Minimize2Icon aria-hidden="true" />
+                      {layout === 'media' ? (
+                        <XIcon aria-hidden="true" />
+                      ) : (
+                        <Minimize2Icon aria-hidden="true" />
+                      )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Exit full screen</TooltipContent>
@@ -106,7 +149,11 @@ export function SurfaceFullScreenHost({
             </TooltipProvider>
           </div>
           <div
-            className="min-h-0 overflow-auto overscroll-contain p-3"
+            className={
+              layout === 'media'
+                ? 'flex min-h-0 items-center justify-center overflow-hidden px-4 pb-2 pt-16 sm:px-14'
+                : 'min-h-0 overflow-auto overscroll-contain p-3'
+            }
             data-slot="surface-dialog-host-scroller"
           >
             <div className="contents" data-slot="surface-dialog-host" ref={attachDialog} />
@@ -114,6 +161,6 @@ export function SurfaceFullScreenHost({
         </DialogContent>
       </Dialog>
       {createPortal(children, host)}
-    </>
+    </SurfaceReferenceContext.Provider>
   );
 }

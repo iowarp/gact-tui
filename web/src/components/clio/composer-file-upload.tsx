@@ -33,18 +33,28 @@ export function ClioComposerFileUpload({
   useEffect(() => {
     if (!enabled) return;
 
+    // Native image drags can advertise Files too. Only files entering from
+    // outside this document belong in the attachment picker.
+    let internalDrag = false;
+    const handleDragStart = (event: globalThis.DragEvent) => {
+      internalDrag = !event.defaultPrevented;
+    };
+    const handleDragEnd = () => {
+      internalDrag = false;
+    };
+
     const handleDragEnter = (event: globalThis.DragEvent) => {
-      if (!carriesFiles(event)) return;
+      if (internalDrag || !carriesFiles(event)) return;
       event.preventDefault();
       setDragging(true);
       onOpenChange(true);
     };
     const handleDragOver = (event: globalThis.DragEvent) => {
-      if (!carriesFiles(event)) return;
+      if (internalDrag || !carriesFiles(event)) return;
       event.preventDefault();
     };
     const handleDrop = (event: globalThis.DragEvent) => {
-      if (!carriesFiles(event)) return;
+      if (internalDrag || !carriesFiles(event)) return;
       event.preventDefault();
       setDragging(false);
       const entries = Array.from(event.dataTransfer?.items ?? []).flatMap((item) => {
@@ -72,6 +82,11 @@ export function ClioComposerFileUpload({
       onOpenChange(false);
     };
     const captureFolder = (event: globalThis.DragEvent) => {
+      if (internalDrag && carriesFiles(event)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (
         Array.from(event.dataTransfer?.items ?? []).some(
           (item) => item.webkitGetAsEntry?.()?.isDirectory,
@@ -80,11 +95,15 @@ export function ClioComposerFileUpload({
         handleDrop(event);
     };
 
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('dragend', handleDragEnd, true);
     document.addEventListener('dragenter', handleDragEnter);
     document.addEventListener('dragover', handleDragOver);
     document.addEventListener('drop', handleDrop);
     document.addEventListener('drop', captureFolder, true);
     return () => {
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('dragend', handleDragEnd, true);
       document.removeEventListener('dragenter', handleDragEnter);
       document.removeEventListener('dragover', handleDragOver);
       document.removeEventListener('drop', handleDrop);

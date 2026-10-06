@@ -256,14 +256,26 @@ describe('A2uiMedia', () => {
     it('bounds figures inline and fits portrait figures within the fullscreen viewport', async () => {
       fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_abc'));
       fake.readA2uiReferenceBytes.mockResolvedValue(PNG);
-      renderMedia(<A2uiMedia componentId="img" kind="image" label="Plot" url="artifact_abc" variant="largeFeature" objectFit="contain" />);
+      renderMedia(
+        <A2uiMedia
+          componentId="img"
+          kind="image"
+          label="Plot"
+          url="artifact_abc"
+          variant="largeFeature"
+          objectFit="contain"
+        />,
+      );
       const image = await screen.findByRole('img', { name: 'Plot' });
       expect(image.style.maxHeight).toBe('min(400px, 45vh)');
       expect(image.style.objectFit).toBe('contain');
       await userEvent.setup().click(screen.getByRole('button', { name: 'Full screen' }));
       const expandedImage = screen.getByRole('dialog').querySelector('img');
-      expect(expandedImage?.style.maxHeight).toBe('calc(100dvh - 6rem)');
+      expect(expandedImage).toHaveAttribute('draggable', 'false');
       expect(expandedImage?.style.objectFit).toBe('contain');
+      const drag = new Event('dragstart', { bubbles: true, cancelable: true });
+      expandedImage?.dispatchEvent(drag);
+      expect(drag.defaultPrevented).toBe(true);
       await userEvent.setup().click(screen.getByRole('button', { name: 'Exit full screen' }));
       expect(screen.getByRole('img', { name: 'Plot' }).style.maxHeight).toBe('min(400px, 45vh)');
     });
@@ -319,7 +331,9 @@ describe('A2uiMedia', () => {
     });
 
     it('does not add a download/full-screen toolbar to video or audio (out of the G0 table)', async () => {
-      fake.resolveA2uiReference.mockResolvedValue(resolution('artifact_tone', { media_type: 'audio/wav' }));
+      fake.resolveA2uiReference.mockResolvedValue(
+        resolution('artifact_tone', { media_type: 'audio/wav' }),
+      );
       fake.readA2uiReferenceBytes.mockResolvedValue(PNG);
       renderMedia(<A2uiMedia componentId="m" kind="audio" label="Clip" url="artifact_tone" />);
       await waitFor(() => expect(document.querySelector('audio')).not.toBeNull());

@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import type { DataSurfaceZoneSelection } from '@/lib/selection-actions';
 import type { DataZoneReference } from './data-zone-reference';
+import { SurfaceReferenceContext } from './surface-reference-context';
 
 /**
  * "Reference this" (#1533 item 5): attaches a chart/map/table zone to the
@@ -31,6 +32,7 @@ export function DataReferenceThisButton({
   onReferenced?: () => void;
 }) {
   const registry = useContext(SelectionActionsContext);
+  const referenceAndClose = useContext(SurfaceReferenceContext);
   if (!registry) return null;
   return (
     <TooltipProvider delayDuration={150}>
@@ -47,8 +49,14 @@ export function DataReferenceThisButton({
                 summary: reference.summary,
                 title: reference.title,
               };
-              for (const action of registry.actionsFor(target)) action.run(target);
-              onReferenced?.();
+              const actions = registry.actionsFor(target);
+              if (actions.length === 0) return;
+              const runReference = () => {
+                for (const action of actions) action.run(target);
+                onReferenced?.();
+              };
+              if (referenceAndClose) referenceAndClose(runReference);
+              else runReference();
             }}
             size="icon-sm"
             variant="ghost"
