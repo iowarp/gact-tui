@@ -1,9 +1,10 @@
-import { Minimize2Icon, XIcon } from 'lucide-react';
+import { Minimize2Icon } from 'lucide-react';
 import { useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { SurfaceReferenceContext } from './surface-reference-context';
 
 /**
@@ -137,7 +138,7 @@ export function SurfaceFullScreenHost({
                       variant="ghost"
                     >
                       {layout === 'media' ? (
-                        <XIcon aria-hidden="true" />
+                        <CloseIcon aria-hidden="true" />
                       ) : (
                         <Minimize2Icon aria-hidden="true" />
                       )}
