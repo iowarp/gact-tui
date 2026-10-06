@@ -85,7 +85,7 @@ it('uses native activity controls with the loaded skill and failed command at th
   expect(within(dialog).getByText(/D:\/dataset/)).toBeVisible();
 });
 
-it('folds recorded questions and answers at their owning tool, as in the live transcript', async () => {
+it('merges captured interactions with authoritative answers at their owning tools', async () => {
   const view: ArchiveTranscriptView = {
     messages: [
       {
@@ -96,6 +96,7 @@ it('folds recorded questions and answers at their owning tool, as in the live tr
         blocks: [
           { id: 'think', type: 'reasoning', text: 'Clarifying treatment' },
           { id: 'ask', type: 'tool', tool_id: 'ask' },
+          { id: 'other', type: 'tool', tool_id: 'other' },
         ],
       },
       {
@@ -114,6 +115,14 @@ it('folds recorded questions and answers at their owning tool, as in the live tr
         name: 'ask_user',
         state: 'succeeded',
         input: { question: 'Which label is control?' },
+        output: 'Question submitted',
+      },
+      {
+        id: 'other',
+        session_id: 's',
+        name: 'ask_user',
+        state: 'succeeded',
+        input: { question: 'Which file should be reviewed?' },
         output: 'Question submitted',
       },
     ],
@@ -146,7 +155,36 @@ it('folds recorded questions and answers at their owning tool, as in the live tr
         <ArchiveConversation
           sessionId="s"
           view={view}
-          snapshot={{ responses: {}, sessions: {}, tables: {}, failures: [] }}
+          snapshot={{
+            responses: {
+              'GET /v1/sessions/s/interactions?include_recent_resolved=true&resolved_limit=100': {
+                json: {
+                  interactions: [
+                    { ...(view.interactions![0] as object), status: 'pending', payload: {} },
+                    {
+                      id: 'question:other',
+                      kind: 'question',
+                      owner_session_id: 's',
+                      attended_session_id: 's',
+                      status: 'answered',
+                      title: 'Question from agent',
+                      prompt: 'Which file should be reviewed?',
+                      source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'other' },
+                      created_at: '2026-10-05T17:46:00Z',
+                      payload: {
+                        question_id: 'other',
+                        question_kind: 'freeform',
+                        answer_metadata: { answer: 'Review the recorded report.' },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+            sessions: {},
+            tables: {},
+            failures: [],
+          }}
           onOpenFile={() => undefined}
           onOpenArtifact={() => undefined}
         />
@@ -157,4 +195,5 @@ it('folds recorded questions and answers at their owning tool, as in the live tr
   await userEvent.setup().click(screen.getByRole('radio', { name: 'Full activity view' }));
   expect(await screen.findByText('Which label is control?')).toBeVisible();
   expect(screen.getByText('The control mapping is unconfirmed.')).toBeVisible();
+  expect(screen.getByText('Review the recorded report.')).toBeVisible();
 });

@@ -52,9 +52,14 @@ export function ArchiveConversation({
     const captured = snapshot.responses[
       `GET /v1/sessions/${encodeURIComponent(sessionId)}/interactions?include_recent_resolved=true&resolved_limit=100`
     ]?.json as { interactions?: unknown[] } | undefined;
-    const interactions = (view.interactions ?? captured?.interactions ?? []).map((value) =>
-      pendingInteractionSchema.parse(value),
-    );
+    const interactions = [
+      ...new Map(
+        [...(captured?.interactions ?? []), ...(view.interactions ?? [])].map((value) => {
+          const interaction = pendingInteractionSchema.parse(value);
+          return [interaction.id, interaction] as const;
+        }),
+      ).values(),
+    ];
     const messages = foldA2UIRevisionBlocks(
       projectA2UIActionMessages(
         view.messages

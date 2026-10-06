@@ -141,7 +141,8 @@ export function ClioToolInvocation({
           subjectId={subject?.id}
           summaryInHeader={summaryInHeader}
         />
-        {tool.error &&
+        {tool.state === 'failed' &&
+        tool.error &&
         !tool.presentation?.blocks.some(
           (block) => block.severity === 'error' || block.text === tool.error,
         ) ? (
