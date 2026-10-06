@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HDF5_VIEWER_URL, Hdf5ViewerFrame } from './hdf5-viewer-frame';
 
 const repository = vi.hoisted(() => ({ readWorkspaceHdf5: vi.fn() }));
+const theme = vi.hoisted(() => ({ resolvedTheme: 'dark' as string | undefined }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('next-themes', () => ({ useTheme: () => theme }));
 
 afterEach(() => {
   cleanup();
@@ -50,6 +52,7 @@ describe('Hdf5ViewerFrame', () => {
         filepath: 'runs/water.h5',
         locator: '/entry/data',
         revision: 0,
+        theme: 'dark',
       },
       window.location.origin,
       [],
@@ -63,6 +66,17 @@ describe('Hdf5ViewerFrame', () => {
       <Hdf5ViewerFrame locator="/entry/I" path="runs/water.h5" revision={1} workspaceId="workspace_1" />,
     );
     expect(lastMessage(posted)).toMatchObject({ type: 'init', locator: '/entry/I', revision: 1 });
+  });
+
+  it('sends the app theme and re-sends init when it changes', () => {
+    const { view, posted, send } = renderFrame();
+    send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 });
+    expect(lastMessage(posted)).toMatchObject({ type: 'init', theme: 'dark' });
+
+    theme.resolvedTheme = 'light';
+    view.rerender(<Hdf5ViewerFrame path="runs/water.h5" workspaceId="workspace_1" />);
+    expect(lastMessage(posted)).toMatchObject({ type: 'init', theme: 'light' });
+    theme.resolvedTheme = 'dark';
   });
 
   it('serves fetches through the repository and pins the file', async () => {

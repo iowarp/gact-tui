@@ -43,6 +43,8 @@ export type HostMessage =
       locator?: string;
       /** Bumped when the file changes, so cached reads are dropped. */
       revision: number;
+      /** The host's theme. Absent: the viewer follows the operating system. */
+      theme?: 'light' | 'dark';
     }
   | { source: typeof HOST_SOURCE; type: 'response'; id: number; ok: true; body: ArrayBuffer }
   | {
@@ -87,7 +89,8 @@ export function isHostMessage(value: unknown): value is HostMessage {
         typeof value.protocol === 'number' &&
         typeof value.filepath === 'string' &&
         typeof value.revision === 'number' &&
-        (value.locator === undefined || typeof value.locator === 'string')
+        (value.locator === undefined || typeof value.locator === 'string') &&
+        (value.theme === undefined || value.theme === 'light' || value.theme === 'dark')
       );
     case 'response':
       return (

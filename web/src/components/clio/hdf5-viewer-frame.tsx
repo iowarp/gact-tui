@@ -4,6 +4,7 @@ import {
   isViewerMessage,
   type HostMessage,
 } from '@clio/hdf5-viewer/protocol';
+import { useTheme } from 'next-themes';
 import { useEffect, useRef } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 
@@ -34,9 +35,11 @@ export function Hdf5ViewerFrame({
   onSelect?: (locator: string) => void;
 }) {
   const repository = useRepository();
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === 'dark' ? 'dark' : resolvedTheme === 'light' ? 'light' : undefined;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
-  const initRef = useRef({ path, locator, revision });
+  const initRef = useRef<InitState>({ path, locator, revision, theme });
   const onSelectRef = useRef(onSelect);
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -103,11 +106,11 @@ export function Hdf5ViewerFrame({
   }, [repository, workspaceId]);
 
   useEffect(() => {
-    initRef.current = { path, locator, revision };
+    initRef.current = { path, locator, revision, theme };
     const target = iframeRef.current?.contentWindow;
     if (!target || !readyRef.current) return;
     target.postMessage(initMessage(initRef.current), window.location.origin);
-  }, [path, locator, revision]);
+  }, [path, locator, revision, theme]);
 
   return (
     // No sandbox: the page is first-party and same-origin, so sandbox flags
@@ -122,7 +125,9 @@ export function Hdf5ViewerFrame({
   );
 }
 
-function initMessage(init: { path: string; locator?: string; revision: number }): HostMessage {
+type InitState = { path: string; locator?: string; revision: number; theme?: 'light' | 'dark' };
+
+function initMessage(init: InitState): HostMessage {
   return {
     source: HOST_SOURCE,
     type: 'init',
@@ -130,6 +135,7 @@ function initMessage(init: { path: string; locator?: string; revision: number })
     filepath: init.path,
     locator: init.locator,
     revision: init.revision,
+    theme: init.theme,
   };
 }
 

@@ -5,6 +5,7 @@ import { App, H5GroveProvider } from '@h5web/app';
 import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HostBridge, createExportURL, observeSelection } from './bridge';
+import { applyTheme } from './theme';
 import { HDF5_VIEWER_PROTOCOL, VIEWER_SOURCE, type HostMessage } from './protocol';
 
 type Init = Extract<HostMessage, { type: 'init' }>;
@@ -29,6 +30,10 @@ function Viewer() {
   }, [bridge]);
 
   useEffect(() => {
+    if (init?.theme) applyTheme(document, init.theme);
+  }, [init?.theme]);
+
+  useEffect(() => {
     const root = rootRef.current;
     if (!root || !init) return undefined;
     return observeSelection(root, (locator) =>
@@ -49,7 +54,13 @@ function Viewer() {
         getExportURL={createExportURL(bridge.fetcher, init.filepath)}
         resetKeys={[init.revision]}
       >
-        <App initialPath={init.locator ?? '/'} sidebarOpen />
+        <App
+          initialPath={init.locator ?? '/'}
+          sidebarOpen
+          // With a host theme, applyTheme() owns dark mode; without one,
+          // h5web's own OS-following dark mode stays on.
+          disableDarkMode={init.theme !== undefined}
+        />
       </H5GroveProvider>
     </div>
   );
