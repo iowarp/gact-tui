@@ -15,6 +15,22 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  await page.route('**/v1/artifacts/artifact_plot/lineage?*', (route) =>
+    route.fulfill({
+      json: {
+        root: 'artifact_plot',
+        direction: 'both',
+        depth: 5,
+        nodes: [
+          { id: 'artifact_plot', type: 'artifact', name: 'vertical-displacement.png', version: 1 },
+          { id: 'activity:plot', type: 'activity', tool: 'Render plot', status: 'ok' },
+        ],
+        edges: [
+          { from: 'activity:plot', to: 'artifact_plot', type: 'generated', evidence: 'declared' },
+        ],
+      },
+    }),
+  );
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: 'Open vertical-displacement.png', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
@@ -59,7 +75,13 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   await expect(canvas.getByRole('tabpanel', { name: 'Versions', exact: true })).toBeVisible();
   await toolbar.getByRole('tab', { name: 'Lineage', exact: true }).click();
   await expect(canvas.getByRole('tabpanel', { name: 'Lineage', exact: true })).toBeVisible();
+  await expect(
+    canvas.getByRole('img', { name: 'Artifact lineage graph', exact: true }),
+  ).toBeVisible();
+  await expect(canvas.getByText('Research execution', { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('artifact-lineage-only.png'), fullPage: true });
   await toolbar.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await expect(image).toBeVisible();
   expect(
     (await new AxeBuilder({ page }).include('[data-slot="viewer-toolbar"]').analyze()).violations,
   ).toEqual([]);
