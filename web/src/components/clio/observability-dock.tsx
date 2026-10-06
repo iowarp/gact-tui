@@ -267,12 +267,28 @@ export function ClioObservabilityView({
         <TabsList
           aria-label="Observability view"
           variant="line"
-          className="h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto rounded-none border-b px-2"
+          className="no-scrollbar h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b px-1.5 py-0 group-data-horizontal/tabs:h-9"
         >
-          <ObservabilityTab icon={<Layers3Icon />} label="Evidence" value="evidence" />
-          <ObservabilityTab icon={<ActivityIcon />} label="Timeline" value="activity" />
-          <ObservabilityTab icon={<ChartNoAxesGanttIcon />} label="Gantt" value="work" />
-          <ObservabilityTab icon={<BracesIcon />} label="Context" value="context" />
+          <ObservabilityTab
+            icon={<Layers3Icon className="size-3.5" />}
+            label="Evidence"
+            value="evidence"
+          />
+          <ObservabilityTab
+            icon={<ActivityIcon className="size-3.5" />}
+            label="Timeline"
+            value="activity"
+          />
+          <ObservabilityTab
+            icon={<ChartNoAxesGanttIcon className="size-3.5" />}
+            label="Gantt"
+            value="work"
+          />
+          <ObservabilityTab
+            icon={<BracesIcon className="size-3.5" />}
+            label="Context"
+            value="context"
+          />
         </TabsList>
         <ScrollArea className="min-h-0 min-w-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
@@ -501,7 +517,7 @@ function ObservabilityTab({
   return (
     <TabsTrigger
       aria-label={label}
-      className="h-8 min-w-0 shrink-0 gap-1.5 px-2 text-xs"
+      className="h-full min-w-max shrink-0 gap-1 px-1.5 text-xs focus-visible:ring-inset group-data-horizontal/tabs:after:bottom-0"
       value={value}
     >
       {icon}

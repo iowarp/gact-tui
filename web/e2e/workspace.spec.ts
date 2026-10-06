@@ -104,6 +104,79 @@ test.afterEach(async ({ page }) => {
   expect(unexpectedErrors.get(page) ?? []).toEqual([]);
 });
 
+test('keeps Observability tabs inside the strip and scrolls only their content vertically', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto(workspaceUrl);
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => window.localStorage.setItem('theme', value), theme);
+    await page.reload();
+    await waitForArtifactPreview(page);
+    await page.evaluate(() => document.fonts.ready);
+    await page.getByRole('button', { name: 'Open observability in workspace canvas' }).click();
+    const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
+    const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
+    const resizeBounds = await resize.boundingBox();
+    if (!resizeBounds) throw new Error('Workspace canvas resize handle is missing');
+    await page.mouse.move(resizeBounds.x + resizeBounds.width / 2, resizeBounds.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(960, resizeBounds.y + 20, { steps: 5 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await canvas.boundingBox())?.width ?? 0)
+      .toBeGreaterThanOrEqual(319);
+    await expect
+      .poll(async () => (await canvas.boundingBox())?.width ?? 0)
+      .toBeLessThanOrEqual(321);
+
+    const strip = canvas.getByRole('tablist', { name: 'Observability view' });
+    for (const mode of ['docked', 'maximized'] as const) {
+      if (mode === 'maximized') {
+        await canvas.getByRole('button', { name: 'Maximize canvas' }).click();
+      }
+      for (const label of ['Evidence', 'Timeline', 'Gantt', 'Context']) {
+        const tab = strip.getByRole('tab', { name: label, exact: true });
+        await tab.click();
+        await expect(canvas.getByRole('tabpanel', { name: label, exact: true })).toBeVisible();
+        const metrics = await strip.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return {
+            verticalOverflow: element.scrollHeight - element.clientHeight,
+            horizontalOverflow: element.scrollWidth - element.clientWidth,
+            tabs: Array.from(element.querySelectorAll<HTMLElement>('[role="tab"]')).map(
+              (child) => ({
+                top: child.getBoundingClientRect().top - bounds.top,
+                bottom: child.getBoundingClientRect().bottom - bounds.bottom,
+                clippedLabel: child.scrollWidth - child.clientWidth,
+                indicatorBottom: getComputedStyle(child, '::after').bottom,
+              }),
+            ),
+          };
+        });
+        expect(metrics.verticalOverflow).toBeLessThanOrEqual(1);
+        expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
+        for (const child of metrics.tabs) {
+          expect(child.top).toBeGreaterThanOrEqual(0);
+          expect(child.bottom).toBeLessThanOrEqual(0);
+          expect(child.clippedLabel).toBeLessThanOrEqual(1);
+          expect(child.indicatorBottom).toBe('0px');
+        }
+      }
+      // A short window makes this real context content overflow in both modes.
+      await page.setViewportSize({ width: 1280, height: 400 });
+      const content = canvas.locator('[data-slot="scroll-area-viewport"]').first();
+      await content.hover();
+      await page.mouse.wheel(0, 1500);
+      await expect.poll(() => content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await expect(strip.getByRole('tab', { name: 'Context', exact: true })).toBeInViewport();
+      await page.setViewportSize({ width: 1280, height: 600 });
+      await page.mouse.move(20, 580);
+      await page.screenshot({ path: testInfo.outputPath(`observability-${theme}-${mode}.png`) });
+    }
+  }
+});
+
 test('reveals workspace creation and overflow actions without changing disclosure', async ({
   page,
 }, testInfo) => {
