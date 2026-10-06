@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import type { Session } from '@clio/core/v3';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
@@ -101,6 +102,69 @@ test.beforeEach(async ({ page }) => {
 
 test.afterEach(async ({ page }) => {
   expect(unexpectedErrors.get(page) ?? []).toEqual([]);
+});
+
+test('keeps same-named sessions on one line and reveals details on hover or focus', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.route(/\/v1\/sessions(?:\?.*)?$/u, async (route) => {
+    const response = await route.fetch();
+    const payload = (await response.json()) as { sessions: Session[] };
+    const original = payload.sessions[0];
+    expect(original).toBeDefined();
+    await route.fulfill({
+      response,
+      json: {
+        ...payload,
+        sessions: [
+          { ...original, title: 'Unique session', message_count: 1 },
+          {
+            ...original,
+            id: 'sess_sidebar_empty',
+            title: 'Report and research',
+            state: 'completed',
+            message_count: 0,
+          },
+          {
+            ...original,
+            id: 'sess_sidebar_transcript',
+            title: 'Report and research',
+            state: 'completed',
+            created_at: '2026-08-23T00:05:00Z',
+            message_count: 7,
+          },
+        ],
+      },
+    });
+  });
+  await page.goto(workspaceUrl);
+  const duplicates = page.getByRole('link', { name: /^Report and research/u });
+  const unique = page.getByRole('link', { name: /^Unique session/u });
+  await expect(duplicates).toHaveCount(2);
+  await expect(unique).toBeVisible();
+  const rows = [unique, duplicates.nth(0), duplicates.nth(1)];
+  for (const row of rows) {
+    await expect(row).not.toContainText(/messages|Started/u);
+    expect(
+      await row.evaluate(
+        (element) => element.closest('[class~="group/row"]')?.getBoundingClientRect().height,
+      ),
+    ).toBe(32);
+  }
+  await page.screenshot({ path: testInfo.outputPath('session-rows-single-line.png') });
+  const card = page.locator('[data-slot="hover-card-content"]');
+  await duplicates.nth(0).hover();
+  await expect(card.getByText('Started', { exact: true })).toBeVisible();
+  await expect(card.getByText('No messages yet')).toBeVisible();
+  await duplicates.nth(1).hover();
+  await expect(card.getByText('7 messages')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('session-details-hover.png') });
+  await page.mouse.move(1090, 790);
+  await expect(card).toHaveCount(0);
+  await unique.focus();
+  await expect(card.getByText('1 message', { exact: true })).toBeVisible();
+  await expect(card.getByText('Started', { exact: true })).toBeVisible();
 });
 
 test('renders structured MCP v2 interactions and one live inline App', async ({ page }) => {
