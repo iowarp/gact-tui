@@ -1,12 +1,12 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { SettingsRow, SettingsChoice } from '@/components/clio/settings-row';
 import { connectionScope } from '@/lib/connection-scope';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   SettingsNavigation,
   type SettingsDestination,
 } from '@/components/clio/settings-navigation';
 import { queryKeys } from '@/lib/query-keys';
-import { Input } from '@/components/ui/input';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   BellRingIcon,
@@ -33,10 +33,10 @@ import {
   Volume2Icon,
   WrenchIcon,
 } from 'lucide-react';
-import { AdjustIcon, DeleteIcon, InfoIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { AdjustIcon, DeleteIcon, InfoIcon, MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { useTheme } from 'next-themes';
 import { useEffect, useRef } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
 import { BlueprintSettings } from '@/components/clio/settings-catalogs';
@@ -52,7 +52,7 @@ import { RuntimeSettingsPanel } from '@/components/clio/settings-runtime';
 import { ModelsSettings } from '@/components/clio/settings-models';
 import { ProvidersSettings } from '@/components/clio/settings-providers';
 import { DataSourceSettings } from '@/components/clio/settings-data-sources';
-import { DesktopSettings } from '@/components/clio/settings-desktop';
+import { GeneralSettings } from '@/components/clio/settings-general';
 import { AboutSettings } from '@/components/clio/settings-about';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
@@ -90,16 +90,19 @@ import {
   useAppearancePreferences,
 } from '@/providers/appearance-provider';
 import {
-  useConversationDisplay,
-  type ConversationDisplayMode,
-} from '@/providers/conversation-display-provider';
-import {
   returnRouteFromState,
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 
 const sections: SettingsDestination[] = [
+  {
+    id: 'general',
+    label: 'General',
+    icon: SettingsIcon,
+    group: 'Personal',
+    keywords: 'files activity preview preferences',
+  },
   {
     id: 'appearance',
     label: 'Appearance',
@@ -113,13 +116,6 @@ const sections: SettingsDestination[] = [
     icon: BellRingIcon,
     group: 'Personal',
     keywords: 'sound attention alerts',
-  },
-  {
-    id: 'desktop',
-    label: 'Desktop',
-    icon: MonitorCogIcon,
-    group: 'Personal',
-    keywords: 'app updates release channel',
   },
   {
     id: 'connections',
@@ -455,17 +451,7 @@ function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
 
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();
-  const { mode: conversationMode, setMode: setConversationMode } = useConversationDisplay();
-  const {
-    conversationWidth,
-    motion,
-    setConversationWidth,
-    setMotion,
-    collapseThreshold,
-    setCollapseThreshold,
-    hideDotFiles,
-    setHideDotFiles,
-  } = useAppearancePreferences();
+  const { conversationWidth, motion, setConversationWidth, setMotion } = useAppearancePreferences();
   return (
     <div className="grid gap-6">
       <SectionHeading
@@ -515,51 +501,6 @@ function AppearanceSettings() {
               { value: 'reduced', label: 'Reduce motion' },
             ]}
           />
-        </SettingsRow>
-        <SettingsRow
-          title="Conversation activity"
-          description="Group agent activity by turn or show each event. Full details remain available in both views."
-        >
-          <SettingsChoice
-            id="conversation-mode"
-            label="Conversation activity"
-            value={conversationMode}
-            onChange={(value) => setConversationMode(value as ConversationDisplayMode)}
-            options={[
-              {
-                value: 'chain',
-                label: 'Grouped',
-                description: 'Groups reasoning, updates, tools and delegated work by turn.',
-              },
-              {
-                value: 'full',
-                label: 'Full activity',
-                description: 'Shows every event in its recorded order.',
-              },
-            ]}
-          />
-        </SettingsRow>
-        <SettingsRow
-          title="Transcript preview lines"
-          htmlFor="transcript-preview-lines"
-          description="Show more opens the full result. Diff previews use twice this limit."
-        >
-          <Input
-            className="w-20"
-            id="transcript-preview-lines"
-            type="number"
-            min={1}
-            max={50}
-            value={collapseThreshold}
-            onChange={(event) => setCollapseThreshold(Number(event.target.value))}
-          />
-        </SettingsRow>
-        <SettingsRow
-          title="Hide dot files and folders"
-          htmlFor="hide-dot-files"
-          description="Hide dot-prefixed paths from the workspace Files view."
-        >
-          <Switch id="hide-dot-files" checked={hideDotFiles} onCheckedChange={setHideDotFiles} />
         </SettingsRow>
       </div>
     </div>
@@ -677,15 +618,23 @@ function SettingsSection({
   if (section === 'memory') return <MemorySettings initialSessionId={sessionId} />;
   if (section === 'system') return <SystemSettings />;
   if (section === 'notifications') return <NotificationSettings />;
-  if (section === 'desktop') return <DesktopSettings />;
+  if (section === 'general') return <GeneralSettings />;
   if (section === 'about') return <AboutSettings />;
-  return <AppearanceSettings />;
+  if (section === 'appearance') return <AppearanceSettings />;
+  return <GeneralSettings />;
 }
 
 export function SettingsPage() {
-  const { section = 'appearance' } = useParams();
+  const { section = 'general' } = useParams();
   const location = useLocation();
   const { settings } = useConnectionSettings();
+  const destinations = inTauri()
+    ? sections.map((item) =>
+        item.id === 'general'
+          ? { ...item, keywords: `${item.keywords} app updates beta release channel` }
+          : item,
+      )
+    : sections;
   const content = useRef<HTMLElement>(null);
   useEffect(() => {
     content.current?.scrollTo({ left: 0, top: 0 });
@@ -694,10 +643,13 @@ export function SettingsPage() {
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const blueprintId = new URLSearchParams(location.search).get('blueprint') || undefined;
+  if (section === 'desktop') {
+    return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
+  }
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden bg-background md:flex-row">
       <SettingsNavigation
-        sections={sections}
+        sections={destinations}
         section={section}
         endpoint={settings.endpoint}
         workspaceRoute={workspaceRoute}

@@ -82,7 +82,7 @@ export default function App() {
     return scheduleBackgroundUpdateCheck();
   }, [credentialsReady, desktopHost]);
   useMenuAction('open-settings', () =>
-    navigate('/settings/appearance', {
+    navigate('/settings/general', {
       state: settingsReturnState,
     }),
   );

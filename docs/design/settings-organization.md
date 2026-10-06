@@ -1,8 +1,8 @@
 # Settings organization and account scope
 
 Settings uses a searchable sidebar grouped into Personal, Connections, Agent,
-and Access & system. All 19 existing destinations remain accessible, with
-Execution & history added for global configuration preferences. Each page
+and Access & system. General replaces the Desktop destination, and Execution & history provides
+global configuration preferences. Each page
 scrolls independently of navigation. Narrow windows use a searchable section
 menu; Down/Up moves from search to a result, Enter opens it, and Escape closes it.
 Navigation keeps the connected service and originating workspace route.
@@ -19,6 +19,20 @@ Preference rows share a 20rem control column and equal-width centred segmented
 choices. Each row measures its own available width: below 42rem the description
 and control stack, avoiding squeezed descriptions beside the navigation rail.
 Hidden radio buttons stay out of layout and theme icons retain their size.
+
+## General and native app updates
+
+General contains conversation activity, transcript preview length and file
+visibility. Appearance contains theme, conversation width and motion. These
+controls retain their existing preference providers and saved values.
+
+App updates, including Enable beta updates and Check for updates, appears in
+General only when the actual Tauri runtime is present. The web app does not
+mount updater controls or show installed-app-only placeholders. The descriptive
+Desktop capability inventory was removed; those features retain their existing
+contextual controls. Settings entry points open General, and old
+`/settings/desktop` links redirect there while preserving return-route state.
+The saved update channel and signed updater flow remain unchanged.
 
 ## Global configuration preferences
 
@@ -95,3 +109,19 @@ checks, frontend ownership/branding guards and online/offline builds passed.
 ![Aligned preference controls](../screenshots/settings-alignment/appearance-desktop-light.png)
 
 ![Configuration preferences](../screenshots/settings-alignment/execution-history-desktop-light.png)
+
+The General follow-up was reviewed in the real browser at desktop and phone
+sizes, in light and dark themes. Updates and installed-app placeholders are
+absent in web. Native controls were rendered separately in a visibly labelled
+browser component fixture at desktop/tablet/phone widths. These six fixture
+captures verify layout only; no native bridge, updater operation or Desktop
+launch ran. Native acceptance remains pending. Four individual preference cases
+and two individual built browser cases passed, along with scoped checks and
+online/offline builds. Twelve originals and verified copies are archived in
+`D:/Libraries/Videos/clio_recordings/2026-10-06-general-settings`.
+
+![General in the web app](../screenshots/general-settings/general-web-desktop-light.png)
+
+![General in a narrow browser](../screenshots/general-settings/general-web-phone-light.png)
+
+![Native controls in a labelled browser component fixture](../screenshots/general-settings/fixture-native-general-desktop-light.png)

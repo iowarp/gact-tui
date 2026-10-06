@@ -25,7 +25,7 @@ test('settings controls share a centre and remain within narrow windows', async 
         };
       }),
     );
-    expect(metrics.length).toBeGreaterThan(3);
+    expect(metrics).toHaveLength(3);
     for (const metric of metrics) {
       expect(metric.overflow).toBeLessThanOrEqual(1);
       expect(Math.abs(metric.centre - metrics[0]!.centre)).toBeLessThanOrEqual(1);
