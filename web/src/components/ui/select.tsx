@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { OverlayContainer } from "./overlay-container"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
@@ -65,7 +66,7 @@ function SelectContent({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={React.useContext(OverlayContainer)}>
       <SelectPrimitive.Content
         data-slot="select-content"
         data-align-trigger={position === "item-aligned"}

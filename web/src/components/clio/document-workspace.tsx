@@ -14,8 +14,7 @@ import {
   MessageSquareTextIcon,
   ShieldCheckIcon,
 } from 'lucide-react';
-import { InfoIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -52,7 +51,9 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { DocumentViewControls } from './document-view-controls';
-import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
+import { ViewerToolbarContent } from './viewer-toolbar';
+import { FileViewerInformation } from './file-viewer-information';
+import { FileViewerInformationHost } from './file-viewer-context';
 import {
   Popover,
   PopoverContent,
@@ -87,6 +88,7 @@ export function ClioDocumentWorkspace({
   fallbackPreview: ReactNode;
 }) {
   const repository = useRepository();
+  const sharedFileActions = useContext(FileViewerInformationHost) !== undefined;
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
@@ -285,36 +287,29 @@ export function ClioDocumentWorkspace({
       >
         <ViewerToolbarContent>
           <div className="flex min-w-0 shrink-0 items-center gap-0.5" data-slot="document-controls">
-            <Popover>
-              <PopoverTrigger asChild>
-                <ToolbarAction label="Document information">
-                  <InfoIcon aria-hidden="true" />
-                </ToolbarAction>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 space-y-1.5">
-                <p className="text-sm font-medium">
-                  {profileLabel(manifest.data ?? effectiveManifest)}
-                </p>
-                {savedPreview.data && !overrideManifest ? (
-                  <p className="text-xs text-muted-foreground">Saved PDF preview</p>
-                ) : null}
-                <p className="break-all font-mono text-xs text-muted-foreground">
-                  {effectiveManifest
-                    ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256}`
-                    : manifest.error
-                      ? 'Saved content is readable.'
-                      : 'Checking document capabilities…'}
-                </p>
-                {status ? <p className="text-xs text-muted-foreground">{status}</p> : null}
-                <WorkingCopyStatus
-                  closePending={closeWorkingCopy.isPending}
-                  copy={workingCopy}
-                  onClose={() => closeWorkingCopy.mutate()}
-                  onResolve={(resolution) => resolveConflict.mutate(resolution)}
-                  resolvePending={resolveConflict.isPending}
-                />
-              </PopoverContent>
-            </Popover>
+            <FileViewerInformation label="Document information">
+              <p className="text-sm font-medium">
+                {profileLabel(manifest.data ?? effectiveManifest)}
+              </p>
+              {savedPreview.data && !overrideManifest ? (
+                <p className="text-xs text-muted-foreground">Saved PDF preview</p>
+              ) : null}
+              <p className="break-all font-mono text-xs text-muted-foreground">
+                {effectiveManifest
+                  ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256}`
+                  : manifest.error
+                    ? 'Saved content is readable.'
+                    : 'Checking document capabilities…'}
+              </p>
+              {status ? <p className="text-xs text-muted-foreground">{status}</p> : null}
+              <WorkingCopyStatus
+                closePending={closeWorkingCopy.isPending}
+                copy={workingCopy}
+                onClose={() => closeWorkingCopy.mutate()}
+                onResolve={(resolution) => resolveConflict.mutate(resolution)}
+                resolvePending={resolveConflict.isPending}
+              />
+            </FileViewerInformation>
             <div className="flex shrink-0 items-center gap-0.5">
               {manifest.error ? (
                 <Popover>
@@ -383,6 +378,7 @@ export function ClioDocumentWorkspace({
                   } else rendition.mutate();
                 }}
                 onDownload={() => downloadSource.mutate()}
+                hideDownload={sharedFileActions}
               />
             ) : null}
             <RefreshAction

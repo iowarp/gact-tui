@@ -32,7 +32,7 @@ export function ToolbarAction({
   );
 }
 
-/** Document controls share the artifact's existing toolbar instead of adding a second header. */
+/** Renderers contribute controls to the shared file toolbar instead of adding headers. */
 export function ViewerToolbarContent({
   children,
   inline = false,

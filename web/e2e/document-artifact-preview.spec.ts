@@ -146,6 +146,34 @@ for (const item of cases) {
     await page.getByRole('menuitem', { name: 'Session artifacts', exact: true }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
     await canvas.getByRole('button', { name: `Open ${name}`, exact: true }).click();
+    const toolbar = canvas.locator('[data-slot="viewer-toolbar"]');
+    await expect(toolbar).toHaveCount(1);
+    await expect(canvas.getByRole('button', { name: 'Reset PDF zoom', exact: true })).toBeVisible();
+    const toolbarGeometry = await toolbar.evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      width: element.clientWidth,
+      scroll: element.scrollWidth,
+    }));
+    expect(toolbarGeometry.height).toBeLessThanOrEqual(40);
+    expect(toolbarGeometry.scroll).toBeLessThanOrEqual(toolbarGeometry.width);
+    await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Zoom PDF in', exact: true })).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Copy to another workspace', exact: true }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Copy to another workspace', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    const download = page.waitForEvent('download');
+    await toolbar.getByRole('button', { name: 'Download file', exact: true }).click();
+    const saved = await download;
+    expect(saved.suggestedFilename()).toBe(name);
+    const savedPath = await saved.path();
+    expect(savedPath).not.toBeNull();
+    expect(hash(readFileSync(savedPath!))).toBe(hash(source));
+    await page.screenshot({
+      path: testInfo.outputPath(`${item.extension}-shared-toolbar.png`),
+      fullPage: true,
+    });
     await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
     const document = canvas.getByRole('region', { name: 'Document workspace' });
     await expect(

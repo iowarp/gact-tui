@@ -4,21 +4,14 @@ import { brand } from '@brand';
 import { useQuery } from '@tanstack/react-query';
 import {
   CopyIcon,
-  DownloadIcon,
   ExternalLinkIcon,
   EyeIcon,
   HistoryIcon,
   GitBranchIcon,
   FileIcon,
   FileCode2Icon,
-  ImageIcon,
-  LocateFixedIcon,
-  Maximize2Icon,
-  Minimize2Icon,
-  ZoomInIcon,
-  ZoomOutIcon,
 } from 'lucide-react';
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -39,16 +32,12 @@ import {
 } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ZoomPan, zoomScrollHint } from '@/components/mermaidcn/zoom-pan';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useObjectUrl } from '@/hooks/use-object-url';
 import { formatBytes } from '@/lib/format';
 import { languageForPath } from '@/lib/code-language';
 import { isTextMediaType } from '@/lib/media-types';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
-import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
 import { ArtifactProvenance } from './artifact-provenance';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
@@ -57,17 +46,9 @@ import { ClioDocumentWorkspace } from './document-workspace';
 import { MarkdownFilePreview } from './markdown-file-preview';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
-import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
-import { ViewerToolbarHost } from './viewer-toolbar-context';
-import { HelpIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { downloadBytes } from './surface-export';
+import { FileViewerShell } from './file-viewer-shell';
+import { ImageResourceView } from './image-resource-view';
+export { ImageResourceView } from './image-resource-view';
 
 export function WorkspaceFileView({
   workspaceId,
@@ -85,17 +66,21 @@ export function WorkspaceFileView({
   initialPage?: number;
 }) {
   const detected = mediaType || inferredWorkspaceMediaType(path);
-  if (detected === 'application/pdf') {
-    return <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />;
-  }
-  if (detected.startsWith('image/')) {
-    return <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />;
-  }
-  if (isTextMediaType(detected)) {
-    return <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} />;
-  }
+  const preview =
+    detected === 'application/pdf' ? (
+      <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
+    ) : detected.startsWith('image/') ? (
+      <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
+    ) : isTextMediaType(detected) ? (
+      <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} />
+    ) : (
+      <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
+    );
   return (
-    <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
+    <FileViewerShell
+      source={{ kind: 'workspace', workspaceId, path, mediaType: detected, size }}
+      tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
+    />
   );
 }
 
@@ -115,7 +100,7 @@ function WorkspacePdfView({
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
-    <div className="size-full overflow-hidden p-3">
+    <div className="size-full overflow-hidden">
       <ClioPdfPreview
         bytes={content.data}
         error={content.error?.message}
@@ -184,29 +169,21 @@ function WorkspaceBinaryView({
   size?: number;
 }) {
   const repository = useRepository();
-  const [busy, setBusy] = useState<'download' | 'open'>();
+  const [busy, setBusy] = useState(false);
 
-  const load = async (mode: 'download' | 'open') => {
-    setBusy(mode);
+  const open = async () => {
+    setBusy(true);
     try {
       const bytes = await repository.readWorkspaceFileBytes(workspaceId, path);
       const url = URL.createObjectURL(
         new Blob([Uint8Array.from(bytes).buffer], { type: mediaType }),
       );
-      if (mode === 'open') {
-        window.open(url, '_blank', 'noopener,noreferrer');
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      } else {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName(path);
-        link.click();
-        URL.revokeObjectURL(url);
-      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : `Could not ${mode} ${fileName(path)}`);
+      toast.error(error instanceof Error ? error.message : `Could not open ${fileName(path)}`);
     } finally {
-      setBusy(undefined);
+      setBusy(false);
     }
   };
 
@@ -223,18 +200,9 @@ function WorkspaceBinaryView({
           </EmptyDescription>
           <p className="break-all font-mono text-xs text-muted-foreground">{path}</p>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
-            <Button disabled={Boolean(busy)} onClick={() => void load('open')} size="sm">
+            <Button disabled={busy} onClick={() => void open()} size="sm">
               <ExternalLinkIcon aria-hidden="true" />
-              {busy === 'open' ? 'Opening…' : 'Open'}
-            </Button>
-            <Button
-              disabled={Boolean(busy)}
-              onClick={() => void load('download')}
-              size="sm"
-              variant="outline"
-            >
-              <DownloadIcon aria-hidden="true" />
-              {busy === 'download' ? 'Downloading…' : 'Download'}
+              {busy ? 'Opening…' : 'Open'}
             </Button>
             <Button
               onClick={() => void navigator.clipboard.writeText(path)}
@@ -265,7 +233,6 @@ export function ArtifactView({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
   const canPreviewText = isTextArtifact(artifact.media_type, artifact.name);
   const canPreviewImage = isImageArtifact(artifact.media_type, artifact.name);
   const fallbackFile = useMemo(
@@ -373,87 +340,70 @@ export function ArtifactView({
     />
   );
   return (
-    <ViewerToolbarHost.Provider value={toolbarHost}>
-      <Tabs className="@container/viewer h-full min-w-0 gap-0" defaultValue="preview">
-        <div
-          className="flex min-h-9 shrink-0 items-center gap-1 overflow-x-auto border-b px-2"
-          data-slot="viewer-toolbar"
-        >
-          <TabsList
-            aria-label="Artifact views"
-            className="h-7 shrink-0 gap-0.5 bg-transparent p-0"
-            variant="line"
-          >
-            <TabsTrigger
-              className="px-2 text-xs @max-[520px]/viewer:size-7 @max-[520px]/viewer:p-0"
-              title="Preview"
-              value="preview"
-            >
-              <EyeIcon aria-hidden="true" className="hidden @max-[520px]/viewer:block" />
-              <span className="@max-[520px]/viewer:sr-only">Preview</span>
-            </TabsTrigger>
-            <TabsTrigger
-              className="px-2 text-xs @max-[520px]/viewer:size-7 @max-[520px]/viewer:p-0"
-              title="Versions"
-              value="versions"
-            >
-              <HistoryIcon aria-hidden="true" className="hidden @max-[520px]/viewer:block" />
-              <span className="@max-[520px]/viewer:sr-only">Versions</span>
-            </TabsTrigger>
-            <TabsTrigger
-              className="px-2 text-xs @max-[520px]/viewer:size-7 @max-[520px]/viewer:p-0"
-              title="Lineage"
-              value="lineage"
-            >
-              <GitBranchIcon aria-hidden="true" className="hidden @max-[520px]/viewer:block" />
-              <span className="@max-[520px]/viewer:sr-only">Lineage</span>
-            </TabsTrigger>
-          </TabsList>
-          <div className="ml-auto flex shrink-0 items-center gap-0.5" ref={setToolbarHost} />
-        </div>
-        <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
-          {canPreviewImage ? (
-            <div className="flex h-full min-h-0 flex-col gap-2">
-              <div className="min-h-0 flex-1">{preview}</div>
-              {image.data?.recovered ? (
-                <p className="shrink-0 text-xs text-muted-foreground">
-                  Recovered from the matching workspace file.
-                </p>
-              ) : null}
-            </div>
-          ) : isDocumentArtifact(artifact.media_type, artifact.name) ? (
-            <ClioDocumentWorkspace
-              artifact={artifact}
-              fallbackPreview={preview}
-              key={artifact.id}
-            />
-          ) : (
+    <FileViewerShell
+      source={{ kind: 'artifact', artifact, workspaceId }}
+      label="Artifact views"
+      tabs={[
+        {
+          value: 'preview',
+          label: 'Preview',
+          icon: EyeIcon,
+          content: (
+            <>
+              {canPreviewImage ? (
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                  <div className="min-h-0 flex-1">{preview}</div>
+                  {image.data?.recovered ? (
+                    <p className="shrink-0 text-xs text-muted-foreground">
+                      Recovered from the matching workspace file.
+                    </p>
+                  ) : null}
+                </div>
+              ) : isDocumentArtifact(artifact.media_type, artifact.name) ? (
+                <ClioDocumentWorkspace
+                  artifact={artifact}
+                  fallbackPreview={preview}
+                  key={artifact.id}
+                />
+              ) : (
+                <ScrollArea className="h-full min-w-0 p-3">
+                  {preview}
+                  {text.data?.recovered ? (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Recovered from the matching workspace file.
+                    </p>
+                  ) : null}
+                </ScrollArea>
+              )}
+            </>
+          ),
+        },
+        {
+          value: 'versions',
+          label: 'Versions',
+          icon: HistoryIcon,
+          content: (
             <ScrollArea className="h-full min-w-0 p-3">
-              {preview}
-              {text.data?.recovered ? (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Recovered from the matching workspace file.
-                </p>
-              ) : null}
+              <ArtifactProvenance artifact={artifact} view="versions" />
             </ScrollArea>
-          )}
-        </TabsContent>
-        <TabsContent className="m-0 min-h-0 overflow-hidden" value="versions">
-          <ScrollArea className="h-full min-w-0 p-3">
-            <ArtifactProvenance artifact={artifact} view="versions" />
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent className="m-0 min-h-0 overflow-hidden" value="lineage">
-          <ScrollArea className="h-full min-w-0 p-3">
-            <ArtifactProvenance
-              artifact={artifact}
-              onOpenArtifact={onOpenArtifact}
-              view="lineage"
-            />
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
-    </ViewerToolbarHost.Provider>
+          ),
+        },
+        {
+          value: 'lineage',
+          label: 'Lineage',
+          icon: GitBranchIcon,
+          content: (
+            <ScrollArea className="h-full min-w-0 p-3">
+              <ArtifactProvenance
+                artifact={artifact}
+                onOpenArtifact={onOpenArtifact}
+                view="lineage"
+              />
+            </ScrollArea>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -506,147 +456,6 @@ export function TextResourceView({
           </CodeBlockActions>
         </CodeBlockHeader>
       </CodeBlock>
-    </div>
-  );
-}
-
-export function ImageResourceView({
-  bytes,
-  error,
-  mediaType,
-  name,
-}: {
-  bytes?: Uint8Array;
-  error?: string;
-  mediaType: string;
-  name: string;
-}) {
-  const url = useObjectUrl(bytes, mediaType);
-  const toolbarHost = useContext(ViewerToolbarHost);
-  const hostRef = useRef<HTMLDivElement>(null);
-  const [fullscreen, setFullscreen] = useState(false);
-  useEffect(() => {
-    const update = () => setFullscreen(document.fullscreenElement === hostRef.current);
-    document.addEventListener('fullscreenchange', update);
-    return () => document.removeEventListener('fullscreenchange', update);
-  }, []);
-  if (error)
-    return (
-      <ResourceUnavailable detail={error} icon={ImageIcon} label="Image preview unavailable" />
-    );
-  if (!url) return <ResourceLoading label={`Loading ${name}`} />;
-  return (
-    <div
-      className={cn(
-        '@container/viewer h-full min-h-0 overflow-hidden bg-background',
-        fullscreen && 'h-screen min-h-0',
-      )}
-      ref={hostRef}
-    >
-      <ZoomPan
-        ariaLabel={`Zoomable image ${name}`}
-        className="bg-muted/30"
-        fitPadding={1}
-        imageSrc={url}
-        maxScale={8}
-        minScale={0.05}
-        viewportClassName="bg-[linear-gradient(45deg,var(--muted)_25%,transparent_25%),linear-gradient(-45deg,var(--muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--muted)_75%),linear-gradient(-45deg,transparent_75%,var(--muted)_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px]"
-        viewportMode="image-aspect"
-        zoomStep={0.2}
-        controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
-          <ViewerToolbarContent inline={fullscreen}>
-            <div
-              className={cn(
-                'flex min-h-9 shrink-0 items-center gap-0.5 bg-background/90',
-                (!toolbarHost || fullscreen) && 'border-b px-2',
-              )}
-            >
-              <ToolbarAction
-                label={zoomScrollHint()}
-                className="mr-auto @max-[480px]/viewer:hidden"
-              >
-                <HelpIcon aria-hidden="true" />
-              </ToolbarAction>
-              <ToolbarAction
-                label="Zoom out"
-                onClick={zoomOut}
-                className="@max-[480px]/viewer:hidden"
-              >
-                <ZoomOutIcon aria-hidden="true" />
-              </ToolbarAction>
-              <ToolbarAction
-                label="Reset image zoom"
-                className="w-12 text-xs tabular-nums text-muted-foreground"
-                onClick={resetZoom}
-              >
-                {scalePercent}%
-              </ToolbarAction>
-              <ToolbarAction
-                label="Zoom in"
-                onClick={zoomIn}
-                className="@max-[480px]/viewer:hidden"
-              >
-                <ZoomInIcon aria-hidden="true" />
-              </ToolbarAction>
-              <ToolbarAction
-                label="Fit image to view"
-                onClick={centerView}
-                className="@max-[480px]/viewer:hidden"
-              >
-                <LocateFixedIcon aria-hidden="true" />
-              </ToolbarAction>
-              <ToolbarAction
-                label="Download image"
-                className="@max-[480px]/viewer:hidden"
-                onClick={() => downloadBytes(bytes!, mediaType, name)}
-              >
-                <DownloadIcon aria-hidden="true" />
-              </ToolbarAction>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <ToolbarAction label="Image actions" className="@min-[480px]/viewer:hidden">
-                    <MoreIcon aria-hidden="true" />
-                  </ToolbarAction>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-48">
-                  <DropdownMenuItem onSelect={zoomIn}>
-                    <ZoomInIcon />
-                    Zoom in
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={zoomOut}>
-                    <ZoomOutIcon />
-                    Zoom out
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={centerView}>
-                    <LocateFixedIcon />
-                    Fit image to view
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => downloadBytes(bytes!, mediaType, name)}>
-                    <DownloadIcon />
-                    Download image
-                  </DropdownMenuItem>
-                  <DropdownMenuLabel className="max-w-64 whitespace-normal text-xs font-normal text-muted-foreground">
-                    {zoomScrollHint()}
-                  </DropdownMenuLabel>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <ToolbarAction
-                label={fullscreen ? 'Exit image fullscreen' : 'View image fullscreen'}
-                onClick={() => {
-                  if (fullscreen) void document.exitFullscreen();
-                  else void hostRef.current?.requestFullscreen();
-                }}
-              >
-                {fullscreen ? (
-                  <Minimize2Icon aria-hidden="true" />
-                ) : (
-                  <Maximize2Icon aria-hidden="true" />
-                )}
-              </ToolbarAction>
-            </div>
-          </ViewerToolbarContent>
-        )}
-      />
     </div>
   );
 }

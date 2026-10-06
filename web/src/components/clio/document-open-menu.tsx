@@ -42,6 +42,7 @@ export function DocumentOpenMenu({
   onOpen,
   onPdf,
   onDownload,
+  hideDownload = false,
 }: {
   artifact: Artifact;
   manifest: DocumentManifest;
@@ -55,6 +56,7 @@ export function DocumentOpenMenu({
   onOpen: (target: DocumentOpenTarget) => void;
   onPdf: () => void;
   onDownload: () => void;
+  hideDownload?: boolean;
 }) {
   const native = inTauri();
   const extension = artifact.name.split('.').at(-1)?.toLowerCase() ?? '';
@@ -112,11 +114,15 @@ export function DocumentOpenMenu({
             </DropdownMenuItem>
           );
         })}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={downloadPending} onSelect={onDownload}>
-          <DownloadIcon aria-hidden="true" />
-          Download {fileFormatLabel(artifact.name, artifact.media_type)} file
-        </DropdownMenuItem>
+        {!hideDownload ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={downloadPending} onSelect={onDownload}>
+              <DownloadIcon aria-hidden="true" />
+              Download {fileFormatLabel(artifact.name, artifact.media_type)} file
+            </DropdownMenuItem>
+          </>
+        ) : null}
         {manifest.native_open && !native ? (
           <DropdownMenuItem disabled={openPending} onSelect={() => onOpen('native')}>
             <CopyIcon aria-hidden="true" />

@@ -1,12 +1,9 @@
 import type { DocumentAnchor } from '@clio/core/v3';
-import { ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { Button } from '@/components/ui/button';
-import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group';
-import { ViewerToolbarContent } from './viewer-toolbar';
+import { ViewerZoomControls } from './viewer-zoom-controls';
 import { PDF_PAGE_GAP_PX } from '@/lib/runtime-limits';
 import {
   estimatedPdfPageHeight,
@@ -42,6 +39,9 @@ export function ClioDocumentPdfViewer({
   const [pageCount, setPageCount] = useState(0);
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
+  const zoomIn = useCallback(() => setScale((value) => Math.min(1.75, value + 0.15)), []);
+  const zoomOut = useCallback(() => setScale((value) => Math.max(0.7, value - 0.15)), []);
+  const resetZoom = useCallback(() => setScale(1), []);
   const [scroll, setScroll] = useState({ top: 0, viewport: 0 });
   const [measured, setMeasured] = useState<{ geometry: string; height: number }>();
   // pdf.js transfers a typed array it is handed to its worker thread, which
@@ -158,35 +158,22 @@ export function ClioDocumentPdfViewer({
 
   return (
     <div className="flex h-full min-h-0 flex-col" ref={hostRef}>
-      <ViewerToolbarContent>
-        <div className="flex shrink-0 justify-end px-1 py-1" data-slot="pdf-controls">
-          <ButtonGroup aria-label="PDF zoom">
-            <Button
-              aria-label="Zoom PDF out"
-              title={`Zoom out (currently ${Math.round(scale * 100)}%)`}
-              disabled={scale <= 0.7}
-              onClick={() => setScale((value) => Math.max(0.7, value - 0.15))}
-              size="icon-sm"
-              variant="outline"
-            >
-              <ZoomOutIcon aria-hidden="true" />
-            </Button>
-            <ButtonGroupText className="min-w-11 justify-center px-1.5 font-mono text-[10px] @max-[400px]/viewer:hidden">
-              {Math.round(scale * 100)}%
-            </ButtonGroupText>
-            <Button
-              aria-label="Zoom PDF in"
-              title={`Zoom in (currently ${Math.round(scale * 100)}%)`}
-              disabled={scale >= 1.75}
-              onClick={() => setScale((value) => Math.min(1.75, value + 0.15))}
-              size="icon-sm"
-              variant="outline"
-            >
-              <ZoomInIcon aria-hidden="true" />
-            </Button>
-          </ButtonGroup>
-        </div>
-      </ViewerToolbarContent>
+      <ViewerZoomControls
+        percent={scale * 100}
+        onIn={zoomIn}
+        onOut={zoomOut}
+        onFit={resetZoom}
+        disabledIn={scale >= 1.75}
+        disabledOut={scale <= 0.7}
+        labels={{
+          in: 'Zoom PDF in',
+          out: 'Zoom PDF out',
+          reset: 'Reset PDF zoom',
+          fit: 'Fit document to view',
+          menu: 'PDF actions',
+          group: 'PDF zoom',
+        }}
+      />
       {/* The page window follows this element's scroll position, so the viewer
           owns its scroll region rather than riding whichever ancestor happens
           to scroll — every host has to give it a bounded box. */}

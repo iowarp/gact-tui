@@ -11,9 +11,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -37,6 +37,42 @@ export function WorkspaceResourceRemoveAction({
   resource: WorkspaceResource;
   workspaceId: string;
 }) {
+  const [open, setOpen] = useState(false);
+  if (!REMOVABLE_STATES.includes(resource.state)) return null;
+  return (
+    <>
+      <Button
+        aria-label={`Remove ${resource.name}`}
+        className="size-8 shrink-0"
+        size="icon-sm"
+        title="Remove from this workspace"
+        variant="ghost"
+        onClick={() => setOpen(true)}
+      >
+        <DeleteIcon aria-hidden="true" />
+      </Button>
+      <WorkspaceResourceRemoveDialog
+        resource={resource}
+        workspaceId={workspaceId}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
+  );
+}
+
+/** The same confirmation is available from the common file menu or a standalone resource action. */
+export function WorkspaceResourceRemoveDialog({
+  resource,
+  workspaceId,
+  open,
+  onOpenChange,
+}: {
+  resource: WorkspaceResource;
+  workspaceId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -56,19 +92,7 @@ export function WorkspaceResourceRemoveAction({
   if (!REMOVABLE_STATES.includes(resource.state)) return null;
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button
-          aria-label={`Remove ${resource.name}`}
-          className="size-8 shrink-0"
-          disabled={remove.isPending}
-          size="icon-sm"
-          title="Remove from this workspace"
-          variant="ghost"
-        >
-          <DeleteIcon aria-hidden="true" />
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Remove {resource.name} from this workspace?</AlertDialogTitle>
@@ -79,7 +103,9 @@ export function WorkspaceResourceRemoveAction({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep resource</AlertDialogCancel>
-          <AlertDialogAction onClick={() => remove.mutate()}>Remove resource</AlertDialogAction>
+          <AlertDialogAction disabled={remove.isPending} onClick={() => remove.mutate()}>
+            Remove resource
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

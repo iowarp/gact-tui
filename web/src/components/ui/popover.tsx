@@ -1,4 +1,5 @@
 import * as React from "react"
+import { OverlayContainer } from "./overlay-container"
 import { Popover as PopoverPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
@@ -22,7 +23,7 @@ function PopoverContent({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={React.useContext(OverlayContainer)}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

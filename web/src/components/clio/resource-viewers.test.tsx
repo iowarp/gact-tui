@@ -387,7 +387,7 @@ describe('WorkspaceFileView', () => {
     expect(screen.getByText('run.h5')).toBeVisible();
     expect(screen.getByText(/application\/x-hdf5/u)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Download' })).toBeVisible();
+    expect(screen.getAllByRole('button', { name: 'Download file' })).toHaveLength(1);
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
   });
