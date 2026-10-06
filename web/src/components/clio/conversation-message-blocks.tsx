@@ -75,6 +75,7 @@ export function DeferredA2UISurface({
   // map or chart re-enters the viewport.
   const [nearViewport, setNearViewport] = useState(true);
   const [reservedHeight, setReservedHeight] = useState(1);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const live = ['creating', 'updating', 'pending_action'].includes(surface.state);
 
   useEffect(() => {
@@ -121,7 +122,10 @@ export function DeferredA2UISurface({
     return () => observer.disconnect();
   }, [nearViewport]);
 
-  const renderSurface = live || nearViewport;
+  // Suspending a surface destroys its processor and unsent client data.
+  // Keep a surface mounted after the person starts interacting with it, even
+  // if scrolling or a transcript resize temporarily moves it out of view.
+  const renderSurface = live || nearViewport || hasInteracted;
   // The label belongs on this wrapper only while it IS the accessible
   // content — an empty reserved-height placeholder before the surface has
   // scrolled near. Once mounted, `ClioA2UISurface` renders its own labeled
@@ -136,6 +140,8 @@ export function DeferredA2UISurface({
     <div
       aria-label={renderSurface ? undefined : `${PROTOCOL.a2ui} surface`}
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
+      onFocusCapture={() => setHasInteracted(true)}
+      onPointerDownCapture={() => setHasInteracted(true)}
       ref={hostRef}
       role={renderSurface ? undefined : 'group'}
       style={renderSurface ? undefined : { minHeight: reservedHeight }}

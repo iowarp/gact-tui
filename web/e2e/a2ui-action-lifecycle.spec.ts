@@ -26,6 +26,14 @@ test.beforeEach(async ({ page }) => {
   });
   const reset = await page.request.post(`${fixtureEndpoint}/__test/reset`);
   expect(reset.ok()).toBe(true);
+  // This scenario has one form action. The shared fixture's unrelated approval
+  // and question otherwise cover the form with the pending-response tray.
+  await page.route(`${fixtureEndpoint}/v1/permissions?*`, (route) =>
+    route.fulfill({ json: { permissions: [] } }),
+  );
+  await page.route(`${fixtureEndpoint}/v1/questions?*`, (route) =>
+    route.fulfill({ json: { questions: [] } }),
+  );
   await page.addInitScript((endpoint) => {
     try {
       localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
@@ -84,10 +92,27 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
   });
 
   await test.step('the optimistic "Sending action" header shows only while the mutation is pending', async () => {
-    await page.getByLabel('Email').fill('scientist@earthscope.example');
-    await page.getByLabel('Password').fill('correct-horse-battery');
+    const email = page.getByLabel('Email');
+    const password = page.getByLabel('Password');
+    await email.fill('scientist@earthscope.example');
+    // Moving through the transcript must not suspend an active form and erase
+    // the value before the person can complete its next field.
+    await conversation.evaluate((element) => element.scrollTo({ top: 0 }));
+    await email.scrollIntoViewIfNeeded();
+    await expect(email).toHaveValue('scientist@earthscope.example');
+    await password.fill('correct-horse-battery');
     const submit = page.getByRole('button', { name: 'Sign in' });
     await expect(submit).toBeEnabled();
+    // Use a real scroll gesture to stop follow-to-bottom before inspecting the
+    // form. A programmatic reveal alone is overwritten by transcript following.
+    const readingArea = await conversation.boundingBox();
+    expect(readingArea).not.toBeNull();
+    await page.mouse.move(readingArea!.x + 80, readingArea!.y + 80);
+    await page.mouse.wheel(0, -200);
+    await email.scrollIntoViewIfNeeded();
+    await expect(email).toBeInViewport();
+    await expect(password).toBeInViewport();
+    await page.screenshot({ path: 'screenshots/a2ui-active-form.png' });
 
     await submit.click();
     await expect(surfaceSection.getByText('Sending action')).toBeVisible();
