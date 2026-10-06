@@ -10,7 +10,14 @@ import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
 import { PresentationLink } from './presentation-link';
-import { getToolHeaderMetadata, getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
+import {
+  getToolActionLabel,
+  getToolSubject,
+  getToolHeaderMetadata,
+  getToolStatus,
+  isA2uiCatalogLookup,
+} from './tool-presentation';
+import { PagedBlock } from './tool-result-primitives';
 import { withWorkflowPresentation, workflowDescriptor } from './workflow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 import { ToolAttentionField } from './tool-attention-fields';
@@ -65,16 +72,24 @@ export function ClioToolInvocation({
       navigation?.resources,
     ),
   );
-  const subject = presentedTool.presentation?.blocks.find(
-    (block) =>
-      block.id === presentedTool.presentation?.subject &&
-      (block.type === 'link' || block.type === 'text'),
-  );
+  const subject = getToolSubject(presentedTool);
+  const catalogContent = isA2uiCatalogLookup(presentedTool)
+    ? (presentedTool.presentation?.blocks ?? [])
+        .filter(
+          (block) =>
+            block.id !== presentedTool.presentation?.subject &&
+            ['markdown', 'text', 'code'].includes(block.type) &&
+            (block.text || block.content_ref),
+        )
+        .map((block) =>
+          block.text?.trimStart().startsWith('{')
+            ? { ...block, type: 'code' as const, language: 'json' }
+            : block,
+        )
+    : [];
   const status = getToolStatus(presentedTool);
   const headerMetadata = getToolHeaderMetadata(presentedTool);
-  const actionLabel = isA2uiCatalogLookup(presentedTool)
-    ? 'Inspect component schema'
-    : presentedTool.presentation?.action || tool.title || tool.name;
+  const actionLabel = getToolActionLabel(presentedTool);
   const summaryInHeader =
     Boolean(headerMetadata) && headerMetadata === presentedTool.presentation?.summary?.trim();
   return (
@@ -157,6 +172,19 @@ export function ClioToolInvocation({
           title={`${actionLabel}: Technical details`}
           description="Original tool arguments, result, and diagnostics."
         >
+          {open && catalogContent.length ? (
+            <section aria-label="Loaded widget catalog" className="min-w-0 space-y-2">
+              <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Loaded content
+              </h4>
+              <PagedBlock
+                block={catalogContent[0]}
+                groupedBlocks={catalogContent}
+                lines={20}
+                full
+              />
+            </section>
+          ) : null}
           {attentionFields?.some((entry) => entry.kind === 'tool_input') ? (
             attentionFields
               .filter((entry) => entry.kind === 'tool_input')

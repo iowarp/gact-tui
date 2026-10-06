@@ -196,7 +196,7 @@ function CreateResourceDialog({
 
   return (
     <Dialog onOpenChange={(open) => onCreateKindChange(open ? createKind : null)} open>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-xl">
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>Create</DialogTitle>
           <DialogDescription>

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
-test('expanded session creation fits its content and keeps actions reachable in small windows', async ({
+test('session creation expands downward from a stable corner and keeps actions reachable in small windows', async ({
   page,
 }, testInfo) => {
   await page.request.post(`${endpoint}/__test/reset`);
@@ -23,11 +23,19 @@ test('expanded session creation fits its content and keeps actions reachable in 
   await dialog
     .getByRole('textbox', { name: 'Session name', exact: true })
     .fill('Review station data');
-  const collapsedHeight = (await dialog.boundingBox())!.height;
+  const collapsedBox = (await dialog.boundingBox())!;
+  const collapsedTrigger = (await advanced.boundingBox())!;
+  expect(collapsedBox.width).toBeGreaterThanOrEqual(650);
   await advanced.click();
   await expect(advanced).toHaveAttribute('aria-expanded', 'true');
-  const expandedHeight = (await dialog.boundingBox())!.height;
-  expect(expandedHeight).toBeGreaterThan(collapsedHeight);
+  const expandedBox = (await dialog.boundingBox())!;
+  const expandedTrigger = (await advanced.boundingBox())!;
+  expect(expandedBox.height).toBeGreaterThan(collapsedBox.height);
+  expect(expandedBox.x).toBeCloseTo(collapsedBox.x, 0);
+  expect(expandedBox.y).toBeCloseTo(collapsedBox.y, 0);
+  expect(expandedBox.width).toBeCloseTo(collapsedBox.width, 0);
+  expect(expandedTrigger.y).toBeCloseTo(collapsedTrigger.y, 0);
+  expect(expandedTrigger.x).toBeCloseTo(collapsedTrigger.x, 0);
   for (const theme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: theme });
     if (theme === 'dark') await expect(page.locator('html')).toHaveClass(/dark/);

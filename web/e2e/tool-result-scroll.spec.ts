@@ -299,7 +299,8 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
   await expect
     .poll(() => preview.locator('article').evaluate((e) => e.getBoundingClientRect().width))
     .toBeLessThan(500);
-  await preview.getByRole('tab', { name: 'Source', exact: true }).click();
+  const markdownView = preview.getByRole('tablist', { name: 'Markdown file view', exact: true });
+  await markdownView.getByRole('tab', { name: 'Source', exact: true }).click();
   await expect(preview.getByRole('tabpanel', { name: 'Source', exact: true })).toContainText(
     '# Converted guide',
   );
@@ -310,7 +311,7 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
         .evaluate((e) => e.scrollWidth - e.clientWidth),
     )
     .toBeLessThan(2);
-  await preview.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await markdownView.getByRole('tab', { name: 'Preview', exact: true }).click();
   await expect(preview.getByRole('heading', { name: 'Converted guide' })).toBeVisible();
 });
 
