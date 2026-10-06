@@ -326,10 +326,16 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                   <DropdownMenuTrigger asChild>
                     <Button
                       aria-label={`Actions for ${serverTitle(server)}`}
+                      aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
+                      disabled={reconnect.isPending && reconnect.variables?.id === server.id}
                       size="icon-sm"
                       variant="ghost"
                     >
-                      <MoreIcon aria-hidden="true" />
+                      {reconnect.isPending && reconnect.variables?.id === server.id ? (
+                        <RefreshIndicator refreshing />
+                      ) : (
+                        <MoreIcon aria-hidden="true" />
+                      )}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-48">
@@ -341,10 +347,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                         <DropdownMenuItem
                           aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
                           disabled={reconnect.isPending}
-                          onSelect={(event) => {
-                            event.preventDefault();
-                            reconnect.mutate(server);
-                          }}
+                          onSelect={() => reconnect.mutate(server)}
                         >
                           <RefreshIndicator
                             refreshing={

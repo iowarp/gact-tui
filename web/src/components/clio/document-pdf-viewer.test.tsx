@@ -4,8 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioDocumentPdfViewer } from './document-pdf-viewer';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
-afterEach(cleanup);
-
 const documentPageCount = vi.hoisted(() => ({ value: 3 }));
 const pageRenderReady = vi.hoisted(() => ({ value: true }));
 
@@ -48,6 +46,7 @@ vi.mock('react-pdf', async () => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   document.querySelector('[data-test-toolbar]')?.remove();
   documentPageCount.value = 3;
   pageRenderReady.value = true;
@@ -164,6 +163,24 @@ describe('ClioDocumentPdfViewer', () => {
 
   it('windows a long document instead of mounting every page', async () => {
     documentPageCount.value = 400;
+    // JSDOM has no layout. Give the viewer and rendered pages the bounded
+    // geometry supplied by a real canvas host, including narrow-pane support.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function getBoundingClientRect(this: HTMLElement) {
+        const height = this.hasAttribute('data-page') ? 300 : 700;
+        return {
+          bottom: height,
+          height,
+          left: 0,
+          right: 320,
+          top: 0,
+          width: 320,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        };
+      },
+    );
     render(
       <ClioDocumentPdfViewer
         bytes={new Uint8Array([37, 80, 68, 70])}

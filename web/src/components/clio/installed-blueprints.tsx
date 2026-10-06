@@ -196,18 +196,21 @@ export function InstalledBlueprints({
                           variant="ghost"
                           size="icon-sm"
                           aria-label={`Actions for ${row.display_name}`}
+                          aria-busy={reloadingId === (row.identity || row.id)}
+                          disabled={reloadingId === (row.identity || row.id)}
                         >
-                          <MoreIcon aria-hidden="true" />
+                          {reloadingId === (row.identity || row.id) ? (
+                            <RefreshIndicator refreshing />
+                          ) : (
+                            <MoreIcon aria-hidden="true" />
+                          )}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           disabled={reloadingId === (row.identity || row.id)}
                           aria-busy={reloadingId === (row.identity || row.id)}
-                          onSelect={(event) => {
-                            event.preventDefault();
-                            onReload(row);
-                          }}
+                          onSelect={() => onReload(row)}
                         >
                           <RefreshIndicator refreshing={reloadingId === (row.identity || row.id)} />
                           Reload installed copy

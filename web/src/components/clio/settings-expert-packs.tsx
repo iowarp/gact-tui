@@ -249,10 +249,16 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
                     <DropdownMenuTrigger asChild>
                       <Button
                         aria-label={`Actions for ${packTitle(pack)}`}
+                        aria-busy={update.isPending && update.variables?.id === pack.id}
+                        disabled={update.isPending && update.variables?.id === pack.id}
                         size="icon-sm"
                         variant="ghost"
                       >
-                        <MoreIcon aria-hidden="true" />
+                        {update.isPending && update.variables?.id === pack.id ? (
+                          <RefreshIndicator refreshing />
+                        ) : (
+                          <MoreIcon aria-hidden="true" />
+                        )}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-48">
@@ -264,10 +270,7 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
                           <DropdownMenuItem
                             aria-busy={update.isPending && update.variables?.id === pack.id}
                             disabled={update.isPending}
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              update.mutate(pack);
-                            }}
+                            onSelect={() => update.mutate(pack)}
                           >
                             <RefreshIndicator
                               refreshing={update.isPending && update.variables?.id === pack.id}

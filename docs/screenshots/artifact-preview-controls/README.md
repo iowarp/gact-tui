@@ -29,3 +29,12 @@ Native Desktop visual acceptance is still pending. Automatic approval review
 previously rejected launching the isolated Desktop with `blocked by policy`; the
 launch has not been retried. Builds and browser evidence do not establish native
 visual acceptance or actual Microsoft Office launch acceptance.
+
+Refresh menu follow-up: `reconnect-pending.png` shows the row action rotating
+while its reconnect response is held. The menu closes on selection; the row stays
+busy and disabled until completion, then restores its actions. A focused browser
+case checks actual rotation across frames and completion. Blueprint reload and
+expert-pack updates use the same row feedback. The long-PDF test supplies real
+host/page dimensions rather than depending on JSDOM's zero-width layout. Both
+CI failures passed individually with one worker, along with type checking,
+scoped lint and online/offline builds. No broad local suite was run.
