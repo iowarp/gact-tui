@@ -1,6 +1,6 @@
 import { ChoicePicker as BasicChoicePicker, createComponentImplementation } from '@a2ui/react/v0_9';
 import { ChoicePickerApi } from '@a2ui/web_core/v0_9/basic_catalog';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -12,16 +12,19 @@ import {
   CommandItem,
 } from '@/components/ui/command';
 
+const INLINE_OPTION_LIMIT = 8;
+
 /** Keep small choice groups familiar; large groups become searchable dropdowns. */
 export const ClioChoicePicker = createComponentImplementation(
   ChoicePickerApi,
   ({ props, context, buildChild }) => {
     const [open, setOpen] = useState(false);
+    const popupId = useId();
     const options = (props.options ?? []).map((option) => ({
       ...option,
       label: context.dataContext.resolveDynamicValue<string>(option.label),
     }));
-    if (options.length <= 12) {
+    if (options.length <= INLINE_OPTION_LIMIT) {
       const Original = BasicChoicePicker.render;
       return <Original context={context} buildChild={buildChild} />;
     }
@@ -43,20 +46,37 @@ export const ClioChoicePicker = createComponentImplementation(
             <Button
               aria-label={props.label || 'Choose options'}
               aria-expanded={open}
+              aria-controls={open ? popupId : undefined}
               role="combobox"
               variant="outline"
               className="w-full justify-between"
             >
-              <span className="truncate">{caption}</span>
+              <span className="truncate" title={selected.map((option) => option.label).join(', ')}>
+                {caption}
+              </span>
               <ChevronsUpDownIcon aria-hidden="true" className="size-4 shrink-0" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
+            id={popupId}
+            aria-label={`${props.label || 'Options'} choices`}
             className="w-(--radix-popover-trigger-width) min-w-64 max-w-[90vw] p-0"
             align="start"
           >
-            <Command>
-              <CommandInput placeholder={`Search ${props.label || 'options'}…`} />
+            <Command
+              label={`Search ${props.label || 'options'}`}
+              filter={(value, search, keywords) =>
+                [value, ...(keywords ?? [])].some((text) =>
+                  text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+                )
+                  ? 1
+                  : 0
+              }
+            >
+              <CommandInput
+                aria-label={`Search ${props.label || 'options'}`}
+                placeholder={`Search ${props.label || 'options'}…`}
+              />
               <CommandList className="max-h-72">
                 <CommandEmpty>No matching options.</CommandEmpty>
                 {options.map((option) => (
