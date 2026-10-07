@@ -18,6 +18,21 @@ import {
   PDF_PAGE_OVERSCAN,
 } from '@/lib/runtime-limits';
 
+/** Render sharp page text on ordinary and scaled displays without allocating oversized canvases. */
+export function pdfRenderDensity({
+  width,
+  aspectRatio,
+  displayDensity,
+}: {
+  width: number;
+  aspectRatio: number;
+  displayDensity: number;
+}): number {
+  const desired = Math.max(2, Math.min(3, displayDensity || 1));
+  const area = Math.max(1, width) ** 2 * Math.max(0.1, aspectRatio);
+  return Math.min(desired, Math.sqrt(8_000_000 / area));
+}
+
 export interface PdfPageWindow {
   /** First page kept mounted, 1-based. `0` when no page is mounted. */
   first: number;
@@ -113,7 +128,6 @@ export function fitPdfPageWidth({
   if (!Number.isFinite(viewportHeight) || viewportHeight <= PDF_PAGE_GAP_PX) {
     return availableWidth;
   }
-  const heightBound =
-    (viewportHeight - PDF_PAGE_GAP_PX) / PDF_PAGE_ESTIMATED_ASPECT_RATIO;
+  const heightBound = (viewportHeight - PDF_PAGE_GAP_PX) / PDF_PAGE_ESTIMATED_ASPECT_RATIO;
   return Math.min(availableWidth, heightBound);
 }

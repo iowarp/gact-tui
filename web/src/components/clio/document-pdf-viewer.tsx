@@ -19,6 +19,7 @@ import {
   fitPdfPageWidth,
   pdfPageNumbers,
   pdfPageWindow,
+  pdfRenderDensity,
 } from './document-pdf-window';
 import { ClioStatus } from './status';
 
@@ -45,9 +46,7 @@ export function ClioDocumentPdfViewer({
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pageCount, setPageCount] = useState(0);
-  const [pageNumber, setPageNumber] = useState(
-    initialPage && initialPage > 0 ? initialPage : 1,
-  );
+  const [pageNumber, setPageNumber] = useState(initialPage && initialPage > 0 ? initialPage : 1);
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
   const [paged, setPaged] = useState(false);
@@ -311,6 +310,7 @@ function PdfPage({
   width: number;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
+  const [aspectRatio, setAspectRatio] = useState(11 / 8.5);
 
   return (
     <div
@@ -320,6 +320,15 @@ function PdfPage({
       ref={pageRef}
     >
       <Page
+        devicePixelRatio={pdfRenderDensity({
+          width: width * scale,
+          aspectRatio,
+          displayDensity: window.devicePixelRatio,
+        })}
+        onLoadSuccess={(page) => {
+          const viewport = page.getViewport({ scale: 1 });
+          setAspectRatio(viewport.height / viewport.width);
+        }}
         onRenderSuccess={() => onMeasure?.(pageRef.current)}
         pageNumber={pageNumber}
         renderAnnotationLayer
