@@ -17,6 +17,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require main integration and curated release notes
+        env:
+          TAG: ${{ github.ref_name }}
+          REVISION: ${{ github.sha }}
+        run: |
+          git fetch origin main
+          if ! git rev-list --first-parent FETCH_HEAD | grep -Fx "$REVISION"; then
+            echo "Release ${TAG} is not a commit on main's first-parent history." >&2
+            exit 1
+          fi
+          if ! test -s "docs/releases/${TAG}.md"; then
+            echo "Curated release notes are missing for ${TAG}." >&2
+            exit 1
+          fi
 
       - name: Require a CHANGELOG entry for the tag
         env:
@@ -99,6 +116,8 @@ jobs:
     permissions:
       contents: write   # required to attach assets to the Release
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -106,6 +125,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          body_path: docs/releases/${{ github.ref_name }}.md
           files: dist/*
           # A beta tag (vX.Y.Z-beta.N) is a pre-release and never becomes latest.
           prerelease: ${{ contains(github.ref_name, '-') }}

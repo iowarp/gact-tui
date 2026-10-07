@@ -57,6 +57,8 @@ screenshots
 web/screenshots
 examples/loop-test
 **/*.png
+# These provider logos are imported by the production web bundle.
+!branding/provider-logos/*.png
 # This fixture is imported by the bundled widget gallery at build time.
 !web/tests/fixtures/gallery-sample.png
 **/*.gif

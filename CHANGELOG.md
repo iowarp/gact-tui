@@ -6,6 +6,13 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.7] - 2026-10-07
+
+- Publish the integrated beta UI from main with curated release notes. Release
+  checks reject tags outside main's first-parent history and missing notes.
+- Include the Globus and Google Drive logos in the web container build context.
+  Their imports previously caused the container's production build to fail.
+
 ## [0.11.3-beta.6] — 2026-10-07
 
 - Compact conversation activity keeps recorded reasoning, progress and tool results
