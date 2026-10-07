@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
@@ -323,7 +323,8 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText('2 background activities')).toBeVisible();
-    expect(screen.getByText('Settled')).toBeVisible();
+    const evidenceControl = screen.getByRole('button', { name: 'Evidence layout: None' });
+    expect(within(evidenceControl).getByText('Settled')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Browse child conversations' }));
     await user.click(
       screen.getByRole('button', {

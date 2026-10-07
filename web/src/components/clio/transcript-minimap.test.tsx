@@ -97,51 +97,60 @@ describe('ClioTranscriptMinimap', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('offers one landmark per message without repeating transcript prose in the rail', async () => {
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
-    const user = userEvent.setup();
-    const onJump = vi.fn();
-    const parentWheel = vi.fn();
-    render(
-      <div onWheel={parentWheel}>
-        <ClioTranscriptMinimap activeIndex={1} messages={messages} onJump={onJump} visible />
-      </div>,
-    );
+  // This case also runs alone during focused review, so allow the cold markdown chunk to load.
+  it(
+    'offers one landmark per message without repeating transcript prose in the rail',
+    { timeout: 20_000 },
+    async () => {
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
+      const user = userEvent.setup();
+      const onJump = vi.fn();
+      const parentWheel = vi.fn();
+      render(
+        <div onWheel={parentWheel}>
+          <ClioTranscriptMinimap activeIndex={1} messages={messages} onJump={onJump} visible />
+        </div>,
+      );
 
-    const activeLandmark = screen.getByRole('button', { name: 'Jump to assistant message 2' });
-    expect(activeLandmark).toHaveAttribute('aria-current', 'location');
-    const inactiveLandmark = screen.getByRole('button', { name: 'Jump to user message 1' });
-    expect(inactiveLandmark).not.toHaveAttribute('aria-current');
+      const activeLandmark = screen.getByRole('button', { name: 'Jump to assistant message 2' });
+      expect(activeLandmark).toHaveAttribute('aria-current', 'location');
+      const inactiveLandmark = screen.getByRole('button', { name: 'Jump to user message 1' });
+      expect(inactiveLandmark).not.toHaveAttribute('aria-current');
 
-    expect(screen.queryByText(/Compare the three stations/)).not.toBeInTheDocument();
-    await user.hover(inactiveLandmark);
-    expect(
-      await screen.findByText('three stations', { selector: '[data-streamdown="strong"]' }),
-    ).toBeVisible();
+      expect(screen.queryByText(/Compare the three stations/)).not.toBeInTheDocument();
+      await user.hover(inactiveLandmark);
+      expect(
+        await screen.findByText(
+          'three stations',
+          { selector: '[data-streamdown="strong"]' },
+          { timeout: 15_000 },
+        ),
+      ).toBeVisible();
 
-    const scrollArea = screen.getByLabelText('Browse transcript landmarks');
-    expect(scrollArea).toHaveClass('outline-none', 'overscroll-y-contain');
-    fireEvent.wheel(scrollArea, { deltaY: 100 });
-    expect(parentWheel).not.toHaveBeenCalled();
-    Object.defineProperties(scrollArea, {
-      clientHeight: { configurable: true, value: 200 },
-      scrollHeight: { configurable: true, value: 1_100 },
-    });
-    scrollArea.scrollTop = 900;
-    fireEvent.keyDown(scrollArea, { key: 'Home' });
-    expect(scrollArea.scrollTop).toBe(0);
-    fireEvent.keyDown(scrollArea, { key: 'PageDown' });
-    expect(scrollArea.scrollTop).toBe(176);
-    fireEvent.keyDown(scrollArea, { key: 'End' });
-    expect(scrollArea.scrollTop).toBe(900);
-    // A key pressed on a landmark belongs to that landmark, not to the rail:
-    // the rail scrolls only for presses that land on the rail itself.
-    expect(fireEvent.keyDown(activeLandmark, { bubbles: true, key: 'Home' })).toBe(true);
-    expect(scrollArea.scrollTop).toBe(900);
-    await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
-    expect(onJump).toHaveBeenCalledWith(1);
-    expect(virtual.scrollToIndex).not.toHaveBeenCalled();
-  });
+      const scrollArea = screen.getByLabelText('Browse transcript landmarks');
+      expect(scrollArea).toHaveClass('outline-none', 'overscroll-y-contain');
+      fireEvent.wheel(scrollArea, { deltaY: 100 });
+      expect(parentWheel).not.toHaveBeenCalled();
+      Object.defineProperties(scrollArea, {
+        clientHeight: { configurable: true, value: 200 },
+        scrollHeight: { configurable: true, value: 1_100 },
+      });
+      scrollArea.scrollTop = 900;
+      fireEvent.keyDown(scrollArea, { key: 'Home' });
+      expect(scrollArea.scrollTop).toBe(0);
+      fireEvent.keyDown(scrollArea, { key: 'PageDown' });
+      expect(scrollArea.scrollTop).toBe(176);
+      fireEvent.keyDown(scrollArea, { key: 'End' });
+      expect(scrollArea.scrollTop).toBe(900);
+      // A key pressed on a landmark belongs to that landmark, not to the rail:
+      // the rail scrolls only for presses that land on the rail itself.
+      expect(fireEvent.keyDown(activeLandmark, { bubbles: true, key: 'Home' })).toBe(true);
+      expect(scrollArea.scrollTop).toBe(900);
+      await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
+      expect(onJump).toHaveBeenCalledWith(1);
+      expect(virtual.scrollToIndex).not.toHaveBeenCalled();
+    },
+  );
 
   it('reveals an edge landmark without forcing it to the center', () => {
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);

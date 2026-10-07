@@ -275,6 +275,14 @@ function ConversationBody({
     scrollToBottom,
   });
   const minimapVisible = conversationViewportWidth >= 760;
+  // Grow only into the unused margin, leaving a gap before the transcript column.
+  const minimapMarkerWidth = Math.min(
+    56,
+    Math.max(
+      24,
+      (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 - 12,
+    ),
+  );
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -337,6 +345,7 @@ function ConversationBody({
             messages={messages}
             onJump={jumpToMessage}
             visible={minimapVisible}
+            maxMarkerWidth={minimapMarkerWidth}
           />
         </>
       ) : null}

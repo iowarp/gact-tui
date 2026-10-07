@@ -399,6 +399,51 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
 });
 
+test('grows transcript landmarks only within the available margin', async ({ page }, testInfo) => {
+  await page.goto(workspaceUrl);
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
+  const previous = minimap.getByRole('button', { exact: true, name: 'Jump to user message 1000' });
+  const marker = previous.locator('[data-slot="transcript-minimap-landmark"]');
+  for (const width of [1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await settleConversationAtLatest(page);
+    await page.mouse.move(width - 40, 20);
+    await expect(previous).toBeVisible();
+    const column = page.locator('[data-slot="transcript-column"]');
+    const before = await column.boundingBox();
+    const resting = await marker.boundingBox();
+    expect(resting!.width).toBeGreaterThan(12);
+    expect(resting!.width).toBeLessThanOrEqual(18);
+    if (width === 1920)
+      await page.screenshot({ path: testInfo.outputPath('minimap-wide-rest.png') });
+    await previous.hover();
+    const railWidth = (await minimap.boundingBox())!.width;
+    await expect(marker).toHaveCSS('width', `${railWidth - 4}px`);
+    expect(railWidth).toBeGreaterThan(28);
+    expect(railWidth).toBeLessThanOrEqual(60);
+    const hovered = await marker.boundingBox();
+    expect(hovered!.x + hovered!.width).toBeLessThan(before!.x);
+    const after = await column.boundingBox();
+    expect(after!.x).toBe(before!.x);
+    expect(after!.width).toBe(before!.width);
+    if (width === 1920)
+      await page.screenshot({ path: testInfo.outputPath('minimap-wide-hover.png') });
+  }
+  // The wider text preference leaves less spare margin at this viewport.
+  await page.evaluate(() =>
+    localStorage.setItem('clio.appearance.v1', JSON.stringify({ conversationWidth: 'wide' })),
+  );
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  await settleConversationAtLatest(page);
+  await expect(minimap).toHaveCSS('width', '28px');
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(minimap).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open transcript outline' })).toBeVisible();
+  await expect(conversation).toBeVisible();
+});
+
 test('renders dense flat-NDP semantics with accessible interactions', async ({ page }) => {
   await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
@@ -509,7 +554,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
   await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(minimap).toHaveCSS('box-shadow', 'none');
-  await expect(minimap).toHaveCSS('width', '28px');
+  const railWidth = (await minimap.boundingBox())!.width;
+  expect(railWidth).toBeGreaterThan(28);
+  expect(railWidth).toBeLessThanOrEqual(60);
   await expect
     .poll(async () => {
       const rail = await minimap.boundingBox();
@@ -519,20 +566,21 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
     })
     .toBe(true);
   const activeMarker = activeLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  await expect(activeMarker).toHaveCSS('width', '24px');
-  await expect(activeMarker).toHaveCSS('height', '4px');
+  await expect(activeMarker).toHaveCSS('width', `${railWidth - 4}px`);
+  await expect(activeMarker).toHaveCSS('height', '5px');
   await expect(activeMarker).toHaveCSS('opacity', '1');
   const previousLandmark = minimap.getByRole('button', {
     exact: true,
     name: 'Jump to user message 1000',
   });
   const previousMarker = previousLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  await expect(previousMarker).toHaveCSS('width', '12px');
-  await expect(previousMarker).toHaveCSS('height', '2px');
+  expect((await previousMarker.boundingBox())!.width).toBeGreaterThan(12);
+  expect((await previousMarker.boundingBox())!.width).toBeLessThanOrEqual(18);
+  await expect(previousMarker).toHaveCSS('height', '3px');
   await expect(previousMarker).toHaveCSS('opacity', '0.6');
   await previousLandmark.hover();
-  await expect(previousMarker).toHaveCSS('width', '24px');
-  await expect(previousMarker).toHaveCSS('height', '4px');
+  await expect(previousMarker).toHaveCSS('width', `${railWidth - 4}px`);
+  await expect(previousMarker).toHaveCSS('height', '5px');
   await expect(previousMarker).toHaveCSS('opacity', '1');
   const previousBounds = await previousLandmark.boundingBox();
   const activeBounds = await activeLandmark.boundingBox();
