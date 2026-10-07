@@ -86,6 +86,17 @@ async function revealSurface(page: Page) {
   return surfaceSection;
 }
 
+/** Check the live chart node, including a transient surface replacement during hydration. */
+async function expectRenderedChart(chartView: Locator) {
+  await expect(async () => {
+    const rendered = chartView.locator('canvas, svg');
+    expect(await rendered.count()).toBe(1);
+    const box = await rendered.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThan(0);
+    expect(box?.height ?? 0).toBeGreaterThan(0);
+  }).toPass({ timeout: 10_000 });
+}
+
 test('renders a clio.chart.v1 scatter preset over inline data', async ({ page }) => {
   await page.goto(workspaceUrl);
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
@@ -104,18 +115,12 @@ test('renders a clio.chart.v1 scatter preset over inline data', async ({ page })
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
   // Wait past "Loading rows…" so the card's final (taller) height is what
   // gets captured, not a mid-load layout.
-  await expect(
-    surfaceSection.getByRole('img', { name: /· 9 rows$/u }),
-  ).toBeVisible();
+  await expect(surfaceSection.getByRole('img', { name: /· 9 rows$/u })).toBeVisible();
 
   // Screenshot the surface card itself, not the whole page — the seeded
   // transcript around it (pending interactions, the input footer) is noise
   // for a chart-kernel review screenshot.
-  await screenshotElement(
-    page,
-    surfaceSection,
-    test.info().outputPath('chart-scatter-preset.png'),
-  );
+  await screenshotElement(page, surfaceSection, test.info().outputPath('chart-scatter-preset.png'));
 });
 
 test('the chart still renders in full screen, and again after exiting (#1551/#516 review item 7)', async ({
@@ -132,22 +137,25 @@ test('the chart still renders in full screen, and again after exiting (#1551/#51
   const chartView = chartFrame.locator('[data-slot="a2ui-chart-view"]');
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
   await expect(chartFrame.getByRole('img', { name: /· 9 rows$/u })).toBeVisible();
-  const inlineBox = await chartView.locator('canvas, svg').first().boundingBox();
-  expect(inlineBox?.width).toBeGreaterThan(0);
-  expect(inlineBox?.height).toBeGreaterThan(0);
+  await expectRenderedChart(chartView);
 
   // `SurfaceFullScreenHost` moves the view's own DOM node to a different
   // portal target (inline vs. dialog) rather than remounting it -- the
   // embed effect must re-run (not silently keep rendering into a
   // now-elsewhere, possibly zero-sized node) for content to still be there.
+  // Navigate as a reader before opening the chart. The seeded transcript's
+  // pending-response tray can finish growing after the canvas mounts. A
+  // programmatic reveal alone leaves bottom-follow engaged, so that late
+  // layout can move the toolbar under the composer during the click.
+  await page.getByRole('log', { name: 'Conversation' }).hover();
+  await page.mouse.wheel(0, -200);
+  await chartFrame.scrollIntoViewIfNeeded();
   await chartFrame.hover();
   await chartFrame.getByRole('button', { name: 'Full screen' }).click();
   const dialog = page.getByRole('dialog');
   const dialogChartView = dialog.locator('[data-slot="a2ui-chart-view"]');
   await expect(dialogChartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
-  const fullscreenBox = await dialogChartView.locator('canvas, svg').first().boundingBox();
-  expect(fullscreenBox?.width).toBeGreaterThan(0);
-  expect(fullscreenBox?.height).toBeGreaterThan(0);
+  await expectRenderedChart(dialogChartView);
   await page.screenshot({
     path: test.info().outputPath('chart-fullscreen.png'),
   });
@@ -155,9 +163,7 @@ test('the chart still renders in full screen, and again after exiting (#1551/#51
   await dialog.getByRole('button', { name: 'Exit full screen' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
-  const afterExitBox = await chartView.locator('canvas, svg').first().boundingBox();
-  expect(afterExitBox?.width).toBeGreaterThan(0);
-  expect(afterExitBox?.height).toBeGreaterThan(0);
+  await expectRenderedChart(chartView);
 });
 
 test('links selection between clio.chart.v1 and clio.data-table.v1 sharing one path', async ({
@@ -173,9 +179,7 @@ test('links selection between clio.chart.v1 and clio.data-table.v1 sharing one p
   const surfaceSection = await revealSurface(page);
   const chartView = surfaceSection.locator('[data-slot="a2ui-chart-view"]');
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
-  await expect(
-    surfaceSection.getByRole('img', { name: /· 9 rows$/u }),
-  ).toBeVisible();
+  await expect(surfaceSection.getByRole('img', { name: /· 9 rows$/u })).toBeVisible();
 
   // Click a table row (a real DOM element; the chart's own canvas marks are
   // not a reliable pixel click target headless) — its selection write goes
