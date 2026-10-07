@@ -52,6 +52,69 @@ function view() {
 }
 
 describe('full presentation viewer paging', () => {
+  it('exposes the loaded widget schema in details and retrieves the complete recorded content', async () => {
+    page.mockResolvedValueOnce({
+      text: 'the complete image schema',
+      cursor: 6,
+      next_cursor: null,
+      total_chars: 31,
+    });
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'catalog-call',
+          session_id: 'session',
+          name: 'load_skill',
+          state: 'succeeded',
+          title: 'Load skill',
+          input: {
+            skill_id: 'a2ui-catalog-clio-workspace',
+            file: 'catalog.json#/components/Image',
+          },
+          output: {
+            skill_id: 'a2ui-catalog-clio-workspace',
+            file: 'catalog.json#/components/Image',
+            lines: 40,
+          },
+          presentation: {
+            subject: 'skill',
+            summary: '',
+            blocks: [
+              { id: 'skill', type: 'text', text: 'a2ui-catalog-clio-workspace' },
+              {
+                id: 'content',
+                type: 'text',
+                text: 'first ',
+                content_ref: {
+                  session_id: 'session',
+                  call_id: 'catalog-call',
+                  block_id: 'content',
+                  cursor: 6,
+                  total_chars: 31,
+                },
+              },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-slot="tool-human-result"]')).toBeNull();
+    expect(page).not.toHaveBeenCalled();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Technical details for Inspect widget catalog' }),
+    );
+    const loaded = screen.getByRole('region', { name: 'Loaded widget catalog' });
+    expect(loaded).toHaveTextContent('first');
+    await userEvent.click(within(loaded).getByRole('button', { name: 'Load complete content' }));
+    await waitFor(() => expect(loaded).toHaveTextContent('the complete image schema'));
+    expect(page).toHaveBeenCalledWith(
+      'session',
+      'catalog-call',
+      'content',
+      6,
+      expect.any(AbortSignal),
+    );
+  });
   it('keeps file metadata and paged Markdown in one surface and one expansion', async () => {
     page.mockResolvedValueOnce({
       text: 'complete body',

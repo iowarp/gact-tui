@@ -1,4 +1,5 @@
 import type {
+  Artifact,
   AsyncProcess,
   ExecutionProvenanceResult,
   Message,
@@ -6,6 +7,7 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import { formatBytes } from '@/lib/format';
+import { fileFormatLabel } from '@/lib/media-types';
 
 /** One labelled fact rendered as its own sibling element — never middot-joined into a string. */
 interface EvidenceSourceDetailPart {
@@ -26,6 +28,7 @@ export interface EvidenceSource {
    *  can't change what dedups. */
   dedupeKey: string;
   resource?: WorkspaceResource;
+  artifact?: Artifact;
   ownerLabel?: string;
   relation?: string;
 }
@@ -35,7 +38,9 @@ export interface EvidenceSource {
  * artifact already has its own Artifacts section) are the same edges that
  * answer "who produced this artifact" here.
  */
-export function artifactOwnerLabels(provenance: ExecutionProvenanceResult | undefined): Map<string, string> {
+export function artifactOwnerLabels(
+  provenance: ExecutionProvenanceResult | undefined,
+): Map<string, string> {
   const labels = new Map<string, string>();
   if (!provenance) return labels;
   const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
@@ -67,6 +72,7 @@ export function sessionSources(
   processes: readonly AsyncProcess[],
   resources: readonly WorkspaceResource[],
   executionProvenance?: ExecutionProvenanceResult,
+  artifacts: readonly Artifact[] = [],
 ): EvidenceSource[] {
   const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
   const sources: EvidenceSource[] = messages.flatMap((message) =>
@@ -102,11 +108,27 @@ export function sessionSources(
   // missing provenance read — it must still fall back to workflow-state
   // sources, or a leaf session with no delegated children loses them all.
   if (executionProvenance?.session_lineage?.length) {
-    sources.push(...provenanceSources(executionProvenance));
+    sources.push(...provenanceSources(executionProvenance, artifacts));
   } else {
     for (const process of processes) {
       collectWorkflowSources(process.result?.workflow_state, process.title, sources);
     }
+  }
+  for (const artifact of artifacts) {
+    if (
+      artifact.session_relation !== 'used' ||
+      sources.some((source) => source.artifact?.id === artifact.id)
+    )
+      continue;
+    sources.push({
+      id: `used:${artifact.id}`,
+      dedupeKey: `artifact:${artifact.id}`,
+      label: artifact.name,
+      link: false,
+      artifact,
+      value: artifact.uri,
+      detailParts: [{ id: 'type', text: fileFormatLabel(artifact.name, artifact.media_type) }],
+    });
   }
   const seen = new Set<string>();
   return sources.filter((source) => {
@@ -116,8 +138,12 @@ export function sessionSources(
   });
 }
 
-function provenanceSources(provenance: ExecutionProvenanceResult): EvidenceSource[] {
+function provenanceSources(
+  provenance: ExecutionProvenanceResult,
+  artifacts: readonly Artifact[],
+): EvidenceSource[] {
   const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
+  const artifactsById = new Map(artifacts.map((artifact) => [artifact.id, artifact]));
   const lineageBySession = new Map(
     provenance.session_lineage?.map((owner) => [owner.session_id, owner]) ?? [],
   );
@@ -145,14 +171,27 @@ function provenanceSources(provenance: ExecutionProvenanceResult): EvidenceSourc
         'artifact_id',
         'sha256',
       ]) || node.id;
+    const artifact = artifactsById.get(stringAttribute(node.attributes, 'artifact_id'));
     sources.push({
       id: `provenance:${node.id}`,
-      label: node.label || value,
+      label:
+        artifact && (!node.label || node.label === value || node.label === node.id)
+          ? artifact.name
+          : node.label || value,
       value,
       link: isWebLink(value),
       dedupeKey: `provenance:${node.id}`,
       ownerLabel: ownerNode?.label || owner?.label || 'Unknown session',
       relation: relation.kind,
+      artifact,
+      detailParts: artifact
+        ? [
+            { id: 'type', text: fileFormatLabel(artifact.name, artifact.media_type) },
+            ...(artifact.size === undefined
+              ? []
+              : [{ id: 'size', text: formatBytes(artifact.size) }]),
+          ]
+        : undefined,
     });
   }
   return sources;
@@ -243,7 +282,9 @@ function collectWorkflowSources(
   }
 }
 
-export function diffStatus(diff: SessionDiff): 'pending' | 'succeeded' | 'cancelled' | 'unavailable' {
+export function diffStatus(
+  diff: SessionDiff,
+): 'pending' | 'succeeded' | 'cancelled' | 'unavailable' {
   if (diff.applied || diff.status === 'applied') return 'succeeded';
   if (diff.status === 'rejected') return 'cancelled';
   if (diff.status === 'pending') return 'pending';

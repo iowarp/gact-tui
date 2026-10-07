@@ -58,6 +58,38 @@ function row(overrides: Partial<A2uiCatalogRow> = {}): A2uiCatalogRow {
 }
 
 describe('buildA2uiCatalog', () => {
+  it('decodes client sign-in routes and clears ownership when a catalog is replaced', () => {
+    const original = row();
+    const response = decodeA2uiCatalogRows([
+      {
+        ...original,
+        sidecar: {
+          ...original.sidecar,
+          events: {
+            'data_source/login/google_drive': {
+              destination: 'client',
+              context_schema: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['clio_id', 'workspace_id'],
+                properties: { clio_id: { type: 'string' }, workspace_id: { type: 'string' } },
+              },
+            },
+          },
+        },
+      },
+    ]);
+    expect(response.rejected).toEqual([]);
+    const registry = new A2uiCatalogRegistry(KERNEL);
+    registry.load(response.rows);
+    expect(
+      registry.eventRoute(original.catalogId, 'data_source/login/google_drive')?.destination,
+    ).toBe('client');
+    registry.upsert(original);
+    expect(
+      registry.eventRoute(original.catalogId, 'data_source/login/google_drive'),
+    ).toBeUndefined();
+  });
   it('resolves every declared component and function against the kernel', () => {
     const result = buildA2uiCatalog(row(), KERNEL);
     expect(result.ok).toBe(true);

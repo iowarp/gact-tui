@@ -201,7 +201,7 @@ describe('ClioConversation recovery actions', () => {
       'group-[.is-user]:rounded-lg',
       'group-[.is-user]:bg-secondary',
       'group-[.is-user]:px-4',
-      'group-[.is-user]:py-3',
+      'group-[.is-user]:py-2.5',
     );
     expect(textBubble?.parentElement).not.toHaveClass('bg-secondary', 'px-4', 'py-3');
     const attachmentTray = attachment.closest<HTMLElement>('[data-slot="scroll-area"]');

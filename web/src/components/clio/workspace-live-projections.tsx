@@ -1,4 +1,4 @@
-import type { Artifact, Message, SubagentRun } from '@clio/core/v3';
+import type { Artifact, Message, RunState, SubagentRun } from '@clio/core/v3';
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useLiveStore } from '@/store/live-store';
@@ -31,6 +31,7 @@ type LiveConversationProps = Omit<
   artifacts: readonly Artifact[];
   sessionId: string;
   subagents: readonly SubagentRun[];
+  sessionState?: RunState;
 };
 
 /** Isolates high-rate message updates from the surrounding workspace chrome. */
@@ -38,8 +39,18 @@ export function WorkspaceLiveConversation({
   artifacts: artifactList,
   sessionId,
   subagents: subagentList,
+  sessionState,
   ...props
 }: LiveConversationProps) {
+  const infrastructure = useLiveStore((state) => state.entities.infrastructure);
+  const activeTurnId = useLiveStore((state) => state.entities.active_turns[sessionId]);
+  const activeTurnResponded = useLiveStore((state) =>
+    Boolean(activeTurnId && state.entities.responded_turns[sessionId] === activeTurnId),
+  );
+  const dependencies = useMemo(
+    () => Object.values(infrastructure).filter((item) => item.session_id === sessionId),
+    [infrastructure, sessionId],
+  );
   const messageEntities = useLiveStore((state) => state.entities.messages);
   const artifactEntities = useLiveStore((state) => state.entities.artifacts);
   const subagentEntities = useLiveStore((state) => state.entities.subagents);
@@ -92,7 +103,14 @@ export function WorkspaceLiveConversation({
     () => ({ actionLifecycles, artifacts, compactions, subagents, surfaces, tasks, tools }),
     [actionLifecycles, artifacts, compactions, subagents, surfaces, tasks, tools],
   );
-  return <ClioConversation {...entities} {...props} messages={messages} />;
+  return (
+    <ClioConversation
+      {...entities}
+      {...props}
+      messages={messages}
+      preparation={{ activeTurnId, activeTurnResponded, dependencies, sessionState }}
+    />
+  );
 }
 
 type LiveObservabilityDockProps = Omit<ComponentProps<typeof ClioObservabilityDock>, 'messages'> & {
@@ -103,24 +121,7 @@ export function WorkspaceLiveObservabilityDock({
   sessionId,
   ...props
 }: LiveObservabilityDockProps) {
-  const infrastructure = useLiveStore((state) => state.entities.infrastructure);
-  const activeTurnId = useLiveStore((state) => state.entities.active_turns[sessionId]);
-  const activeTurnResponded = useLiveStore(
-    (state) => Boolean(activeTurnId && state.entities.responded_turns[sessionId] === activeTurnId),
-  );
-  const infrastructureDependencies = useMemo(
-    () => Object.values(infrastructure).filter((item) => item.session_id === sessionId),
-    [infrastructure, sessionId],
-  );
-  return (
-    <ClioObservabilityDock
-      {...props}
-      activeTurnId={activeTurnId}
-      activeTurnResponded={activeTurnResponded}
-      infrastructureDependencies={infrastructureDependencies}
-      messages={useSessionMessages(sessionId)}
-    />
-  );
+  return <ClioObservabilityDock {...props} messages={useSessionMessages(sessionId)} />;
 }
 
 type LiveObservabilityViewProps = Omit<ComponentProps<typeof ClioObservabilityView>, 'messages'> & {

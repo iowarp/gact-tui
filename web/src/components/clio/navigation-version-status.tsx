@@ -315,7 +315,7 @@ export function SystemVersionStatus() {
       <PopoverTrigger asChild>
         <Button
           aria-label={statusLabel}
-          className="h-6 gap-1.5 px-1.5 font-mono text-[10px] text-muted-foreground"
+          className="h-6 gap-1.5 px-1.5 font-mono text-[0.625rem] text-muted-foreground"
           size="xs"
           title={statusLabel}
           variant="ghost"

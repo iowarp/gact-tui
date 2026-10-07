@@ -16,7 +16,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import {
   Accordion,
   AccordionContent,
@@ -38,9 +38,8 @@ import { humanizeToolName } from './tool-presentation';
 function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
     <header>
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight">{title}</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
+      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+      <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>
     </header>
   );
 }
@@ -323,7 +322,7 @@ export function SystemSettings() {
   return (
     <div className="grid gap-6">
       <SectionHeading
-        description="Inspect service health, activity, retained memory, and automation hooks without reading protocol logs. Every value is reported by the connected service."
+        description="Review service health, activity, memory, and automation hooks. Status comes from your connected service."
         title="System"
       />
       <Tabs defaultValue="health">

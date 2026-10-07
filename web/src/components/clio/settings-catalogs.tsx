@@ -39,9 +39,8 @@ import {
 function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
     <header>
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
+      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+      <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>
     </header>
   );
 }

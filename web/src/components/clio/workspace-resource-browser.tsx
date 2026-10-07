@@ -113,7 +113,7 @@ export function WorkspaceResourceBrowser({
             >
               <AttachmentPreview className="size-10" />
               <AttachmentInfo showMediaType />
-              <div className="shrink-0 text-right text-[11px] text-muted-foreground">
+              <div className="shrink-0 text-right text-[0.6875rem] text-muted-foreground">
                 <p>{formatResourceSize(resource.received_size)}</p>
                 <p>{resource.state === 'uploading' ? `${progress}%` : resource.state}</p>
               </div>

@@ -120,8 +120,12 @@ describe("ConversationTurn: the agent's own questions in chain mode (#1448)", ()
       />,
     );
 
+    expect(screen.queryByText('Agent asked')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Ask User/u }));
     expect(screen.getByText('Agent asked')).toBeVisible();
-    expect(screen.getByText('You responded')).toBeVisible();
+    // One causal record replaces the old summary-plus-detail duplication.
+    expect(screen.getAllByText('You responded')).toHaveLength(1);
     expect(screen.getByText('Fluid channel')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Fluid channel' })).not.toBeInTheDocument();
   });

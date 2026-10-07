@@ -35,6 +35,7 @@ export interface ConversationIteration {
     text: string;
     label: string;
     streaming: boolean;
+    source?: ThoughtSource;
   }>;
   nextThoughts: string[];
   nextThoughtSources?: ThoughtSource[];
@@ -149,6 +150,12 @@ function fallbackIterations(
         label: reasoningLabel(block.provider_source),
         text: block.text,
         streaming: Boolean(block.streaming),
+        source: {
+          messageId: message.id,
+          sessionId: message.session_id,
+          partId: block.id,
+          field: 'text',
+        },
       });
       current.streaming ||= Boolean(block.streaming);
       consumed.add(block.id);
@@ -326,7 +333,12 @@ function iterationSummary(
 function compactSentence(value: string): string {
   // A one-line summary is plain text: inline markdown markers (a reasoning
   // summary's **heading**, `code`, # levels) are dropped, never shown raw.
-  const plain = value.replace(/(\*\*|__|`)/gu, '').replace(/^\s*#{1,6}\s+/gmu, '');
+  // Some providers emit consecutive summary headings without whitespace. Keep
+  // their boundaries readable without rewriting the stored reasoning text.
+  const plain = value
+    .replace(/(\*\*|__)\s*\1/gu, '$1 · $1')
+    .replace(/(\*\*|__|`)/gu, '')
+    .replace(/^\s*#{1,6}\s+/gmu, '');
   const line = plain.replace(/\s+/gu, ' ').trim();
   const sentenceEnd = line.search(/(?<=[.!?])\s/u);
   const sentence = (sentenceEnd >= 0 ? line.slice(0, sentenceEnd + 1) : line).trim();

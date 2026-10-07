@@ -300,7 +300,7 @@ export function ClioCommandMenu({
           <CommandItem onSelect={() => openRoute('/infrastructure')}>
             <NetworkIcon aria-hidden="true" /> Infrastructure
           </CommandItem>
-          <CommandItem onSelect={() => openRoute('/settings/appearance')}>
+          <CommandItem onSelect={() => openRoute('/settings/general')}>
             <SettingsIcon aria-hidden="true" /> Settings
           </CommandItem>
         </CommandGroup>

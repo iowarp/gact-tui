@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import type { Session } from '@clio/core/v3';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
@@ -72,7 +73,7 @@ async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
 
 async function alignLatestActivityAtTop(page: Page) {
   const conversation = page.getByRole('log', { name: 'Conversation' });
-  const activityHeader = conversation.getByRole('button', { name: 'Activity' }).last();
+  const activityHeader = conversation.getByRole('button', { name: /^Activity:/ }).last();
   await alignTranscriptAnchorAtTop(page, activityHeader.locator('..'));
 }
 
@@ -103,6 +104,208 @@ test.afterEach(async ({ page }) => {
   expect(unexpectedErrors.get(page) ?? []).toEqual([]);
 });
 
+test('keeps Observability tabs inside the strip and scrolls only their content vertically', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto(workspaceUrl);
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => window.localStorage.setItem('theme', value), theme);
+    await page.reload();
+    await waitForArtifactPreview(page);
+    await page.evaluate(() => document.fonts.ready);
+    await page.getByRole('button', { name: /^Evidence layout:/ }).click();
+    await page.getByRole('button', { name: 'Open observability in workspace canvas' }).click();
+    const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
+    const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
+    const resizeBounds = await resize.boundingBox();
+    if (!resizeBounds) throw new Error('Workspace canvas resize handle is missing');
+    await page.mouse.move(resizeBounds.x + resizeBounds.width / 2, resizeBounds.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(960, resizeBounds.y + 20, { steps: 5 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await canvas.boundingBox())?.width ?? 0)
+      .toBeGreaterThanOrEqual(319);
+    await expect
+      .poll(async () => (await canvas.boundingBox())?.width ?? 0)
+      .toBeLessThanOrEqual(321);
+
+    const strip = canvas.getByRole('tablist', { name: 'Observability view' });
+    for (const mode of ['docked', 'maximized'] as const) {
+      if (mode === 'maximized') {
+        await canvas.getByRole('button', { name: 'Maximize canvas' }).click();
+      }
+      for (const label of ['Evidence', 'Timeline', 'Gantt', 'Context']) {
+        const tab = strip.getByRole('tab', { name: label, exact: true });
+        await tab.click();
+        await expect(canvas.getByRole('tabpanel', { name: label, exact: true })).toBeVisible();
+        const metrics = await strip.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return {
+            verticalOverflow: element.scrollHeight - element.clientHeight,
+            horizontalOverflow: element.scrollWidth - element.clientWidth,
+            tabs: Array.from(element.querySelectorAll<HTMLElement>('[role="tab"]')).map(
+              (child) => ({
+                top: child.getBoundingClientRect().top - bounds.top,
+                bottom: child.getBoundingClientRect().bottom - bounds.bottom,
+                clippedLabel: child.scrollWidth - child.clientWidth,
+                indicatorBottom: getComputedStyle(child, '::after').bottom,
+              }),
+            ),
+          };
+        });
+        expect(metrics.verticalOverflow).toBeLessThanOrEqual(1);
+        expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
+        for (const child of metrics.tabs) {
+          expect(child.top).toBeGreaterThanOrEqual(0);
+          expect(child.bottom).toBeLessThanOrEqual(0);
+          expect(child.clippedLabel).toBeLessThanOrEqual(1);
+          expect(child.indicatorBottom).toBe('0px');
+        }
+      }
+      // A short window makes this real context content overflow in both modes.
+      await page.setViewportSize({ width: 1280, height: 400 });
+      const content = canvas.locator('[data-slot="scroll-area-viewport"]').first();
+      await content.hover();
+      await page.mouse.wheel(0, 1500);
+      await expect.poll(() => content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await expect(strip.getByRole('tab', { name: 'Context', exact: true })).toBeInViewport();
+      await page.setViewportSize({ width: 1280, height: 600 });
+      await page.mouse.move(20, 580);
+      await page.screenshot({ path: testInfo.outputPath(`observability-${theme}-${mode}.png`) });
+    }
+  }
+});
+
+test('reveals workspace creation and overflow actions without changing disclosure', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.goto(workspaceUrl);
+  const disclosure = page.getByRole('button', {
+    name: /^(?:Collapse|Expand) workspace flat-NDP$/u,
+    includeHidden: true,
+  });
+  await expect(disclosure).toBeVisible();
+  await waitForArtifactPreview(page);
+  const newSession = page.getByRole('button', {
+    name: 'New session in flat-NDP',
+    exact: true,
+    includeHidden: true,
+  });
+  const overflow = page.getByRole('button', {
+    name: 'Workspace actions for flat-NDP',
+    exact: true,
+  });
+  const actions = newSession.locator('..');
+  await page.mouse.move(1090, 790);
+  await expect(actions).toHaveCSS('opacity', '0');
+  await page.screenshot({ path: testInfo.outputPath('workspace-row-at-rest.png') });
+  await newSession.hover();
+  await expect(actions).toHaveCSS('opacity', '1');
+  await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('workspace-row-hover.png') });
+  await newSession.click();
+  const create = page.getByRole('dialog', { name: 'Create', exact: true });
+  await expect(create.getByRole('tab', { name: 'Session', exact: true })).toHaveAttribute(
+    'data-state',
+    'active',
+  );
+  await expect(create.getByRole('combobox', { name: 'Workspace', exact: true })).toHaveText(
+    'flat-NDP',
+  );
+  await create.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+  await disclosure.click();
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+  await page.mouse.move(1090, 790);
+  await overflow.focus();
+  await expect(actions).toHaveCSS('opacity', '1');
+  await overflow.click();
+  const menu = page.getByRole('menu');
+  await testInfo.attach('workspace-menu-trigger', {
+    body: JSON.stringify(
+      await actions.evaluate((element) => ({
+        expandedTrigger: element.querySelector('[aria-expanded="true"]')?.outerHTML,
+      })),
+      null,
+      2,
+    ),
+    contentType: 'application/json',
+  });
+  await expect(menu.getByRole('menuitem', { name: 'Edit workspace', exact: true })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'New session', exact: true })).toHaveCount(0);
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+  await menu.getByRole('menuitem', { name: 'Edit workspace', exact: true }).hover();
+  await expect(actions).toHaveCSS('opacity', '1');
+  await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('workspace-row-menu.png') });
+});
+
+test('keeps same-named sessions on one line and reveals details on hover or focus', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.route(/\/v1\/sessions(?:\?.*)?$/u, async (route) => {
+    const response = await route.fetch();
+    const payload = (await response.json()) as { sessions: Session[] };
+    const original = payload.sessions[0];
+    expect(original).toBeDefined();
+    await route.fulfill({
+      response,
+      json: {
+        ...payload,
+        sessions: [
+          { ...original, title: 'Unique session', message_count: 1 },
+          {
+            ...original,
+            id: 'sess_sidebar_empty',
+            title: 'Report and research',
+            state: 'completed',
+            message_count: 0,
+          },
+          {
+            ...original,
+            id: 'sess_sidebar_transcript',
+            title: 'Report and research',
+            state: 'completed',
+            created_at: '2026-08-23T00:05:00Z',
+            message_count: 7,
+          },
+        ],
+      },
+    });
+  });
+  await page.goto(workspaceUrl);
+  const duplicates = page.getByRole('link', { name: /^Report and research/u });
+  const unique = page.getByRole('link', { name: /^Unique session/u });
+  await expect(duplicates).toHaveCount(2);
+  await expect(unique).toBeVisible();
+  const rows = [unique, duplicates.nth(0), duplicates.nth(1)];
+  for (const row of rows) {
+    await expect(row).not.toContainText(/messages|Started/u);
+    expect(
+      await row.evaluate(
+        (element) => element.closest('[class~="group/row"]')?.getBoundingClientRect().height,
+      ),
+    ).toBe(32);
+  }
+  await page.screenshot({ path: testInfo.outputPath('session-rows-single-line.png') });
+  const card = page.locator('[data-slot="hover-card-content"]');
+  await duplicates.nth(0).hover();
+  await expect(card.getByText('Started', { exact: true })).toBeVisible();
+  await expect(card.getByText('No messages yet')).toBeVisible();
+  await duplicates.nth(1).hover();
+  await expect(card.getByText('7 messages')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('session-details-hover.png') });
+  await page.mouse.move(1090, 790);
+  await expect(card).toHaveCount(0);
+  await unique.focus();
+  await expect(card.getByText('1 message', { exact: true })).toBeVisible();
+  await expect(card.getByText('Started', { exact: true })).toBeVisible();
+});
+
 test('renders structured MCP v2 interactions and one live inline App', async ({ page }) => {
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/mcp-v2-ui-demo`);
   expect(seeded.ok()).toBe(true);
@@ -114,8 +317,12 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await page.goto(workspaceUrl);
   const attention = page.getByRole('region', { name: 'Agent needs your response' });
   await expect(attention.getByRole('button', { name: '3 responses needed' })).toBeVisible();
-  await expect(page.getByText('Agent is answering MCP request')).toBeVisible();
-  await expect(page.getByText('Agent answered MCP request')).toBeVisible();
+  await expect(page.locator('[data-agent-question-state="answering"]')).toContainText(
+    'Agent is reading conversation context',
+  );
+  await expect(page.locator('[data-agent-question-state="answered"]')).toContainText(
+    'Agent responded',
+  );
 
   const form = attention
     .locator('[data-interaction-kind="question"]')
@@ -178,7 +385,7 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
           (window as typeof window & { __mcpFixtureMethods?: string[] }).__mcpFixtureMethods ?? [],
       ),
     )
-    .toContain('http://127.0.0.1:18799:tools/call');
+    .toContain(`${fixtureEndpoint}:tools/call`);
   await expect
     .poll(async () => {
       const state = await page.request.get(`${fixtureEndpoint}/__test/mcp-v2-ui-state`);
@@ -196,7 +403,54 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
 });
 
-test('renders dense flat-NDP semantics with accessible interactions', async ({ page }) => {
+test('grows transcript landmarks only within the available margin', async ({ page }, testInfo) => {
+  await page.goto(workspaceUrl);
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
+  const previous = minimap.getByRole('button', { exact: true, name: 'Jump to user message 1000' });
+  const marker = previous.locator('[data-slot="transcript-minimap-landmark"]');
+  for (const width of [1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await settleConversationAtLatest(page);
+    await page.mouse.move(width - 40, 20);
+    await expect(previous).toBeVisible();
+    const column = page.locator('[data-slot="transcript-column"]');
+    const before = await column.boundingBox();
+    const resting = await marker.boundingBox();
+    expect(resting!.width).toBeGreaterThan(12);
+    expect(resting!.width).toBeLessThanOrEqual(18);
+    if (width === 1920)
+      await page.screenshot({ path: testInfo.outputPath('minimap-wide-rest.png') });
+    await previous.hover();
+    const railWidth = (await minimap.boundingBox())!.width;
+    await expect(marker).toHaveCSS('width', `${railWidth - 4}px`);
+    expect(railWidth).toBeGreaterThan(28);
+    expect(railWidth).toBeLessThanOrEqual(60);
+    const hovered = await marker.boundingBox();
+    expect(hovered!.x + hovered!.width).toBeLessThan(before!.x);
+    const after = await column.boundingBox();
+    expect(after!.x).toBe(before!.x);
+    expect(after!.width).toBe(before!.width);
+    if (width === 1920)
+      await page.screenshot({ path: testInfo.outputPath('minimap-wide-hover.png') });
+  }
+  // The wider text preference leaves less spare margin at this viewport.
+  await page.evaluate(() =>
+    localStorage.setItem('clio.appearance.v1', JSON.stringify({ conversationWidth: 'wide' })),
+  );
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  await settleConversationAtLatest(page);
+  await expect(minimap).toHaveCSS('width', '28px');
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(minimap).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open transcript outline' })).toBeVisible();
+  await expect(conversation).toBeVisible();
+});
+
+test('renders dense flat-NDP semantics with accessible interactions', async ({
+  page,
+}, testInfo) => {
   await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
 
@@ -232,7 +486,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
       const composerSurface = await composerStack
         .locator('[data-slot="input-group"]')
         .evaluate((element) => getComputedStyle(element).backgroundColor);
-      return composerSurface === responseSurface;
+      // The composer has its own opaque, more visible surface. The attention
+      // tray retains its shared card surface above it.
+      return composerSurface !== responseSurface && composerSurface !== 'rgba(0, 0, 0, 0)';
     })
     .toBe(true);
   const expandedConversationBounds = await conversation.boundingBox();
@@ -306,7 +562,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
   await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(minimap).toHaveCSS('box-shadow', 'none');
-  await expect(minimap).toHaveCSS('width', '28px');
+  const railWidth = (await minimap.boundingBox())!.width;
+  expect(railWidth).toBeGreaterThan(28);
+  expect(railWidth).toBeLessThanOrEqual(60);
   await expect
     .poll(async () => {
       const rail = await minimap.boundingBox();
@@ -316,20 +574,21 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
     })
     .toBe(true);
   const activeMarker = activeLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  await expect(activeMarker).toHaveCSS('width', '24px');
-  await expect(activeMarker).toHaveCSS('height', '4px');
+  await expect(activeMarker).toHaveCSS('width', `${railWidth - 4}px`);
+  await expect(activeMarker).toHaveCSS('height', '5px');
   await expect(activeMarker).toHaveCSS('opacity', '1');
   const previousLandmark = minimap.getByRole('button', {
     exact: true,
     name: 'Jump to user message 1000',
   });
   const previousMarker = previousLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  await expect(previousMarker).toHaveCSS('width', '12px');
-  await expect(previousMarker).toHaveCSS('height', '2px');
+  expect((await previousMarker.boundingBox())!.width).toBeGreaterThan(12);
+  expect((await previousMarker.boundingBox())!.width).toBeLessThanOrEqual(18);
+  await expect(previousMarker).toHaveCSS('height', '3px');
   await expect(previousMarker).toHaveCSS('opacity', '0.6');
   await previousLandmark.hover();
-  await expect(previousMarker).toHaveCSS('width', '24px');
-  await expect(previousMarker).toHaveCSS('height', '4px');
+  await expect(previousMarker).toHaveCSS('width', `${railWidth - 4}px`);
+  await expect(previousMarker).toHaveCSS('height', '5px');
   await expect(previousMarker).toHaveCSS('opacity', '1');
   const previousBounds = await previousLandmark.boundingBox();
   const activeBounds = await activeLandmark.boundingBox();
@@ -390,6 +649,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   // own apt-installed font packages moving between when an image is built
   // and when `playwright install --with-deps` runs, not a baseline chosen
   // to paper over a real difference.
+  await page.screenshot({ path: testInfo.outputPath('workspace-desktop-reviewed.png') });
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', {
     animations: 'allow',
     maxDiffPixels: 3500,
@@ -542,7 +802,7 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
 
 test('keeps navigation and workspace canvas accessible on mobile with reduced motion', async ({
   page,
-}) => {
+}, testInfo) => {
   await page.setViewportSize({ width: 720, height: 900 });
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await page.addInitScript(() => localStorage.setItem('theme', 'light'));
@@ -557,6 +817,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   // matches about half the time.
   await settleConversationAtLatest(page);
   await alignTranscriptAnchorAtTop(page, page.locator('[data-slot="sub-agent-dispatch"]'));
+  await page.screenshot({ path: testInfo.outputPath('workspace-mobile-reviewed.png') });
   await expect(page).toHaveScreenshot('workspace-mobile-light-reduced.png', {
     animations: 'disabled',
     maxDiffPixels: 1500,
@@ -686,13 +947,15 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
-  // "Working" is rendered twice on purpose: the dock's visible status badge and
-  // the persistent sr-only live region that mirrors it so a status change is
-  // announced. Scope to the dock button, which the live region sits outside of.
+  // The top-toolbar toggle announces its layout and evidence count. The
+  // persistent live region retains work status without a second visible badge.
   const observabilityDock = page.getByRole('button', {
-    name: 'Open observability in workspace canvas',
+    name: /^Evidence layout:/,
   });
-  await expect(observabilityDock.getByText('Working', { exact: true })).toBeVisible();
+  await expect(observabilityDock).toHaveAttribute('title', /1 background activity/);
+  await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Working$/ })).toHaveCount(
+    1,
+  );
   await expect(page.getByText('Running', { exact: true })).toHaveCount(0);
   // The session row carries one indicator and attention outranks activity, so
   // this running session shows what it is waiting for rather than a spinner.

@@ -131,6 +131,8 @@ describe('ArtifactProvenance', () => {
     );
     expect(await screen.findByText('Build report')).toBeInTheDocument();
     expect(screen.getByLabelText('Artifact lineage graph')).toBeVisible();
+    expect(screen.queryByText('Research execution')).not.toBeInTheDocument();
+    expect(repository.executionProvenance).not.toHaveBeenCalled();
     expect(repository.artifactLineage).toHaveBeenCalledWith(
       'artifact_2',
       { direction: 'both', depth: 5 },
@@ -189,9 +191,7 @@ describe('ArtifactProvenance', () => {
 
     expect(await screen.findByText('Version history unavailable')).toBeVisible();
     expect(screen.getByText(/saved content remains readable/i)).toBeVisible();
-    expect(
-      screen.queryByText('artifact not found: artifact_internal_123'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('artifact not found: artifact_internal_123')).not.toBeInTheDocument();
     await user.click(screen.getByText('Technical details'));
     expect(screen.getByText('artifact not found: artifact_internal_123')).toBeVisible();
     versions.unmount();
@@ -211,100 +211,17 @@ describe('ArtifactProvenance', () => {
         />
       </QueryClientProvider>,
     );
-    expect(await screen.findByText('Declared evidence index unavailable')).toBeVisible();
+    expect(await screen.findByText('Lineage unavailable')).toBeVisible();
     expect(
       screen.queryByText('lineage index missing for artifact_internal_123'),
     ).not.toBeInTheDocument();
   });
 
-  it('keeps research execution visible when the declared evidence index is unavailable', async () => {
+  it('does not fetch or render execution history when lineage is unavailable', async () => {
     repository.artifactLineage.mockRejectedValueOnce(new Error('artifact registry is rebuilding'));
-    repository.executionProvenance.mockResolvedValueOnce({
-      schema_version: 'clio.execution_provenance.v1',
-      provider: 'native',
-      session_id: 'sess_1',
-      root_session_id: 'sess_1',
-      complete: true,
-      truncated: false,
-      provider_health: {},
-      campaigns: [],
-      workflows: [],
-      agents: [],
-      session_lineage: [],
-      spans: [
-        {
-          id: 'artifact-created',
-          parent_id: '',
-          kind: 'artifact',
-          session_id: 'sess_1',
-          workflow_id: '',
-          campaign_id: '',
-          agent_id: '',
-          source_agent_id: '',
-          label: 'Artifact created',
-          event_type: 'artifact.created',
-          status: 'completed',
-          start_time: 2,
-          end_time: 2,
-          duration_ms: 0,
-          host: '',
-          artifact_refs: [{ artifact_id: 'artifact_2', sha256: 'a'.repeat(64) }],
-          attributes: {},
-          source_event_ids: ['artifact-created'],
-        },
-      ],
-      nodes: [
-        {
-          id: 'session:sess_1',
-          kind: 'session',
-          label: 'Research session',
-          status: 'completed',
-          session_id: 'sess_1',
-          agent_id: '',
-          start_time: null,
-          end_time: null,
-          attributes: {},
-        },
-        {
-          id: 'tool:fetch',
-          kind: 'tool',
-          label: 'researcher model action 1: web_fetch',
-          status: 'completed',
-          session_id: 'sess_1',
-          agent_id: 'researcher',
-          start_time: 1,
-          end_time: 1,
-          attributes: {
-            tool_name: 'web_fetch',
-            tool_input: { target: 'https://example.test/paper.pdf' },
-          },
-        },
-        {
-          id: 'artifact:artifact_2',
-          kind: 'artifact',
-          label: 'result.csv',
-          status: 'available',
-          session_id: 'sess_1',
-          agent_id: '',
-          start_time: null,
-          end_time: null,
-          attributes: { artifact_id: 'artifact_2' },
-        },
-      ],
-      edges: [
-        { id: 'contains', source: 'session:sess_1', target: 'tool:fetch', kind: 'contains' },
-        {
-          id: 'generated',
-          source: 'session:sess_1',
-          target: 'artifact:artifact_2',
-          kind: 'generated',
-        },
-      ],
-    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
+      <QueryClientProvider client={queryClient}>
         <ArtifactProvenance
           artifact={{
             id: 'artifact_2',
@@ -318,13 +235,15 @@ describe('ArtifactProvenance', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText('Declared evidence index unavailable')).toBeVisible();
-    expect(await screen.findByText('Research execution')).toBeVisible();
-    expect(screen.getByText('Fetch target')).toBeInTheDocument();
-    expect(repository.executionProvenance).toHaveBeenCalledWith(
-      'sess_1',
-      { provider: 'native', includeChildren: true, limit: 10_000 },
-      expect.any(AbortSignal),
-    );
+    expect(await screen.findByText('Lineage unavailable')).toBeVisible();
+    expect(screen.getByText(/saved content remains readable/i)).toBeVisible();
+    expect(screen.queryByText('Research execution')).not.toBeInTheDocument();
+    expect(repository.executionProvenance).not.toHaveBeenCalled();
+    expect(
+      queryClient
+        .getQueryCache()
+        .findAll()
+        .some((query) => query.queryKey.includes('execution-provenance')),
+    ).toBe(false);
   });
 });

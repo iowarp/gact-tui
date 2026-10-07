@@ -1,14 +1,15 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { SessionDefaults } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BotIcon, BrainCircuitIcon, ShieldCheckIcon } from 'lucide-react';
-import { SaveIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState } from 'react';
+import { ChevronDownIcon } from 'lucide-react';
+import { RetryIcon, SaveIcon } from '@/lib/icon-vocabulary';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { Frame, FramePanel } from '@/components/reui/frame';
+import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
+import { Frame, FrameFooter, FramePanel } from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { FieldGroup } from '@/components/ui/field';
 import {
   Select,
   SelectContent,
@@ -18,35 +19,36 @@ import {
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
+import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { providerDisplayName } from '@/lib/provider-presentation';
+import { providerLogoId } from '@/lib/provider-presentation';
+import { findSelectedModelOption, type ClioModelOption } from '@/lib/model-options';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
+import { SettingsRow } from './settings-row';
 import { ReasoningLevelField } from './reasoning-level-field';
 import { sessionDefaultsPatch } from './session-defaults-patch';
-import { ClioSettingsSection } from './settings-section';
+import { SettingsSectionHeading } from './settings-section-heading';
+import { ClioModelPicker } from './model-picker';
+import { composerModelLabel } from './composer-model-label';
 import {
   SESSION_APPROVAL_OPTIONS,
   SESSION_MODE_OPTIONS,
   SESSION_MODE_PATCHES,
 } from './session-behavior-options';
 
-const inheritedModel = '__service_default__';
 const standardBlueprint = '__standard__';
 
 function SectionHeading() {
   return (
-    <header>
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight">New session defaults</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Choose how newly created sessions begin. Existing sessions keep their current agent, model,
-        working mode, and access rules.
-      </p>
-    </header>
+    <SettingsSectionHeading
+      title="New session defaults"
+      description="Choose how new sessions start."
+    />
   );
 }
 
+/** Starting choices for new sessions, using the composer's shared model picker. */
 export function SessionDefaultsSettings() {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -56,10 +58,7 @@ export function SessionDefaultsSettings() {
     queryKey: queryKeys.key('session-defaults', settings.endpoint),
     queryFn: ({ signal }) => repository.sessionDefaults(signal),
   });
-  const modelConfiguration = useQuery({
-    queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-    queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
-  });
+  const { configuration: modelConfiguration, catalog, options } = useProviderGroups();
   const blueprints = useQuery({
     queryKey: queryKeys.key('agent-blueprints', settings.endpoint, 'session-defaults'),
     queryFn: ({ signal }) => repository.agentBlueprints(undefined, signal),
@@ -79,35 +78,17 @@ export function SessionDefaultsSettings() {
     setDraft({ source: defaults.data, value });
   };
 
-  const selectedPreset = modelConfiguration.data?.presets.find(
-    (preset) => preset.id === form?.provider_id,
-  );
-  const modelCatalog = useQuery({
-    enabled: Boolean(form?.provider_id && selectedPreset?.is_authenticated),
-    queryKey: queryKeys.key('provider-models', settings.endpoint, form?.provider_id),
-    queryFn: ({ signal }) => repository.providerModels(form?.provider_id ?? '', signal),
-  });
-  // The model new sessions will start on: the pinned one, else the service
-  // default. provider_id only -- modelConfiguration.data?.provider is the
-  // wire kind, not an identity (#1418).
+  const providerId = form?.provider_id || modelConfiguration.data?.provider_id;
+  const modelId = form?.provider_id ? form.model_id : modelConfiguration.data?.model;
+  const selectedModel = findSelectedModelOption(options, providerId, modelId);
   const reasoning = useModelReasoningLevels(
-    form?.provider_id || modelConfiguration.data?.provider_id,
-    form?.provider_id ? form.model_id : modelConfiguration.data?.model,
-    // Only the service default's own resolution applies; a pinned model_id is
-    // already a real catalog id and matches by id directly.
+    providerId,
+    modelId,
     form?.provider_id ? undefined : modelConfiguration.data?.resolved_model_id,
   );
-  const modelOptions = useMemo(() => {
-    const rows = modelCatalog.data?.models ?? [];
-    if (rows.length) return rows;
-    const fallback = [form?.model_id, selectedPreset?.suggested_model].filter(
-      (value): value is string => Boolean(value),
-    );
-    return [...new Set(fallback)].map((id) => ({ id, name: id }));
-  }, [form?.model_id, modelCatalog.data?.models, selectedPreset?.suggested_model]);
 
   const save = useMutation({
-    // An unset effort is sent as null: "use the selected model's own default".
+    // An unset effort is sent as null: use the selected model's own default.
     mutationFn: (value: SessionDefaults) =>
       repository.updateSessionDefaults(sessionDefaultsPatch(value)),
     onSuccess: (value) => {
@@ -117,6 +98,18 @@ export function SessionDefaultsSettings() {
     },
     onError: (error) => toast.error(error.message),
   });
+
+  if (defaults.error) {
+    return (
+      <div className="grid gap-6">
+        <SectionHeading />
+        <Alert variant="destructive">
+          <AlertTitle>New session defaults unavailable</AlertTitle>
+          <AlertDescription>{defaults.error.message}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   if (defaults.isPending || !form) {
     return (
@@ -131,140 +124,111 @@ export function SessionDefaultsSettings() {
     );
   }
 
-  if (defaults.error) {
-    return (
-      <div className="grid gap-6">
-        <SectionHeading />
-        <Alert variant="destructive">
-          <AlertTitle>New session defaults unavailable</AlertTitle>
-          <AlertDescription>{defaults.error.message}</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   const update = <Key extends keyof SessionDefaults>(key: Key, value: SessionDefaults[Key]) =>
     setForm((current) => (current ? { ...current, [key]: value } : current));
-  const modelValue = form.provider_id ? form.provider_id : inheritedModel;
   const blueprintValue = form.blueprint_id || standardBlueprint;
   const selectedMode =
     SESSION_MODE_OPTIONS.find((option) => option.value === form.mode) ?? SESSION_MODE_OPTIONS[0];
   const selectedApproval =
     approvalOptions.find((option) => option.value === form.approval_mode) ?? approvalOptions[0];
 
+  function chooseModel(choice: ClioModelOption) {
+    if (!form) return;
+    setForm({
+      ...form,
+      provider_id: choice.providerId,
+      model_id: choice.id,
+      effort:
+        form.effort && form.effort !== 'unknown' && choice.reasoning?.levels.includes(form.effort)
+          ? form.effort
+          : undefined,
+    });
+  }
+
   return (
     <div className="grid gap-6">
       <SectionHeading />
-      <ClioSettingsSection
-        description="Inherit the service model or pin new sessions to another available model."
-        title={
-          <>
-            <BrainCircuitIcon aria-hidden="true" className="size-4 text-primary" /> Model and
-            reasoning
-          </>
-        }
-      >
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="session-default-provider">Model source</FieldLabel>
-            <Select
-              onValueChange={(value) => {
-                if (value === inheritedModel) {
-                  setForm({ ...form, provider_id: '', model_id: '' });
-                  return;
+      <div data-slot="session-defaults-panel">
+        <FieldGroup className="gap-0">
+          <SettingsRow
+            htmlFor="session-default-model"
+            title="Model"
+            info={
+              form.provider_id
+                ? 'This model is pinned for new sessions. Reset it to follow the model in Models settings.'
+                : 'New sessions follow the model in Models settings. Choose a model here to pin it for new sessions.'
+            }
+          >
+            <div className="flex min-w-0 max-w-full items-center gap-2">
+              <ClioModelPicker
+                catalogStatus={
+                  catalog.isPending && !catalog.data
+                    ? 'loading'
+                    : catalog.error && !catalog.data
+                      ? 'error'
+                      : 'ready'
                 }
-                const preset = modelConfiguration.data?.presets.find((item) => item.id === value);
-                setForm({
-                  ...form,
-                  provider_id: value,
-                  model_id: preset?.suggested_model ?? '',
-                });
-              }}
-              value={modelValue}
-            >
-              <SelectTrigger id="session-default-provider">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={inheritedModel}>
-                  <span className="flex min-w-0 items-baseline gap-2">
-                    <span>Use Models default</span>
-                    {modelConfiguration.data?.model ? (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {modelConfiguration.data.model}
-                      </span>
+                // Inheritance is the effective model, not a pinned choice.
+                // Selecting that same row must be able to create an override.
+                model={form.provider_id ? (selectedModel?.id ?? modelId) : undefined}
+                onChange={chooseModel}
+                onRetryCatalog={(id) => catalog.refreshCatalog(id)}
+                options={options}
+                provider={providerId}
+                title="Choose a model for new sessions"
+                trigger={
+                  <Button
+                    aria-label="Change default model"
+                    className="min-w-0 max-w-full shrink"
+                    id="session-default-model"
+                    type="button"
+                    variant="outline"
+                  >
+                    {providerId ? (
+                      <ModelSelectorLogo provider={providerLogoId(providerId)} />
                     ) : null}
-                  </span>
-                </SelectItem>
-                {modelConfiguration.data?.presets.map((preset) => (
-                  <SelectItem disabled={!preset.is_authenticated} key={preset.id} value={preset.id}>
-                    <span className="flex min-w-0 items-baseline gap-2">
-                      <span className="truncate">{providerDisplayName(preset)}</span>
-                      {!preset.is_authenticated ? (
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          Sign-in needed
-                        </span>
-                      ) : null}
+                    <span className="truncate">
+                      {selectedModel
+                        ? composerModelLabel(selectedModel)
+                        : modelId || 'Choose model'}
                     </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          {form.provider_id ? (
-            <Field>
-              <FieldLabel htmlFor="session-default-model">Model</FieldLabel>
-              <Select
-                disabled={modelCatalog.isFetching}
-                onValueChange={(value) => update('model_id', value)}
-                value={form.model_id}
-              >
-                <SelectTrigger id="session-default-model">
-                  <SelectValue placeholder="Choose a model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {modelOptions.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name ?? ('label' in model ? model.label : undefined) ?? model.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldDescription title={modelCatalog.data?.source}>
-                {modelCatalog.error
-                  ? `Live choices unavailable: ${modelCatalog.error.message}`
-                  : modelCatalog.data?.source
-                    ? 'Available models were checked by the connected agent.'
-                    : 'Availability comes from the connected service.'}
-              </FieldDescription>
-            </Field>
-          ) : null}
+                    <ChevronDownIcon aria-hidden="true" />
+                  </Button>
+                }
+              />
+              {form.provider_id ? (
+                <Button
+                  aria-label="Use model from Models settings"
+                  title="Use model from Models settings"
+                  className="shrink-0 text-muted-foreground"
+                  onClick={() => setForm({ ...form, provider_id: '', model_id: '' })}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <RetryIcon aria-hidden="true" />
+                </Button>
+              ) : null}
+            </div>
+          </SettingsRow>
           <ReasoningLevelField
             allowModelDefault
-            description={
+            info={
               form.effort === 'unknown'
                 ? 'The service reported a starting effort this build does not know; saving resets it to the model default.'
-                : 'Sets the starting thinking depth for new sessions, from the levels this model offers. You can change it again from the composer.'
+                : 'The starting thinking depth for new sessions. You can change it again from the composer.'
             }
             id="session-default-effort"
+            layout="row"
             onChange={(effort) => update('effort', effort)}
             reasoning={reasoning}
             value={form.effort}
           />
-        </FieldGroup>
-      </ClioSettingsSection>
-
-      <ClioSettingsSection
-        description="A domain blueprint can add experts, tools, and instructions to every new session."
-        title={
-          <>
-            <BotIcon aria-hidden="true" className="size-4 text-primary" /> Agent and work mode
-          </>
-        }
-      >
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="session-default-blueprint">Agent blueprint</FieldLabel>
+          <SettingsRow
+            htmlFor="session-default-blueprint"
+            title="Agent"
+            info="An agent blueprint adds its experts, tools and instructions to new sessions."
+          >
             <Select
               onValueChange={(value) =>
                 update('blueprint_id', value === standardBlueprint ? '' : value)
@@ -286,9 +250,12 @@ export function SessionDefaultsSettings() {
                   ))}
               </SelectContent>
             </Select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="session-default-mode">Default work mode</FieldLabel>
+          </SettingsRow>
+          <SettingsRow
+            htmlFor="session-default-mode"
+            title="Work mode"
+            info={selectedMode.description}
+          >
             <Select
               onValueChange={(value) => {
                 const patch = SESSION_MODE_PATCHES[value as SessionDefaults['mode']];
@@ -310,59 +277,46 @@ export function SessionDefaultsSettings() {
                 })}
               </SelectContent>
             </Select>
-            <FieldDescription>{selectedMode.description}</FieldDescription>
-          </Field>
-        </FieldGroup>
-      </ClioSettingsSection>
-
-      <ClioSettingsSection
-        description="Choose when new sessions pause before protected actions. Workspace and organization rules still apply."
-        footer={
-          <div className="flex flex-wrap items-center gap-3">
-            <Button disabled={save.isPending} onClick={() => save.mutate(form)}>
-              <SaveIcon aria-hidden="true" />
-              {save.isPending ? 'Saving…' : 'Save new session defaults'}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Saved to {settings.label?.trim() || 'the connected agent'}.
-            </p>
-          </div>
-        }
-        title={
-          <>
-            <ShieldCheckIcon aria-hidden="true" className="size-4 text-primary" /> Confirmations
-          </>
-        }
-      >
-        <Field>
-          <FieldLabel htmlFor="session-default-approval">Default confirmation policy</FieldLabel>
-          <Select
-            onValueChange={(value) =>
-              update('approval_mode', value as SessionDefaults['approval_mode'])
-            }
-            value={form.approval_mode}
+          </SettingsRow>
+          <SettingsRow
+            htmlFor="session-default-approval"
+            title="Confirmations"
+            info={<>{selectedApproval.description} Workspace and organization rules still apply.</>}
+            description={unavailableApprovalNotice(approvalOptions)}
           >
-            <SelectTrigger id="session-default-approval">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {approvalOptions.map((option) => {
-                const Icon = option.icon;
-                return (
-                  <SelectItem disabled={option.disabled} key={option.value} value={option.value}>
-                    <Icon aria-hidden="true" className="size-4" /> {option.label}
-                    {option.disabled ? ' (unavailable)' : null}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          <FieldDescription>{selectedApproval.description}</FieldDescription>
-          {unavailableApprovalNotice(approvalOptions) ? (
-            <FieldDescription>{unavailableApprovalNotice(approvalOptions)}</FieldDescription>
-          ) : null}
-        </Field>
-      </ClioSettingsSection>
+            <Select
+              onValueChange={(value) =>
+                update('approval_mode', value as SessionDefaults['approval_mode'])
+              }
+              value={form.approval_mode}
+            >
+              <SelectTrigger id="session-default-approval">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {approvalOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <SelectItem disabled={option.disabled} key={option.value} value={option.value}>
+                      <Icon aria-hidden="true" className="size-4" /> {option.label}
+                      {option.disabled ? ' (unavailable)' : null}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+        </FieldGroup>
+        <FrameFooter className="mt-4 flex-row justify-start">
+          <Button disabled={save.isPending} onClick={() => save.mutate(form)}>
+            <SaveIcon aria-hidden="true" />
+            {save.isPending ? 'Saving…' : 'Save defaults'}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Saved to {settings.label?.trim() || 'the connected agent'}.
+          </p>
+        </FrameFooter>
+      </div>
     </div>
   );
 }

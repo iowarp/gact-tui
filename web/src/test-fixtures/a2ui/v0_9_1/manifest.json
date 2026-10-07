@@ -1,5 +1,5 @@
 {
-  "commit": "94ca91501697972afc246dd6a348d30464322a5d",
+  "commit": "cab116da42fdfd620c1c251cb83eca9df44dd162",
   "examples": {
     "examples/00_complex-layout.json": "ed212b67775521aca4b9843549ebeafc187531ce3744c9d23c6ff05e3fef4eeb",
     "examples/00_formatted-text.json": "6e4f63093895f7bbbd9f7b119f2c5024ca8eb0abd42d0e027270bccfa5e85851",
@@ -48,7 +48,7 @@
   "catalogs": {
     "catalogs/basic/catalog.json": "8cc94d0a482e67048f9fc989964ca5da56fe42f531d919315a508989fb22e13e",
     "catalogs/basic/catalog.clio.json": "11a1e1312cf5b47239aa122f497b5f521ec78ff5503298eec21682a7368c3e20",
-    "catalogs/clio-workspace/v1/catalog.json": "083a4411bf57df2087162d9c00aaf25cdd0e77719f7a70abcfd7617947a9734f",
-    "catalogs/clio-workspace/v1/catalog.clio.json": "b6fc044da6af348c53fae9dc7e0d14f1f730e6f46689d5a127f2a7a14da979b5"
+    "catalogs/clio-workspace/v1/catalog.json": "9e6e8d990bfc997bfdd4a2ae9f73c76ee834f7ff367a580d4ee6da94797d911e",
+    "catalogs/clio-workspace/v1/catalog.clio.json": "ef436908a04653bc4fced9d56f19c9cd2fb3baccf7010dbf4f007e6ed8e8bb62"
   }
 }

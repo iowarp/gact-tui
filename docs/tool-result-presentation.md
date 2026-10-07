@@ -5,7 +5,7 @@ and what is happening now. Technical details preserve maximum observability
 without forcing the reader to decode JSON to understand the work.
 
 Tools and children share `ActivityRow`: the same alignment, icon scale, readable
-14px details, status, and timing. Declared blocks sit beneath the row without a
+13px action text, 12px supporting details, status, and timing. Declared blocks sit beneath the row without a
 large outer card. Arguments and raw JSON remain in Technical details.
 
 `ToolResultPresentation` renders block types, not tool names or incidental result

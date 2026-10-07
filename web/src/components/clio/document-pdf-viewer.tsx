@@ -1,24 +1,16 @@
 import type { DocumentAnchor } from '@clio/core/v3';
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  SquareStackIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
-} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { Button } from '@/components/ui/button';
-import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group';
-import { Toggle } from '@/components/ui/toggle';
+import { ViewerZoomControls } from './viewer-zoom-controls';
 import { PDF_PAGE_GAP_PX } from '@/lib/runtime-limits';
 import {
   estimatedPdfPageHeight,
   fitPdfPageWidth,
   pdfPageNumbers,
   pdfPageWindow,
+  pdfRenderDensity,
 } from './document-pdf-window';
 import { ClioStatus } from './status';
 
@@ -45,12 +37,11 @@ export function ClioDocumentPdfViewer({
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pageCount, setPageCount] = useState(0);
-  const [pageNumber, setPageNumber] = useState(
-    initialPage && initialPage > 0 ? initialPage : 1,
-  );
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
-  const [paged, setPaged] = useState(false);
+  const zoomIn = useCallback(() => setScale((value) => Math.min(1.75, value + 0.15)), []);
+  const zoomOut = useCallback(() => setScale((value) => Math.max(0.7, value - 0.15)), []);
+  const resetZoom = useCallback(() => setScale(1), []);
   const [scroll, setScroll] = useState({ top: 0, viewport: 0 });
   const [measured, setMeasured] = useState<{ geometry: string; height: number }>();
   // pdf.js transfers a typed array it is handed to its worker thread, which
@@ -61,7 +52,7 @@ export function ClioDocumentPdfViewer({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const update = (width: number) => setHostWidth(Math.max(280, width - 32));
+    const update = (width: number) => setHostWidth(Math.max(1, width - 32));
     update(host.getBoundingClientRect().width);
     const observer = new ResizeObserver(([entry]) => {
       if (entry) update(entry.contentRect.width);
@@ -89,12 +80,9 @@ export function ClioDocumentPdfViewer({
     return () => observer.disconnect();
   }, [readScroll]);
 
-  // Continuous-scroll mode never reads `pageNumber` for what it renders — the
-  // scroll position alone decides the window (`pdfPageWindow`). Seeding
-  // `pageNumber` therefore opens paged mode on the right page, but continuous
-  // mode still shows page 1 until this jumps the scroll container to it, once
-  // a REAL rendered page has told us its actual height: the first page to
-  // mount (page 1, at the initial scrollTop of 0) always renders before any
+  // The scroll position alone decides the page window. An initial-page anchor
+  // jumps the scroll container once a real rendered page supplies its height.
+  // The first page to mount (page 1, at the initial scrollTop of 0) renders before any
   // page after it can, so waiting for `measured` before computing the jump
   // trades one page-1 flash for a jump built on this document's true page
   // height rather than the generic aspect-ratio estimate. Guarded by a ref,
@@ -111,9 +99,9 @@ export function ClioDocumentPdfViewer({
     const container = scrollRef.current;
     if (!container) return;
     scrolledToInitialPageRef.current = true;
-    container.scrollTop = Math.max(0, (initialPage - 1) * measured.height);
+    container.scrollTop = Math.max(0, (Math.min(initialPage, pageCount) - 1) * measured.height);
     readScroll();
-  }, [initialPage, measured, readScroll]);
+  }, [initialPage, measured, pageCount, readScroll]);
 
   // A rendered page is the only honest page height. The estimate stands in
   // until one exists, and a measurement taken at a different width or zoom is
@@ -163,84 +151,34 @@ export function ClioDocumentPdfViewer({
     onSelection({
       profile: 'pdf-quad',
       exact,
-      page_index: Number.isInteger(pageIndex) ? pageIndex : pageNumber - 1,
+      page_index: Number.isInteger(pageIndex) ? pageIndex : 0,
       quads,
     });
   };
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3" ref={hostRef}>
-      <div className="z-10 flex min-h-10 flex-wrap items-center gap-1.5 border-b bg-background/95 px-2 py-1 backdrop-blur">
-        {paged ? (
-          <ButtonGroup aria-label="PDF page navigation">
-            <Button
-              aria-label="Previous PDF page"
-              disabled={pageNumber <= 1}
-              onClick={() => setPageNumber((page) => Math.max(1, page - 1))}
-              size="icon-sm"
-              variant="outline"
-            >
-              <ChevronLeftIcon aria-hidden="true" />
-            </Button>
-            <ButtonGroupText className="min-w-24 justify-center px-2 font-mono text-xs">
-              Page {pageNumber} of {pageCount || '…'}
-            </ButtonGroupText>
-            <Button
-              aria-label="Next PDF page"
-              disabled={!pageCount || pageNumber >= pageCount}
-              onClick={() => setPageNumber((page) => Math.min(pageCount, page + 1))}
-              size="icon-sm"
-              variant="outline"
-            >
-              <ChevronRightIcon aria-hidden="true" />
-            </Button>
-          </ButtonGroup>
-        ) : (
-          <span className="px-1.5 font-mono text-xs text-muted-foreground">
-            {pageCount ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'}` : 'Loading pages…'}
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-1">
-          <ButtonGroup aria-label="PDF zoom">
-            <Button
-              aria-label="Zoom PDF out"
-              disabled={scale <= 0.7}
-              onClick={() => setScale((value) => Math.max(0.7, value - 0.15))}
-              size="icon-sm"
-              variant="outline"
-            >
-              <ZoomOutIcon aria-hidden="true" />
-            </Button>
-            <ButtonGroupText className="min-w-11 justify-center px-1.5 font-mono text-[10px]">
-              {Math.round(scale * 100)}%
-            </ButtonGroupText>
-            <Button
-              aria-label="Zoom PDF in"
-              disabled={scale >= 1.75}
-              onClick={() => setScale((value) => Math.min(1.75, value + 0.15))}
-              size="icon-sm"
-              variant="outline"
-            >
-              <ZoomInIcon aria-hidden="true" />
-            </Button>
-          </ButtonGroup>
-          <Toggle
-            aria-label="Use paged PDF view"
-            onPressedChange={setPaged}
-            pressed={paged}
-            size="sm"
-            title={paged ? 'Use continuous scroll' : 'Use paged view'}
-            variant="outline"
-          >
-            <SquareStackIcon aria-hidden="true" />
-          </Toggle>
-        </div>
-      </div>
+    <div className="flex h-full min-h-0 flex-col" ref={hostRef}>
+      <ViewerZoomControls
+        percent={scale * 100}
+        onIn={zoomIn}
+        onOut={zoomOut}
+        onFit={resetZoom}
+        disabledIn={scale >= 1.75}
+        disabledOut={scale <= 0.7}
+        labels={{
+          in: 'Zoom in',
+          out: 'Zoom out',
+          reset: 'Reset zoom',
+          fit: 'Fit document to view',
+          menu: 'PDF actions',
+          group: 'PDF zoom',
+        }}
+      />
       {/* The page window follows this element's scroll position, so the viewer
           owns its scroll region rather than riding whichever ancestor happens
           to scroll — every host has to give it a bounded box. */}
       <div
-        className="min-h-0 overflow-auto"
+        className="min-h-0 flex-1 overflow-auto px-3 py-3"
         data-pdf-scroller=""
         onScroll={readScroll}
         ref={scrollRef}
@@ -255,44 +193,35 @@ export function ClioDocumentPdfViewer({
           }
           file={file}
           loading={<p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>}
-          onLoadSuccess={({ numPages }) => {
-            setPageCount(numPages);
-            setPageNumber((page) => Math.min(page, numPages));
-          }}
+          onLoadSuccess={({ numPages }) => setPageCount(numPages)}
         >
-          {paged ? (
-            <PdfPage
-              onMouseUp={captureSelection}
-              pageNumber={pageNumber}
-              scale={scale}
-              width={pageWidth}
+          <div className="grid gap-3">
+            <div
+              aria-hidden="true"
+              data-pdf-spacer="leading"
+              style={{ height: `${pageWindow.leadingSpacerPx}px` }}
             />
-          ) : (
-            <div className="grid gap-3">
-              <div
-                aria-hidden="true"
-                data-pdf-spacer="leading"
-                style={{ height: `${pageWindow.leadingSpacerPx}px` }}
+            {windowedPages.map((visiblePage) => (
+              <PdfPage
+                key={visiblePage}
+                onMeasure={visiblePage === pageWindow.first ? measurePage : undefined}
+                onMouseUp={captureSelection}
+                pageNumber={visiblePage}
+                scale={scale}
+                width={pageWidth}
               />
-              {windowedPages.map((visiblePage) => (
-                <PdfPage
-                  key={visiblePage}
-                  onMeasure={visiblePage === pageWindow.first ? measurePage : undefined}
-                  onMouseUp={captureSelection}
-                  pageNumber={visiblePage}
-                  scale={scale}
-                  width={pageWidth}
-                />
-              ))}
-              <div
-                aria-hidden="true"
-                data-pdf-spacer="trailing"
-                style={{ height: `${pageWindow.trailingSpacerPx}px` }}
-              />
-            </div>
-          )}
+            ))}
+            <div
+              aria-hidden="true"
+              data-pdf-spacer="trailing"
+              style={{ height: `${pageWindow.trailingSpacerPx}px` }}
+            />
+          </div>
         </Document>
       </div>
+      <footer className="shrink-0 border-t px-3 py-1 font-mono text-[10px] text-muted-foreground">
+        {pageCount ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'}` : 'Loading pages…'}
+      </footer>
     </div>
   );
 }
@@ -311,6 +240,7 @@ function PdfPage({
   width: number;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
+  const [aspectRatio, setAspectRatio] = useState(11 / 8.5);
 
   return (
     <div
@@ -320,6 +250,15 @@ function PdfPage({
       ref={pageRef}
     >
       <Page
+        devicePixelRatio={pdfRenderDensity({
+          width: width * scale,
+          aspectRatio,
+          displayDensity: window.devicePixelRatio,
+        })}
+        onLoadSuccess={(page) => {
+          const viewport = page.getViewport({ scale: 1 });
+          setAspectRatio(viewport.height / viewport.width);
+        }}
         onRenderSuccess={() => onMeasure?.(pageRef.current)}
         pageNumber={pageNumber}
         renderAnnotationLayer

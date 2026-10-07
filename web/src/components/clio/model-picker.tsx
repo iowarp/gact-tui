@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ModelSelector,
@@ -13,9 +13,7 @@ import {
   CascaderPanel,
   CascaderStatus,
 } from '@/components/reui/cascader/cascader';
-import {
-  CascaderColumns,
-} from '@/components/reui/cascader/cascader-columns';
+import { CascaderColumns } from '@/components/reui/cascader/cascader-columns';
 import { CascaderFooter } from '@/components/reui/cascader/cascader-footer';
 import { CascaderNav } from '@/components/reui/cascader/cascader-nav';
 import {
@@ -126,7 +124,10 @@ export function ClioModelPicker({
     () => sortedProviders.filter((item) => managingVisibility || !hiddenProviders.has(item.id)),
     [hiddenProviders, sortedProviders, managingVisibility],
   );
-  const presetsById = useMemo(() => new Map(presets.map((preset) => [preset.id, preset])), [presets]);
+  const presetsById = useMemo(
+    () => new Map(presets.map((preset) => [preset.id, preset])),
+    [presets],
+  );
   const [tokens, setTokens] = useState<ModelFilterToken[]>(() => [...DEFAULT_FILTER_TOKENS]);
   const [notice, setNotice] = useState<string>();
   const tree = useModelPickerTree(visibleProviders, tokens);
@@ -152,7 +153,12 @@ export function ClioModelPicker({
     query,
   });
   const { resetCollapsed, toggleCollapsed, matchesText, searching } = search;
-  const { facetTabs, maxInputPrice } = useModelPickerFacets(tree.entries, tokens, searching, matchesText);
+  const { facetTabs, maxInputPrice } = useModelPickerFacets(
+    tree.entries,
+    tokens,
+    searching,
+    matchesText,
+  );
   const [facetsOpen, setFacetsOpen] = useState(false);
   // A press on a results group header drills in (the cascader's own branch
   // behaviour, which also clears the query); in search results it folds the
@@ -246,7 +252,11 @@ export function ClioModelPicker({
             onInputValueChange={handleQueryChange}
             onPathChange={(nextPath, details) => {
               const header = nextPath.length === 1 ? nextPath[0] : undefined;
-              if (search.searching && details.reason === 'drill' && header?.startsWith(PROVIDER_NODE_PREFIX)) {
+              if (
+                search.searching &&
+                details.reason === 'drill' &&
+                header?.startsWith(PROVIDER_NODE_PREFIX)
+              ) {
                 toggleCollapsed(header.slice(PROVIDER_NODE_PREFIX.length));
                 keepQueryOnce.current = true;
                 return;
@@ -347,7 +357,11 @@ export function ClioModelPicker({
                   never a separate full-width row that would leave a dead cell
                   under a column that has nothing to show. */}
               {showColumns ? (
-                <CascaderColumns className="w-full flex-1" columnWidth={PICKER_COLUMN_WIDTH} maxHeight="100%">
+                <CascaderColumns
+                  className="w-full flex-1"
+                  columnWidth={PICKER_COLUMN_WIDTH}
+                  maxHeight="100%"
+                >
                   {(column) => {
                     const providerColumn =
                       column.active &&
@@ -395,8 +409,12 @@ export function ClioModelPicker({
                   </Button>
                 </div>
                 {search.emptyProviders ? (
-                  <span className="truncate text-xs text-muted-foreground" data-slot="providers-without-matches">
-                    {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'} with no matches
+                  <span
+                    className="truncate text-xs text-muted-foreground"
+                    data-slot="providers-without-matches"
+                  >
+                    {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'}{' '}
+                    with no matches
                   </span>
                 ) : null}
               </CascaderFooter>
@@ -457,10 +475,14 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
         <AlertDescription>
           <span>Check the provider connection or configuration, then try discovery again.</span>
           {onRetry ? (
-            <Button className="mt-3" onClick={onRetry} size="sm" type="button" variant="outline">
-              <RefreshIcon data-icon="inline-start" />
-              Retry
-            </Button>
+            <RefreshButton
+              label="Retry"
+              className="mt-3"
+              onRefresh={onRetry}
+              size="sm"
+              type="button"
+              variant="outline"
+            />
           ) : null}
         </AlertDescription>
       </Alert>

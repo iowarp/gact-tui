@@ -4,18 +4,14 @@ import { brand } from '@brand';
 import { useQuery } from '@tanstack/react-query';
 import {
   CopyIcon,
-  DownloadIcon,
   ExternalLinkIcon,
+  EyeIcon,
+  HistoryIcon,
+  GitBranchIcon,
   FileIcon,
   FileCode2Icon,
-  ImageIcon,
-  LocateFixedIcon,
-  Maximize2Icon,
-  Minimize2Icon,
-  ZoomInIcon,
-  ZoomOutIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -36,16 +32,12 @@ import {
 } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ZoomPan, zoomScrollHint } from '@/components/mermaidcn/zoom-pan';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useObjectUrl } from '@/hooks/use-object-url';
 import { formatBytes } from '@/lib/format';
 import { languageForPath } from '@/lib/code-language';
 import { isTextMediaType } from '@/lib/media-types';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
-import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
 import { ArtifactProvenance } from './artifact-provenance';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
@@ -54,6 +46,9 @@ import { ClioDocumentWorkspace } from './document-workspace';
 import { MarkdownFilePreview } from './markdown-file-preview';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { FileViewerShell } from './file-viewer-shell';
+import { ImageResourceView } from './image-resource-view';
+export { ImageResourceView } from './image-resource-view';
 
 export function WorkspaceFileView({
   workspaceId,
@@ -71,17 +66,21 @@ export function WorkspaceFileView({
   initialPage?: number;
 }) {
   const detected = mediaType || inferredWorkspaceMediaType(path);
-  if (detected === 'application/pdf') {
-    return <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />;
-  }
-  if (detected.startsWith('image/')) {
-    return <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />;
-  }
-  if (isTextMediaType(detected)) {
-    return <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} />;
-  }
+  const preview =
+    detected === 'application/pdf' ? (
+      <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
+    ) : detected.startsWith('image/') ? (
+      <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
+    ) : isTextMediaType(detected) ? (
+      <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} />
+    ) : (
+      <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
+    );
   return (
-    <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
+    <FileViewerShell
+      source={{ kind: 'workspace', workspaceId, path, mediaType: detected, size }}
+      tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
+    />
   );
 }
 
@@ -101,7 +100,7 @@ function WorkspacePdfView({
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
-    <div className="size-full overflow-hidden p-3">
+    <div className="size-full overflow-hidden">
       <ClioPdfPreview
         bytes={content.data}
         error={content.error?.message}
@@ -170,29 +169,21 @@ function WorkspaceBinaryView({
   size?: number;
 }) {
   const repository = useRepository();
-  const [busy, setBusy] = useState<'download' | 'open'>();
+  const [busy, setBusy] = useState(false);
 
-  const load = async (mode: 'download' | 'open') => {
-    setBusy(mode);
+  const open = async () => {
+    setBusy(true);
     try {
       const bytes = await repository.readWorkspaceFileBytes(workspaceId, path);
       const url = URL.createObjectURL(
         new Blob([Uint8Array.from(bytes).buffer], { type: mediaType }),
       );
-      if (mode === 'open') {
-        window.open(url, '_blank', 'noopener,noreferrer');
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      } else {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName(path);
-        link.click();
-        URL.revokeObjectURL(url);
-      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : `Could not ${mode} ${fileName(path)}`);
+      toast.error(error instanceof Error ? error.message : `Could not open ${fileName(path)}`);
     } finally {
-      setBusy(undefined);
+      setBusy(false);
     }
   };
 
@@ -209,18 +200,9 @@ function WorkspaceBinaryView({
           </EmptyDescription>
           <p className="break-all font-mono text-xs text-muted-foreground">{path}</p>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
-            <Button disabled={Boolean(busy)} onClick={() => void load('open')} size="sm">
+            <Button disabled={busy} onClick={() => void open()} size="sm">
               <ExternalLinkIcon aria-hidden="true" />
-              {busy === 'open' ? 'Opening…' : 'Open'}
-            </Button>
-            <Button
-              disabled={Boolean(busy)}
-              onClick={() => void load('download')}
-              size="sm"
-              variant="outline"
-            >
-              <DownloadIcon aria-hidden="true" />
-              {busy === 'download' ? 'Downloading…' : 'Download'}
+              {busy ? 'Opening…' : 'Open'}
             </Button>
             <Button
               onClick={() => void navigator.clipboard.writeText(path)}
@@ -269,9 +251,18 @@ export function ArtifactView({
           recovered: false,
         };
       } catch (error) {
-        if (!isMissingArtifactPayload(error) || !fallbackPath) throw error;
+        if (!isMissingArtifactPayload(error)) throw error;
+        const recoveredPath =
+          fallbackPath ??
+          uniqueWorkspaceArtifactFile(
+            artifact,
+            workspaceId,
+            (await repository.workspaceFiles(workspaceId, signal, { excludeServiceStorage: true }))
+              .entries,
+          )?.path;
+        if (!recoveredPath) throw error;
         return {
-          content: await repository.readWorkspaceFile(workspaceId, fallbackPath, signal),
+          content: await repository.readWorkspaceFile(workspaceId, recoveredPath, signal),
           recovered: true,
         };
       }
@@ -284,9 +275,18 @@ export function ArtifactView({
       try {
         return { bytes: await repository.readArtifactBytesFor(artifact, signal), recovered: false };
       } catch (error) {
-        if (!isMissingArtifactPayload(error) || !fallbackPath) throw error;
+        if (!isMissingArtifactPayload(error)) throw error;
+        const recoveredPath =
+          fallbackPath ??
+          uniqueWorkspaceArtifactFile(
+            artifact,
+            workspaceId,
+            (await repository.workspaceFiles(workspaceId, signal, { excludeServiceStorage: true }))
+              .entries,
+          )?.path;
+        if (!recoveredPath) throw error;
         return {
-          bytes: await repository.readWorkspaceFileBytes(workspaceId, fallbackPath, signal),
+          bytes: await repository.readWorkspaceFileBytes(workspaceId, recoveredPath, signal),
           recovered: true,
         };
       }
@@ -340,54 +340,70 @@ export function ArtifactView({
     />
   );
   return (
-    <Tabs className="h-full min-w-0 gap-0" defaultValue="preview">
-      <div className="border-b px-3 py-2">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="versions">Versions</TabsTrigger>
-          <TabsTrigger value="lineage">Lineage</TabsTrigger>
-        </TabsList>
-      </div>
-      <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
-        {canPreviewImage ? (
-          <div className="flex h-full min-h-0 flex-col gap-3 p-3">
-            <div className="min-h-0 flex-1">{preview}</div>
-            {image.data?.recovered ? (
-              <p className="shrink-0 text-xs text-muted-foreground">
-                Recovered from the matching workspace file.
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <ScrollArea className="h-full min-w-0 p-3">
-            {isDocumentArtifact(artifact.media_type, artifact.name) ? (
-              <ClioDocumentWorkspace
+    <FileViewerShell
+      source={{ kind: 'artifact', artifact, workspaceId }}
+      label="Artifact views"
+      tabs={[
+        {
+          value: 'preview',
+          label: 'Preview',
+          icon: EyeIcon,
+          content: (
+            <>
+              {canPreviewImage ? (
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                  <div className="min-h-0 flex-1">{preview}</div>
+                  {image.data?.recovered ? (
+                    <p className="shrink-0 text-xs text-muted-foreground">
+                      Recovered from the matching workspace file.
+                    </p>
+                  ) : null}
+                </div>
+              ) : isDocumentArtifact(artifact.media_type, artifact.name) ? (
+                <ClioDocumentWorkspace
+                  artifact={artifact}
+                  fallbackPreview={preview}
+                  key={artifact.id}
+                />
+              ) : (
+                <ScrollArea className="h-full min-w-0 p-3">
+                  {preview}
+                  {text.data?.recovered ? (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Recovered from the matching workspace file.
+                    </p>
+                  ) : null}
+                </ScrollArea>
+              )}
+            </>
+          ),
+        },
+        {
+          value: 'versions',
+          label: 'Versions',
+          icon: HistoryIcon,
+          content: (
+            <ScrollArea className="h-full min-w-0 p-3">
+              <ArtifactProvenance artifact={artifact} view="versions" />
+            </ScrollArea>
+          ),
+        },
+        {
+          value: 'lineage',
+          label: 'Lineage',
+          icon: GitBranchIcon,
+          content: (
+            <ScrollArea className="h-full min-w-0 p-3">
+              <ArtifactProvenance
                 artifact={artifact}
-                fallbackPreview={preview}
-                key={artifact.id}
+                onOpenArtifact={onOpenArtifact}
+                view="lineage"
               />
-            ) : (
-              preview
-            )}
-            {text.data?.recovered ? (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Recovered from the matching workspace file.
-              </p>
-            ) : null}
-          </ScrollArea>
-        )}
-      </TabsContent>
-      <TabsContent className="m-0 min-h-0 overflow-hidden" value="versions">
-        <ScrollArea className="h-full min-w-0 p-3">
-          <ArtifactProvenance artifact={artifact} view="versions" />
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent className="m-0 min-h-0 overflow-hidden" value="lineage">
-        <ScrollArea className="h-full min-w-0 p-3">
-          <ArtifactProvenance artifact={artifact} onOpenArtifact={onOpenArtifact} view="lineage" />
-        </ScrollArea>
-      </TabsContent>
-    </Tabs>
+            </ScrollArea>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -440,99 +456,6 @@ export function TextResourceView({
           </CodeBlockActions>
         </CodeBlockHeader>
       </CodeBlock>
-    </div>
-  );
-}
-
-export function ImageResourceView({
-  bytes,
-  error,
-  mediaType,
-  name,
-}: {
-  bytes?: Uint8Array;
-  error?: string;
-  mediaType: string;
-  name: string;
-}) {
-  const url = useObjectUrl(bytes, mediaType);
-  const hostRef = useRef<HTMLDivElement>(null);
-  const [fullscreen, setFullscreen] = useState(false);
-  useEffect(() => {
-    const update = () => setFullscreen(document.fullscreenElement === hostRef.current);
-    document.addEventListener('fullscreenchange', update);
-    return () => document.removeEventListener('fullscreenchange', update);
-  }, []);
-  if (error)
-    return (
-      <ResourceUnavailable detail={error} icon={ImageIcon} label="Image preview unavailable" />
-    );
-  if (!url) return <ResourceLoading label={`Loading ${name}`} />;
-  return (
-    <div
-      className={cn(
-        'h-full min-h-[22rem] overflow-hidden bg-background',
-        fullscreen && 'h-screen min-h-0',
-      )}
-      ref={hostRef}
-    >
-      <ZoomPan
-        ariaLabel={`Zoomable image ${name}`}
-        className="bg-muted/30"
-        fitPadding={1}
-        imageSrc={url}
-        maxScale={8}
-        minScale={0.05}
-        viewportClassName="bg-[linear-gradient(45deg,var(--muted)_25%,transparent_25%),linear-gradient(-45deg,var(--muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--muted)_75%),linear-gradient(-45deg,transparent_75%,var(--muted)_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px]"
-        viewportMode="image-aspect"
-        zoomStep={0.2}
-        controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
-          <div className="flex min-h-10 items-center gap-1 border-b bg-background/90 px-2 backdrop-blur-sm">
-            <span className="mr-auto hidden text-xs text-muted-foreground sm:inline">
-              {zoomScrollHint()}
-            </span>
-            <Button aria-label="Zoom out" onClick={zoomOut} size="icon-sm" variant="ghost">
-              <ZoomOutIcon aria-hidden="true" />
-            </Button>
-            <button
-              aria-label="Reset image zoom"
-              className="min-w-12 rounded-md px-1 text-center text-[11px] font-medium tabular-nums text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-              onClick={resetZoom}
-              title="Reset image zoom"
-              type="button"
-            >
-              {scalePercent}%
-            </button>
-            <Button aria-label="Zoom in" onClick={zoomIn} size="icon-sm" variant="ghost">
-              <ZoomInIcon aria-hidden="true" />
-            </Button>
-            <Button
-              aria-label="Fit image to view"
-              onClick={centerView}
-              size="icon-sm"
-              title="Fit image to view"
-              variant="ghost"
-            >
-              <LocateFixedIcon aria-hidden="true" />
-            </Button>
-            <Button
-              aria-label={fullscreen ? 'Exit image fullscreen' : 'View image fullscreen'}
-              onClick={() => {
-                if (fullscreen) void document.exitFullscreen();
-                else void hostRef.current?.requestFullscreen();
-              }}
-              size="icon-sm"
-              variant="ghost"
-            >
-              {fullscreen ? (
-                <Minimize2Icon aria-hidden="true" />
-              ) : (
-                <Maximize2Icon aria-hidden="true" />
-              )}
-            </Button>
-          </div>
-        )}
-      />
     </div>
   );
 }

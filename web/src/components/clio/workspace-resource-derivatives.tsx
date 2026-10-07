@@ -12,7 +12,7 @@ import {
   FileStackIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshAction } from './refresh-button';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -96,7 +96,9 @@ export function WorkspaceResourceDerivativesView({
   const hasActivity = Boolean(processing?.events?.length || processing?.message);
   const hasProblem =
     processing?.state === 'failed' ||
-    (processing?.events ?? []).some((event) => event.level === 'warning' || event.level === 'error');
+    (processing?.events ?? []).some(
+      (event) => event.level === 'warning' || event.level === 'error',
+    );
   // Existing derivatives replace a clean event log — once you have the
   // output, the informational trail that produced it is noise. A failure or
   // a warning-or-error row is never noise: a reprocess can fail (or log one)
@@ -159,17 +161,15 @@ export function WorkspaceResourceDerivativesView({
             <CircleStopIcon aria-hidden="true" />
           </Button>
         ) : null}
-        <Button
-          aria-label="Reprocess resource"
+        <RefreshAction
+          label="Reprocess resource"
           className="size-8"
-          disabled={reprocess.isPending || processingActive}
-          onClick={() => reprocess.mutate()}
+          refreshing={reprocess.isPending || processingActive}
+          onRefresh={() => reprocess.mutateAsync()}
           size="icon-sm"
           title="Reprocess resource"
           variant="ghost"
-        >
-          <RefreshIcon aria-hidden="true" className={reprocess.isPending ? 'animate-spin' : ''} />
-        </Button>
+        />
       </div>
       <div className="grid gap-2">
         {derivatives.map((derivative) => (
@@ -232,9 +232,7 @@ function ConversionActivity({ processing }: { processing: WorkspaceResourceProce
       ) : (
         <p className="px-3 py-3 text-sm text-muted-foreground">
           {fallback ||
-            (waiting
-              ? 'Waiting for converter activity.'
-              : 'No conversion activity was reported.')}
+            (waiting ? 'Waiting for converter activity.' : 'No conversion activity was reported.')}
         </p>
       )}
     </section>

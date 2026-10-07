@@ -7,7 +7,8 @@ import {
   GitBranchIcon,
 } from 'lucide-react';
 import { useState } from 'react';
-import { ConfigureIcon, DeleteIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { ConfigureIcon, DeleteIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -111,15 +112,16 @@ export function MarketplaceSourceRow({
           {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           Browse blueprints <span className="text-muted-foreground">({blueprints.length})</span>
         </Button>
-        <Button
-          onClick={onReload}
+        <RefreshButton
+          label="Reload"
+          refreshing={busy}
+          onRefresh={onReload}
           disabled={pending || operation.pending}
           size="sm"
           variant="ghost"
         >
-          <RefreshIcon aria-hidden="true" className={busy ? 'animate-spin' : undefined} />
           {busy ? 'Reloading…' : 'Reload'}
-        </Button>
+        </RefreshButton>
         <ClioStatus
           className="ml-auto"
           label={

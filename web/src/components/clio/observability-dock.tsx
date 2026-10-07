@@ -6,7 +6,13 @@ import type {
   ProvenanceProviderSummary,
   ArtifactProvenanceProviderSummary,
 } from '@clio/core/v3';
-import { ActivityIcon, BracesIcon, ChartNoAxesGanttIcon, Layers3Icon, WaypointsIcon } from 'lucide-react';
+import {
+  ActivityIcon,
+  BracesIcon,
+  ChartNoAxesGanttIcon,
+  Layers3Icon,
+  WaypointsIcon,
+} from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,7 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useContainerQuery } from '@/hooks/use-container-query';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { formatDuration } from '@/lib/format';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import {
@@ -30,11 +38,7 @@ import {
 import { ClioEvidenceView } from './observability-evidence';
 import { ClioProcessLanes } from './observability-processes';
 import { ClioStatus } from './status';
-import {
-  getToolActivityTitle,
-  getToolStatus,
-  getToolSummary,
-} from './tool-presentation';
+import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 
 import type { ObservabilityView } from './observability-view-storage';
@@ -104,8 +108,6 @@ export function ClioObservabilityView({
     setViewedSessionId(sessionId);
     setActiveView(restoredObservabilityView(sessionId));
   }
-  const hasMediumNavigation = useContainerQuery(surfaceRef, 320);
-  const hasWideNavigation = useContainerQuery(surfaceRef, 520);
   const toolTurnContext = useMemo(() => toolActivityContext(messages), [messages]);
   const subagentTurnContext = useMemo(() => subagentActivityContext(messages), [messages]);
   const waitTurnContext = useMemo(
@@ -264,14 +266,29 @@ export function ClioObservabilityView({
       <Tabs className="h-full min-h-0 gap-0" onValueChange={selectView} value={activeView}>
         <TabsList
           aria-label="Observability view"
-          className={`mx-3 mt-2 grid h-auto! w-auto shrink-0 gap-1 p-1 ${
-            hasWideNavigation ? 'grid-cols-4' : hasMediumNavigation ? 'grid-cols-2' : 'grid-cols-1'
-          }`}
+          variant="line"
+          className="no-scrollbar h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b px-1.5 py-0 group-data-horizontal/tabs:h-9"
         >
-          <ObservabilityTab icon={<Layers3Icon />} label="Evidence" value="evidence" />
-          <ObservabilityTab icon={<ActivityIcon />} label="Timeline" value="activity" />
-          <ObservabilityTab icon={<ChartNoAxesGanttIcon />} label="Gantt" value="work" />
-          <ObservabilityTab icon={<BracesIcon />} label="Context" value="context" />
+          <ObservabilityTab
+            icon={<Layers3Icon className="size-3.5" />}
+            label="Evidence"
+            value="evidence"
+          />
+          <ObservabilityTab
+            icon={<ActivityIcon className="size-3.5" />}
+            label="Timeline"
+            value="activity"
+          />
+          <ObservabilityTab
+            icon={<ChartNoAxesGanttIcon className="size-3.5" />}
+            label="Gantt"
+            value="work"
+          />
+          <ObservabilityTab
+            icon={<BracesIcon className="size-3.5" />}
+            label="Context"
+            value="context"
+          />
         </TabsList>
         <ScrollArea className="min-h-0 min-w-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
@@ -293,7 +310,7 @@ export function ClioObservabilityView({
           <TabsContent className="m-0 p-4" value="activity">
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
-          <TabsContent className="m-0 grid gap-2 p-4" value="evidence">
+          <TabsContent className="m-0 grid gap-2 px-3 py-2" value="evidence">
             <SectionState error={diffsError} label="File changes" pending={diffsPending} />
             <SectionState
               error={contextFilesError}
@@ -390,19 +407,12 @@ function ProvenanceSourceBar({
       : providerStatus(selected.status, selected.queryable)
     : undefined;
   return (
-    <div className="grid gap-1 px-1 py-1">
+    <div className="grid gap-1 border-b pb-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <WaypointsIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-          <span className="shrink-0 text-sm font-medium">Provenance</span>
-          <span className="truncate text-xs text-muted-foreground">
-            {pending ? 'Discovering providers' : (selected?.source ?? 'Unavailable')}
-          </span>
-          {artifactProvider && artifactProvider.provider !== selected?.name ? (
-            <span className="shrink-0 text-xs text-muted-foreground">
-              Artifacts: {artifactProvider.provider}
-            </span>
-          ) : null}
+          <WaypointsIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="shrink-0 text-xs font-medium">Evidence sources</span>
+          {pending ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {providers?.length && provider ? (
@@ -419,7 +429,6 @@ function ProvenanceSourceBar({
                   <SelectItem key={item.name} value={item.name}>
                     <span className="flex items-center gap-2">
                       <span>{item.name}</span>
-                      <span className="text-muted-foreground">{item.status}</span>
                     </span>
                   </SelectItem>
                 ))}
@@ -434,6 +443,27 @@ function ProvenanceSourceBar({
               value={selectedStatus ?? 'unavailable'}
             />
           ) : null}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                aria-label="Evidence source details"
+                title="Evidence source details"
+                size="icon-xs"
+                variant="ghost"
+              >
+                <InfoIcon aria-hidden="true" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="space-y-2 text-xs">
+              <p className="font-medium">Recorded evidence</p>
+              <p>{selected?.source ?? 'Source unavailable'}</p>
+              <p>
+                Execution: {selected?.name ?? 'Unavailable'} · {selected?.status ?? 'Unknown'}
+              </p>
+              {artifactProvider ? <p>Artifacts: {artifactProvider.provider}</p> : null}
+              {degradation ? <p>{degradation.reason}</p> : null}
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
       {degradation ? (
@@ -442,7 +472,7 @@ function ProvenanceSourceBar({
         // serious); text-warning-foreground is the established fix already
         // used for warning text elsewhere (document-workspace.tsx,
         // model-picker.tsx).
-        <p className="pl-6 text-xs leading-5 text-warning-foreground dark:text-warning">
+        <p className="text-xs leading-5 text-warning-foreground dark:text-warning">
           {degradation.reason}
         </p>
       ) : null}
@@ -485,7 +515,11 @@ function ObservabilityTab({
   value: string;
 }) {
   return (
-    <TabsTrigger aria-label={label} className="h-8 min-w-0 w-full px-2" value={value}>
+    <TabsTrigger
+      aria-label={label}
+      className="h-full min-w-max shrink-0 gap-1 px-1.5 text-xs focus-visible:ring-inset group-data-horizontal/tabs:after:bottom-0"
+      value={value}
+    >
       {icon}
       <span>{label}</span>
     </TabsTrigger>

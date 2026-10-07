@@ -103,7 +103,10 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
   switch (name) {
     case 'Button': return [{ id: 'root', component: 'Column', children: ['button'] }, { id: 'button', component: name, child: 'label', variant: 'primary', action: action('gallery.button-clicked') }, { id: 'label', component: 'Text', text: 'Run analysis' }];
     case 'CheckBox': return root({ id: 'demo', component: name, label: 'Include quality-flagged stations', value: { path: '/demo/checked' } });
-    case 'ChoicePicker': return root({ id: 'demo', component: name, label: 'Compare by', options: [{ label: 'Region', value: 'region' }, { label: 'Station type', value: 'type' }, { label: 'Quality', value: 'quality' }], value: { path: '/demo/choice' }, variant: 'mutuallyExclusive', displayStyle: 'chips' });
+    case 'ChoicePicker': {
+      const searchable = variant === 'single-search' || variant === 'multi-search';
+      return root({ id: 'demo', component: name, label: searchable ? 'Plant ID' : 'Compare by', options: searchable ? Array.from({ length: 150 }, (_, index) => ({ label: `Plant ${index + 1}`, value: String(index + 1) })) : [{ label: 'Region', value: 'region' }, { label: 'Station type', value: 'type' }, { label: 'Quality', value: 'quality' }], value: { path: '/demo/choice' }, variant: variant === 'multi-search' ? 'multipleSelection' : 'mutuallyExclusive', displayStyle: 'chips' });
+    }
     case 'DateTimeInput': return root({ id: 'demo', component: name, label: 'Observation cutoff', value: { path: '/demo/cutoff' }, enableDate: true, enableTime: true });
     case 'Slider': return root({ id: 'demo', component: name, label: 'Minimum magnitude', min: 0, max: 10, value: { path: '/demo/magnitude' } });
     case 'TextField': return root({ id: 'demo', component: name, label: 'Station note', value: { path: '/demo/note' }, variant: 'longText' });
@@ -240,7 +243,7 @@ export function A2uiDemo({ name, variant, demoSelection, onInteract }: { name: C
     }
     const surfaceId = `gallery-${name.replaceAll('.', '-')}`;
     const version = workspaceOnly ? 'v0.9.1' : 'v0.9';
-    const initialValues: Record<string, unknown> = { CheckBox: false, ChoicePicker: 'region', DateTimeInput: '2026-10-01T12:00', Slider: 3, TextField: '' };
+    const initialValues: Record<string, unknown> = { CheckBox: false, ChoicePicker: variant === 'multi-search' ? [] : variant === 'single-search' ? ['1'] : ['region'], DateTimeInput: '2026-10-01T12:00', Slider: 3, TextField: '' };
     const initialPath: Record<string, string> = { CheckBox: '/demo/checked', ChoicePicker: '/demo/choice', DateTimeInput: '/demo/cutoff', Slider: '/demo/magnitude', TextField: '/demo/note' };
     processor.processMessages([
       { version, createSurface: { surfaceId, catalogId } },
@@ -314,7 +317,7 @@ export function WidgetGallery() {
     window.location.hash, groups.flatMap((group) => group.names),
   ) ?? 'clio.chart.v1');
   const [query, setQuery] = useState('');
-  const [variant, setVariant] = useState(() => active === 'clio.map.v1' ? 'sites' : 'scatter');
+  const [variant, setVariant] = useState(() => active === 'clio.map.v1' ? 'sites' : active === 'ChoicePicker' ? 'inline' : 'scatter');
   const [showContract, setShowContract] = useState(false);
   const [showExample, setShowExample] = useState(false);
   const [composer, setComposer] = useState('');
@@ -324,6 +327,7 @@ export function WidgetGallery() {
     setActive(name);
     if (name === 'clio.map.v1') setVariant('sites');
     if (name === 'clio.chart.v1') setVariant('scatter');
+    if (name === 'ChoicePicker') setVariant('inline');
     setShowContract(false);
     setReference(undefined);
     const hash = `#${galleryComponentSlug(name)}`;
@@ -377,6 +381,7 @@ export function WidgetGallery() {
       <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs text-muted-foreground">{activeGroup?.title}</p><h2 className="mt-1 text-xl font-semibold tracking-tight"><a href={`#${galleryComponentSlug(active)}`} aria-label={`Link to ${labels[active] ?? active}`} className="hover:underline">{labels[active] ?? active}</a></h2></div><div className="flex gap-2"><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowExample((value) => !value)} type="button">{showExample ? 'Hide example' : 'Example data'}</button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowContract((value) => !value)} type="button">{showContract ? 'Hide details' : 'Details'} <ArrowUpRight aria-hidden className="size-3" /></button><button className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => openSkill(active)} type="button">Contract</button></div></header>
       {active === 'clio.chart.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Chart example">{['scatter', 'boxplot', 'heatmap', 'trajectories', 'storm-series', 'spectra'].map((item) => <button aria-pressed={variant === item} className={`shrink-0 rounded-md px-3 py-1.5 text-xs capitalize ${variant === item ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item} onClick={() => { setVariant(item); setReference(undefined); }} type="button">{item === 'storm-series' ? 'Storm series' : item}</button>)}</div> : null}
       {active === 'clio.map.v1' ? <div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Map example">{[{ id: 'sites', label: 'Sites' }, { id: 'storm-tracks', label: 'Storm tracks' }].map((item) => <button aria-pressed={variant === item.id} className={`shrink-0 rounded-md px-3 py-1.5 text-xs ${variant === item.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item.id} onClick={() => { setVariant(item.id); setReference(undefined); }} type="button">{item.label}</button>)}</div> : null}
+      {active === 'ChoicePicker' ? <><p className="text-sm text-muted-foreground">Small groups stay visible. Larger lists open in a searchable dropdown. Try choosing one plant or several from 150 example options.</p><div className="gallery-tab-scroll flex gap-1 overflow-x-auto" role="group" aria-label="Choice example">{[{ id: 'inline', label: 'Small group' }, { id: 'single-search', label: 'One plant' }, { id: 'multi-search', label: 'Several plants' }].map((item) => <button aria-pressed={variant === item.id} className={`shrink-0 rounded-md px-3 py-1.5 text-xs ${variant === item.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`} key={item.id} onClick={() => { setVariant(item.id); setReference(undefined); }} type="button">{item.label}</button>)}</div></> : null}
       {active === 'clio.callout.v1' ? <p className="text-sm text-muted-foreground">A short notice for a result, warning, or next step that deserves attention.</p> : null}
       <div className="min-h-56 overflow-x-auto"><div className={active === 'clio.chart.v1' ? 'min-w-[540px] sm:min-w-0' : active === 'clio.artifact.v1' ? 'max-w-2xl' : undefined}><A2uiDemo key={`${active}:${variant}`} name={active} variant={variant} /></div></div>
       {reference ? <aside aria-label="Reference preview" className="space-y-2 rounded-md border p-3 text-sm"><div className="flex items-start justify-between gap-3"><div><p className="font-medium">Reference preview</p><p className="text-xs text-muted-foreground">{reference.summary}</p></div><button aria-label="Close reference preview" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setReference(undefined)} type="button">Close</button></div><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-sm bg-muted/30 p-2 text-xs">{reference.markdown}</pre></aside> : null}

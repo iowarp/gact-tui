@@ -33,6 +33,13 @@ import {
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
@@ -68,6 +75,7 @@ export function DeferredA2UISurface({
   // map or chart re-enters the viewport.
   const [nearViewport, setNearViewport] = useState(true);
   const [reservedHeight, setReservedHeight] = useState(1);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const live = ['creating', 'updating', 'pending_action'].includes(surface.state);
 
   useEffect(() => {
@@ -114,7 +122,10 @@ export function DeferredA2UISurface({
     return () => observer.disconnect();
   }, [nearViewport]);
 
-  const renderSurface = live || nearViewport;
+  // Suspending a surface destroys its processor and unsent client data.
+  // Keep a surface mounted after the person starts interacting with it, even
+  // if scrolling or a transcript resize temporarily moves it out of view.
+  const renderSurface = live || nearViewport || hasInteracted;
   // The label belongs on this wrapper only while it IS the accessible
   // content — an empty reserved-height placeholder before the surface has
   // scrolled near. Once mounted, `ClioA2UISurface` renders its own labeled
@@ -129,6 +140,8 @@ export function DeferredA2UISurface({
     <div
       aria-label={renderSurface ? undefined : `${PROTOCOL.a2ui} surface`}
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
+      onFocusCapture={() => setHasInteracted(true)}
+      onPointerDownCapture={() => setHasInteracted(true)}
       ref={hostRef}
       role={renderSurface ? undefined : 'group'}
       style={renderSurface ? undefined : { minHeight: reservedHeight }}
@@ -409,6 +422,7 @@ function MessageBlockView({
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
 const INJECTION_LABELS: Record<string, string> = {
+  earlier_turns: 'Recovered conversation context',
   todos: 'Todo list',
   plan_mode: 'Plan reminder',
   replan: 'Replanning suggestion',
@@ -430,6 +444,7 @@ const INJECTION_LABELS: Record<string, string> = {
  */
 export function HarnessInjection({ block }: { block: InjectionBlock }) {
   const [expanded, setExpanded] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const label = INJECTION_LABELS[block.source] ?? humanizeProtocolValue(block.source);
   return (
     <section className="min-w-0 max-w-full" data-slot="harness-injection">
@@ -446,12 +461,32 @@ export function HarnessInjection({ block }: { block: InjectionBlock }) {
         >
           {expanded ? 'Hide' : 'Show what it got'}
         </button>
+        <button
+          className="text-xs font-medium text-primary hover:underline"
+          onClick={() => setDetailsOpen(true)}
+          type="button"
+        >
+          Open exact details
+        </button>
       </div>
       {expanded ? (
         <pre className="mt-2 min-w-0 max-w-full whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-xs leading-5">
           {block.text}
         </pre>
       ) : null}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="flex max-h-[88dvh] flex-col sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{label}</DialogTitle>
+            <DialogDescription>
+              The recorded content {vocab.agent} gave the agent.
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="min-h-0 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 text-xs leading-5">
+            {block.text}
+          </pre>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

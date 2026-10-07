@@ -1,7 +1,14 @@
 import { queryKeys } from '@/lib/query-keys';
+import { artifactDeliverables, isDocumentPreview } from '@/lib/artifact-presentation';
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { TriangleAlertIcon } from 'lucide-react';
+import {
+  FileTextIcon,
+  ImageIcon,
+  FileSpreadsheetIcon,
+  FileIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import {
   Artifact,
@@ -24,6 +31,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { formatBytes } from '@/lib/format';
+import { fileFormatLabel } from '@/lib/media-types';
 import {
   IMMUTABLE_QUERY,
   INLINE_PREVIEW_MAX_BYTES,
@@ -61,13 +69,15 @@ export function ClioArtifactAttachments({
   className,
   onOpen,
 }: ClioArtifactAttachmentsProps) {
+  const deliverables = artifactDeliverables(artifacts);
+  if (!deliverables.length) return null;
   return (
     <div
-      aria-label={artifacts.length === 1 ? 'Artifact' : `${artifacts.length} artifacts`}
+      aria-label={deliverables.length === 1 ? 'Artifact' : `${deliverables.length} artifacts`}
       className={cn('flex w-full min-w-0 flex-col gap-2 py-1', className)}
       role="group"
     >
-      {artifacts.map((artifact) => {
+      {deliverables.map((artifact) => {
         const output = artifact.session_relation
           ? artifact
           : { ...artifact, session_relation: 'produced' as const };
@@ -86,7 +96,11 @@ export function ClioArtifactAttachments({
 }
 
 /** Maps a GACT artifact into AI Elements' artifact and attachment presentation. */
-export function ClioArtifactCard({
+export function ClioArtifactCard(props: ClioArtifactCardProps) {
+  return isDocumentPreview(props.artifact) ? null : <ArtifactCardContent {...props} />;
+}
+
+function ArtifactCardContent({
   artifact,
   className,
   onOpen,
@@ -97,6 +111,13 @@ export function ClioArtifactCard({
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
   const tabular = isTabularArtifact(artifact);
+  const FormatIcon = image
+    ? ImageIcon
+    : tabular
+      ? FileSpreadsheetIcon
+      : text
+        ? FileTextIcon
+        : FileIcon;
   const withinBudget = artifact.size !== undefined && artifact.size <= INLINE_PREVIEW_MAX_BYTES;
   const textWithinBudget = artifact.size !== undefined && artifact.size <= TEXT_PREVIEW_MAX_BYTES;
   const imageBytes = useQuery({
@@ -183,7 +204,10 @@ export function ClioArtifactCard({
 
   return (
     <Artifact className={cn('group/artifact group relative', className)}>
-      <ArtifactHeader className="gap-3">
+      <ArtifactHeader className="gap-2.5 px-3 py-2">
+        <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted/60 text-muted-foreground">
+          <FormatIcon aria-hidden="true" className="size-4" />
+        </span>
         <div className="min-w-0 flex-1">
           {onOpen ? (
             // The "open" target, NOT the whole card: a `role="button"` card
@@ -203,9 +227,12 @@ export function ClioArtifactCard({
           ) : (
             <ArtifactTitle className="truncate">{artifact.name}</ArtifactTitle>
           )}
-          <ArtifactDescription className="truncate">
-            {artifact.media_type || 'Media type unavailable'}
-            {artifact.size === undefined ? '' : `, ${formatBytes(artifact.size)}`}
+          <ArtifactDescription
+            className="truncate text-xs"
+            title={artifact.media_type || 'Media type unavailable'}
+          >
+            {fileFormatLabel(artifact.name, artifact.media_type)}
+            {artifact.size === undefined ? '' : ` · ${formatBytes(artifact.size)}`}
           </ArtifactDescription>
         </div>
         {artifact.session_relation ? (
@@ -213,9 +240,7 @@ export function ClioArtifactCard({
             {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
           </Badge>
         ) : null}
-        <div className="shrink-0">
-          <SurfaceToolbar capabilities={downloadCapabilities} />
-        </div>
+        <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
       </ArtifactHeader>
       {preview ? (
         <ArtifactContent className="p-0">

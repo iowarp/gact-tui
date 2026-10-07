@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from './refresh-button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
@@ -162,14 +163,16 @@ export function GitHubRevisionPicker({
       {revisions.error && (
         <div role="alert" className="space-y-1 text-xs text-destructive">
           <p>{revisions.error.message}</p>
-          <Button
+          <RefreshButton
+            label="Try again"
+            refreshing={revisions.isFetching}
             type="button"
             size="sm"
             variant="outline"
-            onClick={() => void revisions.refetch()}
+            onRefresh={() => revisions.refetch()}
           >
             Try again
-          </Button>
+          </RefreshButton>
         </div>
       )}
       {revisions.hasNextPage && (

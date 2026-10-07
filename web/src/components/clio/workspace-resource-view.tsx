@@ -6,7 +6,9 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import {
   BracesIcon,
-  FileIcon,
+  EyeIcon,
+  FilesIcon,
+  GitBranchIcon,
   FileInputIcon,
   ScanSearchIcon,
   SendIcon,
@@ -28,7 +30,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
 import { formatResourceSize } from '@/lib/format';
@@ -45,12 +46,9 @@ import {
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { ImageResourceView, TextResourceView } from './resource-viewers';
-import { ClioStatus } from './status';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
-import { WorkspaceResourceRemoveAction } from './workspace-resource-remove';
-import { WorkspaceResourceCopyAction } from './workspace-resource-copy';
+import { FileViewerShell } from './file-viewer-shell';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
-
 
 interface WorkspaceResourceViewProps {
   resource: WorkspaceResource;
@@ -98,7 +96,7 @@ export function WorkspaceResourceCarousel({
 
   return (
     <AttachmentPreviewCarousel
-      className="h-full min-h-0 p-3"
+      className="h-full min-h-0"
       items={items}
       onValueChange={setSelectedId}
       value={selectedResource.id}
@@ -192,90 +190,78 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
   );
 
   return (
-    <section aria-label={`Resource ${resource.name}`} className="flex h-full min-h-0 flex-col">
-      <header className="flex min-h-14 shrink-0 items-center gap-3 border-b px-3 py-2">
-        <FileIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold" title={resource.name}>
-            {resource.name}
-          </h2>
-          <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-            <span className="shrink-0 font-medium text-foreground/80">Uploaded resource</span>
-            <span className="truncate">
-              {resource.detected_mime || resource.claimed_mime || 'Type unavailable'}
-            </span>
-            <span className="shrink-0">{formatResourceSize(resource.received_size)}</span>
-          </p>
-        </div>
-        <ClioStatus value={resourceStateStatus(resource.state)} />
-        <WorkspaceResourceCopyAction resource={resource} workspaceId={workspaceId} />
-        <WorkspaceResourceRemoveAction resource={resource} workspaceId={workspaceId} />
-      </header>
-
-      <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTab} value={activeTab}>
-        <div className="shrink-0 border-b p-1.5">
-          <TabsList className="grid h-9 w-full grid-cols-4">
-            <TabsTrigger title="Read the original uploaded file" value="preview">
-              Preview
-            </TabsTrigger>
-            <TabsTrigger
-              title="Browse sections, tables, and other parsed document nodes"
-              value="structure"
-            >
-              Structure
-            </TabsTrigger>
-            <TabsTrigger
-              title="Inspect converted representations created from the original"
-              value="derivatives"
-            >
-              Derivatives
-            </TabsTrigger>
-            <TabsTrigger title="Trace upload, processing, and model delivery" value="provenance">
-              Provenance
-            </TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
-          <ResourcePreview
-            bytes={preview.data}
-            error={preview.error?.message}
-            resource={resource}
-          />
-        </TabsContent>
-        <TabsContent className="m-0 min-h-0 overflow-hidden" value="structure">
-          <StructuredResourceView
-            error={structure.error?.message}
-            loading={structure.isPending && derivatives.data?.processor.derivatives_available}
-            processing={derivatives.data?.processor}
-            resource={resource}
-            structure={structure.data?.collections}
-            workspaceId={workspaceId}
-          />
-        </TabsContent>
-        <TabsContent className="m-0 min-h-0 overflow-hidden" value="derivatives">
-          <WorkspaceResourceDerivativesView
-            derivatives={derivatives.data?.derivatives ?? []}
-            error={derivatives.error?.message}
-            pending={derivatives.isLoading}
-            processing={derivatives.data?.processor}
-            resourceId={resource.id}
-            workspaceId={workspaceId}
-          />
-        </TabsContent>
-        <TabsContent className="m-0 min-h-0 overflow-hidden" value="provenance">
-          <ResourceProvenance
-            deliveries={matchingDeliveries}
-            error={deliveries.error?.message}
-            pending={deliveries.isLoading}
-            processing={derivatives.data?.processor}
-            resource={resource}
-          />
-        </TabsContent>
-      </Tabs>
+    <section aria-label={`Resource ${resource.name}`} className="h-full min-h-0">
+      <FileViewerShell
+        source={{ kind: 'resource', resource, workspaceId }}
+        label="Resource views"
+        value={activeTab}
+        onValueChange={setActiveTab}
+        tabs={[
+          {
+            value: 'preview',
+            label: 'Preview',
+            icon: EyeIcon,
+            title: 'Read the original uploaded file',
+            content: (
+              <ResourcePreview
+                bytes={preview.data}
+                error={preview.error?.message}
+                resource={resource}
+              />
+            ),
+          },
+          {
+            value: 'structure',
+            label: 'Structure',
+            icon: BracesIcon,
+            title: 'Browse parsed sections and tables',
+            content: (
+              <StructuredResourceView
+                error={structure.error?.message}
+                loading={structure.isPending && derivatives.data?.processor.derivatives_available}
+                processing={derivatives.data?.processor}
+                resource={resource}
+                structure={structure.data?.collections}
+                workspaceId={workspaceId}
+              />
+            ),
+          },
+          {
+            value: 'derivatives',
+            label: 'Derivatives',
+            icon: FilesIcon,
+            title: 'Inspect converted representations',
+            content: (
+              <WorkspaceResourceDerivativesView
+                derivatives={derivatives.data?.derivatives ?? []}
+                error={derivatives.error?.message}
+                pending={derivatives.isLoading}
+                processing={derivatives.data?.processor}
+                resourceId={resource.id}
+                workspaceId={workspaceId}
+              />
+            ),
+          },
+          {
+            value: 'provenance',
+            label: 'Provenance',
+            icon: GitBranchIcon,
+            title: 'Trace upload, processing, and model delivery',
+            content: (
+              <ResourceProvenance
+                deliveries={matchingDeliveries}
+                error={deliveries.error?.message}
+                pending={deliveries.isLoading}
+                processing={derivatives.data?.processor}
+                resource={resource}
+              />
+            ),
+          },
+        ]}
+      />
     </section>
   );
 }
-
 function ResourcePreview({
   bytes,
   error,
@@ -348,7 +334,7 @@ function ResourcePreview({
     // directly, and a blob copy of a whole document is a second copy nothing
     // reads.
     return (
-      <div className="size-full overflow-hidden p-3">
+      <div className="size-full overflow-hidden">
         <ClioPdfPreview bytes={bytes} error={error} name={resource.name} />
       </div>
     );
@@ -465,7 +451,7 @@ function StructuredResourceView({
         <ScrollArea className="border-r p-2">
           <div className="mb-2 px-2">
             <p className="text-xs font-medium">Document structure</p>
-            <p className="text-[10px] leading-4 text-muted-foreground">
+            <p className="text-[0.625rem] leading-4 text-muted-foreground">
               Parsed collections and their first available node.
             </p>
           </div>
@@ -621,7 +607,7 @@ function ResourceProvenance({
                 <span>{deliveryRepresentationLabel(delivery.representation)}</span>
               </p>
               {delivery.reason ? <p className="mt-1">{delivery.reason}</p> : null}
-              <details className="mt-2 text-[10px]">
+              <details className="mt-2 text-[0.625rem]">
                 <summary className="w-fit cursor-pointer font-medium">Internal evidence</summary>
                 <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
                   <dt>Provider</dt>
@@ -667,13 +653,4 @@ function isPreviewable(mediaType: string): boolean {
     mediaType === 'application/pdf' ||
     isTextApplication(mediaType)
   );
-}
-
-function resourceStateStatus(
-  state: WorkspaceResource['state'],
-): 'healthy' | 'running' | 'unavailable' | 'failed' {
-  if (state === 'ready') return 'healthy';
-  if (state === 'uploading') return 'running';
-  if (state === 'quarantined') return 'unavailable';
-  return 'failed';
 }

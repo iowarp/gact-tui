@@ -4,7 +4,10 @@ import type { TableDataQuery } from './table-query-rows';
 
 interface DataContextLike {
   resolveDynamicValue: (value: never) => unknown;
-  subscribeDynamicValue: (value: never, onChange: (value: unknown) => void) => { unsubscribe: () => void };
+  subscribeDynamicValue: (
+    value: never,
+    onChange: (value: unknown) => void,
+  ) => { unsubscribe: () => void };
 }
 
 function bindingPath(value: unknown): string | undefined {
@@ -42,7 +45,9 @@ export function BoundDataQuery({
   const bindingKey = JSON.stringify(bindings.map((entry) => entry.value));
   useEffect(() => {
     const subscriptions = bindings.map((entry) =>
-      dataContext.subscribeDynamicValue(entry.value as never, () => setRevision((current) => current + 1)),
+      dataContext.subscribeDynamicValue(entry.value as never, () =>
+        setRevision((current) => current + 1),
+      ),
     );
     return () => subscriptions.forEach((subscription) => subscription.unsubscribe());
     // The serialized paths describe the subscriptions; other query changes
@@ -54,7 +59,14 @@ export function BoundDataQuery({
   const filter = query!.filter!.map((entry) => {
     const path = bindingPath(entry.value);
     if (!path) return entry;
-    const value = normalizeBoundDateTime(dataContext.resolveDynamicValue(entry.value as never));
+    const resolved = normalizeBoundDateTime(dataContext.resolveDynamicValue(entry.value as never));
+    // A mutually exclusive basic ChoicePicker writes a one-element string
+    // array. Its equality predicate is the selected scalar; multiple values
+    // remain invalid for eq rather than silently picking the first one.
+    const value =
+      entry.op === 'eq' && Array.isArray(resolved) && resolved.length === 1
+        ? resolved[0]
+        : resolved;
     return { ...entry, value };
   });
   for (let index = 0; index < filter.length; index += 1) {
@@ -63,7 +75,8 @@ export function BoundDataQuery({
       const original = query!.filter![index]!;
       return (
         <p className="py-3 text-sm text-destructive" role="alert">
-          View unavailable: filter “{original.column}” bound to {bindingPath(original.value)} has no valid {original.op} value.
+          View unavailable: filter “{original.column}” bound to {bindingPath(original.value)} has no
+          valid {original.op} value.
         </p>
       );
     }

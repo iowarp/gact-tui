@@ -36,6 +36,8 @@ interface ClioTranscriptMinimapProps {
   messages: readonly Message[];
   onJump: (index: number) => void;
   visible: boolean;
+  /** Hover length bounded by the conversation's available left margin. */
+  maxMarkerWidth?: number;
 }
 
 export function ClioTranscriptMinimap({
@@ -44,6 +46,7 @@ export function ClioTranscriptMinimap({
   messages,
   onJump,
   visible,
+  maxMarkerWidth = 24,
 }: ClioTranscriptMinimapProps) {
   if (!visible) {
     return (
@@ -78,6 +81,7 @@ export function ClioTranscriptMinimap({
       attention={attention}
       messages={messages}
       onJump={onJump}
+      maxMarkerWidth={maxMarkerWidth}
     />
   );
 }
@@ -204,6 +208,7 @@ function MinimapRail({
   attention,
   messages,
   onJump,
+  maxMarkerWidth = 24,
 }: Omit<ClioTranscriptMinimapProps, 'visible'>) {
   const railRef = useRef<HTMLDivElement>(null);
   const [pointerY, setPointerY] = useState<number | null>(null);
@@ -249,6 +254,7 @@ function MinimapRail({
           if (!message) return null;
           const mark = heat.get(row.index);
           const look = attention ? heatLook(mark) : landmarkLook(message);
+          const restingWidth = look.base * Math.min(1.5, maxMarkerWidth / 24);
           const active = row.index === activeIndex;
           const lift = Math.max(placed[position]?.lift ?? 0, active ? 1 : 0);
           return (
@@ -274,9 +280,9 @@ function MinimapRail({
                     data-heat={mark?.heated ? mark.bucket : undefined}
                     data-slot="transcript-minimap-landmark"
                     style={{
-                      height: 2 + 2 * lift,
+                      height: 3 + 2 * lift,
                       opacity: look.opacity + (1 - look.opacity) * lift,
-                      width: look.base + (MAX_WIDTH - look.base) * lift,
+                      width: restingWidth + (maxMarkerWidth - restingWidth) * lift,
                     }}
                   />
                 </button>
@@ -313,7 +319,11 @@ function MinimapRail({
     </div>
   );
   return (
-    <aside aria-label="Transcript minimap" className="absolute inset-y-3 left-1 z-10 w-7">
+    <aside
+      aria-label="Transcript minimap"
+      className="absolute inset-y-3 left-1 z-10"
+      style={{ width: maxMarkerWidth + 4 }}
+    >
       <div
         aria-label="Browse transcript landmarks"
         className="h-full overflow-y-auto overscroll-y-contain px-0.5 outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -330,8 +340,6 @@ function MinimapRail({
 }
 
 const ROW_HEIGHT = 11;
-/** The length (px) a landmark reaches under the pointer. */
-const MAX_WIDTH = 24;
 
 interface LandmarkLook {
   color: string;

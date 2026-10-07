@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRightIcon,
   BotIcon,
@@ -22,11 +22,7 @@ import { Image } from '@/components/ai-elements/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { ResultDialogContent } from './result-dialog-content';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
@@ -311,8 +307,7 @@ export function CheckStateIcon({
   state: ToolPresentationBlock['state'];
 }) {
   if (state === 'completed') return <SquareCheckIcon aria-hidden="true" className={className} />;
-  if (state === 'in_progress')
-    return <SquareMinusIcon aria-hidden="true" className={className} />;
+  if (state === 'in_progress') return <SquareMinusIcon aria-hidden="true" className={className} />;
   return <SquareIcon aria-hidden="true" className={className} />;
 }
 
@@ -453,10 +448,13 @@ export function PagedBlock({
   block,
   lines,
   groupedBlocks = [block],
+  full = false,
 }: {
   block: ToolPresentationBlock;
   lines: number;
   groupedBlocks?: ToolPresentationBlock[];
+  /** Reuse an existing details viewer instead of opening a nested result dialog. */
+  full?: boolean;
 }) {
   const repository = useRepository();
   const [contents, setContents] = useState(() =>
@@ -470,6 +468,10 @@ export function PagedBlock({
       ]),
     ),
   );
+  const request = useRef<AbortController | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => () => request.current?.abort(), []);
   const load = async (signal: AbortSignal) => {
     for (const item of groupedBlocks) {
       const ref = item.content_ref;
@@ -497,6 +499,53 @@ export function PagedBlock({
       }
     }
   };
+  const content = groupedBlocks.map((item) => (
+    <BlockBody
+      key={item.id}
+      block={item}
+      text={contents[item.id].text}
+      complete={item.type !== 'media' || contents[item.id].cursor === null}
+    />
+  ));
+  if (full) {
+    const hasMore = Object.values(contents).some((item) => item.cursor !== null);
+    const loadComplete = async () => {
+      if (request.current && !request.current.signal.aborted) return;
+      const controller = new AbortController();
+      request.current = controller;
+      setLoading(true);
+      setError('');
+      try {
+        await load(controller.signal);
+      } catch (cause) {
+        if (!controller.signal.aborted)
+          setError(cause instanceof Error ? cause.message : 'Unable to load complete content');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+        if (request.current === controller) request.current = null;
+      }
+    };
+    return (
+      <div className="min-w-0 space-y-2">
+        {content}
+        {hasMore ? (
+          <Button
+            disabled={loading}
+            onClick={() => void loadComplete()}
+            size="sm"
+            variant="outline"
+          >
+            {loading ? 'Loading complete content…' : 'Load complete content'}
+          </Button>
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <BoundedResult
       title={block.label || 'Complete result'}
@@ -515,14 +564,7 @@ export function PagedBlock({
         ) : undefined
       }
     >
-      {groupedBlocks.map((item) => (
-        <BlockBody
-          key={item.id}
-          block={item}
-          text={contents[item.id].text}
-          complete={item.type !== 'media' || contents[item.id].cursor === null}
-        />
-      ))}
+      {content}
     </BoundedResult>
   );
 }

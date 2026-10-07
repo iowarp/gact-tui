@@ -1,4 +1,5 @@
 import type {
+  Artifact,
   ExecutionProvenanceResult,
   Message,
   ToolInvocation,
@@ -312,6 +313,83 @@ describe('ClioEvidenceView resource sources', () => {
 });
 
 describe('ClioEvidenceView session_lineage fallback', () => {
+  it('names used artifacts from their metadata, keeps the source ID inspectable, and opens the artifact', async () => {
+    const user = userEvent.setup();
+    const onOpenArtifact = vi.fn();
+    const artifact: Artifact = {
+      id: 'artifact_long_identity_1234567890',
+      session_id: 'session_root',
+      name: 'Research report.docx',
+      media_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      uri: 'artifact://report',
+      size: 1024,
+    };
+    render(
+      <ClioEvidenceView
+        artifacts={[artifact]}
+        contextFiles={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        onOpenArtifact={onOpenArtifact}
+        executionProvenance={{
+          schema_version: 'clio.execution_provenance.v1',
+          provider: 'native',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          complete: true,
+          truncated: false,
+          provider_health: {},
+          campaigns: [],
+          workflows: [],
+          agents: [],
+          session_lineage: [
+            {
+              session_id: 'session_root',
+              parent_session_id: '',
+              task_id: '',
+              agent_id: 'main',
+              label: 'Main agent',
+              depth: 0,
+              task_path: [],
+            },
+          ],
+          spans: [],
+          nodes: [
+            {
+              id: 'node_source',
+              kind: 'artifact',
+              label: artifact.id,
+              status: 'completed',
+              session_id: 'session_root',
+              agent_id: 'main',
+              start_time: 1,
+              end_time: 2,
+              attributes: { artifact_id: artifact.id },
+            },
+          ],
+          edges: [
+            {
+              id: 'used_source',
+              source: 'session_root',
+              target: 'node_source',
+              kind: 'used',
+              attributes: {},
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText(artifact.name)).toBeVisible();
+    expect(screen.queryByText(artifact.id)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: `Details for source ${artifact.name}` }));
+    expect(screen.getByText(artifact.id)).toBeVisible();
+    expect(onOpenArtifact).not.toHaveBeenCalled();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: `Open source ${artifact.name}` }));
+    expect(onOpenArtifact).toHaveBeenCalledWith(artifact);
+  });
+
   it('includes files read by attached child agents from execution provenance', () => {
     render(
       <ClioEvidenceView
@@ -511,7 +589,7 @@ describe('ClioEvidenceView child agents', () => {
     state: 'running' as const,
   };
 
-  it('always lists child agents, with an explicit empty state', () => {
+  it('always lists child agents, with a collapsed explicit empty state', async () => {
     render(
       <ClioEvidenceView
         artifacts={[]}
@@ -532,6 +610,8 @@ describe('ClioEvidenceView child agents', () => {
       />,
     );
     expect(screen.getByRole('button', { name: 'Child agents, 0 recorded' })).toBeVisible();
+    expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Child agents, 0 recorded' }));
     expect(screen.getByText('No child agents in this session yet.')).toBeVisible();
   });
 

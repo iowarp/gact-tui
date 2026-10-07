@@ -20,19 +20,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import {
-  duplicateSessionTitles,
   isPrimarySession,
   sessionInteractionAt,
   visibleWorkspaceSessions,
 } from '@/lib/recent-sessions';
 import { VISIBLE_WORKSPACE_LIMIT } from '@/lib/runtime-limits';
-import { isSessionRunning } from '@/lib/session-state';
 import type { SessionAttention } from '@/lib/session-attention';
 import {
   workspaceLabels,
@@ -54,7 +51,11 @@ interface WorkspaceNavigationProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onDownloadSession: (sessionId: string, title: string) => Promise<void>;
+  onDownloadSession: (
+    sessionId: string,
+    title: string,
+    mode: import('@clio/core/v3').SessionExportMode,
+  ) => Promise<void>;
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   attentions: Readonly<Record<string, SessionAttention>>;
@@ -224,7 +225,11 @@ interface WorkspaceTreeItemProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onDownloadSession: (sessionId: string, title: string) => Promise<void>;
+  onDownloadSession: (
+    sessionId: string,
+    title: string,
+    mode: import('@clio/core/v3').SessionExportMode,
+  ) => Promise<void>;
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisitSession: (session: Session) => void;
@@ -260,25 +265,39 @@ function WorkspaceTreeItem({
     '',
     sessionLimitExpanded ? sessions.length : undefined,
   ).sort((left, right) => Number(right.pinned) - Number(left.pinned));
-  const runningSessions = sessions.filter((session) => isSessionRunning(session.state));
-  const sharedTitles = duplicateSessionTitles(sessions);
 
   return (
     <Collapsible className="min-w-0" onOpenChange={onExpandedChange} open={expanded}>
       <ClioInteractiveRow
+        appearance="navigation"
         actions={
-          <WorkspaceActionsMenu
-            activeWorkspaceId={activeWorkspaceId}
-            actions={actions}
-            label={label}
-            onAction={onAction}
-            onCreateSession={onCreateSession}
-            onDelete={onDelete}
-            onEditWorkspace={onEditWorkspace}
-            onOpenWorkspaceFiles={onOpenWorkspaceFiles}
-            onRename={onRename}
-            workspace={workspace}
-          />
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label={`New session in ${workspaceLabelText(label)}`}
+                  onClick={() => onCreateSession(workspace.id)}
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                >
+                  <AddIcon aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>New session</TooltipContent>
+            </Tooltip>
+            <WorkspaceActionsMenu
+              activeWorkspaceId={activeWorkspaceId}
+              actions={actions}
+              label={label}
+              onAction={onAction}
+              onDelete={onDelete}
+              onEditWorkspace={onEditWorkspace}
+              onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+              onRename={onRename}
+              workspace={workspace}
+            />
+          </>
         }
         className={`h-8 min-h-8 select-none gap-1.5 px-2 py-0 group-data-[collapsible=icon]:justify-center ${
           workspace.id === activeWorkspaceId
@@ -288,26 +307,20 @@ function WorkspaceTreeItem({
         data-current-workspace={workspace.id === activeWorkspaceId ? 'true' : undefined}
         selected={false}
       >
-        <WorkspaceHoverCard
+        <WorkspaceDisclosureButton
           label={label}
-          onEditWorkspace={onEditWorkspace}
           onExpandedChange={onExpandedChange}
-          onRename={onRename}
-          runningCount={runningSessions.length}
-          sessionCount={sessions.length}
-          workspace={workspace}
           workspaceExpanded={expanded}
         />
       </ClioInteractiveRow>
       <CollapsibleContent>
-        <div className="ml-3 grid min-w-0 gap-0.5 border-l pl-1.5 group-data-[collapsible=icon]:hidden">
+        <div className="ml-2 grid min-w-0 gap-0.5 pl-2 group-data-[collapsible=icon]:hidden">
           {visibleSessions.map((session) => (
             <SessionNavigationRow
               actions={actions}
               activeSessionId={activeSessionId}
               attention={attentions[session.id]}
               blueprint={resolveActiveBlueprint(session, blueprints)}
-              disambiguate={sharedTitles.has(session.title.trim())}
               key={session.id}
               onAction={onAction}
               onDelete={onDelete}
@@ -320,7 +333,7 @@ function WorkspaceTreeItem({
             />
           ))}
           {visibleSessions.length === 0 ? (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">No recent sessions</p>
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">No sessions</p>
           ) : null}
           {sessions.length > 8 ? (
             <Button
@@ -351,7 +364,6 @@ interface WorkspaceActionsMenuProps {
   label: WorkspaceDisplayLabel;
   activeWorkspaceId: string;
   actions: ResourceActions;
-  onCreateSession: (workspaceId: string) => void;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
@@ -364,7 +376,6 @@ function WorkspaceActionsMenu({
   label,
   activeWorkspaceId,
   actions,
-  onCreateSession,
   onRename,
   onDelete,
   onEditWorkspace,
@@ -393,19 +404,13 @@ function WorkspaceActionsMenu({
         <DropdownMenuLabel className="min-w-0">
           <WorkspaceLabelFields label={label} />
           <span
-            className="mt-0.5 block truncate font-mono text-[10px] font-normal text-muted-foreground"
+            className="mt-0.5 block truncate font-mono text-[0.625rem] font-normal text-muted-foreground"
             title={workspace.path}
           >
             {workspace.path}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="whitespace-nowrap"
-          onSelect={() => onCreateSession(workspace.id)}
-        >
-          <AddIcon aria-hidden="true" /> New session
-        </DropdownMenuItem>
         <DropdownMenuItem
           className="whitespace-nowrap"
           disabled={!onOpenWorkspaceFiles || workspace.id !== activeWorkspaceId}
@@ -457,120 +462,28 @@ function WorkspaceActionsMenu({
   );
 }
 
-interface WorkspaceHoverCardProps {
-  workspace: Workspace;
+interface WorkspaceDisclosureButtonProps {
   label: WorkspaceDisplayLabel;
   workspaceExpanded: boolean;
-  sessionCount: number;
-  runningCount: number;
   onExpandedChange: (open: boolean) => void;
-  onRename: (target: ResourceTarget) => void;
-  onEditWorkspace: (workspaceId: string) => void;
 }
 
-function WorkspaceHoverCard({
-  workspace,
+function WorkspaceDisclosureButton({
   label,
   workspaceExpanded,
-  sessionCount,
-  runningCount,
   onExpandedChange,
-  onRename,
-  onEditWorkspace,
-}: WorkspaceHoverCardProps) {
+}: WorkspaceDisclosureButtonProps) {
   const labelText = workspaceLabelText(label);
-  const folders = workspace.source_folders?.length
-    ? workspace.source_folders
-    : [
-        {
-          name:
-            workspace.path
-              .split(/[\\/]+/u)
-              .filter(Boolean)
-              .at(-1) || workspace.path,
-          path: workspace.path,
-          primary: true,
-        },
-      ];
   return (
-    <HoverCard closeDelay={100} openDelay={260}>
-      <HoverCardTrigger asChild>
-        <button
-          aria-expanded={workspaceExpanded}
-          aria-label={`${workspaceExpanded ? 'Collapse' : 'Expand'} workspace ${labelText}`}
-          className="flex h-full w-full min-w-0 cursor-pointer items-center gap-2 text-left outline-none"
-          onClick={() => onExpandedChange(!workspaceExpanded)}
-          type="button"
-        >
-          <FolderGit2Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-          <WorkspaceLabelFields className="group-data-[collapsible=icon]:hidden" label={label} />
-          <ChevronDownIcon
-            aria-hidden="true"
-            className={`ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[collapsible=icon]:hidden ${workspaceExpanded ? '' : '-rotate-90'}`}
-          />
-        </button>
-      </HoverCardTrigger>
-      <HoverCardContent
-        align="start"
-        className="w-80 overflow-hidden p-0"
-        side="right"
-        sideOffset={58}
-      >
-        <div className="border-b bg-muted/35 p-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/12 text-primary">
-              <FolderGit2Icon aria-hidden="true" className="size-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <button
-                className="group/name flex max-w-full items-center gap-1 rounded-sm text-left font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
-                type="button"
-              >
-                <WorkspaceLabelFields label={label} />
-                <EditIcon
-                  aria-hidden="true"
-                  className="size-3 shrink-0 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus/name:opacity-100"
-                />
-              </button>
-              <p className="text-xs text-muted-foreground">
-                {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}
-                {runningCount > 0 ? `, ${runningCount} active` : ''}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-3 p-3">
-          <div>
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Folders
-            </p>
-            <div className="grid gap-1.5">
-              {folders.slice(0, 4).map((folder) => (
-                <div className="flex min-w-0 items-center gap-2" key={folder.path}>
-                  <FolderOpenIcon
-                    aria-hidden="true"
-                    className="size-3.5 shrink-0 text-muted-foreground"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-xs">{folder.name}</span>
-                  {folder.primary ? (
-                    <span className="text-[10px] text-muted-foreground">Primary</span>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-          <Button
-            className="w-full justify-start"
-            onClick={() => onEditWorkspace(workspace.id)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <EditIcon aria-hidden="true" /> Edit workspace
-          </Button>
-        </div>
-      </HoverCardContent>
-    </HoverCard>
+    <button
+      aria-expanded={workspaceExpanded}
+      aria-label={`${workspaceExpanded ? 'Collapse' : 'Expand'} workspace ${labelText}`}
+      className="flex h-full w-full min-w-0 cursor-pointer items-center gap-2 text-left outline-none"
+      onClick={() => onExpandedChange(!workspaceExpanded)}
+      type="button"
+    >
+      <FolderGit2Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+      <WorkspaceLabelFields className="group-data-[collapsible=icon]:hidden" label={label} />
+    </button>
   );
 }

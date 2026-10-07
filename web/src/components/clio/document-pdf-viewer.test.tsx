@@ -2,8 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioDocumentPdfViewer } from './document-pdf-viewer';
-
-afterEach(cleanup);
+import { ViewerToolbarHost } from './viewer-toolbar-context';
 
 const documentPageCount = vi.hoisted(() => ({ value: 3 }));
 const pageRenderReady = vi.hoisted(() => ({ value: true }));
@@ -46,19 +45,27 @@ vi.mock('react-pdf', async () => {
 });
 
 afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  document.querySelector('[data-test-toolbar]')?.remove();
   documentPageCount.value = 3;
   pageRenderReady.value = true;
 });
 
 describe('ClioDocumentPdfViewer', () => {
-  it('defaults to continuous scrolling and can switch to paged navigation', async () => {
+  it('keeps continuous pages and shares zoom with the host toolbar', async () => {
     const user = userEvent.setup();
+    const toolbar = document.createElement('div');
+    toolbar.setAttribute('data-test-toolbar', '');
+    document.body.append(toolbar);
     render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="paper.pdf"
-        onSelection={vi.fn()}
-      />,
+      <ViewerToolbarHost.Provider value={toolbar}>
+        <ClioDocumentPdfViewer
+          bytes={new Uint8Array([37, 80, 68, 70])}
+          name="paper.pdf"
+          onSelection={vi.fn()}
+        />
+      </ViewerToolbarHost.Provider>,
     );
 
     expect(await screen.findByText('PDF page 1')).toBeVisible();
@@ -66,39 +73,20 @@ describe('ClioDocumentPdfViewer', () => {
     expect(screen.getByText('PDF page 3')).toBeVisible();
     expect(screen.getByText('3 pages')).toBeVisible();
 
-    const pagedToggle = screen.getByRole('button', { name: 'Use paged PDF view' });
-    expect(pagedToggle).toHaveAttribute('aria-pressed', 'false');
-    await user.click(pagedToggle);
-
-    expect(pagedToggle).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('Page 1 of 3')).toBeVisible();
-    expect(screen.queryByText('PDF page 2')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Next PDF page' }));
+    expect(screen.queryByRole('button', { name: 'Use paged PDF view' })).not.toBeInTheDocument();
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(screen.getByText('3 pages').closest('footer')).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(screen.getByText('115%')).toBeVisible();
     expect(screen.getByText('PDF page 2')).toBeVisible();
-  });
-
-  it('opens on the requested initial page in paged view', async () => {
-    const user = userEvent.setup();
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        initialPage={2}
-        name="paper.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
-
-    await screen.findByText('PDF page 1');
-    await user.click(screen.getByRole('button', { name: 'Use paged PDF view' }));
-
-    expect(screen.getByText('Page 2 of 3')).toBeVisible();
-    expect(screen.getByText('PDF page 2')).toBeVisible();
+    toolbar.remove();
   });
 
   it('jumps continuous-scroll to the requested initial page once a real page height is known', async () => {
     documentPageCount.value = 400;
-    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
-      function getBoundingClientRect(this: HTMLElement) {
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement) {
         const page = this instanceof HTMLElement && this.hasAttribute('data-page');
         return {
           bottom: page ? 300 : 700,
@@ -111,8 +99,7 @@ describe('ClioDocumentPdfViewer', () => {
           y: 0,
           toJSON: () => ({}),
         };
-      },
-    );
+      });
 
     render(
       <ClioDocumentPdfViewer
@@ -135,8 +122,9 @@ describe('ClioDocumentPdfViewer', () => {
 
   it('does not re-jump continuous-scroll after the reader scrolls away', async () => {
     documentPageCount.value = 400;
-    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
-      function getBoundingClientRect(this: HTMLElement) {
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement) {
         const page = this instanceof HTMLElement && this.hasAttribute('data-page');
         return {
           bottom: page ? 300 : 700,
@@ -149,8 +137,7 @@ describe('ClioDocumentPdfViewer', () => {
           y: 0,
           toJSON: () => ({}),
         };
-      },
-    );
+      });
 
     render(
       <ClioDocumentPdfViewer
@@ -176,6 +163,24 @@ describe('ClioDocumentPdfViewer', () => {
 
   it('windows a long document instead of mounting every page', async () => {
     documentPageCount.value = 400;
+    // JSDOM has no layout. Give the viewer and rendered pages the bounded
+    // geometry supplied by a real canvas host, including narrow-pane support.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function getBoundingClientRect(this: HTMLElement) {
+        const height = this.hasAttribute('data-page') ? 300 : 700;
+        return {
+          bottom: height,
+          height,
+          left: 0,
+          right: 320,
+          top: 0,
+          width: 320,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        };
+      },
+    );
     render(
       <ClioDocumentPdfViewer
         bytes={new Uint8Array([37, 80, 68, 70])}
@@ -211,8 +216,9 @@ describe('ClioDocumentPdfViewer', () => {
   it('does not measure a loading page placeholder as rendered page geometry', async () => {
     documentPageCount.value = 400;
     pageRenderReady.value = false;
-    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
-      function getBoundingClientRect(this: HTMLElement) {
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function getBoundingClientRect(this: HTMLElement) {
         const page = this instanceof HTMLElement && this.hasAttribute('data-page');
         return {
           bottom: page ? 2 : 700,
@@ -225,8 +231,7 @@ describe('ClioDocumentPdfViewer', () => {
           y: 0,
           toJSON: () => ({}),
         };
-      },
-    );
+      });
 
     render(
       <ClioDocumentPdfViewer
@@ -252,7 +257,7 @@ describe('ClioDocumentPdfViewer', () => {
     );
 
     const zoom = await screen.findByRole('group', { name: 'PDF zoom' });
-    expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom PDF out' }));
-    expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom PDF in' }));
+    expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom out' }));
+    expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom in' }));
   });
 });

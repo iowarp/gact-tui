@@ -20,24 +20,36 @@ export function useApplyModelConfiguration(onApplied?: () => void) {
   const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
   const { settings } = useConnectionSettings();
   return useMutation({
-    mutationFn: async ({ update, requiresKey }: { update: ModelSettingsUpdate; requiresKey: boolean }) => {
+    mutationFn: async ({
+      update,
+      requiresKey,
+    }: {
+      update: ModelSettingsUpdate;
+      requiresKey: boolean;
+    }) => {
       if (requiresKey && !update.api_key) {
         const stored = await readProviderCredential(update.provider_id, update.api_base);
         if (stored) update.api_key = stored;
       }
       return repository.updateLanguageModelConfiguration(update);
     },
-    onSuccess: async (next) => {
+    onSuccess: (next) => {
       onApplied?.();
-      queryClient.setQueryData(queryKeys.key('language-model-configuration', settings.endpoint), next);
+      queryClient.setQueryData(
+        queryKeys.key('language-model-configuration', settings.endpoint),
+        next,
+      );
       clearCachedSessionModelReferences(queryClient, settings.endpoint);
       clearSessionModelReferences();
-      await Promise.all([
+      // Saving ends when the write is acknowledged; dependent views refresh in the background.
+      void Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: queryKeys.capabilities(settings.endpoint) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.providerModels(settings.endpoint) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.key('sessions', settings.endpoint) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('session-defaults', settings.endpoint) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('session-defaults', settings.endpoint),
+        }),
       ]);
     },
   });

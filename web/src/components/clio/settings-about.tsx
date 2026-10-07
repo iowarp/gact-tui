@@ -1,7 +1,7 @@
 import type { CapabilityVersions } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { brand } from '@brand';
-import { Frame, FramePanel } from '@/components/reui/frame';
+import { Frame, FramePanel } from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
@@ -25,7 +25,7 @@ export function AboutSettings() {
   return (
     <div className="grid gap-6">
       <SectionHeading
-        description={`Product identity comes from the active brand profile. Service versions and model identity below are reported by ${new URL(settings.endpoint).host}.`}
+        description="Version and connection details for this app and the connected service."
         title={`About ${brand.name}`}
       />
       <Frame spacing="sm">
@@ -57,12 +57,16 @@ export function AboutSettings() {
             <AboutValue
               label="Backend build"
               value={
-                versions?.backend_build || (capabilities.data ? 'Unreported by this service' : 'Unavailable')
+                versions?.backend_build ||
+                (capabilities.data ? 'Unreported by this service' : 'Unavailable')
               }
             />
             <AboutValue
               label="Python"
-              value={versions?.python || (capabilities.data ? 'Unreported by this service' : 'Unavailable')}
+              value={
+                versions?.python ||
+                (capabilities.data ? 'Unreported by this service' : 'Unavailable')
+              }
             />
             <AboutValue
               label="Marketplace registry"
@@ -100,7 +104,9 @@ export function AboutSettings() {
 function formatMarketplaceRegistry(marketplace: CapabilityVersions['marketplace']): string {
   if (!marketplace) return 'Not configured';
   const ref = marketplace.ref || 'default ref';
-  const commit = marketplace.installed_commit ? marketplace.installed_commit.slice(0, 12) : undefined;
+  const commit = marketplace.installed_commit
+    ? marketplace.installed_commit.slice(0, 12)
+    : undefined;
   return commit
     ? `${marketplace.source}, ref ${ref}, installed ${commit}`
     : `${marketplace.source}, ref ${ref}, installed commit unavailable`;

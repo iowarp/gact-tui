@@ -1,6 +1,6 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { DownloadIcon } from 'lucide-react';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +48,10 @@ export function ProviderSetupAction({
 
   return (
     <div
-      className={cn('flex w-full flex-col gap-3', align === 'center' ? 'items-center' : 'items-start')}
+      className={cn(
+        'flex w-full flex-col gap-3',
+        align === 'center' ? 'items-center' : 'items-start',
+      )}
       data-slot="provider-setup-action"
     >
       {actions.stage ? <ProviderActionSteps flow={flow} stage={actions.stage} /> : null}
@@ -98,10 +101,16 @@ export function ProviderSetupAction({
           Install
         </Button>
       ) : (
-        <Button onClick={() => actions.handshake.mutate()} size="sm" type="button" variant="outline">
-          <RefreshIcon data-icon="inline-start" />
+        <RefreshButton
+          label={failed ? 'Check again' : 'Check'}
+          refreshing={actions.handshake.isPending}
+          onRefresh={() => actions.handshake.mutateAsync()}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
           {failed ? 'Check again' : 'Check'}
-        </Button>
+        </RefreshButton>
       )}
     </div>
   );

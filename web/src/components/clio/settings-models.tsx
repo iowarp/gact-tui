@@ -1,7 +1,7 @@
 import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Frame, FramePanel } from '@/components/reui/frame';
+import { Frame, FramePanel } from '@/components/clio/settings-frame';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useCatalogModel } from '@/hooks/use-catalog-model';

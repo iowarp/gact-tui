@@ -146,7 +146,10 @@ pub fn read_logs() -> Result<String, String> {
 /// application. The backend chooses and materializes the path; this command
 /// validates that it names a real file and passes it as an argv element.
 #[tauri::command]
-pub fn open_document_path(path: String) -> Result<String, String> {
+pub fn open_document_path(
+    path: String,
+    application: Option<crate::document_apps::DocumentApplication>,
+) -> Result<String, String> {
     let requested = PathBuf::from(path);
     let canonical = requested
         .canonicalize()
@@ -156,6 +159,10 @@ pub fn open_document_path(path: String) -> Result<String, String> {
     }
     if !is_document_working_copy_path(&canonical) {
         return Err("document path is outside a CLIO working copy".to_string());
+    }
+    if let Some(application) = application {
+        crate::document_apps::open_in(application, &canonical)?;
+        return Ok(canonical.display().to_string());
     }
     #[cfg(target_os = "windows")]
     let mut command = {

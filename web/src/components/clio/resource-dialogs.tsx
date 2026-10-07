@@ -71,7 +71,10 @@ export interface ResourceActions {
   restoreSession: (sessionId: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
-  exportSession: (sessionId: string) => Promise<unknown>;
+  exportSession: (
+    sessionId: string,
+    mode: import('@clio/core/v3').SessionExportMode,
+  ) => Promise<{ download_path: string; filename: string }>;
   importSession: (value: unknown) => Promise<void>;
 }
 
@@ -193,23 +196,26 @@ function CreateResourceDialog({
 
   return (
     <Dialog onOpenChange={(open) => onCreateKindChange(open ? createKind : null)} open>
-      <DialogContent className="h-[min(560px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Create</DialogTitle>
-          <DialogDescription>
-            Start a session in an existing workspace or register another workspace root.
-          </DialogDescription>
+          <DialogDescription>Start a session or create a workspace.</DialogDescription>
         </DialogHeader>
         <Tabs
-          className="-mr-1 grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4 pr-1"
+          className="min-h-0 gap-4"
           onValueChange={(value) => onCreateKindChange(value as 'workspace' | 'session')}
           value={createKind}
         >
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full shrink-0 grid-cols-2">
             <TabsTrigger value="session">Session</TabsTrigger>
             <TabsTrigger value="workspace">{capitalize(vocab.workspace)}</TabsTrigger>
           </TabsList>
-          <div className="min-h-0 overflow-y-auto">
+          <div
+            className="-mr-2 min-h-0 overflow-y-auto pr-2 [scrollbar-gutter:stable]"
+            role="region"
+            aria-label="Creation options"
+            tabIndex={0}
+          >
             <TabsContent className="mt-0 data-[state=inactive]:hidden" forceMount value="workspace">
               <WorkspaceFields
                 name={workspaceName}
@@ -237,14 +243,14 @@ function CreateResourceDialog({
                 workspaces={workspaces}
               />
             </TabsContent>
+            {error ? (
+              <p className="mt-4 text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
           </div>
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
         </Tabs>
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button onClick={() => onCreateKindChange(null)} type="button" variant="ghost">
             Cancel
           </Button>
@@ -396,9 +402,13 @@ function SessionFields(props: SessionFieldsProps) {
           A blueprint adds domain experts, tools, and instructions to this session.
         </FieldDescription>
       </Field>
-      <Collapsible>
+      <Collapsible className="border-t pt-2">
         <CollapsibleTrigger asChild>
-          <Button className="group w-full justify-between" type="button" variant="outline">
+          <Button
+            className="group w-full justify-between px-0 hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
+            type="button"
+            variant="ghost"
+          >
             Advanced session behavior
             <ChevronDownIcon
               aria-hidden="true"
@@ -406,7 +416,7 @@ function SessionFields(props: SessionFieldsProps) {
             />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 grid gap-4 rounded-lg border p-4">
+        <CollapsibleContent className="mt-3 grid gap-4 pb-1 data-[state=closed]:hidden sm:grid-cols-2">
           <BehaviorSelect
             id="new-session-mode"
             label="Default work mode"

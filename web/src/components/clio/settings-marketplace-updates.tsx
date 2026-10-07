@@ -1,6 +1,6 @@
 import type { AgentBlueprintSourceUpdate } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -84,10 +84,15 @@ export function MarketplaceUpdatesCheck() {
             )}
           </p>
         </div>
-        <Button disabled={check.isPending} onClick={() => check.mutate()} size="sm" variant="outline">
-          <RefreshIcon aria-hidden="true" className={check.isPending ? 'animate-spin' : undefined} />
+        <RefreshButton
+          label="Check marketplace updates"
+          refreshing={check.isPending}
+          onRefresh={() => check.mutateAsync()}
+          size="sm"
+          variant="outline"
+        >
           {check.isPending ? 'Checking…' : 'Check marketplace updates'}
-        </Button>
+        </RefreshButton>
       </div>
       {rows?.length === 0 ? (
         <p className="text-sm text-muted-foreground">No marketplace sources are configured.</p>
@@ -100,7 +105,8 @@ export function MarketplaceUpdatesCheck() {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                 <span>Ref {row.ref || 'default'}</span>
                 <span>
-                  Installed {row.installed_commit ? row.installed_commit.slice(0, 12) : 'unavailable'}
+                  Installed{' '}
+                  {row.installed_commit ? row.installed_commit.slice(0, 12) : 'unavailable'}
                 </span>
                 {row.remote_commit ? <span>Remote {row.remote_commit.slice(0, 12)}</span> : null}
               </div>

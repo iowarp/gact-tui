@@ -2,6 +2,7 @@ import type { InfrastructureDependency } from '@clio/core/v3';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ClioInfrastructurePreparation } from './infrastructure-preparation';
+import { MotionConfig } from 'motion/react';
 import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
 
 function dependency(
@@ -24,6 +25,15 @@ function dependency(
 }
 
 describe('ClioInfrastructurePreparation', () => {
+  it('keeps preparation readable without shimmer when motion is reduced', () => {
+    render(
+      <MotionConfig reducedMotion="always">
+        <ClioInfrastructurePreparation dependencies={[]} />
+      </MotionConfig>,
+    );
+    expect(screen.getByText('Setting up session')).toBeVisible();
+    expect(document.querySelector('[style*="background-image"]')).toBeNull();
+  });
   it('uses one AI Elements shimmer line for a cold MCP launch', () => {
     render(<ClioInfrastructurePreparation dependencies={[dependency('running')]} />);
 

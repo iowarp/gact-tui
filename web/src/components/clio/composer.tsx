@@ -31,7 +31,6 @@ import {
   PromptInputCommandItem,
   PromptInputCommandList,
   PromptInputFooter,
-  PromptInputHeader,
   PromptInputSubmit,
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input';
@@ -68,6 +67,7 @@ import { composerModelLabel } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useRegionCaptureAnnotation } from './use-region-capture-annotation';
 import { ComposerAddContextButton } from './composer-add-context-button';
+import { ClioComposerEvidenceControls } from './composer-evidence-controls';
 import { useComposerSources } from './use-composer-sources';
 import {
   isSourceAttachment,
@@ -361,7 +361,11 @@ export function ClioComposer({
   }, [commandQuery, commands]);
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
   const commandPopoverId = `${useId()}-composer-commands`;
-  const sourceAttachments = useComposerSourceAttachments(selectedReferences, setSelectedReferences, workspaceId);
+  const sourceAttachments = useComposerSourceAttachments(
+    selectedReferences,
+    setSelectedReferences,
+    workspaceId,
+  );
   const composerReferences = useComposerReferenceController({
     contextReferences,
     editorRef: inputRef,
@@ -526,7 +530,8 @@ export function ClioComposer({
         />
       ) : null}
       <PromptInput
-        className="mx-auto max-w-4xl shrink-0 rounded-2xl border-border/30 bg-card/70 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl [&_[data-slot=input-group]]:border-border/30 [&_[data-slot=input-group]]:bg-card/70 dark:bg-card/60 dark:[&_[data-slot=input-group]]:bg-card/60"
+        data-slot="clio-composer"
+        className="mx-auto max-w-4xl shrink-0 rounded-2xl bg-composer shadow-sm"
         maxFileSize={250 * 1024 * 1024}
         multiple
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}
@@ -621,12 +626,6 @@ export function ClioComposer({
           open={fileUploadOpen}
           onFolderFiles={connectedSources.drop}
         />
-        {workSummary}
-        {activityControl ? (
-          <PromptInputHeader className="border-b px-2.5 py-1.5">
-            {activityControl}
-          </PromptInputHeader>
-        ) : null}
         <ClioComposerAttachments
           annotations={annotations}
           onRemoveCapture={(gone) =>
@@ -677,8 +676,8 @@ export function ClioComposer({
             form?.requestSubmit();
           }}
         />
-        <PromptInputFooter className="flex-wrap">
-          <PromptInputTools className="min-w-0 flex-1 flex-wrap">
+        <PromptInputFooter className="@container/composer flex-wrap gap-y-1">
+          <PromptInputTools className="min-w-0 flex-wrap">
             {attachments || contextReferences ? (
               <ComposerAddContextButton
                 attachments={attachments}
@@ -721,7 +720,7 @@ export function ClioComposer({
                   trigger={
                     <Button
                       aria-label="Change model"
-                      className="max-w-48 text-foreground"
+                      className="max-w-32 text-foreground @min-[48rem]/composer:max-w-48"
                       size="sm"
                       title="Change model"
                       type="button"
@@ -752,7 +751,11 @@ export function ClioComposer({
               unrecognizedEffort={unrecognizedEffort}
             />
           </PromptInputTools>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ClioComposerEvidenceControls
+            activityControl={activityControl}
+            workSummary={workSummary}
+          />
+          <div className="flex shrink-0 items-center gap-2">
             {catalogPreparing && state !== 'running' ? (
               <span className="text-xs text-muted-foreground" role="status">
                 Preparing views…

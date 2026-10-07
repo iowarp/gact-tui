@@ -107,11 +107,11 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'paper.pdf' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Resource paper.pdf' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Show paper.pdf' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Show appendix.pdf' }));
 
-    expect(await screen.findByRole('heading', { name: 'appendix.pdf' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Resource appendix.pdf' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Show appendix.pdf' })).toHaveAttribute(
       'aria-current',
       'true',
@@ -149,19 +149,19 @@ describe('WorkspaceResourceView', () => {
     expect(previous).toBeDisabled();
     expect(next).toBeEnabled();
     await user.click(next);
-    expect(await screen.findByRole('heading', { name: 'appendix.pdf' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Resource appendix.pdf' })).toBeVisible();
     expect(previous).toBeEnabled();
     expect(next).toBeDisabled();
 
     await user.click(previous);
-    expect(await screen.findByRole('heading', { name: 'paper.pdf' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Resource paper.pdf' })).toBeVisible();
 
     await user.click(previewCarousel);
     expect(previewCarousel).toHaveFocus();
     await user.keyboard('{ArrowRight}');
-    expect(await screen.findByRole('heading', { name: 'appendix.pdf' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Resource appendix.pdf' })).toBeVisible();
     await user.keyboard('{ArrowLeft}');
-    expect(await screen.findByRole('heading', { name: 'paper.pdf' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Resource paper.pdf' })).toBeVisible();
   });
 
   it('uses the shared PDF.js viewer instead of the unreliable native object plugin', async () => {
@@ -183,7 +183,7 @@ describe('WorkspaceResourceView', () => {
     objectUrls.mockRestore();
   });
 
-  it('offers removal from the resource header, so a stuck resource is not permanent', async () => {
+  it('offers removal from the common file menu, so a stuck resource is not permanent', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -195,7 +195,8 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Remove paper.pdf' }));
+    await user.click(screen.getByRole('button', { name: 'File actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Remove from this workspace' }));
     await user.click(screen.getByRole('button', { name: 'Remove resource' }));
 
     expect(repository.deleteResource).toHaveBeenCalledWith('workspace_1', 'resource_1');
@@ -210,12 +211,11 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Copy paper.pdf to another workspace' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'File actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Copy to another workspace' }));
     await user.click(await screen.findByLabelText('Destination workspace'));
     await user.click(await screen.findByRole('option', { name: 'Destination' }));
-    await user.click(screen.getByRole('button', { name: 'Copy resource' }));
+    await user.click(screen.getByRole('button', { name: 'Copy file' }));
 
     expect(repository.copyResource).toHaveBeenCalledWith(
       'workspace_1',

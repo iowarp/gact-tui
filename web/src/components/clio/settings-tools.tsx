@@ -12,7 +12,8 @@ import {
   ScrollTextIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { RefreshIndicator } from './refresh-button';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -21,7 +22,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -325,10 +326,16 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                   <DropdownMenuTrigger asChild>
                     <Button
                       aria-label={`Actions for ${serverTitle(server)}`}
+                      aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
+                      disabled={reconnect.isPending && reconnect.variables?.id === server.id}
                       size="icon-sm"
                       variant="ghost"
                     >
-                      <MoreIcon aria-hidden="true" />
+                      {reconnect.isPending && reconnect.variables?.id === server.id ? (
+                        <RefreshIndicator refreshing />
+                      ) : (
+                        <MoreIcon aria-hidden="true" />
+                      )}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-48">
@@ -337,8 +344,17 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                     </DropdownMenuItem>
                     {isRuntimeConnection(server) ? (
                       <>
-                        <DropdownMenuItem onSelect={() => reconnect.mutate(server)}>
-                          <RefreshIcon aria-hidden="true" /> Reconnect
+                        <DropdownMenuItem
+                          aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
+                          disabled={reconnect.isPending}
+                          onSelect={() => reconnect.mutate(server)}
+                        >
+                          <RefreshIndicator
+                            refreshing={
+                              reconnect.isPending && reconnect.variables?.id === server.id
+                            }
+                          />{' '}
+                          Reconnect
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -370,8 +386,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         <FrameHeader>
           <FrameTitle>Available tools</FrameTitle>
           <FrameDescription>
-            Provider-supplied titles and descriptions remain primary; exact identifiers stay
-            secondary for debugging and configuration.
+            Tools available in this workspace. Expand a tool to inspect its inputs and actions.
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-2 p-2">

@@ -8,7 +8,8 @@ import {
   LoaderCircleIcon,
   ScrollTextIcon,
 } from 'lucide-react';
-import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { AddIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -25,7 +26,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -281,9 +282,12 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           </SelectContent>
         </Select>
         <div className="flex gap-2">
-          <Button onClick={() => reload.mutate()} variant="outline">
-            <RefreshIcon className={reload.isPending ? 'animate-spin' : undefined} /> Reload sources
-          </Button>
+          <RefreshButton
+            label="Reload sources"
+            refreshing={reload.isPending}
+            onRefresh={() => reload.mutateAsync()}
+            variant="outline"
+          />
           <Button onClick={() => openEditor()}>
             <AddIcon /> New prompt
           </Button>

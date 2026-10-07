@@ -57,6 +57,39 @@ function renderCard(onOpen = vi.fn()) {
 }
 
 describe('ClioArtifactCard', () => {
+  it('omits bound previews from transcript groups without changing requested document or PDF cards', () => {
+    const base = {
+      id: 'doc',
+      session_id: 'session',
+      name: 'report.docx',
+      media_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      uri: 'artifact://doc',
+    };
+    const preview = {
+      ...base,
+      id: 'preview',
+      name: 'internal-preview.pdf',
+      media_type: 'application/pdf',
+      producer: { designation: 'document-rendition', source_artifact_id: 'doc' },
+    };
+    const pdf = { ...base, id: 'pdf', name: 'requested.pdf', media_type: 'application/pdf' };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rendered = render(
+      <QueryClientProvider client={client}>
+        <ClioArtifactAttachments artifacts={[base, preview, pdf]} />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole('group', { name: '2 artifacts' })).toBeVisible();
+    expect(screen.getByText('report.docx')).toBeVisible();
+    expect(screen.getByText('requested.pdf')).toBeVisible();
+    expect(screen.queryByText('internal-preview.pdf')).toBeNull();
+    rendered.rerender(
+      <QueryClientProvider client={client}>
+        <ClioArtifactAttachments artifacts={[preview]} />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('group')).toBeNull();
+  });
   it('uses the compact Artifacts canvas row for transcript outputs', async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
@@ -85,7 +118,8 @@ describe('ClioArtifactCard', () => {
     // nested-interactive fix below) carries these layout classes.
     const card = openButton.closest('.shadow-none');
     expect(card).toHaveClass('w-full', 'shadow-none');
-    expect(screen.getByText('text/markdown, 175 B')).toBeVisible();
+    expect(screen.getByText('Markdown · 175 B')).toBeVisible();
+    expect(screen.getByText('Markdown · 175 B')).toHaveAttribute('title', 'text/markdown');
     expect(screen.getByText('Output')).toBeVisible();
     expect(document.querySelector('[data-attachment-variant="grid"]')).toBeNull();
 

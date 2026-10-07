@@ -274,6 +274,7 @@ export const messageSchema = z.object({
   created_at: z.string(),
   completed_at: z.string().optional(),
   blocks: z.array(messageBlockSchema),
+  model: z.object({ provider_id: z.string().min(1), model_id: z.string().min(1) }).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   usage: messageUsageSchema.optional(),
   cost_usd: z.number().nonnegative().optional(),

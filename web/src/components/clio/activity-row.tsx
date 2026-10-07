@@ -27,7 +27,7 @@ export function ActivityRow({
 }) {
   return (
     <span
-      className="flex w-full min-w-0 items-center gap-1.5 py-0.5 text-sm leading-5"
+      className="flex w-full min-w-0 items-center gap-1.5 py-0.5 text-[0.8125rem] leading-5"
       data-slot="activity-row"
     >
       <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
@@ -35,27 +35,27 @@ export function ActivityRow({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center">
-          <span className="min-w-0 max-w-full font-medium">{title}</span>
+          <span className="min-w-0 max-w-full font-medium [overflow-wrap:anywhere]">{title}</span>
           {inlineDetail && detail ? (
-            <span
-              className="ml-2 max-w-full shrink-0 truncate text-muted-foreground"
-              title={detail}
-            >
+            <span className="ml-2 min-w-0 truncate text-muted-foreground" title={detail}>
               {detail}
             </span>
           ) : null}
         </span>
         {detail && !inlineDetail ? (
-          <span className="block text-sm leading-5 text-muted-foreground">{detail}</span>
+          <span className="block text-xs leading-5 text-muted-foreground">{detail}</span>
         ) : null}
       </span>
       {metadata ? (
-        <span className="shrink-0 text-sm text-muted-foreground" data-slot="activity-metadata">
+        <span
+          className="min-w-0 max-w-[35%] truncate text-xs text-muted-foreground"
+          data-slot="activity-metadata"
+        >
           {metadata}
         </span>
       ) : null}
       {duration !== undefined ? (
-        <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
           {formatDuration(duration)}
         </span>
       ) : null}

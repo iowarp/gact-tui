@@ -173,7 +173,9 @@ export function AgentAnswerActivity({
           {taskTiming ? <span>{taskTiming}</span> : null}
         </div>
         {answerTask?.child_session_id ? (
-          <span className="mt-1 block font-mono text-[10px]">{answerTask.child_session_id}</span>
+          <span className="mt-1 block font-mono text-[0.625rem]">
+            {answerTask.child_session_id}
+          </span>
         ) : null}
       </ActivityStep>
       <ActivityStep

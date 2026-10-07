@@ -8,12 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  modelDefaultLabel,
-  REASONING_EFFORT_LABELS,
-  type ModelReasoningLevels,
-} from '@/lib/reasoning-levels';
+import { REASONING_EFFORT_LABELS, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 import { InfoTip } from './info-tip';
+import { SettingsRow } from './settings-row';
 
 const MODEL_DEFAULT = '__model_default__';
 
@@ -27,6 +24,7 @@ export function ReasoningLevelField({
   description,
   info,
   id,
+  layout = 'stacked',
   onChange,
   reasoning,
   value,
@@ -36,38 +34,51 @@ export function ReasoningLevelField({
   /** Explanation behind an info icon beside the label (instead of a description). */
   info?: string;
   id: string;
+  layout?: 'stacked' | 'row';
   onChange: (value: ReasoningEffort | undefined) => void;
   reasoning: ModelReasoningLevels | undefined;
   value: string | undefined;
 }) {
   const levels = reasoning?.levels ?? [];
   if (!levels.length) return null;
-  const defaultLabel = modelDefaultLabel(reasoning);
+  const defaultLabel = reasoning?.default
+    ? `Default (${REASONING_EFFORT_LABELS[reasoning.default]})`
+    : 'Default';
   const selected = value && levels.includes(value as ReasoningEffort) ? value : undefined;
+  const control = (
+    <Select
+      onValueChange={(next) =>
+        onChange(next === MODEL_DEFAULT ? undefined : levels.find((level) => level === next))
+      }
+      value={selected ?? (allowModelDefault ? MODEL_DEFAULT : undefined)}
+    >
+      <SelectTrigger id={id}>
+        <SelectValue placeholder="Provider default" />
+      </SelectTrigger>
+      <SelectContent>
+        {allowModelDefault ? <SelectItem value={MODEL_DEFAULT}>{defaultLabel}</SelectItem> : null}
+        {levels.map((level) => (
+          <SelectItem key={level} value={level}>
+            {REASONING_EFFORT_LABELS[level]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+  if (layout === 'row') {
+    return (
+      <SettingsRow title="Reasoning effort" htmlFor={id} description={description} info={info}>
+        {control}
+      </SettingsRow>
+    );
+  }
   return (
     <Field>
       <div className="flex items-center gap-1.5">
         <FieldLabel htmlFor={id}>Reasoning effort</FieldLabel>
         {info ? <InfoTip label="About reasoning effort">{info}</InfoTip> : null}
       </div>
-      <Select
-        onValueChange={(next) =>
-          onChange(next === MODEL_DEFAULT ? undefined : levels.find((level) => level === next))
-        }
-        value={selected ?? (allowModelDefault ? MODEL_DEFAULT : undefined)}
-      >
-        <SelectTrigger id={id}>
-          <SelectValue placeholder="Provider default" />
-        </SelectTrigger>
-        <SelectContent>
-          {allowModelDefault ? <SelectItem value={MODEL_DEFAULT}>{defaultLabel}</SelectItem> : null}
-          {levels.map((level) => (
-            <SelectItem key={level} value={level}>
-              {REASONING_EFFORT_LABELS[level]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {control}
       {description ? <FieldDescription>{description}</FieldDescription> : null}
     </Field>
   );

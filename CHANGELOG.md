@@ -6,6 +6,27 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.7] - 2026-10-07
+
+- Publish the integrated beta UI from main with curated release notes. Release
+  checks reject tags outside main's first-parent history and missing notes.
+- Include the Globus and Google Drive logos in the web container build context.
+  Their imports previously caused the container's production build to fail.
+
+## [0.11.3-beta.6] — 2026-10-07
+
+- Compact conversation activity keeps recorded reasoning, progress and tool results
+  in order, with per-message usage and provider/model change markers.
+- Context and outputs appear above ongoing work in optional, anchored showcases;
+  the toolbar toggle supports None, Bottom, Top and Both, with reverse cycling.
+- File previews share controls for downloading, opening, information and fullscreen.
+  Word and PowerPoint keep their review PDFs attached to the editable output.
+- Settings use consistent controls and the shared provider/model picker. Runtime
+  preferences expose their actual scope, and reasoning-effort saves finish promptly.
+- Composer contrast, transcript navigation, anchored dialogs and interface sizing
+  improve readability from phones to large displays.
+- Portable session reviews retain complete recorded activity and linked output files.
+
 ## [0.11.3-beta.5] — 2026-10-05
 
 - Infrastructure views support runtime and monitoring lifecycle actions, connected

@@ -12,6 +12,9 @@ const requiredImports = {
   // here when conversation.tsx was split by behavior (2026-09-12); the
   // sourced component is still composed, just from this file now.
   'web/src/components/clio/conversation-message-row.tsx': ['@/components/ai-elements/message'],
+  'web/src/components/clio/conversation-model-boundary.tsx': [
+    '@/components/ai-elements/checkpoint',
+  ],
   'web/src/components/clio/conversation-message-blocks.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/ai-elements/plan',
@@ -21,7 +24,9 @@ const requiredImports = {
   ],
   // Source text rendering now owns the stable part/revision selection binding.
   'web/src/components/clio/transcript-text-block.tsx': [
-    './grounded-message-response', './sent-reference-message', './streaming-text',
+    './grounded-message-response',
+    './sent-reference-message',
+    './streaming-text',
   ],
   'web/src/components/clio/conversation-process-sequence.tsx': [
     '@/components/ai-elements/reasoning',
@@ -103,11 +108,13 @@ const requiredImports = {
     '@/components/reui/data-grid/data-grid',
   ],
   'web/src/components/clio/settings-session-defaults.tsx': ['@/components/ui/select'],
-  'web/src/components/clio/settings-models.tsx': ['@/components/reui/frame'],
+  // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
+  'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
+  'web/src/components/clio/settings-models.tsx': ['@/components/clio/settings-frame'],
   'web/src/components/clio/settings-default-model-card.tsx': ['./model-picker'],
   'web/src/components/clio/settings-prompts.tsx': [
     '@/components/ai-elements/code-block',
-    '@/components/reui/frame',
+    '@/components/clio/settings-frame',
   ],
   'web/src/components/clio/document-workspace.tsx': [
     '@/components/ai-elements/code-block',

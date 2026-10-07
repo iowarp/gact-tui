@@ -10,11 +10,19 @@ import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
 import { PresentationLink } from './presentation-link';
-import { getToolHeaderMetadata, getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
+import {
+  getToolActionLabel,
+  getToolSubject,
+  getToolHeaderMetadata,
+  getToolStatus,
+  isA2uiCatalogLookup,
+} from './tool-presentation';
+import { PagedBlock } from './tool-result-primitives';
 import { withWorkflowPresentation, workflowDescriptor } from './workflow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 import { ToolAttentionField } from './tool-attention-fields';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
+import { ToolCompactRow } from './tool-compact-row';
 
 export function ClioToolInvocation({
   attention,
@@ -22,10 +30,12 @@ export function ClioToolInvocation({
   sessionId,
   tool,
   defaultOpen,
+  compact = false,
 }: {
   tool?: ToolInvocation;
   defaultOpen?: boolean;
   embedded?: boolean;
+  compact?: boolean;
   /** Attention-mode badge: this tool call's share of the selection's attention, and its intensity bucket. */
   attention?: { share: number; bucket: number };
   attentionFields?: readonly AttentionBlock[];
@@ -65,16 +75,24 @@ export function ClioToolInvocation({
       navigation?.resources,
     ),
   );
-  const subject = presentedTool.presentation?.blocks.find(
-    (block) =>
-      block.id === presentedTool.presentation?.subject &&
-      (block.type === 'link' || block.type === 'text'),
-  );
+  const subject = getToolSubject(presentedTool);
+  const catalogContent = isA2uiCatalogLookup(presentedTool)
+    ? (presentedTool.presentation?.blocks ?? [])
+        .filter(
+          (block) =>
+            block.id !== presentedTool.presentation?.subject &&
+            ['markdown', 'text', 'code'].includes(block.type) &&
+            (block.text || block.content_ref),
+        )
+        .map((block) =>
+          block.text?.trimStart().startsWith('{')
+            ? { ...block, type: 'code' as const, language: 'json' }
+            : block,
+        )
+    : [];
   const status = getToolStatus(presentedTool);
   const headerMetadata = getToolHeaderMetadata(presentedTool);
-  const actionLabel = isA2uiCatalogLookup(presentedTool)
-    ? 'Inspect component schema'
-    : presentedTool.presentation?.action || tool.title || tool.name;
+  const actionLabel = getToolActionLabel(presentedTool);
   const summaryInHeader =
     Boolean(headerMetadata) && headerMetadata === presentedTool.presentation?.summary?.trim();
   return (
@@ -85,66 +103,126 @@ export function ClioToolInvocation({
         id={`tool-${tool.id}`}
         tabIndex={-1}
       >
-        <ActivityRow
-          icon={workflow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />}
-          title={
-            <span className="flex w-full min-w-0 items-center gap-1" data-slot="tool-action-label">
-              <span className="mr-1 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {workflow ? 'Workflow' : 'Tool'}
-              </span>
-              <span className="shrink-0">{actionLabel}</span>
-              {subject ? (
-                <>
-                  <span aria-hidden="true">(</span>
-                  {workflow && navigation?.onOpenWorkflow ? (
-                    <Button
-                      aria-label={`Open workflow ${workflow.label}`}
-                      className="h-auto min-w-0 max-w-[42ch] shrink justify-start truncate p-0 text-left text-sm"
-                      onClick={() => navigation.onOpenWorkflow?.(tool)}
-                      title={workflow.label}
-                      variant="link"
-                    >
-                      <span className="truncate">{workflow.label}</span>
-                    </Button>
-                  ) : (
-                    <PresentationLink block={subject} compact />
-                  )}
-                  <span aria-hidden="true">)</span>
-                </>
-              ) : null}
-            </span>
-          }
-          metadata={headerMetadata}
-          status={status}
-          duration={tool.duration_ms}
-          attention={
-            attention ? (
-              <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
-            ) : null
-          }
-          action={
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="size-5"
-                aria-label={`Technical details for ${actionLabel}`}
-                title="Technical details"
+        {compact ? (
+          <ToolCompactRow
+            tool={presentedTool}
+            attention={
+              attention ? (
+                <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
+              ) : null
+            }
+          />
+        ) : (
+          <ActivityRow
+            icon={
+              workflow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />
+            }
+            title={
+              <span
+                className="flex w-full min-w-0 items-center gap-1"
+                data-slot="tool-action-label"
               >
-                <InfoIcon className="size-4" />
-              </Button>
-            </DialogTrigger>
-          }
-        />
-        <ToolResultPresentation
-          tool={presentedTool}
-          subjectId={subject?.id}
-          summaryInHeader={summaryInHeader}
-        />
+                <span className="mr-1 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {workflow ? 'Workflow' : 'Tool'}
+                </span>
+                <span className="min-w-0 [overflow-wrap:anywhere]">{actionLabel}</span>
+                {subject ? (
+                  <>
+                    <span aria-hidden="true">(</span>
+                    {workflow && navigation?.onOpenWorkflow ? (
+                      <Button
+                        aria-label={`Open workflow ${workflow.label}`}
+                        className="h-auto min-w-0 max-w-[42ch] shrink justify-start truncate p-0 text-left text-sm"
+                        onClick={() => navigation.onOpenWorkflow?.(tool)}
+                        title={workflow.label}
+                        variant="link"
+                      >
+                        <span className="truncate">{workflow.label}</span>
+                      </Button>
+                    ) : (
+                      <PresentationLink block={subject} compact />
+                    )}
+                    <span aria-hidden="true">)</span>
+                  </>
+                ) : null}
+              </span>
+            }
+            metadata={headerMetadata}
+            status={status}
+            duration={tool.duration_ms}
+            attention={
+              attention ? (
+                <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
+              ) : null
+            }
+            action={
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-5"
+                  aria-label={`Technical details for ${actionLabel}`}
+                  title="View command, input, result, and timing"
+                >
+                  <InfoIcon className="size-4" />
+                </Button>
+              </DialogTrigger>
+            }
+          />
+        )}
+        {!compact ? (
+          <ToolResultPresentation
+            tool={presentedTool}
+            subjectId={subject?.id}
+            summaryInHeader={summaryInHeader}
+          />
+        ) : null}
+        {!compact &&
+        tool.state === 'failed' &&
+        tool.error &&
+        !tool.presentation?.blocks.some(
+          (block) => block.severity === 'error' || block.text === tool.error,
+        ) ? (
+          <p
+            role="alert"
+            className="ml-7 whitespace-pre-wrap text-sm text-destructive [overflow-wrap:anywhere]"
+          >
+            {tool.error}
+          </p>
+        ) : null}
         <ResultDialogContent
           title={`${actionLabel}: Technical details`}
           description="Original tool arguments, result, and diagnostics."
         >
+          {compact && subject ? (
+            workflow && navigation?.onOpenWorkflow ? (
+              <Button
+                variant="link"
+                className="h-auto justify-start p-0"
+                onClick={() => {
+                  setOpen(false);
+                  navigation.onOpenWorkflow?.(tool);
+                }}
+              >
+                Open workflow {workflow.label}
+              </Button>
+            ) : (
+              <PresentationLink block={subject} />
+            )
+          ) : null}
+          {open && catalogContent.length ? (
+            <section aria-label="Loaded widget catalog" className="min-w-0 space-y-2">
+              <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Loaded content
+              </h4>
+              <PagedBlock
+                block={catalogContent[0]}
+                groupedBlocks={catalogContent}
+                lines={20}
+                full
+              />
+            </section>
+          ) : null}
           {attentionFields?.some((entry) => entry.kind === 'tool_input') ? (
             attentionFields
               .filter((entry) => entry.kind === 'tool_input')

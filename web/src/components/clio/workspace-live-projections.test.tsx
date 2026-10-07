@@ -27,12 +27,15 @@ vi.mock('./conversation', () => ({
     artifacts,
     compactions,
     surfaces,
+    preparation,
   }: {
     artifacts: Record<string, Artifact>;
     compactions?: readonly PendingCompaction[];
     surfaces: Record<string, A2UISurface>;
+    preparation?: { activeTurnResponded?: boolean };
   }) => (
     <>
+      <output data-testid="turn-responded">{String(preparation?.activeTurnResponded)}</output>
       <output data-testid="compaction-ids">
         {(compactions ?? []).map((compaction) => compaction.compaction_id).join(',')}
       </output>
@@ -63,7 +66,6 @@ vi.mock('./observability-dock', () => ({
 
 import {
   WorkspaceLiveConversation,
-  WorkspaceLiveObservabilityDock,
   WorkspaceLiveObservabilityView,
 } from './workspace-live-projections';
 
@@ -82,13 +84,22 @@ describe('WorkspaceLiveConversation', () => {
     { active: undefined, responded: undefined, expected: false },
     { active: 'run_1', responded: undefined, expected: false },
     { active: 'run_1', responded: 'run_1', expected: true },
-  ])('requires a real active turn before reporting a response: $expected', ({ active, responded, expected }) => {
-    if (active) mocks.entities.active_turns.sess_1 = active;
-    if (responded) mocks.entities.responded_turns.sess_1 = responded;
-    render(<WorkspaceLiveObservabilityDock artifacts={[]} contextFiles={[]} contextFrames={[]}
-      diffs={[]} processes={[]} runs={[]} sessionId="sess_1" subagents={[]} tasks={[]} tools={[]} />);
-    expect(screen.getByTestId('turn-responded')).toHaveTextContent(String(expected));
-  });
+  ])(
+    'requires a real active turn before reporting a response: $expected',
+    ({ active, responded, expected }) => {
+      if (active) mocks.entities.active_turns.sess_1 = active;
+      if (responded) mocks.entities.responded_turns.sess_1 = responded;
+      render(
+        <WorkspaceLiveConversation
+          artifacts={[]}
+          sessionId="sess_1"
+          subagents={[]}
+          sessionState="running"
+        />,
+      );
+      expect(screen.getByTestId('turn-responded')).toHaveTextContent(String(expected));
+    },
+  );
 
   it('uses the registry-enriched artifact projection supplied by the workspace query', () => {
     const artifact = {

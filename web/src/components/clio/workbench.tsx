@@ -23,6 +23,7 @@ import {
   WorkflowIcon,
 } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
+import { FileTypeIcon } from './file-type-icon';
 import {
   forwardRef,
   useCallback,
@@ -63,6 +64,7 @@ export interface ClioWorkbenchProps {
   filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  filesNextOffset?: number | null;
   onRefreshFiles?: () => void;
   onFilesViewActiveChange?: (active: boolean) => void;
   artifacts: readonly ArtifactEntity[];
@@ -122,7 +124,10 @@ function isWorkbenchTab(value: unknown): value is WorkbenchTab {
   );
 }
 
-function restoredWorkbenchState(workspaceId: string, hasSession = true): {
+function restoredWorkbenchState(
+  workspaceId: string,
+  hasSession = true,
+): {
   tabs: WorkbenchTab[];
   activeTabId: string;
 } {
@@ -205,6 +210,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       filesFetching,
       filesError,
       filesTruncated,
+      filesNextOffset,
       onRefreshFiles,
       onFilesViewActiveChange,
       artifacts,
@@ -236,6 +242,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
     const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
     const [maximized, setMaximized] = useState(false);
+    const [maximizeHost, setMaximizeHost] = useState<Element | null>(null);
     const activeTabRef = useRef<HTMLDivElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
 
@@ -446,9 +453,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           maximized && 'fixed inset-0 z-[80] bg-background shadow-2xl',
         )}
       >
-        <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
         <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTabId} value={activeTabId}>
-          <div className="flex h-12 shrink-0 items-center gap-1 border-b bg-background/80 px-1.5">
+          <div
+            className="flex h-10 shrink-0 items-center gap-1 border-b bg-background/80 px-1.5"
+            data-slot="canvas-header"
+          >
             <div
               className="no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
               ref={tabStripRef}
@@ -460,7 +469,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 strategy="horizontal"
                 value={tabs}
               >
-                <TabsList className="h-10 w-max justify-start gap-1 rounded-lg bg-transparent p-1">
+                <TabsList className="h-8 w-max justify-start gap-0.5 rounded-lg bg-transparent p-0.5">
                   {tabs.map((tab) => {
                     const active = tab.id === activeTabId;
                     return (
@@ -548,7 +557,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                               }}
                               value={tab.id}
                             >
-                              <TabIcon kind={tab.kind} />
+                              <TabIcon tab={tab} />
                               <span className="truncate">{tab.label}</span>
                             </TabsTrigger>
                           </SortableItemHandle>
@@ -590,8 +599,13 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
-              className="relative z-10 size-9 shrink-0 rounded-lg"
-              onClick={() => setMaximized((value) => !value)}
+              className="relative z-10 size-7 shrink-0 rounded-md"
+              onClick={(event) => {
+                setMaximizeHost(
+                  event.currentTarget.closest('[data-slot=sheet-content]') ?? document.body,
+                );
+                setMaximized((value) => !value);
+              }}
               size="icon"
               title={maximized ? 'Restore canvas' : 'Maximize canvas'}
               variant="ghost"
@@ -623,6 +637,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                     filesFetching={filesFetching}
                     filesPending={filesPending}
                     filesTruncated={filesTruncated}
+                    filesNextOffset={filesNextOffset}
                     maximized={maximized}
                     onApplyDiff={onApplyDiff}
                     onOpenSubagent={onOpenSubagent}
@@ -663,7 +678,14 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       </aside>
     );
 
-    return maximized ? createPortal(canvas, document.body) : canvas;
+    return (
+      <>
+        {/* Keep request delivery outside the portal: maximizing remounts its
+            contents and must not replay a previously handled open request. */}
+        <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
+        {maximized ? createPortal(canvas, maximizeHost ?? document.body) : canvas}
+      </>
+    );
   },
 );
 
@@ -683,7 +705,9 @@ function WorkbenchRequestDispatcher({
   return null;
 }
 
-function TabIcon({ kind }: { kind: WorkbenchTab['kind'] }) {
-  const Icon = workbenchTabIcons[kind];
+function TabIcon({ tab }: { tab: WorkbenchTab }) {
+  if (tab.kind === 'artifact' && tab.artifact)
+    return <FileTypeIcon name={tab.artifact.name} mediaType={tab.artifact.media_type} />;
+  const Icon = workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }

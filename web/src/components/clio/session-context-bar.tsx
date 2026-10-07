@@ -62,7 +62,7 @@ export function ClioSessionContextBar({
           they still render regardless of host. */}
       {inTauri() ? null : (
         <div className="flex min-w-0 items-center gap-1.5">
-          <h1 className="truncate text-base font-medium">
+          <h1 className="truncate text-sm font-medium">
             {session?.title ?? 'Session unavailable'}
           </h1>
           {activeBlueprint ? (
@@ -112,7 +112,7 @@ export function ClioSessionContextBar({
         </Button>
       ) : null}
       {session?.branch ? (
-        <span className="hidden items-center gap-1 font-mono text-[10px] text-muted-foreground lg:flex">
+        <span className="hidden items-center gap-1 font-mono text-[0.625rem] text-muted-foreground lg:flex">
           <GitBranchIcon aria-hidden="true" className="size-3" />
           {session.branch}
         </span>

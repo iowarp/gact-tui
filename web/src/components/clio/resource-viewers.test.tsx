@@ -18,6 +18,7 @@ const { repository } = vi.hoisted(() => ({
     readArtifactTextFor: vi.fn(),
     readWorkspaceFile: vi.fn(),
     readWorkspaceFileBytes: vi.fn(),
+    workspaceFiles: vi.fn(),
     writeAgentBlueprintFile: vi.fn(),
   },
 }));
@@ -197,6 +198,43 @@ describe('BlueprintFileEditor', () => {
 });
 
 describe('ArtifactView', () => {
+  it('recovers a missing nested artifact on demand when the directory root has not loaded it', async () => {
+    repository.readArtifactTextFor.mockRejectedValue(new TransportError('missing', 404));
+    repository.workspaceFiles.mockResolvedValue({
+      entries: [{ path: 'analysis/result.txt', type: 'file', internal: false, size: 30 }],
+      truncated: false,
+    });
+    repository.readWorkspaceFile.mockResolvedValue('Recovered nested result');
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ArtifactView
+          artifact={{
+            id: 'artifact_text',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'result.txt',
+            media_type: 'text/plain',
+            size: 30,
+            uri: 'artifact://workspace_1/result.txt@v1',
+          }}
+          files={[]}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('Recovered nested result')).toBeVisible();
+    expect(repository.workspaceFiles).toHaveBeenCalledWith('workspace_1', expect.any(AbortSignal), {
+      excludeServiceStorage: true,
+    });
+    expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
+      'workspace_1',
+      'analysis/result.txt',
+      expect.any(AbortSignal),
+    );
+  });
+
   it.each([false, true])('reports workspace recovery only when it occurs (%s)', async (missing) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     if (missing) {
@@ -349,7 +387,7 @@ describe('WorkspaceFileView', () => {
     expect(screen.getByText('run.h5')).toBeVisible();
     expect(screen.getByText(/application\/x-hdf5/u)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Download' })).toBeVisible();
+    expect(screen.getAllByRole('button', { name: 'Download file' })).toHaveLength(1);
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
   });

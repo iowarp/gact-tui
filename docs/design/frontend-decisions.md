@@ -903,6 +903,8 @@ presented.
 
 ## 2026-08-23 — Conversation detail is a projection, never a different history
 
+The public mode-switch decision below is superseded by [Compact transcript activity (2026-10-06)](transcript-activity-2026-10.md). The original recorded history and exact attention navigation remain available without a public Chain/Full selector.
+
 - **Old failure:** The compact AI Elements Chain of Thought grouped reasoning, progress, tools, and
   delegated work into an effective evolving turn, but offered no direct path to the original
   reasoning/text/tool sequence. Users had to accept the summary grammar or leave the conversation

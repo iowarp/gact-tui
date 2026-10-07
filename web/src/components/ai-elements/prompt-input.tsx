@@ -654,11 +654,6 @@ export const PromptInput = ({
   // waiting for provider registration; the provider still owns file state.
   const openFileDialog = openFileDialogLocal;
 
-  const clear = useCallback(() => {
-    clearAttachments();
-    clearReferencedSources();
-  }, [clearAttachments, clearReferencedSources]);
-
   // Let provider know about our hidden file input so external menus can call openFileDialog()
   useEffect(() => {
     if (!usingProvider) {
@@ -794,10 +789,23 @@ export const PromptInput = ({
       const formData = new FormData(form);
       const text = (formData.get('message') as string) || '';
       const submittedFileIds = files.map((file) => file.id);
-      const stillUnchanged = () => form.isConnected &&
-        (!usingProvider || ((new FormData(form).get('message') as string) || '') === text) &&
-        filesRef.current.length === submittedFileIds.length &&
-        filesRef.current.every((file, index) => file.id === submittedFileIds[index]);
+      const submittedSourceIds = new Set(referencedSources.map((source) => source.id));
+      const completeSubmission = () => {
+        // A completed send owns its attachments, independently of the text.
+        // The composer may already have cleared that text, or the person may
+        // have started their next draft while the send was pending.
+        for (const id of submittedFileIds) remove(id);
+        setReferencedSources((current) =>
+          current.filter((source) => !submittedSourceIds.has(source.id)),
+        );
+        if (
+          form.isConnected &&
+          usingProvider &&
+          ((new FormData(form).get('message') as string) || '') === text
+        ) {
+          controller.textInput.clear();
+        }
+      };
 
       // Reset form immediately after capturing text to avoid race condition
       // where user input during async blob conversion would be lost
@@ -813,21 +821,13 @@ export const PromptInput = ({
         if (result instanceof Promise) {
           try {
             await result;
-            const unchanged = stillUnchanged();
-            if (unchanged) clear();
-            if (usingProvider && unchanged) {
-              controller.textInput.clear();
-            }
+            completeSubmission();
           } catch {
             // Don't clear on error - user may want to retry
           }
         } else {
           // Sync function completed without throwing, clear inputs
-          const unchanged = stillUnchanged();
-          if (unchanged) clear();
-          if (usingProvider && unchanged) {
-            controller.textInput.clear();
-          }
+          completeSubmission();
         }
       } catch {
         // Don't clear on error - user may want to retry
@@ -835,7 +835,7 @@ export const PromptInput = ({
         submittingRef.current = false;
       }
     },
-    [usingProvider, controller, files, onSubmit, clear],
+    [usingProvider, controller, files, referencedSources, onSubmit, remove],
   );
 
   // Render with or without local provider

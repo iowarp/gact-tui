@@ -187,6 +187,41 @@ describe('ModelsSettings', () => {
     );
   });
 
+  it('ends Saving when the write succeeds while catalog refresh is still pending', async () => {
+    let completeWrite!: (configuration: unknown) => void;
+    repository.updateLanguageModelConfiguration.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeWrite = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    const queryClient = renderModels();
+    await screen.findByRole('radio', { name: 'High' });
+    let completeCatalog!: (value: unknown) => void;
+    repository.providerCatalog.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeCatalog = resolve;
+        }),
+    );
+    await user.click(screen.getByRole('radio', { name: 'High' }));
+    expect(screen.getByText('Saving…')).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Low' })).toBeDisabled();
+    await act(async () =>
+      completeWrite({ ...configuration, thinking_level: 'high', thinking_level_source: 'user' }),
+    );
+    await waitFor(() =>
+      expect(
+        queryClient.isFetching({ queryKey: queryKeys.providerCatalog('http://127.0.0.1:8787') }),
+      ).toBe(1),
+    );
+    await waitFor(() => expect(screen.queryByText('Saving…')).not.toBeInTheDocument());
+    expect(screen.getByRole('radio', { name: 'High' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Low' })).toBeEnabled();
+    await act(async () => completeCatalog(codexCatalog()));
+  });
+
   it('shows no thinking control for a model that reports no levels', async () => {
     repository.providerCatalog.mockResolvedValue({
       authoritative: 'live_handshake',

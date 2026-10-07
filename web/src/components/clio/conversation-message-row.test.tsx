@@ -26,6 +26,25 @@ function baseRowProps(): ConversationMessageRowProps {
 }
 
 describe('conversationMessageRowPropsEqual', () => {
+  it('rerenders a changed model boundary but accepts equivalent reconstructed boundaries', () => {
+    const base = baseRowProps();
+    const modelBoundary = { model: { provider_id: 'codex', model_id: 'gpt-6-luna' } };
+    expect(
+      conversationMessageRowPropsEqual(
+        { ...base, modelBoundary },
+        { ...base, modelBoundary: { model: { ...modelBoundary.model } } },
+      ),
+    ).toBe(true);
+    expect(
+      conversationMessageRowPropsEqual(
+        { ...base, modelBoundary },
+        {
+          ...base,
+          modelBoundary: { model: { provider_id: 'claude_code', model_id: 'claude-sonnet-5' } },
+        },
+      ),
+    ).toBe(false);
+  });
   it('treats a fresh onOpenReference as a real prop change, not a skippable re-render', () => {
     // Every OTHER prop, message included, is the exact same reference on both
     // sides — the only thing that changed between renders is the callback.

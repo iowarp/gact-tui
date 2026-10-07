@@ -81,6 +81,8 @@ describe('ClioConversation harness injection', () => {
     expect(screen.queryByText(/Did you mean/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Show what it got' }));
     expect(screen.getByText(/Did you mean 'data\/a.csv'/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Open exact details' }));
+    expect(screen.getByRole('dialog').querySelector('pre')?.textContent).toBe(text);
   });
 
   it('names an unlisted source plainly', () => {

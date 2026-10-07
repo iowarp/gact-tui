@@ -316,6 +316,7 @@ export interface Artifact {
   size?: number;
   created_at?: string;
   session_relation?: 'produced' | 'used';
+  producer?: Record<string, unknown>;
 }
 
 export interface ArtifactVersion {
@@ -432,6 +433,8 @@ export interface WorkspaceFileListing {
   entries: WorkspaceFileEntry[];
   /** Whether the server's capped walk stopped before enumerating everything. */
   truncated: boolean;
+  /** Next page in directory mode; absent on older recursive listing services. */
+  next_offset?: number | null;
 }
 
 export interface SessionDiff {
@@ -673,6 +676,8 @@ export interface Message {
   created_at: string;
   completed_at?: string;
   blocks: MessageBlock[];
+  /** The accepted route recorded for this message; absent on older records. */
+  model?: { provider_id: string; model_id: string };
   metadata?: Record<string, unknown>;
   usage?: MessageUsage;
   cost_usd?: number;

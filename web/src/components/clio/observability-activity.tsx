@@ -546,18 +546,20 @@ function CausalActivityRow({
         </span>
       </div>
       <div className="min-w-0">
-        <p className="truncate text-[10px] leading-3 text-muted-foreground" title={lane.label}>
+        <p className="truncate text-[0.625rem] leading-3 text-muted-foreground" title={lane.label}>
           {lane.label}
         </p>
         <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
           <span className="truncate">{item.label}</span>
         </p>
         {item.detail ? (
-          <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">{item.detail}</p>
+          <p className="line-clamp-2 text-[0.6875rem] leading-4 text-muted-foreground">
+            {item.detail}
+          </p>
         ) : null}
       </div>
       <time
-        className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
+        className="shrink-0 text-[0.625rem] tabular-nums text-muted-foreground"
         dateTime={item.at}
         title={item.timing === 'turn' ? 'Observed in its containing turn' : undefined}
       >
@@ -573,18 +575,20 @@ function CausalActivityRow({
   if (!target) return <div className="border-b last:border-b-0">{content}</div>;
   return (
     <ClioInteractiveRow
-      actions={item.onOpen ? (
-        <Button
-          aria-label={`Open ${item.label} in canvas`}
-          onClick={() => item.onOpen?.('canvas')}
-          size="icon-xs"
-          title="Open in canvas"
-          type="button"
-          variant="ghost"
-        >
-          <PanelRightOpenIcon aria-hidden="true" />
-        </Button>
-      ) : undefined}
+      actions={
+        item.onOpen ? (
+          <Button
+            aria-label={`Open ${item.label} in canvas`}
+            onClick={() => item.onOpen?.('canvas')}
+            size="icon-xs"
+            title="Open in canvas"
+            type="button"
+            variant="ghost"
+          >
+            <PanelRightOpenIcon aria-hidden="true" />
+          </Button>
+        ) : undefined
+      }
       aria-label={`Open transcript event ${item.label}`}
       className="min-h-0 border-b px-0 py-0 last:border-b-0"
       onClick={activate}
