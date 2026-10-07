@@ -118,7 +118,7 @@ export function ConnectedSourcePicker({
         </DialogHeader>
         <div className="-mx-4 min-h-0 overflow-y-auto px-4">
           {open && (
-            <PickerContents
+            <ConnectedSourceContents
               key={scope}
               workspaceId={workspaceId}
               manageOnly={manageOnly}
@@ -149,7 +149,8 @@ export function ConnectedSourcePicker({
   );
 }
 
-function PickerContents({
+/** Reuse trusted account and workspace-source controls in Attach and Settings. */
+export function ConnectedSourceContents({
   workspaceId,
   manageOnly,
   onDownloadStarted,
@@ -161,6 +162,7 @@ function PickerContents({
   initialDownloaded,
   headerActions,
   onDiscard,
+  settingsView = false,
 }: {
   workspaceId: string;
   manageOnly: boolean;
@@ -177,6 +179,7 @@ function PickerContents({
   initialDownloaded?: boolean;
   headerActions: HTMLDivElement | null;
   onDiscard: () => void;
+  settingsView?: boolean;
 }) {
   const repository = useRepository();
   const folderReference = useSourceFolderReference(workspaceId, onSelect);
@@ -196,10 +199,11 @@ function PickerContents({
   });
   // Files always starts at the list; it never consumes or changes the composer's selection.
   const [managedSelection, setManagedSelection] = useState('');
-  const selectedId = manageOnly ? managedSelection : selection.data;
+  const privateSelection = manageOnly || settingsView;
+  const selectedId = privateSelection ? managedSelection : selection.data;
   const [initialSourceId] = useState(selectedId);
   const select = (id: string) =>
-    manageOnly ? setManagedSelection(id) : queryClient.setQueryData(selectionKey, id);
+    privateSelection ? setManagedSelection(id) : queryClient.setQueryData(selectionKey, id);
   const [provider, setProvider] = useState<SourceProvider>();
   const [accountLogin, setAccountLogin] = useState<SourceProvider>();
   const [editing, setEditing] = useState<ConnectedSourceState>();
@@ -209,6 +213,7 @@ function PickerContents({
     queryFn: ({ signal }) => repository.connectedSources(workspaceId, signal),
     refetchInterval: 1500,
     retry: false,
+    enabled: Boolean(workspaceId),
   });
   const providers = useQuery({
     queryKey: ['connected-storage', scope, 'accounts'],
@@ -378,7 +383,7 @@ function PickerContents({
           {(sources.error || providers.error || folderReference.error)?.message}
         </p>
       )}
-      {!manageOnly && (
+      {!manageOnly && !settingsView && (
         <section className="space-y-2" aria-label="From your computer">
           <div>
             <h3 className="text-sm font-medium">
@@ -411,10 +416,12 @@ function PickerContents({
       )}
       {!manageOnly && (
         <section className="space-y-2" aria-label="Connect a data source">
-          <h3 className="text-sm font-medium">From a connected source</h3>
+          <h3 className="text-sm font-medium">
+            {settingsView ? 'Accounts and providers' : 'From a connected source'}
+          </h3>
           <div className="divide-y rounded-lg border">
             {providers.data?.providers
-              .filter((row) => !localConnection || row.id !== 'local')
+              .filter((row) => settingsView || !localConnection || row.id !== 'local')
               .map((row) => (
                 <div key={row.id} className="flex flex-wrap items-center gap-3 p-3">
                   <div className="flex min-w-48 flex-1 items-center gap-3">
@@ -463,7 +470,12 @@ function PickerContents({
                           </Tooltip>
                         </TooltipProvider>
                       ))}
-                    <Button size="sm" variant="outline" onClick={() => setProvider(row)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!workspaceId}
+                      onClick={() => setProvider(row)}
+                    >
                       Connect
                     </Button>
                   </div>
@@ -472,7 +484,7 @@ function PickerContents({
           </div>
         </section>
       )}
-      {sources.isPending && (
+      {sources.isPending && workspaceId && (
         <p role="status" className="text-sm text-muted-foreground">
           Loading sources…
         </p>
@@ -579,15 +591,27 @@ function PickerContents({
           </section>
         </Collapsible>
       ) : !sources.isPending && !sources.error ? (
-        <div className="rounded-lg border border-dashed px-4 py-6 text-center">
-          <FolderEmpty />
+        <div
+          className={
+            settingsView
+              ? 'rounded-lg border px-4 py-3 text-center'
+              : 'rounded-lg border border-dashed px-4 py-6 text-center'
+          }
+        >
+          {!settingsView && <FolderEmpty />}
           <p className="mt-2 text-sm font-medium">
-            {manageOnly ? 'No connected sources' : 'Bring your data into this workspace'}
+            {settingsView
+              ? 'No saved sources in this workspace'
+              : manageOnly
+                ? 'No connected sources'
+                : 'Bring your data into this workspace'}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {manageOnly
-              ? 'Use Attach in the message box to add a folder or source.'
-              : 'Connect a folder to browse and attach its files.'}
+            {settingsView
+              ? 'Workspace files stay available. Connect a source for additional data.'
+              : manageOnly
+                ? 'Use Attach in the message box to add a folder or source.'
+                : 'Connect a folder to browse and attach its files.'}
           </p>
         </div>
       ) : null}

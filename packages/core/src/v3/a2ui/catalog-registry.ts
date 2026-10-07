@@ -25,7 +25,7 @@ export interface A2uiCatalogSidecarImplementation {
 
 /** Where one client action name routes, beyond the default agent lane. */
 export interface A2uiCatalogSidecarEventRoute {
-  destination?: 'agent' | 'permission' | 'run' | null;
+  destination?: 'agent' | 'permission' | 'run' | 'client' | null;
   context_schema?: Record<string, unknown> | null;
 }
 
@@ -211,7 +211,7 @@ const a2uiCatalogSidecarImplementationSchema = z.object({
 });
 
 const a2uiCatalogSidecarEventRouteSchema = z.object({
-  destination: z.enum(['agent', 'permission', 'run']).nullish(),
+  destination: z.enum(['agent', 'permission', 'run', 'client']).nullish(),
   context_schema: z.record(z.string(), z.unknown()).nullish(),
 });
 
@@ -322,6 +322,7 @@ export function decodeA2uiCatalogRows(value: unknown): A2uiCatalogListDecodeResu
 export class A2uiCatalogRegistry<T extends ComponentApi> {
   private readonly resolved = new Map<string, Catalog<T>>();
   private readonly reasons = new Map<string, A2uiCatalogUnresolvedReason>();
+  private readonly eventRoutes = new Map<string, A2uiCatalogSidecar['events']>();
 
   public constructor(
     private readonly kernel: A2uiKernelRegistry<T>,
@@ -345,10 +346,12 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
   ): void {
     this.resolved.clear();
     this.reasons.clear();
+    this.eventRoutes.clear();
     for (const row of rows) {
       const result = buildA2uiCatalog(row, this.kernel, this.wrapComponent);
       if (result.ok) {
         this.resolved.set(row.catalogId, result.resolution.catalog);
+        this.eventRoutes.set(row.catalogId, row.sidecar.events);
       } else {
         this.reasons.set(row.catalogId, result.reason);
       }
@@ -367,9 +370,11 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
     const result = buildA2uiCatalog(row, this.kernel, this.wrapComponent);
     if (result.ok) {
       this.resolved.set(row.catalogId, result.resolution.catalog);
+      this.eventRoutes.set(row.catalogId, row.sidecar.events);
       this.reasons.delete(row.catalogId);
     } else {
       this.resolved.delete(row.catalogId);
+      this.eventRoutes.delete(row.catalogId);
       this.reasons.set(row.catalogId, result.reason);
     }
     return result;
@@ -399,6 +404,7 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
   ): void {
     this.resolved.clear();
     this.reasons.clear();
+    this.eventRoutes.clear();
     for (const catalogId of wellKnownCatalogIds) {
       this.reasons.set(catalogId, { code, catalogId, detail });
     }
@@ -406,6 +412,11 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
 
   public get(catalogId: string): Catalog<T> | undefined {
     return this.resolved.get(catalogId);
+  }
+
+  /** Resolve declared action ownership from the session's loaded catalog. */
+  public eventRoute(catalogId: string, name: string): A2uiCatalogSidecarEventRoute | undefined {
+    return this.eventRoutes.get(catalogId)?.[name];
   }
 
   public reasonFor(catalogId: string): A2uiCatalogUnresolvedReason | undefined {

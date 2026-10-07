@@ -13,6 +13,7 @@ import {
   CheckCircle2Icon,
   CircleAlertIcon,
   CpuIcon,
+  DatabaseIcon,
   EyeOffIcon,
   HeartPulseIcon,
   KeyRoundIcon,
@@ -49,6 +50,7 @@ import { ScheduleSettings } from '@/components/clio/settings-schedules';
 import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
 import { ModelsSettings } from '@/components/clio/settings-models';
 import { ProvidersSettings } from '@/components/clio/settings-providers';
+import { DataSourceSettings } from '@/components/clio/settings-data-sources';
 import { DesktopSettings } from '@/components/clio/settings-desktop';
 import { AboutSettings } from '@/components/clio/settings-about';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
@@ -109,6 +111,7 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 const sections: Array<{ id: string; label: string; icon: Icon }> = [
   { id: 'connections', label: 'Connections', icon: CableIcon },
+  { id: 'data-sources', label: 'Data sources', icon: DatabaseIcon },
   { id: 'session-defaults', label: 'New session defaults', icon: AdjustIcon },
   { id: 'providers', label: 'Providers', icon: ServerIcon },
   { id: 'models', label: 'Models', icon: CpuIcon },
@@ -663,6 +666,7 @@ function SettingsSection({
   workspaceId?: string;
 }) {
   if (section === 'connections') return <ConnectionsSettings />;
+  if (section === 'data-sources') return <DataSourceSettings initialWorkspaceId={workspaceId} />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
   if (section === 'providers') return <ProvidersSettings />;
   if (section === 'models') return <ModelsSettings />;
