@@ -621,10 +621,10 @@ export function ClioComposer({
           open={fileUploadOpen}
           onFolderFiles={connectedSources.drop}
         />
-        {workSummary}
-        {activityControl ? (
-          <PromptInputHeader className="border-b px-2.5 py-1.5">
-            {activityControl}
+        {activityControl || workSummary ? (
+          <PromptInputHeader className="flex min-w-0 items-center gap-2 border-b px-2.5 py-1">
+            {activityControl ? <div className="min-w-0 flex-1">{activityControl}</div> : null}
+            {workSummary ? <div className="min-w-0 max-w-[50%]">{workSummary}</div> : null}
           </PromptInputHeader>
         ) : null}
         <ClioComposerAttachments

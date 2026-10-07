@@ -65,7 +65,7 @@ export function SessionWorkSummary({
       type="button"
       variant="ghost"
       onClick={onOpen}
-      className="h-auto w-full min-w-0 justify-start whitespace-normal text-left"
+      className="h-7 max-w-full min-w-0 justify-start gap-1.5 px-1.5 text-left text-xs"
       aria-label="Open session Work"
       title={current?.title}
     >

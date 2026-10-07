@@ -15,7 +15,7 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -54,6 +54,17 @@ import { ClioDocumentWorkspace } from './document-workspace';
 import { MarkdownFilePreview } from './markdown-file-preview';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
+import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { HelpIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { downloadBytes } from './surface-export';
 
 export function WorkspaceFileView({
   workspaceId,
@@ -251,6 +262,7 @@ export function ArtifactView({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
   const canPreviewText = isTextArtifact(artifact.media_type, artifact.name);
   const canPreviewImage = isImageArtifact(artifact.media_type, artifact.name);
   const fallbackFile = useMemo(
@@ -340,54 +352,74 @@ export function ArtifactView({
     />
   );
   return (
-    <Tabs className="h-full min-w-0 gap-0" defaultValue="preview">
-      <div className="border-b px-3 py-2">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="versions">Versions</TabsTrigger>
-          <TabsTrigger value="lineage">Lineage</TabsTrigger>
-        </TabsList>
-      </div>
-      <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
-        {canPreviewImage ? (
-          <div className="flex h-full min-h-0 flex-col gap-3 p-3">
-            <div className="min-h-0 flex-1">{preview}</div>
-            {image.data?.recovered ? (
-              <p className="shrink-0 text-xs text-muted-foreground">
-                Recovered from the matching workspace file.
-              </p>
-            ) : null}
-          </div>
-        ) : (
+    <ViewerToolbarHost.Provider value={toolbarHost}>
+      <Tabs className="@container/viewer h-full min-w-0 gap-0" defaultValue="preview">
+        <div
+          className="flex min-h-9 shrink-0 items-center gap-1 border-b px-2"
+          data-slot="viewer-toolbar"
+        >
+          <TabsList
+            aria-label="Artifact views"
+            className="h-7 shrink-0 gap-0.5 bg-transparent p-0"
+            variant="line"
+          >
+            <TabsTrigger className="px-2 text-xs" value="preview">
+              Preview
+            </TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="versions">
+              Versions
+            </TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="lineage">
+              Lineage
+            </TabsTrigger>
+          </TabsList>
+          <div className="ml-auto flex shrink-0 items-center gap-0.5" ref={setToolbarHost} />
+        </div>
+        <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
+          {canPreviewImage ? (
+            <div className="flex h-full min-h-0 flex-col gap-2">
+              <div className="min-h-0 flex-1">{preview}</div>
+              {image.data?.recovered ? (
+                <p className="shrink-0 text-xs text-muted-foreground">
+                  Recovered from the matching workspace file.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <ScrollArea className="h-full min-w-0 p-3">
+              {isDocumentArtifact(artifact.media_type, artifact.name) ? (
+                <ClioDocumentWorkspace
+                  artifact={artifact}
+                  fallbackPreview={preview}
+                  key={artifact.id}
+                />
+              ) : (
+                preview
+              )}
+              {text.data?.recovered ? (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Recovered from the matching workspace file.
+                </p>
+              ) : null}
+            </ScrollArea>
+          )}
+        </TabsContent>
+        <TabsContent className="m-0 min-h-0 overflow-hidden" value="versions">
           <ScrollArea className="h-full min-w-0 p-3">
-            {isDocumentArtifact(artifact.media_type, artifact.name) ? (
-              <ClioDocumentWorkspace
-                artifact={artifact}
-                fallbackPreview={preview}
-                key={artifact.id}
-              />
-            ) : (
-              preview
-            )}
-            {text.data?.recovered ? (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Recovered from the matching workspace file.
-              </p>
-            ) : null}
+            <ArtifactProvenance artifact={artifact} view="versions" />
           </ScrollArea>
-        )}
-      </TabsContent>
-      <TabsContent className="m-0 min-h-0 overflow-hidden" value="versions">
-        <ScrollArea className="h-full min-w-0 p-3">
-          <ArtifactProvenance artifact={artifact} view="versions" />
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent className="m-0 min-h-0 overflow-hidden" value="lineage">
-        <ScrollArea className="h-full min-w-0 p-3">
-          <ArtifactProvenance artifact={artifact} onOpenArtifact={onOpenArtifact} view="lineage" />
-        </ScrollArea>
-      </TabsContent>
-    </Tabs>
+        </TabsContent>
+        <TabsContent className="m-0 min-h-0 overflow-hidden" value="lineage">
+          <ScrollArea className="h-full min-w-0 p-3">
+            <ArtifactProvenance
+              artifact={artifact}
+              onOpenArtifact={onOpenArtifact}
+              view="lineage"
+            />
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+    </ViewerToolbarHost.Provider>
   );
 }
 
@@ -456,6 +488,7 @@ export function ImageResourceView({
   name: string;
 }) {
   const url = useObjectUrl(bytes, mediaType);
+  const toolbarHost = useContext(ViewerToolbarHost);
   const hostRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
@@ -471,7 +504,7 @@ export function ImageResourceView({
   return (
     <div
       className={cn(
-        'h-full min-h-[22rem] overflow-hidden bg-background',
+        '@container/viewer h-full min-h-[22rem] overflow-hidden bg-background',
         fullscreen && 'h-screen min-h-0',
       )}
       ref={hostRef}
@@ -487,50 +520,97 @@ export function ImageResourceView({
         viewportMode="image-aspect"
         zoomStep={0.2}
         controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
-          <div className="flex min-h-10 items-center gap-1 border-b bg-background/90 px-2 backdrop-blur-sm">
-            <span className="mr-auto hidden text-xs text-muted-foreground sm:inline">
-              {zoomScrollHint()}
-            </span>
-            <Button aria-label="Zoom out" onClick={zoomOut} size="icon-sm" variant="ghost">
-              <ZoomOutIcon aria-hidden="true" />
-            </Button>
-            <button
-              aria-label="Reset image zoom"
-              className="min-w-12 rounded-md px-1 text-center text-[11px] font-medium tabular-nums text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-              onClick={resetZoom}
-              title="Reset image zoom"
-              type="button"
-            >
-              {scalePercent}%
-            </button>
-            <Button aria-label="Zoom in" onClick={zoomIn} size="icon-sm" variant="ghost">
-              <ZoomInIcon aria-hidden="true" />
-            </Button>
-            <Button
-              aria-label="Fit image to view"
-              onClick={centerView}
-              size="icon-sm"
-              title="Fit image to view"
-              variant="ghost"
-            >
-              <LocateFixedIcon aria-hidden="true" />
-            </Button>
-            <Button
-              aria-label={fullscreen ? 'Exit image fullscreen' : 'View image fullscreen'}
-              onClick={() => {
-                if (fullscreen) void document.exitFullscreen();
-                else void hostRef.current?.requestFullscreen();
-              }}
-              size="icon-sm"
-              variant="ghost"
-            >
-              {fullscreen ? (
-                <Minimize2Icon aria-hidden="true" />
-              ) : (
-                <Maximize2Icon aria-hidden="true" />
+          <ViewerToolbarContent inline={fullscreen}>
+            <div
+              className={cn(
+                'flex min-h-9 shrink-0 items-center gap-0.5 bg-background/90',
+                (!toolbarHost || fullscreen) && 'border-b px-2',
               )}
-            </Button>
-          </div>
+            >
+              <ToolbarAction
+                label={zoomScrollHint()}
+                className="mr-auto @max-[480px]/viewer:hidden"
+              >
+                <HelpIcon aria-hidden="true" />
+              </ToolbarAction>
+              <ToolbarAction
+                label="Zoom out"
+                onClick={zoomOut}
+                className="@max-[480px]/viewer:hidden"
+              >
+                <ZoomOutIcon aria-hidden="true" />
+              </ToolbarAction>
+              <ToolbarAction
+                label="Reset image zoom"
+                className="w-12 text-xs tabular-nums text-muted-foreground"
+                onClick={resetZoom}
+              >
+                {scalePercent}%
+              </ToolbarAction>
+              <ToolbarAction
+                label="Zoom in"
+                onClick={zoomIn}
+                className="@max-[480px]/viewer:hidden"
+              >
+                <ZoomInIcon aria-hidden="true" />
+              </ToolbarAction>
+              <ToolbarAction
+                label="Fit image to view"
+                onClick={centerView}
+                className="@max-[480px]/viewer:hidden"
+              >
+                <LocateFixedIcon aria-hidden="true" />
+              </ToolbarAction>
+              <ToolbarAction
+                label="Download image"
+                className="@max-[480px]/viewer:hidden"
+                onClick={() => downloadBytes(bytes!, mediaType, name)}
+              >
+                <DownloadIcon aria-hidden="true" />
+              </ToolbarAction>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <ToolbarAction label="Image actions" className="@min-[480px]/viewer:hidden">
+                    <MoreIcon aria-hidden="true" />
+                  </ToolbarAction>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-48">
+                  <DropdownMenuItem onSelect={zoomIn}>
+                    <ZoomInIcon />
+                    Zoom in
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={zoomOut}>
+                    <ZoomOutIcon />
+                    Zoom out
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={centerView}>
+                    <LocateFixedIcon />
+                    Fit image to view
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => downloadBytes(bytes!, mediaType, name)}>
+                    <DownloadIcon />
+                    Download image
+                  </DropdownMenuItem>
+                  <DropdownMenuLabel className="max-w-64 whitespace-normal text-xs font-normal text-muted-foreground">
+                    {zoomScrollHint()}
+                  </DropdownMenuLabel>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ToolbarAction
+                label={fullscreen ? 'Exit image fullscreen' : 'View image fullscreen'}
+                onClick={() => {
+                  if (fullscreen) void document.exitFullscreen();
+                  else void hostRef.current?.requestFullscreen();
+                }}
+              >
+                {fullscreen ? (
+                  <Minimize2Icon aria-hidden="true" />
+                ) : (
+                  <Maximize2Icon aria-hidden="true" />
+                )}
+              </ToolbarAction>
+            </div>
+          </ViewerToolbarContent>
         )}
       />
     </div>

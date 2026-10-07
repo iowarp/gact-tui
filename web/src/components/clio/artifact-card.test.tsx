@@ -85,7 +85,8 @@ describe('ClioArtifactCard', () => {
     // nested-interactive fix below) carries these layout classes.
     const card = openButton.closest('.shadow-none');
     expect(card).toHaveClass('w-full', 'shadow-none');
-    expect(screen.getByText('text/markdown, 175 B')).toBeVisible();
+    expect(screen.getByText('Markdown · 175 B')).toBeVisible();
+    expect(screen.getByText('Markdown · 175 B')).toHaveAttribute('title', 'text/markdown');
     expect(screen.getByText('Output')).toBeVisible();
     expect(document.querySelector('[data-attachment-variant="grid"]')).toBeNull();
 

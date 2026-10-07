@@ -1,4 +1,3 @@
-import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
 import {
   ArrowLeftIcon,
@@ -43,6 +42,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DesktopTitleContext } from '@/components/clio/desktop-title-context';
+import { useDesktopWorkspaceToolbar } from '@/store/desktop-workspace-toolbar';
 import { LiveConnectionIndicator } from '@/components/clio/live-connection-indicator';
 import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -110,6 +110,8 @@ function WindowButton({
 
 /** Product-owned chrome for the frameless Tauri window. */
 export function DesktopTitleBar() {
+  const setWorkspaceToolbarHost = useDesktopWorkspaceToolbar((state) => state.setHost);
+  const setWorkspaceNavigationHost = useDesktopWorkspaceToolbar((state) => state.setNavigationHost);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [macOS] = useState(isMacOS);
@@ -289,11 +291,6 @@ export function DesktopTitleBar() {
           </DropdownMenuContent>
         </DropdownMenu>
         <div aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
-        <span className="grid size-5 place-items-center rounded-md bg-primary/12 text-primary">
-          <BrandIcon className="size-4" />
-        </span>
-        <span className="text-xs font-medium">{brand.wordmark}</span>
-        <div aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -322,7 +319,19 @@ export function DesktopTitleBar() {
         </Tooltip>
       </div>
 
+      <div
+        className="flex items-center"
+        ref={setWorkspaceNavigationHost}
+        aria-label="Conversation navigation"
+      />
       <DesktopTitleContext />
+
+      <div
+        className="flex min-w-0 max-w-[45%] items-center gap-1 px-1"
+        id="desktop-workspace-toolbar"
+        ref={setWorkspaceToolbarHost}
+        aria-label="Workspace controls"
+      />
 
       <div className="flex items-stretch gap-1 px-2">
         <LiveConnectionIndicator />

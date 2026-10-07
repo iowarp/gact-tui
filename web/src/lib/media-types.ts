@@ -26,3 +26,36 @@ export function isTextApplication(mediaType: string): boolean {
 export function isTextMediaType(mediaType: string): boolean {
   return mediaType.startsWith('text/') || isTextApplication(mediaType);
 }
+
+/** Readable file format for an output card; the original media type remains available in details. */
+export function fileFormatLabel(name: string, mediaType: string): string {
+  const extension = name.split('.').at(-1)?.toLowerCase();
+  const labels: Record<string, string> = {
+    md: 'Markdown',
+    markdown: 'Markdown',
+    pdf: 'PDF',
+    docx: 'Word',
+    xlsx: 'Excel',
+    pptx: 'PowerPoint',
+    odt: 'Document',
+    ods: 'Spreadsheet',
+    odp: 'Presentation',
+    csv: 'CSV',
+    tsv: 'TSV',
+    json: 'JSON',
+    yaml: 'YAML',
+    yml: 'YAML',
+    png: 'PNG',
+    jpg: 'JPEG',
+    jpeg: 'JPEG',
+    svg: 'SVG',
+    webp: 'WebP',
+    gif: 'GIF',
+    mp4: 'Video',
+    webm: 'Video',
+    mp3: 'Audio',
+    wav: 'Audio',
+    zip: 'ZIP',
+  };
+  return (extension && labels[extension]) || (mediaType.startsWith('text/') ? 'Text' : 'File');
+}

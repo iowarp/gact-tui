@@ -84,6 +84,7 @@ describe('ClioDocumentWorkspace', () => {
         'data-fit',
         profile === 'ooxml-sheet' ? 'width' : 'page',
       );
+      await userEvent.click(screen.getByRole('button', { name: 'Document information' }));
       expect(screen.getByText('Saved PDF preview')).toBeVisible();
       expect(screen.queryByText('PDF document')).not.toBeInTheDocument();
       expect(repository.documentContent).toHaveBeenCalledWith('artifact_pdf', expect.anything());
@@ -105,7 +106,10 @@ describe('ClioDocumentWorkspace', () => {
     expect(
       await screen.findByText('Bounded claim from the source.', undefined, { timeout: 5_000 }),
     ).toBeVisible();
-    expect(screen.getByText(/Version 3, aaaaaaaaaaaa/)).toBeVisible();
+    expect(screen.queryByText(/Version 3, aaaaaaaaaaaa/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Document information' }));
+    expect(screen.getByText(`Version 3, ${manifest.sha256}`)).toBeVisible();
+    await user.keyboard('{Escape}');
     expect(screen.getByRole('tablist', { name: 'Document details' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Preview' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Document safety' }));
@@ -167,7 +171,9 @@ describe('ClioDocumentWorkspace', () => {
 
     const warning = await screen.findByRole('button', { name: /Preview only/u });
     expect(warning).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Document information' }));
     expect(screen.getByText('Saved content is readable.')).toBeVisible();
+    await user.keyboard('{Escape}');
     expect(
       screen.queryByText(/original registered revision could not be loaded/u),
     ).not.toBeInTheDocument();

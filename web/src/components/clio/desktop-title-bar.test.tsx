@@ -353,7 +353,7 @@ describe('DesktopTitleBar', () => {
   it('falls back to the product name on a route that never writes title context', () => {
     renderTitleBar();
 
-    // The left section always carries the brand mark + wordmark; scope to
+    // The centre owns the route fallback; scope to
     // the centre context region specifically so this asserts its OWN
     // fallback, not the always-present left-section brand block.
     expect(

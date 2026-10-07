@@ -519,7 +519,25 @@ describe('conversationTurnPresentation', () => {
 
     const view = conversationTurnPresentation(message, tools);
 
-    expect(view.iterations[0]?.summary).toBe('Clarifying projection concepts The two measures differ.');
+    expect(view.iterations[0]?.summary).toBe(
+      'Clarifying projection concepts The two measures differ.',
+    );
+  });
+
+  it('separates adjacent provider headings while retaining exact reasoning for inspection', () => {
+    const text = '**Preparing grouped plots****Checking chart schema****Adding plant selector**';
+    const message: Message = {
+      id: 'adjacent_headings',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-10-05T00:00:00Z',
+      blocks: [{ id: 'reasoning_headings', type: 'reasoning', text }],
+    };
+    const view = conversationTurnPresentation(message, tools);
+    expect(view.iterations[0]?.summary).toBe(
+      'Preparing grouped plots · Checking chart schema · Adding plant selector',
+    );
+    expect(view.iterations[0]?.thinking[0]?.text).toBe(text);
   });
 
   it('keeps a tool block whose invocation has not arrived in the residual lane', () => {
