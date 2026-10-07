@@ -432,6 +432,8 @@ export interface WorkspaceFileListing {
   entries: WorkspaceFileEntry[];
   /** Whether the server's capped walk stopped before enumerating everything. */
   truncated: boolean;
+  /** Next page in directory mode; absent on older recursive listing services. */
+  next_offset?: number | null;
 }
 
 export interface SessionDiff {

@@ -31,7 +31,7 @@ import {
   WaypointsIcon,
   WrenchIcon,
 } from 'lucide-react';
-import {} from '@/lib/icon-vocabulary';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -46,13 +46,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatBytes, formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioArtifactCard } from './artifact-card';
+import { FileTypeIcon } from './file-type-icon';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import {
   fileName,
@@ -103,6 +104,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
     props.processes,
     props.resources ?? [],
     props.executionProvenance,
+    props.artifacts,
   );
   const hasEvidence = Boolean(
     diffs.length ||
@@ -137,7 +139,15 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
           "Session evidence" string the redesign deliberately dropped
           (test_observability_evidence.tsx:77 pins its absence). */}
       <h2 aria-label="Session evidence" className="sr-only" />
-      <Accordion defaultValue={['child-agents', 'files', 'changes', 'sources']} type="multiple">
+      <Accordion
+        defaultValue={[
+          ...(subagents.length ? ['child-agents'] : []),
+          'files',
+          'changes',
+          'sources',
+        ]}
+        type="multiple"
+      >
         {runs.length ? (
           <EvidenceSection icon={ActivityIcon} label="Agent runs" value="runs" count={runs.length}>
             <RunEvidence runs={runs} />
@@ -201,7 +211,11 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             value="sources"
             count={sources.length}
           >
-            <SourceEvidence onOpenResource={props.onOpenResource} sources={sources} />
+            <SourceEvidence
+              onOpenArtifact={props.onOpenArtifact}
+              onOpenResource={props.onOpenResource}
+              sources={sources}
+            />
           </EvidenceSection>
         ) : null}
         {props.artifacts.length ? (
@@ -247,11 +261,16 @@ function EvidenceSection({
 }) {
   return (
     <AccordionItem value={value}>
-      <AccordionTrigger aria-label={`${label}, ${count.toLocaleString()} recorded`}>
+      <AccordionTrigger
+        className="min-h-9 py-2 text-xs hover:no-underline"
+        aria-label={`${label}, ${count.toLocaleString()} recorded`}
+      >
         <span className="flex items-center gap-2">
-          <Icon aria-hidden="true" className="size-4 text-primary" />
+          <Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
           {label}
-          <Badge variant="secondary">{count}</Badge>
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {count.toLocaleString()}
+          </span>
         </span>
       </AccordionTrigger>
       <AccordionContent>
@@ -514,30 +533,84 @@ import {
 function SourceEvidence({
   sources,
   onOpenResource,
+  onOpenArtifact,
 }: {
   sources: readonly EvidenceSource[];
   onOpenResource?: (resource: WorkspaceResource) => void;
+  onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   if (!sources.length) return <EmptyEvidence label="No source references were recorded." />;
   return (
     <div className="grid gap-2">
       {sources.map((source) => (
         <ClioInteractiveRow
-          aria-label={source.resource && onOpenResource ? `Open source ${source.label}` : undefined}
-          className={source.resource && onOpenResource ? 'cursor-pointer' : undefined}
-          key={source.id}
-          onClick={
-            source.resource && onOpenResource
-              ? () => onOpenResource(source.resource as WorkspaceResource)
+          actions={
+            source.artifact ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    aria-label={`Details for source ${source.label}`}
+                    onClick={(event) => event.stopPropagation()}
+                    size="icon-xs"
+                    title="Source details"
+                    variant="ghost"
+                  >
+                    <InfoIcon aria-hidden="true" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="space-y-2 text-xs">
+                  <p className="break-words font-medium">{source.label}</p>
+                  <p className="break-all">{source.value}</p>
+                </PopoverContent>
+              </Popover>
+            ) : undefined
+          }
+          aria-label={
+            (source.resource && onOpenResource) || (source.artifact && onOpenArtifact)
+              ? `Open source ${source.label}`
               : undefined
           }
-          role={source.resource && onOpenResource ? 'button' : undefined}
-          tabIndex={source.resource && onOpenResource ? 0 : undefined}
+          className={
+            (source.resource && onOpenResource) || (source.artifact && onOpenArtifact)
+              ? 'cursor-pointer'
+              : undefined
+          }
+          key={source.id}
+          onClick={
+            source.artifact && onOpenArtifact
+              ? () => onOpenArtifact(source.artifact as Artifact)
+              : source.resource && onOpenResource
+                ? () => onOpenResource(source.resource as WorkspaceResource)
+                : undefined
+          }
+          role={
+            (source.resource && onOpenResource) || (source.artifact && onOpenArtifact)
+              ? 'button'
+              : undefined
+          }
+          tabIndex={
+            (source.resource && onOpenResource) || (source.artifact && onOpenArtifact)
+              ? 0
+              : undefined
+          }
         >
           <div className="flex items-start gap-3">
-            <WaypointsIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+            {source.artifact ? (
+              <FileTypeIcon
+                name={source.artifact.name}
+                mediaType={source.artifact.media_type}
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              />
+            ) : (
+              <WaypointsIcon
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              />
+            )}
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{source.label}</p>
+              <p className="break-words text-xs font-medium" title={source.label}>
+                {source.label}
+              </p>
               {source.ownerLabel ? (
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                   {source.relation ? `${friendlyStatus(source.relation)} by ` : ''}

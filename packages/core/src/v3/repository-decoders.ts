@@ -201,6 +201,7 @@ export const workspaceFileListSchema = z.object({
   entries: z.array(workspaceFileEntrySchema).default([]),
   // Whether the server's capped walk stopped before enumerating everything.
   truncated: z.boolean().default(false),
+  next_offset: z.number().int().nonnegative().nullable().optional(),
 });
 export const agentBlueprintListSchema = z.object({
   agent_blueprints: z.array(agentBlueprintSchema).default([]),

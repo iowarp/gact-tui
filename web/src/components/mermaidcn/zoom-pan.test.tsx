@@ -5,6 +5,51 @@ import { ZoomPan, zoomScrollHint } from './zoom-pan';
 
 afterEach(cleanup);
 
+it('refits a replacement image even when its aspect ratio does not resize the viewport', async () => {
+  const images: Array<{ naturalWidth: number; naturalHeight: number; onload?: () => void }> = [];
+  vi.stubGlobal(
+    'Image',
+    class {
+      naturalWidth = 1600;
+      naturalHeight = 800;
+      onload?: () => void;
+      constructor() {
+        images.push(this);
+      }
+    },
+  );
+  const width = vi.spyOn(HTMLCanvasElement.prototype, 'clientWidth', 'get').mockReturnValue(800);
+  const height = vi.spyOn(HTMLCanvasElement.prototype, 'clientHeight', 'get').mockReturnValue(400);
+  const context = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  try {
+    const view = render(
+      <ZoomPan
+        imageSrc="first.png"
+        viewportMode="image-aspect"
+        controls={(api) => <span data-testid="scale-percent">{api.scalePercent}</span>}
+      />,
+    );
+    await act(async () => images[0].onload?.());
+    expect(currentPercent()).toBe(45);
+    view.rerender(
+      <ZoomPan
+        imageSrc="second.png"
+        viewportMode="image-aspect"
+        controls={(api) => <span data-testid="scale-percent">{api.scalePercent}</span>}
+      />,
+    );
+    images[1].naturalWidth = 3200;
+    images[1].naturalHeight = 1600;
+    await act(async () => images[1].onload?.());
+    expect(currentPercent()).toBe(23);
+  } finally {
+    width.mockRestore();
+    height.mockRestore();
+    context.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});
+
 /** Lets the zoom RAF loop (`updateImmediate`) flush before the next assertion. */
 async function flushZoomFrame() {
   await act(async () => {
@@ -36,7 +81,7 @@ function currentPercent() {
  * must be left alone so the page scrolls normally.
  */
 describe('ZoomPan wheel scoping', () => {
-  it("does not change the transform or capture a plain wheel event", async () => {
+  it('does not change the transform or capture a plain wheel event', async () => {
     const canvas = renderZoomPan();
     const before = currentPercent();
 

@@ -613,6 +613,7 @@ export function WorkspacePage() {
               filesFetching={workspaceFiles.isFetching}
               filesPending={workspaceFiles.isPending}
               filesTruncated={workspaceFiles.data?.truncated ?? false}
+              filesNextOffset={workspaceFiles.data?.next_offset}
               onFilesViewActiveChange={setFilesViewActive}
               onRefreshFiles={() => void workspaceFiles.refetch()}
               resources={workspaceResources.data ?? []}

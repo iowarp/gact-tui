@@ -145,7 +145,10 @@ beforeEach(() => {
   mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: [] });
   mocks.repository.pendingApprovals.mockResolvedValue([]);
   mocks.repository.pendingQuestions.mockResolvedValue([]);
-  mocks.repository.pendingInteractionProjection.mockResolvedValue({ interactions: [], degradations: [] });
+  mocks.repository.pendingInteractionProjection.mockResolvedValue({
+    interactions: [],
+    degradations: [],
+  });
   mocks.repository.sessions.mockResolvedValue([
     { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'idle' },
   ]);
@@ -219,18 +222,21 @@ describe('useWorkspaceData interaction reads', () => {
       gact_versions: [],
     });
     mocks.repository.pendingApprovals.mockResolvedValue([approval]);
-    mocks.repository.pendingInteractionProjection.mockResolvedValue({ interactions: [
-      {
-        id: 'interaction_1',
-        kind: 'question',
-        owner_session_id: 'sess_1',
-        attended_session_id: 'sess_1',
-        status: 'pending',
-        title: 'Question from agent',
-        source: { protocol: 'native' },
-        created_at: '2026-09-02T00:00:00Z',
-      },
-    ], degradations: [] });
+    mocks.repository.pendingInteractionProjection.mockResolvedValue({
+      interactions: [
+        {
+          id: 'interaction_1',
+          kind: 'question',
+          owner_session_id: 'sess_1',
+          attended_session_id: 'sess_1',
+          status: 'pending',
+          title: 'Question from agent',
+          source: { protocol: 'native' },
+          created_at: '2026-09-02T00:00:00Z',
+        },
+      ],
+      degradations: [],
+    });
 
     const { result } = renderWorkspaceData();
 
@@ -248,7 +254,9 @@ describe('useWorkspaceData interaction reads', () => {
     });
     mocks.repository.pendingInteractionProjection.mockResolvedValue({
       interactions: [],
-      degradations: [{ reason: 'clio_core_segments_invalid', detail: 'One session could not be read' }],
+      degradations: [
+        { reason: 'clio_core_segments_invalid', detail: 'One session could not be read' },
+      ],
     });
     const { result } = renderWorkspaceData();
     await waitFor(() =>
@@ -267,17 +275,22 @@ describe('useWorkspaceData interaction reads', () => {
     ];
     mocks.repository.sessions.mockResolvedValue(sessions);
     mocks.repository.allSessions.mockResolvedValue(sessions);
-    mocks.repository.pendingInteractionProjection.mockImplementation(async (...args: unknown[]) => ({
-      interactions: [],
-      degradations: args[0] === 'sess_2'
-        ? [{ reason: 'clio_core_segments_invalid', detail: 'Older record could not be read' }]
-        : [],
-    }));
+    mocks.repository.pendingInteractionProjection.mockImplementation(
+      async (...args: unknown[]) => ({
+        interactions: [],
+        degradations:
+          args[0] === 'sess_2'
+            ? [{ reason: 'clio_core_segments_invalid', detail: 'Older record could not be read' }]
+            : [],
+      }),
+    );
 
     const { result } = renderWorkspaceData();
     await waitFor(() =>
       expect(mocks.repository.pendingInteractionProjection).toHaveBeenCalledWith(
-        'sess_2', true, expect.anything(),
+        'sess_2',
+        true,
+        expect.anything(),
       ),
     );
     expect(result.current.interactionsError).toBeUndefined();
@@ -383,7 +396,7 @@ describe('useWorkspaceData files query', () => {
       expect(mocks.repository.workspaceFiles).toHaveBeenCalledWith(
         'ws_1',
         expect.any(AbortSignal),
-        { includeHidden: true },
+        { includeHidden: true, directory: '' },
       ),
     );
   });
@@ -399,7 +412,7 @@ describe('useWorkspaceData files query', () => {
       expect(mocks.repository.workspaceFiles).toHaveBeenCalledWith(
         'ws_1',
         expect.any(AbortSignal),
-        { includeHidden: false },
+        { includeHidden: false, directory: '' },
       ),
     );
   });
@@ -574,7 +587,9 @@ describe('useWorkspaceData transcript recovery', () => {
 
     await waitFor(() => expect(mocks.repository.transcript).toHaveBeenCalledTimes(2));
     expect(mocks.mergeSnapshots).toHaveBeenCalledWith(
-      expect.objectContaining({ messages: expect.objectContaining({ assistant: expect.anything() }) }),
+      expect.objectContaining({
+        messages: expect.objectContaining({ assistant: expect.anything() }),
+      }),
     );
   });
 });

@@ -27,6 +27,7 @@ import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { connectionScope } from '@/lib/connection-scope';
 import { useLiveStore } from '@/store/live-store';
 import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
@@ -168,8 +169,7 @@ export function useWorkspaceData({
     const current = sessions.data?.find((item) => item.id === sessionId);
     if (!current) return;
     const wasActive =
-      previousSessionState.current?.sessionId === sessionId &&
-      previousSessionState.current.active;
+      previousSessionState.current?.sessionId === sessionId && previousSessionState.current.active;
     const active = isSessionActive(current.state);
     previousSessionState.current = { sessionId, active };
     // A terminal session snapshot can arrive even if its final stream frame did not.
@@ -230,7 +230,8 @@ export function useWorkspaceData({
   });
   const normalizedInteractions = useQuery({
     queryKey: queryKeys.pendingInteractions(settings.endpoint, attendedSessionId),
-    queryFn: ({ signal }) => repository.pendingInteractionProjection(attendedSessionId, true, signal),
+    queryFn: ({ signal }) =>
+      repository.pendingInteractionProjection(attendedSessionId, true, signal),
     enabled:
       Boolean(attendedSessionId) &&
       (allSessions.data !== undefined || sessions.data !== undefined) &&
@@ -274,7 +275,10 @@ export function useWorkspaceData({
     ],
   );
   const attentionInteractions = supportsUnifiedInteractions
-    ? [...interactions, ...attentionInteractionQueries.flatMap((query) => query.data?.interactions ?? [])]
+    ? [
+        ...interactions,
+        ...attentionInteractionQueries.flatMap((query) => query.data?.interactions ?? []),
+      ]
     : interactions;
   const a2uiOwnerIds = useMemo(
     () => [
@@ -403,9 +407,14 @@ export function useWorkspaceData({
       settings.endpoint,
       workspaceId,
       `include_hidden=${!hideDotFiles}`,
+      'directory=',
+      connectionScope(settings),
     ),
     queryFn: ({ signal }) =>
-      repository.workspaceFiles(workspaceId, signal, { includeHidden: !hideDotFiles }),
+      repository.workspaceFiles(workspaceId, signal, {
+        includeHidden: !hideDotFiles,
+        directory: '',
+      }),
     enabled: Boolean(workspaceId),
     // No live-event trigger for this view (owner decision, after a server-side
     // watcher produced an event storm): poll instead, but ONLY while the Files
@@ -562,14 +571,14 @@ export function useWorkspaceData({
       approvals.error ??
       questions.error ??
       attentionInteractionsError ??
-      (normalizedInteractions.data?.degradations ?? [])
-        .map((degradation) =>
+      (normalizedInteractions.data?.degradations ?? []).map(
+        (degradation) =>
           new Error(
             degradation.reason.startsWith('clio_core_')
               ? 'A saved session has a damaged data record. Its interactive responses are unavailable.'
               : degradation.detail,
           ),
-        )[0] ??
+      )[0] ??
       undefined,
     // `capabilities` failing is a degradation, not a failed response read: the
     // legacy ledgers above still run and still answer, so every pending

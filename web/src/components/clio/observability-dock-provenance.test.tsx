@@ -151,7 +151,8 @@ describe('ClioObservabilityView provenance and section states', () => {
     expect(onProviderChange).toHaveBeenCalledWith('flowcept');
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
-    expect(screen.getByText('Provenance')).toBeVisible();
+    expect(screen.getByText('Evidence sources')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Evidence source details' }));
     expect(screen.getByText('Artifacts: cmf')).toBeVisible();
   });
 

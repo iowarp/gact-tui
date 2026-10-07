@@ -281,9 +281,18 @@ export function ArtifactView({
           recovered: false,
         };
       } catch (error) {
-        if (!isMissingArtifactPayload(error) || !fallbackPath) throw error;
+        if (!isMissingArtifactPayload(error)) throw error;
+        const recoveredPath =
+          fallbackPath ??
+          uniqueWorkspaceArtifactFile(
+            artifact,
+            workspaceId,
+            (await repository.workspaceFiles(workspaceId, signal, { excludeServiceStorage: true }))
+              .entries,
+          )?.path;
+        if (!recoveredPath) throw error;
         return {
-          content: await repository.readWorkspaceFile(workspaceId, fallbackPath, signal),
+          content: await repository.readWorkspaceFile(workspaceId, recoveredPath, signal),
           recovered: true,
         };
       }
@@ -296,9 +305,18 @@ export function ArtifactView({
       try {
         return { bytes: await repository.readArtifactBytesFor(artifact, signal), recovered: false };
       } catch (error) {
-        if (!isMissingArtifactPayload(error) || !fallbackPath) throw error;
+        if (!isMissingArtifactPayload(error)) throw error;
+        const recoveredPath =
+          fallbackPath ??
+          uniqueWorkspaceArtifactFile(
+            artifact,
+            workspaceId,
+            (await repository.workspaceFiles(workspaceId, signal, { excludeServiceStorage: true }))
+              .entries,
+          )?.path;
+        if (!recoveredPath) throw error;
         return {
-          bytes: await repository.readWorkspaceFileBytes(workspaceId, fallbackPath, signal),
+          bytes: await repository.readWorkspaceFileBytes(workspaceId, recoveredPath, signal),
           recovered: true,
         };
       }
@@ -504,7 +522,7 @@ export function ImageResourceView({
   return (
     <div
       className={cn(
-        '@container/viewer h-full min-h-[22rem] overflow-hidden bg-background',
+        '@container/viewer h-full min-h-0 overflow-hidden bg-background',
         fullscreen && 'h-screen min-h-0',
       )}
       ref={hostRef}

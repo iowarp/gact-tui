@@ -175,7 +175,7 @@ export function ClioNavigation({
               workspaces={workspaces}
             />
           </SidebarContent>
-          <SidebarFooter className="gap-0 border-t border-sidebar-border">
+          <SidebarFooter className="gap-0 px-2 pb-2">
             <SidebarGroup className="p-0">
               <SidebarGroupLabel>Explore</SidebarGroupLabel>
               <SidebarGroupContent>

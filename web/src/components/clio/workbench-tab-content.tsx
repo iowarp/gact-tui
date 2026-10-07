@@ -49,6 +49,7 @@ export interface WorkbenchTabContentProps {
   filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  filesNextOffset?: number | null;
   onRefreshFiles?: () => void;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
@@ -88,6 +89,7 @@ export function WorkbenchTabContent({
   filesFetching,
   filesError,
   filesTruncated,
+  filesNextOffset,
   onRefreshFiles,
   artifacts,
   artifactsPending,
@@ -126,6 +128,7 @@ export function WorkbenchTabContent({
           filesFetching={filesFetching}
           filesPending={filesPending}
           filesTruncated={filesTruncated}
+          filesNextOffset={filesNextOffset}
           onRefresh={onRefreshFiles}
           onSelectedPathChange={(path) => onSelectFilesPath(tab.id, path)}
           selectedPath={tab.path}
@@ -201,6 +204,7 @@ export function WorkbenchTabContent({
           filesFetching={filesFetching}
           filesPending={filesPending}
           filesTruncated={filesTruncated}
+          filesNextOffset={filesNextOffset}
           onRefresh={onRefreshFiles}
           onSelectedPathChange={(path) => onSelectWorkspaceFilePath(tab.id, path)}
           selectedPath={tab.path}

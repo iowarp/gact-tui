@@ -53,6 +53,7 @@ import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
 import { WorkspaceFileView } from './resource-viewers';
 import { ClioStatus } from './status';
+import { WorkspaceDirectoryTree } from './workspace-directory-tree';
 
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
@@ -69,6 +70,7 @@ interface FileBrowserProps {
   filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  filesNextOffset?: number | null;
   selectedPath?: string;
   onRefresh?: () => void;
   onSelectedPathChange?: (path: string) => void;
@@ -103,11 +105,13 @@ export function FileBrowser({
   filesFetching,
   filesError,
   filesTruncated,
+  filesNextOffset,
   selectedPath,
   onRefresh,
   onSelectedPathChange,
 }: FileBrowserProps) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const queryClient = useQueryClient();
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
@@ -190,10 +194,14 @@ export function FileBrowser({
                   className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
-                  aria-label="Filter workspace files"
+                  aria-label={
+                    filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter workspace files'
+                  }
                   className="h-8 pl-8 text-xs"
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Filter files"
+                  placeholder={
+                    filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files'
+                  }
                   value={query}
                 />
               </div>
@@ -203,7 +211,10 @@ export function FileBrowser({
                     <Button
                       aria-label="Refresh files"
                       className="shrink-0"
-                      onClick={onRefresh}
+                      onClick={() => {
+                        onRefresh?.();
+                        void queryClient.invalidateQueries({ queryKey: ['workspace-directory'] });
+                      }}
                       size="icon-sm"
                       variant="ghost"
                     >
@@ -217,7 +228,7 @@ export function FileBrowser({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            {filesTruncated ? (
+            {filesTruncated && filesNextOffset === undefined ? (
               <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
                 <TriangleAlertIcon className="size-3.5" />
                 <AlertDescription className="text-xs">
@@ -226,7 +237,19 @@ export function FileBrowser({
               </Alert>
             ) : null}
             <ScrollArea className="min-h-0 flex-1 p-2">
-              {filesPending ? (
+              {filesNextOffset !== undefined ? (
+                <WorkspaceDirectoryTree
+                  workspaceId={workspaceId}
+                  root={{
+                    entries: [...files],
+                    truncated: filesTruncated ?? false,
+                    next_offset: filesNextOffset,
+                  }}
+                  selectedPath={activePath}
+                  onSelect={selectFile}
+                  filter={normalizedQuery}
+                />
+              ) : filesPending ? (
                 <LoadingRows label="Loading workspace files" />
               ) : files.length ? (
                 filteredFiles.length ? (

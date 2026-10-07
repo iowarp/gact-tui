@@ -64,6 +64,7 @@ export function SessionNavigationRow({
     seenRevision !== sessionInteractionAt(session);
   return (
     <ClioInteractiveRow
+      appearance="navigation"
       actions={
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

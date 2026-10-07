@@ -142,6 +142,21 @@ describe('ClioRepository session operation contracts', () => {
     });
   });
 
+  it('requests a directory page and preserves its continuation offset', async () => {
+    const transport = new RecordingTransport([{ entries: [], truncated: true, next_offset: 400 }]);
+    const repository = new ClioRepository(transport);
+    const page = await repository.workspaceFiles('ws 1', undefined, {
+      directory: 'analysis/plots',
+      offset: 200,
+      includeHidden: false,
+    });
+    expect(transport.requests[0]?.path).toBe(
+      '/v1/workspaces/ws%201/files?include_hidden=false&exclude_service_storage=false&directory=analysis%2Fplots&offset=200',
+    );
+    expect(page.next_offset).toBe(400);
+    expect(page.truncated).toBe(true);
+  });
+
   it('reads file and context snapshots from their authoritative workspace routes', async () => {
     // Owner ruling: the Files view shows ALL dot files/folders (including .clio) —
     // the server no longer marks any entry `internal`, and the client no longer

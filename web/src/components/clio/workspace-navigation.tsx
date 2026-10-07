@@ -274,6 +274,7 @@ function WorkspaceTreeItem({
   return (
     <Collapsible className="min-w-0" onOpenChange={onExpandedChange} open={expanded}>
       <ClioInteractiveRow
+        appearance="navigation"
         actions={
           <WorkspaceActionsMenu
             activeWorkspaceId={activeWorkspaceId}
@@ -308,7 +309,7 @@ function WorkspaceTreeItem({
         />
       </ClioInteractiveRow>
       <CollapsibleContent>
-        <div className="ml-3 grid min-w-0 gap-0.5 border-l pl-1.5 group-data-[collapsible=icon]:hidden">
+        <div className="ml-2 grid min-w-0 gap-0.5 pl-2 group-data-[collapsible=icon]:hidden">
           {visibleSessions.map((session) => (
             <SessionNavigationRow
               actions={actions}

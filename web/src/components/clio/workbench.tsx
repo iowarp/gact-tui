@@ -23,6 +23,7 @@ import {
   WorkflowIcon,
 } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
+import { FileTypeIcon } from './file-type-icon';
 import {
   forwardRef,
   useCallback,
@@ -63,6 +64,7 @@ export interface ClioWorkbenchProps {
   filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  filesNextOffset?: number | null;
   onRefreshFiles?: () => void;
   onFilesViewActiveChange?: (active: boolean) => void;
   artifacts: readonly ArtifactEntity[];
@@ -208,6 +210,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       filesFetching,
       filesError,
       filesTruncated,
+      filesNextOffset,
       onRefreshFiles,
       onFilesViewActiveChange,
       artifacts,
@@ -449,7 +452,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           maximized && 'fixed inset-0 z-[80] bg-background shadow-2xl',
         )}
       >
-        <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
         <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTabId} value={activeTabId}>
           <div
             className="flex h-10 shrink-0 items-center gap-1 border-b bg-background/80 px-1.5"
@@ -554,7 +556,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                               }}
                               value={tab.id}
                             >
-                              <TabIcon kind={tab.kind} />
+                              <TabIcon tab={tab} />
                               <span className="truncate">{tab.label}</span>
                             </TabsTrigger>
                           </SortableItemHandle>
@@ -629,6 +631,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                     filesFetching={filesFetching}
                     filesPending={filesPending}
                     filesTruncated={filesTruncated}
+                    filesNextOffset={filesNextOffset}
                     maximized={maximized}
                     onApplyDiff={onApplyDiff}
                     onOpenSubagent={onOpenSubagent}
@@ -669,7 +672,14 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       </aside>
     );
 
-    return maximized ? createPortal(canvas, document.body) : canvas;
+    return (
+      <>
+        {/* Keep request delivery outside the portal: maximizing remounts its
+            contents and must not replay a previously handled open request. */}
+        <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
+        {maximized ? createPortal(canvas, document.body) : canvas}
+      </>
+    );
   },
 );
 
@@ -689,7 +699,9 @@ function WorkbenchRequestDispatcher({
   return null;
 }
 
-function TabIcon({ kind }: { kind: WorkbenchTab['kind'] }) {
-  const Icon = workbenchTabIcons[kind];
+function TabIcon({ tab }: { tab: WorkbenchTab }) {
+  if (tab.kind === 'artifact' && tab.artifact)
+    return <FileTypeIcon name={tab.artifact.name} mediaType={tab.artifact.media_type} />;
+  const Icon = workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }
