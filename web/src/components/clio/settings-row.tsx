@@ -2,16 +2,20 @@ import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { InfoTip } from './info-tip';
 
 /** Place a preference beside its control, stacking on small screens. */
 export function SettingsRow({
   title,
   description,
+  info,
   children,
   htmlFor,
 }: {
   title: string;
   description?: ReactNode;
+  /** Explanation beside the field label, without another line of page copy. */
+  info?: ReactNode;
   children: ReactNode;
   htmlFor?: string;
 }) {
@@ -22,13 +26,16 @@ export function SettingsRow({
         className="grid items-center gap-3 border-b border-border/60 py-4 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]"
       >
         <div className="min-w-0 pr-4">
-          {htmlFor ? (
-            <Label htmlFor={htmlFor} className="text-sm font-medium">
-              {title}
-            </Label>
-          ) : (
-            <h2 className="text-sm font-medium">{title}</h2>
-          )}
+          <div className="flex items-center gap-1.5">
+            {htmlFor ? (
+              <Label htmlFor={htmlFor} className="text-sm font-medium">
+                {title}
+              </Label>
+            ) : (
+              <h2 className="text-sm font-medium">{title}</h2>
+            )}
+            {info ? <InfoTip label={`About ${title}`}>{info}</InfoTip> : null}
+          </div>
           {description ? (
             <div className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
               {description}

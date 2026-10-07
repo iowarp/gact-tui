@@ -69,11 +69,8 @@ export function ReasoningLevelField({
   );
   if (layout === 'row') {
     return (
-      <SettingsRow title="Reasoning effort" htmlFor={id} description={description}>
-        <div className="flex items-center gap-1.5">
-          {control}
-          {info ? <InfoTip label="About reasoning effort">{info}</InfoTip> : null}
-        </div>
+      <SettingsRow title="Reasoning effort" htmlFor={id} description={description} info={info}>
+        {control}
       </SettingsRow>
     );
   }
