@@ -128,7 +128,10 @@ describe('new session defaults settings', () => {
     expect(await screen.findByRole('button', { name: 'Change default model' })).toHaveTextContent(
       'OpenAI Codex / Luna',
     );
-    expect(screen.getByText('Models default')).toBeVisible();
+    expect(screen.queryByText('Models default')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Use model from Models settings' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('Default confirmation policy')).not.toBeInTheDocument();
     expect(screen.queryByText('Agent and work mode')).not.toBeInTheDocument();
     expect(screen.queryByText('Model and reasoning')).not.toBeInTheDocument();
@@ -170,7 +173,7 @@ describe('new session defaults settings', () => {
     await user.click(within(picker).getByText('gpt-5.6-luna', { exact: true }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Use Models default' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Use model from Models settings' })).toBeVisible();
     expect(repository.updateSessionDefaults).not.toHaveBeenCalled();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Save defaults' }));
@@ -199,8 +202,11 @@ describe('new session defaults settings', () => {
   it('can return a pinned model to the inherited Models default', async () => {
     const user = userEvent.setup();
     renderSettings(catalog, { ...initialDefaults, provider_id: 'codex', model_id: 'gpt-5.6-luna' });
-    await user.click(await screen.findByRole('button', { name: 'Use Models default' }));
-    expect(screen.getByText('Models default')).toBeVisible();
+    await user.click(await screen.findByRole('button', { name: 'Use model from Models settings' }));
+    expect(
+      screen.queryByRole('button', { name: 'Use model from Models settings' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Models default')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save defaults' }));
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(initialDefaults),
@@ -247,9 +253,7 @@ describe('new session defaults settings', () => {
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'luna');
     await user.click(await screen.findByText('gpt-5.6-luna', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent(
-      'Model default',
-    );
+    expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent('Default');
     await user.click(screen.getByRole('button', { name: 'Save defaults' }));
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(
@@ -275,7 +279,7 @@ describe('new session default reasoning comes from the model', () => {
 
     await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'Model default (Medium)',
+      'Default (Medium)',
       'Minimal',
       'Low',
       'Medium',
@@ -289,7 +293,7 @@ describe('new session default reasoning comes from the model', () => {
     renderSettings();
 
     await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
-    await user.click(screen.getByRole('option', { name: 'Model default (Medium)' }));
+    await user.click(screen.getByRole('option', { name: 'Default (Medium)' }));
     await user.click(screen.getByRole('button', { name: 'Save defaults' }));
 
     await waitFor(() =>

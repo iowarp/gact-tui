@@ -44,7 +44,7 @@ export function SettingsRow({
         </div>
         <div
           data-slot="settings-control"
-          className="flex w-full min-w-0 items-center justify-center"
+          className="flex w-full min-w-0 items-center justify-start @2xl:justify-end"
         >
           {children}
         </div>

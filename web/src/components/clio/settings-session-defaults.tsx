@@ -2,7 +2,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { SessionDefaults } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDownIcon } from 'lucide-react';
-import { SaveIcon } from '@/lib/icon-vocabulary';
+import { RetryIcon, SaveIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
@@ -43,7 +43,7 @@ function SectionHeading() {
   return (
     <SettingsSectionHeading
       title="New session defaults"
-      info="Choose how newly created sessions begin. Existing sessions keep their current agent, model, work mode and access rules."
+      description="Choose how new sessions start."
     />
   );
 }
@@ -148,170 +148,166 @@ export function SessionDefaultsSettings() {
   return (
     <div className="grid gap-6">
       <SectionHeading />
-      <Frame className="max-w-2xl" data-slot="session-defaults-panel">
-        <FramePanel>
-          <FieldGroup className="gap-0">
-            <SettingsRow
-              htmlFor="session-default-model"
-              title="Model"
-              info="Follow the model in Models settings, or choose a specific provider and model for new sessions."
-            >
-              <div className="flex max-w-full flex-col items-center gap-1.5">
-                <ClioModelPicker
-                  catalogStatus={
-                    catalog.isPending && !catalog.data
-                      ? 'loading'
-                      : catalog.error && !catalog.data
-                        ? 'error'
-                        : 'ready'
-                  }
-                  // Inheritance is the effective model, not a pinned choice.
-                  // Selecting that same row must be able to create an override.
-                  model={form.provider_id ? (selectedModel?.id ?? modelId) : undefined}
-                  onChange={chooseModel}
-                  onRetryCatalog={(id) => catalog.refreshCatalog(id)}
-                  options={options}
-                  provider={providerId}
-                  title="Choose a model for new sessions"
-                  trigger={
-                    <Button
-                      aria-label="Change default model"
-                      className="max-w-full"
-                      id="session-default-model"
-                      type="button"
-                      variant="outline"
-                    >
-                      {providerId ? (
-                        <ModelSelectorLogo provider={providerLogoId(providerId)} />
-                      ) : null}
-                      <span className="truncate">
-                        {selectedModel
-                          ? composerModelLabel(selectedModel)
-                          : modelId || 'Choose model'}
-                      </span>
-                      <ChevronDownIcon aria-hidden="true" />
-                    </Button>
-                  }
-                />
-                {form.provider_id ? (
+      <div data-slot="session-defaults-panel">
+        <FieldGroup className="gap-0">
+          <SettingsRow
+            htmlFor="session-default-model"
+            title="Model"
+            info={
+              form.provider_id
+                ? 'This model is pinned for new sessions. Reset it to follow the model in Models settings.'
+                : 'New sessions follow the model in Models settings. Choose a model here to pin it for new sessions.'
+            }
+          >
+            <div className="flex min-w-0 max-w-full items-center gap-2">
+              <ClioModelPicker
+                catalogStatus={
+                  catalog.isPending && !catalog.data
+                    ? 'loading'
+                    : catalog.error && !catalog.data
+                      ? 'error'
+                      : 'ready'
+                }
+                // Inheritance is the effective model, not a pinned choice.
+                // Selecting that same row must be able to create an override.
+                model={form.provider_id ? (selectedModel?.id ?? modelId) : undefined}
+                onChange={chooseModel}
+                onRetryCatalog={(id) => catalog.refreshCatalog(id)}
+                options={options}
+                provider={providerId}
+                title="Choose a model for new sessions"
+                trigger={
                   <Button
-                    className="h-auto py-1 text-xs text-muted-foreground"
-                    onClick={() => setForm({ ...form, provider_id: '', model_id: '' })}
-                    size="sm"
+                    aria-label="Change default model"
+                    className="min-w-0 max-w-full shrink"
+                    id="session-default-model"
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                   >
-                    Use Models default
+                    {providerId ? (
+                      <ModelSelectorLogo provider={providerLogoId(providerId)} />
+                    ) : null}
+                    <span className="truncate">
+                      {selectedModel
+                        ? composerModelLabel(selectedModel)
+                        : modelId || 'Choose model'}
+                    </span>
+                    <ChevronDownIcon aria-hidden="true" />
                   </Button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Models default</span>
-                )}
-              </div>
-            </SettingsRow>
-            <ReasoningLevelField
-              allowModelDefault
-              info={
-                form.effort === 'unknown'
-                  ? 'The service reported a starting effort this build does not know; saving resets it to the model default.'
-                  : 'The starting thinking depth for new sessions. You can change it again from the composer.'
-              }
-              id="session-default-effort"
-              layout="row"
-              onChange={(effort) => update('effort', effort)}
-              reasoning={reasoning}
-              value={form.effort}
-            />
-            <SettingsRow
-              htmlFor="session-default-blueprint"
-              title="Agent"
-              info="An agent blueprint adds its experts, tools and instructions to new sessions."
-            >
-              <Select
-                onValueChange={(value) =>
-                  update('blueprint_id', value === standardBlueprint ? '' : value)
                 }
-                value={blueprintValue}
-              >
-                <SelectTrigger id="session-default-blueprint">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={standardBlueprint}>Standard agent</SelectItem>
-                  {blueprints.data
-                    ?.filter((blueprint) => blueprint.enabled)
-                    .map((blueprint) => (
-                      <SelectItem key={blueprint.id} value={blueprint.id}>
-                        {blueprint.display_name}
-                        {blueprint.materialized === false ? ' · Installs when used' : ''}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-            <SettingsRow
-              htmlFor="session-default-mode"
-              title="Work mode"
-              info={selectedMode.description}
-            >
-              <Select
-                onValueChange={(value) => {
-                  const patch = SESSION_MODE_PATCHES[value as SessionDefaults['mode']];
-                  setForm({ ...form, ...patch });
-                }}
-                value={form.mode}
-              >
-                <SelectTrigger id="session-default-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SESSION_MODE_OPTIONS.map((option) => {
-                    const Icon = option.icon;
-                    return (
-                      <SelectItem key={option.value} value={option.value}>
-                        <Icon aria-hidden="true" className="size-4" /> {option.label}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-            <SettingsRow
-              htmlFor="session-default-approval"
-              title="Confirmations"
-              info={
-                <>{selectedApproval.description} Workspace and organization rules still apply.</>
+              />
+              {form.provider_id ? (
+                <Button
+                  aria-label="Use model from Models settings"
+                  title="Use model from Models settings"
+                  className="shrink-0 text-muted-foreground"
+                  onClick={() => setForm({ ...form, provider_id: '', model_id: '' })}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <RetryIcon aria-hidden="true" />
+                </Button>
+              ) : null}
+            </div>
+          </SettingsRow>
+          <ReasoningLevelField
+            allowModelDefault
+            info={
+              form.effort === 'unknown'
+                ? 'The service reported a starting effort this build does not know; saving resets it to the model default.'
+                : 'The starting thinking depth for new sessions. You can change it again from the composer.'
+            }
+            id="session-default-effort"
+            layout="row"
+            onChange={(effort) => update('effort', effort)}
+            reasoning={reasoning}
+            value={form.effort}
+          />
+          <SettingsRow
+            htmlFor="session-default-blueprint"
+            title="Agent"
+            info="An agent blueprint adds its experts, tools and instructions to new sessions."
+          >
+            <Select
+              onValueChange={(value) =>
+                update('blueprint_id', value === standardBlueprint ? '' : value)
               }
-              description={unavailableApprovalNotice(approvalOptions)}
+              value={blueprintValue}
             >
-              <Select
-                onValueChange={(value) =>
-                  update('approval_mode', value as SessionDefaults['approval_mode'])
-                }
-                value={form.approval_mode}
-              >
-                <SelectTrigger id="session-default-approval">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {approvalOptions.map((option) => {
-                    const Icon = option.icon;
-                    return (
-                      <SelectItem
-                        disabled={option.disabled}
-                        key={option.value}
-                        value={option.value}
-                      >
-                        <Icon aria-hidden="true" className="size-4" /> {option.label}
-                        {option.disabled ? ' (unavailable)' : null}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </FieldGroup>
-        </FramePanel>
-        <FrameFooter>
+              <SelectTrigger id="session-default-blueprint">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={standardBlueprint}>Standard agent</SelectItem>
+                {blueprints.data
+                  ?.filter((blueprint) => blueprint.enabled)
+                  .map((blueprint) => (
+                    <SelectItem key={blueprint.id} value={blueprint.id}>
+                      {blueprint.display_name}
+                      {blueprint.materialized === false ? ' · Installs when used' : ''}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+          <SettingsRow
+            htmlFor="session-default-mode"
+            title="Work mode"
+            info={selectedMode.description}
+          >
+            <Select
+              onValueChange={(value) => {
+                const patch = SESSION_MODE_PATCHES[value as SessionDefaults['mode']];
+                setForm({ ...form, ...patch });
+              }}
+              value={form.mode}
+            >
+              <SelectTrigger id="session-default-mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SESSION_MODE_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <SelectItem key={option.value} value={option.value}>
+                      <Icon aria-hidden="true" className="size-4" /> {option.label}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+          <SettingsRow
+            htmlFor="session-default-approval"
+            title="Confirmations"
+            info={<>{selectedApproval.description} Workspace and organization rules still apply.</>}
+            description={unavailableApprovalNotice(approvalOptions)}
+          >
+            <Select
+              onValueChange={(value) =>
+                update('approval_mode', value as SessionDefaults['approval_mode'])
+              }
+              value={form.approval_mode}
+            >
+              <SelectTrigger id="session-default-approval">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {approvalOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <SelectItem disabled={option.disabled} key={option.value} value={option.value}>
+                      <Icon aria-hidden="true" className="size-4" /> {option.label}
+                      {option.disabled ? ' (unavailable)' : null}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+        </FieldGroup>
+        <FrameFooter className="mt-4 flex-row justify-start">
           <Button disabled={save.isPending} onClick={() => save.mutate(form)}>
             <SaveIcon aria-hidden="true" />
             {save.isPending ? 'Saving…' : 'Save defaults'}
@@ -320,7 +316,7 @@ export function SessionDefaultsSettings() {
             Saved to {settings.label?.trim() || 'the connected agent'}.
           </p>
         </FrameFooter>
-      </Frame>
+      </div>
     </div>
   );
 }
