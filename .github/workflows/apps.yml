@@ -76,6 +76,8 @@ jobs:
         run: pnpm --dir web exec playwright install --with-deps chromium
       - name: Browser e2e, accessibility, and visual baselines
         run: pnpm --dir web test:e2e
+      - name: Shared tool result browser components
+        run: pnpm --dir web exec playwright test --config playwright.tool-result.config.ts
       - name: Remote deployment dialog at desktop and narrow widths
         run: pnpm --dir web exec playwright test --config playwright.deployment.config.ts
       # S8 (gact-tui#409): the exact bundle desktop packages must render all

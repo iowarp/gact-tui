@@ -29,7 +29,8 @@ test('General hides native update controls in the browser and redirects the old 
   await page.goto('/settings/desktop');
   await expect(page).toHaveURL(/\/settings\/general$/);
   await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible();
-  await expect(page.getByRole('radiogroup', { name: 'Conversation activity' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Conversation activity' })).toHaveCount(0);
+  await expect(page.getByRole('spinbutton', { name: 'Transcript preview lines' })).toBeVisible();
   await expect(page.getByRole('switch', { name: 'Hide dot files and folders' })).toBeVisible();
   await expect(page.getByRole('switch', { name: 'Enable beta updates' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Check for updates' })).toHaveCount(0);

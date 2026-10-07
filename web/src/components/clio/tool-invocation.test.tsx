@@ -412,29 +412,33 @@ describe('ClioToolInvocation content and subject rendering', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.getByText('Preview unavailable for text/html.')).toBeVisible();
   });
-  it('opens technical JSON in a separate accessible dialog from the row icon', async () => {
-    const user = userEvent.setup();
-    const { container } = render(
-      <ClioToolInvocation
-        tool={{
-          id: 'call',
-          session_id: 's',
-          name: 'arbitrary',
-          state: 'succeeded',
-          input: { exact: 'argument' },
-          output: { raw: 'value' },
-        }}
-      />,
-    );
-    const icon = screen.getByRole('button', { name: 'Technical details for arbitrary' });
-    expect(container).not.toHaveTextContent('argument');
-    await user.click(icon);
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByRole('heading', { name: 'Arguments' })).toBeVisible();
-    expect(container.querySelector('[data-slot="tool-activity"]')).not.toContainElement(dialog);
-    await user.keyboard('{Escape}');
-    expect(icon).toHaveFocus();
-  });
+  it.each([false, true])(
+    'opens technical JSON and restores focus (compact=%s)',
+    async (compact) => {
+      const user = userEvent.setup();
+      const { container } = render(
+        <ClioToolInvocation
+          compact={compact}
+          tool={{
+            id: 'call',
+            session_id: 's',
+            name: 'arbitrary',
+            state: 'succeeded',
+            input: { exact: 'argument' },
+            output: { raw: 'value' },
+          }}
+        />,
+      );
+      const icon = screen.getByRole('button', { name: 'Technical details for arbitrary' });
+      expect(container).not.toHaveTextContent('argument');
+      await user.click(icon);
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByRole('heading', { name: 'Arguments' })).toBeVisible();
+      expect(container.querySelector('[data-slot="tool-activity"]')).not.toContainElement(dialog);
+      await user.keyboard('{Escape}');
+      expect(icon).toHaveFocus();
+    },
+  );
   it('renders declared checklist states without status-word or tool-name inference', () => {
     render(
       <ClioToolInvocation

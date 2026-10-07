@@ -106,7 +106,6 @@ export function ClioToolInvocation({
         {compact ? (
           <ToolCompactRow
             tool={presentedTool}
-            onOpen={() => setOpen(true)}
             attention={
               attention ? (
                 <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />

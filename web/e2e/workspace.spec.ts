@@ -317,8 +317,12 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await page.goto(workspaceUrl);
   const attention = page.getByRole('region', { name: 'Agent needs your response' });
   await expect(attention.getByRole('button', { name: '3 responses needed' })).toBeVisible();
-  await expect(page.getByText('Agent is answering MCP request')).toBeVisible();
-  await expect(page.getByText('Agent answered MCP request')).toBeVisible();
+  await expect(page.locator('[data-agent-question-state="answering"]')).toContainText(
+    'Agent is reading conversation context',
+  );
+  await expect(page.locator('[data-agent-question-state="answered"]')).toContainText(
+    'Agent responded',
+  );
 
   const form = attention
     .locator('[data-interaction-kind="question"]')
@@ -381,7 +385,7 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
           (window as typeof window & { __mcpFixtureMethods?: string[] }).__mcpFixtureMethods ?? [],
       ),
     )
-    .toContain('http://127.0.0.1:18799:tools/call');
+    .toContain(`${fixtureEndpoint}:tools/call`);
   await expect
     .poll(async () => {
       const state = await page.request.get(`${fixtureEndpoint}/__test/mcp-v2-ui-state`);
@@ -444,7 +448,9 @@ test('grows transcript landmarks only within the available margin', async ({ pag
   await expect(conversation).toBeVisible();
 });
 
-test('renders dense flat-NDP semantics with accessible interactions', async ({ page }) => {
+test('renders dense flat-NDP semantics with accessible interactions', async ({
+  page,
+}, testInfo) => {
   await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
 
@@ -480,7 +486,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
       const composerSurface = await composerStack
         .locator('[data-slot="input-group"]')
         .evaluate((element) => getComputedStyle(element).backgroundColor);
-      return composerSurface === responseSurface;
+      // The composer has its own opaque, more visible surface. The attention
+      // tray retains its shared card surface above it.
+      return composerSurface !== responseSurface && composerSurface !== 'rgba(0, 0, 0, 0)';
     })
     .toBe(true);
   const expandedConversationBounds = await conversation.boundingBox();
@@ -641,6 +649,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   // own apt-installed font packages moving between when an image is built
   // and when `playwright install --with-deps` runs, not a baseline chosen
   // to paper over a real difference.
+  await page.screenshot({ path: testInfo.outputPath('workspace-desktop-reviewed.png') });
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', {
     animations: 'allow',
     maxDiffPixels: 3500,
@@ -793,7 +802,7 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
 
 test('keeps navigation and workspace canvas accessible on mobile with reduced motion', async ({
   page,
-}) => {
+}, testInfo) => {
   await page.setViewportSize({ width: 720, height: 900 });
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await page.addInitScript(() => localStorage.setItem('theme', 'light'));
@@ -808,6 +817,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   // matches about half the time.
   await settleConversationAtLatest(page);
   await alignTranscriptAnchorAtTop(page, page.locator('[data-slot="sub-agent-dispatch"]'));
+  await page.screenshot({ path: testInfo.outputPath('workspace-mobile-reviewed.png') });
   await expect(page).toHaveScreenshot('workspace-mobile-light-reduced.png', {
     animations: 'disabled',
     maxDiffPixels: 1500,
@@ -937,13 +947,15 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
-  // "Working" is rendered twice on purpose: the dock's visible status badge and
-  // the persistent sr-only live region that mirrors it so a status change is
-  // announced. Scope to the dock button, which the live region sits outside of.
+  // The top-toolbar toggle announces its layout and evidence count. The
+  // persistent live region retains work status without a second visible badge.
   const observabilityDock = page.getByRole('button', {
     name: /^Evidence layout:/,
   });
-  await expect(observabilityDock.getByText('Working', { exact: true })).toBeVisible();
+  await expect(observabilityDock).toHaveAttribute('title', /1 background activity/);
+  await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Working$/ })).toHaveCount(
+    1,
+  );
   await expect(page.getByText('Running', { exact: true })).toHaveCount(0);
   // The session row carries one indicator and attention outranks activity, so
   // this running session shows what it is waiting for rather than a spinner.
