@@ -15,7 +15,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -100,16 +100,16 @@ export function DesktopSettings() {
         <FrameHeader>
           <FrameTitle>Desktop integration</FrameTitle>
           <FrameDescription>
-            Native lifecycle and credential features are available only in {vocab.product}.
+            These features are available in the installed {vocab.product} app.
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-4">
           {[
-            { label: 'Native REST and live-stream transport', implemented: true },
-            { label: 'SSH tunnel engine', implemented: true },
+            { label: 'Desktop connection and live activity', implemented: true },
+            { label: 'Secure remote connections', implemented: true },
             { label: 'Menus and system tray', implemented: true },
             { label: 'Secure credential storage', implemented: true },
-            { label: 'Sleep and wake reconnect', implemented: true },
+            { label: 'Reconnect after sleep', implemented: true },
           ].map(({ label, implemented }) => {
             const available = desktop && implemented;
             return (

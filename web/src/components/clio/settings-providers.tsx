@@ -1,6 +1,6 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
-import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
+import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/clio/settings-frame';
 import { IconTile } from '@/components/reui/icon-tile';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,7 +30,8 @@ export function ProvidersSettings() {
   const { servers } = useSavedServers();
   const saved = servers.data ?? [];
   const apply = useApplyModelConfiguration();
-  const loading = configuration.isPending || (catalog.isPending && !catalog.data) || servers.isPending;
+  const loading =
+    configuration.isPending || (catalog.isPending && !catalog.data) || servers.isPending;
   const error = configuration.error ?? servers.error ?? (catalog.data ? undefined : catalog.error);
   const active = configuration.data ? resolveActivePreset(configuration.data) : undefined;
   const locals = presets.filter(isLocalServerPreset);
@@ -39,10 +40,16 @@ export function ProvidersSettings() {
   const customPreset = presets.find((preset) => preset.id === CUSTOM_SERVER_PRESET_ID);
   const activeAddress = configuration.data?.api_base ?? '';
   // The default is a custom server when the bound address is one of theirs.
-  const defaultCustom = active?.id === CUSTOM_SERVER_PRESET_ID
-    ? customs.find((server) => server.address === activeAddress)
-    : undefined;
-  const catalogStatus = catalog.isPending && !catalog.data ? 'loading' : catalog.error && !catalog.data ? 'error' : 'ready';
+  const defaultCustom =
+    active?.id === CUSTOM_SERVER_PRESET_ID
+      ? customs.find((server) => server.address === activeAddress)
+      : undefined;
+  const catalogStatus =
+    catalog.isPending && !catalog.data
+      ? 'loading'
+      : catalog.error && !catalog.data
+        ? 'error'
+        : 'ready';
 
   function adoptServer(preset: LanguageModelPreset, address: string, model: string | undefined) {
     const staying = preset.id === active?.id;
@@ -52,7 +59,8 @@ export function ProvidersSettings() {
         provider_id: preset.provider_id || preset.id,
         provider: preset.provider,
         api_base: address,
-        model: model ?? (staying ? (configuration.data?.model ?? '') : (preset.suggested_model ?? '')),
+        model:
+          model ?? (staying ? (configuration.data?.model ?? '') : (preset.suggested_model ?? '')),
         provider_options: {},
       },
     });
@@ -66,7 +74,8 @@ export function ProvidersSettings() {
       update: {
         provider_id: preset.provider_id || preset.id,
         provider: preset.provider,
-        api_base: preset.id === active?.id ? (configuration.data?.api_base ?? '') : (preset.api_base ?? ''),
+        api_base:
+          preset.id === active?.id ? (configuration.data?.api_base ?? '') : (preset.api_base ?? ''),
         model: choice.id,
         provider_options: {},
       },
@@ -131,7 +140,9 @@ export function ProvidersSettings() {
               <h2 className="text-sm font-semibold" id="cloud-providers">
                 Cloud and subscription providers
               </h2>
-              <p className="text-sm text-muted-foreground">Keys and sign-ins live in the model picker.</p>
+              <p className="text-sm text-muted-foreground">
+                Keys and sign-ins live in the model picker.
+              </p>
             </div>
             <div className="flex flex-wrap gap-2" data-slot="cloud-providers">
               {others.map((preset) => (
@@ -145,7 +156,10 @@ export function ProvidersSettings() {
                   trigger={
                     <Button className="h-9 gap-2 ps-1.5" type="button" variant="outline">
                       <IconTile aria-hidden="true" size="xs" variant="outline">
-                        <ModelSelectorLogo className="size-4" provider={providerLogoId(preset.id)} />
+                        <ModelSelectorLogo
+                          className="size-4"
+                          provider={providerLogoId(preset.id)}
+                        />
                       </IconTile>
                       {providerDisplayName(preset)}
                     </Button>

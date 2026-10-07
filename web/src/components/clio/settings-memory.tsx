@@ -18,7 +18,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -293,7 +293,7 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading
-        description="Search retained conversations, inspect session pressure, and audit compaction without reading service logs. Cross-session recall is always an explicit choice."
+        description="Search retained conversations and review context usage and compaction. Choose whether searches include related sessions."
         title="Memory"
       />
 

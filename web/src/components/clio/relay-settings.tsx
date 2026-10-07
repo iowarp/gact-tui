@@ -13,7 +13,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -88,9 +88,8 @@ export function RelaySettings() {
   return (
     <div className="grid gap-6">
       <header>
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight">Remote computers</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+        <h1 className="text-xl font-semibold tracking-tight">Remote computers</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">
           CLIO Relay keeps long-running work, progress, and artifacts connected to this workspace.
           Use this page to connect a Relay that is already running.
         </p>

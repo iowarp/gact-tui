@@ -72,7 +72,7 @@ export function AgentSettings() {
     <div className="grid gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SettingsSectionHeading
-          description="Manage the agents this service can route work to. Built-in agents are visible but immutable; user agents keep their execution instructions and capability bindings."
+          description="Manage the agents available to your sessions. Built-in agents are read-only; you can add and edit your own."
           title="Agents"
         />
         <Button onClick={() => setEditing(null)}>

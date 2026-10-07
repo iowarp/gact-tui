@@ -12,7 +12,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
-} from '@/components/reui/frame';
+} from '@/components/clio/settings-frame';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,9 +98,8 @@ function repeatLabel(schedule: ScheduledTurn) {
 function SectionHeading() {
   return (
     <header>
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight">Scheduled work</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+      <h1 className="text-xl font-semibold tracking-tight">Scheduled work</h1>
+      <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">
         Ask an existing session to continue once or on a repeating schedule. Each instruction runs
         in that session with its existing agent, model, context, and access rules.
       </p>
