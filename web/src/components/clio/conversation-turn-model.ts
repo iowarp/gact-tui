@@ -35,6 +35,7 @@ export interface ConversationIteration {
     text: string;
     label: string;
     streaming: boolean;
+    source?: ThoughtSource;
   }>;
   nextThoughts: string[];
   nextThoughtSources?: ThoughtSource[];
@@ -149,6 +150,12 @@ function fallbackIterations(
         label: reasoningLabel(block.provider_source),
         text: block.text,
         streaming: Boolean(block.streaming),
+        source: {
+          messageId: message.id,
+          sessionId: message.session_id,
+          partId: block.id,
+          field: 'text',
+        },
       });
       current.streaming ||= Boolean(block.streaming);
       consumed.add(block.id);

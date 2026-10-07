@@ -52,7 +52,10 @@ it('shows shared preferences in the browser and preserves their existing saved v
   expect(screen.getByRole('heading', { name: 'General' })).toBeVisible();
   expect(screen.getByRole('spinbutton', { name: 'Transcript preview lines' })).toHaveValue(8);
   expect(screen.getByRole('switch', { name: 'Hide dot files and folders' })).toBeChecked();
-  expect(screen.getByRole('radio', { name: 'Full activity' })).toBeChecked();
+  expect(screen.queryByRole('radio', { name: 'Full activity' })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('radiogroup', { name: 'Conversation activity' }),
+  ).not.toBeInTheDocument();
   expect(screen.queryByRole('switch', { name: 'Enable beta updates' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Check for updates' })).not.toBeInTheDocument();
   expect(screen.queryByText('App updates')).not.toBeInTheDocument();

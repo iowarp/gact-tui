@@ -101,13 +101,17 @@ describe('ConversationTurn incomplete state', () => {
   it('shows the interrupted state on the collapsed chain summary', () => {
     render(
       <ConversationTurn
+        answerStarted
         iterations={[iteration({ interrupted: true })]}
         mode="chain"
         subagents={{}}
       />,
     );
 
-    expect(screen.getByText('Interrupted')).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Activity:.*Interrupted/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
   it('does not mark a normally completed iteration as interrupted', () => {
@@ -185,7 +189,7 @@ describe('ConversationTurn correlated work placement', () => {
       expect(executeChoice).toBeChecked();
       expect(clearContext).toBeEnabled();
       if (mode === 'chain') {
-        fireEvent.click(screen.getByRole('button', { name: /^Activity$/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
         expect(screen.getByText('Review execution plan')).toBeVisible();
         expect(screen.getByRole('heading', { name: 'Implementation plan' })).toBeVisible();
       }
@@ -721,9 +725,9 @@ describe('ConversationTurn announced state', () => {
       />,
     );
 
-    const disclosure = screen.getByRole('button', { name: /Expand activity/ });
-    expect(disclosure).toHaveAccessibleName(/Permission needed/);
-    expect(disclosure).not.toHaveAccessibleName(/waiting_permission/);
+    const line = document.querySelector('[data-turn-activity="task:task_permission"]');
+    expect(line).toHaveTextContent('Permission needed');
+    expect(line).not.toHaveTextContent('waiting_permission');
   });
 
   it('exposes a task detail as readable content instead of naming a bare span', () => {

@@ -8,7 +8,6 @@ import { ConversationEmptyState } from '@/components/ai-elements/conversation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
-import { useConversationDisplay } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioCompactionProgress } from './conversation-summarization';
@@ -81,7 +80,6 @@ function ConversationBody({
     () => placeCompactions(compactions ?? [], messages),
     [compactions, messages],
   );
-  const { mode: defaultDisplayMode } = useConversationDisplay();
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
@@ -351,6 +349,10 @@ function ConversationBody({
         data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;
+          if (['Enter', ' '].includes(event.key) && target.closest('button[aria-expanded]')) {
+            markUserScrollIntent();
+            disengage();
+          }
           const ownsKey = target.closest(
             'input, textarea, select, [contenteditable="true"], [role="combobox"], [role="listbox"], [role="menu"], [role="tablist"], [role="radiogroup"]',
           );
@@ -368,6 +370,10 @@ function ConversationBody({
         }}
         onScroll={handleScroll}
         onPointerDown={(event) => {
+          if (event.target instanceof Element && event.target.closest('button[aria-expanded]')) {
+            markUserScrollIntent();
+            disengage();
+          }
           if (event.target === event.currentTarget) markUserScrollIntent();
           autoscroll.onPointerDown(event);
         }}
@@ -444,7 +450,7 @@ function ConversationBody({
                 <ConversationMessageRow
                   {...entities}
                   activeMcpAppId={activeMcpAppId}
-                  displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
+                  displayMode={turnDisplayModes[message.id] ?? 'chain'}
                   index={index}
                   key={message.id}
                   measureElement={virtualizer.measureElement}

@@ -2,9 +2,7 @@ import type { PendingInteraction, Message as DomainMessage } from '@clio/core/v3
 import {
   AlertTriangleIcon,
   BotIcon,
-  BrainCircuitIcon,
   CopyIcon,
-  EyeIcon,
   Globe2Icon,
   LoaderCircleIcon,
   MapIcon,
@@ -23,7 +21,6 @@ import {
 } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ClioMessageHistoryActions } from './message-history-actions';
 import { MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
@@ -44,6 +41,7 @@ import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
+import { MessageCompletionFooter } from './message-completion-footer';
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -105,7 +103,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     );
   }
   const actions = (
-    <MessageActions className="ml-auto shrink-0 opacity-100 sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
+    <MessageActions
+      className={cn(
+        'shrink-0 opacity-100',
+        message.role !== 'assistant' &&
+          'ml-auto sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100',
+      )}
+    >
       {cancellablePendingSteer ? (
         <MessageAction
           disabled={
@@ -205,12 +209,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     ? 'System'
                     : 'Unknown sender'}
             </span>
-            <time className="font-mono text-[10px]" dateTime={message.created_at}>
-              {new Date(message.created_at).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </time>
+            {message.role !== 'assistant' ? (
+              <time className="font-mono text-[10px]" dateTime={message.created_at}>
+                {new Date(message.created_at).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </time>
+            ) : null}
             {executionMode === 'plan' ? (
               <Badge aria-label="Sent in Plan mode" variant="outline">
                 <MapIcon aria-hidden="true" data-icon="inline-start" />
@@ -222,41 +228,11 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 Deep research
               </Badge>
             ) : null}
-            {message.role === 'assistant' && turn.iterations.length > 0 ? (
-              <ToggleGroup
-                aria-label="Activity detail"
-                className="ml-1 overflow-hidden rounded-md"
-                onValueChange={(value) => {
-                  if (value === 'chain' || value === 'full') onDisplayModeChange(value);
-                }}
-                size="sm"
-                spacing={0}
-                type="single"
-                value={displayMode}
-                variant="outline"
-              >
-                <ToggleGroupItem
-                  aria-label="Chain view"
-                  className="h-6 min-w-6 rounded-none px-1.5"
-                  title="Chain view"
-                  value="chain"
-                >
-                  <BrainCircuitIcon aria-hidden="true" />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  aria-label="Full activity view"
-                  className="h-6 min-w-6 rounded-none px-1.5"
-                  title="Full activity view"
-                  value="full"
-                >
-                  <EyeIcon aria-hidden="true" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-            ) : null}
-            {actions}
+            {message.role !== 'assistant' ? actions : null}
           </div>
           <MessageContent
             className={cn(
+              message.role === 'assistant' && 'w-full',
               pendingSteer &&
                 'rounded-xl border border-dashed border-primary/60 bg-primary/[0.025] transition-[border-color,background-color] duration-150',
             )}
@@ -346,6 +322,18 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               <ClioCompactionProgress compaction={compaction} key={compaction.compaction_id} />
             ))}
           </MessageContent>
+          {message.role === 'assistant' ? (
+            <MessageCompletionFooter
+              message={message}
+              toolCount={
+                new Set(
+                  message.blocks.flatMap((block) => (block.type === 'tool' ? [block.tool_id] : [])),
+                ).size
+              }
+            >
+              {actions}
+            </MessageCompletionFooter>
+          ) : null}
         </Message>
       </m.div>
     </div>

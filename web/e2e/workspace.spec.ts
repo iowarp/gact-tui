@@ -73,7 +73,7 @@ async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
 
 async function alignLatestActivityAtTop(page: Page) {
   const conversation = page.getByRole('log', { name: 'Conversation' });
-  const activityHeader = conversation.getByRole('button', { name: 'Activity' }).last();
+  const activityHeader = conversation.getByRole('button', { name: /^Activity:/ }).last();
   await alignTranscriptAnchorAtTop(page, activityHeader.locator('..'));
 }
 

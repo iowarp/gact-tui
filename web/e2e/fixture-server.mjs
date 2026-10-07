@@ -52,6 +52,8 @@ let mcpAppCloses = 0;
 let resolvedInteractionIds = new Set();
 let streamedText = '';
 let streamStarted = false;
+let transcriptActivityMessages = [];
+let transcriptActivityTools = [];
 let nextCursor = 1;
 let queuedMessages = [];
 const streamClients = new Set();
@@ -804,7 +806,7 @@ function transcriptMessages() {
       },
     ],
   });
-  return messages;
+  return [...messages, ...transcriptActivityMessages];
 }
 
 function mcpV2Interactions() {
@@ -1402,6 +1404,8 @@ const server = createServer(async (request, response) => {
     resolvedInteractionIds = new Set();
     streamedText = '';
     streamStarted = false;
+    transcriptActivityMessages = [];
+    transcriptActivityTools = [];
     nextCursor = 1;
     queuedMessages = [];
     seedResources();
@@ -1524,6 +1528,110 @@ const server = createServer(async (request, response) => {
       sendJson(response, { error: 'Unknown preparation phase' }, 400);
       return;
     }
+    sendJson(response, { status: phase }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/transcript-activity') {
+    const { phase } = await readJson(request);
+    if (!['thinking', 'answer'].includes(phase)) {
+      sendJson(response, { error: 'Unknown transcript activity phase' }, 400);
+      return;
+    }
+    const thought = 'Read the fixture notes before preparing the report.';
+    if (phase === 'answer' && !transcriptActivityMessages.length) {
+      sendJson(response, { error: 'No transcript activity turn started' }, 400);
+      return;
+    }
+    if (phase === 'thinking') {
+      transcriptActivityTools = [];
+      publish('turn.started', { turn_id: 'run_flat_activity' });
+      const userMessage = {
+        id: 'msg_flat_user',
+        session_id: sessionId,
+        run_id: 'run_flat_activity',
+        role: 'user',
+        created_at: '2026-10-06T12:00:00Z',
+        blocks: [{ id: 'flat_user_text', type: 'text', text: 'Review this fictional fixture.' }],
+      };
+      transcriptActivityMessages = [userMessage];
+      publish('message.upserted', userMessage);
+      transcriptActivityTools.push({
+        id: 'flat_read',
+        session_id: sessionId,
+        run_id: 'run_flat_activity',
+        name: 'fs_read_file',
+        title: 'Read',
+        state: 'succeeded',
+        input: { path: 'notes.md' },
+        output: 'Complete fixture file contents.',
+        presentation: {
+          action: 'Read',
+          summary: '61 lines',
+          subject: 'file',
+          blocks: [{ id: 'file', type: 'text', text: 'notes.md', label: 'notes.md' }],
+        },
+      });
+      transcriptActivityTools.push({
+        id: 'flat_run',
+        session_id: sessionId,
+        run_id: 'run_flat_activity',
+        name: 'shell_bash',
+        title: 'Run',
+        state: 'failed',
+        input: { command: 'python review.py' },
+        error: 'Fixture command failed.',
+        output: 'ModuleNotFoundError: fixture_package',
+        presentation: {
+          action: 'Run',
+          summary: 'exit 1',
+          subject: 'command',
+          blocks: [
+            { id: 'command', type: 'text', text: 'python review.py', label: 'python review.py' },
+          ],
+        },
+      });
+      for (const tool of transcriptActivityTools) publish('tool.upserted', tool);
+    }
+    const assistantMessage = {
+      id: 'msg_flat_assistant',
+      session_id: sessionId,
+      run_id: 'run_flat_activity',
+      role: 'assistant',
+      created_at: '2026-10-06T12:00:01Z',
+      ...(phase === 'answer'
+        ? {
+            completed_at: '2026-10-06T12:00:45Z',
+            stop_reason: 'end_turn',
+            usage: { input: 129000, output: 3000, cache_read: 0, cache_write: 0 },
+            cost_usd: 0,
+          }
+        : {}),
+      blocks: [
+        {
+          id: 'flat_reasoning',
+          type: 'reasoning',
+          provider_source: 'codex',
+          text: thought,
+          streaming: phase === 'thinking',
+        },
+        { id: 'flat_next', type: 'text', channel: 'next_thought', text: thought },
+        { id: 'flat_read_part', type: 'tool', tool_id: 'flat_read' },
+        { id: 'flat_run_part', type: 'tool', tool_id: 'flat_run' },
+        ...(phase === 'answer'
+          ? [
+              {
+                id: 'flat_answer',
+                type: 'text',
+                channel: 'answer',
+                text: 'The fixture review is ready; one command failed.',
+              },
+            ]
+          : []),
+      ],
+    };
+    transcriptActivityMessages = [transcriptActivityMessages[0], assistantMessage];
+    publish('message.upserted', assistantMessage);
     sendJson(response, { status: phase }, 202);
     return;
   }
@@ -1814,6 +1922,7 @@ const server = createServer(async (request, response) => {
     sendJson(response, {
       messages: transcriptMessages(),
       tools: [
+        ...transcriptActivityTools,
         {
           id: 'tool_earthscope',
           session_id: sessionId,

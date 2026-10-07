@@ -425,7 +425,7 @@ describe('ClioConversation transcript viewport', () => {
     await waitFor(() => expect(document.activeElement).toHaveAttribute('id', 'message-message_1'));
   });
 
-  it('does not rebuild the turn projection when only the view mode changes', () => {
+  it('does not rebuild the turn projection when only the activity disclosure changes', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -459,8 +459,8 @@ describe('ClioConversation transcript viewport', () => {
     const buildsAfterMount = turnModelMocks.presentation.mock.calls.length;
     expect(buildsAfterMount).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Full activity view' }));
-    fireEvent.click(screen.getByRole('radio', { name: 'Chain view' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
 
     expect(turnModelMocks.presentation.mock.calls.length).toBe(buildsAfterMount);
   });
