@@ -42,6 +42,8 @@ import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { MessageCompletionFooter } from './message-completion-footer';
+import { ConversationModelCheckpoint } from './conversation-model-boundary';
+import { modelBoundariesEqual } from './conversation-model-boundaries';
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -54,6 +56,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   onDisplayModeChange,
   mcpAppResponse,
   messageCompactions,
+  modelBoundary,
   ...entities
 }: ConversationMessageRowProps) {
   useAttentionEvidenceTarget(
@@ -188,6 +191,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       tabIndex={-1}
     >
+      {modelBoundary ? <ConversationModelCheckpoint boundary={modelBoundary} /> : null}
       <m.div
         animate={{ opacity: 1 }}
         initial={{ opacity: recent ? 0 : 1 }}
@@ -461,6 +465,7 @@ export function conversationMessageRowPropsEqual(
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
     left.messageCompactions !== right.messageCompactions ||
+    !modelBoundariesEqual(left.modelBoundary, right.modelBoundary) ||
     left.attentionData !== right.attentionData ||
     !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||

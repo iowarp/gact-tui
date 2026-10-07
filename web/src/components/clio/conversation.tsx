@@ -13,6 +13,7 @@ import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioCompactionProgress } from './conversation-summarization';
 import { ClioTurnPreparation } from './turn-preparation';
 import { placeCompactions } from './conversation-compaction-placement';
+import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
@@ -80,6 +81,7 @@ function ConversationBody({
     () => placeCompactions(compactions ?? [], messages),
     [compactions, messages],
   );
+  const modelBoundaries = useMemo(() => conversationModelBoundaries(messages), [messages]);
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
@@ -457,6 +459,7 @@ function ConversationBody({
                   message={message}
                   mcpAppResponse={mcpAppResponses.get(message.id)}
                   messageCompactions={compactionPlacement.byMessage.get(message.id)}
+                  modelBoundary={modelBoundaries.get(message.id)}
                   onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                   recent={index >= messages.length - 2}
                   start={start}
