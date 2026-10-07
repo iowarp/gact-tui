@@ -199,9 +199,7 @@ function CreateResourceDialog({
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>Create</DialogTitle>
-          <DialogDescription>
-            Start a session in an existing workspace or register another workspace root.
-          </DialogDescription>
+          <DialogDescription>Start a session or create a workspace.</DialogDescription>
         </DialogHeader>
         <Tabs
           className="min-h-0 gap-4"
