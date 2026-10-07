@@ -530,7 +530,8 @@ export function ClioComposer({
         />
       ) : null}
       <PromptInput
-        className="mx-auto max-w-4xl shrink-0 rounded-2xl border-border/30 bg-card/70 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl [&_[data-slot=input-group]]:border-border/30 [&_[data-slot=input-group]]:bg-card/70 dark:bg-card/60 dark:[&_[data-slot=input-group]]:bg-card/60"
+        data-slot="clio-composer"
+        className="mx-auto max-w-4xl shrink-0 rounded-2xl bg-composer shadow-sm"
         maxFileSize={250 * 1024 * 1024}
         multiple
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}

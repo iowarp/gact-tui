@@ -11,9 +11,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* The maximized canvas is at 80. Portalled controls and dialogs must remain
-   above it, including controls opened from a dialog or a mobile canvas sheet. */
+/* Keep the composer surface stable when footer actions become disabled. */
 @layer utilities {
+  form[data-slot='clio-composer'] > [data-slot='input-group'],
+  form[data-slot='clio-composer'] > [data-slot='input-group']:has(:disabled) {
+    @apply border-composer-border bg-composer;
+  }
+  form[data-slot='clio-composer']
+    > [data-slot='input-group']:has([data-slot='input-group-control']:focus-visible) {
+    @apply border-ring/65 bg-composer ring-2 ring-ring/15;
+  }
+  /* The maximized canvas is at 80. Portalled controls and dialogs must remain
+     above it, including controls opened from a dialog or a mobile canvas sheet. */
   [data-slot='dialog-overlay'][data-state],
   [data-slot='alert-dialog-overlay'][data-state] {
     z-index: 90;
@@ -72,6 +81,8 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-composer: var(--composer);
+  --color-composer-border: var(--composer-border);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -93,6 +104,8 @@
   --background: oklch(0.985 0.008 225);
   --foreground: oklch(0.19 0.026 235);
   --card: oklch(1 0 0);
+  --composer: oklch(0.955 0.01 225);
+  --composer-border: oklch(0.83 0.018 225);
   --card-foreground: oklch(0.19 0.026 235);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.19 0.026 235);
@@ -138,6 +151,8 @@
   --background: oklch(0.105 0 0);
   --foreground: oklch(0.95 0 0);
   --card: oklch(0.155 0 0);
+  --composer: oklch(0.285 0 0);
+  --composer-border: oklch(0.42 0 0 / 65%);
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.18 0 0);
   --popover-foreground: oklch(0.95 0 0);
