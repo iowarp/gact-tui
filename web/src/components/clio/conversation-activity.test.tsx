@@ -105,7 +105,7 @@ describe('ClioConversation activity and interactive surfaces', () => {
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
   });
 
-  it('keeps the sourced tool outcome readable inside a compact activity chain', () => {
+  it('keeps the sourced tool outcome readable inside a compact activity chain', async () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -140,16 +140,20 @@ describe('ClioConversation activity and interactive surfaces', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Activity' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^Activity: 1 tool completed/ })).toHaveAttribute(
       'aria-expanded',
       'true',
     );
     const activity = screen.getByRole('button', {
-      name: /Expand activity:.*Read evidence file.*Read evidence\.json/,
+      name: 'Technical details for Read evidence file',
     });
     expect(activity).toBeInTheDocument();
-    expect(activity).not.toHaveAccessibleName(/Completed/);
-    expect(screen.getByRole('radio', { name: 'Full activity view' })).toBeInTheDocument();
+    expect(activity).toHaveTextContent('Read evidence.json');
+    expect(screen.queryByRole('radio', { name: 'Full activity view' })).not.toBeInTheDocument();
+    fireEvent.click(activity);
+    expect(await screen.findByRole('dialog')).toHaveTextContent(
+      'large payload omitted from the collapsed summary',
+    );
   });
 
   it('renders a tool-returned task as a quiet status line inside Activity', () => {
@@ -199,13 +203,13 @@ describe('ClioConversation activity and interactive surfaces', () => {
     expect(taskLine).toHaveTextContent('Completed');
     expect(taskLine).toHaveTextContent('Evidence retained with source identity.');
     expect(taskLine).not.toHaveTextContent('completed.');
-    expect(taskLine.closest('button')).toHaveAccessibleName(/Expand activity/);
+    expect(taskLine.closest('button')).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Review station quality' }),
     ).not.toBeInTheDocument();
   });
 
-  it('opens a compact chain as the full causal turn and can condense it again', () => {
+  it('opens the compact causal timeline and can condense it again', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -238,11 +242,22 @@ describe('ClioConversation activity and interactive surfaces', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Full activity view' }));
-
-    expect(screen.getByRole('region', { name: 'Full agent activity' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('radio', { name: 'Chain view' }));
-    expect(screen.queryByRole('region', { name: 'Full agent activity' })).not.toBeInTheDocument();
+    const activity = screen.getByRole('button', { name: /^Activity:/ });
+    expect(activity).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(activity);
+    expect(activity).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('button', { name: /^Reasoning: Inspecting the evidence/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Technical details for Read evidence file' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('The evidence is ready.')).toBeInTheDocument();
+    fireEvent.click(activity);
+    expect(activity).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('button', { name: 'Technical details for Read evidence file' }),
+    ).not.toBeInTheDocument();
   });
 
   it('distinguishes a deliberately removed interactive surface from unavailable data', () => {

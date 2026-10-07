@@ -12,7 +12,8 @@ import {
   ScrollTextIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { RefreshIndicator } from './refresh-button';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -325,10 +326,16 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                   <DropdownMenuTrigger asChild>
                     <Button
                       aria-label={`Actions for ${serverTitle(server)}`}
+                      aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
+                      disabled={reconnect.isPending && reconnect.variables?.id === server.id}
                       size="icon-sm"
                       variant="ghost"
                     >
-                      <MoreIcon aria-hidden="true" />
+                      {reconnect.isPending && reconnect.variables?.id === server.id ? (
+                        <RefreshIndicator refreshing />
+                      ) : (
+                        <MoreIcon aria-hidden="true" />
+                      )}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-48">
@@ -337,8 +344,17 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                     </DropdownMenuItem>
                     {isRuntimeConnection(server) ? (
                       <>
-                        <DropdownMenuItem onSelect={() => reconnect.mutate(server)}>
-                          <RefreshIcon aria-hidden="true" /> Reconnect
+                        <DropdownMenuItem
+                          aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
+                          disabled={reconnect.isPending}
+                          onSelect={() => reconnect.mutate(server)}
+                        >
+                          <RefreshIndicator
+                            refreshing={
+                              reconnect.isPending && reconnect.variables?.id === server.id
+                            }
+                          />{' '}
+                          Reconnect
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

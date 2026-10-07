@@ -1,4 +1,4 @@
 import { createContext } from 'react';
 
-/** The artifact toolbar destination for controls contributed by its active viewer. */
+/** The shared file toolbar destination for controls contributed by its active renderer. */
 export const ViewerToolbarHost = createContext<HTMLElement | null>(null);

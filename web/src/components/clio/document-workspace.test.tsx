@@ -37,7 +37,10 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
-vi.mock('@/tauri/documents', () => ({ openDocumentWorkingCopy: vi.fn().mockResolvedValue(false) }));
+vi.mock('@/tauri/documents', () => ({
+  openDocumentWorkingCopy: vi.fn().mockResolvedValue(false),
+  documentApplications: vi.fn().mockResolvedValue([]),
+}));
 vi.mock('./document-pdf-viewer', () => ({
   ClioDocumentPdfViewer: ({ fit }: { fit: string }) => <div data-fit={fit}>PDF preview</div>,
 }));
@@ -80,16 +83,14 @@ describe('ClioDocumentWorkspace', () => {
       renderWorkspace();
 
       expect(await screen.findByText('PDF preview')).toBeVisible();
-      expect(screen.getByText('PDF preview')).toHaveAttribute(
-        'data-fit',
-        profile === 'ooxml-sheet' ? 'width' : 'page',
-      );
+      expect(screen.getByText('PDF preview')).toHaveAttribute('data-fit', 'width');
       await userEvent.click(screen.getByRole('button', { name: 'Document information' }));
       expect(screen.getByText('Saved PDF preview')).toBeVisible();
       expect(screen.queryByText('PDF document')).not.toBeInTheDocument();
       expect(repository.documentContent).toHaveBeenCalledWith('artifact_pdf', expect.anything());
       expect(repository.createDocumentRendition).not.toHaveBeenCalled();
-      expect(screen.getByRole('button', { name: 'Open in desktop app' })).toBeVisible();
+      await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
+      expect(screen.getByRole('menuitem', { name: 'PDF preview' })).toBeVisible();
     },
   );
 
@@ -215,7 +216,8 @@ describe('ClioDocumentWorkspace', () => {
     });
     renderWorkspace();
 
-    await user.click(await screen.findByRole('button', { name: 'Open in desktop app' }));
+    await user.click(await screen.findByRole('button', { name: 'Open in' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Copy path' }));
     expect(repository.createDocumentWorkingCopy).toHaveBeenCalledWith('artifact_3', {
       session_id: 'sess_1',
       provider: 'native',
@@ -223,7 +225,58 @@ describe('ClioDocumentWorkspace', () => {
       auto_checkpoint: true,
     });
     expect(await screen.findByText(/Working-copy path copied/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Document information' }));
     expect(screen.getByText('active')).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'History' })).not.toBeInTheDocument();
+  });
+
+  it('checks editor availability again before creating an editable copy', async () => {
+    repository.documentManifest.mockResolvedValue({
+      ...manifest,
+      embedded_editors: ['onlyoffice'],
+    });
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode('# Evidence'));
+    repository.artifactReviews.mockResolvedValue([]);
+    repository.documentEditorHealth
+      .mockResolvedValueOnce({
+        editors: [{ provider: 'onlyoffice', configured: true, healthy: true }],
+      })
+      .mockResolvedValue({
+        editors: [{ provider: 'onlyoffice', configured: true, healthy: false }],
+      });
+    renderWorkspace();
+    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'ONLYOFFICE' }));
+    expect(await screen.findByText(/ONLYOFFICE is unavailable/)).toBeVisible();
+    expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
+    expect(repository.createDocumentEditorSession).not.toHaveBeenCalled();
+  });
+
+  it('closes a working copy when its editor cannot launch and keeps the preview readable', async () => {
+    repository.documentManifest.mockResolvedValue({
+      ...manifest,
+      embedded_editors: ['onlyoffice'],
+    });
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode('# Evidence'));
+    repository.artifactReviews.mockResolvedValue([]);
+    repository.documentEditorHealth.mockResolvedValue({
+      editors: [{ provider: 'onlyoffice', configured: true, healthy: true }],
+    });
+    repository.createDocumentWorkingCopy.mockResolvedValue({
+      id: 'copy_failed',
+      path: 'confined.docx',
+    });
+    repository.createDocumentEditorSession.mockResolvedValue({
+      status: 'unavailable',
+      error: 'Editor connection refused',
+    });
+    repository.closeDocumentWorkingCopy.mockResolvedValue({ id: 'copy_failed', status: 'closed' });
+    renderWorkspace();
+    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'ONLYOFFICE' }));
+    expect(await screen.findByText('Editor connection refused')).toBeVisible();
+    expect(repository.closeDocumentWorkingCopy).toHaveBeenCalledWith('copy_failed');
+    expect(screen.getByRole('heading', { name: 'Evidence' })).toBeVisible();
+    expect(screen.queryByText('active')).not.toBeInTheDocument();
   });
 });

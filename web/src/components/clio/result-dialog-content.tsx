@@ -30,7 +30,7 @@ export function ResultDialogContent({
   }, []);
   return (
     <DialogContent className="flex max-h-[85dvh] min-w-0 flex-col overflow-hidden sm:max-w-4xl">
-      <DialogHeader className="shrink-0 pr-8">
+      <DialogHeader className="shrink-0">
         <DialogTitle className="min-w-0 [overflow-wrap:anywhere]">{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>

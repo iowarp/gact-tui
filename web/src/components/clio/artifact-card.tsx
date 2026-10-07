@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { artifactDeliverables, isDocumentPreview } from '@/lib/artifact-presentation';
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -68,13 +69,15 @@ export function ClioArtifactAttachments({
   className,
   onOpen,
 }: ClioArtifactAttachmentsProps) {
+  const deliverables = artifactDeliverables(artifacts);
+  if (!deliverables.length) return null;
   return (
     <div
-      aria-label={artifacts.length === 1 ? 'Artifact' : `${artifacts.length} artifacts`}
+      aria-label={deliverables.length === 1 ? 'Artifact' : `${deliverables.length} artifacts`}
       className={cn('flex w-full min-w-0 flex-col gap-2 py-1', className)}
       role="group"
     >
-      {artifacts.map((artifact) => {
+      {deliverables.map((artifact) => {
         const output = artifact.session_relation
           ? artifact
           : { ...artifact, session_relation: 'produced' as const };
@@ -93,7 +96,11 @@ export function ClioArtifactAttachments({
 }
 
 /** Maps a GACT artifact into AI Elements' artifact and attachment presentation. */
-export function ClioArtifactCard({
+export function ClioArtifactCard(props: ClioArtifactCardProps) {
+  return isDocumentPreview(props.artifact) ? null : <ArtifactCardContent {...props} />;
+}
+
+function ArtifactCardContent({
   artifact,
   className,
   onOpen,
@@ -233,9 +240,7 @@ export function ClioArtifactCard({
             {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
           </Badge>
         ) : null}
-        <div className="shrink-0">
-          <SurfaceToolbar capabilities={downloadCapabilities} />
-        </div>
+        <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
       </ArtifactHeader>
       {preview ? (
         <ArtifactContent className="p-0">

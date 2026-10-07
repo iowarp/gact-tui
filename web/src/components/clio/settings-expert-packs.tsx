@@ -2,7 +2,8 @@ import { queryKeys } from '@/lib/query-keys';
 import type { AgentBlueprintSource, ExpertPackDefinition, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BoxesIcon, PackageCheckIcon, PackagePlusIcon, UsersIcon } from 'lucide-react';
-import { DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { RefreshIndicator } from './refresh-button';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -248,10 +249,16 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
                     <DropdownMenuTrigger asChild>
                       <Button
                         aria-label={`Actions for ${packTitle(pack)}`}
+                        aria-busy={update.isPending && update.variables?.id === pack.id}
+                        disabled={update.isPending && update.variables?.id === pack.id}
                         size="icon-sm"
                         variant="ghost"
                       >
-                        <MoreIcon aria-hidden="true" />
+                        {update.isPending && update.variables?.id === pack.id ? (
+                          <RefreshIndicator refreshing />
+                        ) : (
+                          <MoreIcon aria-hidden="true" />
+                        )}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-48">
@@ -260,8 +267,15 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
                       </DropdownMenuItem>
                       {managed ? (
                         <>
-                          <DropdownMenuItem onSelect={() => update.mutate(pack)}>
-                            <RefreshIcon aria-hidden="true" /> Check for update
+                          <DropdownMenuItem
+                            aria-busy={update.isPending && update.variables?.id === pack.id}
+                            disabled={update.isPending}
+                            onSelect={() => update.mutate(pack)}
+                          >
+                            <RefreshIndicator
+                              refreshing={update.isPending && update.variables?.id === pack.id}
+                            />{' '}
+                            Check for update
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem

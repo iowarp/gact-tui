@@ -76,11 +76,13 @@ export function ClioComposerAnnotations({
   return (
     <ol aria-label="Attached selections" className="grid w-full basis-full gap-1.5 px-2.5 pt-2">
       {annotations.map((annotation, index) => {
-        const { icon: Icon, label, markdown, preview, removeName } = annotationCard(
-          annotation,
-          annotations.length > 1,
-          index,
-        );
+        const {
+          icon: Icon,
+          label,
+          markdown,
+          preview,
+          removeName,
+        } = annotationCard(annotation, annotations.length > 1, index);
         return (
           <li
             className="flex min-w-0 items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2"
@@ -88,8 +90,10 @@ export function ClioComposerAnnotations({
           >
             <Icon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-              <p className="line-clamp-1 break-words text-xs leading-5 text-foreground">{preview}</p>
+              <p className="text-[0.6875rem] font-medium text-muted-foreground">{label}</p>
+              <p className="line-clamp-1 break-words text-xs leading-5 text-foreground">
+                {preview}
+              </p>
             </div>
             {markdown ? (
               <Popover>

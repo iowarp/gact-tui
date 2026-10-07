@@ -18,6 +18,8 @@ import type {
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import type { McpAppResponseActivityData } from './mcp-app-surface';
 import type { SubagentOpenTarget } from './subagent-card';
+import type { TurnPreparationProps } from './turn-preparation';
+import type { ConversationModelBoundary } from './conversation-model-boundaries';
 
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
@@ -72,6 +74,7 @@ export interface ClioConversationProps {
   cancellingPendingMessageId?: string;
   onCancelPendingSteer?: (messageId: string) => void | Promise<unknown>;
   bottomInset?: number;
+  preparation?: Omit<TurnPreparationProps, 'messages'>;
   mcpAppRepository?: ClioRepository;
   interactions?: readonly PendingInteraction[];
   onInteractionResponse?: (
@@ -95,4 +98,6 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   mcpAppResponse?: McpAppResponseActivityData;
   /** The compactions positioned after this message's content. */
   messageCompactions?: readonly PendingCompaction[];
+  /** A recorded provider/model segment beginning at this message. */
+  modelBoundary?: ConversationModelBoundary;
 }

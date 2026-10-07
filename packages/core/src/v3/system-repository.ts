@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { InfrastructureRepository } from './infrastructure-repository.js';
 import { spotterAvailabilitySchema, type SpotterAvailability } from './spotter-domain.js';
+import {
+  runtimeSettingsSchema,
+  type RuntimeSettings,
+  type UpdateRuntimeSettings,
+} from './runtime-settings-domain.js';
 
 /**
  * The latest published CLIO release, as the connected server reports it (see
@@ -25,8 +30,30 @@ export const latestReleaseSchema = z.object({
   degradation: z.object({ reason: z.string(), message: z.string() }).nullable(),
 });
 
-/** System-wide (connection-scoped, not session-scoped) read-only surfaces. */
+/** System-wide surfaces scoped to the connected service. */
 export class SystemRepository extends InfrastructureRepository {
+  public runtimeSettings(signal?: AbortSignal): Promise<RuntimeSettings> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/settings/runtime',
+      decode: (value) => runtimeSettingsSchema.parse(value),
+      signal,
+    });
+  }
+
+  public updateRuntimeSettings(
+    input: UpdateRuntimeSettings,
+    signal?: AbortSignal,
+  ): Promise<RuntimeSettings> {
+    return this.transport.request({
+      method: 'PATCH',
+      path: '/v1/settings/runtime',
+      body: input,
+      decode: (value) => runtimeSettingsSchema.parse(value),
+      signal,
+    });
+  }
+
   public latestRelease(signal?: AbortSignal): Promise<LatestRelease> {
     return this.transport.request({
       method: 'GET',

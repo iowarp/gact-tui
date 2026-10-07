@@ -12,12 +12,14 @@ const STORAGE_KEY = 'clio.appearance.v1';
 
 export type MotionPreference = 'system' | 'reduced';
 export type ConversationWidth = 'focused' | 'wide';
+export type InterfaceSize = 100 | 125 | 150;
 
 interface AppearancePreferences {
   motion: MotionPreference;
   conversationWidth: ConversationWidth;
   collapseThreshold: number;
   hideDotFiles: boolean;
+  interfaceSize: InterfaceSize;
 }
 
 interface AppearanceContextValue extends AppearancePreferences {
@@ -25,6 +27,7 @@ interface AppearanceContextValue extends AppearancePreferences {
   setConversationWidth: (width: ConversationWidth) => void;
   setCollapseThreshold: (lines: number) => void;
   setHideDotFiles: (hideDotFiles: boolean) => void;
+  setInterfaceSize: (size: InterfaceSize) => void;
 }
 
 const defaults: AppearancePreferences = {
@@ -35,6 +38,7 @@ const defaults: AppearancePreferences = {
   // default — there is no reason to hide a workspace's own agent state from itself.
   // This toggle is opt-in.
   hideDotFiles: false,
+  interfaceSize: 100,
 };
 
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
@@ -67,6 +71,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     document.documentElement.dataset.clioMotion = preferences.motion;
   }, [preferences.motion]);
+  useEffect(() => {
+    document.documentElement.dataset.clioInterfaceSize = String(preferences.interfaceSize);
+  }, [preferences.interfaceSize]);
   const value = useMemo<AppearanceContextValue>(
     () => ({
       ...preferences,
@@ -75,6 +82,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       setCollapseThreshold: (lines) =>
         update({ collapseThreshold: Math.max(1, Math.min(50, Math.round(lines) || 5)) }),
       setHideDotFiles: (hideDotFiles) => update({ hideDotFiles }),
+      setInterfaceSize: (interfaceSize) => update({ interfaceSize }),
     }),
     [preferences, update],
   );
@@ -116,5 +124,7 @@ function parsePreferences(raw: string | null): AppearancePreferences {
         ? value.collapseThreshold
         : 5,
     hideDotFiles: value.hideDotFiles === true,
+    interfaceSize:
+      value.interfaceSize === 125 || value.interfaceSize === 150 ? value.interfaceSize : 100,
   };
 }

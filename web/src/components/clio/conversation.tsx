@@ -8,11 +8,12 @@ import { ConversationEmptyState } from '@/components/ai-elements/conversation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
-import { useConversationDisplay } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioCompactionProgress } from './conversation-summarization';
+import { ClioTurnPreparation } from './turn-preparation';
 import { placeCompactions } from './conversation-compaction-placement';
+import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
@@ -56,6 +57,7 @@ function ConversationBody({
   error,
   bottomInset = 0,
   compactions,
+  preparation,
   ...entities
 }: ClioConversationProps) {
   const mcpAppResponses = useMemo(
@@ -79,7 +81,7 @@ function ConversationBody({
     () => placeCompactions(compactions ?? [], messages),
     [compactions, messages],
   );
-  const { mode: defaultDisplayMode } = useConversationDisplay();
+  const modelBoundaries = useMemo(() => conversationModelBoundaries(messages), [messages]);
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
@@ -273,6 +275,14 @@ function ConversationBody({
     scrollToBottom,
   });
   const minimapVisible = conversationViewportWidth >= 760;
+  // Grow only into the unused margin, leaving a gap before the transcript column.
+  const minimapMarkerWidth = Math.min(
+    56,
+    Math.max(
+      24,
+      (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 - 12,
+    ),
+  );
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -335,6 +345,7 @@ function ConversationBody({
             messages={messages}
             onJump={jumpToMessage}
             visible={minimapVisible}
+            maxMarkerWidth={minimapMarkerWidth}
           />
         </>
       ) : null}
@@ -349,6 +360,10 @@ function ConversationBody({
         data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;
+          if (['Enter', ' '].includes(event.key) && target.closest('button[aria-expanded]')) {
+            markUserScrollIntent();
+            disengage();
+          }
           const ownsKey = target.closest(
             'input, textarea, select, [contenteditable="true"], [role="combobox"], [role="listbox"], [role="menu"], [role="tablist"], [role="radiogroup"]',
           );
@@ -366,6 +381,10 @@ function ConversationBody({
         }}
         onScroll={handleScroll}
         onPointerDown={(event) => {
+          if (event.target instanceof Element && event.target.closest('button[aria-expanded]')) {
+            markUserScrollIntent();
+            disengage();
+          }
           if (event.target === event.currentTarget) markUserScrollIntent();
           autoscroll.onPointerDown(event);
         }}
@@ -395,7 +414,9 @@ function ConversationBody({
             Syncing history…
           </div>
         ) : null}
-        {messages.length === 0 && loading ? (
+        {messages.length === 0 &&
+        (preparation?.sessionState === 'queued' ||
+          preparation?.sessionState === 'running') ? null : messages.length === 0 && loading ? (
           <ConversationEmptyState
             aria-live="polite"
             className="h-full"
@@ -424,6 +445,7 @@ function ConversationBody({
               autoscroll.observeContent(node);
               messagesContainerRef.current = node;
             }}
+            data-slot="transcript-column"
             className={`${virtualized ? 'relative' : ''} mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             style={virtualized ? { height: virtualizer.getTotalSize() } : undefined}
           >
@@ -440,13 +462,14 @@ function ConversationBody({
                 <ConversationMessageRow
                   {...entities}
                   activeMcpAppId={activeMcpAppId}
-                  displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
+                  displayMode={turnDisplayModes[message.id] ?? 'chain'}
                   index={index}
                   key={message.id}
                   measureElement={virtualizer.measureElement}
                   message={message}
                   mcpAppResponse={mcpAppResponses.get(message.id)}
                   messageCompactions={compactionPlacement.byMessage.get(message.id)}
+                  modelBoundary={modelBoundaries.get(message.id)}
                   onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                   recent={index >= messages.length - 2}
                   start={start}
@@ -456,6 +479,14 @@ function ConversationBody({
             })}
           </div>
         )}
+        {preparation ? (
+          <div
+            className={`mx-auto w-full px-5 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            ref={autoscroll.observeContent}
+          >
+            <ClioTurnPreparation {...preparation} messages={sourceMessages} />
+          </div>
+        ) : null}
         {compactionPlacement.trailing.length > 0 ? (
           <div
             className={`mx-auto grid w-full gap-3 px-5 pb-4 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}

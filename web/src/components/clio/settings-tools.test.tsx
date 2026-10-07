@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -173,11 +173,26 @@ describe('tool provider settings', () => {
   it('exposes reconnect and confirmed disconnect only for runtime connections', async () => {
     const user = userEvent.setup();
     repository.mcpServers.mockResolvedValue([external]);
+    let finishReconnect!: (server: typeof external) => void;
+    repository.reconnectMcpServer.mockReturnValueOnce(
+      new Promise<typeof external>((resolve) => {
+        finishReconnect = resolve;
+      }),
+    );
     renderSettings(<ToolsSettings />);
 
     await user.click(await screen.findByRole('button', { name: 'Actions for Science tools' }));
     await user.click(screen.getByRole('menuitem', { name: 'Reconnect' }));
     expect(repository.reconnectMcpServer).toHaveBeenCalledWith('mcp_ext_science');
+
+    const actions = screen.getByRole('button', { name: 'Actions for Science tools' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(actions).toHaveAttribute('aria-busy', 'true');
+    expect(actions).toBeDisabled();
+    expect(actions.querySelector('svg')).toHaveClass('animate-spin');
+    await act(async () => finishReconnect(external));
+    await waitFor(() => expect(actions).toBeEnabled());
+    expect(actions).toHaveAttribute('aria-busy', 'false');
 
     await user.click(screen.getByRole('button', { name: 'Actions for Science tools' }));
     await user.click(screen.getByRole('menuitem', { name: 'Disconnect' }));

@@ -16,6 +16,7 @@ import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from './refresh-button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,17 +32,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-
-function useSessionWork(sessionId: string, cursor = 0) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  return useQuery({
-    queryKey: ['session-work', settings.endpoint, sessionId, cursor],
-    queryFn: ({ signal }) => repository.sessionWork(sessionId, cursor, signal),
-    enabled: Boolean(sessionId),
-    refetchInterval: 5000,
-  });
-}
+import { useSessionWork } from './use-session-work';
 
 /** Compact entry to authoritative work state, independent of transcript expansion. */
 export function SessionWorkSummary({
@@ -340,9 +331,12 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
     return (
       <div role="alert" className="p-4">
         <p>Session work could not be loaded.</p>
-        <Button variant="outline" onClick={() => void query.refetch()}>
-          Retry
-        </Button>
+        <RefreshButton
+          label="Retry"
+          variant="outline"
+          refreshing={query.isFetching}
+          onRefresh={() => query.refetch()}
+        />
       </div>
     );
   const data = query.data;

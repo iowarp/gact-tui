@@ -14,16 +14,10 @@ import {
 } from '@/components/reui/timeline';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
-import { EXECUTION_PROVENANCE_LIMIT } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ArtifactLineageGraph } from './artifact-lineage-graph';
-import {
-  describeArtifactResearch,
-  projectArtifactResearchProvenance,
-} from './artifact-research-provenance';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
-import { ClioExecutionProvenanceGraph } from './workflow-execution-graph';
 
 export function ArtifactProvenance({
   artifact,
@@ -47,19 +41,6 @@ export function ArtifactProvenance({
       repository.artifactLineage(artifact.id, { direction: 'both', depth: 5 }, signal),
     enabled: view === 'lineage',
   });
-  const execution = useQuery({
-    queryKey: queryKeys.executionProvenance(settings.endpoint, artifact.session_id, 'native'),
-    queryFn: ({ signal }) =>
-      repository.executionProvenance(
-        artifact.session_id,
-        { provider: 'native', includeChildren: true, limit: EXECUTION_PROVENANCE_LIMIT },
-        signal,
-      ),
-    enabled: view === 'lineage' && Boolean(artifact.session_id),
-  });
-  const research = execution.data
-    ? projectArtifactResearchProvenance(execution.data, artifact.id)
-    : undefined;
   const exportBundle = useMutation({
     mutationFn: () => repository.exportArtifact(artifact.id),
     onSuccess: (bytes) => downloadBundle(bytes, artifact.name),
@@ -86,27 +67,12 @@ export function ArtifactProvenance({
         ) : lineage.error ? (
           <Unavailable
             detail={lineage.error.message}
-            label="Declared evidence index unavailable"
-            message="The service could not resolve the artifact's declared source relationships. The observable research execution remains available below."
+            label="Lineage unavailable"
+            message="The service could not resolve this file's source relationships. Its saved content remains readable."
           />
         ) : (
-          <p className="text-sm text-muted-foreground">Loading declared evidence…</p>
+          <p className="text-sm text-muted-foreground">Loading lineage…</p>
         )}
-        {research?.nodes.length ? (
-          <ClioExecutionProvenanceGraph
-            description={describeArtifactResearch(research)}
-            provenance={research}
-            title="Research execution"
-          />
-        ) : execution.error ? (
-          <Unavailable
-            detail={execution.error.message}
-            label="Research execution unavailable"
-            message="The service could not load the observable tool and delegation history for this result."
-          />
-        ) : execution.isPending ? (
-          <p className="text-sm text-muted-foreground">Loading research execution…</p>
-        ) : null}
       </section>
     );
   }

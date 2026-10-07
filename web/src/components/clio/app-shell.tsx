@@ -18,6 +18,7 @@ import { ToolbarAction } from './viewer-toolbar';
 export interface ClioAppShellProps {
   navigation: ReactNode;
   contextBar: ReactNode;
+  toolbarActions?: ReactNode;
   children: ReactNode;
   workbench: ReactNode;
   workbenchRevealKey?: string;
@@ -106,6 +107,7 @@ function DesktopNavigationLayout({
 export function ClioAppShell({
   navigation,
   contextBar,
+  toolbarActions,
   children,
   workbench,
   workbenchRevealKey,
@@ -175,6 +177,7 @@ export function ClioAppShell({
     >
       <DesktopWorkspaceToolbar navigation={<SidebarTrigger />}>
         <div className="min-w-0 flex-1">{contextBar}</div>
+        {toolbarActions}
         {hasWorkbench && (
           <ToolbarAction
             label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}

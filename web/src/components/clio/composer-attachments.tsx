@@ -47,7 +47,6 @@ import {
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 import { ClioPdfPreview } from './pdf-preview';
 
-
 const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
 
 /** A rejected upload, reported against the attachment it was carrying. */
@@ -79,7 +78,13 @@ export function ClioComposerAttachments({
   uploadProgress?: ResourceUploadProgress;
 }) {
   const attachments = usePromptInputAttachments();
-  const captureByFilename = new Map(annotations.filter((annotation): annotation is RegionCaptureAnnotation => annotation.kind === 'region-capture').map((annotation) => [annotation.filename, annotation]));
+  const captureByFilename = new Map(
+    annotations
+      .filter(
+        (annotation): annotation is RegionCaptureAnnotation => annotation.kind === 'region-capture',
+      )
+      .map((annotation) => [annotation.filename, annotation]),
+  );
   useEffect(() => {
     const addCapture = (event: Event) => {
       const file = (event as CustomEvent<{ file?: File }>).detail?.file;
@@ -170,7 +175,9 @@ export function ClioComposerAttachments({
       await onDiscardFiles?.([file]);
       attachments.remove(file.id);
     } catch (error) {
-      toast.error('Could not remove attachment', { description: error instanceof Error ? error.message : String(error) });
+      toast.error('Could not remove attachment', {
+        description: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -223,40 +230,73 @@ export function ClioComposerAttachments({
                 );
             if (capture) {
               return (
-                <div className="flex min-w-0 w-full items-center gap-2 rounded-lg border bg-muted/40 px-2 py-2" key={file.id}>
-                  <button aria-label={`Open ${filename}`} className="size-14 shrink-0 overflow-hidden rounded border bg-background" onClick={() => setPreviewId(file.id)} type="button">
-                    <Attachment className="size-full" data={file}><AttachmentPreview /></Attachment>
+                <div
+                  className="flex min-w-0 w-full items-center gap-2 rounded-lg border bg-muted/40 px-2 py-2"
+                  key={file.id}
+                >
+                  <button
+                    aria-label={`Open ${filename}`}
+                    className="size-14 shrink-0 overflow-hidden rounded border bg-background"
+                    onClick={() => setPreviewId(file.id)}
+                    type="button"
+                  >
+                    <Attachment className="size-full" data={file}>
+                      <AttachmentPreview />
+                    </Attachment>
                   </button>
                   <CameraIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[11px] font-medium text-muted-foreground">{capture.title}</p>
+                    <p className="truncate text-[0.6875rem] font-medium text-muted-foreground">
+                      {capture.title}
+                    </p>
                     <p className="truncate text-xs text-foreground">{capture.summary}</p>
                   </div>
                   <ResourcePipelineSummaryIcon stages={stages} />
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button aria-label={`Show the full ${capture.title} reference`} className="size-6 shrink-0" size="icon" title="Show details" type="button" variant="ghost"><ChevronDownIcon aria-hidden="true" className="size-3.5" /></Button>
+                      <Button
+                        aria-label={`Show the full ${capture.title} reference`}
+                        className="size-6 shrink-0"
+                        size="icon"
+                        title="Show details"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <ChevronDownIcon aria-hidden="true" className="size-3.5" />
+                      </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] overflow-y-auto text-xs"><MarkdownText mode="static">{capture.markdown}</MarkdownText></PopoverContent>
+                    <PopoverContent
+                      align="end"
+                      className="max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] overflow-y-auto text-xs"
+                    >
+                      <MarkdownText mode="static">{capture.markdown}</MarkdownText>
+                    </PopoverContent>
                   </Popover>
-                  <Button aria-label={`Remove ${capture.title}`} className="size-6 shrink-0" onClick={() => { void removeFile(file).then(() => onRemoveCapture?.(capture)); }} size="icon" title="Remove" type="button" variant="ghost"><RemoveIcon aria-hidden="true" className="size-3.5" /></Button>
+                  <Button
+                    aria-label={`Remove ${capture.title}`}
+                    className="size-6 shrink-0"
+                    onClick={() => {
+                      void removeFile(file).then(() => onRemoveCapture?.(capture));
+                    }}
+                    size="icon"
+                    title="Remove"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <RemoveIcon aria-hidden="true" className="size-3.5" />
+                  </Button>
                 </div>
               );
             }
             return (
               <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
                 <AttachmentHoverCardTrigger asChild>
-                  <Attachment
-                    data={file}
-                    onRemove={() => void removeFile(file)}
-                  >
+                  <Attachment data={file} onRemove={() => void removeFile(file)}>
                     <button
                       aria-label={`Open ${filename}`}
                       className={cn(
                         'text-left',
-                        visual
-                          ? 'size-full'
-                          : 'flex size-full min-w-0 flex-col overflow-hidden',
+                        visual ? 'size-full' : 'flex size-full min-w-0 flex-col overflow-hidden',
                       )}
                       onClick={() => setPreviewId(file.id)}
                       type="button"

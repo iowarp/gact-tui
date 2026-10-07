@@ -1,4 +1,4 @@
-import type { ToolInvocation } from '@clio/core/v3';
+import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { formatDuration } from '@/lib/format';
 import type { ClioStatusValue } from './status';
 
@@ -10,17 +10,76 @@ export interface ToolPresentation {
 /** Labels and summaries are authored by the provider's presentation contract. */
 export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
   return {
-    title: isA2uiCatalogLookup(tool) ? 'Inspect component schema' : tool.title || tool.name,
+    title: getToolActionLabel(tool),
     kind: 'tool',
   };
 }
 
 export function isA2uiCatalogLookup(tool: ToolInvocation): boolean {
   if (tool.name !== 'load_skill') return false;
+  const input = toolInput(tool);
+  if (typeof input?.skill_id === 'string' && input.skill_id.startsWith('a2ui-catalog-'))
+    return true;
   const subject = tool.presentation?.blocks.find(
     (block) => block.id === tool.presentation?.subject,
   );
   return (subject?.label || subject?.text || '').startsWith('a2ui-catalog-');
+}
+
+function toolInput(tool: ToolInvocation): Record<string, unknown> | undefined {
+  const input =
+    tool.input !== null && typeof tool.input === 'object' && !Array.isArray(tool.input)
+      ? (tool.input as Record<string, unknown>)
+      : undefined;
+  const kwargs = input?.kwargs;
+  return kwargs !== null && typeof kwargs === 'object' && !Array.isArray(kwargs)
+    ? (kwargs as Record<string, unknown>)
+    : input;
+}
+
+/** Keep protocol identifiers in details and use the same operation label everywhere. */
+export function getToolActionLabel(tool: ToolInvocation): string {
+  if (isA2uiCatalogLookup(tool)) return 'Inspect widget catalog';
+  const action = tool.presentation?.action || tool.title || tool.name;
+  if (tool.name === 'prepare_execution_runtime' && action === 'Prepare execution runtime')
+    return 'Get execution environment';
+  if (
+    [
+      'create_a2ui_surface',
+      'update_a2ui_components',
+      'update_a2ui_data_model',
+      'delete_a2ui_surface',
+      'inspect_a2ui_surface',
+    ].includes(tool.name)
+  ) {
+    const legacy: Record<string, string> = {
+      'Generate UI element': 'Generate widget',
+      'Update UI element': 'Update widget',
+      'Delete UI element': 'Delete widget',
+      'Inspect UI element': 'Inspect widget',
+    };
+    return legacy[action] ?? action;
+  }
+  return action;
+}
+
+/** Name the requested catalog section while preserving exact arguments in details. */
+export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | undefined {
+  const subject = tool.presentation?.blocks.find(
+    (block) =>
+      block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
+  );
+  if (!isA2uiCatalogLookup(tool)) return subject;
+  const input = toolInput(tool);
+  const paths = [input?.file, ...(Array.isArray(input?.files) ? input.files : [])].filter(
+    (path): path is string => typeof path === 'string' && Boolean(path),
+  );
+  const names = paths.map((path) => {
+    const component = path.split('#/components/')[1];
+    return component ? component.replaceAll('~1', '/').replaceAll('~0', '~') : 'General';
+  });
+  const label = [...new Set(names)].join(', ') || 'General';
+  return { id: subject?.id ?? 'catalog-section', type: 'text', text: label, label };
 }
 
 export function getToolSummary(tool: ToolInvocation): string | undefined {
@@ -62,13 +121,8 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
 
 /** Compact operation label with the same qualifying subject used by the transcript row. */
 export function getToolActivityTitle(tool: ToolInvocation): string {
-  const action = isA2uiCatalogLookup(tool)
-    ? 'Inspect component schema'
-    : tool.presentation?.action || tool.title || tool.name;
-  const subject = tool.presentation?.blocks.find(
-    (block) =>
-      block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
-  );
+  const action = getToolActionLabel(tool);
+  const subject = getToolSubject(tool);
   const label = subject?.label?.trim();
   return label ? `${action} (${label})` : action;
 }

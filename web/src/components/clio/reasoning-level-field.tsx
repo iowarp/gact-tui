@@ -8,11 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  modelDefaultLabel,
-  REASONING_EFFORT_LABELS,
-  type ModelReasoningLevels,
-} from '@/lib/reasoning-levels';
+import { REASONING_EFFORT_LABELS, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 import { InfoTip } from './info-tip';
 import { SettingsRow } from './settings-row';
 
@@ -45,7 +41,9 @@ export function ReasoningLevelField({
 }) {
   const levels = reasoning?.levels ?? [];
   if (!levels.length) return null;
-  const defaultLabel = modelDefaultLabel(reasoning);
+  const defaultLabel = reasoning?.default
+    ? `Default (${REASONING_EFFORT_LABELS[reasoning.default]})`
+    : 'Default';
   const selected = value && levels.includes(value as ReasoningEffort) ? value : undefined;
   const control = (
     <Select
@@ -69,11 +67,8 @@ export function ReasoningLevelField({
   );
   if (layout === 'row') {
     return (
-      <SettingsRow title="Reasoning effort" htmlFor={id} description={description}>
-        <div className="flex items-center gap-1.5">
-          {control}
-          {info ? <InfoTip label="About reasoning effort">{info}</InfoTip> : null}
-        </div>
+      <SettingsRow title="Reasoning effort" htmlFor={id} description={description} info={info}>
+        {control}
       </SettingsRow>
     );
   }

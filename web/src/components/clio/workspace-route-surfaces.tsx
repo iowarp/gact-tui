@@ -91,8 +91,8 @@ export function WorkspaceTranscriptAlerts({
           <AlertTriangleIcon aria-hidden="true" />
           <AlertTitle>The response failed</AlertTitle>
           <AlertDescription>
-            The agent stopped before completing this turn. Retry the failed response below, or send a
-            new message to continue.
+            The agent stopped before completing this turn. Retry the failed response below, or send
+            a new message to continue.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -208,7 +208,7 @@ export function WorkspaceStatusStrip({
     ? `Recovery checkpoint ${cursor.slice(-10)}`
     : 'No recovery checkpoint was reported';
   return (
-    <div className="flex h-full items-center gap-3 overflow-hidden text-[10px] text-muted-foreground">
+    <div className="flex h-full items-center gap-3 overflow-hidden text-[0.625rem] text-muted-foreground">
       {/* Desktop already shows this indicator once, in the title bar
           (LiveConnectionIndicator there) -- the bottom bar drops its own
           copy there so the two surfaces never duplicate the same pill. */}

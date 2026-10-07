@@ -7,6 +7,7 @@ import { DataReferenceThisButton } from './data-reference-this-button';
 import { SelectionActionsProvider } from './selection-actions';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
 import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 
 afterEach(cleanup);
 
@@ -84,11 +85,66 @@ describe('DataReferenceThisButton', () => {
     const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
     const popoverBody = popover.closest('[data-slot="popover-content"]') ?? popover.parentElement!;
     expect(within(popoverBody as HTMLElement).getByRole('table')).toBeInTheDocument();
-    expect(within(popoverBody as HTMLElement).getByRole('cell', { name: 'eq0001' })).toBeInTheDocument();
+    expect(
+      within(popoverBody as HTMLElement).getByRole('cell', { name: 'eq0001' }),
+    ).toBeInTheDocument();
   });
 
   it('renders nothing outside a SelectionActionsProvider, rather than crashing the surface', () => {
-    render(<DataReferenceThisButton buildReference={() => ({ markdown: 'x', summary: 'x', title: 'x' })} />);
+    render(
+      <DataReferenceThisButton
+        buildReference={() => ({ markdown: 'x', summary: 'x', title: 'x' })}
+      />,
+    );
     expect(screen.queryByRole('button', { name: 'Reference this' })).not.toBeInTheDocument();
+  });
+
+  it('closes the expanded view before attaching one reference and focusing the composer', async () => {
+    const user = userEvent.setup();
+    function ExpandedPage() {
+      const [fullscreen, setFullscreen] = useSurfaceFullScreen();
+      const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+      const [focused, setFocused] = useState(0);
+      useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        setFocused((count) => count + 1);
+      });
+      return (
+        <>
+          <button type="button" onClick={() => setFullscreen(true)}>
+            Expand
+          </button>
+          <SurfaceFullScreenHost
+            fullscreen={fullscreen}
+            onOpenChange={setFullscreen}
+            title="Figure"
+            headerExtra={
+              <DataReferenceThisButton
+                buildReference={() => ({
+                  markdown: 'Figure reference',
+                  summary: 'whole image',
+                  title: 'Figure',
+                })}
+              />
+            }
+          >
+            <span>Figure content</span>
+          </SurfaceFullScreenHost>
+          <ClioComposerAnnotations annotations={annotations} onRemove={() => {}} />
+          <output data-testid="focus">{focused}</output>
+        </>
+      );
+    }
+    render(
+      <SelectionActionsProvider>
+        <ExpandedPage />
+      </SelectionActionsProvider>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Expand' }));
+    expect(screen.getByRole('dialog', { name: 'Figure' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Reference this' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Attached selections' })).toHaveTextContent('Figure');
+    expect(screen.getByTestId('focus')).toHaveTextContent('1');
   });
 });

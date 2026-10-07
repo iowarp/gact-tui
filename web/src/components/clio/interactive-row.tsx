@@ -61,7 +61,7 @@ export function ClioInteractiveRow({
       {actions ? (
         <div
           className={cn(
-            'relative z-10 ml-auto flex shrink-0 items-center gap-1 text-muted-foreground transition-[color,opacity] group-hover/row:text-foreground group-hover/row:opacity-100 group-focus-within/row:text-foreground group-focus-within/row:opacity-100 group-data-[collapsible=icon]:hidden',
+            'relative z-10 ml-auto flex shrink-0 items-center gap-1 text-muted-foreground transition-[color,opacity] group-hover/row:text-foreground group-hover/row:opacity-100 group-focus-within/row:text-foreground group-focus-within/row:opacity-100 has-[[aria-expanded=true]]:opacity-100 group-data-[collapsible=icon]:hidden',
             appearance === 'navigation' ? 'opacity-0' : 'opacity-65',
           )}
           onClick={(event) => event.stopPropagation()}

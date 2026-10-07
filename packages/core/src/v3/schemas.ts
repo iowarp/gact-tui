@@ -653,6 +653,7 @@ export const artifactSchema = z.object({
   sha256: z.string().optional(),
   size: z.number().optional(),
   created_at: z.string().optional(),
+  producer: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const a2uiSurfaceSchema = z.object({

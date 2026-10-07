@@ -75,7 +75,7 @@ export function ClioShareSessionDialog({
         <DialogHeader>
           <DialogTitle>Share {title}</DialogTitle>
           <DialogDescription>
-            Create an expiring, read-only link to the server-owned session snapshot. Anyone with the
+            Create an expiring, read-only link to a snapshot of this conversation. Anyone with the
             link can view it until it expires.
           </DialogDescription>
         </DialogHeader>

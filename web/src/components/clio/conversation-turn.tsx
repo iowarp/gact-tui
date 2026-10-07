@@ -1,14 +1,18 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { ChevronDownIcon, ListChecksIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
+import {
+  CheckIcon,
+  CircleAlertIcon,
+  ListChecksIcon,
+  LoaderCircleIcon,
+  WorkflowIcon,
+} from 'lucide-react';
 import { Fragment, useState, type ReactNode } from 'react';
 import {
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtHeader,
-  ChainOfThoughtStep,
 } from '@/components/ai-elements/chain-of-thought';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type {
   Artifact,
@@ -20,7 +24,7 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
-import { ClioStatus, clioStatusLabel } from './status';
+import { ClioStatus } from './status';
 import {
   ClioSubagentCard,
   ClioAgentMessageLine,
@@ -28,7 +32,6 @@ import {
   type SubagentOpenTarget,
 } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
-import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { questionInteractionsForTool } from './agent-answer-domain';
@@ -38,6 +41,8 @@ import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { TranscriptReasoning } from './transcript-reasoning';
 import { GroundedMessageResponse } from './grounded-message-response';
+import { transcriptActivitySummary } from './transcript-activity-summary';
+import { TranscriptReasoningRow } from './transcript-reasoning-row';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 type SubagentActivityEntry = Extract<
@@ -205,6 +210,7 @@ export function ConversationTurn({
     );
   }
 
+  const summary = transcriptActivitySummary(iterations);
   return (
     <ActivityChain
       answerStarted={
@@ -215,10 +221,36 @@ export function ConversationTurn({
         )
       }
     >
-      <ChainOfThoughtHeader className="min-h-7">Activity</ChainOfThoughtHeader>
-      <ChainOfThoughtContent className="mt-1 space-y-1">
+      <ChainOfThoughtHeader
+        aria-label={`Activity: ${summary.label}${summary.detail ? ` · ${summary.detail}` : ''}`}
+        className="min-h-7 [&>svg:first-child]:hidden"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          {summary.running ? (
+            <LoaderCircleIcon
+              aria-hidden="true"
+              className="size-3.5 shrink-0 animate-spin text-primary"
+            />
+          ) : summary.failed ? (
+            <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
+          ) : (
+            <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-success" />
+          )}
+          <span className="min-w-0 truncate font-medium">{summary.label}</span>
+          {summary.detail ? (
+            <span className="hidden min-w-0 truncate font-normal @min-[28rem]:inline">
+              · {summary.detail}
+            </span>
+          ) : null}
+        </span>
+      </ChainOfThoughtHeader>
+      <ChainOfThoughtContent
+        className="ml-1 mt-1 space-y-1 border-l pl-3"
+        data-slot="transcript-activity-timeline"
+      >
         {iterations.map((iteration) => (
-          <IterationSummary
+          <IterationDetail
+            compact
             iteration={iteration}
             key={iteration.id}
             onOpenSubagent={onOpenSubagent}
@@ -253,171 +285,12 @@ function ActivityChain({
   const [readerOpen, setReaderOpen] = useState<boolean | undefined>(undefined);
   return (
     <ChainOfThought
-      className="space-y-0"
+      className="@container space-y-0"
       onOpenChange={setReaderOpen}
       open={readerOpen ?? !answerStarted}
     >
       {children}
     </ChainOfThought>
-  );
-}
-
-function plainActivitySummary(summary: string): string {
-  return summary
-    .replace(/\*\*(.*?)\*\*/gu, '$1')
-    .replace(/__(.*?)__/gu, '$1')
-    .replace(/`([^`]+)`/gu, '$1');
-}
-
-function IterationSummary({
-  iteration,
-  onOpenSubagent,
-  subagents,
-  interactions,
-  activeMcpAppId,
-  mcpAppRepository,
-  messageSessionId,
-  artifacts,
-  onOpenArtifact,
-  onInteractionResponse,
-  messageAttentionIndex,
-}: {
-  iteration: ConversationIteration;
-  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  subagents: Record<string, SubagentRun>;
-  interactions?: readonly PendingInteraction[];
-  activeMcpAppId?: string;
-  mcpAppRepository?: ClioRepository;
-  messageSessionId?: string;
-  artifacts: Record<string, Artifact>;
-  onOpenArtifact?: (artifact: Artifact) => void;
-  onInteractionResponse?: (
-    interaction: PendingInteraction,
-    response: PendingInteractionResponse,
-  ) => Promise<void>;
-  messageAttentionIndex?: MessageAttentionIndex;
-}) {
-  const [manualOpen, setManualOpen] = useState(false);
-  const open = iteration.streaming || manualOpen;
-  const summary = plainActivitySummary(iteration.summary);
-  const appEvents = iteration.activity.filter(
-    (entry): entry is McpAppActivityEntry => entry.kind === 'mcp_app',
-  );
-  const subagentEvents = iteration.activity.filter(
-    (entry): entry is Extract<ConversationIteration['activity'][number], { kind: 'subagent' }> =>
-      entry.kind === 'subagent',
-  );
-  const primaryTool = iteration.tools[0];
-  const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
-  const toolSummary = primaryTool ? getToolSummary(primaryTool) : undefined;
-  const toolState = iteration.streaming
-    ? clioStatusLabel('running')
-    : primaryTool && primaryTool.state !== 'succeeded'
-      ? clioStatusLabel(primaryTool.state)
-      : undefined;
-  const disclosureLabel = [
-    `${open ? 'Collapse' : 'Expand'} activity: ${summary}`,
-    tool?.title,
-    toolSummary,
-    toolState,
-    ...iteration.tasks.map((task) => `${task.title}: ${clioStatusLabel(task.state)}`),
-    iteration.interrupted ? 'Interrupted' : undefined,
-  ]
-    .filter(Boolean)
-    .map((segment) => String(segment).trim().replace(/[.]+$/u, ''))
-    .join('. ');
-  return (
-    <>
-      <Collapsible onOpenChange={setManualOpen} open={open}>
-        <ChainOfThoughtStep
-          label={
-            <CollapsibleTrigger
-              aria-label={disclosureLabel}
-              className="group flex w-fit max-w-full min-w-0 items-start gap-1.5 rounded-md py-0.5 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="min-w-0">
-                <span className="block text-[13px] leading-5 text-foreground">{summary}</span>
-                {tool && !open ? (
-                  <span className="flex items-center gap-1 text-xs leading-4 text-muted-foreground">
-                    <WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                    <span className="truncate">{tool.title}</span>
-                    {toolSummary ? <span className="min-w-0 truncate">{toolSummary}</span> : null}
-                    {toolState ? <span className="shrink-0">{toolState}</span> : null}
-                    {iteration.tools.length > 1 ? (
-                      <span className="shrink-0">+{iteration.tools.length - 1}</span>
-                    ) : null}
-                  </span>
-                ) : null}
-                {iteration.tasks.map((task) => (
-                  <TaskActivityLine className="mt-1" key={task.id} task={task} />
-                ))}
-                {iteration.tools.flatMap((tool) =>
-                  questionInteractionsForTool(interactions, tool.id).map((interaction) => (
-                    <ConversationInteractionActivity
-                      artifacts={artifacts}
-                      compact
-                      interaction={interaction}
-                      key={interaction.id}
-                    />
-                  )),
-                )}
-                {iteration.interrupted && !open ? (
-                  <ClioStatus className="mt-1" value="interrupted" />
-                ) : null}
-              </span>
-              <ChevronDownIcon
-                aria-hidden="true"
-                className={cn(
-                  'mt-0.5 size-3.5 shrink-0 transition-transform',
-                  open && 'rotate-180',
-                )}
-              />
-            </CollapsibleTrigger>
-          }
-        >
-          {subagentEvents.length > 0 ? (
-            <div className="mb-1 mt-1 space-y-0.5">
-              {subagentEvents.map((entry) => (
-                <ClioSubagentLifecycleLine
-                  key={`subagent:${entry.id}`}
-                  onOpen={onOpenSubagent}
-                  stage={entry.block.stage ?? 'delegate.unknown'}
-                  subagent={subagents[entry.block.subagent_id]}
-                  task={entry.block.task}
-                />
-              ))}
-            </div>
-          ) : null}
-          <CollapsibleContent className="pt-1">
-            <IterationDetail
-              activeMcpAppId={activeMcpAppId}
-              hiddenMcpAppIds={appEvents.map((entry) => entry.block.app_instance_id)}
-              interactions={interactions}
-              iteration={iteration}
-              mcpAppRepository={mcpAppRepository}
-              messageSessionId={messageSessionId}
-              artifacts={artifacts}
-              onInteractionResponse={onInteractionResponse}
-              onOpenArtifact={onOpenArtifact}
-              onOpenSubagent={onOpenSubagent}
-              showSubagents={false}
-              showTasks={false}
-              subagents={subagents}
-              messageAttentionIndex={messageAttentionIndex}
-            />
-          </CollapsibleContent>
-        </ChainOfThoughtStep>
-      </Collapsible>
-      {appEvents.map((entry) => (
-        <McpAppActivity
-          activeMcpAppId={activeMcpAppId}
-          entry={entry}
-          key={`mcp-app:${entry.id}`}
-          mcpAppRepository={mcpAppRepository}
-          messageSessionId={messageSessionId}
-        />
-      ))}
-    </>
   );
 }
 
@@ -429,6 +302,7 @@ function IterationDetail({
   showTasks = true,
   showSubagents = true,
   showQuestionInteractions = true,
+  compact = false,
   activeMcpAppId,
   hiddenMcpAppIds,
   mcpAppRepository,
@@ -445,6 +319,7 @@ function IterationDetail({
   showTasks?: boolean;
   showSubagents?: boolean;
   showQuestionInteractions?: boolean;
+  compact?: boolean;
   activeMcpAppId?: string;
   hiddenMcpAppIds?: readonly string[];
   mcpAppRepository?: ClioRepository;
@@ -472,33 +347,56 @@ function IterationDetail({
   return (
     <article>
       <div className="space-y-2">
-        {iteration.thinking.length > 0
+        {compact
           ? iteration.thinking.map((thinking) => (
-              <Reasoning className="mb-0" isStreaming={thinking.streaming} key={thinking.id}>
-                <ReasoningTrigger
-                  className="min-h-6"
-                  getThinkingMessage={(streaming) =>
-                    streaming ? `${thinking.label} in progress` : thinking.label
-                  }
-                />
-                <ReasoningContent className="mt-1 leading-5 [&_p]:my-0.5">
-                  {thinking.text}
-                </ReasoningContent>
-              </Reasoning>
+              <TranscriptReasoningRow
+                key={thinking.id}
+                text={thinking.text}
+                streaming={thinking.streaming}
+                source={thinking.source}
+              />
             ))
-          : null}
+          : iteration.thinking.length > 0
+            ? iteration.thinking.map((thinking) => (
+                <Reasoning className="mb-0" isStreaming={thinking.streaming} key={thinking.id}>
+                  <ReasoningTrigger
+                    className="min-h-6"
+                    getThinkingMessage={(streaming) =>
+                      streaming ? `${thinking.label} in progress` : thinking.label
+                    }
+                  />
+                  <ReasoningContent className="mt-1 leading-5 [&_p]:my-0.5">
+                    {thinking.text}
+                  </ReasoningContent>
+                </Reasoning>
+              ))
+            : null}
 
-        {iteration.nextThoughts.map((thought, index) => (
-          <TranscriptReasoning
-            text={thought}
-            source={iteration.nextThoughtSources?.[index]}
-            key={`${iteration.id}:response:${index}`}
-          >
-            <GroundedMessageResponse className="text-sm leading-5">
-              {thought}
-            </GroundedMessageResponse>
-          </TranscriptReasoning>
-        ))}
+        {iteration.nextThoughts.map((thought, index) =>
+          compact ? (
+            iteration.thinking.some(
+              (thinking) => thinking.text.trim() === thought.trim(),
+            ) ? null : (
+              <TranscriptReasoningRow
+                key={`${iteration.id}:response:${index}`}
+                kind="update"
+                text={thought}
+                streaming={iteration.streaming && iteration.activity.length === 0}
+                source={iteration.nextThoughtSources?.[index]}
+              />
+            )
+          ) : (
+            <TranscriptReasoning
+              text={thought}
+              source={iteration.nextThoughtSources?.[index]}
+              key={`${iteration.id}:response:${index}`}
+            >
+              <GroundedMessageResponse className="text-sm leading-5">
+                {thought}
+              </GroundedMessageResponse>
+            </TranscriptReasoning>
+          ),
+        )}
 
         {/*
           One ordered lane: a Task carries no owning-tool field, so its position
@@ -510,6 +408,7 @@ function IterationDetail({
             <Fragment key={`tool:${entry.id}`}>
               <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
                 <ClioToolInvocation
+                  compact={compact}
                   attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
                   attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
                   sessionId={messageSessionId}

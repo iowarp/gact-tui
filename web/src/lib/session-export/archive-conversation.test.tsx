@@ -76,13 +76,16 @@ it('uses native activity controls with the loaded skill and failed command at th
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
-  await user.click(screen.getByRole('radio', { name: 'Full activity view' }));
-  expect(await screen.findByRole('heading', { name: 'Recorded audit' })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: /^Activity:/ }));
+  await user.click(screen.getByRole('button', { name: 'Technical details for Load skill' }));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Recorded audit');
+  expect(screen.getByRole('dialog')).toHaveTextContent('Read the manifest.');
+  await user.keyboard('{Escape}');
   expect(screen.getByText('Get-Location')).toBeVisible();
-  expect(screen.getByText('Connected-source access decisions could not be read')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Technical details for Run' }));
   const dialog = screen.getByRole('dialog');
   expect(within(dialog).getByText(/D:\/dataset/)).toBeVisible();
+  expect(dialog).toHaveTextContent('Connected-source access decisions could not be read');
 });
 
 it('merges captured interactions with authoritative answers at their owning tools', async () => {
@@ -192,7 +195,7 @@ it('merges captured interactions with authoritative answers at their owning tool
     </QueryClientProvider>,
   );
   expect(screen.queryByText('PRIVATE RESUME ENVELOPE')).not.toBeInTheDocument();
-  await userEvent.setup().click(screen.getByRole('radio', { name: 'Full activity view' }));
+  await userEvent.setup().click(screen.getByRole('button', { name: /^Activity:/ }));
   expect(await screen.findByText('Which label is control?')).toBeVisible();
   expect(screen.getByText('The control mapping is unconfirmed.')).toBeVisible();
   expect(screen.getByText('Review the recorded report.')).toBeVisible();

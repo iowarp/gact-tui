@@ -18,7 +18,7 @@ import {
   SearchIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshAction } from './refresh-button';
 import {
   lazy,
   Suspense,
@@ -44,7 +44,6 @@ import { Input } from '@/components/ui/input';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -205,28 +204,14 @@ export function FileBrowser({
                   value={query}
                 />
               </div>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      aria-label="Refresh files"
-                      className="shrink-0"
-                      onClick={() => {
-                        onRefresh?.();
-                        void queryClient.invalidateQueries({ queryKey: ['workspace-directory'] });
-                      }}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <RefreshIcon
-                        aria-hidden="true"
-                        className={filesFetching ? 'animate-spin' : ''}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Refresh files</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <RefreshAction
+                label="Refresh files"
+                refreshing={Boolean(filesFetching)}
+                onRefresh={async () => {
+                  onRefresh?.();
+                  await queryClient.invalidateQueries({ queryKey: ['workspace-directory'] });
+                }}
+              />
             </div>
             {filesTruncated && filesNextOffset === undefined ? (
               <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">

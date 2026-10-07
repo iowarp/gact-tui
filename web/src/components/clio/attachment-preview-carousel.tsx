@@ -26,8 +26,8 @@ interface AttachmentPreviewCarouselProps {
 
 /**
  * Synchronizes a full attachment preview with a draggable thumbnail rail.
- * The selected preview and its immediate neighbors are mounted so drag and
- * arrow transitions remain continuous without allocating every heavy reader.
+ * The preview changes through arrows or thumbnail selection, never by dragging
+ * its content. Neighbors remain mounted for transitions without loading every reader.
  */
 export function AttachmentPreviewCarousel({
   className,
@@ -123,7 +123,7 @@ export function AttachmentPreviewCarousel({
         className="h-full min-h-0 [&_[data-slot=carousel-content]]:h-full"
         onKeyDownCapture={handlePreviewKeyDown}
         onPointerDown={focusPreviewCarousel}
-        opts={{ startIndex: selectedIndex }}
+        opts={{ startIndex: selectedIndex, watchDrag: false }}
         setApi={setMainApi}
         tabIndex={0}
       >

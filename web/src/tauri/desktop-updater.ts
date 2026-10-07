@@ -18,7 +18,7 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 
 /**
  * Stable id for the background "an update is available" toast, shared with
- * the manual "Check for updates" button (`settings-desktop.tsx`). A stable
+ * the manual "Check for updates" button (`settings-app-updates.tsx`). A stable
  * id means a re-fired background check UPDATES the same toast instead of
  * stacking a new one every `BACKGROUND_UPDATE_CHECK_INTERVAL_MS`, and lets a
  * manual check that finds the build current dismiss a stale one.

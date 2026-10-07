@@ -40,17 +40,11 @@ const session: Session = {
   archived: false,
 };
 
-function renderRow(
-  row: Session,
-  seenRevision?: string,
-  attention?: SessionAttention,
-  disambiguate = false,
-) {
+function renderRow(row: Session, seenRevision?: string, attention?: SessionAttention) {
   return render(
     <MemoryRouter>
       <SessionNavigationRow
         actions={actions}
-        disambiguate={disambiguate}
         activeSessionId="sess_active"
         attention={attention}
         onAction={vi.fn()}
@@ -156,7 +150,8 @@ describe('session navigation state', () => {
     expect(screen.queryByText('Routing')).not.toBeInTheDocument();
   });
 
-  it('tells same-named sessions apart by start time and whether they hold messages', () => {
+  it('keeps session details out of the row and reveals them on hover', async () => {
+    const user = userEvent.setup();
     const empty = { ...session, id: 'sess_empty', message_count: 0 };
     const withTranscript = {
       ...session,
@@ -169,20 +164,27 @@ describe('session navigation state', () => {
         new Date(value),
       );
 
-    renderRow(empty, undefined, undefined, true);
-    expect(screen.getByText('No messages yet')).toBeVisible();
-    expect(screen.getByText(`Started ${started(empty.created_at)}`)).toBeVisible();
+    renderRow(empty);
+    expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('Started')).not.toBeInTheDocument();
+    await user.hover(screen.getByRole('link', { name: /Evidence review/u }));
+    expect(await screen.findByText('No messages yet')).toBeVisible();
+    expect(screen.getByText('Started')).toBeVisible();
+    expect(screen.getByText(started(empty.created_at))).toBeVisible();
     cleanup();
 
-    renderRow(withTranscript, undefined, undefined, true);
-    expect(screen.getByText('2 messages')).toBeVisible();
-    expect(screen.getByText(`Started ${started(withTranscript.created_at)}`)).toBeVisible();
+    renderRow(withTranscript);
+    expect(screen.queryByText('2 messages')).not.toBeInTheDocument();
+    expect(screen.queryByText('Started')).not.toBeInTheDocument();
+    await user.hover(screen.getByRole('link', { name: /Evidence review/u }));
+    expect(await screen.findByText('2 messages')).toBeVisible();
+    expect(screen.getByText(started(withTranscript.created_at))).toBeVisible();
   });
 
   it('keeps a uniquely named row on one line', () => {
     renderRow({ ...session, message_count: 0 });
 
     expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
-    expect(screen.queryByText(/^Started /u)).not.toBeInTheDocument();
+    expect(screen.queryByText('Started')).not.toBeInTheDocument();
   });
 });

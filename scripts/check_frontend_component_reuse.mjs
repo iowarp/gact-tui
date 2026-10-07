@@ -12,6 +12,9 @@ const requiredImports = {
   // here when conversation.tsx was split by behavior (2026-09-12); the
   // sourced component is still composed, just from this file now.
   'web/src/components/clio/conversation-message-row.tsx': ['@/components/ai-elements/message'],
+  'web/src/components/clio/conversation-model-boundary.tsx': [
+    '@/components/ai-elements/checkpoint',
+  ],
   'web/src/components/clio/conversation-message-blocks.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/ai-elements/plan',

@@ -36,8 +36,6 @@ interface SessionNavigationRowProps {
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisit: (session: Session) => void;
   attention?: SessionAttention;
-  /** Another session in this workspace has the same title: show when it started and what it holds. */
-  disambiguate?: boolean;
 }
 
 export function SessionNavigationRow({
@@ -53,7 +51,6 @@ export function SessionNavigationRow({
   onAction,
   onVisit,
   attention,
-  disambiguate = false,
 }: SessionNavigationRowProps) {
   const running = isSessionRunning(session.state);
   const needsAttention = Boolean(attention?.total);
@@ -124,7 +121,7 @@ export function SessionNavigationRow({
         </DropdownMenu>
       }
       className={cn(
-        disambiguate ? 'h-auto min-h-8 gap-1.5 px-2 py-1' : 'h-8 min-h-8 gap-1.5 px-2 py-0',
+        'h-8 min-h-8 gap-1.5 px-2 py-0',
         needsAttention &&
           'bg-warning/10 text-sidebar-foreground hover:bg-warning/15 focus-within:bg-warning/15',
       )}
@@ -141,17 +138,7 @@ export function SessionNavigationRow({
             to={`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`}
           >
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}
-            {disambiguate ? (
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate">{session.title || 'Untitled session'}</span>
-                <span className="flex min-w-0 gap-2 text-[10px] leading-4 text-muted-foreground">
-                  <span className="truncate">Started {startedLabel(session.created_at)}</span>
-                  <span className="shrink-0">{messageCountLabel(session.message_count)}</span>
-                </span>
-              </span>
-            ) : (
-              <span className="min-w-0 flex-1 truncate">{session.title || 'Untitled session'}</span>
-            )}
+            <span className="min-w-0 flex-1 truncate">{session.title || 'Untitled session'}</span>
             {needsAttention && attention ? (
               <span
                 aria-label={`Needs your response: ${sessionAttentionLabel(attention)}`}
@@ -173,7 +160,7 @@ export function SessionNavigationRow({
                 <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
               </span>
             ) : unseen ? (
-              <Badge className="h-5 px-1.5 text-[10px]" variant="default">
+              <Badge className="h-5 px-1.5 text-[0.625rem]" variant="default">
                 New
               </Badge>
             ) : (
@@ -221,6 +208,14 @@ export function SessionNavigationRow({
             </Button>
           </div>
           <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
+            <span className="text-muted-foreground">Started</span>
+            <span>{startedLabel(session.created_at)}</span>
+            {session.message_count !== undefined ? (
+              <>
+                <span className="text-muted-foreground">Messages</span>
+                <span>{messageCountLabel(session.message_count)}</span>
+              </>
+            ) : null}
             <span className="text-muted-foreground">Agent</span>
             <span className="truncate">
               {blueprint?.display_name || session.agent_id || 'Agent unavailable'}

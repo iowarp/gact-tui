@@ -191,7 +191,7 @@ export function ClioNavigation({
                   <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild tooltip="Settings">
-                      <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
+                      <Link state={{ endpoint, from: location.pathname }} to="/settings/general">
                         <SettingsIcon aria-hidden="true" />
                         <span>Settings</span>
                       </Link>

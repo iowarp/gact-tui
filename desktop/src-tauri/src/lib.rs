@@ -12,6 +12,7 @@ mod clio_core_daemon;
 mod clio_core_registry;
 mod commands;
 mod credentials;
+mod document_apps;
 mod execution_install;
 mod gact_http;
 mod gact_http_response;
@@ -38,7 +39,6 @@ mod sse_message;
 mod sse_parse;
 mod sse_registry;
 mod sse_stream;
-mod storage_oauth;
 #[cfg(test)]
 mod sse_stream_tests;
 mod ssh_profile_blocks;
@@ -49,6 +49,7 @@ mod ssh_transport_command;
 mod ssh_transport_forward;
 mod ssh_transport_output;
 mod ssh_transport_steps;
+mod storage_oauth;
 mod supervisor;
 mod supervisor_attach;
 mod supervisor_attach_token;
@@ -184,6 +185,7 @@ pub fn run() {
             commands::open_logs,
             commands::read_logs,
             commands::open_document_path,
+            document_apps::document_applications,
             ssh_transport::ssh_transport_open,
             remote_lifecycle::desktop_deployment_owner,
             ssh_transport::ssh_transport_status,

@@ -3,7 +3,8 @@ import { OPERATIONS_POLL_MS } from '@/lib/runtime-limits';
 import type { RelayConnectionInput, RelayStatus } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CableIcon, KeyRoundIcon, UnplugIcon } from 'lucide-react';
-import { EditIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { EditIcon } from '@/lib/icon-vocabulary';
+import { RefreshButton } from './refresh-button';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -136,9 +137,13 @@ export function RelaySettings() {
           ) : null}
         </FramePanel>
         <FrameFooter className="flex-row flex-wrap items-center justify-between gap-2">
-          <Button onClick={() => void relay.refetch()} size="sm" variant="outline">
-            <RefreshIcon aria-hidden="true" /> Check again
-          </Button>
+          <RefreshButton
+            label="Check again"
+            refreshing={relay.isFetching}
+            onRefresh={() => relay.refetch()}
+            size="sm"
+            variant="outline"
+          />
           <div className="flex flex-wrap gap-2">
             {value?.configured ? (
               <Button onClick={() => setDisconnectOpen(true)} size="sm" variant="outline">

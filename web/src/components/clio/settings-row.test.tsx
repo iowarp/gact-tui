@@ -26,7 +26,6 @@ it('supports labelled choices, mouse selection and arrow-key navigation', async 
   render(<Preference />);
   await user.click(screen.getByText('Dark'));
   expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked();
-  await user.keyboard('{ArrowLeft>}');
+  await user.keyboard('{ArrowLeft}');
   await waitFor(() => expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked());
-  await user.keyboard('{/ArrowLeft}');
 });

@@ -18,6 +18,7 @@ export * from './infrastructure-contract.js';
 export * from './storage-contract.js';
 export * from './infrastructure-repository.js';
 export * from './system-repository.js';
+export * from './runtime-settings-domain.js';
 export * from './spotter-domain.js';
 export * from './sandbox-domain.js';
 export * from './service-health-domain.js';

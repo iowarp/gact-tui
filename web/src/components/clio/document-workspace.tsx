@@ -11,13 +11,11 @@ import {
   CircleAlertIcon,
   FileCheck2Icon,
   FileCode2Icon,
-  FileOutputIcon,
   MessageSquareTextIcon,
-  ExternalLinkIcon,
   ShieldCheckIcon,
 } from 'lucide-react';
-import { InfoIcon, RefreshIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -53,7 +51,9 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { DocumentViewControls } from './document-view-controls';
-import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
+import { ViewerToolbarContent } from './viewer-toolbar';
+import { FileViewerInformation } from './file-viewer-information';
+import { FileViewerInformationHost } from './file-viewer-context';
 import {
   Popover,
   PopoverContent,
@@ -64,7 +64,15 @@ import {
 } from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { openDocumentWorkingCopy } from '@/tauri/documents';
+import {
+  documentApplications,
+  openDocumentWorkingCopy,
+  type DocumentApplication,
+} from '@/tauri/documents';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { downloadBytes } from './surface-export';
+import { DocumentOpenMenu, type DocumentOpenTarget } from './document-open-menu';
+import { RefreshAction } from './refresh-button';
 import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
 import { ClioPdfPreview } from './pdf-preview';
 import { ClioStatus } from './status';
@@ -80,6 +88,7 @@ export function ClioDocumentWorkspace({
   fallbackPreview: ReactNode;
 }) {
   const repository = useRepository();
+  const sharedFileActions = useContext(FileViewerInformationHost) !== undefined;
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
@@ -120,6 +129,12 @@ export function ClioDocumentWorkspace({
     queryFn: ({ signal }) => repository.documentEditorHealth(signal),
     enabled: Boolean(manifest.data?.embedded_editors.length),
   });
+  const applications = useQuery({
+    queryKey: ['document-applications'],
+    queryFn: documentApplications,
+    enabled: inTauri(),
+    staleTime: 60_000,
+  });
 
   const submitReview = useMutation({
     mutationFn: async () => {
@@ -151,42 +166,68 @@ export function ClioDocumentWorkspace({
     mutationFn: async () => repository.createDocumentRendition(artifact.id, artifact.session_id),
     onSuccess: (result) => {
       setOverrideManifest(result.artifact);
+      setEditor(undefined);
+      setDocumentView('preview');
       setStatus(
         `Showing a derived PDF created by ${result.converter}; the original remains canonical.`,
       );
     },
   });
   const createWorkingCopy = useMutation({
-    mutationFn: async (provider: 'native' | 'onlyoffice' | 'collabora') => {
+    mutationFn: async (target: DocumentOpenTarget) => {
+      const provider = target === 'onlyoffice' || target === 'collabora' ? target : 'native';
+      if (provider !== 'native') {
+        const health = await repository.documentEditorHealth();
+        const available = health.editors.find((entry) => entry.provider === provider);
+        if (!available?.healthy) {
+          throw new Error(
+            `${editorLabel(provider)} is unavailable. Check its connection before opening it.`,
+          );
+        }
+      }
       const copy = await repository.createDocumentWorkingCopy(artifact.id, {
         session_id: artifact.session_id,
         provider,
         writable: true,
         auto_checkpoint: true,
       });
-      if (provider === 'native') {
-        const opened = await openDocumentWorkingCopy(copy.path);
-        if (!opened) await copyText(copy.path);
-        return { kind: 'native' as const, copy, opened };
+      try {
+        if (provider === 'native') {
+          const opened = await openDocumentWorkingCopy(
+            copy.path,
+            target === 'native' ? undefined : (target as DocumentApplication),
+          );
+          if (!opened) await copyText(copy.path);
+          return { kind: 'native' as const, copy, opened };
+        }
+        const launched = await repository.createDocumentEditorSession(copy.id, provider);
+        if (launched.status !== 'ready' || !launched.editor_url) {
+          throw new Error(launched.error || `${editorLabel(provider)} could not start.`);
+        }
+        return { kind: 'embedded' as const, copy, launched };
+      } catch (error) {
+        // An editor that did not launch must not leave an apparently active copy.
+        try {
+          await repository.closeDocumentWorkingCopy(copy.id);
+        } catch (closeError) {
+          throw new Error(
+            `${error instanceof Error ? error.message : 'Editor could not start.'} Could not close its working copy: ${closeError instanceof Error ? closeError.message : 'unknown error'}`,
+          );
+        }
+        throw error;
       }
-      const launched = await repository.createDocumentEditorSession(copy.id, provider);
-      return { kind: 'embedded' as const, copy, launched };
     },
     onSuccess: (result) => {
       setWorkingCopy(result.copy);
       if (result.kind === 'embedded') {
         setEditor(result.launched);
-        setStatus(
-          result.launched.status === 'ready'
-            ? `${editorLabel(result.launched.provider)} editing session ready.`
-            : result.launched.error || `${editorLabel(result.launched.provider)} is unavailable.`,
-        );
+        setStatus(`${editorLabel(result.launched.provider)} editing session ready.`);
       } else {
-        setStatus(
-          result.opened
-            ? 'Opened in the system editor. Stable saves become immutable revisions.'
-            : 'Working-copy path copied. Open it in a desktop editor to begin.',
-        );
+        const message = result.opened
+          ? 'Opened in the system editor. Stable saves become immutable revisions.'
+          : 'Working-copy path copied. Open it in a desktop editor to begin.';
+        setStatus(message);
+        toast.success(message);
       }
     },
   });
@@ -196,6 +237,12 @@ export function ClioDocumentWorkspace({
       setWorkingCopy(copy);
       setEditor(undefined);
       setStatus('Working copy closed. The immutable artifact history remains available.');
+    },
+  });
+  const downloadSource = useMutation({
+    mutationFn: async () => {
+      const bytes = await repository.readArtifactBytesFor(artifact);
+      downloadBytes(bytes, artifact.media_type, artifact.name);
     },
   });
   const resolveConflict = useMutation({
@@ -231,37 +278,38 @@ export function ClioDocumentWorkspace({
   return (
     <section
       aria-label="Document workspace"
-      className="@container/viewer grid min-w-0 gap-3 overflow-hidden"
+      className="@container/viewer flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
     >
       <Tabs
-        className="grid min-w-0 gap-2 overflow-hidden"
+        className="flex h-full min-h-0 min-w-0 flex-col gap-0 overflow-hidden"
         value={documentView}
         onValueChange={setDocumentView}
       >
         <ViewerToolbarContent>
           <div className="flex min-w-0 shrink-0 items-center gap-0.5" data-slot="document-controls">
-            <Popover>
-              <PopoverTrigger asChild>
-                <ToolbarAction label="Document information">
-                  <InfoIcon aria-hidden="true" />
-                </ToolbarAction>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 space-y-1.5">
-                <p className="text-sm font-medium">
-                  {profileLabel(manifest.data ?? effectiveManifest)}
-                </p>
-                {savedPreview.data && !overrideManifest ? (
-                  <p className="text-xs text-muted-foreground">Saved PDF preview</p>
-                ) : null}
-                <p className="break-all font-mono text-xs text-muted-foreground">
-                  {effectiveManifest
-                    ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256}`
-                    : manifest.error
-                      ? 'Saved content is readable.'
-                      : 'Checking document capabilities…'}
-                </p>
-              </PopoverContent>
-            </Popover>
+            <FileViewerInformation label="Document information">
+              <p className="text-sm font-medium">
+                {profileLabel(manifest.data ?? effectiveManifest)}
+              </p>
+              {savedPreview.data && !overrideManifest ? (
+                <p className="text-xs text-muted-foreground">Saved PDF preview</p>
+              ) : null}
+              <p className="break-all font-mono text-xs text-muted-foreground">
+                {effectiveManifest
+                  ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256}`
+                  : manifest.error
+                    ? 'Saved content is readable.'
+                    : 'Checking document capabilities…'}
+              </p>
+              {status ? <p className="text-xs text-muted-foreground">{status}</p> : null}
+              <WorkingCopyStatus
+                closePending={closeWorkingCopy.isPending}
+                copy={workingCopy}
+                onClose={() => closeWorkingCopy.mutate()}
+                onResolve={(resolution) => resolveConflict.mutate(resolution)}
+                resolvePending={resolveConflict.isPending}
+              />
+            </FileViewerInformation>
             <div className="flex shrink-0 items-center gap-0.5">
               {manifest.error ? (
                 <Popover>
@@ -311,72 +359,87 @@ export function ClioDocumentWorkspace({
                 <MessageSquareTextIcon aria-hidden="true" /> Review selection
               </Button>
             ) : null}
-            {manifest.data?.native_open ? (
-              <ToolbarAction
-                label="Open in desktop app"
-                disabled={createWorkingCopy.isPending}
-                onClick={() => createWorkingCopy.mutate('native')}
-              >
-                <ExternalLinkIcon aria-hidden="true" />
-              </ToolbarAction>
+            {manifest.data ? (
+              <DocumentOpenMenu
+                artifact={artifact}
+                manifest={manifest.data}
+                previewName={editor ? artifact.name : (effectiveManifest?.name ?? artifact.name)}
+                hasPdf={effectiveManifest?.profile === 'pdf'}
+                applications={applications.data ?? []}
+                editorHealth={editorHealth.data}
+                openPending={createWorkingCopy.isPending}
+                pdfPending={rendition.isPending}
+                downloadPending={downloadSource.isPending}
+                onOpen={(target) => createWorkingCopy.mutate(target)}
+                onPdf={() => {
+                  if (effectiveManifest?.profile === 'pdf') {
+                    setEditor(undefined);
+                    setDocumentView('preview');
+                  } else rendition.mutate();
+                }}
+                onDownload={() => downloadSource.mutate()}
+                hideDownload={sharedFileActions}
+              />
             ) : null}
-            {manifest.data?.embedded_editors.map((provider) => (
-              <Button
-                disabled={createWorkingCopy.isPending}
-                key={provider}
-                onClick={() => createWorkingCopy.mutate(provider)}
-                size="sm"
-                variant="outline"
-              >
-                Edit in {editorLabel(provider)}
-              </Button>
-            ))}
-            {manifest.data?.rendition_formats.includes('pdf') &&
-            !directProfiles.has(manifest.data.profile) ? (
-              <Button
-                disabled={rendition.isPending}
-                onClick={() => rendition.mutate()}
-                size="sm"
-                variant="outline"
-              >
-                <FileOutputIcon aria-hidden="true" />
-                {rendition.isPending
-                  ? 'Rendering…'
-                  : previewId
-                    ? 'Show PDF preview'
-                    : 'Render PDF preview'}
-              </Button>
-            ) : null}
-            <ToolbarAction
+            <RefreshAction
               label="Refresh document revision"
-              onClick={() => {
+              refreshing={
+                manifest.isFetching ||
+                savedPreview.isFetching ||
+                content.isFetching ||
+                reviews.isFetching
+              }
+              onRefresh={async () => {
                 setOverrideManifest(undefined);
-                void Promise.all([manifest.refetch(), reviews.refetch()]);
+                await Promise.all([
+                  queryClient.invalidateQueries({
+                    queryKey: queryKeys.key('document-manifest', settings.endpoint),
+                  }),
+                  queryClient.invalidateQueries({
+                    queryKey: queryKeys.key('document-content', settings.endpoint),
+                  }),
+                  reviews.refetch(),
+                  editorHealth.refetch(),
+                ]);
               }}
-            >
-              <RefreshIcon aria-hidden="true" />
-            </ToolbarAction>
+            />
           </div>
         </ViewerToolbarContent>
-        {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
-        {createWorkingCopy.error || rendition.error || savedPreview.error ? (
+        {status ? (
+          <p className="sr-only" role="status">
+            {status}
+          </p>
+        ) : null}
+        {createWorkingCopy.error ||
+        rendition.error ||
+        savedPreview.error ||
+        downloadSource.error ? (
           <Alert variant="destructive">
             <AlertTitle>Document action failed</AlertTitle>
             <AlertDescription>
-              {(createWorkingCopy.error ?? rendition.error ?? savedPreview.error)?.message}
+              {
+                (
+                  createWorkingCopy.error ??
+                  rendition.error ??
+                  savedPreview.error ??
+                  downloadSource.error
+                )?.message
+              }
             </AlertDescription>
           </Alert>
         ) : null}
-        <WorkingCopyStatus
-          closePending={closeWorkingCopy.isPending}
-          copy={workingCopy}
-          onClose={() => closeWorkingCopy.mutate()}
-          onResolve={(resolution) => resolveConflict.mutate(resolution)}
-          resolvePending={resolveConflict.isPending}
-        />
-        <TabsContent className="m-0 min-w-0 overflow-hidden" value="preview">
+        {workingCopy?.status === 'conflict' || workingCopy?.status === 'error' ? (
+          <WorkingCopyStatus
+            closePending={closeWorkingCopy.isPending}
+            copy={workingCopy}
+            onClose={() => closeWorkingCopy.mutate()}
+            onResolve={(resolution) => resolveConflict.mutate(resolution)}
+            resolvePending={resolveConflict.isPending}
+          />
+        ) : null}
+        <TabsContent className="m-0 min-h-0 min-w-0 overflow-hidden" value="preview">
           <div
-            className="min-w-0 overflow-hidden"
+            className="h-full min-h-0 min-w-0 overflow-hidden"
             ref={previewRef}
             onMouseUp={captureTextSelection}
           >
@@ -384,14 +447,7 @@ export function ClioDocumentWorkspace({
               content={content.data}
               editor={editor}
               fallback={fallbackPreview}
-              fit={
-                manifest.data &&
-                ['ooxml-word', 'ooxml-slides', 'odf-text', 'odf-slides'].includes(
-                  manifest.data.profile,
-                )
-                  ? 'page'
-                  : 'width'
-              }
+              fit="width"
               manifest={effectiveManifest}
               onPdfSelection={setSelection}
               text={textContent}
@@ -399,13 +455,13 @@ export function ClioDocumentWorkspace({
           </div>
         </TabsContent>
         {effectiveManifest?.profile === 'markdown' ? (
-          <TabsContent className="m-0 min-w-0 overflow-hidden" value="raw">
+          <TabsContent className="m-0 min-h-0 min-w-0 overflow-hidden" value="raw">
             {textContent === undefined ? (
               <p className="p-4 text-sm text-muted-foreground">Loading raw Markdown…</p>
             ) : (
               <CodeBlock
                 aria-label={`Raw Markdown for ${effectiveManifest.name}`}
-                className="h-[70vh] min-h-[540px]"
+                className="h-full min-h-0"
                 code={textContent}
                 language="markdown"
                 role="region"
@@ -424,10 +480,10 @@ export function ClioDocumentWorkspace({
             )}
           </TabsContent>
         ) : null}
-        <TabsContent className="m-0 min-w-0 overflow-hidden" value="reviews">
+        <TabsContent className="m-0 min-h-0 min-w-0 overflow-auto p-3" value="reviews">
           <ReviewTimeline error={reviews.error?.message} reviews={reviews.data} />
         </TabsContent>
-        <TabsContent className="m-0 min-w-0 overflow-hidden" value="policy">
+        <TabsContent className="m-0 min-h-0 min-w-0 overflow-auto p-3" value="policy">
           <DocumentPolicy editorHealth={editorHealth.data} workingCopy={workingCopy} />
         </TabsContent>
       </Tabs>
@@ -493,7 +549,7 @@ function DocumentPreview({
       <ClioOnlyOfficeEditor config={editor.config} editorUrl={editor.editor_url} />
     ) : (
       <iframe
-        className="h-[70vh] min-h-[540px] w-full rounded-lg border bg-background"
+        className="h-full min-h-0 w-full border-0 bg-background"
         referrerPolicy="no-referrer"
         sandbox="allow-scripts allow-forms allow-same-origin allow-downloads allow-popups"
         src={editor.editor_url}
@@ -507,7 +563,7 @@ function DocumentPreview({
       // The viewer owns its own scroll region so it can mount only the pages in
       // view, which needs a bounded box to scroll inside — the same one the
       // editor branch above uses.
-      <div className="h-[70vh] min-h-[540px] w-full">
+      <div className="h-full min-h-0 w-full">
         <ClioPdfPreview
           bytes={content}
           fit={fit}
@@ -519,7 +575,7 @@ function DocumentPreview({
   }
   if (manifest.profile === 'markdown' && text !== undefined) {
     return (
-      <article className="min-h-72 min-w-0 overflow-hidden rounded-lg border bg-background p-5">
+      <article className="h-full min-h-0 min-w-0 overflow-auto bg-background p-5">
         <MessageResponse className={DOCUMENT_MARKDOWN_CLASS_NAME}>
           {normalizeConvertedMarkdown(text)}
         </MessageResponse>
@@ -529,6 +585,7 @@ function DocumentPreview({
   if (['latex', 'html-static'].includes(manifest.profile) && text !== undefined) {
     return (
       <CodeBlock
+        className="h-full overflow-auto"
         code={text}
         language={manifest.profile === 'latex' ? 'latex' : 'html'}
         showLineNumbers
@@ -590,7 +647,7 @@ function ReviewTimeline({
           <TimelineContent>
             <q>{review.anchor.exact || review.anchor.cell_range || 'Document selection'}</q>
             <p className="mt-1 text-foreground">{review.text}</p>
-            <p className="mt-1 font-mono text-[10px]">Revision {review.artifact_version}</p>
+            <p className="mt-1 font-mono text-[0.625rem]">Revision {review.artifact_version}</p>
           </TimelineContent>
         </TimelineItem>
       ))}
@@ -674,7 +731,7 @@ function DocumentPolicy({
           />
         ))}
         {workingCopy ? (
-          <p className="font-mono text-[10px]">
+          <p className="font-mono text-[0.625rem]">
             Working copy {workingCopy.id}, head version {workingCopy.head_version}
           </p>
         ) : null}

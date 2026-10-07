@@ -10,6 +10,7 @@ function wrapper({ children }: PropsWithChildren) {
 afterEach(() => {
   window.localStorage.clear();
   delete document.documentElement.dataset.clioMotion;
+  delete document.documentElement.dataset.clioInterfaceSize;
 });
 
 describe('appearance preferences', () => {
@@ -41,6 +42,7 @@ describe('appearance preferences', () => {
       conversationWidth: 'wide',
       collapseThreshold: 5,
       hideDotFiles: false,
+      interfaceSize: 100,
     });
 
     unmount();
@@ -77,5 +79,49 @@ describe('appearance preferences', () => {
 
     expect(result.current.motion).toBe('reduced');
     expect(result.current.conversationWidth).toBe('wide');
+  });
+
+  it('saves and restores interface size without replacing other preferences', () => {
+    const first = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(first.result.current.interfaceSize).toBe(100);
+    act(() => {
+      first.result.current.setConversationWidth('wide');
+      first.result.current.setInterfaceSize(150);
+    });
+    expect(document.documentElement.dataset.clioInterfaceSize).toBe('150');
+    first.unmount();
+    const restored = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(restored.result.current.interfaceSize).toBe(150);
+    expect(restored.result.current.conversationWidth).toBe('wide');
+    act(() => restored.result.current.setInterfaceSize(125));
+    expect(document.documentElement.dataset.clioInterfaceSize).toBe('125');
+    act(() => restored.result.current.setInterfaceSize(100));
+    expect(document.documentElement.dataset.clioInterfaceSize).toBe('100');
+  });
+
+  it('accepts supported size changes across tabs and rejects invalid saved sizes', () => {
+    window.localStorage.setItem('clio.appearance.v1', JSON.stringify({ interfaceSize: 999 }));
+    const { result } = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(result.current.interfaceSize).toBe(100);
+    act(() =>
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'clio.appearance.v1',
+          newValue: JSON.stringify({ interfaceSize: 125, hideDotFiles: true }),
+        }),
+      ),
+    );
+    expect(result.current.interfaceSize).toBe(125);
+    expect(result.current.hideDotFiles).toBe(true);
+    act(() =>
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'clio.appearance.v1',
+          newValue: JSON.stringify({ interfaceSize: '150', hideDotFiles: true }),
+        }),
+      ),
+    );
+    expect(result.current.interfaceSize).toBe(100);
+    expect(result.current.hideDotFiles).toBe(true);
   });
 });

@@ -112,4 +112,30 @@ describe('ClioComposer file upload surface', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Add attachments' })).not.toBeInTheDocument();
   });
+
+  it('ignores internal image drags and still accepts the next external file drop', async () => {
+    renderComposer();
+    const file = new File(['image'], 'existing-image.png', { type: 'image/png' });
+    const transfer = { files: [file], types: ['Files', 'text/uri-list'] };
+    fireEvent.dragStart(document.body, { dataTransfer: transfer });
+    fireEvent.dragEnter(document, { dataTransfer: transfer });
+    fireEvent.drop(document, { dataTransfer: transfer });
+    expect(screen.queryByRole('dialog', { name: 'Add attachments' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Open existing-image.png' }),
+    ).not.toBeInTheDocument();
+    fireEvent.dragEnd(document.body);
+
+    // A cancelled native image drag has no dragend; it must not leave the
+    // document marked as dragging when the next external file arrives.
+    const cancelledDrag = new Event('dragstart', { bubbles: true, cancelable: true });
+    cancelledDrag.preventDefault();
+    document.body.dispatchEvent(cancelledDrag);
+
+    fireEvent.dragEnter(document, { dataTransfer: transfer });
+    expect(screen.getByRole('dialog', { name: 'Add attachments' })).toBeVisible();
+    fireEvent.drop(document, { dataTransfer: transfer });
+    expect(await screen.findByRole('button', { name: 'Open existing-image.png' })).toBeVisible();
+    expect(screen.queryByRole('dialog', { name: 'Add attachments' })).not.toBeInTheDocument();
+  });
 });
