@@ -233,9 +233,7 @@ export function ClioArtifactCard({
             {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
           </Badge>
         ) : null}
-        <div className="shrink-0">
-          <SurfaceToolbar capabilities={downloadCapabilities} />
-        </div>
+        <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
       </ArtifactHeader>
       {preview ? (
         <ArtifactContent className="p-0">
