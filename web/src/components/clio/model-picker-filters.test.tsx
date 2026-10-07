@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import type { ClioModelOption } from '@/lib/model-options';
-import { capabilityRow, openrouterConfiguration } from '@/test-fixtures/model-picker/capability-rows';
+import {
+  capabilityRow,
+  openrouterConfiguration,
+} from '@/test-fixtures/model-picker/capability-rows';
 import {
   renderPicker,
   repository,
@@ -85,6 +88,76 @@ function modelNames(): string[] {
 }
 
 describe('ClioModelPicker filter tokens', () => {
+  it('includes Codex and Claude Code in Tools using catalog tags rather than the native flag', async () => {
+    repository.languageModelConfiguration.mockResolvedValue({
+      ...configuration,
+      presets: [
+        ...configuration.presets,
+        {
+          id: 'claude_code',
+          label: 'Claude Code',
+          provider: 'claude_code',
+          requires_api_key: false,
+          auth_method: 'subscription',
+          is_authenticated: true,
+        },
+      ],
+    });
+    const candidates = [
+      row(
+        'account-codex-model',
+        { capabilities: ['tool_calling'] },
+        {
+          providerId: 'codex',
+          providerName: 'Codex',
+          toolCalling: true,
+        },
+      ),
+      row(
+        'account-claude-model',
+        { capabilities: ['tool_calling'] },
+        {
+          providerId: 'claude_code',
+          providerName: 'Claude Code',
+          toolCalling: false,
+        },
+      ),
+      row('plain-model'),
+    ];
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderPicker(
+      <ClioModelPicker
+        onChange={onChange}
+        options={candidates}
+        provider="codex"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.type(
+      screen.getByRole('combobox', { name: 'Search providers and models' }),
+      'cap:tools ',
+    );
+    expect(tokens()).toContain('cap:tools');
+    expect(count()).toHaveTextContent('2 / 3');
+    expect(screen.queryByText('plain-model')).toBeNull();
+    const codex = screen
+      .getByText('account-codex-model')
+      .closest('[data-slot="cascader-item"]') as HTMLElement;
+    expect(within(codex).getByText('Tools')).toBeVisible();
+    const providers = document.querySelector(
+      '[data-slot="cascader-column-bounds"][data-depth="0"]',
+    ) as HTMLElement;
+    await user.click(within(providers).getByText('Claude Code'));
+    const claude = screen
+      .getByText('account-claude-model')
+      .closest('[data-slot="cascader-item"]') as HTMLElement;
+    expect(within(claude).getByText('Tools')).toBeVisible();
+    expect(count()).toHaveTextContent('2 / 3');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('starts on input:text + output:text: chat models only, with a visible count', async () => {
     await openOpenRouter();
 
@@ -93,9 +166,13 @@ describe('ClioModelPicker filter tokens', () => {
     // The image generator is filtered out by default, never hidden for good.
     expect(screen.queryByText('sdxl')).toBeNull();
     // The provider row says its own share.
-    expect(document.querySelector('[data-slot="provider-filter-count"]')).toHaveTextContent('5 / 7');
+    expect(document.querySelector('[data-slot="provider-filter-count"]')).toHaveTextContent(
+      '5 / 7',
+    );
     // Only the filtered share: never "5 / 6" beside a second plain count.
-    const row = document.querySelector('[data-slot="provider-filter-count"]')?.closest('[data-slot="cascader-item"]');
+    const row = document
+      .querySelector('[data-slot="provider-filter-count"]')
+      ?.closest('[data-slot="cascader-item"]');
     expect(row?.querySelector('[data-slot="cascader-item-count"]')).toBeNull();
   });
 
@@ -135,12 +212,16 @@ describe('ClioModelPicker filter tokens', () => {
   it('clicking a row tag adds its token; free + input:pdf narrows to the one match', async () => {
     const user = await openOpenRouter();
 
-    const gemma = screen.getByText('gemma-free').closest('[data-slot="cascader-item"]') as HTMLElement;
+    const gemma = screen
+      .getByText('gemma-free')
+      .closest('[data-slot="cascader-item"]') as HTMLElement;
     await user.click(within(gemma).getByText('Free'));
     expect(tokens()).toEqual(['input:text', 'output:text', 'free']);
     expect(count()).toHaveTextContent('3 / 7'); // gemma-free, pdf-reader, the free router
 
-    const reader = screen.getByText('pdf-reader').closest('[data-slot="cascader-item"]') as HTMLElement;
+    const reader = screen
+      .getByText('pdf-reader')
+      .closest('[data-slot="cascader-item"]') as HTMLElement;
     await user.click(within(reader).getByText('PDF'));
     expect(tokens()).toEqual(['input:text', 'output:text', 'free', 'input:pdf']);
     await waitFor(() => expect(modelNames()).toEqual(['pdf-reader']));
@@ -153,11 +234,14 @@ describe('ClioModelPicker filter tokens', () => {
     await user.type(input, 'input:');
     // A token being typed is not a text search: the models stay listed.
     expect(modelNames()).toContain('llama-4');
-    const suggestions = document.querySelector('[data-slot="filter-token-suggestions"]') as HTMLElement;
-    expect(within(suggestions).getAllByRole('button').map((b) => b.textContent)).toEqual([
-      'input:image',
-      'input:pdf',
-    ]);
+    const suggestions = document.querySelector(
+      '[data-slot="filter-token-suggestions"]',
+    ) as HTMLElement;
+    expect(
+      within(suggestions)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['input:image', 'input:pdf']);
     await user.click(within(suggestions).getByRole('button', { name: 'input:image' }));
     expect(tokens()).toContain('input:image');
     expect(input).toHaveValue('');
@@ -190,7 +274,9 @@ describe('ClioModelPicker filter tokens', () => {
 
     await user.type(input, 'task:classification ');
     await waitFor(() => expect(modelNames()).toEqual(['jev-latest']));
-    const jev = screen.getByText('jev-latest').closest('[data-slot="cascader-item"]') as HTMLElement;
+    const jev = screen
+      .getByText('jev-latest')
+      .closest('[data-slot="cascader-item"]') as HTMLElement;
     expect(within(jev).getByText('Surrogate')).toBeVisible();
     expect(within(jev).getByText('Classifier')).toBeVisible();
 

@@ -1,0 +1,11 @@
+# Codex and Claude Code tool capability review
+
+The provider catalog omitted the tool support supplied by CLIO's Codex and Claude Code integrations. Both the Models card and the Tools filter use the shared capability tags, so the missing fact affected both surfaces.
+
+The shared endpoint record now states the shipped integration's tool-call mode with dialect provenance. Codex Direct uses native function tools; Claude Code carries CLIO tool calls through its text adapter. Effective usable tools are separate from native function calling. Both produce the existing Tools tag, while Claude Code's native flag remains false. Explicit tool disabling is respected; generic API acceptance of a tools parameter does not create a model capability claim. Parallel tool support is not inferred.
+
+The isolated real service on 8152 initially reported six Codex and three Claude Code models with zero Tools tags. After the fix, all nine carry Tools: six Codex models have native calling and three Claude Code models have adapter calling. Actual browser interaction on 5198 applied `cap:tools`, opened each provider's model list, and checked every rendered name against the returned catalog. The filter showed 9 / 9, every row displayed Tools, and the Models card displayed Tools too. No model configuration PUT was sent. All three final captures were visually reviewed; private config and original model selection are preserved.
+
+Four new backend cases and the existing endpoint-only capability regression passed individually with one worker, as did the picker regression covering both providers with different native flags. Scoped Ruff, Oxlint, formatting, type checks, exception/file-size guards and online/offline UI builds passed. Scoped Pyright reports zero errors and one inherited TypeVar warning at combine.py:97. No full local test suite ran.
+
+Original captures, the recorded public capability evidence, review source, selected check logs and verified SHA-256 manifest are archived at `D:/Libraries/Videos/clio_recordings/2026-10-06-cli-tool-capabilities`. The diagnostic failed-take capture is retained separately from the three accepted views. Browser evidence does not establish native Desktop acceptance.
