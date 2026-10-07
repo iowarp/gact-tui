@@ -65,7 +65,7 @@ export function ViewerZoomControls({
         </ToolbarAction>
         <ToolbarAction
           label={labels.reset}
-          className="w-10 text-xs tabular-nums text-muted-foreground"
+          className="w-10 text-xs tabular-nums text-muted-foreground @max-[360px]/viewer:w-8"
           onClick={onFit}
         >
           {Math.round(percent)}%

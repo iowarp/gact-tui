@@ -166,9 +166,9 @@ export function ClioDocumentPdfViewer({
         disabledIn={scale >= 1.75}
         disabledOut={scale <= 0.7}
         labels={{
-          in: 'Zoom PDF in',
-          out: 'Zoom PDF out',
-          reset: 'Reset PDF zoom',
+          in: 'Zoom in',
+          out: 'Zoom out',
+          reset: 'Reset zoom',
           fit: 'Fit document to view',
           menu: 'PDF actions',
           group: 'PDF zoom',

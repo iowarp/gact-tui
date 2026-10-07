@@ -242,6 +242,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
     const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
     const [maximized, setMaximized] = useState(false);
+    const [maximizeHost, setMaximizeHost] = useState<Element | null>(null);
     const activeTabRef = useRef<HTMLDivElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
 
@@ -599,7 +600,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
               className="relative z-10 size-7 shrink-0 rounded-md"
-              onClick={() => setMaximized((value) => !value)}
+              onClick={(event) => {
+                setMaximizeHost(
+                  event.currentTarget.closest('[data-slot=sheet-content]') ?? document.body,
+                );
+                setMaximized((value) => !value);
+              }}
               size="icon"
               title={maximized ? 'Restore canvas' : 'Maximize canvas'}
               variant="ghost"
@@ -677,7 +683,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         {/* Keep request delivery outside the portal: maximizing remounts its
             contents and must not replay a previously handled open request. */}
         <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
-        {maximized ? createPortal(canvas, document.body) : canvas}
+        {maximized ? createPortal(canvas, maximizeHost ?? document.body) : canvas}
       </>
     );
   },

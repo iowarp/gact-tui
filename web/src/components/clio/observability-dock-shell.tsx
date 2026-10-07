@@ -18,6 +18,7 @@ import type {
   ArtifactProvenanceProviderSummary,
   WorkspaceResource,
 } from '@clio/core/v3';
+import { artifactDeliverables } from '@/lib/artifact-presentation';
 import { BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
 import { useState, useSyncExternalStore, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
@@ -126,6 +127,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   );
   const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
   const activityCountLabel = `${activityCount.toLocaleString()} background ${activityCount === 1 ? 'activity' : 'activities'}`;
+  const outputArtifacts = artifactDeliverables(props.artifacts).filter(
+    (artifact) => artifact.session_relation !== 'used',
+  );
   const dockLabel = currentTool
     ? getToolPresentation(currentTool).title
     : latestActiveProcess
@@ -134,8 +138,8 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         ? currentTask.title
         : activityCount
           ? activityCountLabel
-          : props.artifacts.some((artifact) => artifact.session_relation !== 'used')
-            ? `${props.artifacts.filter((artifact) => artifact.session_relation !== 'used').length} outputs`
+          : outputArtifacts.length
+            ? `${outputArtifacts.length} outputs`
             : 'Activity';
   // The badge takes the session state's tone (red for failed), so its words must name that
   // same state: an idle fall-through label under a failed tone read as a red "Up to date".

@@ -74,9 +74,9 @@ describe('ClioDocumentPdfViewer', () => {
     expect(screen.getByText('3 pages')).toBeVisible();
 
     expect(screen.queryByRole('button', { name: 'Use paged PDF view' })).not.toBeInTheDocument();
-    expect(toolbar).toContainElement(screen.getByRole('button', { name: 'Zoom PDF in' }));
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: 'Zoom in' }));
     expect(screen.getByText('3 pages').closest('footer')).not.toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Zoom PDF in' }));
+    await user.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(screen.getByText('115%')).toBeVisible();
     expect(screen.getByText('PDF page 2')).toBeVisible();
     toolbar.remove();
@@ -257,7 +257,7 @@ describe('ClioDocumentPdfViewer', () => {
     );
 
     const zoom = await screen.findByRole('group', { name: 'PDF zoom' });
-    expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom PDF out' }));
-    expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom PDF in' }));
+    expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom out' }));
+    expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom in' }));
   });
 });

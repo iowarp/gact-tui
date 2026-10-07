@@ -98,7 +98,7 @@ export function FileViewerShell({
                     {tabs.map(({ value: tabValue, label: tabLabel, title, icon: Icon }) => (
                       <TabsTrigger
                         key={tabValue}
-                        className="h-full rounded-none px-2 text-xs after:bottom-0 @max-[720px]/viewer:w-7 @max-[720px]/viewer:px-0"
+                        className="h-full rounded-none px-2 text-xs data-[state=active]:text-primary dark:data-[state=active]:text-primary after:bg-primary group-data-horizontal/tabs:after:bottom-0 @max-[720px]/viewer:w-7 @max-[720px]/viewer:px-0"
                         value={tabValue}
                         title={title || tabLabel}
                         aria-label={tabLabel}

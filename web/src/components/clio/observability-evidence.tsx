@@ -49,6 +49,7 @@ import { formatBytes, formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioArtifactCard } from './artifact-card';
+import { artifactDeliverables } from '@/lib/artifact-presentation';
 import { FileTypeIcon } from './file-type-icon';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import {
@@ -92,7 +93,9 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
   const showActivity = props.section !== 'data';
   const showData = props.section !== 'work';
   const outputs = showData
-    ? props.artifacts.filter((artifact) => artifact.session_relation !== 'used')
+    ? artifactDeliverables(props.artifacts).filter(
+        (artifact) => artifact.session_relation !== 'used',
+      )
     : [];
   const backgroundProcesses = showActivity
     ? props.processes.filter((process) => process.kind !== 'agent')

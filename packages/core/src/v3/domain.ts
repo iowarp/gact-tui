@@ -316,6 +316,7 @@ export interface Artifact {
   size?: number;
   created_at?: string;
   session_relation?: 'produced' | 'used';
+  producer?: Record<string, unknown>;
 }
 
 export interface ArtifactVersion {

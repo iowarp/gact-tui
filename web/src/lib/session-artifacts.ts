@@ -5,6 +5,7 @@ import type {
   ArtifactVersion,
   SessionArtifactListing,
 } from '@clio/core/v3';
+import { artifactDeliverables } from './artifact-presentation';
 
 /** Preserve immutable versions for transcript links, independently of the head-only asset list. */
 export function sessionArtifactVersionEntities(
@@ -59,7 +60,7 @@ export function sessionArtifactEntities(
       artifactIds.add(artifact.id);
     }
   }
-  return [...artifacts.values()];
+  return artifactDeliverables([...artifacts.values()]);
 }
 
 /** Projects one authoritative artifact detail response into a canvas entity. */
@@ -114,6 +115,7 @@ function artifactVersionEntity(
     size: version.size_bytes,
     created_at: version.created_at,
     session_relation: relation,
+    producer: version.producer,
   };
 }
 

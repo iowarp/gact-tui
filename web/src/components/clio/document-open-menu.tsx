@@ -72,7 +72,7 @@ export function DocumentOpenMenu({
         >
           <FileTypeIcon name={previewName} className="size-3.5" />
           <span className="@max-[520px]/viewer:sr-only">Open in</span>{' '}
-          <ChevronDownIcon aria-hidden="true" className="size-3" />
+          <ChevronDownIcon aria-hidden="true" className="size-3 @max-[360px]/viewer:hidden" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">
