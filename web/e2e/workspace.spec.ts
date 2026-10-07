@@ -114,6 +114,7 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await page.reload();
     await waitForArtifactPreview(page);
     await page.evaluate(() => document.fonts.ready);
+    await page.getByRole('button', { name: /^Evidence layout:/ }).click();
     await page.getByRole('button', { name: 'Open observability in workspace canvas' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
@@ -892,7 +893,7 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   // the persistent sr-only live region that mirrors it so a status change is
   // announced. Scope to the dock button, which the live region sits outside of.
   const observabilityDock = page.getByRole('button', {
-    name: 'Open observability in workspace canvas',
+    name: /^Evidence layout:/,
   });
   await expect(observabilityDock.getByText('Working', { exact: true })).toBeVisible();
   await expect(page.getByText('Running', { exact: true })).toHaveCount(0);

@@ -114,6 +114,22 @@ export function sessionSources(
       collectWorkflowSources(process.result?.workflow_state, process.title, sources);
     }
   }
+  for (const artifact of artifacts) {
+    if (
+      artifact.session_relation !== 'used' ||
+      sources.some((source) => source.artifact?.id === artifact.id)
+    )
+      continue;
+    sources.push({
+      id: `used:${artifact.id}`,
+      dedupeKey: `artifact:${artifact.id}`,
+      label: artifact.name,
+      link: false,
+      artifact,
+      value: artifact.uri,
+      detailParts: [{ id: 'type', text: fileFormatLabel(artifact.name, artifact.media_type) }],
+    });
+  }
   const seen = new Set<string>();
   return sources.filter((source) => {
     if (seen.has(source.dedupeKey)) return false;

@@ -18,6 +18,7 @@ import type {
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import type { McpAppResponseActivityData } from './mcp-app-surface';
 import type { SubagentOpenTarget } from './subagent-card';
+import type { TurnPreparationProps } from './turn-preparation';
 
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
@@ -72,6 +73,7 @@ export interface ClioConversationProps {
   cancellingPendingMessageId?: string;
   onCancelPendingSteer?: (messageId: string) => void | Promise<unknown>;
   bottomInset?: number;
+  preparation?: Omit<TurnPreparationProps, 'messages'>;
   mcpAppRepository?: ClioRepository;
   interactions?: readonly PendingInteraction[];
   onInteractionResponse?: (

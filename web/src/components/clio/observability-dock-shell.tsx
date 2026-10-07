@@ -6,7 +6,6 @@ import type {
   ContextSnapshot,
   ExecutionProvenanceDegradation,
   ExecutionProvenanceResult,
-  InfrastructureDependency,
   Message,
   PendingInteraction,
   Run,
@@ -19,7 +18,7 @@ import type {
   ArtifactProvenanceProviderSummary,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { ActivityIcon, BrainCircuitIcon, BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
+import { BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,8 +36,8 @@ import {
 } from '@/lib/presentation-overrides';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioInteractiveRow } from './interactive-row';
-import { ClioInfrastructurePreparation } from './infrastructure-preparation';
-import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
+import { SessionEvidencePopover } from './session-evidence-popover';
+import { EvidenceLayoutIcon } from './evidence-layout-icon';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { getToolPresentation } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -50,9 +49,6 @@ export interface ClioObservabilityDockProps {
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
   interactions?: readonly PendingInteraction[];
-  infrastructureDependencies?: readonly InfrastructureDependency[];
-  activeTurnId?: string;
-  activeTurnResponded?: boolean;
   processes: readonly AsyncProcess[];
   tasks: readonly Task[];
   tools: readonly ToolInvocation[];
@@ -80,6 +76,7 @@ export interface ClioObservabilityDockProps {
   }) => Promise<unknown>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onOpenCanvas?: () => void;
+  onOpenWork?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
@@ -122,41 +119,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     props.sessionState === 'waiting_user' ||
     props.sessionState === 'failed';
   const showDockStatusBadge = Boolean(
-    activeActivityCount || sessionActive || sessionNeedsAttention,
+    activeActivityCount || sessionActive || sessionNeedsAttention || activityCount,
   );
   const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
-  const latestUser = props.messages.findLast((message) => message.role === 'user');
-  const currentRunId = props.activeTurnId ?? latestUser?.run_id ?? latestUser?.turn_id;
-  const isCurrentAssistant = (message: Message): boolean => {
-    if (message.role !== 'assistant') return false;
-    const runId = message.run_id ?? message.turn_id;
-    if (runId && currentRunId) return runId === currentRunId;
-    // Live tool-only messages can arrive before their run association. Use the
-    // latest user message boundary until the server supplies that association.
-    return !latestUser || Date.parse(message.created_at) >= Date.parse(latestUser.created_at);
-  };
-  const currentAssistantStreaming = props.messages.some(
-    (message) =>
-      isCurrentAssistant(message) &&
-      message.blocks.some(
-        (block) =>
-          (block.type === 'text' || block.type === 'reasoning') && block.streaming === true,
-      ),
-  );
-  const assistantResponding = currentAssistantStreaming || props.activeTurnResponded === true;
-  const currentTurnHasActivity = props.messages.some(
-    (message) => isCurrentAssistant(message) &&
-      message.blocks.some((block) => block.type === 'tool' || block.type === 'reasoning' ||
-        (block.type === 'text' && block.text.trim().length > 0)),
-  );
-  const agentHasStarted = assistantResponding || currentTurnHasActivity;
-  const followUp = props.messages.some(
-    (message) => message.role === 'assistant' && !isCurrentAssistant(message),
-  );
-  const startupVisible = Boolean(
-    sessionActive && !currentTool && !latestActiveProcess && !currentTask && !agentHasStarted,
-  );
-  const startupLabel = infrastructurePreparationLabel(props.infrastructureDependencies ?? [], followUp);
   const activityCountLabel = `${activityCount.toLocaleString()} background ${activityCount === 1 ? 'activity' : 'activities'}`;
   const dockLabel = currentTool
     ? getToolPresentation(currentTool).title
@@ -166,19 +131,15 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         ? currentTask.title
         : activityCount
           ? activityCountLabel
-          : sessionActive
-            ? agentHasStarted
-              ? assistantResponding ? 'Agent is responding' : 'Working on your request'
-              : startupLabel
-            : 'Session details';
+          : props.artifacts.some((artifact) => artifact.session_relation !== 'used')
+            ? `${props.artifacts.filter((artifact) => artifact.session_relation !== 'used').length} outputs`
+            : 'Activity';
   // The badge takes the session state's tone (red for failed), so its words must name that
   // same state: an idle fall-through label under a failed tone read as a red "Up to date".
   const dockStatus = activeActivityCount
     ? `${activeActivityCount} active`
     : sessionActive
-      ? agentHasStarted
-        ? 'Working'
-        : 'Starting'
+      ? 'Working'
       : sessionNeedsAttention && props.sessionState
         ? clioStatusLabel(props.sessionState)
         : activityCount
@@ -191,43 +152,54 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   };
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
-      <Button
-        aria-label="Open observability in workspace canvas"
-        className="h-7 min-w-0 flex-1 justify-start gap-2 rounded-md px-2 text-muted-foreground hover:text-foreground"
-        disabled={!props.onOpenCanvas}
-        onClick={props.onOpenCanvas}
-        size="sm"
-        title="Open observability"
-        type="button"
-        variant="ghost"
-      >
-        {activeActivityCount || sessionActive ? (
-          <BrainCircuitIcon aria-hidden="true" className="size-4 text-info" />
-        ) : (
-          <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+    <div className="flex min-w-0 items-center gap-1" data-slot="composer-evidence">
+      <SessionEvidencePopover evidence={props}>
+        {({ layout, buttonRef, panelId, cycle }) => (
+          <Button
+            ref={buttonRef}
+            aria-label={`Evidence layout: ${layout.charAt(0).toUpperCase() + layout.slice(1)}`}
+            aria-expanded={layout !== 'none'}
+            aria-controls={panelId}
+            aria-haspopup="dialog"
+            data-evidence-layout={layout}
+            onClick={() => cycle(1)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              cycle(-1);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                cycle(event.key === 'ArrowLeft' ? -1 : 1);
+              }
+            }}
+            className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground"
+            size="sm"
+            title={`Evidence: ${layout}. Click for next layout; right-click for previous. ${dockLabel}`}
+            type="button"
+            variant="ghost"
+          >
+            <EvidenceLayoutIcon layout={layout} />
+            <span className="hidden min-w-0 max-w-40 truncate text-left font-medium @min-[50rem]/composer:inline">
+              {dockLabel}
+            </span>
+            {presentationOverrideCount ? (
+              <ClioStatus
+                className="hidden py-0.5 @min-[65rem]/composer:inline-flex"
+                label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
+                value="degraded"
+              />
+            ) : null}
+            {showDockStatusBadge ? (
+              <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value={dockStatusValue} />
+            ) : null}
+          </Button>
         )}
-        {startupVisible ? (
-          <ClioInfrastructurePreparation dependencies={props.infrastructureDependencies ?? []} followUp={followUp} />
-        ) : (
-          <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
-        )}
-        {presentationOverrideCount ? (
-          <ClioStatus
-            className="hidden py-0.5 sm:inline-flex"
-            label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
-            value="degraded"
-          />
-        ) : null}
-        {showDockStatusBadge ? (
-          <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value={dockStatusValue} />
-        ) : null}
-        <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
-      </Button>
+      </SessionEvidencePopover>
       {/* Always mounted (not conditionally toggled) so it exists before its text changes, and
           outside the Button so its content never factors into the Button's accessible name. */}
       <span aria-live="polite" className="sr-only">
-        {startupVisible ? startupLabel : dockStatus}
+        {dockStatus}
       </span>
       {props.subagents.length ? (
         <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>

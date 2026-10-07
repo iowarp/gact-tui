@@ -12,6 +12,7 @@ import { useConversationDisplay } from '@/providers/conversation-display-provide
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioCompactionProgress } from './conversation-summarization';
+import { ClioTurnPreparation } from './turn-preparation';
 import { placeCompactions } from './conversation-compaction-placement';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
@@ -56,6 +57,7 @@ function ConversationBody({
   error,
   bottomInset = 0,
   compactions,
+  preparation,
   ...entities
 }: ClioConversationProps) {
   const mcpAppResponses = useMemo(
@@ -395,7 +397,9 @@ function ConversationBody({
             Syncing history…
           </div>
         ) : null}
-        {messages.length === 0 && loading ? (
+        {messages.length === 0 &&
+        (preparation?.sessionState === 'queued' ||
+          preparation?.sessionState === 'running') ? null : messages.length === 0 && loading ? (
           <ConversationEmptyState
             aria-live="polite"
             className="h-full"
@@ -456,6 +460,14 @@ function ConversationBody({
             })}
           </div>
         )}
+        {preparation ? (
+          <div
+            className={`mx-auto w-full px-5 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            ref={autoscroll.observeContent}
+          >
+            <ClioTurnPreparation {...preparation} messages={sourceMessages} />
+          </div>
+        ) : null}
         {compactionPlacement.trailing.length > 0 ? (
           <div
             className={`mx-auto grid w-full gap-3 px-5 pb-4 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}

@@ -1492,6 +1492,42 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname === '/__test/prepare-turn') {
+    const { phase } = await readJson(request);
+    if (phase === 'start') {
+      publish('turn.started', { turn_id: 'run_preparation' });
+      publish('message.upserted', {
+        id: 'msg_preparation_user',
+        session_id: sessionId,
+        run_id: 'run_preparation',
+        role: 'user',
+        created_at: '2026-10-06T12:00:00Z',
+        blocks: [
+          { id: 'preparation_user_text', type: 'text', text: 'Summarize the station evidence.' },
+        ],
+      });
+      publish('message.upserted', {
+        id: 'msg_preparation_assistant',
+        session_id: sessionId,
+        run_id: 'run_preparation',
+        role: 'assistant',
+        created_at: '2026-10-06T12:00:01Z',
+        blocks: [{ id: 'preparation_text', type: 'text', text: '', streaming: true }],
+      });
+    } else if (phase === 'token') {
+      publish('message.block.delta', {
+        message_id: 'msg_preparation_assistant',
+        block_id: 'preparation_text',
+        delta: 'Here is the evidence.',
+      });
+    } else {
+      sendJson(response, { error: 'Unknown preparation phase' }, 400);
+      return;
+    }
+    sendJson(response, { status: phase }, 202);
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/__test/a2ui-login-form') {
     // Must match the `surfaceId` embedded in the vendored example's own
     // createSurface/updateComponents messages (loginFormExampleMessages()) —

@@ -40,12 +40,8 @@ import {
   CodeBlockHeader,
   CodeBlockTitle,
 } from '@/components/ai-elements/code-block';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { Accordion } from '@/components/ui/accordion';
+import { EvidenceSection } from './observability-evidence-section';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -68,6 +64,8 @@ import type { SubagentOpenTarget } from './subagent-card';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 
 export interface ClioEvidenceViewProps {
+  compact?: boolean;
+  section?: 'activity' | 'sources';
   artifacts: readonly Artifact[];
   contextFiles: readonly ContextFile[];
   diffs: readonly SessionDiff[];
@@ -91,24 +89,37 @@ export interface ClioEvidenceViewProps {
 }
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
-  const backgroundProcesses = props.processes.filter((process) => process.kind !== 'agent');
-  const runs = props.runs ?? [];
-  const subagents = props.subagents ?? [];
-  const tasks = props.tasks ?? [];
-  const tools = props.tools ?? [];
-  const files = sessionFiles(props.contextFiles, tools, props.executionProvenance);
-  const diffs = sessionDiffs(props.diffs, tools, props.executionProvenance);
-  const plans = sessionPlans(props.messages, props.interactions ?? [], props.artifacts);
-  const sources = sessionSources(
-    props.messages,
-    props.processes,
-    props.resources ?? [],
-    props.executionProvenance,
-    props.artifacts,
-  );
+  const showActivity = props.section !== 'sources';
+  const outputs = showActivity
+    ? props.artifacts.filter((artifact) => artifact.session_relation !== 'used')
+    : [];
+  const backgroundProcesses = showActivity
+    ? props.processes.filter((process) => process.kind !== 'agent')
+    : [];
+  const runs = showActivity ? (props.runs ?? []) : [];
+  const subagents = showActivity ? (props.subagents ?? []) : [];
+  const tasks = showActivity ? (props.tasks ?? []) : [];
+  const tools = showActivity ? (props.tools ?? []) : [];
+  const files = showActivity
+    ? sessionFiles(props.contextFiles, tools, props.executionProvenance)
+    : [];
+  const diffs = showActivity ? sessionDiffs(props.diffs, tools, props.executionProvenance) : [];
+  const plans = showActivity
+    ? sessionPlans(props.messages, props.interactions ?? [], props.artifacts)
+    : [];
+  const sources =
+    props.section === 'activity'
+      ? []
+      : sessionSources(
+          props.messages,
+          props.processes,
+          props.resources ?? [],
+          props.executionProvenance,
+          props.artifacts,
+        );
   const hasEvidence = Boolean(
     diffs.length ||
-      props.artifacts.length ||
+      outputs.length ||
       sources.length ||
       plans.length ||
       files.length ||
@@ -120,7 +131,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
   );
   const hasProvenance = Boolean(props.provenanceProvider || props.artifactProvenanceProvider);
 
-  if (!hasEvidence && !hasProvenance) {
+  if (!hasEvidence && !hasProvenance && !props.compact) {
     return (
       <p className="p-6 text-center text-sm text-muted-foreground">
         No session evidence or recorded activity is available.
@@ -140,7 +151,13 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
           (test_observability_evidence.tsx:77 pins its absence). */}
       <h2 aria-label="Session evidence" className="sr-only" />
       <Accordion
+        className={
+          props.compact
+            ? '[&_[data-slot=accordion-content]>div>div]:max-h-none [&_[data-slot=accordion-content]>div>div]:overflow-visible'
+            : undefined
+        }
         defaultValue={[
+          ...(props.compact ? ['tasks', 'background', 'artifacts'] : []),
           ...(subagents.length ? ['child-agents'] : []),
           'files',
           'changes',
@@ -148,6 +165,11 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
         ]}
         type="multiple"
       >
+        {props.compact && showActivity ? (
+          <h2 className="pb-1 pt-2 text-xs font-medium text-muted-foreground">
+            Progress and outputs
+          </h2>
+        ) : null}
         {runs.length ? (
           <EvidenceSection icon={ActivityIcon} label="Agent runs" value="runs" count={runs.length}>
             <RunEvidence runs={runs} />
@@ -162,14 +184,16 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             delegated agent, child session, and standing watcher of this
             session can be found and opened, so its absence must read as
             "none yet", never as a missing feature. */}
-        <EvidenceSection
-          icon={BoxesIcon}
-          label="Child agents"
-          value="child-agents"
-          count={subagents.length}
-        >
-          <SubagentEvidence onOpenSubagent={props.onOpenSubagent} subagents={subagents} />
-        </EvidenceSection>
+        {showActivity && (!props.compact || subagents.length) ? (
+          <EvidenceSection
+            icon={BoxesIcon}
+            label="Child agents"
+            value="child-agents"
+            count={subagents.length}
+          >
+            <SubagentEvidence onOpenSubagent={props.onOpenSubagent} subagents={subagents} />
+          </EvidenceSection>
+        ) : null}
         {tools.length ? (
           <EvidenceSection icon={WrenchIcon} label="Tool calls" value="tools" count={tools.length}>
             <ToolEvidence tools={tools} />
@@ -204,29 +228,15 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             />
           </EvidenceSection>
         ) : null}
-        {sources.length ? (
-          <EvidenceSection
-            icon={WaypointsIcon}
-            label="Sources"
-            value="sources"
-            count={sources.length}
-          >
-            <SourceEvidence
-              onOpenArtifact={props.onOpenArtifact}
-              onOpenResource={props.onOpenResource}
-              sources={sources}
-            />
-          </EvidenceSection>
-        ) : null}
-        {props.artifacts.length ? (
+        {outputs.length ? (
           <EvidenceSection
             icon={BoxIcon}
-            label="Artifacts"
+            label={props.compact ? 'Outputs' : 'Artifacts'}
             value="artifacts"
-            count={props.artifacts.length}
+            count={outputs.length}
           >
             <ArtifactEvidence
-              artifacts={props.artifacts}
+              artifacts={outputs}
               onOpenArtifact={props.onOpenArtifact}
               ownerLabels={artifactOwnerLabels(props.executionProvenance)}
             />
@@ -241,44 +251,31 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             />
           </EvidenceSection>
         ) : null}
+        {props.compact && props.section !== 'activity' ? (
+          <h2 className="mt-3 border-t pb-1 pt-3 text-xs font-medium text-muted-foreground">
+            Used in this session
+          </h2>
+        ) : null}
+        {sources.length ? (
+          <EvidenceSection
+            icon={WaypointsIcon}
+            label="Sources"
+            value="sources"
+            count={sources.length}
+          >
+            <SourceEvidence
+              onOpenArtifact={props.onOpenArtifact}
+              onOpenResource={props.onOpenResource}
+              sources={sources}
+            />
+          </EvidenceSection>
+        ) : props.compact && props.section !== 'activity' ? (
+          <p className="py-2 text-xs text-muted-foreground">
+            No attachments or references recorded.
+          </p>
+        ) : null}
       </Accordion>
     </div>
-  );
-}
-
-function EvidenceSection({
-  icon: Icon,
-  label,
-  value,
-  count,
-  children,
-}: {
-  icon: typeof FileDiffIcon;
-  label: string;
-  value: string;
-  count: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <AccordionItem value={value}>
-      <AccordionTrigger
-        className="min-h-9 py-2 text-xs hover:no-underline"
-        aria-label={`${label}, ${count.toLocaleString()} recorded`}
-      >
-        <span className="flex items-center gap-2">
-          <Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-          {label}
-          <span className="text-[11px] tabular-nums text-muted-foreground">
-            {count.toLocaleString()}
-          </span>
-        </span>
-      </AccordionTrigger>
-      <AccordionContent>
-        <div className="clio-scrollbar grid max-h-[min(24rem,60vh)] gap-2 overflow-y-auto pr-1">
-          {children}
-        </div>
-      </AccordionContent>
-    </AccordionItem>
   );
 }
 
@@ -665,7 +662,7 @@ function ArtifactEvidence({
 }) {
   if (!artifacts.length) return <EmptyEvidence label="No artifacts were produced." />;
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 grid-cols-1 gap-2">
       {artifacts.map((artifact) => (
         <div key={artifact.id}>
           <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} preview={false} />

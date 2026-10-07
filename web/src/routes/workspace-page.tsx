@@ -409,40 +409,38 @@ export function WorkspacePage() {
           }
           activityControl={
             variant === 'docked' ? (
-              <div className="flex min-w-0 flex-1 items-center gap-1">
-                <WorkspaceLiveObservabilityDock
-                  artifacts={artifacts}
-                  context={context}
-                  contextFiles={sessionObservability.contextFiles.data ?? []}
-                  contextFrames={sessionObservability.contextFrames.data ?? []}
-                  diffs={sessionObservability.diffs.data ?? []}
-                  executionProvenance={executionProvenance.execution.data}
-                  interactions={interactions}
-                  onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
-                  onOpenArtifact={openArtifact}
-                  onOpenDiff={openDiff}
-                  onOpenFile={openWorkspaceFile}
-                  onOpenResource={openWorkspaceResource}
-                  onOpenSubagent={openSubagent}
-                  onProvenanceProviderChange={executionProvenance.setProvider}
-                  processes={processes}
-                  resources={workspaceResources.data ?? []}
-                  provenanceDegradation={executionProvenance.degradation}
-                  provenancePending={
-                    executionProvenance.providers.isPending ||
-                    executionProvenance.execution.isPending
-                  }
-                  provenanceProvider={executionProvenance.provider}
-                  provenanceProviders={executionProvenance.providers.data?.providers}
-                  artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
-                  runs={runs}
-                  sessionId={sessionId}
-                  sessionState={state}
-                  subagents={subagents}
-                  tasks={tasks}
-                  tools={tools}
-                />
-              </div>
+              <WorkspaceLiveObservabilityDock
+                artifacts={artifacts}
+                context={context}
+                contextFiles={sessionObservability.contextFiles.data ?? []}
+                contextFrames={sessionObservability.contextFrames.data ?? []}
+                diffs={sessionObservability.diffs.data ?? []}
+                executionProvenance={executionProvenance.execution.data}
+                interactions={interactions}
+                onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
+                onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
+                onOpenArtifact={openArtifact}
+                onOpenDiff={openDiff}
+                onOpenFile={openWorkspaceFile}
+                onOpenResource={openWorkspaceResource}
+                onOpenSubagent={openSubagent}
+                onProvenanceProviderChange={executionProvenance.setProvider}
+                processes={processes}
+                resources={workspaceResources.data ?? []}
+                provenanceDegradation={executionProvenance.degradation}
+                provenancePending={
+                  executionProvenance.providers.isPending || executionProvenance.execution.isPending
+                }
+                provenanceProvider={executionProvenance.provider}
+                provenanceProviders={executionProvenance.providers.data?.providers}
+                artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
+                runs={runs}
+                sessionId={sessionId}
+                sessionState={state}
+                subagents={subagents}
+                tasks={tasks}
+                tools={tools}
+              />
             ) : undefined
           }
           attachments={workspaceRouteState.canUploadWorkspaceResources(
@@ -777,6 +775,7 @@ export function WorkspacePage() {
                       interactions={interactions}
                       sessionId={sessionId}
                       subagents={subagents}
+                      sessionState={state}
                       workspaceId={workspaceId}
                     />
                   </TranscriptPresenceSurface>
