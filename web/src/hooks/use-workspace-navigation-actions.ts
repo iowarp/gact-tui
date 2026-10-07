@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { loadSessionReviewRenderer } from '@/lib/session-export/renderer-assets';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -118,7 +119,8 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         }
         await refreshNavigation();
       },
-      exportSession: (targetSessionId) => repository.exportSession(targetSessionId),
+      exportSession: async (targetSessionId, mode) =>
+        repository.prepareSessionArchive(targetSessionId, mode, await loadSessionReviewRenderer()),
       importSession: async (value) => {
         const imported = await repository.importSession(value);
         await refreshNavigation(imported.workspace_id);

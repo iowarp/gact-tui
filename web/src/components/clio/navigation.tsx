@@ -75,23 +75,36 @@ export function ClioNavigation({
     setCreateWorkspaceId(workspaceId);
     setCreateKind('session');
   };
-  const downloadSession = async (sessionId: string, title: string) => {
-    const value = await actions.exportSession(sessionId);
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }),
-    );
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${title.replace(/[^a-z0-9._-]+/giu, '-').replace(/^-|-$/gu, '') || 'session'}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+  const downloadSession = async (
+    sessionId: string,
+    title: string,
+    mode: import('@clio/core/v3').SessionExportMode,
+  ) => {
+    const preparing = toast.loading(`Preparing ${mode} export for ${title}…`);
+    try {
+      const value = await actions.exportSession(sessionId, mode);
+      const anchor = document.createElement('a');
+      // Retain a service's base path (including the Desktop/dev remote proxy).
+      anchor.href = `${settings.endpoint.replace(/\/$/u, '')}${value.download_path}`;
+      anchor.download = value.filename;
+      anchor.referrerPolicy = 'no-referrer';
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+    } finally {
+      toast.dismiss(preparing);
+    }
   };
   const runNavigationAction = (action: () => Promise<void>, success: string) => {
     void action()
       .then(() => toast.success(success))
-      .catch((reason: unknown) =>
-        toast.error(reason instanceof Error ? reason.message : String(reason)),
-      );
+      .catch((reason: unknown) => {
+        console.error('Navigation action failed', reason);
+        toast.error(reason instanceof Error ? reason.message : String(reason), {
+          duration: Infinity,
+          closeButton: true,
+        });
+      });
   };
   const switchService = async (recent: (typeof recents)[number]) => {
     try {

@@ -141,6 +141,18 @@ export function ClioToolInvocation({
           subjectId={subject?.id}
           summaryInHeader={summaryInHeader}
         />
+        {tool.state === 'failed' &&
+        tool.error &&
+        !tool.presentation?.blocks.some(
+          (block) => block.severity === 'error' || block.text === tool.error,
+        ) ? (
+          <p
+            role="alert"
+            className="ml-7 whitespace-pre-wrap text-sm text-destructive [overflow-wrap:anywhere]"
+          >
+            {tool.error}
+          </p>
+        ) : null}
         <ResultDialogContent
           title={`${actionLabel}: Technical details`}
           description="Original tool arguments, result, and diagnostics."

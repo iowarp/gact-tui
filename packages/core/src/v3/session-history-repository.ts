@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Session } from './domain.js';
 import { sessionSchema } from './schemas.js';
 import type { ClioTransport } from './transport.js';
+import { captureSessionReview, type SessionExportMode } from './session-export-snapshot.js';
 
 const rollbackResultSchema = z.object({
   session_id: z.string(),
@@ -42,6 +43,40 @@ export class SessionHistoryRepository {
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/export`,
       decode: (value) => value,
       signal,
+    });
+  }
+
+  /** Save an offline visual review with optional effect/workspace payloads. */
+  public async prepareSessionArchive(
+    sessionId: string,
+    mode: SessionExportMode,
+    renderer: { javascript: string; stylesheet: string },
+  ): Promise<{ download_path: string; filename: string }> {
+    const raw = (await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/export-review`,
+      decode: (value) => value,
+    })) as {
+      children?: { session: { id: string } }[];
+    };
+    const snapshot = await captureSessionReview(
+      this.transport,
+      [sessionId, ...(raw.children ?? []).map((row) => row.session.id)],
+      raw,
+    );
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/export-download`,
+      body: { mode, visual_review: { ...renderer, snapshot } },
+      timeoutMs: 30 * 60 * 1000,
+      decode: (value) => {
+        return z
+          .object({
+            download_path: z.string().regex(/^\/v1\/session-export-downloads\/[a-f0-9]{64}$/u),
+            filename: z.string(),
+          })
+          .parse(value);
+      },
     });
   }
 

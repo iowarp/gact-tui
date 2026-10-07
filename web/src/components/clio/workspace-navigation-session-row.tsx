@@ -1,12 +1,5 @@
-import type { AgentBlueprintReference, Session } from '@clio/core/v3';
-import {
-  ArchiveIcon,
-  BellRingIcon,
-  DownloadIcon,
-  LoaderCircleIcon,
-  PinIcon,
-  PinOffIcon,
-} from 'lucide-react';
+import type { AgentBlueprintReference, Session, SessionExportMode } from '@clio/core/v3';
+import { ArchiveIcon, BellRingIcon, LoaderCircleIcon, PinIcon, PinOffIcon } from 'lucide-react';
 import { DeleteIcon, EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +21,7 @@ import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { SessionAttentionIndicators } from './session-attention-indicators';
 import { sessionModeLabel } from './session-behavior-options';
+import { SessionExportMenu } from './session-export-menu';
 
 interface SessionNavigationRowProps {
   session: Session;
@@ -38,7 +32,7 @@ interface SessionNavigationRowProps {
   actions: ResourceActions;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
-  onDownloadSession: (sessionId: string, title: string) => Promise<void>;
+  onDownloadSession: (sessionId: string, title: string, mode: SessionExportMode) => Promise<void>;
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisit: (session: Session) => void;
   attention?: SessionAttention;
@@ -109,17 +103,14 @@ export function SessionNavigationRow({
             >
               <ArchiveIcon aria-hidden="true" /> Archive session
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="whitespace-nowrap"
-              onSelect={() =>
+            <SessionExportMenu
+              onExport={(mode) =>
                 onAction(
-                  () => onDownloadSession(session.id, session.title),
-                  'Session export downloaded',
+                  () => onDownloadSession(session.id, session.title, mode),
+                  'Session archive prepared for download',
                 )
               }
-            >
-              <DownloadIcon aria-hidden="true" /> Export session
-            </DropdownMenuItem>
+            />
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="whitespace-nowrap"

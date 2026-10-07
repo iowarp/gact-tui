@@ -1,6 +1,6 @@
 import { inlineQuestionDomId } from '@/lib/inline-question';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
-import type { McpAppIdentity, Message as DomainMessage } from '@clio/core/v3';
+import type { McpAppIdentity } from '@clio/core/v3';
 import { AlertTriangleIcon, ArrowDownIcon, GitBranchIcon, LoaderCircleIcon } from 'lucide-react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -18,6 +18,7 @@ import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
 import {
   foldA2UIRevisionBlocks,
+  isProjectionOnlyA2UIMessage,
   isProjectedQuestionResumeEnvelope,
   mcpAppResponsesForMessages,
   projectA2UIActionMessages,
@@ -37,15 +38,6 @@ export type { ClioConversationProps, ConversationMessageRowProps } from './conve
 interface ActiveMcpApp {
   id: string;
   identity: McpAppIdentity;
-}
-
-function isProjectionOnlyA2UIMessage(message: DomainMessage): boolean {
-  return (
-    message.role === 'assistant' &&
-    message.id.startsWith('msg_a2ui_') &&
-    !message.turn_id &&
-    message.blocks.every((block) => block.type === 'a2ui')
-  );
 }
 
 import { ConversationMessageRow } from './conversation-message-row';

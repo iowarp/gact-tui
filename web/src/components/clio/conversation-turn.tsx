@@ -96,11 +96,13 @@ export function ConversationTurn({
   if (iterations.length === 0) return null;
   // Plan decisions are conversation boundaries, not details of hidden activity.
   // Split at the owning tool (including mid-iteration) without changing wire order.
-  // The agent's own questions are boundaries too: the pending card and its
-  // answered record stay in the log, never folded into collapsed activity.
+  // Pending questions stay answerable in the log. Settled question records
+  // return to Activity, preserving their original tool position and answer.
   const planReviews =
     interactions?.filter(
-      (item) => item.source.tool_name === 'plan_exit' || isToolAnchoredQuestion(item),
+      (item) =>
+        item.source.tool_name === 'plan_exit' ||
+        (isToolAnchoredQuestion(item) && item.status === 'pending'),
     ) ?? [];
   const boundaries = new Map(
     iterations.flatMap((iteration) =>
@@ -204,7 +206,15 @@ export function ConversationTurn({
   }
 
   return (
-    <ActivityChain answerStarted={answerStarted}>
+    <ActivityChain
+      answerStarted={
+        answerStarted ||
+        Boolean(
+          interactions?.some((item) => isToolAnchoredQuestion(item) && item.status !== 'pending') &&
+            !iterations.some((iteration) => iteration.streaming),
+        )
+      }
+    >
       <ChainOfThoughtHeader className="min-h-8">Activity</ChainOfThoughtHeader>
       <ChainOfThoughtContent>
         {iterations.map((iteration) => (
