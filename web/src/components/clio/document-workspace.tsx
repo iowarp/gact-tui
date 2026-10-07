@@ -647,7 +647,7 @@ function ReviewTimeline({
           <TimelineContent>
             <q>{review.anchor.exact || review.anchor.cell_range || 'Document selection'}</q>
             <p className="mt-1 text-foreground">{review.text}</p>
-            <p className="mt-1 font-mono text-[10px]">Revision {review.artifact_version}</p>
+            <p className="mt-1 font-mono text-[0.625rem]">Revision {review.artifact_version}</p>
           </TimelineContent>
         </TimelineItem>
       ))}
@@ -731,7 +731,7 @@ function DocumentPolicy({
           />
         ))}
         {workingCopy ? (
-          <p className="font-mono text-[10px]">
+          <p className="font-mono text-[0.625rem]">
             Working copy {workingCopy.id}, head version {workingCopy.head_version}
           </p>
         ) : null}

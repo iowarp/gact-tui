@@ -34,7 +34,7 @@ export function MessageCompletionFooter({
   const timestamp = message.completed_at ?? message.created_at;
   return (
     <div
-      className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground"
+      className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-muted-foreground"
       data-slot="message-completion-footer"
     >
       {status ? (

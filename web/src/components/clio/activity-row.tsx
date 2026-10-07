@@ -27,7 +27,7 @@ export function ActivityRow({
 }) {
   return (
     <span
-      className="flex w-full min-w-0 items-center gap-1.5 py-0.5 text-[13px] leading-5"
+      className="flex w-full min-w-0 items-center gap-1.5 py-0.5 text-[0.8125rem] leading-5"
       data-slot="activity-row"
     >
       <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">

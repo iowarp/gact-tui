@@ -46,7 +46,7 @@ export function ClioConversationWelcome({
               >
                 <span className="min-w-0">
                   {prompt.eyebrow ? (
-                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                    <span className="mb-1 block text-[0.625rem] font-semibold uppercase tracking-[0.14em] text-primary">
                       {prompt.eyebrow}
                     </span>
                   ) : null}

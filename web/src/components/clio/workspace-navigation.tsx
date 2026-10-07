@@ -404,7 +404,7 @@ function WorkspaceActionsMenu({
         <DropdownMenuLabel className="min-w-0">
           <WorkspaceLabelFields label={label} />
           <span
-            className="mt-0.5 block truncate font-mono text-[10px] font-normal text-muted-foreground"
+            className="mt-0.5 block truncate font-mono text-[0.625rem] font-normal text-muted-foreground"
             title={workspace.path}
           >
             {workspace.path}

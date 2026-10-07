@@ -205,6 +205,14 @@
   html.dark {
     color-scheme: dark;
   }
+  /* Relative sizing scales typography, control spacing and portalled surfaces
+     together while retaining browser zoom and the user's default font size. */
+  html[data-clio-interface-size='125'] {
+    font-size: 125%;
+  }
+  html[data-clio-interface-size='150'] {
+    font-size: 150%;
+  }
   body {
     @apply bg-background text-foreground;
     height: 100%;
@@ -616,17 +624,17 @@ html[data-clio-motion='reduced'] *::after {
 .tool-presentation-body code {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 14px;
-  line-height: 24px;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
 }
 .tool-presentation-body {
-  font-size: 14px;
-  line-height: 24px;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
 }
 [data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6) {
-  font-size: 16px;
-  line-height: 24px;
-  margin-block: 8px 4px;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  margin-block: 0.5rem 0.25rem;
 }
 [data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6):first-child {
   margin-top: 0;

@@ -160,7 +160,7 @@ export function SessionNavigationRow({
                 <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
               </span>
             ) : unseen ? (
-              <Badge className="h-5 px-1.5 text-[10px]" variant="default">
+              <Badge className="h-5 px-1.5 text-[0.625rem]" variant="default">
                 New
               </Badge>
             ) : (

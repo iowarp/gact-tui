@@ -86,6 +86,7 @@ import {
 import { playAttentionSound } from '@/lib/attention-sound';
 import {
   type ConversationWidth,
+  type InterfaceSize,
   type MotionPreference,
   useAppearancePreferences,
 } from '@/providers/appearance-provider';
@@ -108,7 +109,7 @@ const sections: SettingsDestination[] = [
     label: 'Appearance',
     icon: PaletteIcon,
     group: 'Personal',
-    keywords: 'theme dark light width motion preview files',
+    keywords: 'theme dark light width motion preview files font text size scale zoom display',
   },
   {
     id: 'notifications',
@@ -451,7 +452,14 @@ function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
 
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();
-  const { conversationWidth, motion, setConversationWidth, setMotion } = useAppearancePreferences();
+  const {
+    conversationWidth,
+    interfaceSize,
+    motion,
+    setConversationWidth,
+    setInterfaceSize,
+    setMotion,
+  } = useAppearancePreferences();
   return (
     <div className="grid gap-6">
       <SectionHeading
@@ -469,6 +477,22 @@ function AppearanceSettings() {
               { value: 'system', label: 'System', icon: MonitorCogIcon },
               { value: 'light', label: 'Light', icon: SunIcon },
               { value: 'dark', label: 'Dark', icon: MoonIcon },
+            ]}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Interface size"
+          description="Enlarge text and controls for comfortable reading on this device."
+        >
+          <SettingsChoice
+            id="interface-size"
+            label="Interface size"
+            value={String(interfaceSize)}
+            onChange={(value) => setInterfaceSize(Number(value) as InterfaceSize)}
+            options={[
+              { value: '100', label: '100%' },
+              { value: '125', label: '125%' },
+              { value: '150', label: '150%' },
             ]}
           />
         </SettingsRow>

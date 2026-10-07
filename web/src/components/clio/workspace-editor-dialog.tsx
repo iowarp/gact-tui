@@ -178,12 +178,12 @@ function FolderRow({
       <FolderIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{name}</p>
-        <p className="truncate font-mono text-[10px] text-muted-foreground" title={path}>
+        <p className="truncate font-mono text-[0.625rem] text-muted-foreground" title={path}>
           {path}
         </p>
       </div>
       {primary ? (
-        <span className="rounded-md border px-2 py-0.5 text-[10px] text-muted-foreground">
+        <span className="rounded-md border px-2 py-0.5 text-[0.625rem] text-muted-foreground">
           Primary
         </span>
       ) : (

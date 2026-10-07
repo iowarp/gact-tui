@@ -157,7 +157,7 @@ export function SettingsNavigation({
               .map(({ id, label, icon: Icon }) => (
                 <Button
                   asChild
-                  className="h-8 w-full justify-start gap-2 rounded-md px-2 text-[13px] font-normal"
+                  className="h-8 w-full justify-start gap-2 rounded-md px-2 text-[0.8125rem] font-normal"
                   key={id}
                   variant={id === section ? 'secondary' : 'ghost'}
                 >

@@ -78,7 +78,7 @@ export function SettingsChoice({
       orientation="horizontal"
       value={value}
       onValueChange={onChange}
-      className="grid w-full auto-cols-fr grid-flow-col gap-0.5 rounded-lg bg-muted/70 p-1"
+      className="@container grid w-full auto-cols-fr grid-flow-col gap-0.5 rounded-lg bg-muted/70 p-1"
     >
       {options.map(({ value: option, label: name, description, icon: Icon }) => (
         <Label
@@ -86,7 +86,7 @@ export function SettingsChoice({
           htmlFor={`${id}-${option}`}
           title={description}
           className={cn(
-            'flex min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-center text-sm text-muted-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring',
+            'flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-1 py-1.5 text-center text-sm text-muted-foreground @2xs:flex-row @2xs:px-3 has-focus-visible:ring-2 has-focus-visible:ring-ring',
             value === option && 'bg-background text-foreground shadow-sm',
           )}
         >
@@ -94,9 +94,14 @@ export function SettingsChoice({
             className="sr-only absolute size-px border-0"
             id={`${id}-${option}`}
             value={option}
+            onFocus={() => {
+              // Radix can defer arrow-key focus until after keyup. These Settings
+              // radios select the focused choice, including a quick key press.
+              if (value !== option) onChange(option);
+            }}
           />
           {Icon ? <Icon aria-hidden="true" className="size-4 shrink-0" /> : null}
-          {name}
+          <span className="min-w-0 max-w-full [overflow-wrap:anywhere]">{name}</span>
         </Label>
       ))}
     </RadioGroup>

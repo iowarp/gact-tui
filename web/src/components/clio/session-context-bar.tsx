@@ -112,7 +112,7 @@ export function ClioSessionContextBar({
         </Button>
       ) : null}
       {session?.branch ? (
-        <span className="hidden items-center gap-1 font-mono text-[10px] text-muted-foreground lg:flex">
+        <span className="hidden items-center gap-1 font-mono text-[0.625rem] text-muted-foreground lg:flex">
           <GitBranchIcon aria-hidden="true" className="size-3" />
           {session.branch}
         </span>

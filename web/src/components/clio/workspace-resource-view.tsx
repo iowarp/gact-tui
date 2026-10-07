@@ -451,7 +451,7 @@ function StructuredResourceView({
         <ScrollArea className="border-r p-2">
           <div className="mb-2 px-2">
             <p className="text-xs font-medium">Document structure</p>
-            <p className="text-[10px] leading-4 text-muted-foreground">
+            <p className="text-[0.625rem] leading-4 text-muted-foreground">
               Parsed collections and their first available node.
             </p>
           </div>
@@ -607,7 +607,7 @@ function ResourceProvenance({
                 <span>{deliveryRepresentationLabel(delivery.representation)}</span>
               </p>
               {delivery.reason ? <p className="mt-1">{delivery.reason}</p> : null}
-              <details className="mt-2 text-[10px]">
+              <details className="mt-2 text-[0.625rem]">
                 <summary className="w-fit cursor-pointer font-medium">Internal evidence</summary>
                 <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
                   <dt>Provider</dt>

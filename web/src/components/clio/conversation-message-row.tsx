@@ -214,7 +214,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     : 'Unknown sender'}
             </span>
             {message.role !== 'assistant' ? (
-              <time className="font-mono text-[10px]" dateTime={message.created_at}>
+              <time className="font-mono text-[0.625rem]" dateTime={message.created_at}>
                 {new Date(message.created_at).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
