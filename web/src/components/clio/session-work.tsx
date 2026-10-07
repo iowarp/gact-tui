@@ -32,17 +32,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-
-function useSessionWork(sessionId: string, cursor = 0) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  return useQuery({
-    queryKey: ['session-work', settings.endpoint, sessionId, cursor],
-    queryFn: ({ signal }) => repository.sessionWork(sessionId, cursor, signal),
-    enabled: Boolean(sessionId),
-    refetchInterval: 5000,
-  });
-}
+import { useSessionWork } from './use-session-work';
 
 /** Compact entry to authoritative work state, independent of transcript expansion. */
 export function SessionWorkSummary({

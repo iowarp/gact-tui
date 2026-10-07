@@ -436,6 +436,7 @@ function ConversationBody({
               autoscroll.observeContent(node);
               messagesContainerRef.current = node;
             }}
+            data-slot="transcript-column"
             className={`${virtualized ? 'relative' : ''} mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             style={virtualized ? { height: virtualizer.getTotalSize() } : undefined}
           >

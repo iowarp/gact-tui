@@ -1,6 +1,6 @@
 import type { RunState, WorkspaceReference } from '@clio/core/v3';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
@@ -15,7 +15,6 @@ import { sessionPatchForMessageBehavior } from '@/components/clio/session-behavi
 import { ClioNavigation } from '@/components/clio/navigation';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
-import { SessionWorkSummary } from '@/components/clio/session-work';
 import {
   TranscriptPresenceSurface,
   WorkspaceHydrating,
@@ -61,6 +60,7 @@ import { openExternalUrlOrToast } from '@/tauri/external-url';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
+  const showcaseSurfaceRef = useRef<HTMLElement>(null);
   const [searchParams] = useSearchParams();
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
@@ -399,50 +399,6 @@ export function WorkspacePage() {
       ) : (
         <ClioComposer
           catalogPreparing={a2uiCatalog.isLoading}
-          workSummary={
-            variant === 'docked' ? (
-              <SessionWorkSummary
-                sessionId={sessionId}
-                onOpen={() => revealWorkbench({ kind: 'resources', section: 'work' })}
-              />
-            ) : undefined
-          }
-          activityControl={
-            variant === 'docked' ? (
-              <WorkspaceLiveObservabilityDock
-                artifacts={artifacts}
-                context={context}
-                contextFiles={sessionObservability.contextFiles.data ?? []}
-                contextFrames={sessionObservability.contextFrames.data ?? []}
-                diffs={sessionObservability.diffs.data ?? []}
-                executionProvenance={executionProvenance.execution.data}
-                interactions={interactions}
-                onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
-                onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
-                onOpenArtifact={openArtifact}
-                onOpenDiff={openDiff}
-                onOpenFile={openWorkspaceFile}
-                onOpenResource={openWorkspaceResource}
-                onOpenSubagent={openSubagent}
-                onProvenanceProviderChange={executionProvenance.setProvider}
-                processes={processes}
-                resources={workspaceResources.data ?? []}
-                provenanceDegradation={executionProvenance.degradation}
-                provenancePending={
-                  executionProvenance.providers.isPending || executionProvenance.execution.isPending
-                }
-                provenanceProvider={executionProvenance.provider}
-                provenanceProviders={executionProvenance.providers.data?.providers}
-                artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
-                runs={runs}
-                sessionId={sessionId}
-                sessionState={state}
-                subagents={subagents}
-                tasks={tasks}
-                tools={tools}
-              />
-            ) : undefined
-          }
           attachments={workspaceRouteState.canUploadWorkspaceResources(
             capabilities.data?.capabilities,
           )}
@@ -547,6 +503,43 @@ export function WorkspacePage() {
           workspaceId={workspaceId}
         />
         <ClioAppShell
+          toolbarActions={
+            <WorkspaceLiveObservabilityDock
+              toolbar
+              surfaceRef={showcaseSurfaceRef}
+              workspaceId={workspaceId}
+              artifacts={artifacts}
+              context={context}
+              contextFiles={sessionObservability.contextFiles.data ?? []}
+              contextFrames={sessionObservability.contextFrames.data ?? []}
+              diffs={sessionObservability.diffs.data ?? []}
+              executionProvenance={executionProvenance.execution.data}
+              interactions={interactions}
+              onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
+              onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
+              onOpenArtifact={openArtifact}
+              onOpenDiff={openDiff}
+              onOpenFile={openWorkspaceFile}
+              onOpenResource={openWorkspaceResource}
+              onOpenSubagent={openSubagent}
+              onProvenanceProviderChange={executionProvenance.setProvider}
+              processes={processes}
+              resources={workspaceResources.data ?? []}
+              provenanceDegradation={executionProvenance.degradation}
+              provenancePending={
+                executionProvenance.providers.isPending || executionProvenance.execution.isPending
+              }
+              provenanceProvider={executionProvenance.provider}
+              provenanceProviders={executionProvenance.providers.data?.providers}
+              artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
+              runs={runs}
+              sessionId={sessionId}
+              sessionState={state}
+              subagents={subagents}
+              tasks={tasks}
+              tools={tools}
+            />
+          }
           navigation={
             <ClioNavigation
               activeSessionId={sessionId}
@@ -699,7 +692,11 @@ export function WorkspacePage() {
             />
           }
         >
-          <section className="relative flex h-full min-w-0 flex-col bg-background">
+          <section
+            ref={showcaseSurfaceRef}
+            data-slot="session-transcript"
+            className="relative flex h-full min-w-0 flex-col bg-background"
+          >
             <WorkspaceTranscriptAlerts
               sessionFailed={
                 session?.state === 'failed' &&

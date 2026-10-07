@@ -19,7 +19,7 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import { BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -83,6 +83,9 @@ export interface ClioObservabilityDockProps {
   onOpenResource?: (resource: WorkspaceResource) => void;
   sessionState?: RunState;
   sessionId?: string;
+  workspaceId?: string;
+  surfaceRef?: RefObject<HTMLElement | null>;
+  toolbar?: boolean;
   executionProvenance?: ExecutionProvenanceResult;
   provenanceProviders?: readonly ProvenanceProviderSummary[];
   artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
@@ -174,23 +177,29 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
               }
             }}
             className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground"
-            size="sm"
+            size={props.toolbar ? 'icon-sm' : 'sm'}
             title={`Evidence: ${layout}. Click for next layout; right-click for previous. ${dockLabel}`}
             type="button"
             variant="ghost"
           >
             <EvidenceLayoutIcon layout={layout} />
-            <span className="hidden min-w-0 max-w-40 truncate text-left font-medium @min-[50rem]/composer:inline">
+            <span
+              className={
+                props.toolbar
+                  ? 'sr-only'
+                  : 'hidden min-w-0 max-w-40 truncate text-left font-medium @min-[50rem]/composer:inline'
+              }
+            >
               {dockLabel}
             </span>
-            {presentationOverrideCount ? (
+            {!props.toolbar && presentationOverrideCount ? (
               <ClioStatus
                 className="hidden py-0.5 @min-[65rem]/composer:inline-flex"
                 label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
                 value="degraded"
               />
             ) : null}
-            {showDockStatusBadge ? (
+            {!props.toolbar && showDockStatusBadge ? (
               <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value={dockStatusValue} />
             ) : null}
           </Button>
@@ -201,7 +210,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
       <span aria-live="polite" className="sr-only">
         {dockStatus}
       </span>
-      {props.subagents.length ? (
+      {!props.toolbar && props.subagents.length ? (
         <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>
           <PopoverTrigger asChild>
             <Button

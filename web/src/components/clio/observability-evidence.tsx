@@ -65,7 +65,7 @@ import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-pres
 
 export interface ClioEvidenceViewProps {
   compact?: boolean;
-  section?: 'activity' | 'sources';
+  section?: 'data' | 'work';
   artifacts: readonly Artifact[];
   contextFiles: readonly ContextFile[];
   diffs: readonly SessionDiff[];
@@ -89,8 +89,9 @@ export interface ClioEvidenceViewProps {
 }
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
-  const showActivity = props.section !== 'sources';
-  const outputs = showActivity
+  const showActivity = props.section !== 'data';
+  const showData = props.section !== 'work';
+  const outputs = showData
     ? props.artifacts.filter((artifact) => artifact.session_relation !== 'used')
     : [];
   const backgroundProcesses = showActivity
@@ -100,23 +101,24 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
   const subagents = showActivity ? (props.subagents ?? []) : [];
   const tasks = showActivity ? (props.tasks ?? []) : [];
   const tools = showActivity ? (props.tools ?? []) : [];
-  const files = showActivity
-    ? sessionFiles(props.contextFiles, tools, props.executionProvenance)
+  const files = showData
+    ? sessionFiles(props.contextFiles, props.tools ?? [], props.executionProvenance)
     : [];
-  const diffs = showActivity ? sessionDiffs(props.diffs, tools, props.executionProvenance) : [];
+  const diffs = showData
+    ? sessionDiffs(props.diffs, props.tools ?? [], props.executionProvenance)
+    : [];
   const plans = showActivity
     ? sessionPlans(props.messages, props.interactions ?? [], props.artifacts)
     : [];
-  const sources =
-    props.section === 'activity'
-      ? []
-      : sessionSources(
-          props.messages,
-          props.processes,
-          props.resources ?? [],
-          props.executionProvenance,
-          props.artifacts,
-        );
+  const sources = !showData
+    ? []
+    : sessionSources(
+        props.messages,
+        props.processes,
+        props.resources ?? [],
+        props.executionProvenance,
+        props.artifacts,
+      );
   const hasEvidence = Boolean(
     diffs.length ||
       outputs.length ||
@@ -165,11 +167,6 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
         ]}
         type="multiple"
       >
-        {props.compact && showActivity ? (
-          <h2 className="pb-1 pt-2 text-xs font-medium text-muted-foreground">
-            Progress and outputs
-          </h2>
-        ) : null}
         {runs.length ? (
           <EvidenceSection icon={ActivityIcon} label="Agent runs" value="runs" count={runs.length}>
             <RunEvidence runs={runs} />
@@ -231,7 +228,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
         {outputs.length ? (
           <EvidenceSection
             icon={BoxIcon}
-            label={props.compact ? 'Outputs' : 'Artifacts'}
+            label="Artifacts"
             value="artifacts"
             count={outputs.length}
           >
@@ -239,6 +236,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
               artifacts={outputs}
               onOpenArtifact={props.onOpenArtifact}
               ownerLabels={artifactOwnerLabels(props.executionProvenance)}
+              compact={props.compact}
             />
           </EvidenceSection>
         ) : null}
@@ -250,11 +248,6 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
               plans={plans}
             />
           </EvidenceSection>
-        ) : null}
-        {props.compact && props.section !== 'activity' ? (
-          <h2 className="mt-3 border-t pb-1 pt-3 text-xs font-medium text-muted-foreground">
-            Used in this session
-          </h2>
         ) : null}
         {sources.length ? (
           <EvidenceSection
@@ -269,10 +262,6 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
               sources={sources}
             />
           </EvidenceSection>
-        ) : props.compact && props.section !== 'activity' ? (
-          <p className="py-2 text-xs text-muted-foreground">
-            No attachments or references recorded.
-          </p>
         ) : null}
       </Accordion>
     </div>
@@ -655,18 +644,20 @@ function ArtifactEvidence({
   artifacts,
   onOpenArtifact,
   ownerLabels,
+  compact,
 }: {
   artifacts: readonly Artifact[];
   onOpenArtifact?: (artifact: Artifact) => void;
   ownerLabels: ReadonlyMap<string, string>;
+  compact?: boolean;
 }) {
   if (!artifacts.length) return <EmptyEvidence label="No artifacts were produced." />;
   return (
     <div className="grid min-w-0 grid-cols-1 gap-2">
       {artifacts.map((artifact) => (
-        <div key={artifact.id}>
+        <div key={artifact.id} title={compact ? ownerLabels.get(artifact.id) : undefined}>
           <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} preview={false} />
-          {ownerLabels.get(artifact.id) ? (
+          {!compact && ownerLabels.get(artifact.id) ? (
             <p className="mt-0.5 text-[11px] text-muted-foreground">
               {`Generated by ${ownerLabels.get(artifact.id)}`}
             </p>

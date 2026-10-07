@@ -2009,6 +2009,10 @@ const server = createServer(async (request, response) => {
     sendJson(response, { schedules: [], cron_timezone: 'UTC' });
     return;
   }
+  if (request.method === 'GET' && url.pathname === `/v1/workspaces/${workspaceId}/sources`) {
+    sendJson(response, { sources: [] });
+    return;
+  }
   // The variant tabs rebuild a session's BestOfN / Refine runs from this route
   // after a reload; the flat-NDP session has none.
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/variant-runs`) {
