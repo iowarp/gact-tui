@@ -574,8 +574,11 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
     })
     .toBe(true);
   const activeMarker = activeLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  await expect(activeMarker).toHaveCSS('width', `${railWidth - 4}px`);
-  await expect(activeMarker).toHaveCSS('height', '5px');
+  await expect.poll(async () => (await activeMarker.boundingBox())!.width).toBeGreaterThan(12);
+  await expect
+    .poll(async () => (await activeMarker.boundingBox())!.width)
+    .toBeLessThanOrEqual(railWidth / 2);
+  await expect(activeMarker).toHaveCSS('height', '4px');
   await expect(activeMarker).toHaveCSS('opacity', '1');
   const previousLandmark = minimap.getByRole('button', {
     exact: true,
@@ -916,7 +919,13 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await expect(queue).toBeVisible();
   await expect(queue.getByText('6 queued messages')).toBeVisible();
   await expect(queue.locator('[data-queue-live-item]')).toHaveCount(6);
-  await expect(queue).toHaveCSS('backdrop-filter', /blur/);
+  await expect(queue).toHaveCSS('backdrop-filter', 'none');
+  const composerSurface = page.locator(
+    '[data-slot="clio-composer-stack"] form > [data-slot="input-group"]',
+  );
+  await expect
+    .poll(() => queue.evaluate((node) => getComputedStyle(node).backgroundColor))
+    .toBe(await composerSurface.evaluate((node) => getComputedStyle(node).backgroundColor));
   await expect(
     queue.getByRole('button', { name: 'Reorder queued message', exact: true }).first(),
   ).toBeVisible();

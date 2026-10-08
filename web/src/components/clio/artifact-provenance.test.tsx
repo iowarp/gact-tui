@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArtifactProvenance } from './artifact-provenance';
@@ -81,6 +81,9 @@ const repository = vi.hoisted(() => ({
   }),
   exportArtifact: vi.fn(),
 }));
+const nativeDownloads = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('@/tauri/downloads', () => ({ openDownloads: nativeDownloads }));
+const downloadSpies: Array<{ mockRestore: () => void }> = [];
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -90,9 +93,88 @@ vi.mock('@/providers/connection-provider', () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  for (const spy of downloadSpies) spy.mockRestore();
+  downloadSpies.length = 0;
+  Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
 });
 
 describe('ArtifactProvenance', () => {
+  it.each([true, false])('downloads evidence ZIP bytes on desktop=%s', async (desktop) => {
+    if (desktop) {
+      Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+    }
+    const bytes = new Uint8Array([99, 80, 75, 3, 4, 99]).subarray(1, 5);
+    repository.exportArtifact.mockResolvedValueOnce(bytes);
+    let downloaded: Blob | undefined;
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      downloaded = blob as Blob;
+      return 'blob:evidence';
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      expect(this.download).toBe('Drafts-result.csv.crate.zip');
+      expect(this.href).toBe('blob:evidence');
+      expect(this.referrerPolicy).toBe('no-referrer');
+      expect(document.body.contains(this)).toBe(true);
+    });
+    downloadSpies.push(createUrl, click);
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ArtifactProvenance
+          artifact={{
+            id: 'artifact_2',
+            session_id: 'sess_1',
+            name: 'Drafts / π result.csv',
+            media_type: 'text/csv',
+            uri: 'artifact://result.csv',
+          }}
+        />
+      </QueryClientProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Export with evidence' }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(repository.exportArtifact).toHaveBeenCalledWith('artifact_2');
+    expect(nativeDownloads).toHaveBeenCalledTimes(desktop ? 1 : 0);
+    expect(downloaded?.type).toBe('application/zip');
+    const content = await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(downloaded!);
+    });
+    expect([...new Uint8Array(content)]).toEqual([80, 75, 3, 4]);
+    expect(document.querySelector('a[download]')).toBeNull();
+  });
+
+  it('keeps a failed evidence export out of Downloads', async () => {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+    repository.exportArtifact.mockRejectedValueOnce(new Error('Packaging failed'));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    downloadSpies.push(click);
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ArtifactProvenance
+          artifact={{
+            id: 'artifact_2',
+            session_id: 'sess_1',
+            name: 'result.csv',
+            media_type: 'text/csv',
+            uri: 'artifact://result.csv',
+          }}
+        />
+      </QueryClientProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Export with evidence' }));
+    expect(await screen.findByText('Evidence export unavailable')).toBeVisible();
+    expect(click).not.toHaveBeenCalled();
+    expect(nativeDownloads).not.toHaveBeenCalled();
+  });
+
   it('shows immutable versions and the authoritative lineage without raw JSON', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const versions = render(

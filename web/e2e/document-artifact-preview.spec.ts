@@ -206,6 +206,9 @@ for (const layout of [
           }
         });
         await page.goto(`/workspaces/${workspaceId}/sessions/${sessionId}`);
+        // The loading shell is replaced after session hydration. Drive the
+        // mounted workspace so an early click is not lost with that shell.
+        await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
         await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
         await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
         await page.getByRole('menuitem', { name: 'Session artifacts', exact: true }).click();
