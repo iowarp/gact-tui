@@ -49,21 +49,37 @@ export function decodeInfrastructureOperationEvent(
   const payload = data.payload ?? {};
   switch (type) {
     case 'operation.snapshot':
-      return { id: 0, type, operation: infrastructureOperationSchema.parse(payload) };
+      return {
+        id: 0,
+        type: 'operation.snapshot',
+        operation: infrastructureOperationSchema.parse(payload),
+      };
     case 'operation.completed':
-      return { id, type, operation: infrastructureOperationSchema.parse(payload) };
+      return {
+        id,
+        type: 'operation.completed',
+        operation: infrastructureOperationSchema.parse(payload),
+      };
     case 'operation.progress':
-      return { id, type, progress: operationProgressPatchSchema.parse(payload) };
+      return {
+        id,
+        type: 'operation.progress',
+        progress: operationProgressPatchSchema.parse(payload),
+      };
     case 'operation.log':
-      return { id, type, log: operationLogLineSchema.parse(payload) };
+      return { id, type: 'operation.log', log: operationLogLineSchema.parse(payload) };
     case 'operation.reuse':
-      return { id, type, reuse: operationReuseSchema.parse(payload) };
+      return { id, type: 'operation.reuse', reuse: operationReuseSchema.parse(payload) };
     case 'stream.gap': {
       const first = (payload as { first_retained_id?: unknown }).first_retained_id;
-      return { id: 0, type, first_retained_id: typeof first === 'number' ? first : undefined };
+      return {
+        id: 0,
+        type: 'stream.gap',
+        first_retained_id: typeof first === 'number' ? first : undefined,
+      };
     }
     case 'server.heartbeat':
-      return { id: 0, type };
+      return { id: 0, type: 'server.heartbeat' };
     default:
       return undefined;
   }
