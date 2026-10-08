@@ -117,6 +117,7 @@ function fallbackIterations(
     ? indexed
     : indexed.sort((left, right) => (left.block.sequence ?? 0) - (right.block.sequence ?? 0));
   let current = emptyIteration(message, iterations.length);
+  let publicThought: string | undefined;
 
   const flush = (terminal = false, interrupted = false) => {
     if (!hasIterationContent(current)) return;
@@ -161,6 +162,7 @@ function fallbackIterations(
         consumed.add(block.id);
         continue;
       }
+      publicThought = undefined;
       if (current.nextThoughts.length > 0 || current.activity.length > 0) {
         flush();
       }
@@ -183,6 +185,7 @@ function fallbackIterations(
     if (block.type === 'text' && block.channel === 'next_thought') {
       if (current.activity.length > 0) flush();
       current.nextThoughts.push(block.text);
+      publicThought = block.text;
       (current.nextThoughtSources ??= []).push({
         messageId: message.id,
         sessionId: message.session_id,
@@ -205,8 +208,10 @@ function fallbackIterations(
       if (!alreadyInLane(current, 'tool', tool.id)) {
         current.activity.push({ kind: 'tool', id: tool.id, tool });
       }
-      if (block.thought && current.nextThoughts.length === 0) {
+      if (block.thought && current.nextThoughts.length === 0 && block.thought !== publicThought) {
+        // A surface splits display entries, not the response's repeated tool metadata.
         current.nextThoughts.push(block.thought);
+        publicThought = block.thought;
         (current.nextThoughtSources ??= []).push({
           messageId: message.id,
           sessionId: message.session_id,
