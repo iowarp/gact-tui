@@ -51,6 +51,7 @@ export function downloadUrl(url: string, filename: string): void {
   anchor.href = url;
   anchor.download = filename;
   anchor.rel = 'noopener';
+  anchor.referrerPolicy = 'no-referrer';
   anchor.style.display = 'none';
   document.body.append(anchor);
   anchor.click();

@@ -97,6 +97,7 @@ describe('browser download helpers', () => {
     ) {
       expect(this.href).toBe('blob:existing/abc');
       expect(this.download).toBe('photo.png');
+      expect(this.referrerPolicy).toBe('no-referrer');
     });
 
     downloadUrl('blob:existing/abc', 'photo.png');
