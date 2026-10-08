@@ -261,16 +261,21 @@ export function useWorkspaceData({
   const attentionInteractionsError = attentionInteractionQueries.find(
     (query) => query.error,
   )?.error;
+  const legacyInteractions = useMemo(
+    () => legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),
+    [approvals.data, hierarchySessions, questions.data],
+  );
   const interactions = useMemo(
     () =>
       supportsUnifiedInteractions
         ? (normalizedInteractions.data?.interactions ?? [])
-        : legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),
+        : legacyInteractions.filter(
+            (interaction) => interaction.attended_session_id === attendedSessionId,
+          ),
     [
-      approvals.data,
-      hierarchySessions,
+      attendedSessionId,
+      legacyInteractions,
       normalizedInteractions.data,
-      questions.data,
       supportsUnifiedInteractions,
     ],
   );
@@ -279,7 +284,7 @@ export function useWorkspaceData({
         ...interactions,
         ...attentionInteractionQueries.flatMap((query) => query.data?.interactions ?? []),
       ]
-    : interactions;
+    : legacyInteractions;
   const a2uiOwnerIds = useMemo(
     () => [
       ...new Set(

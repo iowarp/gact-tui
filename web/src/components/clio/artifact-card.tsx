@@ -2,13 +2,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { artifactDeliverables, isDocumentPreview } from '@/lib/artifact-presentation';
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import {
-  FileTextIcon,
-  ImageIcon,
-  FileSpreadsheetIcon,
-  FileIcon,
-  TriangleAlertIcon,
-} from 'lucide-react';
+import { TriangleAlertIcon } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import {
   Artifact,
@@ -43,6 +37,7 @@ import { describeReferenceError } from '@/lib/a2ui/reference-failure';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 import { downloadBytes } from './surface-export';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
+import { ArtifactTypeIcon } from './artifact-type-icon';
 
 export interface ClioArtifactCardProps {
   artifact: ArtifactEntity;
@@ -111,13 +106,6 @@ function ArtifactCardContent({
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
   const tabular = isTabularArtifact(artifact);
-  const FormatIcon = image
-    ? ImageIcon
-    : tabular
-      ? FileSpreadsheetIcon
-      : text
-        ? FileTextIcon
-        : FileIcon;
   const withinBudget = artifact.size !== undefined && artifact.size <= INLINE_PREVIEW_MAX_BYTES;
   const textWithinBudget = artifact.size !== undefined && artifact.size <= TEXT_PREVIEW_MAX_BYTES;
   const imageBytes = useQuery({
@@ -206,7 +194,7 @@ function ArtifactCardContent({
     <Artifact className={cn('group/artifact group relative', className)}>
       <ArtifactHeader className="gap-2.5 px-3 py-2">
         <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted/60 text-muted-foreground">
-          <FormatIcon aria-hidden="true" className="size-4" />
+          <ArtifactTypeIcon artifact={artifact} className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
           {onOpen ? (

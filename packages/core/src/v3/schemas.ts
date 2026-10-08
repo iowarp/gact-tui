@@ -171,6 +171,7 @@ export const sessionSchema = z.object({
   effort: z.string().optional(),
   branch: z.string().optional(),
   parent_session_id: z.string().optional(),
+  session_kind: forwardCompatibleEnum(['conversation', 'branch', 'agent', 'lookup']).optional(),
   agent_id: z.string().optional(),
   active_blueprint_id: z.string().optional(),
   active_blueprint_name: z.string().optional(),

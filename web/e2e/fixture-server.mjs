@@ -22,6 +22,7 @@ import {
   runEarthquakeTableQuery,
 } from './a2ui-data-demo-fixture.mjs';
 import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
+import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -715,6 +716,8 @@ function seedQueuedMessages() {
 
 /** Return a dense sanitized transcript with one active, always-mounted streaming turn. */
 function transcriptMessages() {
+  const compact = branchArtifacts.compactMessages();
+  if (compact) return compact;
   const messages = Array.from({ length: 998 }, (_, index) => ({
     id: `msg_history_${String(index).padStart(4, '0')}`,
     session_id: sessionId,
@@ -1383,6 +1386,10 @@ function startHighRateStream() {
   }, 10);
 }
 
+const branchArtifacts = createBranchArtifactFixture({
+  session, workspaceId, observedAt, transcriptMessages, readJson, sendJson, commonHeaders,
+});
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
   if (request.method === 'OPTIONS') {
@@ -1391,6 +1398,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
+    branchArtifacts.reset();
     session.state = 'running';
     session.updated_at = observedAt;
     permissionPending = true;
@@ -1428,6 +1436,7 @@ const server = createServer(async (request, response) => {
     response.end();
     return;
   }
+  if (await branchArtifacts.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
     session.state = 'failed';
     session.updated_at = new Date().toISOString();
@@ -1926,7 +1935,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/sessions') {
-    sendJson(response, { sessions: [session] });
+    sendJson(response, { sessions: [session, ...branchArtifacts.sessions()] });
     return;
   }
   if (
@@ -2168,7 +2177,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
-    const artifacts = a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord];
+    const artifacts = [...(a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord]), ...branchArtifacts.artifacts()];
     sendJson(response, {
       artifacts,
       used: [],

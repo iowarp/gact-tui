@@ -109,6 +109,8 @@ export interface Session {
   effort?: string;
   branch?: string;
   parent_session_id?: string;
+  /** Conversation ownership is distinct from provenance parentage. */
+  session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup'>;
   agent_id?: string;
   active_blueprint_id?: string;
   active_blueprint_name?: string;
