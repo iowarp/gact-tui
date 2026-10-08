@@ -27,7 +27,8 @@ export function selectPublishedRelease(
   return releases
     .filter((release) => {
       const version = displayReleaseVersion(release.tag_name);
-      if (!version || !/^\d+\.\d+\.\d+(?:\.\d+)?(?:-beta\.\d+)?$/u.test(version)) return false;
+      if (!version || !/^\d+\.\d+\.\d+(?:\.\d+)?(?:-beta\.\d+(?:\.\d+)?)?$/u.test(version))
+        return false;
       if (release.draft || !release.published_at) return false;
       if (channel === 'stable' && (release.prerelease || isBetaVersion(version))) return false;
       if (release.prerelease && !isBetaVersion(version)) return false;

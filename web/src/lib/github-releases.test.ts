@@ -45,6 +45,19 @@ function release(tag: string, overrides: Partial<PublishedRelease> = {}): Publis
 }
 
 describe('published release channels', () => {
+  it('selects a published beta hotfix while retaining stable channel and manifest guards', () => {
+    const candidates = [
+      release('v0.9.5-beta.5.2', { assets: [] }),
+      release('v0.9.5-beta.5.1'),
+      release('v0.9.5-beta.5'),
+      release('v0.9.4.24'),
+    ];
+    expect(selectPublishedRelease(candidates, 'beta')?.tag_name).toBe('v0.9.5-beta.5.1');
+    expect(selectPublishedRelease(candidates, 'stable')?.tag_name).toBe('v0.9.4.24');
+    expect(
+      selectPublishedRelease([release('v0.9.5-beta.5.1', { prerelease: false })], 'stable'),
+    ).toBeUndefined();
+  });
   const releases = [release('v0.9.5-beta.2'), release('v0.9.4.24'), release('v0.9.5-beta.1')];
   it('keeps stable users on stable and gives beta users newer betas', () => {
     expect(selectPublishedRelease(releases, 'stable')?.tag_name).toBe('v0.9.4.24');
