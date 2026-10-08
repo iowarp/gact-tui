@@ -665,6 +665,7 @@ describe('connected source picker', () => {
         undefined,
         'draft_test',
         'editable',
+        undefined,
       ),
     );
     expect(screen.getByRole('heading', { name: 'OPAL inputs' })).toBeInTheDocument();
