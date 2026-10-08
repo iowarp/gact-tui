@@ -43,8 +43,12 @@ pub(crate) fn prepare_packages(
     user: &Path,
 ) -> Result<(), String> {
     let output = install_command(runtime, workspace, user)
-        .output()
-        .map_err(|error| format!("start managed package installation: {error}"))?;
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("start managed package installation: {error}"))?
+        .wait_with_output()
+        .map_err(|error| format!("wait for managed package installation: {error}"))?;
     if !output.status.success() {
         let detail = String::from_utf8_lossy(&output.stderr);
         let bounded: String = detail
