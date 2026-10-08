@@ -9,6 +9,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
 import { GlobusReceivingStorage } from './globus-receiving-storage';
+import { displayHostPath } from '@/lib/host-path-display';
 
 const labels: Record<keyof HostStorageLocations, string> = {
   root: 'Storage root',
@@ -51,11 +52,15 @@ function StorageForm({ data }: { data: Settings }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<HostStorageLocations>(data.requested);
-  const root = draft.root || data.defaults.root || '';
+  const [draft, setDraft] = useState<HostStorageLocations>(() =>
+    Object.fromEntries(
+      Object.entries(data.requested).map(([key, value]) => [key, displayHostPath(value ?? '')]),
+    ),
+  );
+  const root = draft.root || displayHostPath(data.defaults.root || '');
   const separator = root.includes('\\') ? '\\' : '/';
   const inherited = {
-    root: data.defaults.root,
+    root: displayHostPath(data.defaults.root || ''),
     ...Object.fromEntries(
       Object.entries({
         models: 'models',

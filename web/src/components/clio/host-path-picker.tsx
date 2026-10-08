@@ -14,6 +14,9 @@ import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { displayHostPath } from '@/lib/host-path-display';
+import { toast } from 'sonner';
 
 /** A folder browser whose every request carries the selected execution host. */
 export function HostPathPicker({
@@ -46,7 +49,8 @@ export function HostPathPicker({
   }>;
 }) {
   const repository = useRepository();
-  const { settings } = useConnectionSettings();
+  const { settings, isManagedConnection } = useConnectionSettings();
+  const [nativePending, setNativePending] = useState(false);
   const [open, setOpen] = useState(false);
   const [folder, setFolder] = useState(path);
   const [entered, setEntered] = useState(path);
@@ -71,10 +75,29 @@ export function HostPathPicker({
     <Dialog open={open} onOpenChange={setOpen}>
       <Button
         type="button"
-        disabled={disabled}
+        disabled={disabled || nativePending}
         variant="outline"
         aria-label={`Browse ${label.toLowerCase()} on ${hostLabel}`}
-        onClick={() => {
+        onClick={async () => {
+          if (inTauri() && isManagedConnection && targetId === 'local' && !browse) {
+            setNativePending(true);
+            try {
+              const { open: choose } = await import('@tauri-apps/plugin-dialog');
+              const selected = await choose({
+                directory: true,
+                multiple: false,
+                defaultPath: displayHostPath(path || startPath || '') || undefined,
+              });
+              if (typeof selected === 'string') onChoose(selected);
+            } catch (error) {
+              toast.error('Could not open the folder picker', {
+                description: error instanceof Error ? error.message : String(error),
+              });
+            } finally {
+              setNativePending(false);
+            }
+            return;
+          }
           setFolder(path || startPath || '');
           setEntered(path || startPath || '');
           setOpen(true);
@@ -97,7 +120,7 @@ export function HostPathPicker({
         >
           <Input
             aria-label={`Folder path on ${hostLabel}`}
-            value={entered}
+            value={displayHostPath(entered)}
             onChange={(event) => setEntered(event.target.value)}
           />
           <Button type="submit" variant="outline">
@@ -129,7 +152,9 @@ export function HostPathPicker({
               >
                 <ArrowUpIcon />
               </Button>
-              <span className="min-w-0 break-all text-sm">{listing.data.path}</span>
+              <span className="min-w-0 break-all text-sm">
+                {displayHostPath(listing.data.path)}
+              </span>
             </div>
             <div className="max-h-64 overflow-y-auto" aria-label="Folders">
               {listing.data.entries.map((entry) => (

@@ -30,6 +30,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      '@clio/core/v3': fileURLToPath(new URL('../packages/core/src/v3/index.ts', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },

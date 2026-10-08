@@ -41,7 +41,19 @@ export function foundationSummary(integration: ServiceIntegrationHealth): string
   if (integrationStatus(integration.status) === 'healthy') {
     return ready[integration.name] ?? 'This supporting service is ready.';
   }
+  if (integration.name === 'lm_provider') {
+    return integration.summary || 'Check the selected provider connection to confirm it is ready.';
+  }
   return degraded[integration.name] ?? 'This supporting service needs attention.';
+}
+
+/** Group every displayed row once, using the same status mapping as its badge. */
+export function foundationGroups(integrations: ServiceIntegrationHealth[]) {
+  return {
+    errors: integrations.filter((row) => integrationStatus(row.status) === 'unavailable'),
+    warnings: integrations.filter((row) => integrationStatus(row.status) === 'degraded'),
+    ready: integrations.filter((row) => integrationStatus(row.status) === 'healthy'),
+  };
 }
 
 export function foundationTitle(name: string): string {
