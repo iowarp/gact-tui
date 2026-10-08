@@ -120,8 +120,8 @@ describe('step progress', () => {
       }),
     ).toBe('Reusing vLLM image (sha256:0123456789ab…); skipped 9.8 GB/~12m 34s');
     expect(
-      reuseNote({ kind: 'venv', thing: 'env', identity: 'x', path: '', message: 'From CLIO' }),
-    ).toBe('From CLIO');
+      reuseNote({ kind: 'venv', thing: 'env', identity: 'x', path: '', message: 'From the cache' }),
+    ).toBe('From the cache');
   });
 
   it('ticks elapsed time while running and keeps the recorded value after', () => {

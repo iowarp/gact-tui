@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { TERMINAL_FONT_FAMILY, loadXterm } from '@/tauri/workspace-terminal';
 import type { OperationLogEntry } from './operation-progress-model';
 
-/** Lines CLIO itself wrote (reuse notes, step changes) stand apart from command output. */
-const CLIO_LINE = (text: string) => `\x1b[36m${text}\x1b[0m`;
+/** Lines the service itself wrote (reuse notes, step changes) stand apart from command output. */
+const SERVICE_LINE = (text: string) => `\x1b[36m${text}\x1b[0m`;
 const STDERR_LINE = (text: string) => `\x1b[33m${text}\x1b[0m`;
 
 /**
@@ -67,7 +67,7 @@ export function OperationLogTerminal({
       if (entry.id <= written.current) continue;
       const text =
         entry.stream === 'clio'
-          ? CLIO_LINE(entry.line)
+          ? SERVICE_LINE(entry.line)
           : entry.stream === 'stderr'
             ? STDERR_LINE(entry.line)
             : entry.line;

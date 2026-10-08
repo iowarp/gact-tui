@@ -209,7 +209,7 @@ describe('SettingsWorkingContext', () => {
       current: 200_000,
       current_choice: 'max',
       current_reason: 'the model’s maximum',
-      fit_to_gpu: { available: false, reason: 'CLIO does not run this model', strategies },
+      fit_to_gpu: { available: false, reason: 'Not run by this service', strategies },
     });
     repository.workingContext.mockResolvedValue(seed);
     repository.saveWorkingContext.mockResolvedValue({
