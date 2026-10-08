@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
+import { InstallExpectation } from './install-expectation';
 
 const initial: ModelDownloadInput = { repository: '', revision: 'main', destination: '' };
 const size = (bytes: number) =>
@@ -91,6 +92,7 @@ export function ModelAcquisitions({
       repository.modelAcquisitionAction(targetId, id, action),
     onSuccess: refresh,
   });
+  const chosen = found.data?.models.find((model) => model.repository === draft.repository.trim());
   const error = inventory.error ?? acquire.error ?? action.error;
   const unavailable = inventory.data?.unavailable_reason;
   return (
@@ -292,6 +294,10 @@ export function ModelAcquisitions({
                 {acquire.error.message}
               </p>
             ) : null}
+            <InstallExpectation
+              downloadBytes={chosen?.size_bytes}
+              thing={draft.repository.trim() || 'the model files'}
+            />
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
@@ -385,6 +391,7 @@ function ModelRow({
             {size(model.bytes_done)}
             {model.bytes_total ? ` / ${size(model.bytes_total)}` : ' · size pending'}
           </p>
+          <InstallExpectation downloadBytes={model.bytes_total} thing={model.repository} />
         </div>
       ) : null}
       <details className="text-xs">

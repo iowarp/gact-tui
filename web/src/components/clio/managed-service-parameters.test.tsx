@@ -209,6 +209,43 @@ describe('model runtime server parameters', () => {
     );
   });
 
+  it('says an install can take several minutes as it starts, without a dialog', () => {
+    render(
+      <MemoryRouter>
+        <ManagedServiceCard
+          activeAction="install"
+          configuration={{ model: 'Qwen/Qwen2.5-0.5B-Instruct' }}
+          onAction={vi.fn()}
+          onConfiguration={vi.fn()}
+          onVariant={vi.fn()}
+          service={vllm()}
+          variant="cpu"
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByText(/This can take several minutes/u)).toHaveTextContent(
+      'prepares vLLM. You can leave this page; progress continues.',
+    );
+  });
+
+  it('keeps an unrelated action free of the install expectation', () => {
+    render(
+      <MemoryRouter>
+        <ManagedServiceCard
+          activeAction="stop"
+          configuration={{}}
+          onAction={vi.fn()}
+          onConfiguration={vi.fn()}
+          onVariant={vi.fn()}
+          service={vllm({ state: 'running' })}
+          variant="cpu"
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/several minutes/u)).not.toBeInTheDocument();
+  });
+
   it('reinstalls from scratch only after confirming, bypassing reuse', async () => {
     const user = userEvent.setup();
     const { onAction } = renderCard(vllm({ state: 'stopped' }), 'cpu', {
@@ -218,6 +255,7 @@ describe('model runtime server parameters', () => {
     await user.click(screen.getByRole('button', { name: 'Reinstall from scratch' }));
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText('Reinstall vLLM from scratch?')).toBeVisible();
+    expect(within(dialog).getByText(/This can take several minutes/u)).toBeVisible();
     expect(onAction).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Reinstall from scratch' }));
     expect(onAction).toHaveBeenCalledWith('reinstall', { fromScratch: true });

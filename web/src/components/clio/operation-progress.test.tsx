@@ -146,8 +146,66 @@ describe('OperationProgress', () => {
     expect(await screen.findByText(/Reusing vLLM image \(sha256:abc\); skipped/u)).toBeVisible();
     expect(screen.getByText('Elapsed 30s')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Reinstall from scratch' }));
-    expect(onReinstall).toHaveBeenCalledOnce();
+    expect(onReinstall).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'succeeded', elapsed_seconds: 30 }),
+    );
     expect(screen.queryByRole('button', { name: 'Cancel operation' })).toBeNull();
+  });
+
+  it('sets the install expectation while running, and under a minute once reuse is reported', async () => {
+    const reuse = {
+      kind: 'sif',
+      thing: 'vLLM image',
+      identity: 'sha256:abc',
+      path: '/store/vllm.sif',
+      message: '',
+    };
+    repository.infrastructureOperationEvents.mockImplementation(
+      streamOf([
+        { id: 0, type: 'operation.snapshot', operation: record() },
+        { id: 1, type: 'operation.reuse', reuse },
+      ]),
+    );
+    render(
+      <OperationProgress
+        expectation={{ thing: 'vLLM', lastSeconds: 600 }}
+        operationId="op-1"
+        title="vLLM install"
+      />,
+    );
+    expect(
+      await screen.findByText(
+        'Already available — reusing vLLM image; this should take under a minute.',
+      ),
+    ).toBeVisible();
+  });
+
+  it('keeps the several-minutes expectation for a from-scratch install, and drops it once ended', async () => {
+    repository.infrastructureOperationEvents.mockImplementation(
+      streamOf([{ id: 0, type: 'operation.snapshot', operation: record({ from_scratch: true }) }]),
+    );
+    const { rerender } = render(
+      <OperationProgress
+        expectation={{ thing: 'vLLM', lastSeconds: 600 }}
+        operationId="op-1"
+        title="vLLM install"
+      />,
+    );
+    expect(await screen.findByText(/This can take several minutes/u)).toHaveTextContent(
+      'Last install took ~10 min.',
+    );
+    repository.infrastructureOperationEvents.mockImplementation(
+      streamOf([{ id: 0, type: 'operation.snapshot', operation: record({ id: 'op-2', state: 'succeeded' }) }]),
+    );
+    rerender(
+      <OperationProgress
+        expectation={{ thing: 'vLLM' }}
+        key="op-2"
+        operationId="op-2"
+        title="vLLM install"
+      />,
+    );
+    await waitFor(() => expect(screen.queryByText(/several minutes/u)).toBeNull());
   });
 
   it('writes the live log into the shared terminal view', async () => {
@@ -184,7 +242,7 @@ describe('OperationProgress', () => {
         streamOf([
           { id: 0, type: 'operation.snapshot', operation: record() },
           { id: 4, type: 'operation.log', log: { line: 'two', stream: 'stdout' } },
-          { id: 5, type: 'operation.completed', operation: record({ state: 'succeeded' }) },
+          { id: 5, type: 'operation.completed', operation: record({ id: 'op-2', state: 'succeeded' }) },
         ]),
       );
     render(<OperationProgress operationId="op-1" title="vLLM install" />);

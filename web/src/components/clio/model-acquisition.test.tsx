@@ -69,6 +69,33 @@ describe('host model acquisition', () => {
     );
     expect(fixtures.repository.modelAcquisitionAction).not.toHaveBeenCalled();
   });
+  it('sets the download expectation before it starts, with the size search reported', async () => {
+    const user = userEvent.setup();
+    fixtures.repository.searchModels.mockResolvedValue({
+      models: [
+        {
+          repository: 'org/large',
+          revision: 'abcdef',
+          task: 'text-generation',
+          gated: false,
+          downloads: 10,
+          size_bytes: 16e9,
+        },
+      ],
+    });
+    mount();
+    await screen.findByText('No downloaded models on this host yet.');
+    await user.click(screen.getByRole('button', { name: 'Download model' }));
+    expect(screen.getByText(/This can take several minutes/u)).toHaveTextContent(
+      'prepares the model files.',
+    );
+    await user.type(screen.getByLabelText('Find on Hugging Face'), 'large');
+    await user.click(screen.getByRole('button', { name: 'Search models' }));
+    await user.click(await screen.findByRole('button', { name: /org\/large/ }));
+    const expectation = screen.getByText(/This can take several minutes/u);
+    expect(expectation).toHaveTextContent('prepares org/large. About 16.0 GB to download.');
+    expect(expectation).toHaveTextContent('You can leave this page; progress continues.');
+  });
   it('scopes cancellation to the recorded host and job', async () => {
     fixtures.repository.modelInventory.mockResolvedValue({
       models: [

@@ -19,6 +19,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { InfoTip } from './info-tip';
+import { InstallExpectation } from './install-expectation';
 import { ServiceAccessLine } from './managed-service-access';
 import { EffectiveParameters, OwnedResources } from './managed-service-parameters';
 import { ManagedServiceForm } from './managed-service-form';
@@ -93,10 +94,14 @@ export function ManagedServiceCard({
   const [localTab, setLocalTab] = useState('status');
   const [confirmation, setConfirmation] = useState<ServiceAction>();
   const [fromScratch, setFromScratch] = useState(false);
+  /** Seconds the last finished install took when it reused nothing (a measured expectation). */
+  const [lastInstallSeconds, setLastInstallSeconds] = useState<number>();
   const confirm = (action: ServiceAction, scratch = false) => {
     setFromScratch(scratch);
     setConfirmation(action);
   };
+  const installing = activeAction === 'install' || activeAction === 'reinstall';
+  const expectation = { thing: service.label, lastSeconds: lastInstallSeconds };
   const native = variant.startsWith('native-cuda');
   const monitoring = service.category === 'monitoring';
   const retainsData = native || monitoring;
@@ -351,6 +356,7 @@ export function ManagedServiceCard({
       )}
       {activeAction && operation ? (
         <OperationProgress
+          expectation={installing ? expectation : undefined}
           fallbackProgress={progress}
           initial={operation.initial}
           key={operation.id}
@@ -359,22 +365,32 @@ export function ManagedServiceCard({
           title={`${service.label} ${labels[activeAction].toLowerCase()}`}
         />
       ) : activeAction ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <p aria-live="polite" role="status" className="text-sm text-muted-foreground">
-            {progress || progressLabels[activeAction]}
-          </p>
-          {onCancel ? (
-            <Button size="sm" variant="ghost" onClick={onCancel}>
-              Cancel operation
-            </Button>
-          ) : null}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <p aria-live="polite" role="status" className="text-sm text-muted-foreground">
+              {progress || progressLabels[activeAction]}
+            </p>
+            {onCancel ? (
+              <Button size="sm" variant="ghost" onClick={onCancel}>
+                Cancel operation
+              </Button>
+            ) : null}
+          </div>
+          {installing ? <InstallExpectation {...expectation} /> : null}
         </div>
       ) : result?.operationId && ['install', 'reinstall'].includes(result.action) ? (
         <OperationProgress
           key={result.operationId}
           onReinstallFromScratch={
             compatible && !missing
-              ? () => confirm(installed ? 'reinstall' : 'install', true)
+              ? (finished) => {
+                  setLastInstallSeconds(
+                    finished?.state === 'succeeded' && !finished.reused?.length
+                      ? finished.elapsed_seconds
+                      : undefined,
+                  );
+                  confirm(installed ? 'reinstall' : 'install', true);
+                }
               : undefined
           }
           operationId={result.operationId}
@@ -423,6 +439,9 @@ export function ManagedServiceCard({
                     : 'Stop and remove this deployment and the resources listed under Storage.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {fromScratch || confirmation === 'reinstall' ? (
+            <InstallExpectation {...expectation} />
+          ) : null}
           <p className="break-all font-mono text-xs">
             {hostLabel} {service.configuration['storage.service_directory']}
           </p>

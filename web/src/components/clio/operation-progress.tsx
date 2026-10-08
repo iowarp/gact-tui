@@ -17,6 +17,7 @@ import { useOperationStream } from '@/hooks/use-operation-stream';
 import { cn } from '@/lib/utils';
 import { formatElapsed } from './deploy-progress-model';
 import { useNow } from './deploy-progress';
+import { InstallExpectation, type InstallEstimate } from './install-expectation';
 import { OperationLogTerminal } from './operation-log-terminal';
 import {
   operationElapsedSeconds,
@@ -101,6 +102,7 @@ export function OperationProgress({
   initial,
   title,
   fallbackProgress,
+  expectation,
   onCancel,
   onReinstallFromScratch,
 }: {
@@ -110,9 +112,11 @@ export function OperationProgress({
   title: string;
   /** The polled one-line progress, shown until (or unless) the live stream answers. */
   fallbackProgress?: string;
+  /** For an install: how long to expect, shown while it runs (reuse comes from the operation). */
+  expectation?: Omit<InstallEstimate, 'reused'>;
   onCancel?: () => void;
   /** Offered once the operation ended, for a fresh install that reuses nothing. */
-  onReinstallFromScratch?: () => void;
+  onReinstallFromScratch?: (finished?: InfrastructureOperation) => void;
 }) {
   const stream = useOperationStream(operationId, initial);
   const operation = stream.operation ?? initial;
@@ -156,6 +160,9 @@ export function OperationProgress({
           </span>
         ) : null}
       </header>
+      {running && expectation ? (
+        <InstallExpectation {...expectation} reused={operation?.from_scratch ? [] : reused} />
+      ) : null}
       {steps.length ? (
         <ol aria-label="Steps" className="space-y-2">
           {steps.map((step, index) => {
@@ -247,7 +254,12 @@ export function OperationProgress({
             </Button>
           ) : null}
           {!running && onReinstallFromScratch ? (
-            <Button onClick={onReinstallFromScratch} size="sm" type="button" variant="outline">
+            <Button
+              onClick={() => onReinstallFromScratch(operation)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               Reinstall from scratch
             </Button>
           ) : null}
