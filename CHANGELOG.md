@@ -6,6 +6,12 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.8] - 2026-10-08
+
+### Fixed
+
+- Recognize beta hotfix release tags and their Python/Desktop version spellings in update selection, while retaining stable channel and signed-manifest requirements.
+
 ## [0.11.3-beta.7] - 2026-10-07
 
 - Publish the integrated beta UI from main with curated release notes. Release

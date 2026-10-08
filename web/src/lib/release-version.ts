@@ -7,6 +7,8 @@ export function displayReleaseVersion(version: string | undefined): string | und
   const trimmed = version?.trim().replace(/^v/u, '');
   if (!trimmed) return undefined;
   return trimmed
+    .replace(/^(\d+\.\d+\.\d+)b(\d+)\.post(\d+)$/u, '$1-beta.$2.$3')
+    .replace(/^(\d+\.\d+\.\d+)-(\d+)\+(\d+)$/u, '$1-beta.$2.$3')
     .replace(/^(\d+\.\d+\.\d+)\+(?:patch\.)?(\d+)$/u, '$1.$2')
     .replace(/^(\d+\.\d+\.\d+)(?:b|-)(\d+)$/u, '$1-beta.$2');
 }
@@ -53,5 +55,5 @@ export function compareReleaseVersions(left: string, right: string): number {
 
 /** Recognize the public, Python, and Tauri spellings of a beta release. */
 export function isBetaVersion(version: string | undefined): boolean {
-  return /-beta\.\d+$/u.test(displayReleaseVersion(version) ?? '');
+  return /-beta\.\d+(?:\.\d+)?$/u.test(displayReleaseVersion(version) ?? '');
 }
