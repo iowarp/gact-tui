@@ -351,6 +351,7 @@ export function ManagedServiceCard({
       )}
       {activeAction && operation ? (
         <OperationProgress
+          fallbackProgress={progress}
           initial={operation.initial}
           key={operation.id}
           onCancel={onCancel}

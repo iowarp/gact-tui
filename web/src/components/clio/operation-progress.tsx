@@ -100,6 +100,7 @@ export function OperationProgress({
   operationId,
   initial,
   title,
+  fallbackProgress,
   onCancel,
   onReinstallFromScratch,
 }: {
@@ -107,13 +108,16 @@ export function OperationProgress({
   /** The record already held (from the action or the inventory), shown until the stream answers. */
   initial?: InfrastructureOperation;
   title: string;
+  /** The polled one-line progress, shown until (or unless) the live stream answers. */
+  fallbackProgress?: string;
   onCancel?: () => void;
   /** Offered once the operation ended, for a fresh install that reuses nothing. */
   onReinstallFromScratch?: () => void;
 }) {
   const stream = useOperationStream(operationId, initial);
   const operation = stream.operation ?? initial;
-  const state = operation?.state ?? 'queued';
+  const state = operation?.state ?? 'running';
+  const progressText = operation?.progress || fallbackProgress;
   const running = state === 'queued' || state === 'running';
   const now = useNow(running);
   const steps = operation?.steps ?? [];
@@ -131,12 +135,12 @@ export function OperationProgress({
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <p aria-live="polite" className="min-w-0 text-sm" role="status">
             <span className="font-medium">{OPERATION_STATE_LABELS[state]}</span>
-            {operation?.progress ? (
+            {progressText ? (
               <>
                 <span aria-hidden="true" className="text-muted-foreground">
                   {' · '}
                 </span>
-                <span className="text-muted-foreground">{operation.progress}</span>
+                <span className="text-muted-foreground">{progressText}</span>
               </>
             ) : null}
           </p>
