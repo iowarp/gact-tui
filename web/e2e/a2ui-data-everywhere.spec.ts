@@ -241,7 +241,7 @@ async function scrollToMapPointButton(page: Page, id: string) {
   await showMapLocations(page);
   const target = mapPointButton(page, id);
   const next = page.getByRole('button', { name: 'Next locations page' });
-  while (!(await target.count()) && await next.isEnabled()) {
+  while (!(await target.count()) && (await next.isEnabled())) {
     const pagination = page.locator('[data-slot="a2ui-map-points-pagination"]');
     const before = await pagination.innerText();
     await next.click();
@@ -250,7 +250,6 @@ async function scrollToMapPointButton(page: Page, id: string) {
   await expect(target).toBeVisible();
   return target;
 }
-
 
 for (const theme of ['light', 'dark'] as const) {
   test(`captures the linked demo in ${theme} theme`, async ({ page }) => {
@@ -309,16 +308,18 @@ test('a detached surface never overlaps the subagent card in the message before 
   // it. `conversation.tsx` now independently measures the real DOM and pads
   // the gap; this proves it holds for the actual card+artifact+surface
   // sequence the bug was found in, not just in principle.
-  const card = page.getByRole('article', { name: 'Child conversation unavailable for Station evidence specialist' });
+  const card = page.getByRole('article', {
+    name: 'Child conversation unavailable for Station evidence specialist',
+  });
   const surface = page.locator('[aria-label^="Interactive surface,"]').last();
   await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
   // Both rectangles must come from the same layout. Separate Playwright
   // roundtrips let transcript auto-scroll move the viewport between reads,
   // producing a fictitious overlap even though their relative gap is intact.
   const geometry = await card.evaluate((element) => {
-    const frame = Array.from(
-      document.querySelectorAll('[aria-label^="Interactive surface,"]'),
-    ).at(-1);
+    const frame = Array.from(document.querySelectorAll('[aria-label^="Interactive surface,"]')).at(
+      -1,
+    );
     if (!frame) throw new Error('Detached interactive surface is missing');
     const cardRect = element.getBoundingClientRect();
     const frameRect = frame.getBoundingClientRect();
@@ -600,13 +601,16 @@ test('box selection links the map and explicit zoom preserves the full dataset',
   await page.screenshot({ path: `${test.info().outputDir}/chart-brush-zone-linked.png` });
 
   // Zoom is a separate action and never drops rows or clears the selection.
-  const xDomain = () => chartView.evaluate((element) => {
-    const chartState = (element as HTMLElement & {
-      __clioChart?: { view: { scale: (name: string) => { domain: () => number[] } } };
-    }).__clioChart;
-    if (!chartState) throw new Error('Chart has not rendered');
-    return chartState.view.scale('x').domain();
-  });
+  const xDomain = () =>
+    chartView.evaluate((element) => {
+      const chartState = (
+        element as HTMLElement & {
+          __clioChart?: { view: { scale: (name: string) => { domain: () => number[] } } };
+        }
+      ).__clioChart;
+      if (!chartState) throw new Error('Chart has not rendered');
+      return chartState.view.scale('x').domain();
+    });
   const beforeZoom = await xDomain();
   await chart.hover();
   await chart.getByRole('button', { name: 'Zoom to selection' }).click();
@@ -670,10 +674,27 @@ test('shift+dragging a rectangle on the map selects points and links the table',
   const box = await mapSurface.boundingBox();
   if (!box) throw new Error('the map surface has no bounding box');
 
+  // The transcript's floating jump control can cover a fixed mouse-up point.
+  // Choose an unobscured rectangle over the actual canvas; a lost mouse-up
+  // leaves the map's selection pending and never reaches the linked table.
+  const gesture = await mapSurface.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const start = { x: rect.x + rect.width * 0.2, y: rect.y + rect.height * 0.2 };
+    const containsTarget = (point: { x: number; y: number }) =>
+      element.contains(document.elementFromPoint(point.x, point.y));
+    for (const fraction of [0.7, 0.65, 0.6]) {
+      const end = { x: rect.x + rect.width * fraction, y: rect.y + rect.height * fraction };
+      if (containsTarget(start) && containsTarget(end)) return { start, end };
+    }
+    return null;
+  });
+  expect(gesture, 'both selection endpoints must hit the visible map').not.toBeNull();
+  if (!gesture) throw new Error('no unobscured map selection rectangle');
+
   await page.keyboard.down('Shift');
-  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await page.mouse.move(gesture.start.x, gesture.start.y);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.7, { steps: 10 });
+  await page.mouse.move(gesture.end.x, gesture.end.y, { steps: 10 });
   await page.mouse.up();
   await page.keyboard.up('Shift');
 
