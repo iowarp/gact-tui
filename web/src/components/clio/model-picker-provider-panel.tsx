@@ -10,7 +10,7 @@ import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-foote
 import { providerActionError } from './provider-setup-state';
 import { ProviderEndpointEditor } from './provider-endpoint-editor';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { Link, useInRouterContext } from 'react-router-dom';
 
 export interface ProviderPanelColumn {
   /** The column's content when it has no rows (setup, or a log in). */
@@ -41,7 +41,7 @@ interface UseProviderPanelInput {
  * shared action hook every provider surface uses.
  */
 export function useProviderPanel({ group, preset, open, notice, onClose }: UseProviderPanelInput) {
-  const navigate = useNavigate();
+  const inRouter = useInRouterContext();
   const providerActions = useProviderActions({
     presetId: group?.id ?? '',
     apiBase: group?.endpoint ?? preset?.api_base ?? '',
@@ -95,16 +95,22 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
       ) : null}
       {componentStatus}
       <div className="flex shrink-0 border-t px-2 py-1.5">
-        <Button
-          size="sm"
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            onClose?.();
-            navigate(`/settings/providers?provider=${encodeURIComponent(group.id)}`);
-          }}
-        >
-          Provider settings
+        <Button asChild size="sm" type="button" variant="ghost">
+          {inRouter ? (
+            <Link
+              to={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
+              onClick={onClose}
+            >
+              Provider settings
+            </Link>
+          ) : (
+            <a
+              href={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
+              onClick={onClose}
+            >
+              Provider settings
+            </a>
+          )}
         </Button>
       </div>
     </>

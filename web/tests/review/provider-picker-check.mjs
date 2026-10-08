@@ -62,7 +62,7 @@ try {
     .locator('[data-slot="provider-endpoint"]')
     .getByText('http://gpu-7:8088/v1', { exact: true })
     .waitFor();
-  await page.getByRole('button', { name: 'Provider settings', exact: true }).click();
+  await page.getByRole('link', { name: 'Provider settings', exact: true }).click();
   await page.getByText('/settings/providers?provider=llama_cpp', { exact: true }).waitFor();
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
   await page.getByLabel('llama.cpp server provider settings', { exact: true }).waitFor();

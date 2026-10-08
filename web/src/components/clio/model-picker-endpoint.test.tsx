@@ -89,7 +89,7 @@ it('keeps a failed endpoint save and its draft visible', async () => {
 
 it('opens the selected provider settings and closes the model picker', async () => {
   const user = await open();
-  await user.click(await screen.findByRole('button', { name: 'Provider settings' }));
+  await user.click(await screen.findByRole('link', { name: 'Provider settings' }));
   expect(screen.getByLabelText('Location')).toHaveTextContent('provider=local-vllm');
   expect(screen.queryByRole('dialog')).toBeNull();
 });

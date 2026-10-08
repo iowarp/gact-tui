@@ -229,7 +229,7 @@ describe('ClioModelPicker', () => {
     await user.click(screen.getByRole('option', { name: /Codex/ }));
     expect(screen.queryByRole('link', { name: /Configure/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Set up/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Provider settings' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Provider settings' })).toBeVisible();
   });
 
   it('shows provider health once as a hoverable visual signal', async () => {
