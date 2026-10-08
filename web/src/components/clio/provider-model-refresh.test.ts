@@ -1,4 +1,5 @@
 import { expect, it, vi } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 import { refreshModelsWithClient } from './provider-model-refresh';
 
 function fixture() {
@@ -71,7 +72,9 @@ it('reacquires the Claude catalog even when the client needs a restart', async (
     providerKind: 'claude_code',
   });
   expect(repository.refreshProviderModels).toHaveBeenCalledWith(['claude_code']);
-  expect(outcome.notice).toContain('restart CLIO');
+  expect(outcome.notice).toBe(
+    `Model catalog refreshed. Client updated; restart ${vocab.agent} to use it.`,
+  );
 });
 
 it('joins an already running update without starting a duplicate', async () => {
