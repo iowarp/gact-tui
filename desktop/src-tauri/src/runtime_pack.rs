@@ -12,6 +12,7 @@ use std::{
     fs::{self, File},
     io::{BufReader, Read},
     sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 #[cfg(windows)]
@@ -34,6 +35,8 @@ struct RuntimePackManifest {
     schema: u8,
     archive: String,
     sha256: String,
+    #[serde(default)]
+    runtime_files: Option<u64>,
 }
 
 /// Resolve the runtime used by a managed backend, installing a compressed
@@ -45,7 +48,7 @@ pub(crate) fn prepare_bundled_runtime(
 ) -> Result<Option<PathBuf>, String> {
     #[cfg(windows)]
     {
-        return prepare_windows_runtime(resource_dir, app_local_data_dir);
+        return prepare_windows_runtime(resource_dir, app_local_data_dir, &|_| {});
     }
 
     #[cfg(not(windows))]
@@ -59,6 +62,7 @@ pub(crate) fn prepare_bundled_runtime(
 fn prepare_windows_runtime(
     resource_dir: &Path,
     app_local_data_dir: &Path,
+    progress: &dyn Fn(&str),
 ) -> Result<Option<PathBuf>, String> {
     let manifest_path = resource_dir.join(PACK_MANIFEST_NAME);
     if !manifest_path.is_file() {
@@ -99,6 +103,7 @@ fn prepare_windows_runtime(
             .ok()
             .is_some_and(|value| value.trim().eq_ignore_ascii_case(&expected_hash))
     {
+        progress("The bundled CLIO runtime is already prepared.");
         return Ok(Some(runtime_dir));
     }
 
@@ -109,6 +114,7 @@ fn prepare_windows_runtime(
             archive_path
         ));
     }
+    progress("Checking the bundled CLIO runtime download...");
     let actual_hash = sha256_file(&archive_path)?;
     if actual_hash != expected_hash {
         return Err(format!(
@@ -126,6 +132,7 @@ fn prepare_windows_runtime(
     // then TerminateProcess + an actual wait on the handle, never a fixed
     // sleep — replaces the installer's old encoded-PowerShell-plus-`Sleep
     // 1500` macro, which guessed at a shutdown time instead of confirming it.
+    progress("Preparing the runtime installation directory...");
     installer_runtime_stop::stop_and_log(resource_dir, "prepare-runtime");
 
     // The app is single-instance, so stable names are sufficient and let a
@@ -138,6 +145,10 @@ fn prepare_windows_runtime(
         .map_err(|error| format!("create runtime staging directory {staging_root:?}: {error}"))?;
 
     let install_result = (|| -> Result<(), String> {
+        progress("Unpacking the bundled CLIO runtime...");
+        let started = Instant::now();
+        let mut last_progress = started;
+        let mut files = 0_u64;
         let archive_file = File::open(&archive_path)
             .map_err(|error| format!("open runtime archive {archive_path:?}: {error}"))?;
         let decoder = zstd::stream::read::Decoder::new(BufReader::new(archive_file))
@@ -161,8 +172,20 @@ fn prepare_windows_runtime(
                     "runtime archive entry {path:?} attempted to leave its staging directory"
                 ));
             }
+            if entry.header().entry_type().is_file() {
+                files += 1;
+            }
+            if last_progress.elapsed() >= Duration::from_secs(3) {
+                let detail = match manifest.runtime_files {
+                    Some(total) => format!("Unpacking CLIO runtime: {files} of {total} files..."),
+                    None => format!("Unpacking CLIO runtime: {files} files..."),
+                };
+                progress(&detail);
+                last_progress = Instant::now();
+            }
         }
 
+        progress("Checking and activating the unpacked CLIO runtime...");
         let staged_runtime = staging_root.join("gact-runtime");
         if !staged_runtime.join("runtime.json").is_file() {
             return Err("runtime archive did not contain gact-runtime/runtime.json".into());
@@ -193,6 +216,10 @@ fn prepare_windows_runtime(
         // Activation has succeeded; stale backup cleanup must not turn a
         // usable runtime into a reported startup failure.
         let _ = remove_dir_if_present(&previous_root);
+        progress(&format!(
+            "Bundled CLIO runtime is ready ({files} files, {:.1}s).",
+            started.elapsed().as_secs_f64()
+        ));
         Ok(())
     })();
 
@@ -206,6 +233,17 @@ fn prepare_windows_runtime(
     // would waste roughly another 300 MiB on every user's machine.
     let _ = fs::remove_file(&archive_path);
     Ok(Some(runtime_dir))
+}
+
+/// Report actual installer phases and extracted file counts to the NSIS log.
+#[cfg(windows)]
+pub(crate) fn prepare_runtime_for_installer(
+    resource_dir: &Path,
+    app_local_data_dir: &Path,
+) -> Result<Option<PathBuf>, String> {
+    prepare_windows_runtime(resource_dir, app_local_data_dir, &|message| {
+        println!("{message}");
+    })
 }
 
 #[cfg(windows)]
@@ -325,6 +363,7 @@ fn remove_runtime_tree_parallel(runtime_root: &Path) -> Result<(), String> {
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
     use std::io::Write;
     use std::os::windows::fs::OpenOptionsExt;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -377,7 +416,9 @@ mod tests {
         let app_data = root.join("data");
         let hash = write_test_pack(&resources);
 
-        let runtime = prepare_bundled_runtime(&resources, &app_data)
+        let stages = RefCell::new(Vec::new());
+        let progress = |message: &str| stages.borrow_mut().push(message.to_owned());
+        let runtime = prepare_windows_runtime(&resources, &app_data, &progress)
             .expect("prepare runtime")
             .expect("packed runtime");
         assert_eq!(runtime, app_data.join("bundled-runtime/gact-runtime"));
@@ -392,11 +433,26 @@ mod tests {
             !resources.join("gact-runtime.tar.zst").exists(),
             "archive should be reclaimed after successful installation"
         );
+        let recorded = stages.borrow();
+        assert_eq!(recorded[0], "Checking the bundled CLIO runtime download...");
+        assert!(recorded
+            .iter()
+            .any(|line| line == "Unpacking the bundled CLIO runtime..."));
+        assert!(recorded
+            .last()
+            .expect("completion")
+            .starts_with("Bundled CLIO runtime is ready (1 files,"));
+        drop(recorded);
+        stages.borrow_mut().clear();
 
-        let reused = prepare_bundled_runtime(&resources, &app_data)
+        let reused = prepare_windows_runtime(&resources, &app_data, &progress)
             .expect("reuse runtime")
             .expect("receipted runtime");
         assert_eq!(reused, runtime);
+        assert_eq!(
+            *stages.borrow(),
+            ["The bundled CLIO runtime is already prepared."]
+        );
         fs::remove_dir_all(root).expect("cleanup");
     }
 
@@ -488,8 +544,16 @@ mod tests {
         manifest["sha256"] = serde_json::Value::String("0".repeat(64));
         fs::write(&manifest_path, format!("{manifest}\n")).expect("replace manifest");
 
-        let error = prepare_bundled_runtime(&resources, &app_data).expect_err("hash must fail");
+        let stages = RefCell::new(Vec::new());
+        let error = prepare_windows_runtime(&resources, &app_data, &|message| {
+            stages.borrow_mut().push(message.to_owned());
+        })
+        .expect_err("hash must fail");
         assert!(error.contains("failed its integrity check"), "{error}");
+        assert_eq!(
+            *stages.borrow(),
+            ["Checking the bundled CLIO runtime download..."]
+        );
         assert!(!app_data.join("bundled-runtime").exists());
         fs::remove_dir_all(root).expect("cleanup");
     }

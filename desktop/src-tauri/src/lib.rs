@@ -414,8 +414,7 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
     let managed_storage =
         sidecar_setup::prepare_managed_storage_root(resource_dir, &resource_dir.join("data"))
             .map_err(|error| format!("prepare installer-managed storage: {error}"))?;
-    println!("Unpacking and checking the bundled CLIO runtime...");
-    let runtime = runtime_pack::prepare_bundled_runtime(resource_dir, &managed_storage)?
+    let runtime = runtime_pack::prepare_runtime_for_installer(resource_dir, &managed_storage)?
         .ok_or_else(|| "the installer did not include a bundled CLIO runtime".to_string())?;
     let workspace = sidecar_setup::prepare_desktop_workspace(&managed_storage)
         .map_err(|error| format!("prepare package workspace: {error}"))?;

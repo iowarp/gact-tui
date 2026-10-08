@@ -31,6 +31,28 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..', '..');
 const desktopRoot = resolve(__dirname, '..');
 
+test('Windows runtime pack uses fast outer compression and preserves brand installer settings', () => {
+  const base = {
+    bundle: {
+      externalBin: ['binaries/clio-agent'],
+      createUpdaterArtifacts: true,
+      windows: { nsis: { headerImage: 'brand-header.bmp', installerHooks: 'brand-hooks.nsh' } },
+    },
+    plugins: { updater: { pubkey: 'test-public-key' } },
+  };
+  const pack = mergeOverlayPaths([
+    resolve(desktopRoot, 'src-tauri/tauri.bundled.windows-pack.conf.json'),
+  ]);
+  const merged = mergeConfig(base, pack);
+  assert.equal(merged.bundle.windows.nsis.compression, 'zlib');
+  assert.equal(merged.bundle.windows.nsis.headerImage, 'brand-header.bmp');
+  assert.equal(merged.bundle.windows.nsis.installerHooks, 'brand-hooks.nsh');
+  assert.deepEqual(merged.bundle.externalBin, ['binaries/clio-agent']);
+  assert.equal(merged.bundle.createUpdaterArtifacts, true);
+  assert.equal(merged.plugins.updater.pubkey, 'test-public-key');
+  assert.deepEqual(merged.bundle.resources, ['gact-runtime.tar.zst', 'gact-runtime.pack.json']);
+});
+
 test('an explicit config resolves a temporary branding root, independent of any local override', () => {
   const tmpRoot = mkdtempSync(resolve(tmpdir(), 'gact-tui-brand-'));
   try {
@@ -62,10 +84,7 @@ test('an explicit config resolves a temporary branding root, independent of any 
     );
 
     const configPath = resolve(tmpRoot, 'brand.config.json');
-    writeFileSync(
-      configPath,
-      `${JSON.stringify({ profile: 'acme', brandingRoot }, null, 2)}\n`,
-    );
+    writeFileSync(configPath, `${JSON.stringify({ profile: 'acme', brandingRoot }, null, 2)}\n`);
 
     const overlay = resolveNativeBrandOverlay(configPath);
     assert.equal(overlay, resolve(profileDir, 'tauri.acme.conf.json'));
@@ -168,8 +187,10 @@ test('a macOS overlay patches the same window entry without dropping the brand t
 
 test('arrays of primitives still replace wholesale, unlike app.windows', () => {
   assert.deepEqual(
-    mergeConfig({ bundle: { icon: ['a.ico', 'b.ico', 'c.ico'] } }, { bundle: { icon: ['only.ico'] } })
-      .bundle.icon,
+    mergeConfig(
+      { bundle: { icon: ['a.ico', 'b.ico', 'c.ico'] } },
+      { bundle: { icon: ['only.ico'] } },
+    ).bundle.icon,
     ['only.ico'],
   );
 });
@@ -192,10 +213,10 @@ test('the element-wise merge is keyed on the exact app.windows path, not "any ar
 });
 
 test('parseArgv folds a caller --config into the overlay list instead of forwarding it', () => {
-  assert.deepEqual(
-    parseArgv(['build', '--config', '/tmp/ci.conf.json', '--bundles', 'dmg']),
-    { tauriArgs: ['build', '--bundles', 'dmg'], extraOverlayPaths: ['/tmp/ci.conf.json'] },
-  );
+  assert.deepEqual(parseArgv(['build', '--config', '/tmp/ci.conf.json', '--bundles', 'dmg']), {
+    tauriArgs: ['build', '--bundles', 'dmg'],
+    extraOverlayPaths: ['/tmp/ci.conf.json'],
+  });
 
   // The legacy trailing `--merge-config <path>...` form still works and
   // composes with a leading `--config`.

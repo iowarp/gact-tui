@@ -140,6 +140,10 @@ jobs:
         run: pnpm build
       - name: Build native debug application
         run: pnpm --filter @clio/desktop tauri:build:debug
+      - name: Test Windows runtime installation and progress
+        if: runner.os == 'Windows'
+        working-directory: desktop/src-tauri
+        run: cargo test --lib runtime_pack::tests -- --test-threads=1
 
   native-webview-proof:
     name: native WebView proof · fixture-backed
