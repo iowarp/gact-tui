@@ -149,6 +149,10 @@ jobs:
         run: cargo run --manifest-path desktop/src-tauri/Cargo.toml --locked --example downloads_acceptance
       - name: Real native downloads (Linux WebKitGTK)
         if: matrix.os == 'ubuntu-22.04'
+        env:
+          WEBKIT_DISABLE_COMPOSITING_MODE: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GDK_BACKEND: x11
         run: xvfb-run -a dbus-run-session -- cargo run --manifest-path desktop/src-tauri/Cargo.toml --locked --example downloads_acceptance
 
   native-webview-proof:

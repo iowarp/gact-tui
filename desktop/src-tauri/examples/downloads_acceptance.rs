@@ -209,14 +209,54 @@ fn main() {
 mod webkit_acceptance {
     use crate::downloads;
     use std::{
+        io::{Read, Write},
+        net::TcpListener,
         path::Path,
         sync::{
-            atomic::{AtomicUsize, Ordering},
+            atomic::{AtomicBool, AtomicUsize, Ordering},
             Arc,
         },
         time::Duration,
     };
-    use tauri::{webview::DownloadEvent, WebviewUrl, WebviewWindowBuilder};
+    use tauri::{webview::DownloadEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+
+    fn serve_document() -> Result<tauri::Url, String> {
+        let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
+        let address = listener.local_addr().map_err(|error| error.to_string())?;
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let result = (|| -> std::io::Result<()> {
+                    let mut stream = stream?;
+                    stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+                    let mut request = [0; 4096];
+                    stream.read(&mut request)?;
+                    let body =
+                        "<!doctype html><html><body>Native download acceptance</body></html>";
+                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
+                })();
+                if let Err(error) = result {
+                    eprintln!("Acceptance document request failed: {error}");
+                }
+            }
+        });
+        format!("http://{address}/")
+            .parse::<tauri::Url>()
+            .map_err(|error| error.to_string())
+    }
+
+    fn evaluate(window: &WebviewWindow, script: &str) -> Result<serde_json::Value, String> {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        window
+            .eval_with_callback(script, move |value| {
+                let _ = sender.send(value);
+            })
+            .map_err(|error| error.to_string())?;
+        let value = receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| format!("JavaScript callback did not complete: {error}"))?;
+        serde_json::from_str(&value)
+            .map_err(|error| format!("JavaScript returned {value:?}: {error}"))
+    }
 
     fn wait_for_bytes(path: &Path, expected: &[u8]) -> Result<(), String> {
         for _ in 0..150 {
@@ -234,6 +274,9 @@ mod webkit_acceptance {
         let targets = [root.join("sample.csv"), root.join("embedded.json")];
         let started = Arc::new(AtomicUsize::new(0));
         let completed = Arc::new(AtomicUsize::new(0));
+        // Unlike WebView2, GTK's initial about:blank does not finish a load
+        // and flush Wry's queued scripts. Use a real test-owned document.
+        let document_url = serve_document().expect("start acceptance document");
         let mut context = tauri::generate_context!();
         context.config_mut().app.windows.clear();
         tauri::Builder::default()
@@ -242,13 +285,22 @@ mod webkit_acceptance {
                 let requests = started.clone();
                 let finishes = completed.clone();
                 let destinations = targets.clone();
+                let loaded = Arc::new(AtomicBool::new(false));
+                let page_loaded = loaded.clone();
                 let window = WebviewWindowBuilder::new(
                     app,
                     "download-proof",
-                    WebviewUrl::External("about:blank".parse()?),
+                    WebviewUrl::External(document_url),
                 )
-                .visible(false)
+                // WebKitGTK needs a mapped native window to finish initial
+                // navigation. Linux CI maps this window inside Xvfb.
+                .visible(true)
                 .data_directory(root.join("webview-profile"))
+                .on_page_load(move |_, payload| {
+                    if payload.event() == tauri::webview::PageLoadEvent::Finished {
+                        page_loaded.store(true, Ordering::SeqCst);
+                    }
+                })
                 .on_download(move |webview, event| {
                     // Test-only destinations/counts; the real production handler
                     // accepts the browser transfer and reveals Downloads.
@@ -259,11 +311,13 @@ mod webkit_acceptance {
                                 return false;
                             };
                             *destination = target.clone();
+                            println!("Native request {}: {}", index + 1, destination.display());
                             downloads::handle_download(webview, DownloadEvent::Requested { url, destination })
                         }
                         event => {
                             if matches!(event, DownloadEvent::Finished { success: true, .. }) {
                                 finishes.fetch_add(1, Ordering::SeqCst);
+                                println!("Native transfer completed");
                             }
                             downloads::handle_download(webview, event)
                         }
@@ -273,8 +327,16 @@ mod webkit_acceptance {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
                     let result = (|| -> Result<(), String> {
-                        std::thread::sleep(Duration::from_secs(2));
-                        window.eval(r#"const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['activity,hours\nCoding,30'],{type:'text/csv'})); a.download='sample.csv'; document.body.append(a); a.click(); a.remove();"#).map_err(|error| error.to_string())?;
+                        // Wry queues early scripts without their result callback.
+                        // Wait for the actual initial navigation before evaluating.
+                        for _ in 0..100 {
+                            if loaded.load(Ordering::SeqCst) { break; }
+                            std::thread::sleep(Duration::from_millis(100));
+                        }
+                        if !loaded.load(Ordering::SeqCst) { return Err("Native document did not finish loading".into()); }
+                        if evaluate(&window, "Boolean(document.body && document.readyState === 'complete')")?.as_bool() != Some(true) { return Err("Native document body was not ready".into()); }
+                        let clicked = evaluate(&window, r#"(()=>{const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['activity,hours\nCoding,30'],{type:'text/csv'})); a.download='sample.csv'; document.body.append(a); a.click(); a.remove(); return 'download-started';})()"#)?;
+                        if clicked.as_str() != Some("download-started") { return Err(format!("Download action failed: {clicked}")); }
                         wait_for_bytes(&targets[0], b"activity,hours\nCoding,30")?;
                         window.eval(r#"const f=document.createElement('iframe'); f.srcdoc='<!doctype html><body></body>'; f.onload=()=>{const d=f.contentDocument; const a=d.createElement('a'); a.href=f.contentWindow.URL.createObjectURL(new Blob(['{"saved":true}'],{type:'application/json'})); a.download='embedded.json'; d.body.append(a); a.click(); a.remove();}; document.body.append(f);"#).map_err(|error| error.to_string())?;
                         wait_for_bytes(&targets[1], br#"{"saved":true}"#)?;

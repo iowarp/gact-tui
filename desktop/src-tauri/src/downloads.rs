@@ -1,8 +1,10 @@
 //! Desktop downloads retain their browser transfer and the user's file-opening choice.
 
-#[cfg(not(target_os = "windows"))]
-use tauri::Manager;
-use tauri::{utils::config::WindowConfig, webview::DownloadEvent};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
+use tauri::{utils::config::WindowConfig, webview::DownloadEvent, Manager};
 
 /// Defer configured startup windows so their download handler can be installed before navigation.
 pub(crate) fn defer_configured_windows(config: &mut tauri::Config) -> Vec<WindowConfig> {
@@ -38,7 +40,13 @@ pub(crate) fn create_configured_windows(
 
 /// Accept WebKit downloads and reveal Downloads after a successful transfer.
 #[cfg_attr(target_os = "windows", allow(dead_code))]
-pub(crate) fn handle_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
+pub(crate) fn handle_download(webview: tauri::Webview, mut event: DownloadEvent<'_>) -> bool {
+    if let DownloadEvent::Requested { destination, .. } = &mut event {
+        if let Err(error) = prepare_destination(webview.app_handle(), destination) {
+            eprintln!("Could not save download: {error}");
+            return false;
+        }
+    }
     if should_reveal(&event) {
         tauri::async_runtime::spawn(async move {
             if let Err(error) = open_downloads(webview).await {
@@ -54,6 +62,62 @@ pub(crate) fn handle_download(webview: tauri::Webview, event: DownloadEvent<'_>)
 #[cfg_attr(target_os = "windows", allow(dead_code))]
 fn should_reveal(event: &DownloadEvent<'_>) -> bool {
     matches!(event, DownloadEvent::Finished { success: true, .. })
+}
+
+#[cfg_attr(target_os = "windows", allow(dead_code))]
+fn download_directory(app: &tauri::AppHandle) -> Result<(PathBuf, bool), String> {
+    let (directory, fallback) = match app.path().download_dir() {
+        Ok(directory) => (directory, false),
+        Err(_) => (
+            app.path()
+                .home_dir()
+                .map_err(|error| format!("Resolve Downloads folder: {error}"))?
+                .join("Downloads"),
+            true,
+        ),
+    };
+    std::fs::create_dir_all(&directory)
+        .map_err(|error| format!("Prepare Downloads folder {}: {error}", directory.display()))?;
+    Ok((directory, fallback))
+}
+
+#[cfg_attr(target_os = "windows", allow(dead_code))]
+fn prepare_destination(app: &tauri::AppHandle, destination: &mut PathBuf) -> Result<(), String> {
+    let (directory, fallback) = download_directory(app)?;
+    if fallback {
+        // Wry otherwise saves to the working directory when Linux has no
+        // configured XDG Downloads directory. Keep downloads in the same
+        // home-folder fallback that the header and completion action reveal.
+        let cwd = std::env::current_dir().map_err(|error| error.to_string())?;
+        if destination.parent() == Some(cwd.as_path()) {
+            let filename = destination
+                .file_name()
+                .ok_or_else(|| "Download has no filename".to_string())?
+                .to_os_string();
+            *destination = available_path(&directory, &filename);
+        }
+    }
+    Ok(())
+}
+
+#[cfg_attr(target_os = "windows", allow(dead_code))]
+fn available_path(directory: &Path, filename: &OsStr) -> PathBuf {
+    let mut candidate = directory.join(filename);
+    let name = Path::new(filename);
+    let stem = name.file_stem().unwrap_or(filename);
+    for index in 1.. {
+        if !candidate.exists() {
+            return candidate;
+        }
+        let mut next = stem.to_os_string();
+        next.push(format!(" ({index})"));
+        if let Some(extension) = name.extension() {
+            next.push(".");
+            next.push(extension);
+        }
+        candidate = directory.join(next);
+    }
+    unreachable!("download filename counter exhausted")
 }
 
 #[cfg(target_os = "windows")]
@@ -137,11 +201,7 @@ pub(crate) async fn open_downloads(webview: tauri::Webview) -> Result<(), String
     #[cfg(not(target_os = "windows"))]
     {
         use tauri_plugin_opener::OpenerExt;
-        let path = webview
-            .app_handle()
-            .path()
-            .download_dir()
-            .map_err(|error| error.to_string())?;
+        let (path, _) = download_directory(webview.app_handle())?;
         webview
             .app_handle()
             .opener()
@@ -206,5 +266,25 @@ mod tests {
             path: None,
             success: true,
         }));
+    }
+
+    #[test]
+    fn fallback_download_names_preserve_existing_files_and_extensions() {
+        let temporary = std::env::temp_dir();
+        let directory = temporary.join(format!("clio-download-names-{}", rand::random::<u64>()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let filename = OsStr::new("report.v1.csv");
+        let original = available_path(&directory, filename);
+        assert_eq!(original.file_name(), Some(filename));
+        std::fs::write(&original, b"original").unwrap();
+        let second = available_path(&directory, filename);
+        assert_eq!(second.file_name(), Some(OsStr::new("report.v1 (1).csv")));
+        std::fs::write(&second, b"second").unwrap();
+        let third = available_path(&directory, filename);
+        assert_eq!(third.file_name(), Some(OsStr::new("report.v1 (2).csv")));
+        assert_eq!(std::fs::read(original).unwrap(), b"original");
+        assert_eq!(std::fs::read(second).unwrap(), b"second");
+        assert_eq!(directory.parent(), Some(temporary.as_path()));
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }
