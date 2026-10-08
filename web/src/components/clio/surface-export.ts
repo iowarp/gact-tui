@@ -10,10 +10,6 @@
  * route to export through.
  */
 
-import { toast } from 'sonner';
-import { inTauri } from '@/lib/transport/tauri-runtime';
-import { openDownloads } from '@/tauri/downloads';
-
 const DEFAULT_FILENAME_BASE = 'export';
 /** Characters kept as-is in a derived filename; everything else becomes `_`. */
 const SAFE_FILENAME_CHARS = /[^a-z0-9._-]+/giu;
@@ -56,7 +52,9 @@ export function downloadUrl(url: string, filename: string): void {
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
-  if (inTauri()) void openDownloads().catch((error: Error) => toast.error(error.message));
+  // The desktop shell observes actual browser downloads, including embedded
+  // frames. It reveals Downloads once the native transfer starts (WebView2)
+  // or completes (WebKit); clicking an anchor alone may be blocked or fail.
 }
 
 /** `downloadBlob`, for bytes already in hand (a fetched export, a canvas export, ...). */

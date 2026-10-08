@@ -137,7 +137,7 @@ describe('ArtifactProvenance', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Export with evidence' }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(repository.exportArtifact).toHaveBeenCalledWith('artifact_2');
-    expect(nativeDownloads).toHaveBeenCalledTimes(desktop ? 1 : 0);
+    expect(nativeDownloads).not.toHaveBeenCalled();
     expect(downloaded?.type).toBe('application/zip');
     const content = await new Promise<ArrayBuffer>((resolve, reject) => {
       const reader = new FileReader();

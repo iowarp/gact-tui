@@ -49,11 +49,12 @@ describe('browser download helpers', () => {
     Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
   });
 
-  it('shows the native Downloads dialog after a desktop file download starts', () => {
+  it('leaves automatic desktop Downloads opening to the actual native transfer event', () => {
     Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     downloadBytes('activity,hours\nCoding,30', 'text/csv', 'sample.csv');
-    expect(nativeDownloads).toHaveBeenCalledTimes(1);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(nativeDownloads).not.toHaveBeenCalled();
   });
 
   it('downloadBlob creates an object URL, clicks a download anchor, and revokes it later', () => {

@@ -139,6 +139,6 @@ it.each([
     expect(clicked[0].href).toBe('http://localhost/proxy/v1/session-export/file');
     expect(clicked[0].download).toBe(filename);
     expect(clicked[0].referrerPolicy).toBe('no-referrer');
-    expect(nativeDownloads).toHaveBeenCalledTimes(desktop ? 1 : 0);
+    expect(nativeDownloads).not.toHaveBeenCalled();
   },
 );

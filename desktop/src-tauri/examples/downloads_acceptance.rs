@@ -1,6 +1,5 @@
-//! Real Windows acceptance: direct and embedded-frame downloads open native history.
+//! Real desktop acceptance: direct and embedded-frame downloads save their exact bytes.
 
-#[cfg(target_os = "windows")]
 #[path = "../src/downloads.rs"]
 mod downloads;
 
@@ -15,7 +14,7 @@ mod acceptance {
         },
         time::Duration,
     };
-    use tauri::{WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+    use tauri::{utils::config::WindowConfig, Manager, WebviewUrl, WebviewWindow};
     use webview2_com::{
         CallDevToolsProtocolMethodCompletedHandler, DownloadStartingEventHandler,
         Microsoft::Web::WebView2::Win32::{ICoreWebView2_4, ICoreWebView2_9},
@@ -142,12 +141,19 @@ mod acceptance {
         let targets = [root.join("sample.csv"), root.join("embedded.json")];
         let started = Arc::new(AtomicUsize::new(0));
         let mut context = tauri::generate_context!();
-        context.config_mut().app.windows.clear();
+        context.config_mut().app.windows = vec![WindowConfig {
+            label: "download-proof".into(),
+            url: WebviewUrl::External("about:blank".parse().expect("blank URL")),
+            visible: false,
+            data_directory: Some(root.join("webview-profile")),
+            ..Default::default()
+        }];
+        let startup_windows = downloads::defer_configured_windows(context.config_mut());
         tauri::Builder::default()
             .plugin(downloads::plugin())
             .setup(move |app| {
-                let window = WebviewWindowBuilder::new(app, "download-proof", WebviewUrl::External("about:blank".parse()?))
-                    .visible(false).data_directory(root.join("webview-profile")).build()?;
+                downloads::create_configured_windows(app, &startup_windows)?;
+                let window = app.get_webview_window("download-proof").expect("configured window");
                 let counter = started.clone();
                 let destinations = targets.clone();
                 // Choose disposable destinations and count actual native events.
@@ -200,7 +206,105 @@ fn main() {
 }
 
 #[cfg(not(target_os = "windows"))]
+mod webkit_acceptance {
+    use crate::downloads;
+    use std::{
+        path::Path,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+        time::Duration,
+    };
+    use tauri::{webview::DownloadEvent, WebviewUrl, WebviewWindowBuilder};
+
+    fn wait_for_bytes(path: &Path, expected: &[u8]) -> Result<(), String> {
+        for _ in 0..150 {
+            if std::fs::read(path).is_ok_and(|content| content == expected) {
+                return Ok(());
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        Err(format!("Download bytes did not match: {}", path.display()))
+    }
+
+    pub fn run() {
+        let root = std::env::temp_dir().join(format!("clio-download-proof-{}", std::process::id()));
+        std::fs::create_dir_all(&root).expect("create acceptance directory");
+        let targets = [root.join("sample.csv"), root.join("embedded.json")];
+        let started = Arc::new(AtomicUsize::new(0));
+        let completed = Arc::new(AtomicUsize::new(0));
+        let mut context = tauri::generate_context!();
+        context.config_mut().app.windows.clear();
+        tauri::Builder::default()
+            .plugin(tauri_plugin_opener::init())
+            .setup(move |app| {
+                let requests = started.clone();
+                let finishes = completed.clone();
+                let destinations = targets.clone();
+                let window = WebviewWindowBuilder::new(
+                    app,
+                    "download-proof",
+                    WebviewUrl::External("about:blank".parse()?),
+                )
+                .visible(false)
+                .data_directory(root.join("webview-profile"))
+                .on_download(move |webview, event| {
+                    // Test-only destinations/counts; the real production handler
+                    // accepts the browser transfer and reveals Downloads.
+                    match event {
+                        DownloadEvent::Requested { url, destination } => {
+                            let index = requests.fetch_add(1, Ordering::SeqCst);
+                            let Some(target) = destinations.get(index) else {
+                                return false;
+                            };
+                            *destination = target.clone();
+                            downloads::handle_download(webview, DownloadEvent::Requested { url, destination })
+                        }
+                        event => {
+                            if matches!(event, DownloadEvent::Finished { success: true, .. }) {
+                                finishes.fetch_add(1, Ordering::SeqCst);
+                            }
+                            downloads::handle_download(webview, event)
+                        }
+                    }
+                })
+                .build()?;
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    let result = (|| -> Result<(), String> {
+                        std::thread::sleep(Duration::from_secs(2));
+                        window.eval(r#"const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['activity,hours\nCoding,30'],{type:'text/csv'})); a.download='sample.csv'; document.body.append(a); a.click(); a.remove();"#).map_err(|error| error.to_string())?;
+                        wait_for_bytes(&targets[0], b"activity,hours\nCoding,30")?;
+                        window.eval(r#"const f=document.createElement('iframe'); f.srcdoc='<!doctype html><body></body>'; f.onload=()=>{const d=f.contentDocument; const a=d.createElement('a'); a.href=f.contentWindow.URL.createObjectURL(new Blob(['{"saved":true}'],{type:'application/json'})); a.download='embedded.json'; d.body.append(a); a.click(); a.remove();}; document.body.append(f);"#).map_err(|error| error.to_string())?;
+                        wait_for_bytes(&targets[1], br#"{"saved":true}"#)?;
+                        for _ in 0..50 {
+                            if completed.load(Ordering::SeqCst) == 2 { break; }
+                            std::thread::sleep(Duration::from_millis(100));
+                        }
+                        if started.load(Ordering::SeqCst) != 2 || completed.load(Ordering::SeqCst) != 2 {
+                            return Err("Expected exactly two successful native transfers".into());
+                        }
+                        Ok(())
+                    })();
+                    match result {
+                        Ok(()) => {
+                            println!("PASS: WebKit direct CSV and embedded-frame JSON saved intact with the production download handler");
+                            // Headless CI may lack a file manager. Byte/event proof
+                            // is separate from live Downloads-folder UI acceptance.
+                            handle.exit(0);
+                        }
+                        Err(error) => { eprintln!("FAIL: {error}"); handle.exit(1); }
+                    }
+                });
+                Ok(())
+            })
+            .run(context)
+            .expect("run acceptance webview");
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
 fn main() {
-    eprintln!("This acceptance executable requires Windows WebView2.");
-    std::process::exit(1);
+    webkit_acceptance::run();
 }

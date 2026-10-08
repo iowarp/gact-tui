@@ -147,6 +147,9 @@ pub fn run() {
     let supervisor = Supervisor::new();
     let state = Mutex::new(supervisor);
 
+    let mut context = tauri::generate_context!();
+    let startup_windows = downloads::defer_configured_windows(context.config_mut());
+
     let app = tauri::Builder::default()
         // A second launch restores the existing tray-resident process instead
         // of booting another managed backend beside it.
@@ -226,7 +229,8 @@ pub fn run() {
             restart_clio,
             close_prompt_shown
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            downloads::create_configured_windows(app, &startup_windows)?;
             // Resolve + remember the persisted boot-log path FIRST so the
             // supervisor's worker threads (spawn + install/repair streamers)
             // can append to it and the "Open logs" command can reveal it
@@ -347,7 +351,7 @@ pub fn run() {
                 _ => {}
             }
         })
-        .build(tauri::generate_context!());
+        .build(context);
 
     let app = match app {
         Ok(app) => app,

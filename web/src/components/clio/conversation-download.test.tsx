@@ -41,7 +41,7 @@ it.each([true, false])('downloads readable Markdown on desktop=%s', async (deskt
   );
   await userEvent.click(screen.getByRole('button', { name: 'Download Markdown' }));
   expect(click).toHaveBeenCalledTimes(1);
-  expect(nativeDownloads).toHaveBeenCalledTimes(desktop ? 1 : 0);
+  expect(nativeDownloads).not.toHaveBeenCalled();
   expect(downloaded?.type).toBe('text/markdown');
   const content = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
