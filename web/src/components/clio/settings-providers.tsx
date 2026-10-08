@@ -1,4 +1,6 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
+import { useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/clio/settings-frame';
 import { IconTile } from '@/components/reui/icon-tile';
@@ -17,7 +19,7 @@ import { SettingsLocalServerCard } from './settings-local-server-card';
 import { SettingsSectionHeading } from './settings-section-heading';
 
 /**
- * Settings > Providers: what the model picker cannot do -- model servers
+ * Settings > Providers: manage model servers
  * that run on this computer or the person's own machines. Each local server
  * is a card with its status and its address, edited in place, saved on the
  * service (which probes it from then on) and checked at once; "Add a
@@ -26,6 +28,9 @@ import { SettingsSectionHeading } from './settings-section-heading';
  * opens on the provider asked for.
  */
 export function ProvidersSettings() {
+  const [searchParams] = useSearchParams();
+  const requestedProvider = searchParams.get('provider');
+  const requestedControl = useRef<HTMLDivElement | HTMLButtonElement | null>(null);
   const { catalog, configuration, groups, options, presets } = useProviderGroups();
   const { servers } = useSavedServers();
   const saved = servers.data ?? [];
@@ -33,6 +38,11 @@ export function ProvidersSettings() {
   const loading =
     configuration.isPending || (catalog.isPending && !catalog.data) || servers.isPending;
   const error = configuration.error ?? servers.error ?? (catalog.data ? undefined : catalog.error);
+  useEffect(() => {
+    if (loading || !requestedProvider || !requestedControl.current) return;
+    requestedControl.current.scrollIntoView({ block: 'center' });
+    requestedControl.current.focus({ preventScroll: true });
+  }, [loading, requestedProvider]);
   const active = configuration.data ? resolveActivePreset(configuration.data) : undefined;
   const locals = presets.filter(isLocalServerPreset);
   const others = presets.filter((preset) => !isLocalServerPreset(preset));
@@ -102,7 +112,18 @@ export function ProvidersSettings() {
               <SettingsAddServerDialog />
             </FrameHeader>
             {locals.map((preset) => (
-              <FramePanel key={preset.id}>
+              <FramePanel
+                key={preset.id}
+                aria-label={`${preset.label} provider settings`}
+                tabIndex={-1}
+                ref={
+                  preset.id === requestedProvider
+                    ? (node) => {
+                        requestedControl.current = node;
+                      }
+                    : undefined
+                }
+              >
                 <SettingsLocalServerCard
                   applying={apply.isPending}
                   catalogEntry={catalog.data?.providers.find((entry) => entry.id === preset.id)}
@@ -154,7 +175,18 @@ export function ProvidersSettings() {
                   options={options}
                   provider={preset.id}
                   trigger={
-                    <Button className="h-9 gap-2 ps-1.5" type="button" variant="outline">
+                    <Button
+                      className="h-9 gap-2 ps-1.5"
+                      type="button"
+                      variant="outline"
+                      ref={
+                        preset.id === requestedProvider
+                          ? (node) => {
+                              requestedControl.current = node;
+                            }
+                          : undefined
+                      }
+                    >
                       <IconTile aria-hidden="true" size="xs" variant="outline">
                         <ModelSelectorLogo
                           className="size-4"

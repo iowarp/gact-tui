@@ -17,6 +17,7 @@ interface ProviderPanelFooterProps {
   logOut?: ProviderLogOut;
   /** The latest provider-level failure, as one sentence. */
   error?: string;
+  info?: string;
 }
 
 /**
@@ -25,7 +26,7 @@ interface ProviderPanelFooterProps {
  * Remove key only where the provider supports it. A running action's stage
  * shows at the end of the row -- the row is what it affects.
  */
-export function ProviderPanelFooter({ actions, logOut, error }: ProviderPanelFooterProps) {
+export function ProviderPanelFooter({ actions, logOut, error, info }: ProviderPanelFooterProps) {
   const busy = Boolean(actions.stage) || Boolean(logOut?.busy);
   return (
     <div
@@ -74,6 +75,11 @@ export function ProviderPanelFooter({ actions, logOut, error }: ProviderPanelFoo
         <span className="min-w-0 truncate pe-1 text-xs text-destructive" role="alert" title={error}>
           {error}
         </span>
+      ) : null}
+      {!busy && !error && info ? (
+        <p className="w-full text-xs text-muted-foreground" role="status">
+          {info}
+        </p>
       ) : null}
     </div>
   );

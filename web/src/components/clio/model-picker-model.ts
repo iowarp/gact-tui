@@ -44,8 +44,7 @@ export interface ProviderGroup {
   detail?: string;
   /** The provider's typed failure reason (untranslated), when it reported one. */
   failure?: string;
-  /** The CLI its SDK runs (installed vs bundled) -- Claude Code only; its
-   * presence is what offers the SDK update check. */
+  /** The CLI its SDK runs (installed vs bundled), when the provider uses one. */
   client?: ProviderClientFact;
 }
 

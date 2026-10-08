@@ -49,6 +49,9 @@ const { repository } = vi.hoisted(() => ({
     updateLanguageModelConfiguration: vi.fn(),
     providerCatalog: vi.fn(),
     providerModels: vi.fn(),
+    providerComponents: vi
+      .fn()
+      .mockResolvedValue({ installed: true, update_available: false, components: [] }),
   },
 }));
 
@@ -212,7 +215,7 @@ describe('ClioModelPicker', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('never links out to Settings for a provider action -- everything happens in the picker', async () => {
+  it('keeps provider actions inline and offers an optional settings shortcut', async () => {
     const user = userEvent.setup();
     renderPicker(
       <ClioModelPicker
@@ -226,6 +229,7 @@ describe('ClioModelPicker', () => {
     await user.click(screen.getByRole('option', { name: /Codex/ }));
     expect(screen.queryByRole('link', { name: /Configure/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Set up/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Provider settings' })).toBeVisible();
   });
 
   it('shows provider health once as a hoverable visual signal', async () => {
