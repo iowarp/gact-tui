@@ -34,6 +34,11 @@ REQUESTS = [
     ("attr", {"path": "/entry/results/I"}),
     ("attr", {"path": "/entry/results/q"}),
     ("attr", {"path": "/entry/image"}),
+    # Opening the viewer directly at a dataset (a remembered selection) asks
+    # for its metadata instead of reading it from the parent group.
+    ("meta", {"path": "/entry/image"}),
+    ("meta", {"path": "/entry/results/I"}),
+    ("meta", {"path": "/entry/results/q"}),
     ("data", {"path": "/entry/results/I", "format": "bin", "dtype": "safe"}),
     ("data", {"path": "/entry/results/q", "format": "bin", "dtype": "safe"}),
     ("data", {"path": "/entry/image", "format": "bin", "dtype": "safe"}),

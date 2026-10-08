@@ -11,6 +11,31 @@ import { useRepository } from '@/hooks/use-repository';
 /** The h5web viewer page, built from packages/hdf5-viewer and served by the web app. */
 export const HDF5_VIEWER_URL = '/hdf5-viewer/index.html';
 
+/** Most files whose last selection is remembered. */
+const REMEMBERED_FILES = 50;
+
+/**
+ * The last object selected in each open file, so that when the canvas
+ * remounts the viewer (maximize, resize, moving tabs) it reopens there
+ * instead of at the file root. `requested` is the `locator` prop in effect
+ * when it was selected: a caller asking for a different object wins.
+ */
+const lastSelection = new Map<string, { requested?: string; selected: string }>();
+
+function startLocator(key: string, requested: string | undefined): string | undefined {
+  const last = lastSelection.get(key);
+  return last && last.requested === requested ? last.selected : requested;
+}
+
+function rememberSelection(key: string, requested: string | undefined, selected: string) {
+  lastSelection.delete(key);
+  lastSelection.set(key, { requested, selected });
+  if (lastSelection.size > REMEMBERED_FILES) {
+    const oldest = lastSelection.keys().next().value;
+    if (oldest !== undefined) lastSelection.delete(oldest);
+  }
+}
+
 /**
  * HDF5 file viewer: h5web in an iframe, because h5web needs React 18.
  *
@@ -37,28 +62,41 @@ export function Hdf5ViewerFrame({
   const repository = useRepository();
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : resolvedTheme === 'light' ? 'light' : undefined;
+  const fileKey = `${workspaceId}\u0000${path}`;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
-  const initRef = useRef<InitState>({ path, locator, revision, theme });
+  const initRef = useRef<InitState>({
+    path,
+    locator: startLocator(fileKey, locator),
+    revision,
+    theme,
+  });
+  const selectionRef = useRef({ fileKey, locator });
   const onSelectRef = useRef(onSelect);
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
 
   useEffect(() => {
-    const target = iframeRef.current?.contentWindow;
-    if (!target) return undefined;
     const origin = window.location.origin;
     const inFlight = new Map<number, AbortController>();
+    // Read the frame's window on every use: moving the iframe in the page
+    // (the canvas does, on maximize and restore) reloads it as a new window
+    // without remounting this component.
     const post = (message: HostMessage, transfer: Transferable[] = []) =>
-      target.postMessage(message, origin, transfer);
+      iframeRef.current?.contentWindow?.postMessage(message, origin, transfer);
 
     const onMessage = (event: MessageEvent<unknown>) => {
-      if (event.source !== target || event.origin !== origin) return;
+      const target = iframeRef.current?.contentWindow;
+      if (!target || event.source !== target || event.origin !== origin) return;
       if (!isViewerMessage(event.data)) return;
       const message = event.data;
       switch (message.type) {
         case 'ready':
+          // A fresh viewer document: requests from an earlier one would
+          // reuse its message ids, so drop them.
+          for (const controller of inFlight.values()) controller.abort();
+          inFlight.clear();
           readyRef.current = true;
           post(initMessage(initRef.current));
           return;
@@ -93,6 +131,11 @@ export function Hdf5ViewerFrame({
           inFlight.delete(message.id);
           return;
         case 'select':
+          rememberSelection(
+            selectionRef.current.fileKey,
+            selectionRef.current.locator,
+            message.locator,
+          );
           onSelectRef.current?.(message.locator);
           return;
       }
@@ -106,11 +149,12 @@ export function Hdf5ViewerFrame({
   }, [repository, workspaceId]);
 
   useEffect(() => {
-    initRef.current = { path, locator, revision, theme };
+    selectionRef.current = { fileKey, locator };
+    initRef.current = { path, locator: startLocator(fileKey, locator), revision, theme };
     const target = iframeRef.current?.contentWindow;
     if (!target || !readyRef.current) return;
     target.postMessage(initMessage(initRef.current), window.location.origin);
-  }, [path, locator, revision, theme]);
+  }, [fileKey, path, locator, revision, theme]);
 
   return (
     // No sandbox: the page is first-party and same-origin, so sandbox flags

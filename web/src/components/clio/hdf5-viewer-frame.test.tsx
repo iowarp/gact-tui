@@ -164,6 +164,61 @@ describe('Hdf5ViewerFrame', () => {
     expect(onSelect).toHaveBeenCalledWith('/entry/I');
   });
 
+  it('reopens at the last selection when the canvas remounts the viewer', () => {
+    const first = renderFrame({ path: 'remount/a.h5' });
+    first.send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 });
+    first.send({ source: VIEWER_SOURCE, type: 'select', locator: '/entry/image' });
+    first.view.unmount();
+
+    const second = renderFrame({ path: 'remount/a.h5' });
+    second.send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 });
+    expect(lastMessage(second.posted)).toMatchObject({ type: 'init', locator: '/entry/image' });
+  });
+
+  it('opens a newly requested locator over the remembered one', () => {
+    const first = renderFrame({ path: 'remount/b.h5', locator: '/x' });
+    first.send({ source: VIEWER_SOURCE, type: 'select', locator: '/y' });
+    first.view.unmount();
+
+    const same = renderFrame({ path: 'remount/b.h5', locator: '/x' });
+    same.send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 });
+    expect(lastMessage(same.posted)).toMatchObject({ locator: '/y' });
+    same.view.unmount();
+
+    const other = renderFrame({ path: 'remount/b.h5', locator: '/z' });
+    other.send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 });
+    expect(lastMessage(other.posted)).toMatchObject({ locator: '/z' });
+  });
+
+  it('remembers selections per file', () => {
+    const first = renderFrame({ path: 'remount/c.h5' });
+    first.send({ source: VIEWER_SOURCE, type: 'select', locator: '/entry' });
+    first.view.unmount();
+
+    const other = renderFrame({ path: 'remount/d.h5' });
+    other.send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 });
+    expect(lastMessage(other.posted)).toMatchObject({ type: 'init', locator: undefined });
+  });
+
+  it('keeps working when the iframe is moved and reloads as a new window', () => {
+    repository.readWorkspaceHdf5.mockReturnValue(new Promise(() => undefined));
+    const { iframe, send } = renderFrame({ path: 'moved/a.h5' });
+    send({ source: VIEWER_SOURCE, type: 'fetch', id: 1, endpoint: 'meta', params: {} });
+    const staleSignal = repository.readWorkspaceHdf5.mock.calls[0]?.[3] as AbortSignal;
+
+    // The browser gives a moved iframe a new window; this component did not remount.
+    const reloaded = { postMessage: vi.fn() };
+    Object.defineProperty(iframe, 'contentWindow', { configurable: true, get: () => reloaded });
+    send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 }, window.location.origin, reloaded);
+
+    expect(reloaded.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'init', filepath: 'moved/a.h5' }),
+      window.location.origin,
+      [],
+    );
+    expect(staleSignal.aborted).toBe(true);
+  });
+
   it('ignores messages from other windows, origins and protocols', () => {
     const onSelect = vi.fn();
     const { send } = renderFrame({ onSelect });

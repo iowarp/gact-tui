@@ -123,6 +123,20 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
   await expect(viewer.getByRole('tab', { name: 'Heatmap' })).toBeVisible();
   await expect.poll(() => calls).toContain('data?dtype=safe&format=bin&path=%2Fentry%2Fimage');
 
+  // Restoring the canvas rebuilds its Files tab, which closes the file.
+  // Opening it again returns to where the user was, not the file root.
+  await page.getByRole('button', { name: 'Restore canvas beside conversation' }).click();
+  const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
+  const frameElement = page.locator(`iframe[data-hdf5-viewer="${h5Path}"]`);
+  const file = canvas.getByText('water.h5', { exact: true });
+  await expect(frameElement.or(file).first()).toBeVisible();
+  if (!(await frameElement.isVisible())) {
+    if (!(await file.isVisible()))
+      await canvas.getByText('results', { exact: true }).first().click();
+    await file.click();
+  }
+  await expect(viewer.getByRole('tab', { name: 'Heatmap' })).toBeVisible({ timeout: 15_000 });
+
   expect(problems).toEqual([]);
   expect(errors).toEqual([]);
   const origin = new URL(page.url()).origin;
@@ -136,20 +150,21 @@ test('the desktop CSP blocks the HDF5 viewer (known gap)', async ({ page }) => {
   // that behavior; when it fails because the viewer renders, the gap is
   // closed: turn it into a positive test.
   const csp = desktopCsp();
-  // Deliver the CSP on every HTML document, as the desktop shell does. An
-  // init-script <meta> (attachment-upload-csp.spec.ts) does not reach the
-  // viewer iframe's document.
-  await page.route('**/*', async (route) => {
-    if (route.request().resourceType() !== 'document') {
-      await route.fallback();
-      return;
-    }
-    const response = await route.fetch();
-    await route.fulfill({
-      response,
-      headers: { ...response.headers(), 'content-security-policy': csp },
-    });
-  });
+  // Deliver the CSP as a header on the app's and the viewer's documents, as
+  // the desktop shell does. An init-script <meta>
+  // (attachment-upload-csp.spec.ts) does not reach the viewer iframe's
+  // document. Only these two are routed: routing every request through a
+  // handler slows h5web's large chunk enough to make the test flaky.
+  await page.route(
+    (url) => url.pathname === draftRoute || url.pathname.endsWith('/hdf5-viewer/index.html'),
+    async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        headers: { ...response.headers(), 'content-security-policy': csp },
+      });
+    },
+  );
   await page.addInitScript((connection) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
   }, endpoint);
