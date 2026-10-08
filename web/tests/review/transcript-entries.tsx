@@ -12,6 +12,18 @@ import { Button } from '../../src/components/ui/button';
 import { ClioMotionProvider } from '../../src/components/clio/motion';
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const requestedProvider = new URLSearchParams(window.location.search).get('provider');
+const provider =
+  requestedProvider === 'claude_code' || requestedProvider === 'vllm' ? requestedProvider : 'codex';
+const model = {
+  provider_id: provider,
+  model_id:
+    provider === 'claude_code'
+      ? 'claude-sonnet-5'
+      : provider === 'vllm'
+        ? 'local-model-fixture'
+        : 'gpt-6-luna',
+};
 function Review() {
   const [live, setLive] = useState(false);
   const tools: Record<string, ToolInvocation> = {
@@ -70,6 +82,7 @@ function Review() {
       {
         id: 'reason-read',
         type: 'reasoning',
+        provider_source: provider,
         text: 'I will compare the timestamps and units first. A temperature difference alone does not establish a sensor fault.',
         streaming: live,
       },
@@ -89,6 +102,7 @@ function Review() {
       {
         id: 'reason-write',
         type: 'reasoning',
+        provider_source: provider,
         text: 'The recommendation should request calibration records and matched readings without overstating the evidence.',
       },
       {
@@ -129,7 +143,7 @@ function Review() {
               session_id: 'fixture',
               role: 'user',
               created_at: '2026-10-08T00:00:00Z',
-              model: { provider_id: 'codex', model_id: 'gpt-6-luna' },
+              model,
               blocks: [{ id: 'prompt-text', type: 'text', text: 'Review the field measurements.' }],
             },
             message,

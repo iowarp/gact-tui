@@ -92,6 +92,30 @@ try {
   await capture('tool-expanded-mobile-fixture.png');
   await page.keyboard.press('Enter');
   await expect(detail).toHaveCount(0);
+  for (const provider of ['claude_code', 'vllm']) {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(
+      `http://127.0.0.1:5214/tests/review/transcript-entries.html?provider=${provider}`,
+    );
+    await expect(thinking).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /^Update:/ })).toHaveCount(0);
+    await expect(
+      page.getByText(
+        'I’ll inspect the recorded measurements before revising the recommendations.',
+        {
+          exact: true,
+        },
+      ),
+    ).toHaveCount(1);
+    for (const button of await thinking.all())
+      await expect(button).toHaveAttribute('aria-expanded', 'false');
+    await expect(footer).toContainText('8 (4 failed) tool calls');
+    await capture(`${provider}-entries-desktop-fixture.png`);
+    if (provider === 'claude_code') {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await capture(`${provider}-entries-mobile-fixture.png`);
+    }
+  }
   if (errors.length) throw new Error(errors.join('\n'));
   await writeFile(
     resolve(output, 'review.json'),
@@ -100,6 +124,7 @@ try {
         fixture: true,
         actualComponents: true,
         viewport: ['1280x900', '390x844'],
+        providers: ['codex', 'claude_code', 'vllm'],
         captures,
         errors,
         result: 'PASS',

@@ -100,6 +100,35 @@ it('alternates visible text entries and independently collapsed tool groups', as
   ).not.toBeInTheDocument();
 });
 
+it.each(['codex', 'claude_code', 'vllm'])(
+  'renders reasoning and public updates by their recorded semantics for %s',
+  async (provider) => {
+    const recorded: Message = {
+      ...message,
+      blocks: message.blocks.map((block) =>
+        block.type === 'reasoning' ? { ...block, provider_source: provider } : block,
+      ),
+    };
+    const model = conversationTurnPresentation(recorded, { one: call('one'), two: call('two') });
+    const first = model.segments[0];
+    expect(first.kind).toBe('iterations');
+    if (first.kind !== 'iterations') throw new Error('Missing recorded text entry');
+    render(<ConversationTurn iterations={first.iterations} mode="chain" subagents={{}} />);
+    expect(await screen.findAllByText('First public update.')).toHaveLength(1);
+    const thinking = screen.getByRole('button', { name: /^Thinking: Recorded reasoning/ });
+    expect(thinking).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: /^Update:/ })).not.toBeInTheDocument();
+    fireEvent.click(thinking);
+    expect(
+      await screen.findByText('Recorded reasoning.', { exact: true, selector: 'p' }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  },
+);
+
 it('leaves streaming thinking collapsed and retains the reader choice after completion', () => {
   const view = render(
     <ConversationTurn iterations={[iteration('one', 0, true)]} mode="chain" subagents={{}} />,

@@ -19,6 +19,10 @@ cancelled and partial calls retain their own outcomes in the expanded details.
 The footer and model-switch checkpoint use spacing and subtle border dividers
 instead of middle-dot separators.
 
+Reasoning and public updates use their recorded block semantics across Codex,
+Claude Code and local providers. Only reasoning has a collapsed Thinking row;
+public updates appear once as ordinary text, without an Update disclosure.
+
 These are actual Chromium captures of the production transcript components,
 including the app's real motion and appearance providers and actual Inter font.
 The turn and tool replies are explicitly **simulated fixtures**. They prove
@@ -35,6 +39,11 @@ acceptance. No account, client, auth, model/default or user-data writes occur.
 - `entries-collapsed-mobile-fixture.png`: the same sequence at 390px.
 - `tool-expanded-mobile-fixture.png`: keyboard expansion, arguments and results
   remain inside the phone viewport.
+- `claude_code-entries-desktop-fixture.png` and
+  `claude_code-entries-mobile-fixture.png`: the same semantics with Claude Code
+  provider metadata.
+- `vllm-entries-desktop-fixture.png`: the same semantics with local-provider
+  metadata.
 
 Reproduce from the repository with:
 
@@ -48,3 +57,5 @@ or `CLIO_REVIEW_OUTPUT`. The review checks independent disclosure, live choice
 retention, complete inline request/result, bounded overflow, keyboard collapse,
 actual font loading and desktop/phone containment. It makes no force clicks or
 test-timeout overrides.
+Append `?provider=claude_code` or `?provider=vllm` to the fixture URL to review
+those provider records. Their responses are simulated, just like the Codex case.
