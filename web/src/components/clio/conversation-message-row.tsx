@@ -38,6 +38,7 @@ import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { MessageCompletionFooter } from './message-completion-footer';
+import { messageToolCallCounts } from './message-tool-call-counts';
 import { ConversationModelCheckpoint } from './conversation-model-boundary';
 import { modelBoundariesEqual } from './conversation-model-boundaries';
 
@@ -325,11 +326,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           {message.role === 'assistant' ? (
             <MessageCompletionFooter
               message={message}
-              toolCount={
-                new Set(
-                  message.blocks.flatMap((block) => (block.type === 'tool' ? [block.tool_id] : [])),
-                ).size
-              }
+              {...messageToolCallCounts(message, entities.tools)}
             >
               {actions}
             </MessageCompletionFooter>

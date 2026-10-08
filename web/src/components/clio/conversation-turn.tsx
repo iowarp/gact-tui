@@ -1,11 +1,5 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import {
-  CheckIcon,
-  CircleAlertIcon,
-  ListChecksIcon,
-  LoaderCircleIcon,
-  WorkflowIcon,
-} from 'lucide-react';
+import { ListChecksIcon, LoaderCircleIcon, WorkflowIcon } from 'lucide-react';
 import { Fragment, useState, type ReactNode } from 'react';
 import {
   ChainOfThought,
@@ -236,7 +230,7 @@ export function ConversationTurn({
             {iteration.activity.length || iteration.interrupted ? (
               <ActivityChain>
                 <ChainOfThoughtHeader
-                  aria-label={`Activity: ${summary.label}${summary.detail ? ` · ${summary.detail}` : ''}`}
+                  aria-label={`Activity: ${summary.label}`}
                   className="min-h-7 [&>svg:first-child]:hidden"
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -245,20 +239,8 @@ export function ConversationTurn({
                         aria-hidden="true"
                         className="size-3.5 shrink-0 animate-spin text-primary"
                       />
-                    ) : summary.failed ? (
-                      <CircleAlertIcon
-                        aria-hidden="true"
-                        className="size-3.5 shrink-0 text-destructive"
-                      />
-                    ) : (
-                      <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-success" />
-                    )}
-                    <span className="min-w-0 truncate font-medium">{summary.label}</span>
-                    {summary.detail ? (
-                      <span className="hidden min-w-0 truncate font-normal @min-[28rem]:inline">
-                        · {summary.detail}
-                      </span>
                     ) : null}
+                    <span className="min-w-0 truncate font-medium">{summary.label}</span>
                   </span>
                 </ChainOfThoughtHeader>
                 <ChainOfThoughtContent

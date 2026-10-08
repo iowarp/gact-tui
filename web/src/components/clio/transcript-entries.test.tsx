@@ -195,9 +195,20 @@ it('renders the same alternating semantics from a saved assistant message', asyn
         <ConversationDisplayProvider>
           <ClioConversation
             messages={[
-              { ...message, blocks: message.blocks.filter((block) => block.type !== 'artifact') },
+              {
+                ...message,
+                completed_at: '2026-10-08T00:01:00Z',
+                stop_reason: 'completed',
+                blocks: message.blocks.filter((block) => block.type !== 'artifact'),
+              },
             ]}
-            tools={{ one: call('one'), two: call('two') }}
+            tools={{
+              one: call('one'),
+              two: {
+                ...call('two'),
+                presentation: { status: 'failed', summary: 'Failed', blocks: [] },
+              },
+            }}
             tasks={{}}
             subagents={{}}
             artifacts={{}}
@@ -219,4 +230,9 @@ it('renders the same alternating semantics from a saved assistant message', asyn
       updates[index - 1].compareDocumentPosition(updates[index]) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   expect(screen.getAllByRole('button', { name: /^Activity:/ })).toHaveLength(2);
+  expect(screen.getByText('2 (1 failed) tool calls')).toBeVisible();
+  for (const trigger of screen.getAllByRole('button', { name: /^Activity:/ })) {
+    expect(trigger).toHaveTextContent('Read files');
+    expect(trigger).not.toHaveTextContent(/completed|failed|\d|·/u);
+  }
 });

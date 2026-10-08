@@ -48,7 +48,7 @@ it('keeps updates visible and opens complete tool details inline', async () => {
       <ConversationTurn iterations={[iteration]} mode="chain" subagents={{}} />
     </PresentationNavigation.Provider>,
   );
-  expect(screen.getByRole('button', { name: /^Activity: 1 tool completed/ })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Activity: Read files' })).toBeVisible();
   expect(await screen.findByText('The notes are ready for the report.')).toBeVisible();
   expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
     'aria-expanded',

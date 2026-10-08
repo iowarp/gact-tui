@@ -46,6 +46,18 @@ function Review() {
       presentation: { action: 'Write', summary: 'Recommendations saved', blocks: [] },
     },
   };
+  const checks: ToolInvocation[] = Array.from({ length: 6 }, (_, index) => ({
+    id: `check-${index}`,
+    session_id: 'fixture',
+    name: 'exec_command',
+    title: `Check sensor ${index + 1}`,
+    state: index < 2 ? 'succeeded' : 'failed',
+    input: { command: `sensor-check S-${index + 1}` },
+    output: index < 2 ? 'Calibration record is present.' : undefined,
+    error: index < 2 ? undefined : 'Calibration record is missing.',
+    presentation: { action: 'Run', summary: `Sensor ${index + 1}`, blocks: [] },
+  }));
+  for (const check of checks) tools[check.id] = check;
   const message: Message = {
     id: 'review-turn',
     session_id: 'fixture',
@@ -53,6 +65,7 @@ function Review() {
     created_at: '2026-10-08T00:00:00Z',
     completed_at: live ? undefined : '2026-10-08T00:01:00Z',
     stop_reason: live ? undefined : 'completed',
+    usage: { input: 492400, output: 1600, cache_read: 0, cache_write: 0 },
     blocks: [
       {
         id: 'reason-read',
@@ -85,6 +98,11 @@ function Review() {
         text: 'I’ll save that distinction in the revised report.',
       },
       { id: 'tool-write', type: 'tool', tool_id: 'write' },
+      ...checks.map((check) => ({
+        id: `tool-${check.id}`,
+        type: 'tool' as const,
+        tool_id: check.id,
+      })),
       {
         id: 'answer',
         type: 'text',
@@ -97,7 +115,7 @@ function Review() {
     <div className="flex h-dvh min-w-0 flex-col bg-background text-foreground">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-5 py-3 text-xs text-muted-foreground">
         <p>
-          Simulated turn fixture · actual transcript components · no inference or user-data writes
+          Simulated turn fixture; actual transcript components; no inference or user-data writes
         </p>
         <Button size="sm" variant="outline" onClick={() => setLive((value) => !value)}>
           {live ? 'Finish recorded turn' : 'Stream recorded turn'}
@@ -105,7 +123,27 @@ function Review() {
       </header>
       <main className="min-h-0 min-w-0 flex-1">
         <ClioConversation
-          messages={[message]}
+          messages={[
+            {
+              id: 'prompt',
+              session_id: 'fixture',
+              role: 'user',
+              created_at: '2026-10-08T00:00:00Z',
+              model: { provider_id: 'codex', model_id: 'gpt-6-luna' },
+              blocks: [{ id: 'prompt-text', type: 'text', text: 'Review the field measurements.' }],
+            },
+            message,
+            {
+              id: 'next-prompt',
+              session_id: 'fixture',
+              role: 'user',
+              created_at: '2026-10-08T00:02:00Z',
+              model: { provider_id: 'claude_code', model_id: 'claude-sonnet-5' },
+              blocks: [
+                { id: 'next-text', type: 'text', text: 'Explain the missing calibration records.' },
+              ],
+            },
+          ]}
           tools={tools}
           tasks={{}}
           artifacts={{}}

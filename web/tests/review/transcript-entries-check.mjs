@@ -36,7 +36,16 @@ try {
   });
   const groups = page.getByRole('button', { name: /^Activity:/ });
   const thinking = page.getByRole('button', { name: /^Thinking:/ });
+  const footer = page.locator('[data-slot="message-completion-footer"]');
+  await expect(footer).toContainText('8 (4 failed) tool calls');
+  await expect(footer).not.toContainText('·');
+  const checkpoints = page.locator('[data-slot="model-checkpoint"]');
+  await expect(checkpoints).toHaveCount(2);
+  await expect(checkpoints.last()).toContainText('Switched to Claude Code');
+  await expect(checkpoints.last()).not.toContainText('·');
   await expect(groups).toHaveCount(2);
+  for (const button of await groups.all())
+    await expect(button).not.toContainText(/\d|completed|failed|·/u);
   await expect(thinking).toHaveCount(2);
   for (const button of await groups.all())
     await expect(button).toHaveAttribute('aria-expanded', 'false');
@@ -66,6 +75,13 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(groups).toHaveCount(2);
+  await expect(footer).toContainText('8 (4 failed) tool calls');
+  const footerSpills = await footer.evaluate(
+    (node) =>
+      node.scrollWidth > node.clientWidth ||
+      node.getBoundingClientRect().right > window.innerWidth + 1,
+  );
+  if (footerSpills) throw new Error('The footer overflows the phone viewport.');
   await capture('entries-collapsed-mobile-fixture.png');
   await groups.first().click();
   const trigger = page.getByRole('button', { name: 'Technical details for Read', exact: true });
