@@ -1,7 +1,18 @@
 import { z } from 'zod';
 import {
+  contextControlsSchema,
+  type ContextControls,
+  type ContextSizingPreviewInput,
+} from './context-sizing-contract.js';
+import {
   externalServiceConnectionSchema,
   infrastructureOperationSchema,
+  operationLogLineSchema,
+  operationLogPageSchema,
+  operationProgressPatchSchema,
+  operationReuseSchema,
+  type InfrastructureOperationEvent,
+  type OperationLogPage,
   infrastructureTargetSchema,
   managedServiceCatalogSchema,
   infrastructureInventorySchema,
@@ -22,6 +33,41 @@ import {
   type HostPathInspection,
   type HostStorageLocations,
 } from './storage-contract.js';
+import type { TransportFrame } from './transport.js';
+
+/**
+ * Decode one frame of an operation's event stream; undefined for a frame this
+ * client does not know (newer services may add event types).
+ */
+export function decodeInfrastructureOperationEvent(
+  frame: TransportFrame,
+): InfrastructureOperationEvent | undefined {
+  const data = (frame.data ?? {}) as { id?: unknown; type?: unknown; payload?: unknown };
+  const type = typeof data.type === 'string' && data.type ? data.type : frame.eventName;
+  const parsedId = Number(frame.cursor || data.id || 0);
+  const id = Number.isFinite(parsedId) && parsedId > 0 ? parsedId : 0;
+  const payload = data.payload ?? {};
+  switch (type) {
+    case 'operation.snapshot':
+      return { id: 0, type, operation: infrastructureOperationSchema.parse(payload) };
+    case 'operation.completed':
+      return { id, type, operation: infrastructureOperationSchema.parse(payload) };
+    case 'operation.progress':
+      return { id, type, progress: operationProgressPatchSchema.parse(payload) };
+    case 'operation.log':
+      return { id, type, log: operationLogLineSchema.parse(payload) };
+    case 'operation.reuse':
+      return { id, type, reuse: operationReuseSchema.parse(payload) };
+    case 'stream.gap': {
+      const first = (payload as { first_retained_id?: unknown }).first_retained_id;
+      return { id: 0, type, first_retained_id: typeof first === 'number' ? first : undefined };
+    }
+    case 'server.heartbeat':
+      return { id: 0, type };
+    default:
+      return undefined;
+  }
+}
 
 /** Infrastructure lifecycle and connection operations owned by the active CLIO. */
 export class InfrastructureRepository extends ProvenanceConnectionRepository {
@@ -164,6 +210,64 @@ export class InfrastructureRepository extends ProvenanceConnectionRepository {
       method: 'GET',
       path: `/v1/infrastructure/operations/${encodeURIComponent(operationId)}`,
       decode: (value) => infrastructureOperationSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * The live event stream of one operation: a snapshot first, then progress,
+   * log lines and reuse notes, ending with `operation.completed`. Pass the
+   * highest event id already held as `lastEventId` to resume (exclusive).
+   */
+  public async *infrastructureOperationEvents(
+    operationId: string,
+    lastEventId?: number,
+    signal?: AbortSignal,
+  ): AsyncIterable<InfrastructureOperationEvent> {
+    const frames = this.transport.stream(
+      {
+        connection_id: '',
+        path: `/v1/infrastructure/operations/${encodeURIComponent(operationId)}/events`,
+      },
+      lastEventId ? String(lastEventId) : undefined,
+      signal,
+    );
+    for await (const frame of frames) {
+      const event = decodeInfrastructureOperationEvent(frame);
+      if (event) yield event;
+    }
+  }
+
+  /** Live log lines newer than `after` (an event id), for clients that poll. */
+  public infrastructureOperationLog(
+    operationId: string,
+    after = 0,
+    limit = 500,
+    signal?: AbortSignal,
+  ): Promise<OperationLogPage> {
+    const query = new URLSearchParams({ after: String(after), limit: String(limit) });
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/infrastructure/operations/${encodeURIComponent(operationId)}/log?${query.toString()}`,
+      decode: (value) => operationLogPageSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * The context control (number, Max, Fit to GPU) a deployment form renders
+   * for its model on its host, computed the way a launch would. Changes nothing.
+   */
+  public previewContextSizing(
+    serviceId: string,
+    input: ContextSizingPreviewInput,
+    signal?: AbortSignal,
+  ): Promise<ContextControls> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/infrastructure/services/${encodeURIComponent(serviceId)}/context-sizing`,
+      body: input,
+      decode: (value) => contextControlsSchema.parse(value),
       signal,
     });
   }

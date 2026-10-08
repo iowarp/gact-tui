@@ -1,4 +1,5 @@
 import type { ProviderClientFact } from './provider-components.js';
+import type { ContextControls } from './context-sizing-contract.js';
 import type {
   AcceptedParameter,
   ModelCapabilityTags,
@@ -349,6 +350,12 @@ export interface ProviderCatalogModel {
    */
   context_basis?: 'served' | 'configured' | 'native';
   output_limit?: number;
+  /**
+   * The working-context control (number / Max; Fit to GPU only when the
+   * service offers it): what CLIO budgets this model against. Absent from
+   * older services.
+   */
+  context_controls?: ContextControls;
   /**
    * What the service reports about this model's usability — `available`,
    * `candidate`, or `unavailable` today. Deliberately an open string: the wire

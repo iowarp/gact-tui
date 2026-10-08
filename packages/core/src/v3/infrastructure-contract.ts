@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { contextSizingSpecSchema } from './context-sizing-contract.js';
 import { modelAcquisitionSchema } from './model-acquisition-contract.js';
 
 export const infrastructureTransportStateSchema = z.enum([
@@ -102,6 +103,8 @@ export const serverParameterSchema = z.object({
   variants: z.array(z.string()).default([]),
   default_behavior: z.string().default(''),
   effective_key: z.string().default(''),
+  /** The context parameter's Number / Max / Fit-to-GPU control; absent elsewhere. */
+  context_sizing: contextSizingSpecSchema.nullish().transform((value) => value ?? undefined),
 });
 
 /** A server parameter as the running server has it in force, and its source. */
@@ -206,6 +209,61 @@ export const versionConflictDetailSchema = z.object({
   port: z.number().optional(),
 });
 
+const nullishNumber = z
+  .number()
+  .nullish()
+  .transform((value) => value ?? undefined);
+const nullishString = z
+  .string()
+  .nullish()
+  .transform((value) => value ?? undefined);
+
+/**
+ * How far one step is, as far as it can honestly be measured: `fraction` is
+ * set only when `determinate`; otherwise the step shows an indeterminate bar
+ * with whatever counter is known.
+ */
+export const operationStepProgressSchema = z.object({
+  determinate: z.boolean().default(false),
+  unit: z
+    .enum(['bytes', 'layers', 'packages', 'percent', 'items'])
+    .nullish()
+    .catch(undefined)
+    .transform((value) => value ?? undefined),
+  current: nullishNumber,
+  total: nullishNumber,
+  fraction: nullishNumber,
+  detail: z.string().default(''),
+});
+
+export const operationStepStateSchema = z
+  .enum(['pending', 'running', 'succeeded', 'reused', 'skipped', 'failed', 'cancelled'])
+  .catch('pending');
+
+/** One ordered step of a long infrastructure operation. */
+export const operationStepSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  state: operationStepStateSchema.default('pending'),
+  started_at: nullishString,
+  finished_at: nullishString,
+  elapsed_seconds: nullishNumber,
+  progress: operationStepProgressSchema.nullish().transform((value) => value ?? undefined),
+  message: z.string().default(''),
+});
+
+/** A verified install step the reuse preflight skipped. */
+export const operationReuseSchema = z.object({
+  kind: z.string(),
+  thing: z.string(),
+  identity: z.string(),
+  path: z.string().default(''),
+  size_bytes: nullishNumber,
+  saved_seconds: nullishNumber,
+  message: z.string().default(''),
+  step: nullishNumber,
+});
+
 export const infrastructureOperationSchema = z.object({
   id: z.string(),
   service_id: z.string(),
@@ -221,7 +279,65 @@ export const infrastructureOperationSchema = z.object({
   conflict: versionConflictDetailSchema.nullish().transform((value) => value ?? undefined),
   created_at: z.string(),
   updated_at: z.string(),
+  // Structured progress; every field defaults so older services still decode.
+  steps: z.array(operationStepSchema).default([]),
+  current_step: nullishNumber,
+  started_at: nullishString,
+  finished_at: nullishString,
+  elapsed_seconds: nullishNumber,
+  reused: z.array(operationReuseSchema).default([]),
+  from_scratch: z.boolean().default(false),
+  /** Newest event id on the live stream; resume from it with Last-Event-ID. */
+  log_cursor: z.number().default(0),
 });
+
+/** One live log line of an operation (`operation.log`). */
+export const operationLogLineSchema = z.object({
+  line: z.string(),
+  stream: z.string().default('stdout'),
+  step: nullishNumber,
+});
+
+/** `GET /v1/infrastructure/operations/{id}/log?after=&limit=`. */
+export const operationLogPageSchema = z.object({
+  operation_id: z.string(),
+  state: z.string(),
+  lines: z.array(
+    operationLogLineSchema.extend({ id: z.number(), at: z.string().default('') }),
+  ),
+  next_cursor: z.number(),
+  truncated: z.boolean().default(false),
+  complete: z.boolean().default(false),
+});
+
+/** The progress part of an operation, as `operation.progress` publishes it. */
+export const operationProgressPatchSchema = infrastructureOperationSchema
+  .pick({
+    state: true,
+    progress: true,
+    steps: true,
+    current_step: true,
+    reused: true,
+    started_at: true,
+    elapsed_seconds: true,
+    from_scratch: true,
+    error: true,
+  })
+  .partial();
+
+/**
+ * One decoded frame of `GET /v1/infrastructure/operations/{id}/events`.
+ * `id` is the resumable event id (0 for connection-only frames: snapshot,
+ * heartbeat, gap).
+ */
+export type InfrastructureOperationEvent =
+  | { id: number; type: 'operation.snapshot'; operation: InfrastructureOperation }
+  | { id: number; type: 'operation.progress'; progress: OperationProgressPatch }
+  | { id: number; type: 'operation.log'; log: OperationLogLine }
+  | { id: number; type: 'operation.reuse'; reuse: OperationReuse }
+  | { id: number; type: 'operation.completed'; operation: InfrastructureOperation }
+  | { id: number; type: 'stream.gap'; first_retained_id?: number }
+  | { id: number; type: 'server.heartbeat' };
 
 export const externalServiceConnectionSchema = z.object({
   id: z.string(),
@@ -270,6 +386,13 @@ export type ServiceAccess = z.infer<typeof serviceAccessSchema>;
 export type ManagedServiceDefinition = z.infer<typeof managedServiceDefinitionSchema>;
 export type ManagedServiceCatalog = z.infer<typeof managedServiceCatalogSchema>;
 export type InfrastructureOperation = z.infer<typeof infrastructureOperationSchema>;
+export type OperationStep = z.infer<typeof operationStepSchema>;
+export type OperationStepState = z.infer<typeof operationStepStateSchema>;
+export type OperationStepProgress = z.infer<typeof operationStepProgressSchema>;
+export type OperationReuse = z.infer<typeof operationReuseSchema>;
+export type OperationLogLine = z.infer<typeof operationLogLineSchema>;
+export type OperationLogPage = z.infer<typeof operationLogPageSchema>;
+export type OperationProgressPatch = z.infer<typeof operationProgressPatchSchema>;
 export type VersionConflictDetail = z.infer<typeof versionConflictDetailSchema>;
 export type ExternalServiceConnection = z.infer<typeof externalServiceConnectionSchema>;
 
@@ -280,6 +403,12 @@ export type CreateInfrastructureTargetInput = {
   ssh?: Partial<SshRoute>;
   auto_reconnect?: boolean;
 };
+
+/**
+ * Install/reinstall configuration flag that bypasses every reuse check for one
+ * operation (fresh pulls, rebuilt environments). CLIO never persists it.
+ */
+export const INSTALL_FROM_SCRATCH_KEY = 'install.from_scratch';
 
 export type ServiceActionInput = {
   target_id: string;
