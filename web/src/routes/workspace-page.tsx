@@ -474,6 +474,7 @@ export function WorkspacePage() {
           onValueChange={composerDraft.onValueChange}
           provider={activeProvider}
           queuedMessages={queuedMessages.data ?? []}
+          queuePaused={session?.metadata?.composer_queue_paused === true}
           resources={workspaceResources.data ?? []}
           queueBusy={
             deleteQueuedMessage.isPending ||

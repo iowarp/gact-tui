@@ -191,18 +191,24 @@ export function useSessionMutations({
     [queryClient, repository, sessionId, settings.endpoint, workspaceId],
   );
 
-  const discardFiles = useCallback(async (files: readonly UploadableFilePart[]) => {
-    for (const file of files) {
-      const key = `${sessionId}\u0000${file.url}`;
-      const uploadId = draftUploads.current.get(key);
-      if (!uploadId) continue;
-      await repository.discardResourceUpload(workspaceId, uploadId);
-      preparedUploads.current.delete(key);
-      draftUploads.current.delete(key);
-    }
-    await queryClient.invalidateQueries({ predicate: (query) =>
-      query.queryKey.includes('workspace-resources') || query.queryKey.includes('workspace-files') });
-  }, [queryClient, repository, sessionId, workspaceId]);
+  const discardFiles = useCallback(
+    async (files: readonly UploadableFilePart[]) => {
+      for (const file of files) {
+        const key = `${sessionId}\u0000${file.url}`;
+        const uploadId = draftUploads.current.get(key);
+        if (!uploadId) continue;
+        await repository.discardResourceUpload(workspaceId, uploadId);
+        preparedUploads.current.delete(key);
+        draftUploads.current.delete(key);
+      }
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey.includes('workspace-resources') ||
+          query.queryKey.includes('workspace-files'),
+      });
+    },
+    [queryClient, repository, sessionId, workspaceId],
+  );
 
   const sendIdentities = useRef(new SendIdentities());
   const reconcileTurnMode = async (behavior: MessageBehavior, target = session) => {
@@ -384,16 +390,7 @@ export function useSessionMutations({
 
   const cancel = useMutation({
     mutationFn: () => repository.cancelSession(sessionId),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
-        }),
-      ]);
-    },
+    onSuccess: invalidateComposerState,
   });
 
   const retry = useMutation({
