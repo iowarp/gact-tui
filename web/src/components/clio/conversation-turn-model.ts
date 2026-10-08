@@ -71,7 +71,13 @@ export interface ConversationTurnPresentation {
   iterations: ConversationIteration[];
   compactionRecords: ConversationTurnCompactionRecord[];
   residualBlocks: MessageBlock[];
+  /** Every visible boundary in canonical order, including non-process blocks. */
+  segments: ConversationTurnSegment[];
 }
+
+export type ConversationTurnSegment =
+  | { kind: 'iterations'; iterations: ConversationIteration[] }
+  | { kind: 'block'; block: MessageBlock };
 
 /** Build one lossless turn view from the canonical ordered transcript parts. */
 export function conversationTurnPresentation(
@@ -79,11 +85,16 @@ export function conversationTurnPresentation(
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task> = {},
 ): ConversationTurnPresentation {
-  const { iterations, compactionRecords, consumed } = fallbackIterations(message, tools, tasks);
+  const { iterations, compactionRecords, consumed, segments } = fallbackIterations(
+    message,
+    tools,
+    tasks,
+  );
   return {
     iterations,
     compactionRecords,
     residualBlocks: message.blocks.filter((block) => !consumed.has(block.id)),
+    segments,
   };
 }
 
@@ -95,10 +106,12 @@ function fallbackIterations(
   iterations: ConversationIteration[];
   compactionRecords: ConversationTurnCompactionRecord[];
   consumed: Set<string>;
+  segments: ConversationTurnSegment[];
 } {
   const iterations: ConversationIteration[] = [];
   const compactionRecords: ConversationTurnCompactionRecord[] = [];
   const consumed = new Set<string>();
+  const segments: ConversationTurnSegment[] = [];
   const indexed = message.blocks.map((block, position) => ({ block, position }));
   const ordered = indexed.some(({ block }) => block.sequence === undefined)
     ? indexed
@@ -124,10 +137,15 @@ function fallbackIterations(
       current.activity.find((entry) => entry.kind === 'subagent')?.block,
     );
     iterations.push(current);
+    const last = segments.at(-1);
+    if (last?.kind === 'iterations') last.iterations.push(current);
+    else segments.push({ kind: 'iterations', iterations: [current] });
     current = emptyIteration(message, iterations.length);
   };
 
   for (const { block } of ordered) {
+    // Transport-only instructions have no visible boundary to split.
+    if (block.type === 'injection' && (block.source === 'tool_use' || block.variants_id)) continue;
     if (
       (block.type === 'injection' && block.source === 'summarization') ||
       (block.type === 'notice' && block.source === 'compaction_failed')
@@ -135,6 +153,7 @@ function fallbackIterations(
       flush();
       compactionRecords.push({ afterIteration: iterations.length, block });
       consumed.add(block.id);
+      segments.push({ kind: 'block', block });
       continue;
     }
     if (block.type === 'reasoning') {
@@ -178,7 +197,11 @@ function fallbackIterations(
       const tool = tools[block.tool_id];
       // An unresolved invocation contributes nothing here; the block stays in the
       // residual lane so its typed unavailable state renders at its own position.
-      if (!tool) continue;
+      if (!tool) {
+        flush();
+        segments.push({ kind: 'block', block });
+        continue;
+      }
       if (!alreadyInLane(current, 'tool', tool.id)) {
         current.activity.push({ kind: 'tool', id: tool.id, tool });
       }
@@ -200,7 +223,11 @@ function fallbackIterations(
       const task = tasks[block.task_id];
       // An unresolved task contributes nothing here; like an unresolved tool the
       // block stays residual so its typed unavailable state renders in place.
-      if (!task) continue;
+      if (!task) {
+        flush();
+        segments.push({ kind: 'block', block });
+        continue;
+      }
       if (!alreadyInLane(current, 'task', task.id)) {
         current.activity.push({ kind: 'task', id: task.id, task });
       }
@@ -233,15 +260,18 @@ function fallbackIterations(
       consumed.add(block.id);
       continue;
     }
-    if (hasIterationContent(current) && block.type === 'text' && block.channel === 'answer') {
-      flush(!current.activity.some((entry) => entry.kind === 'tool'));
-    }
+    flush(
+      block.type === 'text' &&
+        block.channel === 'answer' &&
+        !current.activity.some((entry) => entry.kind === 'tool'),
+    );
+    segments.push({ kind: 'block', block });
   }
   flush(
     messageCompletedNormally(message) && !current.activity.some((entry) => entry.kind === 'tool'),
     messageInterrupted(message),
   );
-  return { compactionRecords, consumed, iterations };
+  return { compactionRecords, consumed, iterations, segments };
 }
 
 function messageToolOwnsReceipt(iteration: ConversationIteration, message: string): boolean {

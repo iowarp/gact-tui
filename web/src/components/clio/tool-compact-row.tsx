@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { CheckIcon, ChevronRightIcon, CircleAlertIcon, LoaderCircleIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DialogTrigger } from '@/components/ui/dialog';
+import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   getToolActionLabel,
   getToolHeaderMetadata,
@@ -11,13 +12,15 @@ import {
   getToolSummary,
 } from './tool-presentation';
 
-/** One recorded call occupies one line; its dialog owns the complete result. */
+/** One recorded call occupies one line; its disclosure owns the complete result. */
 export function ToolCompactRow({
   tool,
   attention,
+  inline = false,
 }: {
   tool: ToolInvocation;
   attention?: ReactNode;
+  inline?: boolean;
 }) {
   const status = getToolStatus(tool);
   const active = status === 'pending' || status === 'running';
@@ -30,13 +33,14 @@ export function ToolCompactRow({
     terminal?.exit_code !== undefined && terminal.exit_code !== null
       ? `exit ${terminal.exit_code}`
       : getToolHeaderMetadata(tool) || getToolSummary(tool);
+  const Trigger = inline ? CollapsibleTrigger : DialogTrigger;
   return (
-    <DialogTrigger asChild>
+    <Trigger asChild>
       <Button
         variant="ghost"
         aria-label={`Technical details for ${action}`}
         title={[action, detail, metadata].filter(Boolean).join(' · ')}
-        className="h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal"
+        className="group/tool-trigger h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal"
       >
         {active ? (
           <LoaderCircleIcon
@@ -59,8 +63,11 @@ export function ToolCompactRow({
         ) : null}
         {!active && !success ? <span className="shrink-0 text-destructive">{status}</span> : null}
         {attention}
-        <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+        <ChevronRightIcon
+          aria-hidden="true"
+          className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/tool-trigger:rotate-90"
+        />
       </Button>
-    </DialogTrigger>
+    </Trigger>
   );
 }

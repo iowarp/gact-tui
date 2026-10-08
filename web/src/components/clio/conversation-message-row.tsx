@@ -30,10 +30,6 @@ import type { ConversationMessageRowProps } from './conversation-types';
 import { specialMessageExecutionMode } from './conversation-message-projection';
 import { McpAppResponseMessageRow } from './conversation-message-projections';
 import { ClioCompactionProgress } from './conversation-summarization';
-import type {
-  ConversationIteration,
-  ConversationTurnCompactionRecord,
-} from './conversation-turn-model';
 import { useConversationTurn } from './use-conversation-turn';
 import { useMessageAttentionIndex } from './use-message-attention-index';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
@@ -80,7 +76,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const cancellablePendingSteer =
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
   const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
-  const { compactionRecords, linkedSubagentIds, residualBlocks } = turn;
+  const { linkedSubagentIds, residualBlocks } = turn;
   const visibleResidualBlocks = residualBlocks.filter(
     (block) => block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
   );
@@ -269,44 +265,44 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               </Alert>
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
-                {turnSegments(turn.iterations, compactionRecords).map((segment) =>
-                  segment.kind === 'record' ? (
-                    <MessageBlockSequence
-                      blocks={[segment.block]}
-                      key={segment.block.id}
-                      messageId={message.id}
-                      messageAttentionIndex={messageAttentionIndex}
-                      messageSessionId={message.session_id}
-                      {...entities}
-                    />
-                  ) : (
-                    <div key={segment.iterations[0]?.id}>
-                      <ConversationTurn
-                        activeMcpAppId={entities.activeMcpAppId}
-                        answerStarted={answerStarted}
-                        artifacts={entities.artifacts}
-                        interactions={entities.interactions}
-                        iterations={segment.iterations}
-                        mcpAppRepository={entities.mcpAppRepository}
+                {turn.segments
+                  .filter(
+                    (segment) =>
+                      segment.kind !== 'block' ||
+                      segment.block.type !== 'subagent' ||
+                      !linkedSubagentIds.has(segment.block.subagent_id),
+                  )
+                  .map((segment) =>
+                    segment.kind === 'block' ? (
+                      <MessageBlockSequence
+                        blocks={[segment.block]}
+                        key={segment.block.id}
+                        messageId={message.id}
                         messageAttentionIndex={messageAttentionIndex}
                         messageSessionId={message.session_id}
-                        mode={displayMode}
-                        onOpenSubagent={entities.onOpenSubagent}
-                        onOpenArtifact={entities.onOpenArtifact}
-                        onInteractionResponse={entities.onInteractionResponse}
-                        subagents={entities.subagents}
+                        {...entities}
                       />
-                    </div>
-                  ),
-                )}
+                    ) : (
+                      <div key={segment.iterations[0]?.id}>
+                        <ConversationTurn
+                          activeMcpAppId={entities.activeMcpAppId}
+                          answerStarted={answerStarted}
+                          artifacts={entities.artifacts}
+                          interactions={entities.interactions}
+                          iterations={segment.iterations}
+                          mcpAppRepository={entities.mcpAppRepository}
+                          messageAttentionIndex={messageAttentionIndex}
+                          messageSessionId={message.session_id}
+                          mode={displayMode}
+                          onOpenSubagent={entities.onOpenSubagent}
+                          onOpenArtifact={entities.onOpenArtifact}
+                          onInteractionResponse={entities.onInteractionResponse}
+                          subagents={entities.subagents}
+                        />
+                      </div>
+                    ),
+                  )}
                 <VariantRunsForMessage message={message} />
-                <MessageBlockSequence
-                  blocks={visibleResidualBlocks}
-                  messageId={message.id}
-                  messageAttentionIndex={messageAttentionIndex}
-                  messageSessionId={message.session_id}
-                  {...entities}
-                />
               </>
             ) : (
               <>
@@ -343,33 +339,6 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     </div>
   );
 }, conversationMessageRowPropsEqual);
-
-type TurnSegment =
-  | { kind: 'iterations'; iterations: ConversationIteration[] }
-  | { kind: 'record'; block: ConversationTurnCompactionRecord['block'] };
-
-/** Splits a turn's iterations at the compaction records made inside it. */
-function turnSegments(
-  iterations: readonly ConversationIteration[],
-  records: readonly ConversationTurnCompactionRecord[],
-): TurnSegment[] {
-  const segments: TurnSegment[] = [];
-  let start = 0;
-  for (const record of records) {
-    if (record.afterIteration > start) {
-      segments.push({
-        kind: 'iterations',
-        iterations: iterations.slice(start, record.afterIteration),
-      });
-      start = record.afterIteration;
-    }
-    segments.push({ kind: 'record', block: record.block });
-  }
-  if (start < iterations.length) {
-    segments.push({ kind: 'iterations', iterations: iterations.slice(start) });
-  }
-  return segments;
-}
 
 interface MessageEntityRefs {
   artifacts: Set<string>;

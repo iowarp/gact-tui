@@ -38,10 +38,21 @@ const requiredImports = {
   // Chain mode moved to ConversationTurn; the ChainOfThought composition is required there.
   'web/src/components/clio/conversation-turn.tsx': [
     '@/components/ai-elements/chain-of-thought',
-    '@/components/ai-elements/reasoning',
-    './grounded-message-response',
+    './transcript-iteration-text',
     './subagent-card',
     './tool-invocation',
+  ],
+  // Both transcript modes share this text entry. Keep the sourced reasoning
+  // disclosure and grounded text, including the original selection bindings.
+  'web/src/components/clio/transcript-iteration-text.tsx': [
+    './transcript-reasoning-row',
+    './transcript-reasoning',
+    './grounded-message-response',
+  ],
+  'web/src/components/clio/transcript-reasoning-row.tsx': ['@/components/ai-elements/reasoning'],
+  'web/src/components/clio/tool-details-content.tsx': [
+    '@/components/ui/collapsible',
+    './result-dialog-content',
   ],
   'web/src/components/clio/grounded-message-response.tsx': [
     '@/components/ai-elements/message',
