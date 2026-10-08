@@ -39,7 +39,7 @@ const STATE_LABELS: Record<DeployStageState, string> = {
 };
 
 /** Re-render once a second while something is running, for elapsed times. */
-function useNow(ticking: boolean): number {
+export function useNow(ticking: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!ticking) return;

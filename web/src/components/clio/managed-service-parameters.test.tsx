@@ -209,6 +209,20 @@ describe('model runtime server parameters', () => {
     );
   });
 
+  it('reinstalls from scratch only after confirming, bypassing reuse', async () => {
+    const user = userEvent.setup();
+    const { onAction } = renderCard(vllm({ state: 'stopped' }), 'cpu', {
+      model: 'Qwen/Qwen2.5-0.5B-Instruct',
+    });
+    await user.click(screen.getByRole('tab', { name: 'Configuration' }));
+    await user.click(screen.getByRole('button', { name: 'Reinstall from scratch' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Reinstall vLLM from scratch?')).toBeVisible();
+    expect(onAction).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: 'Reinstall from scratch' }));
+    expect(onAction).toHaveBeenCalledWith('reinstall', { fromScratch: true });
+  });
+
   it('lets a stopped runtime start without re-entering its installed model', () => {
     renderCard(vllm({ state: 'stopped' }));
     expect(screen.getByRole('button', { name: 'Start' })).toBeEnabled();

@@ -1,4 +1,8 @@
-import type { ManagedServiceDefinition, ServiceActionInput } from '@clio/core/v3';
+import type {
+  InfrastructureOperation,
+  ManagedServiceDefinition,
+  ServiceActionInput,
+} from '@clio/core/v3';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -19,6 +23,7 @@ import { ServiceAccessLine } from './managed-service-access';
 import { EffectiveParameters, OwnedResources } from './managed-service-parameters';
 import { ManagedServiceForm } from './managed-service-form';
 import { ManagedServiceReceipt } from './managed-service-receipt';
+import { OperationProgress } from './operation-progress';
 import {
   ManagedServiceLogo,
   ManagedServiceState,
@@ -26,7 +31,17 @@ import {
 } from './managed-service-identity';
 
 export type ServiceAction = ServiceActionInput['action'];
-export type ServiceActionFeedback = { action: ServiceAction; error?: boolean; text: string };
+export type ServiceActionFeedback = {
+  action: ServiceAction;
+  error?: boolean;
+  text: string;
+  /** The finished operation, whose steps, reuse notes and log stay viewable. */
+  operationId?: string;
+};
+export type ServiceActionOptions = {
+  /** Bypass every reuse check for this install (`install.from_scratch`). */
+  fromScratch?: boolean;
+};
 
 /** Definition-driven setup and resource management with separate lifecycle verbs. */
 export function ManagedServiceCard({
@@ -38,6 +53,7 @@ export function ManagedServiceCard({
   onCancel,
   onConfiguration,
   onVariant,
+  operation,
   progress,
   result,
   service,
@@ -58,10 +74,12 @@ export function ManagedServiceCard({
   };
   connectionStatus?: ReactNode;
   configuration: Record<string, string>;
-  onAction: (action: ServiceAction) => void;
+  onAction: (action: ServiceAction, options?: ServiceActionOptions) => void;
   onCancel?: () => void;
   onConfiguration: (field: string, value: string) => void;
   onVariant: (value: string) => void;
+  /** The running operation, when CLIO reported one: its live progress is shown. */
+  operation?: { id: string; initial?: InfrastructureOperation };
   progress?: string;
   result?: ServiceActionFeedback;
   service: ManagedServiceDefinition;
@@ -74,6 +92,11 @@ export function ManagedServiceCard({
 }) {
   const [localTab, setLocalTab] = useState('status');
   const [confirmation, setConfirmation] = useState<ServiceAction>();
+  const [fromScratch, setFromScratch] = useState(false);
+  const confirm = (action: ServiceAction, scratch = false) => {
+    setFromScratch(scratch);
+    setConfirmation(action);
+  };
   const native = variant.startsWith('native-cuda');
   const monitoring = service.category === 'monitoring';
   const retainsData = native || monitoring;
@@ -130,7 +153,7 @@ export function ManagedServiceCard({
       }
       onClick={() =>
         ['uninstall', 'delete_data', 'reinstall'].includes(action)
-          ? setConfirmation(action)
+          ? confirm(action)
           : onAction(action)
       }
     >
@@ -238,6 +261,14 @@ export function ManagedServiceCard({
             {installed ? (
               <div className="flex flex-wrap items-center gap-2">
                 {act('reinstall')}
+                <Button
+                  disabled={Boolean(activeAction) || !compatible || missing}
+                  onClick={() => confirm('reinstall', true)}
+                  size="sm"
+                  variant="outline"
+                >
+                  Reinstall from scratch
+                </Button>
                 <InfoTip label="About applying service configuration">
                   Applying configuration stops and replaces this runtime. Verify setup again
                   afterward. Keep using the existing configuration until you apply your edits.
@@ -318,7 +349,15 @@ export function ManagedServiceCard({
           </TabsContent>
         </Tabs>
       )}
-      {activeAction ? (
+      {activeAction && operation ? (
+        <OperationProgress
+          initial={operation.initial}
+          key={operation.id}
+          onCancel={onCancel}
+          operationId={operation.id}
+          title={`${service.label} ${labels[activeAction].toLowerCase()}`}
+        />
+      ) : activeAction ? (
         <div className="flex flex-wrap items-center gap-3">
           <p aria-live="polite" role="status" className="text-sm text-muted-foreground">
             {progress || progressLabels[activeAction]}
@@ -329,6 +368,17 @@ export function ManagedServiceCard({
             </Button>
           ) : null}
         </div>
+      ) : result?.operationId && ['install', 'reinstall'].includes(result.action) ? (
+        <OperationProgress
+          key={result.operationId}
+          onReinstallFromScratch={
+            compatible && !missing
+              ? () => confirm(installed ? 'reinstall' : 'install', true)
+              : undefined
+          }
+          operationId={result.operationId}
+          title={`${service.label} ${labels[result.action].toLowerCase()}`}
+        />
       ) : null}
       {result && result.action !== 'logs' ? (
         <p
@@ -352,14 +402,18 @@ export function ManagedServiceCard({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmation === 'delete_data'
+              {fromScratch
+                ? `Reinstall ${service.label} from scratch?`
+                : confirmation === 'delete_data'
                 ? `Delete retained ${service.label} data?`
                 : confirmation === 'reinstall'
                   ? `Apply ${service.label} configuration?`
                   : `Remove ${service.label} runtime?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmation === 'delete_data'
+              {fromScratch
+                ? 'This installs again without reusing anything already on the host: images are pulled, environments rebuilt and models downloaded again. It can take much longer.'
+                : confirmation === 'delete_data'
                 ? 'This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained.'
                 : confirmation === 'reinstall'
                   ? 'This stops and reinstalls the runtime on the selected host. Existing verification expires; run Verify setup again afterward.'
@@ -377,11 +431,18 @@ export function ManagedServiceCard({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmation) onAction(confirmation);
+                if (confirmation) {
+                  onAction(confirmation, fromScratch ? { fromScratch: true } : undefined);
+                }
                 setConfirmation(undefined);
+                setFromScratch(false);
               }}
             >
-              {confirmation ? labels[confirmation] : 'Continue'}
+              {fromScratch
+                ? 'Reinstall from scratch'
+                : confirmation
+                  ? labels[confirmation]
+                  : 'Continue'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
