@@ -17,7 +17,7 @@ export class TaskRepository extends SystemRepository {
   ): Promise<void> {
     const result = await this.transport.request({
       method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/cancel`,
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/async-tasks/cancel`,
       body: { tasks },
       decode: (value) => cancellationReply.parse(value),
       signal,
