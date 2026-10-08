@@ -6,6 +6,12 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.9] - 2026-10-08
+
+### Fixed
+
+- Stream bundled runtime preparation stages into the Windows installer details, retaining the saved failure report and a bounded error dialog.
+
 ## [0.11.3-beta.8] - 2026-10-08
 
 ### Fixed

@@ -673,17 +673,32 @@ FunctionEnd
   ; processing tens of thousands of Python files. Expand it here, invisibly,
   ; before the user can launch CLIO. The executable installs it below $INSTDIR
   ; so a D: selection includes the runtime, CTE, workspace, and model cache.
-  DetailPrint "Installing the CLIO runtime and downloading Python/Node document packages..."
-  nsExec::ExecToStack '"$INSTDIR\clio-desktop.exe" --prepare-runtime'
+  DetailPrint "Preparing the CLIO runtime..."
+  ; Stream verified setup stages instead of hiding all work behind one line.
+  nsExec::ExecToLog '"$INSTDIR\clio-desktop.exe" --prepare-runtime'
   Pop $0
-  Pop $1
   ${If} $0 != 0
+    StrCpy $1 ""
+    ${If} ${FileExists} "$INSTDIR\data\runtime-install-error.log"
+      FileOpen $3 "$INSTDIR\data\runtime-install-error.log" r
+      clio_runtime_error_read:
+        ClearErrors
+        FileRead $3 $4
+        IfErrors clio_runtime_error_read_done
+        StrCpy $1 "$1$4"
+        StrLen $5 $1
+        ${If} $5 < 3000
+          Goto clio_runtime_error_read
+        ${EndIf}
+      clio_runtime_error_read_done:
+      FileClose $3
+    ${EndIf}
     ; A helper that dies before reporting (killed, crashed) leaves $1 empty;
     ; never show the user a blank reason.
     ${If} $1 == ""
-      StrCpy $1 "The runtime helper stopped with exit code $0 before it could report an error."
+      StrCpy $1 "The runtime helper stopped with exit code $0. See the installation details above for its output."
     ${EndIf}
-    ; $1 is the helper's stderr: the real error, then where its log was saved.
+    ; $1 is the saved real error; stdout/stderr also remain in the install log.
     ; The helper also records the brand's new-issue URL next to that log so
     ; the user can report the failure with the log attached.
     StrCpy $2 ""
