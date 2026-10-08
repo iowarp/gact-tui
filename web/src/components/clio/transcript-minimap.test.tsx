@@ -114,6 +114,9 @@ describe('ClioTranscriptMinimap', () => {
 
       const activeLandmark = screen.getByRole('button', { name: 'Jump to assistant message 2' });
       expect(activeLandmark).toHaveAttribute('aria-current', 'location');
+      expect(
+        Number.parseFloat((activeLandmark.firstElementChild as HTMLElement).style.width),
+      ).toBeLessThanOrEqual(12);
       const inactiveLandmark = screen.getByRole('button', { name: 'Jump to user message 1' });
       expect(inactiveLandmark).not.toHaveAttribute('aria-current');
 

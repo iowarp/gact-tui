@@ -27,7 +27,15 @@ const MAX_TRY_ACTIVITY = 200;
 
 type RunFields = Pick<
   VariantRun,
-  'variants_id' | 'session_id' | 'run_id' | 'agent_id' | 'origin' | 'strategy' | 'judge' | 'n'
+  | 'variants_id'
+  | 'session_id'
+  | 'run_id'
+  | 'agent_id'
+  | 'origin'
+  | 'strategy'
+  | 'judge'
+  | 'n'
+  | 'rubric'
 >;
 
 function runWith(existing: VariantRun | undefined, fields: RunFields): VariantRun {
@@ -43,6 +51,7 @@ function runWith(existing: VariantRun | undefined, fields: RunFields): VariantRu
     strategy: fields.strategy === 'unknown' ? existing.strategy : fields.strategy,
     judge: fields.judge === 'unknown' ? existing.judge : fields.judge,
     n: Math.max(fields.n, existing.n),
+    rubric: fields.rubric ?? existing.rubric,
   };
 }
 

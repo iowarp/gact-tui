@@ -13,6 +13,7 @@ mod clio_core_registry;
 mod commands;
 mod credentials;
 mod document_apps;
+mod downloads;
 mod execution_install;
 mod gact_http;
 mod gact_http_response;
@@ -211,6 +212,7 @@ pub fn run() {
             credentials::ssh_identity_store,
             gact_http::gact_http,
             update_channel::check_release_update,
+            downloads::open_downloads,
             sse_bridge::gact_sse_open,
             sse_bridge::gact_sse_close,
             plugins::exec_plugin,

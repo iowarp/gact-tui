@@ -571,7 +571,6 @@ export function WorkspacePage() {
               }}
               onOpenBlueprint={(blueprint) => revealWorkbench({ kind: 'blueprint', blueprint })}
               onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
-              onOpenTerminal={terminalActions.onOpenTerminal}
               onReturnToParent={(parent) =>
                 navigate(
                   `/workspaces/${encodeURIComponent(parent.workspace_id)}/sessions/${encodeURIComponent(parent.id)}`,

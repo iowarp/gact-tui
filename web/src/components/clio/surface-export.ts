@@ -10,6 +10,10 @@
  * route to export through.
  */
 
+import { toast } from 'sonner';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { openDownloads } from '@/tauri/downloads';
+
 const DEFAULT_FILENAME_BASE = 'export';
 /** Characters kept as-is in a derived filename; everything else becomes `_`. */
 const SAFE_FILENAME_CHARS = /[^a-z0-9._-]+/giu;
@@ -18,7 +22,10 @@ const SAFE_FILENAME_CHARS = /[^a-z0-9._-]+/giu;
 export function filenameStemFromTitle(title: string | undefined): string {
   const trimmed = (title ?? '').trim();
   if (!trimmed) return DEFAULT_FILENAME_BASE;
-  const slug = trimmed.replaceAll(SAFE_FILENAME_CHARS, '_').replaceAll(/_+/gu, '_').replace(/^_|_$/gu, '');
+  const slug = trimmed
+    .replaceAll(SAFE_FILENAME_CHARS, '_')
+    .replaceAll(/_+/gu, '_')
+    .replace(/^_|_$/gu, '');
   return slug || DEFAULT_FILENAME_BASE;
 }
 
@@ -26,14 +33,7 @@ export function filenameStemFromTitle(title: string | undefined): string {
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   try {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.rel = 'noopener';
-    anchor.style.display = 'none';
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
+    downloadUrl(url, filename);
   } finally {
     // Revoked after the click has had a chance to start the download (a
     // same-tick revoke can race the browser's own read of the object URL).
@@ -55,10 +55,15 @@ export function downloadUrl(url: string, filename: string): void {
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
+  if (inTauri()) void openDownloads().catch((error: Error) => toast.error(error.message));
 }
 
 /** `downloadBlob`, for bytes already in hand (a fetched export, a canvas export, ...). */
-export function downloadBytes(data: BlobPart | Uint8Array, mimeType: string, filename: string): void {
+export function downloadBytes(
+  data: BlobPart | Uint8Array,
+  mimeType: string,
+  filename: string,
+): void {
   // `Uint8Array`'s newer generic typing (`Uint8Array<ArrayBufferLike>`) is not
   // structurally a `BlobPart` (which wants an `ArrayBuffer`-only view); `Blob`
   // accepts it fine at runtime (it always has, for any typed array), so this
@@ -78,15 +83,23 @@ function csvCell(value: unknown): string {
 }
 
 /** A portable CSV of `rows`, projected to `columns` in that order. Client-side only: for INLINE data (no server to export through). */
-export function rowsToCsv(columns: readonly string[], rows: readonly Record<string, unknown>[]): string {
+export function rowsToCsv(
+  columns: readonly string[],
+  rows: readonly Record<string, unknown>[],
+): string {
   const header = columns.map(csvCell).join(',');
   const body = rows.map((row) => columns.map((column) => csvCell(row[column])).join(','));
   return [header, ...body].join('\r\n');
 }
 
 /** A portable, row-oriented JSON array of `rows`, projected to `columns`. Client-side only, for inline data. */
-export function rowsToJson(columns: readonly string[], rows: readonly Record<string, unknown>[]): string {
-  const projected = rows.map((row) => Object.fromEntries(columns.map((column) => [column, row[column] ?? null])));
+export function rowsToJson(
+  columns: readonly string[],
+  rows: readonly Record<string, unknown>[],
+): string {
+  const projected = rows.map((row) =>
+    Object.fromEntries(columns.map((column) => [column, row[column] ?? null])),
+  );
   return JSON.stringify(projected, null, 2);
 }
 
@@ -125,7 +138,8 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
   } catch {
     // Local HTTP previews can expose a clipboard object yet reject writeText.
   }
-  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const previousFocus =
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const field = document.createElement('textarea');
   field.value = text;
   field.setAttribute('readonly', '');

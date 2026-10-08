@@ -197,7 +197,7 @@ describe('connected source picker', () => {
   );
 
   it.each([1, 2])(
-    'Files always opens the list with %s sources and cannot add data',
+    'Files opens the source list independently and offers existing-source downloads (%s sources)',
     async (count) => {
       fixtures.repository.connectedSources.mockResolvedValue(
         Array.from({ length: count }, (_, i) => ({
@@ -224,14 +224,41 @@ describe('connected source picker', () => {
       expect(screen.queryByRole('button', { name: 'Connect' })).toBeNull();
       await user.click(screen.getByRole('button', { name: /^Inputs 1/ }));
       expect(await screen.findByRole('heading', { name: 'Inputs 1' })).toBeVisible();
-      expect(screen.queryByRole('button', { name: 'Download all' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Download file' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Download all' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Download file' })).toBeEnabled();
+      expect(screen.queryByRole('button', { name: 'Add this folder to message' })).toBeNull();
       rendered.rerender(view(false));
       rendered.rerender(view(true));
       expect(await screen.findByText('Your sources')).toBeVisible();
       expect(client.getQueryData(['connected-storage-selection', scope, 'w'])).toBe('s1');
     },
   );
+
+  it('relinks an existing unlinked source from Files without a composer draft', async () => {
+    fixtures.repository.connectedSources.mockResolvedValue([
+      { ...source, linked: false, link_available: true },
+    ]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ConnectedSourcePicker workspaceId="w" manageOnly open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
+    await user.click(await screen.findByRole('button', { name: 'Link folder' }));
+    await waitFor(() =>
+      expect(fixtures.repository.linkConnectedSource).toHaveBeenCalledWith(
+        'w',
+        's1',
+        false,
+        undefined,
+        { access: 'read_only', confirm_remote: false },
+      ),
+    );
+    expect(fixtures.repository.beginSourceDraft).not.toHaveBeenCalled();
+    expect(fixtures.repository.attachSourceFolder).not.toHaveBeenCalled();
+  });
 
   it('removing the copy clears availability despite a retained completed transfer', async () => {
     fixtures.repository.sourceOperations.mockResolvedValue([

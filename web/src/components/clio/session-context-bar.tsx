@@ -1,8 +1,10 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
-import { ArrowLeftIcon, GitBranchIcon, TerminalSquareIcon } from 'lucide-react';
+import { ArrowLeftIcon, DownloadIcon, GitBranchIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { showsBaseAgent } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { openDownloads } from '@/tauri/downloads';
 import { ClioSessionActions } from './session-actions';
 
 export interface ClioSessionContextBarProps {
@@ -13,9 +15,6 @@ export interface ClioSessionContextBarProps {
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
   onOpenBlueprint: (blueprint: AgentBlueprintReference) => void;
-  /** Reveals the embedded terminal tab. Tauri only — undefined hides the
-   * button entirely (matches every other desktop-only action here). */
-  onOpenTerminal?: () => Promise<void>;
   /** Secondary escape hatch: opens the workspace in the OS's own terminal
    * app instead of the embedded tab. */
   onOpenSystemTerminal?: () => Promise<void>;
@@ -32,7 +31,6 @@ export function ClioSessionContextBar({
   onCompact,
   onFork,
   onOpenBlueprint,
-  onOpenTerminal,
   onOpenSystemTerminal,
   onShare,
   onReturnToParent,
@@ -99,16 +97,22 @@ export function ClioSessionContextBar({
         onUndo={onUndo}
         title={session?.title ?? 'session'}
       />
-      {onOpenTerminal ? (
+      {inTauri() ? (
         <Button
-          aria-label="Open terminal in workspace"
+          aria-label="Open downloads"
           className="shrink-0"
-          onClick={() => void onOpenTerminal()}
+          onClick={() =>
+            void openDownloads().catch((error: unknown) => {
+              toast.error('Unable to open downloads', {
+                description: error instanceof Error ? error.message : String(error),
+              });
+            })
+          }
           size="icon-xs"
-          title="Open terminal in workspace"
+          title="Downloads (Ctrl+J)"
           variant="ghost"
         >
-          <TerminalSquareIcon aria-hidden="true" />
+          <DownloadIcon aria-hidden="true" />
         </Button>
       ) : null}
       {session?.branch ? (

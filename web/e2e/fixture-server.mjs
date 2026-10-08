@@ -31,6 +31,7 @@ const streamMessageId = 'msg_stream';
 const streamBlockId = 'block_stream';
 let permissionPending = true;
 let questionPending = true;
+let questionTrayDemo = false;
 let mcpV2UiDemo = false;
 let a2uiMapDemo = false;
 let a2uiDataDemo = false;
@@ -767,6 +768,9 @@ function transcriptMessages() {
         streaming: false,
       },
       { id: 'block_tool', type: 'tool', tool_id: 'tool_earthscope' },
+      ...(questionTrayDemo
+        ? [{ id: 'block_fixture_question', type: 'tool', tool_id: 'tool_fixture_question' }]
+        : []),
       { id: 'block_task', type: 'task', task_id: 'task_quality' },
       { id: 'block_subagent', type: 'subagent', subagent_id: 'subagent_station' },
       { id: 'block_artifact', type: 'artifact', artifact_id: 'artifact_plot' },
@@ -1077,7 +1081,7 @@ const CHART_DEMO_ROWS = [
 ];
 
 /** A lone clio.chart.v1 (scatter preset, inline data) — proves the kernel draws. */
-function chartDemoMessages() {
+function chartDemoMessages(legend = false) {
   return [
     {
       version: 'v0.9.1',
@@ -1093,10 +1097,20 @@ function chartDemoMessages() {
             id: 'chart',
             component: 'clio.chart.v1',
             title: 'Wave amplitude by run',
-            preset: 'scatter',
-            xField: 't',
-            yField: 'v',
-            entityField: 'run',
+            ...(!legend ? { preset: 'scatter', xField: 't', yField: 'v', entityField: 'run' } : {}),
+            ...(legend
+              ? {
+                  spec: {
+                    mark: 'point',
+                    config: { background: '#ffffff' },
+                    encoding: {
+                      x: { field: 't', type: 'quantitative' },
+                      y: { field: 'v', type: 'quantitative' },
+                      color: { field: 'run', type: 'nominal' },
+                    },
+                  },
+                }
+              : {}),
             data: CHART_DEMO_ROWS,
           },
         ],
@@ -1381,6 +1395,7 @@ const server = createServer(async (request, response) => {
     session.updated_at = observedAt;
     permissionPending = true;
     questionPending = true;
+    questionTrayDemo = false;
     mcpV2UiDemo = false;
     a2uiMapDemo = false;
     // Every spec shares this server: a demo left on by one spec file (the
@@ -1467,6 +1482,13 @@ const server = createServer(async (request, response) => {
       closes: mcpAppCloses,
       resolved_interactions: [...resolvedInteractionIds],
     });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/question-tray') {
+    questionTrayDemo = true;
+    questionPending = false;
+    sendJson(response, { status: 'pending' }, 202);
     return;
   }
 
@@ -1659,6 +1681,7 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && url.pathname === '/__test/a2ui-chart-demo') {
+    const { legend = false } = await readJson(request);
     const surfaceId = 'surface_chart_demo';
     publish('a2ui.surface.upserted', {
       id: surfaceId,
@@ -1667,7 +1690,7 @@ const server = createServer(async (request, response) => {
       protocol_version: '0.9.1',
       revision: 1,
       state: 'ready',
-      messages: chartDemoMessages(),
+      messages: chartDemoMessages(legend),
     });
     sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
     return;
@@ -1826,7 +1849,7 @@ const server = createServer(async (request, response) => {
       ...capabilities,
       capabilities: {
         ...capabilities.capabilities,
-        ...(mcpV2UiDemo || a2uiMapDemo ? { x_clio_interactions: true } : {}),
+        ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo ? { x_clio_interactions: true } : {}),
         ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
       },
     });
@@ -1922,6 +1945,19 @@ const server = createServer(async (request, response) => {
     sendJson(response, {
       messages: transcriptMessages(),
       tools: [
+        ...(questionTrayDemo
+          ? [
+              {
+                id: 'tool_fixture_question',
+                session_id: sessionId,
+                name: 'ask_user',
+                title: 'Ask user',
+                state: 'succeeded',
+                input: { question: 'Which evidence view?' },
+                output: 'Waiting for your answer.',
+              },
+            ]
+          : []),
         ...transcriptActivityTools,
         {
           id: 'tool_earthscope',
@@ -2326,12 +2362,40 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (
-    (mcpV2UiDemo || a2uiMapDemo) &&
+    (mcpV2UiDemo || a2uiMapDemo || questionTrayDemo) &&
     request.method === 'GET' &&
     url.pathname === `/v1/sessions/${sessionId}/interactions`
   ) {
     sendJson(response, {
-      interactions: a2uiMapDemo ? earthScopeMapInteractions() : mcpV2Interactions(),
+      interactions: questionTrayDemo
+        ? [
+            {
+              id: 'native:question:tray',
+              kind: 'question',
+              status: 'pending',
+              requires_human_response: true,
+              audience: 'human',
+              owner_session_id: sessionId,
+              attended_session_id: sessionId,
+              title: 'Question',
+              prompt: 'Which evidence view should remain primary?',
+              created_at: observedAt,
+              source: {
+                protocol: 'native',
+                tool_name: 'ask_user',
+                invocation_id: 'tool_fixture_question',
+              },
+              actions: ['answer'],
+              payload: {
+                question_id: 'tray',
+                kind: 'choice',
+                options: [{ label: 'Table', value: 'table' }],
+              },
+            },
+          ]
+        : a2uiMapDemo
+          ? earthScopeMapInteractions()
+          : mcpV2Interactions(),
     });
     return;
   }
