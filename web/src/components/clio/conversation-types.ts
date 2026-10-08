@@ -32,6 +32,7 @@ export interface ClioConversationProps {
    * `workspace_file` block's path belongs to.
    */
   workspaceId?: string;
+  sessionId?: string;
   tools: Record<string, ToolInvocation>;
   tasks: Record<string, DomainTask>;
   subagents: Record<string, SubagentRun>;

@@ -51,6 +51,7 @@ export interface ClioObservabilityDockProps {
   messages: readonly Message[];
   interactions?: readonly PendingInteraction[];
   processes: readonly AsyncProcess[];
+  onCancelTask?: (task: AsyncProcess) => Promise<void>;
   tasks: readonly Task[];
   tools: readonly ToolInvocation[];
   runs: readonly Run[];
@@ -98,7 +99,14 @@ export interface ClioObservabilityDockProps {
 }
 
 function isActiveWork(state: string): boolean {
-  return ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(state);
+  return [
+    'queued',
+    'running',
+    'working',
+    'input_required',
+    'waiting_permission',
+    'waiting_user',
+  ].includes(state);
 }
 
 export function ClioObservabilityDock(props: ClioObservabilityDockProps) {

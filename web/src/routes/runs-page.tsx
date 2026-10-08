@@ -1,3 +1,4 @@
+import { RunActions } from '@/components/clio/run-actions';
 import { queryKeys } from '@/lib/query-keys';
 import { truncate } from '@/lib/format';
 import {
@@ -25,7 +26,6 @@ import {
   SearchIcon,
   WorkflowIcon,
 } from 'lucide-react';
-import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -52,14 +52,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -79,11 +72,18 @@ import {
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { returnRouteFromState, sessionIdFromRoute } from '@/lib/workspace-route-memory';
 import { workflowDescriptor } from '@/components/clio/workflow-tool-presentation';
+import { taskProgressLabel } from '@/components/clio/task-progress-label';
 
 type RunSource = OperationalRun['source'] | 'workflow';
 const WORKFLOW_SCAN_BATCH = 4;
 
-interface RunRow {
+export interface RunRow {
+  progress?: Record<string, unknown>;
+  taskKind?: string;
+  assignment?: string;
+  ownerSessionId?: string;
+  cancelRequested?: boolean;
+  cancellable?: boolean;
   handleId: string;
   taskId: string;
   label: string;
@@ -154,10 +154,19 @@ function buildRows(
     const parentSession = sessionsById.get(run.parent_session_id);
     const workspaceId = targetSession?.workspace_id ?? parentSession?.workspace_id;
     const workspaceLabelFields = workspaceId
-      ? (labels.get(workspaceId) ?? { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] })
+      ? (labels.get(workspaceId) ?? {
+          name: `${capitalize(vocab.workspace)} unavailable`,
+          qualifiers: [],
+        })
       : { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] };
     return {
       handleId: run.handle_id,
+      taskKind: run.task_kind,
+      progress: run.progress,
+      assignment: run.description,
+      ownerSessionId: run.parent_session_id,
+      cancelRequested: run.cancel_requested,
+      cancellable: run.supported_actions?.includes('cancel'),
       taskId: run.task_id,
       label: run.run_label || 'Unnamed run',
       state: run.live_state,
@@ -201,7 +210,10 @@ export function buildWorkflowRows(
       const session = sessionsById.get(tool.session_id);
       const workspaceId = session?.workspace_id;
       const workspaceLabelFields = workspaceId
-        ? (labels.get(workspaceId) ?? { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] })
+        ? (labels.get(workspaceId) ?? {
+            name: `${capitalize(vocab.workspace)} unavailable`,
+            qualifiers: [],
+          })
         : { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] };
       return [
         {
@@ -239,6 +251,7 @@ export function RunsPage() {
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const [category, setCategory] = useState<'executions' | 'workflows'>('executions');
+  const [requestedCancellation, setRequestedCancellation] = useState<Set<string>>(new Set());
   const [workflowScanLimit, setWorkflowScanLimit] = useState(WORKFLOW_SCAN_BATCH);
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState('all');
@@ -301,13 +314,22 @@ export function RunsPage() {
     onError: (error) => toast.error(error.message),
   });
   const cancel = useMutation({
-    mutationFn: (taskId: string) => repository.cancelAgentTask(taskId),
+    mutationFn: (row: RunRow) => {
+      if (!row.ownerSessionId) throw new Error('The task owner is unavailable');
+      setRequestedCancellation((previous) => new Set([...previous, row.handleId]));
+      return repository.cancelTasks(row.ownerSessionId, [row.handleId]);
+    },
     onSuccess: async () => {
       setConfirmedAction(undefined);
       await refreshRuns();
-      toast.success('Child-agent cancellation requested');
+      toast.success('Cancellation requested');
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error, row) => {
+      setRequestedCancellation(
+        (previous) => new Set([...previous].filter((id) => id !== row.handleId)),
+      );
+      toast.error(error.message);
+    },
   });
   const executionRows = useMemo(
     () => buildRows(runs.data ?? [], sessions.data ?? [], workspaces.data ?? []),
@@ -372,6 +394,12 @@ export function RunsPage() {
             <p className="mt-1 font-mono text-[11px] text-muted-foreground">
               {row.original.workflow ? `workflow ${row.original.taskId}` : row.original.taskId}
             </p>
+            {row.original.taskKind && (
+              <p className="text-xs text-muted-foreground">{row.original.taskKind}</p>
+            )}
+            {row.original.assignment && (
+              <p className="max-w-80 break-words text-xs">{row.original.assignment}</p>
+            )}
           </div>
         ),
         meta: { autoSize: true, headerTitle: 'Run' },
@@ -383,9 +411,20 @@ export function RunsPage() {
           <div className="max-w-72 space-y-1.5 py-1">
             <ClioStatus
               detail={row.original.statusReason}
-              label={row.original.reportedStatus.replaceAll('_', ' ')}
+              label={
+                (row.original.cancelRequested ||
+                  requestedCancellation.has(row.original.handleId)) &&
+                !['completed', 'failed', 'cancelled', 'interrupted'].includes(row.original.state)
+                  ? 'Cancellation requested'
+                  : row.original.reportedStatus.replaceAll('_', ' ')
+              }
               value={row.original.state}
             />
+            {taskProgressLabel(row.original.progress, row.original.taskKind) && (
+              <p className="text-xs text-muted-foreground">
+                {taskProgressLabel(row.original.progress, row.original.taskKind)}
+              </p>
+            )}
             {row.original.statusReason ? (
               <p
                 className="line-clamp-2 text-xs text-destructive"
@@ -453,13 +492,17 @@ export function RunsPage() {
             onDetach={() => detach.mutate(row.original.handleId)}
             onDismiss={() => setConfirmedAction({ kind: 'dismiss', row: row.original })}
             pending={detach.isPending && detach.variables === row.original.handleId}
-            row={row.original}
+            row={{
+              ...row.original,
+              cancelRequested:
+                row.original.cancelRequested || requestedCancellation.has(row.original.handleId),
+            }}
           />
         ),
         meta: { autoSize: true, headerTitle: 'Actions' },
       },
     ],
-    [detach],
+    [detach, requestedCancellation],
   );
   const table = useTable({ columns, data: filteredRows, features: dataGridFeatures });
   const workflowError = workflowTranscripts.find((query) => query.error)?.error;
@@ -661,13 +704,11 @@ export function RunsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmedAction?.kind === 'cancel'
-                ? 'Cancel child-agent work?'
-                : 'Dismiss this run?'}
+              {confirmedAction?.kind === 'cancel' ? 'Cancel this task?' : 'Dismiss this run?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmedAction?.kind === 'cancel'
-                ? 'The server will request cancellation from the child agent using its authoritative task handle. Completed work and evidence remain available.'
+                ? `${confirmedAction.row.assignment || confirmedAction.row.label}. ${confirmedAction.row.taskKind === 'Subagent' || confirmedAction.row.source === 'agent_task' ? 'This also cancels all descendant agents, downloads and shell processes.' : 'The owner will settle cancellation after required cleanup.'}`
                 : 'This removes the settled or detached handle from the run explorer. It does not delete its session, transcript, or artifacts.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -678,7 +719,7 @@ export function RunsPage() {
               onClick={(event) => {
                 event.preventDefault();
                 if (!confirmedAction) return;
-                if (confirmedAction.kind === 'cancel') cancel.mutate(confirmedAction.row.taskId);
+                if (confirmedAction.kind === 'cancel') cancel.mutate(confirmedAction.row);
                 else dismiss.mutate(confirmedAction.row.handleId);
               }}
               variant="destructive"
@@ -686,82 +727,12 @@ export function RunsPage() {
               {dismiss.isPending || cancel.isPending
                 ? 'Working…'
                 : confirmedAction?.kind === 'cancel'
-                  ? 'Cancel child agent'
+                  ? 'Cancel task'
                   : 'Dismiss run'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </main>
-  );
-}
-
-function RunActions({
-  onCancel,
-  onDetach,
-  onDismiss,
-  pending,
-  row,
-}: {
-  onCancel: () => void;
-  onDetach: () => void;
-  onDismiss: () => void;
-  pending: boolean;
-  row: RunRow;
-}) {
-  const active = ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(row.state);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label={`Actions for ${row.label}`}
-          disabled={pending}
-          size="icon-sm"
-          variant="outline"
-        >
-          <MoreIcon aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuLabel>Run actions</DropdownMenuLabel>
-        {row.workspaceId && row.targetSessionId ? (
-          <DropdownMenuItem asChild>
-            <Link
-              to={`${`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}${row.workflow ? `?workflow=${encodeURIComponent(row.workflow.id)}` : ''}`}
-            >
-              {row.workflow ? 'Open workflow graph' : 'Open conversation'}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {row.workflow && row.workspaceId && row.targetSessionId ? (
-          <DropdownMenuItem asChild>
-            <Link
-              to={`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}
-            >
-              Open conversation
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {!row.workflow && active && !row.detached ? (
-          <DropdownMenuItem onSelect={onDetach}>Detach from active monitoring</DropdownMenuItem>
-        ) : null}
-        {active && row.source === 'agent_task' ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onCancel} variant="destructive">
-              Cancel child agent…
-            </DropdownMenuItem>
-          </>
-        ) : null}
-        {!row.workflow && (!active || row.detached) ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onDismiss} variant="destructive">
-              Dismiss from explorer…
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

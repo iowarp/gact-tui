@@ -123,6 +123,7 @@ export function WorkbenchTabContent({
     case 'files':
       return (
         <FileBrowser
+          sessionId={sessionId}
           files={files}
           filesError={filesError}
           filesFetching={filesFetching}
@@ -199,6 +200,7 @@ export function WorkbenchTabContent({
     case 'workspace-file':
       return (
         <FileBrowser
+          sessionId={sessionId}
           files={files}
           filesError={filesError}
           filesFetching={filesFetching}

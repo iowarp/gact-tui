@@ -43,6 +43,7 @@ import type { SourceDownloadSelection } from './source-download-selection';
 /** The same trusted connection and browse surface serves the composer and Files tab. */
 export function ConnectedSourcePicker({
   workspaceId,
+  sessionId,
   open,
   onOpenChange,
   onSelect,
@@ -55,6 +56,7 @@ export function ConnectedSourcePicker({
   onDownloadStarted,
 }: {
   workspaceId: string;
+  sessionId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect?: (reference: WorkspaceReference) => void;
@@ -121,6 +123,7 @@ export function ConnectedSourcePicker({
             <ConnectedSourceContents
               key={scope}
               workspaceId={workspaceId}
+              sessionId={sessionId}
               manageOnly={manageOnly}
               onDownloadStarted={onDownloadStarted}
               onUploadFiles={onUploadFiles}
@@ -152,6 +155,7 @@ export function ConnectedSourcePicker({
 /** Reuse trusted account and workspace-source controls in Attach and Settings. */
 export function ConnectedSourceContents({
   workspaceId,
+  sessionId,
   manageOnly,
   onDownloadStarted,
   onSelect,
@@ -165,6 +169,7 @@ export function ConnectedSourceContents({
   settingsView = false,
 }: {
   workspaceId: string;
+  sessionId?: string;
   manageOnly: boolean;
   onDownloadStarted?: (
     source: ConnectedSourceState,
@@ -351,6 +356,7 @@ export function ConnectedSourceContents({
         <ConnectedSourceDetail
           key={source.id}
           workspaceId={workspaceId}
+          sessionId={sessionId}
           source={source}
           initialFolder={source.id === initialSourceId ? initialFolder : undefined}
           initialDownloaded={source.id === initialSourceId ? initialDownloaded : undefined}

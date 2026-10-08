@@ -398,6 +398,7 @@ export function WorkspacePage() {
         />
       ) : (
         <ClioComposer
+          sessionId={sessionId}
           catalogPreparing={a2uiCatalog.isLoading}
           attachments={workspaceRouteState.canUploadWorkspaceResources(
             capabilities.data?.capabilities,

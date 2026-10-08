@@ -105,6 +105,7 @@ export interface ClioComposerProps extends ComposerQueueControls {
   catalogPreparing?: boolean;
   contextReferences?: boolean;
   workspaceId?: string;
+  sessionId?: string;
   commands?: CommandDefinition[];
   onSubmit: (value: {
     text: string;
@@ -172,6 +173,7 @@ export function ClioComposer({
   catalogPreparing = false,
   contextReferences = false,
   workspaceId = '',
+  sessionId,
   commands = [],
   onSubmit,
   onBehaviorChange,
@@ -378,6 +380,7 @@ export function ClioComposer({
         ? sourceAttachments.add(reference)
         : composerReferences.select(reference),
     attachments ? () => setFileUploadOpen(true) : undefined,
+    sessionId,
   );
   const popoverOpen = showCommands || showReferences;
   // Send an explicit supported pick; the service applies configured defaults.

@@ -64,6 +64,7 @@ export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
 interface FileBrowserProps {
   workspaceId: string;
+  sessionId?: string;
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
   filesFetching?: boolean;
@@ -98,6 +99,7 @@ interface BlueprintBrowserProps {
 
 /** Keeps the workspace tree and the selected rendered file in one navigable canvas. */
 export function FileBrowser({
+  sessionId,
   workspaceId,
   files,
   filesPending,
@@ -172,6 +174,7 @@ export function FileBrowser({
       <ConnectedSourcePicker
         manageOnly
         workspaceId={workspaceId}
+        sessionId={sessionId}
         open={sourcesOpen}
         onOpenChange={setSourcesOpen}
         onChanged={onRefresh}
