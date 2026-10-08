@@ -12,6 +12,7 @@
     "test": "vitest run",
     "pretest:e2e": "pnpm build",
     "test:e2e": "playwright test",
+    "test:e2e:live": "playwright test -c playwright.live.config.ts",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {
