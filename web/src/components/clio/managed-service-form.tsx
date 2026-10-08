@@ -11,6 +11,7 @@ import {
 import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
 import { ServiceAccessChoice } from './managed-service-access';
+import { ManagedServiceContextControl } from './managed-service-context';
 import { ServerParametersForm } from './managed-service-parameters';
 import { MonitoringImageStorage } from './monitoring-image-storage';
 
@@ -139,6 +140,13 @@ export function ManagedServiceForm({
               />
             ) : null}
           </div>
+          <ManagedServiceContextControl
+            configuration={configuration}
+            onConfiguration={onConfiguration}
+            service={service}
+            targetId={targetId}
+            variant={variant}
+          />
           <ServiceAccessChoice
             configuration={configuration}
             onConfiguration={onConfiguration}
