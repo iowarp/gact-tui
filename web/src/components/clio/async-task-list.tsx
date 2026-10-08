@@ -105,7 +105,7 @@ export function AsyncTaskList({ processes, onCancelTask }: AsyncTaskListProps) {
           if (!open) setSelected(undefined);
         }}
       >
-        <AlertDialogContent className="z-[80]" overlayClassName="z-[70]">
+        <AlertDialogContent layer="task-confirmation">
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel this task?</AlertDialogTitle>
             <AlertDialogDescription>
