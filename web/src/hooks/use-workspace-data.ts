@@ -458,6 +458,16 @@ export function useWorkspaceData({
     () => sessionArtifactEntities(sessionArtifacts.data, transcriptArtifacts, sessionId),
     [sessionArtifacts.data, sessionId, transcriptArtifacts],
   );
+  const artifactEvidence = useMemo(() => {
+    const retained = sessionArtifacts.data
+      ? sessionArtifactVersionEntities(sessionArtifacts.data, sessionId)
+      : [];
+    return [
+      ...new Map(
+        [...transcriptArtifacts, ...retained].map((artifact) => [artifact.id, artifact]),
+      ).values(),
+    ];
+  }, [sessionArtifacts.data, sessionId, transcriptArtifacts]);
   const liveSubagents = useMemo(
     () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
     [entities.subagents, sessionId],
@@ -559,6 +569,7 @@ export function useWorkspaceData({
     allSessions,
     approvals,
     artifacts,
+    artifactEvidence,
     capabilities,
     context,
     contextObservability,

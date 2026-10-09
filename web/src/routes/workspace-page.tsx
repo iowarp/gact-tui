@@ -92,6 +92,7 @@ export function WorkspacePage() {
     agentBlueprints,
     allSessions,
     artifacts,
+    artifactEvidence,
     capabilities,
     context,
     contextObservability,
@@ -636,7 +637,7 @@ export function WorkspacePage() {
               sessionView={
                 <WorkspaceLiveObservabilityView
                   requestedView={requestedView}
-                  artifacts={artifacts}
+                  artifacts={artifactEvidence}
                   artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
                   context={context}
                   contextError={sessionContext.state.error?.message}

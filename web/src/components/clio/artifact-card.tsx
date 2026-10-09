@@ -1,5 +1,9 @@
 import { queryKeys } from '@/lib/query-keys';
-import { artifactDeliverables, isDocumentPreview } from '@/lib/artifact-presentation';
+import {
+  artifactEvidenceLabel,
+  isDocumentPreview,
+  latestResponseArtifacts,
+} from '@/lib/artifact-presentation';
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { TriangleAlertIcon } from 'lucide-react';
@@ -47,6 +51,7 @@ export interface ClioArtifactCardProps {
     event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
   ) => void;
   preview?: boolean;
+  presentation?: 'response' | 'evidence';
 }
 
 export interface ClioArtifactAttachmentsProps {
@@ -64,7 +69,7 @@ export function ClioArtifactAttachments({
   className,
   onOpen,
 }: ClioArtifactAttachmentsProps) {
-  const deliverables = artifactDeliverables(artifacts);
+  const deliverables = latestResponseArtifacts(artifacts);
   if (!deliverables.length) return null;
   return (
     <div
@@ -83,6 +88,7 @@ export function ClioArtifactAttachments({
             key={artifact.id}
             onOpen={onOpen}
             preview={false}
+            presentation="response"
           />
         );
       })}
@@ -92,7 +98,9 @@ export function ClioArtifactAttachments({
 
 /** Maps a GACT artifact into AI Elements' artifact and attachment presentation. */
 export function ClioArtifactCard(props: ClioArtifactCardProps) {
-  return isDocumentPreview(props.artifact) ? null : <ArtifactCardContent {...props} />;
+  return !props.presentation && isDocumentPreview(props.artifact) ? null : (
+    <ArtifactCardContent {...props} />
+  );
 }
 
 function ArtifactCardContent({
@@ -100,6 +108,7 @@ function ArtifactCardContent({
   className,
   onOpen,
   preview = true,
+  presentation,
 }: ClioArtifactCardProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -228,11 +237,16 @@ function ArtifactCardContent({
           >
             {fileFormatLabel(artifact.name, artifact.media_type)}
             {artifact.size === undefined ? '' : ` · ${formatBytes(artifact.size)}`}
+            {artifact.version === undefined ? '' : ` · v${artifact.version}`}
           </ArtifactDescription>
         </div>
-        {artifact.session_relation ? (
+        {artifact.session_relation || presentation === 'evidence' ? (
           <Badge className="shrink-0" variant="outline">
-            {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
+            {presentation === 'evidence'
+              ? artifactEvidenceLabel(artifact)
+              : artifact.session_relation === 'produced'
+                ? 'Output'
+                : 'Input'}
           </Badge>
         ) : null}
         <div className="relative z-20 shrink-0">

@@ -654,6 +654,7 @@ export const artifactSchema = z.object({
   custody: z.string().optional(),
   sha256: z.string().optional(),
   size: z.number().optional(),
+  version: z.number().int().positive().optional(),
   created_at: z.string().optional(),
   producer: z.record(z.string(), z.unknown()).optional(),
 });

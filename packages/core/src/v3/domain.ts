@@ -317,6 +317,7 @@ export interface Artifact {
   custody?: string;
   sha256?: string;
   size?: number;
+  version?: number;
   created_at?: string;
   session_relation?: 'produced' | 'used';
   producer?: Record<string, unknown>;
