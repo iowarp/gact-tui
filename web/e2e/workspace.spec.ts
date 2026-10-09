@@ -115,7 +115,7 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await waitForArtifactPreview(page);
     await page.evaluate(() => document.fonts.ready);
     await page.getByRole('button', { name: /^Evidence layout:/ }).click();
-    await page.getByRole('button', { name: 'Open observability in workspace canvas' }).click();
+    await page.getByRole('button', { name: 'Open full details' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
     const resizeBounds = await resize.boundingBox();

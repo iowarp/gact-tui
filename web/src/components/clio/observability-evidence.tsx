@@ -64,6 +64,7 @@ import {
 import { ClioStatus, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
+import { SessionEvidenceSummary } from './session-evidence-summary';
 
 export interface ClioEvidenceViewProps {
   compact?: boolean;
@@ -84,6 +85,8 @@ export interface ClioEvidenceViewProps {
   onOpenFile?: (path: string) => void;
   onOpenResource?: (resource: WorkspaceResource) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  onOpenWork?: () => void;
+  onOpenActivity?: () => void;
   provenanceProvider?: ProvenanceProviderSummary;
   artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
   provenanceDegradation?: ExecutionProvenanceDegradation;
@@ -136,6 +139,23 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
       backgroundProcesses.length,
   );
   const hasProvenance = Boolean(props.provenanceProvider || props.artifactProvenanceProvider);
+
+  if (props.compact)
+    return (
+      <SessionEvidenceSummary
+        {...props}
+        outputs={outputs}
+        files={files}
+        diffs={diffs}
+        plans={plans}
+        sources={sources}
+        runs={runs}
+        tasks={tasks}
+        tools={tools}
+        subagents={subagents}
+        backgroundProcesses={backgroundProcesses}
+      />
+    );
 
   if (!hasEvidence && !hasProvenance && !props.compact) {
     return (

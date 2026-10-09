@@ -57,6 +57,7 @@ import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { isManagedChildSession, showsBaseAgent } from '@/lib/session-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
+import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -178,6 +179,9 @@ export function WorkspacePage() {
     openWorkspaceResource,
     revealWorkbench,
   } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  const { openObservability, requestedView } = useObservabilityNavigation(sessionId, () =>
+    revealWorkbench({ kind: 'session' }),
+  );
   const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
   useDesktopTitleSync({
     blueprint: activeBlueprint?.display_name,
@@ -515,7 +519,7 @@ export function WorkspacePage() {
               diffs={sessionObservability.diffs.data ?? []}
               executionProvenance={executionProvenance.execution.data}
               interactions={interactions}
-              onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
+              onOpenCanvas={openObservability}
               onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
               onOpenArtifact={openArtifact}
               onOpenDiff={openDiff}
@@ -631,6 +635,7 @@ export function WorkspacePage() {
               sessionId={sessionId}
               sessionView={
                 <WorkspaceLiveObservabilityView
+                  requestedView={requestedView}
                   artifacts={artifacts}
                   artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
                   context={context}

@@ -66,7 +66,7 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
   await page.request.post(`${fixtureEndpoint}/__test/artifact-navigation`);
   await page.goto(workspaceUrl);
   await page.getByRole('button', { name: /^Evidence layout:/ }).click();
-  await page.getByRole('button', { name: 'Open observability in workspace canvas' }).click();
+  await page.getByRole('button', { name: 'Open full details' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
   await canvas.getByRole('button', { name: /^Artifacts/ }).click();
@@ -87,7 +87,7 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
   await page.reload();
   await expect(page.locator('html')).toHaveClass(/dark/);
   await page.getByRole('button', { name: /^Evidence layout:/ }).click();
-  await page.getByRole('button', { name: 'Open observability in workspace canvas' }).click();
+  await page.getByRole('button', { name: 'Open full details' }).click();
   await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
   await canvas.getByRole('button', { name: /^Artifacts/ }).click();
   await expect(canvas.getByRole('combobox', { name: 'Artifact category' })).toBeVisible();

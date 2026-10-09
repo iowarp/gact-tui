@@ -139,3 +139,30 @@ it.each([1, 2])(
     expect(client.getQueryData(['connected-storage-selection', scope, 'w'])).toBe('s1');
   },
 );
+
+it('opens a summary-selected source directly without changing the composer selection', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const key = [
+    'connected-storage-selection',
+    connectionScope({ endpoint: 'https://clio-one', token: 'one' }),
+    'w',
+  ];
+  client.setQueryData(key, 'some-other-source');
+  render(
+    <QueryClientProvider client={client}>
+      <ConnectedSourcePicker
+        workspaceId="w"
+        manageOnly
+        initialSourceId="s1"
+        open
+        onOpenChange={vi.fn()}
+      />
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByRole('heading', { name: 'OPAL inputs' })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'Link folder' })).toBeEnabled();
+  expect(await screen.findByText('input.csv')).toBeVisible();
+  expect(client.getQueryData(key)).toBe('some-other-source');
+  expect(repository.beginSourceDraft).not.toHaveBeenCalled();
+  client.clear();
+});

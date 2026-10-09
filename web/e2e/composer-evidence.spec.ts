@@ -58,6 +58,15 @@ test('keeps response preparation in the transcript and showcases beside the canv
     await expect(panel).toBeVisible();
     const top = panel.locator('[data-showcase-section="top"]');
     const bottom = panel.locator('[data-showcase-section="bottom"]');
+    const details = panel.getByRole('button', { name: 'Open full details' });
+    await expect(
+      panel
+        .locator('[data-slot="session-summary-header"]')
+        .getByRole('button', { name: 'Open full details' }),
+    ).toBeVisible();
+    await expect(details).toHaveText('');
+    await expect(panel.getByText('Output', { exact: true })).toHaveCount(0);
+    await expect(panel.locator('[data-slot="artifact"]')).toHaveCount(0);
     await expect(top.getByRole('button', { name: 'Artifacts, 1 recorded' })).toBeVisible();
     await expect(bottom.getByRole('button', { name: 'Artifacts, 1 recorded' })).toHaveCount(0);
     await expect(top.getByRole('button', { name: /^Tool calls/ })).toHaveCount(0);
@@ -109,7 +118,13 @@ test('keeps response preparation in the transcript and showcases beside the canv
     await expect(panel).toHaveCount(0);
     await activity.click();
     await input.click();
-    await expect(panel).toHaveCount(0);
+    if (width === 1920) {
+      await expect(panel).toBeVisible();
+      await panel.getByRole('button', { name: 'Hide activity and evidence' }).click();
+    } else {
+      await expect(panel).toHaveCount(0);
+    }
+    await input.click();
     await expect(input).toBeFocused();
     await activity.click();
     await page.keyboard.press('Escape');
