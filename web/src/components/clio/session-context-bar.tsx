@@ -1,11 +1,10 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
-import { ArrowLeftIcon, DownloadIcon, GitBranchIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { showsBaseAgent } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { openDownloads } from '@/tauri/downloads';
 import { ClioSessionActions } from './session-actions';
+import { ClioDownloadsButton } from './downloads-button';
 
 export interface ClioSessionContextBarProps {
   session?: Session;
@@ -97,24 +96,7 @@ export function ClioSessionContextBar({
         onUndo={onUndo}
         title={session?.title ?? 'session'}
       />
-      {inTauri() ? (
-        <Button
-          aria-label="Open downloads"
-          className="shrink-0"
-          onClick={() =>
-            void openDownloads().catch((error: unknown) => {
-              toast.error('Unable to open downloads', {
-                description: error instanceof Error ? error.message : String(error),
-              });
-            })
-          }
-          size="icon-xs"
-          title="Downloads (Ctrl+J)"
-          variant="ghost"
-        >
-          <DownloadIcon aria-hidden="true" />
-        </Button>
-      ) : null}
+      <ClioDownloadsButton />
       {session?.branch ? (
         <span className="hidden items-center gap-1 font-mono text-[0.625rem] text-muted-foreground lg:flex">
           <GitBranchIcon aria-hidden="true" className="size-3" />

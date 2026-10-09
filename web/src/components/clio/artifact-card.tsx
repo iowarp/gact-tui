@@ -191,21 +191,28 @@ function ArtifactCardContent({
   };
 
   return (
-    <Artifact className={cn('group/artifact group relative', className)}>
-      <ArtifactHeader className="gap-2.5 px-3 py-2">
+    <Artifact
+      className={cn(
+        'group/artifact group relative isolate',
+        onOpen &&
+          'transition-[background-color,border-color] hover:border-primary/50 hover:bg-accent/60',
+        className,
+      )}
+    >
+      <ArtifactHeader
+        className={cn('gap-2.5 px-3 py-2', onOpen && 'group-hover/artifact:bg-accent/60')}
+      >
         <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted/60 text-muted-foreground">
           <ArtifactTypeIcon artifact={artifact} className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
           {onOpen ? (
-            // The "open" target, NOT the whole card: a `role="button"` card
-            // containing the toolbar's own buttons is a nested-interactive
-            // a11y violation (axe) -- one real `<button>` around the name
-            // gets native keyboard activation (Enter/Space) for free and
-            // never nests another control.
+            // Stretch a native button's hit area across the card. Toolbar
+            // controls and preview links sit above it as independent siblings,
+            // so the whole card opens without nesting interactive controls.
             <button
               aria-label={`Open ${artifact.name}`}
-              className="block w-full truncate rounded-sm text-left text-sm font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="block w-full truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 after:z-10 after:cursor-pointer after:rounded-lg after:content-[''] group-hover/artifact:text-primary focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
               onClick={(event) => onOpen(artifact, event as unknown as MouseEvent<HTMLDivElement>)}
               title={artifact.name}
               type="button"
@@ -228,10 +235,12 @@ function ArtifactCardContent({
             {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
           </Badge>
         ) : null}
-        <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
+        <div className="relative z-20 shrink-0">
+          <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
+        </div>
       </ArtifactHeader>
       {preview ? (
-        <ArtifactContent className="p-0">
+        <ArtifactContent className="p-0 [&_a]:relative [&_a]:z-20 [&_button]:relative [&_button]:z-20">
           {textPreview.data ? (
             <div className="relative max-h-44 overflow-hidden border-t bg-muted/15 px-4 py-3">
               {isMarkdownArtifact(artifact) ? (
