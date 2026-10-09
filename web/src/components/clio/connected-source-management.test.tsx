@@ -93,11 +93,16 @@ it('relinks an existing unlinked source from Files without a composer draft', as
   await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
   await user.click(await screen.findByRole('button', { name: 'Link folder' }));
   await waitFor(() =>
-    expect(repository.linkConnectedSource).toHaveBeenCalledWith('w', 's1', false, undefined, {
-      access: 'read_only',
-      confirm_remote: false,
-    }),
+    expect(repository.linkConnectedSource).toHaveBeenCalledWith(
+      'w',
+      's1',
+      false,
+      undefined,
+      { access: 'read_only', confirm_remote: false },
+      undefined,
+    ),
   );
+  expect(repository.linkConnectedSource).toHaveBeenCalledTimes(1);
   expect(repository.beginSourceDraft).not.toHaveBeenCalled();
   expect(repository.attachSourceFolder).not.toHaveBeenCalled();
 });
