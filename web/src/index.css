@@ -11,8 +11,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Keep the composer surface stable when footer actions become disabled. */
 @layer utilities {
+  /* Menu primitives explicitly use cursor-default. Apply CLIO's actionable
+     cursor policy to their enabled items without changing their interaction. */
+  :is(
+      [data-slot='dropdown-menu-item'],
+      [data-slot='dropdown-menu-checkbox-item'],
+      [data-slot='dropdown-menu-radio-item'],
+      [data-slot='dropdown-menu-sub-trigger'],
+      [data-slot='context-menu-item'],
+      [data-slot='context-menu-checkbox-item'],
+      [data-slot='context-menu-radio-item'],
+      [data-slot='context-menu-sub-trigger'],
+      [data-slot='select-item'],
+      [data-slot='command-item']
+    ):not(:disabled, [aria-disabled='true'], [data-disabled]:not([data-disabled='false'])) {
+    cursor: pointer;
+  }
+
+  /* Keep the composer surface stable when footer actions become disabled. */
   form[data-slot='clio-composer'] > [data-slot='input-group'],
   form[data-slot='clio-composer'] > [data-slot='input-group']:has(:disabled) {
     @apply border-composer-border bg-composer;
@@ -196,6 +213,31 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* Enabled actions share a hand cursor, including raw icon buttons and
+     accessible controls. Utilities retain specific drag/resize cursors. */
+  :where(
+      button,
+      select,
+      summary,
+      [role='button'],
+      [role='tab'],
+      [role='checkbox'],
+      [role='radio'],
+      [role='switch'],
+      input:is([type='button'], [type='submit'], [type='reset'], [type='checkbox'], [type='radio'])
+    ):not(:disabled, [aria-disabled='true'], [data-disabled]:not([data-disabled='false'])) {
+    cursor: pointer;
+  }
+  :where(button, select, [role], input):is(
+      :disabled,
+      [aria-disabled='true'],
+      [data-disabled]:not([data-disabled='false'])
+    ) {
+    cursor: default;
+  }
+  input[type='file']:not(:disabled)::file-selector-button {
+    cursor: pointer;
   }
   html {
     @apply font-sans antialiased;
