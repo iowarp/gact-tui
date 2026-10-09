@@ -43,6 +43,43 @@ function mount() {
   );
 }
 describe('host model acquisition', () => {
+  it('labels shared Hugging Face cache models honestly and offers no retry', async () => {
+    const row = {
+      id: 'hub',
+      repository: 'org/shared',
+      requested_revision: 'main',
+      revision: 'f'.repeat(40),
+      destination: '/hub/models--org--shared/snapshots/' + 'f'.repeat(40),
+      phase: 'Model available (Hugging Face cache)',
+      bytes_done: 4,
+      bytes_total: 4,
+      created_at: 1,
+      updated_at: 1,
+      error: null,
+      origin: 'hf_cache',
+    };
+    fixtures.repository.modelInventory.mockResolvedValue({
+      models: [
+        { ...row, state: 'ready' },
+        {
+          ...row,
+          id: 'partial',
+          repository: 'org/partial',
+          state: 'interrupted',
+          error: 'Missing',
+        },
+      ],
+      errors: [],
+      unavailable_reason: null,
+    });
+    mount();
+    expect(await screen.findByText('Shared cache')).toBeInTheDocument();
+    expect(screen.queryByText('Files verified')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Cache details')).toHaveLength(2);
+    expect(screen.queryByText('Download receipt')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Set up runtime' })).toBeInTheDocument();
+  });
   it('downloads an explicitly selected revision on the named host without starting inference', async () => {
     const user = userEvent.setup();
     fixtures.repository.searchModels.mockResolvedValue({
