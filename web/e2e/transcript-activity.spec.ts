@@ -93,7 +93,7 @@ test('renders reader-controlled causal entries and a truthful completion footer 
       contentType: 'application/json',
     });
     expect(Math.abs((await activity.boundingBox())!.y - before!.y)).toBeLessThanOrEqual(2);
-    await expect(message.getByRole('button', { name: /^Thinking/ })).toHaveCount(1);
+    await expect(message.getByRole('button', { name: /^Reasoning:/ })).toHaveCount(1);
     const read = message.getByRole('button', { name: 'Technical details for Read' });
     const run = message.getByRole('button', { name: 'Technical details for Run' });
     await expect(read).toContainText('61 lines');
