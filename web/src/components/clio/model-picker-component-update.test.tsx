@@ -146,6 +146,59 @@ function claudeCodeHeartbeat(): HTMLElement {
 }
 
 describe('ClioModelPicker: provider SDK update (Claude Code)', () => {
+  it('Reload models updates direct Codex without a CLI badge, then reports the new model', async () => {
+    repository.languageModelConfiguration.mockResolvedValue(defaultConfiguration);
+    repository.providerComponents.mockResolvedValue(
+      components({
+        provider_id: 'codex',
+        provider_kind: 'codex',
+        client: undefined,
+        target_version: '0.161.0',
+        components: [
+          {
+            distribution: 'openai-codex-cli-bin',
+            installed_version: '0.157.1',
+            latest_version: '0.161.0',
+            update_available: true,
+          },
+        ],
+      }),
+    );
+    repository.updateProviderComponents.mockResolvedValue(
+      job({ provider_kind: 'codex', stage: 'done', running: false, changed: true }),
+    );
+    repository.refreshProviderModels.mockResolvedValue([
+      {
+        provider: 'codex',
+        source: 'live',
+        discovered: [{ id: 'gpt-6.1-sol' }],
+        added: ['gpt-6.1-sol'],
+        removed: [],
+        unchanged: [],
+        default_model: 'gpt-6.1-sol',
+        generated_at: '',
+        rejected: [],
+      },
+    ]);
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        onChange={vi.fn()}
+        options={options}
+        provider="codex"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(await screen.findByText('Codex client 0.157.1')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Reload models' }));
+    await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']));
+    expect(repository.updateProviderComponents).toHaveBeenCalledWith('codex');
+    expect(repository.updateProviderComponents.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.refreshProviderModels.mock.invocationCallOrder[0]!,
+    );
+    expect(await screen.findByText('Found 1 new model after updating the client.')).toBeVisible();
+  });
   it('shows the version fact and "Update available" next to it', async () => {
     repository.providerComponents.mockResolvedValue(components());
     await openClaudeCode();
@@ -153,10 +206,14 @@ describe('ClioModelPicker: provider SDK update (Claude Code)', () => {
     expect(await within(statusRow()).findByText('Update available: 0.1.64')).toBeVisible();
     expect(within(statusRow()).getByText('Installed Claude Code 2.1.276')).toBeVisible();
     expect(within(statusRow()).getByRole('button', { name: 'Update' })).toBeVisible();
-    expect(repository.providerComponents).toHaveBeenCalledWith('claude_code', {}, expect.anything());
+    expect(repository.providerComponents).toHaveBeenCalledWith(
+      'claude_code',
+      { refresh: true },
+      expect.anything(),
+    );
   });
 
-  it('shows only the fact when the SDK is current', async () => {
+  it('shows the current client and allows checking for a newer release', async () => {
     repository.providerComponents.mockResolvedValue(
       components({ update_available: false, target_version: '0.1.63' }),
     );
@@ -168,10 +225,17 @@ describe('ClioModelPicker: provider SDK update (Claude Code)', () => {
     expect(within(statusRow()).queryByText(/Update available/u)).toBeNull();
   });
 
-  it('never asks for components when the service reports no client (older service, other providers)', async () => {
+  it('checks known provider components even without a CLI client badge', async () => {
+    repository.providerComponents.mockResolvedValue(components({ client: undefined }));
     await openClaudeCode(null);
-    expect(document.querySelector('[data-slot="provider-component-status"]')).toBeNull();
-    expect(repository.providerComponents).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(repository.providerComponents).toHaveBeenCalledWith(
+        'claude_code',
+        { refresh: true },
+        expect.anything(),
+      ),
+    );
+    expect(await screen.findByText('Update available: 0.1.64')).toBeVisible();
   });
 
   it('Update shows each stage in the panel and on the yellow heartbeat, then re-checks the provider', async () => {

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { SessionDefaults } from '@clio/core/v3';
+import { providerComponentsSchema, type SessionDefaults } from '@clio/core/v3';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -101,7 +101,14 @@ function renderSettings(
   repository.agentBlueprints.mockResolvedValue([]);
   repository.providerCatalog.mockResolvedValue(providerCatalog);
   repository.spotterAvailability.mockResolvedValue({ available: true });
-  repository.providerComponents.mockResolvedValue([]);
+  repository.providerComponents.mockResolvedValue(
+    providerComponentsSchema.parse({
+      provider_id: 'codex',
+      provider_kind: 'codex',
+      installed: true,
+      update_available: false,
+    }),
+  );
   repository.providerModels.mockResolvedValue({
     provider_id: 'codex',
     source: 'codex_direct_model_list',

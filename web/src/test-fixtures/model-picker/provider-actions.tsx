@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { vi } from 'vitest';
+import { beforeEach, vi } from 'vitest';
 
 /**
  * Shared fixtures for the model picker's provider-action tests. Each test file
@@ -57,7 +57,23 @@ export const repository = {
   providerComponents: vi.fn(),
   updateProviderComponents: vi.fn(),
   providerComponentUpdate: vi.fn(),
+  addSavedServer: vi.fn(),
 };
+beforeEach(() => {
+  repository.providerComponents.mockResolvedValue({
+    provider_id: 'codex',
+    provider_kind: 'codex',
+    installed: true,
+    update_available: false,
+    target_version: '0.161.0',
+    checked_at: '',
+    release_notes_url: '',
+    components: [],
+    error: null,
+    client: null,
+    update: null,
+  });
+});
 
 export function renderPicker(children: ReactNode) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

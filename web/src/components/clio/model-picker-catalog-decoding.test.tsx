@@ -24,10 +24,7 @@ const catalogFixture = JSON.parse(
   // root, where `vitest run` is always invoked from) is what actually works
   // here.
   readFileSync(
-    resolve(
-      process.cwd(),
-      '../packages/core/src/v3/fixtures/server-provider-payloads.json',
-    ),
+    resolve(process.cwd(), '../packages/core/src/v3/fixtures/server-provider-payloads.json'),
     'utf8',
   ),
 ) as Record<string, unknown>;
@@ -45,6 +42,9 @@ const { repository } = vi.hoisted(() => ({
     updateLanguageModelConfiguration: vi.fn(),
     providerCatalog: vi.fn(),
     providerModels: vi.fn(),
+    providerComponents: vi
+      .fn()
+      .mockResolvedValue({ installed: true, update_available: false, components: [] }),
   },
 }));
 
