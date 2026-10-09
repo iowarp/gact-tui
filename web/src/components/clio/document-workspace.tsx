@@ -10,7 +10,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CircleAlertIcon,
   FileCheck2Icon,
-  FileCode2Icon,
   MessageSquareTextIcon,
   ShieldCheckIcon,
 } from 'lucide-react';
@@ -77,6 +76,9 @@ import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
 import { ClioPdfPreview } from './pdf-preview';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
+import { HtmlPreview } from './html-file-preview';
+import { DocumentSourceView } from './document-source-view';
+import { isDocumentSourceProfile } from './document-open-policy';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
 
@@ -188,8 +190,8 @@ export function ClioDocumentWorkspace({
       const copy = await repository.createDocumentWorkingCopy(artifact.id, {
         session_id: artifact.session_id,
         provider,
-        writable: true,
-        auto_checkpoint: true,
+        writable: manifest.data?.profile !== 'html-static',
+        auto_checkpoint: manifest.data?.profile !== 'html-static',
       });
       try {
         if (provider === 'native') {
@@ -223,9 +225,14 @@ export function ClioDocumentWorkspace({
         setEditor(result.launched);
         setStatus(`${editorLabel(result.launched.provider)} editing session ready.`);
       } else {
-        const message = result.opened
-          ? 'Opened in the system editor. Stable saves become immutable revisions.'
-          : 'Working-copy path copied. Open it in a desktop editor to begin.';
+        const message =
+          manifest.data?.profile === 'html-static'
+            ? result.opened
+              ? 'Opened the HTML file in its system app.'
+              : 'HTML path copied. Open it in a browser or editor.'
+            : result.opened
+              ? 'Opened in the system editor. Stable saves become immutable revisions.'
+              : 'Working-copy path copied. Open it in a desktop editor to begin.';
         setStatus(message);
         toast.success(message);
       }
@@ -350,6 +357,8 @@ export function ClioDocumentWorkspace({
               <DocumentViewControls
                 value={documentView}
                 markdown={effectiveManifest?.profile === 'markdown'}
+                html={effectiveManifest?.profile === 'html-static'}
+                latex={effectiveManifest?.profile === 'latex'}
                 reviewCount={reviews.data?.length ?? 0}
                 onChange={setDocumentView}
               />
@@ -363,7 +372,6 @@ export function ClioDocumentWorkspace({
               <DocumentOpenMenu
                 artifact={artifact}
                 manifest={manifest.data}
-                previewName={editor ? artifact.name : (effectiveManifest?.name ?? artifact.name)}
                 hasPdf={effectiveManifest?.profile === 'pdf'}
                 applications={applications.data ?? []}
                 editorHealth={editorHealth.data}
@@ -379,6 +387,16 @@ export function ClioDocumentWorkspace({
                 }}
                 onDownload={() => downloadSource.mutate()}
                 hideDownload={sharedFileActions}
+                onPreview={() => {
+                  setOverrideManifest(undefined);
+                  setEditor(undefined);
+                  setDocumentView('preview');
+                }}
+                onSource={() => {
+                  setOverrideManifest(undefined);
+                  setEditor(undefined);
+                  setDocumentView('raw');
+                }}
               />
             ) : null}
             <RefreshAction
@@ -454,30 +472,13 @@ export function ClioDocumentWorkspace({
             />
           </div>
         </TabsContent>
-        {effectiveManifest?.profile === 'markdown' ? (
+        {effectiveManifest && isDocumentSourceProfile(effectiveManifest.profile) ? (
           <TabsContent className="m-0 min-h-0 min-w-0 overflow-hidden" value="raw">
-            {textContent === undefined ? (
-              <p className="p-4 text-sm text-muted-foreground">Loading raw Markdown…</p>
-            ) : (
-              <CodeBlock
-                aria-label={`Raw Markdown for ${effectiveManifest.name}`}
-                className="h-full min-h-0"
-                code={textContent}
-                language="markdown"
-                role="region"
-                showLineNumbers
-              >
-                <CodeBlockHeader>
-                  <CodeBlockTitle>
-                    <FileCode2Icon aria-hidden="true" />
-                    <CodeBlockFilename>{effectiveManifest.name}</CodeBlockFilename>
-                  </CodeBlockTitle>
-                  <CodeBlockActions>
-                    <CodeBlockCopyButton aria-label={`Copy raw ${effectiveManifest.name}`} />
-                  </CodeBlockActions>
-                </CodeBlockHeader>
-              </CodeBlock>
-            )}
+            <DocumentSourceView
+              content={textContent}
+              name={effectiveManifest.name}
+              profile={effectiveManifest.profile}
+            />
           </TabsContent>
         ) : null}
         <TabsContent className="m-0 min-h-0 min-w-0 overflow-auto p-3" value="reviews">
@@ -582,14 +583,12 @@ function DocumentPreview({
       </article>
     );
   }
-  if (['latex', 'html-static'].includes(manifest.profile) && text !== undefined) {
+  if (manifest.profile === 'html-static' && text !== undefined) {
+    return <HtmlPreview name={manifest.name} content={text} />;
+  }
+  if (manifest.profile === 'latex' && text !== undefined) {
     return (
-      <CodeBlock
-        className="h-full overflow-auto"
-        code={text}
-        language={manifest.profile === 'latex' ? 'latex' : 'html'}
-        showLineNumbers
-      >
+      <CodeBlock className="h-full overflow-auto" code={text} language="latex" showLineNumbers>
         <CodeBlockHeader>
           <CodeBlockTitle>
             <FileCheck2Icon aria-hidden="true" className="size-3.5" />

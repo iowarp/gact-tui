@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioDocumentWorkspace } from './document-workspace';
+import type { Artifact } from '@clio/core/v3';
 
 const manifest = {
   artifact_id: 'artifact_3',
@@ -50,7 +51,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderWorkspace() {
+function renderWorkspace(artifactOverrides: Partial<Artifact> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -62,6 +63,7 @@ function renderWorkspace() {
           name: 'evidence.md',
           media_type: 'text/markdown',
           uri: 'artifact://ws_1/evidence.md@v3',
+          ...artifactOverrides,
         }}
         fallbackPreview={<p>Fallback preview</p>}
       />
@@ -70,6 +72,82 @@ function renderWorkspace() {
 }
 
 describe('ClioDocumentWorkspace', () => {
+  it.each([
+    ['notes.md', 'markdown', 'Markdown source', 'Raw Markdown for notes.md'],
+    ['article.tex', 'latex', 'LaTeX source', 'LaTeX source for article.tex'],
+  ] as const)(
+    'opens the original source from the %s menu',
+    async (name, profile, action, region) => {
+      repository.documentManifest.mockResolvedValue({ ...manifest, name, profile });
+      repository.documentContent.mockResolvedValue(
+        new TextEncoder().encode('Original source text'),
+      );
+      repository.artifactReviews.mockResolvedValue([]);
+      renderWorkspace({ name });
+      await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
+      await userEvent.click(screen.getByRole('menuitem', { name: action }));
+      expect(await screen.findByRole('region', { name: region })).toHaveTextContent(
+        'Original source text',
+      );
+      expect(repository.createDocumentRendition).not.toHaveBeenCalled();
+    },
+  );
+
+  it('renders HTML and switches between its source and preview without requesting a PDF', async () => {
+    const source = '<h1>Pedal!</h1><script>window.original = true;</script>';
+    repository.documentManifest.mockResolvedValue({
+      ...manifest,
+      name: 'cat.html',
+      profile: 'html-static',
+      mime_type: 'text/html',
+    });
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
+    repository.artifactReviews.mockResolvedValue([]);
+    const { container } = renderWorkspace({ name: 'cat.html', media_type: 'text/html' });
+    const frame = await screen.findByTitle('HTML preview of cat.html');
+    expect(frame).toHaveAttribute('sandbox', '');
+    expect(frame.getAttribute('srcdoc')).not.toContain('window.original');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Open in' }));
+    expect(screen.queryByRole('menuitem', { name: 'PDF preview' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: 'HTML source' }));
+    expect(container.querySelector('[data-language="html"]')).toHaveTextContent(
+      'window.original = true;',
+    );
+    await user.click(screen.getByRole('button', { name: 'Open in' }));
+    await user.click(screen.getByRole('menuitem', { name: 'HTML preview' }));
+    expect(screen.getByTitle('HTML preview of cat.html')).toBeVisible();
+    expect(repository.createDocumentRendition).not.toHaveBeenCalled();
+  });
+
+  it('uses a read-only non-watched HTML copy for its native app', async () => {
+    repository.documentManifest.mockResolvedValue({
+      ...manifest,
+      name: 'cat.html',
+      profile: 'html-static',
+      mime_type: 'text/html',
+    });
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode('<h1>Pedal!</h1>'));
+    repository.artifactReviews.mockResolvedValue([]);
+    repository.createDocumentWorkingCopy.mockResolvedValue({
+      id: 'copy_html',
+      path: 'confined/cat.html',
+    });
+    renderWorkspace({ name: 'cat.html', media_type: 'text/html' });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Open in' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Copy path' }));
+    expect(repository.createDocumentWorkingCopy).toHaveBeenCalledWith('artifact_3', {
+      session_id: 'sess_1',
+      provider: 'native',
+      writable: false,
+      auto_checkpoint: false,
+    });
+    expect(
+      await screen.findByText('HTML path copied. Open it in a browser or editor.'),
+    ).toBeInTheDocument();
+  });
+
   it.each(['ooxml-word', 'ooxml-slides', 'ooxml-sheet'] as const)(
     'opens the saved PDF for a %s artifact without converting it again',
     async (profile) => {
@@ -233,6 +311,8 @@ describe('ClioDocumentWorkspace', () => {
   it('checks editor availability again before creating an editable copy', async () => {
     repository.documentManifest.mockResolvedValue({
       ...manifest,
+      name: 'evidence.docx',
+      profile: 'ooxml-word',
       embedded_editors: ['onlyoffice'],
     });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('# Evidence'));
@@ -244,7 +324,7 @@ describe('ClioDocumentWorkspace', () => {
       .mockResolvedValue({
         editors: [{ provider: 'onlyoffice', configured: true, healthy: false }],
       });
-    renderWorkspace();
+    renderWorkspace({ name: 'evidence.docx' });
     await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'ONLYOFFICE' }));
     expect(await screen.findByText(/ONLYOFFICE is unavailable/)).toBeVisible();
@@ -253,10 +333,18 @@ describe('ClioDocumentWorkspace', () => {
   });
 
   it('closes a working copy when its editor cannot launch and keeps the preview readable', async () => {
-    repository.documentManifest.mockResolvedValue({
+    const wordManifest = {
       ...manifest,
+      name: 'evidence.docx',
+      profile: 'ooxml-word' as const,
       embedded_editors: ['onlyoffice'],
-    });
+      pdf_rendition_artifact_id: 'saved_pdf',
+    };
+    repository.documentManifest.mockImplementation(async (id: string) =>
+      id === 'saved_pdf'
+        ? { ...manifest, artifact_id: id, name: 'evidence.pdf', profile: 'pdf' }
+        : wordManifest,
+    );
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('# Evidence'));
     repository.artifactReviews.mockResolvedValue([]);
     repository.documentEditorHealth.mockResolvedValue({
@@ -271,12 +359,12 @@ describe('ClioDocumentWorkspace', () => {
       error: 'Editor connection refused',
     });
     repository.closeDocumentWorkingCopy.mockResolvedValue({ id: 'copy_failed', status: 'closed' });
-    renderWorkspace();
+    renderWorkspace({ name: 'evidence.docx' });
     await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'ONLYOFFICE' }));
     expect(await screen.findByText('Editor connection refused')).toBeVisible();
     expect(repository.closeDocumentWorkingCopy).toHaveBeenCalledWith('copy_failed');
-    expect(screen.getByRole('heading', { name: 'Evidence' })).toBeVisible();
+    expect(await screen.findByText('PDF preview')).toBeVisible();
     expect(screen.queryByText('active')).not.toBeInTheDocument();
   });
 });

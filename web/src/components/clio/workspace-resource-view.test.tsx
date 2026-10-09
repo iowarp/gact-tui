@@ -88,6 +88,25 @@ const resource: WorkspaceResource = {
 };
 
 describe('WorkspaceResourceView', () => {
+  it('renders an HTML upload by its detected MIME and preserves its source', async () => {
+    const content = '<h1>Uploaded report</h1><script>originalSource()</script>';
+    repository.resourcePreview.mockResolvedValueOnce(new TextEncoder().encode(content));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceView
+          resource={{ ...resource, name: 'report.txt', detected_mime: 'text/html' }}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByTitle('HTML preview of report.txt');
+    expect(frame).toHaveAttribute('sandbox', '');
+    expect(frame.getAttribute('srcdoc')).not.toContain('originalSource');
+    await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
+    expect(container.querySelector('[data-language="html"]')).toHaveTextContent('originalSource()');
+  });
+
   it('moves between related message resources without opening another canvas tab', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

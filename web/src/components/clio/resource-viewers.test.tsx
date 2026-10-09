@@ -337,6 +337,29 @@ describe('WorkspaceFileView', () => {
     return render(<QueryClientProvider client={queryClient}>{view}</QueryClientProvider>);
   }
 
+  it.each(['cat.html', 'cat.HTM', 'unlabelled.txt'])(
+    'renders HTML %s with its exact source available',
+    async (path) => {
+      repository.readWorkspaceFile.mockResolvedValue('<h1>Pedal!</h1>');
+      renderFile(
+        <WorkspaceFileView
+          mediaType="text/html; charset=utf-8"
+          path={path}
+          size={100}
+          workspaceId="workspace_1"
+        />,
+      );
+      expect(await screen.findByTitle(`HTML preview of ${path}`)).toBeVisible();
+      await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
+      expect(document.querySelector('[data-language="html"]')).toHaveTextContent('<h1>Pedal!</h1>');
+      expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
+        'workspace_1',
+        path,
+        expect.any(AbortSignal),
+      );
+    },
+  );
+
   it('reads a workspace PDF through the repository transport, never a raw URL', async () => {
     // The desktop reaches the backend only through the app transport; a URL
     // handed to PDF.js would bypass it and fail.

@@ -24,6 +24,7 @@ import {
 import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
+import { createHtmlPreviewFixture } from './html-preview-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -1392,6 +1393,7 @@ const branchArtifacts = createBranchArtifactFixture({
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const htmlPreview = createHtmlPreviewFixture({ artifactRecord, sessionId, workspaceId, sendJson, commonHeaders });
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
   if (request.method === 'OPTIONS') {
@@ -1401,6 +1403,7 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
+    htmlPreview.reset();
     branchArtifacts.reset();
     session.state = 'running';
     session.updated_at = observedAt;
@@ -1441,6 +1444,7 @@ const server = createServer(async (request, response) => {
   }
   if (await branchArtifacts.handle(request, response, url)) return;
   if (await sessionSummary.handle(request, response, url)) return;
+  if (await htmlPreview.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
     session.state = 'failed';
     session.updated_at = new Date().toISOString();

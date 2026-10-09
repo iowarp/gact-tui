@@ -12,6 +12,8 @@ import { fileFormatLabel } from '@/lib/media-types';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import type { DocumentApplication } from '@/tauri/documents';
 import { FileTypeIcon } from './file-type-icon';
+import { isHtmlFile } from './html-preview-policy';
+import { documentOpenPolicy } from './document-open-policy';
 
 export type DocumentOpenTarget =
   | 'native'
@@ -22,17 +24,11 @@ export type DocumentOpenTarget =
   | 'collabora';
 
 const applicationLabels = { word: 'Word', powerpoint: 'PowerPoint', excel: 'Excel' };
-const extensions = {
-  word: ['docx', 'doc', 'odt', 'rtf'],
-  powerpoint: ['pptx', 'ppt', 'odp'],
-  excel: ['xlsx', 'xls', 'ods'],
-};
 
 /** Only offer installed native apps and healthy configured browser editors. */
 export function DocumentOpenMenu({
   artifact,
   manifest,
-  previewName,
   hasPdf,
   applications,
   editorHealth,
@@ -43,10 +39,11 @@ export function DocumentOpenMenu({
   onPdf,
   onDownload,
   hideDownload = false,
+  onPreview,
+  onSource,
 }: {
   artifact: Artifact;
   manifest: DocumentManifest;
-  previewName: string;
   hasPdf: boolean;
   applications: readonly DocumentApplication[];
   editorHealth?: DocumentEditorHealth;
@@ -57,9 +54,16 @@ export function DocumentOpenMenu({
   onPdf: () => void;
   onDownload: () => void;
   hideDownload?: boolean;
+  onPreview?: () => void;
+  onSource?: () => void;
 }) {
   const native = inTauri();
-  const extension = artifact.name.split('.').at(-1)?.toLowerCase() ?? '';
+  const html = manifest.profile === 'html-static' || isHtmlFile(artifact.name, artifact.media_type);
+  const policy = documentOpenPolicy(
+    html ? 'html-static' : manifest.profile,
+    artifact.name,
+    artifact.media_type,
+  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -70,13 +74,25 @@ export function DocumentOpenMenu({
           size="sm"
           variant="outline"
         >
-          <FileTypeIcon name={previewName} className="size-3.5" />
+          <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} className="size-3.5" />
           <span className="@max-[520px]/viewer:sr-only">Open in</span>{' '}
           <ChevronDownIcon aria-hidden="true" className="size-3 @max-[360px]/viewer:hidden" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">
-        {hasPdf || manifest.rendition_formats.includes('pdf') ? (
+        {policy.previewLabel && onPreview ? (
+          <DropdownMenuItem onSelect={onPreview}>
+            <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} />
+            {policy.previewLabel}
+          </DropdownMenuItem>
+        ) : null}
+        {policy.sourceLabel && onSource ? (
+          <DropdownMenuItem onSelect={onSource}>
+            <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} />
+            {policy.sourceLabel}
+          </DropdownMenuItem>
+        ) : null}
+        {policy.pdfPreview && (hasPdf || manifest.rendition_formats.includes('pdf')) ? (
           <DropdownMenuItem disabled={pdfPending} onSelect={onPdf}>
             <FileTypeIcon name="preview.pdf" className="size-4 text-red-600" />
             {pdfPending ? 'Preparing PDF…' : 'PDF preview'}
@@ -85,7 +101,7 @@ export function DocumentOpenMenu({
         {manifest.native_open && native ? (
           <>
             {applications
-              .filter((app) => extensions[app].includes(extension))
+              .filter((app) => policy.applications.includes(app))
               .map((app) => (
                 <DropdownMenuItem key={app} disabled={openPending} onSelect={() => onOpen(app)}>
                   <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} />
@@ -94,13 +110,13 @@ export function DocumentOpenMenu({
               ))}
             <DropdownMenuItem disabled={openPending} onSelect={() => onOpen('native')}>
               <ExternalLinkIcon aria-hidden="true" />
-              Default desktop app
+              {policy.nativeLabel}
             </DropdownMenuItem>
           </>
         ) : null}
-        {manifest.embedded_editors.map((provider) => {
+        {(policy.embeddedEditors ? manifest.embedded_editors : []).map((provider) => {
           const health = editorHealth?.editors.find((entry) => entry.provider === provider);
-          if (!health?.configured && !health?.healthy) return null;
+          if (!health?.configured) return null;
           return (
             <DropdownMenuItem
               disabled={openPending || !health.healthy}
