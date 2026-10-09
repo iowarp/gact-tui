@@ -18,7 +18,10 @@ describe('rendered surface PNG', () => {
     const canvas = document.createElement('canvas');
     canvas.width = 300;
     canvas.height = 200;
-    vi.spyOn(canvas, 'getContext').mockReturnValue({} as CanvasRenderingContext2D);
+    // getContext has WebGPU overloads as well; this capture uses only 2D.
+    vi.spyOn(canvas, 'getContext').mockImplementation(
+      (() => ({}) as CanvasRenderingContext2D) as unknown as typeof canvas.getContext,
+    );
     vi.spyOn(canvas, 'toBlob').mockImplementation((callback) =>
       callback(new Blob(['pixels'], { type: 'image/png' })),
     );
