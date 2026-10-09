@@ -719,7 +719,7 @@ function seedQueuedMessages() {
 /** Return a dense sanitized transcript with one active, always-mounted streaming turn. */
 function transcriptMessages() {
   const compact = branchArtifacts.compactMessages();
-  if (compact) return compact;
+  if (compact) return [...compact, ...transcriptActivityMessages];
   const messages = Array.from({ length: 998 }, (_, index) => ({
     id: `msg_history_${String(index).padStart(4, '0')}`,
     session_id: sessionId,
@@ -1389,11 +1389,23 @@ function startHighRateStream() {
 }
 
 const branchArtifacts = createBranchArtifactFixture({
-  session, workspaceId, observedAt, transcriptMessages, readJson, sendJson, commonHeaders,
+  session,
+  workspaceId,
+  observedAt,
+  transcriptMessages,
+  readJson,
+  sendJson,
+  commonHeaders,
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
-const htmlPreview = createHtmlPreviewFixture({ artifactRecord, sessionId, workspaceId, sendJson, commonHeaders });
+const htmlPreview = createHtmlPreviewFixture({
+  artifactRecord,
+  sessionId,
+  workspaceId,
+  sendJson,
+  commonHeaders,
+});
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
   if (request.method === 'OPTIONS') {
@@ -1572,7 +1584,7 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && url.pathname === '/__test/transcript-activity') {
-    const { phase } = await readJson(request);
+    const { phase, timed = false } = await readJson(request);
     if (!['thinking', 'answer'].includes(phase)) {
       sendJson(response, { error: 'Unknown transcript activity phase' }, 400);
       return;
@@ -1602,6 +1614,7 @@ const server = createServer(async (request, response) => {
         name: 'fs_read_file',
         title: 'Read',
         state: 'succeeded',
+        ...(timed ? { duration_ms: 240 } : {}),
         input: { path: 'notes.md' },
         output: 'Complete fixture file contents.',
         presentation: {
@@ -1618,6 +1631,7 @@ const server = createServer(async (request, response) => {
         name: 'shell_bash',
         title: 'Run',
         state: 'failed',
+        ...(timed ? { duration_ms: 75_500 } : {}),
         input: { command: 'python review.py' },
         error: 'Fixture command failed.',
         output: 'ModuleNotFoundError: fixture_package',
@@ -1630,6 +1644,30 @@ const server = createServer(async (request, response) => {
           ],
         },
       });
+      if (timed) {
+        transcriptActivityTools.push({
+          id: 'flat_environment',
+          session_id: sessionId,
+          run_id: 'run_flat_activity',
+          name: 'prepare_execution_runtime',
+          title: 'Get execution environment',
+          state: 'running',
+          started_at: new Date(Date.now() - 12_000).toISOString(),
+        });
+      }
+      for (const tool of transcriptActivityTools) publish('tool.upserted', tool);
+    }
+    if (phase === 'answer' && timed) {
+      transcriptActivityTools = transcriptActivityTools.map((tool) =>
+        tool.id === 'flat_environment'
+          ? {
+              ...tool,
+              state: 'succeeded',
+              duration_ms: 24_840,
+              completed_at: new Date().toISOString(),
+            }
+          : tool,
+      );
       for (const tool of transcriptActivityTools) publish('tool.upserted', tool);
     }
     const assistantMessage = {
@@ -1657,6 +1695,9 @@ const server = createServer(async (request, response) => {
         { id: 'flat_next', type: 'text', channel: 'next_thought', text: thought },
         { id: 'flat_read_part', type: 'tool', tool_id: 'flat_read' },
         { id: 'flat_run_part', type: 'tool', tool_id: 'flat_run' },
+        ...(timed
+          ? [{ id: 'flat_environment_part', type: 'tool', tool_id: 'flat_environment' }]
+          : []),
         ...(phase === 'answer'
           ? [
               {
@@ -2185,7 +2226,10 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
-    const artifacts = [...(a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord]), ...branchArtifacts.artifacts()];
+    const artifacts = [
+      ...(a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord]),
+      ...branchArtifacts.artifacts(),
+    ];
     sendJson(response, {
       artifacts,
       used: [],
