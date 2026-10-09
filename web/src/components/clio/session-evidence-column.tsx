@@ -41,7 +41,7 @@ export function SessionEvidenceColumn({
         collapsed,
       });
       const next = sessionSectionHeights(
-        column.current?.clientHeight ?? 0,
+        column.current?.getBoundingClientRect().height ?? 0,
         hasData ? demand(dataHeader.current, dataContent.current, dataCollapsed) : undefined,
         hasWork ? demand(workHeader.current, workContent.current, workCollapsed) : undefined,
       );
@@ -135,7 +135,7 @@ function SessionEvidenceSection({
       aria-label={name}
       data-showcase-section={name === 'Data' ? 'top' : 'bottom'}
       data-section-collapsed={collapsed}
-      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg bg-popover shadow-md ring-1 ring-foreground/10"
+      className="flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden rounded-lg bg-popover shadow-md ring-1 ring-foreground/10"
       style={{ height }}
     >
       <div

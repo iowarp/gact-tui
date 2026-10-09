@@ -1830,6 +1830,22 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (
+    request.method === 'POST' &&
+    url.pathname === `/v1/sessions/${sessionId}/a2ui/visual-feedback`
+  ) {
+    // Current renderers send leases even when this scenario has no queued
+    // control/capture. Match the production bridge's report/reply envelopes;
+    // don't hide unexpected HTTP errors in the browser assertions.
+    const body = await readJson(request);
+    if (typeof body.viewer_id !== 'string' || typeof body.surface_id !== 'string') {
+      sendJson(response, { error: 'A mounted viewer and surface are required.' }, 422);
+      return;
+    }
+    sendJson(response, 'request_id' in body ? { accepted: true } : { requests: [] });
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/a2ui/actions`) {
     // Only acknowledges receipt (the `isPending` mutation this resolves is
     // what gates the surface header's optimistic "Sending action" label,

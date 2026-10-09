@@ -146,17 +146,26 @@ for (const density of ['both', 'work']) {
         return w.y - d.y - d.height;
       })
       .toBeGreaterThanOrEqual(11);
-    const d = (await data.boundingBox())!;
-    const w = (await work.boundingBox())!;
-    if (density === 'both') expect(Math.abs(d.height - w.height)).toBeLessThan(2);
-    else {
-      const naturalDataHeight = await data.evaluate(
+    const naturalDataHeight = () =>
+      data.evaluate(
         (node) =>
           Math.ceil(node.children[0]!.getBoundingClientRect().height) +
           Math.ceil(node.children[1]!.firstElementChild!.getBoundingClientRect().height) +
           1,
       );
-      expect(d.height).toBeCloseTo(naturalDataHeight, 0);
+    if (density === 'work') {
+      // ResizeObserver applies the newly measured allocation on the next
+      // animation frame. Wait for that allocation, retaining the same exact
+      // half-pixel tolerance rather than accepting a clipped natural height.
+      await expect
+        .poll(async () => (await data.boundingBox())!.height - (await naturalDataHeight()))
+        .toBeCloseTo(0, 0);
+    }
+    const d = (await data.boundingBox())!;
+    const w = (await work.boundingBox())!;
+    if (density === 'both') expect(Math.abs(d.height - w.height)).toBeLessThan(2);
+    else {
+      expect(d.height).toBeCloseTo(await naturalDataHeight(), 0);
       expect(w.height).toBeCloseTo((await panel.boundingBox())!.height - d.height - 12, 0);
       expect(w.height).toBeGreaterThan(d.height);
     }
