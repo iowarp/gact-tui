@@ -125,7 +125,7 @@ describe('WhatsNewDialog', () => {
     expect(screen.queryByText(/unrelated old release/u)).toBeNull();
     expect(screen.getByRole('tab', { name: /release.*0\.9\.5-beta\.5\.1/u })).toBeInTheDocument();
     expect(screen.queryByText(/Detailed compatibility/u)).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Notes', exact: true }));
+    await userEvent.click(screen.getByRole('button', { name: /^Notes$/u }));
     expect(await screen.findByText(/Detailed compatibility/u)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: /Interface.*0\.11\.2\.22/u }));
     expect(await screen.findByText('Big screen zoom support (hotfix)')).toBeInTheDocument();
