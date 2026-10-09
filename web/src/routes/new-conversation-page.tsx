@@ -7,16 +7,20 @@ import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
 import { ClioNavigation } from '@/components/clio/navigation';
+import { ClioDraftActions } from '@/components/clio/draft-actions';
+import { ClioDownloadsButton } from '@/components/clio/downloads-button';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import {
   WorkspaceActionAlerts,
   WorkspaceUnavailable,
+  WorkspaceStatusStrip,
 } from '@/components/clio/workspace-route-surfaces';
 import {
   canUploadWorkspaceResources,
   canUseContextReferences,
 } from '@/components/clio/workspace-route-state';
 import { useComposerDraft } from '@/hooks/use-composer-draft';
+import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
@@ -43,6 +47,7 @@ export function NewConversationPage() {
 function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
+  const connection = useConnectionIndicatorState();
   const repository = useRepository();
   const draft = useComposerDraft(workspaceId, { persist: false });
   const [filesViewActive, setFilesViewActive] = useState(false);
@@ -157,26 +162,34 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         />
       }
       contextBar={
-        <label className="flex items-center gap-2 text-sm">
-          <span>New conversation in</span>
-          <select
-            aria-label="Conversation workspace"
-            className="min-w-0 rounded-md border border-border bg-background px-2 py-1"
-            value={workspaceId}
-            disabled={send.isPending}
-            onChange={(event) =>
-              void navigate(newConversationRoute(event.target.value), { replace: true })
-            }
-          >
-            {(data.workspaces.data ?? []).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.display_name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex min-w-0 items-center gap-2">
+          <label className="flex min-w-0 items-center gap-2 text-sm">
+            <span>New conversation in</span>
+            <select
+              aria-label="Conversation workspace"
+              className="min-w-0 rounded-md border border-border bg-background px-2 py-1"
+              value={workspaceId}
+              disabled={send.isPending}
+              onChange={(event) =>
+                void navigate(newConversationRoute(event.target.value), { replace: true })
+              }
+            >
+              {(data.workspaces.data ?? []).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.display_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <ClioDraftActions
+            disabled={!workspace || send.isPending}
+            onOpen={(section) => revealWorkbench({ kind: 'resources', section })}
+            onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
+          />
+          <ClioDownloadsButton />
+        </div>
       }
-      statusStrip={null}
+      statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} tokens={0} />}
       workbenchRevealKey={activeRequest?.key}
       workbench={
         <ClioWorkbench

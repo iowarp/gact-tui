@@ -115,7 +115,7 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await waitForArtifactPreview(page);
     await page.evaluate(() => document.fonts.ready);
     await page.getByRole('button', { name: /^Evidence layout:/ }).click();
-    await page.getByRole('button', { name: 'Open observability in workspace canvas' }).click();
+    await page.getByRole('button', { name: 'Open full details' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
     const resizeBounds = await resize.boundingBox();
@@ -574,8 +574,11 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
     })
     .toBe(true);
   const activeMarker = activeLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  await expect(activeMarker).toHaveCSS('width', `${railWidth - 4}px`);
-  await expect(activeMarker).toHaveCSS('height', '5px');
+  await expect.poll(async () => (await activeMarker.boundingBox())!.width).toBeGreaterThan(12);
+  await expect
+    .poll(async () => (await activeMarker.boundingBox())!.width)
+    .toBeLessThanOrEqual(railWidth / 2);
+  await expect(activeMarker).toHaveCSS('height', '4px');
   await expect(activeMarker).toHaveCSS('opacity', '1');
   const previousLandmark = minimap.getByRole('button', {
     exact: true,
@@ -700,7 +703,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await expect(page.getByText('Which evidence view should remain primary?')).toHaveCount(0);
 });
 
-test('keeps a pending EarthScope map flat, resizable, and available full-window', async ({
+test('keeps a pending EarthScope map flat, resizable, and centered when expanded', async ({
   page,
 }) => {
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/a2ui-map-demo`, {
@@ -746,7 +749,7 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
     .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
     .toBeGreaterThan(initialHeight);
 
-  const griped = await viewport.evaluate((element) => element.getBoundingClientRect().height);
+  const enlargedHeight = await viewport.evaluate((element) => element.getBoundingClientRect().height);
   const corner = pendingResponses.getByRole('button', {
     name: 'Corner resize handle',
   });
@@ -759,12 +762,31 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
     const cornerY = cornerBox.y + cornerBox.height / 2;
     await page.mouse.move(cornerX, cornerY);
     await page.mouse.down();
-    await page.mouse.move(cornerX, cornerY - 15, { steps: 5 });
-    await page.mouse.move(cornerX, cornerY - 30, { steps: 5 });
+    // The keyboard resize button has already grown the tray to its limit.
+    // Drag downward to shrink it before checking that an upward drag grows it.
+    await page.mouse.move(cornerX, cornerY + 15, { steps: 5 });
+    await page.mouse.move(cornerX, cornerY + 30, { steps: 5 });
     await page.mouse.up();
     await expect
       .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
-      .toBeLessThan(griped);
+      .toBeLessThan(enlargedHeight);
+    const smallerHeight = await viewport.evaluate(
+      (element) => element.getBoundingClientRect().height,
+    );
+    const smallerCornerBox = await corner.boundingBox();
+    expect(smallerCornerBox).not.toBeNull();
+    if (smallerCornerBox) {
+      const smallerX = smallerCornerBox.x + smallerCornerBox.width / 2;
+      const smallerY = smallerCornerBox.y + smallerCornerBox.height / 2;
+      await page.mouse.move(smallerX, smallerY);
+      await page.mouse.down();
+      await page.mouse.move(smallerX, smallerY - 15, { steps: 5 });
+      await page.mouse.move(smallerX, smallerY - 30, { steps: 5 });
+      await page.mouse.up();
+      await expect
+        .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
+        .toBeGreaterThan(smallerHeight);
+    }
   }
   const beforeFullscreenHeight = await viewport.evaluate(
     (element) => element.getBoundingClientRect().height,
@@ -783,7 +805,14 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
     .getByRole('group', { name: 'Nearest EarthScope GNSS stations' })
     .boundingBox();
   const pageSize = page.viewportSize();
-  expect(dialogBounds?.width ?? 0).toBeGreaterThan((pageSize?.width ?? 0) * 0.9);
+  expect(dialogBounds).not.toBeNull();
+  expect(pageSize).not.toBeNull();
+  if (dialogBounds && pageSize) {
+    expect(dialogBounds.width).toBeGreaterThan(pageSize.width * 0.5);
+    expect(dialogBounds.width).toBeLessThan(pageSize.width * 0.9);
+    expect(Math.abs(dialogBounds.x + dialogBounds.width / 2 - pageSize.width / 2)).toBeLessThan(1);
+    expect(Math.abs(dialogBounds.y + dialogBounds.height / 2 - pageSize.height / 2)).toBeLessThan(1);
+  }
   expect(dialogBounds?.height ?? 0).toBeGreaterThan((pageSize?.height ?? 0) * 0.9);
   expect(mapBounds?.height ?? 0).toBeGreaterThan((pageSize?.height ?? 0) * 0.75);
 
@@ -916,7 +945,13 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await expect(queue).toBeVisible();
   await expect(queue.getByText('6 queued messages')).toBeVisible();
   await expect(queue.locator('[data-queue-live-item]')).toHaveCount(6);
-  await expect(queue).toHaveCSS('backdrop-filter', /blur/);
+  await expect(queue).toHaveCSS('backdrop-filter', 'none');
+  const composerSurface = page.locator(
+    '[data-slot="clio-composer-stack"] form > [data-slot="input-group"]',
+  );
+  await expect
+    .poll(() => queue.evaluate((node) => getComputedStyle(node).backgroundColor))
+    .toBe(await composerSurface.evaluate((node) => getComputedStyle(node).backgroundColor));
   await expect(
     queue.getByRole('button', { name: 'Reorder queued message', exact: true }).first(),
   ).toBeVisible();

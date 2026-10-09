@@ -51,6 +51,7 @@ export function ConnectedSourcePicker({
   initialFolderFiles,
   initialFolder,
   initialDownloaded,
+  initialSourceId,
   manageOnly = false,
   onDownloadStarted,
 }: {
@@ -63,6 +64,7 @@ export function ConnectedSourcePicker({
   initialFolderFiles?: File[];
   initialFolder?: string;
   initialDownloaded?: boolean;
+  initialSourceId?: string;
   manageOnly?: boolean;
   onDownloadStarted?: (
     source: ConnectedSourceState,
@@ -119,7 +121,7 @@ export function ConnectedSourcePicker({
         <div className="-mx-4 min-h-0 overflow-y-auto px-4">
           {open && (
             <ConnectedSourceContents
-              key={scope}
+              key={`${scope}:${initialSourceId ?? ''}`}
               workspaceId={workspaceId}
               manageOnly={manageOnly}
               onDownloadStarted={onDownloadStarted}
@@ -127,6 +129,7 @@ export function ConnectedSourcePicker({
               initialFolderFiles={initialFolderFiles}
               initialFolder={initialFolder}
               initialDownloaded={initialDownloaded}
+              initialSourceId={initialSourceId}
               headerActions={headerActions}
               onDiscard={() => {
                 if (activeScope.current === scope) onOpenChange(false);
@@ -160,6 +163,7 @@ export function ConnectedSourceContents({
   initialFolderFiles,
   initialFolder,
   initialDownloaded,
+  initialSourceId,
   headerActions,
   onDiscard,
   settingsView = false,
@@ -177,6 +181,7 @@ export function ConnectedSourceContents({
   initialFolderFiles?: File[];
   initialFolder?: string;
   initialDownloaded?: boolean;
+  initialSourceId?: string;
   headerActions: HTMLDivElement | null;
   onDiscard: () => void;
   settingsView?: boolean;
@@ -197,11 +202,11 @@ export function ConnectedSourceContents({
     initialData: '',
     staleTime: Infinity,
   });
-  // Files always starts at the list; it never consumes or changes the composer's selection.
-  const [managedSelection, setManagedSelection] = useState('');
+  // Management has its own selection; a summary link can open a specific source.
+  const [managedSelection, setManagedSelection] = useState(initialSourceId ?? '');
   const privateSelection = manageOnly || settingsView;
   const selectedId = privateSelection ? managedSelection : selection.data;
-  const [initialSourceId] = useState(selectedId);
+  const [initialFolderSourceId] = useState(selectedId);
   const select = (id: string) =>
     privateSelection ? setManagedSelection(id) : queryClient.setQueryData(selectionKey, id);
   const [provider, setProvider] = useState<SourceProvider>();
@@ -352,8 +357,8 @@ export function ConnectedSourceContents({
           key={source.id}
           workspaceId={workspaceId}
           source={source}
-          initialFolder={source.id === initialSourceId ? initialFolder : undefined}
-          initialDownloaded={source.id === initialSourceId ? initialDownloaded : undefined}
+          initialFolder={source.id === initialFolderSourceId ? initialFolder : undefined}
+          initialDownloaded={source.id === initialFolderSourceId ? initialDownloaded : undefined}
           manageOnly={manageOnly}
           onDownloadStarted={onDownloadStarted}
           hostLabel={hostLabel}

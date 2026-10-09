@@ -1,133 +1,153 @@
 import type { Artifact, DocumentEditorHealth, DocumentManifest } from '@clio/core/v3';
-import { ChevronDownIcon, CopyIcon, DownloadIcon, ExternalLinkIcon } from 'lucide-react';
+import { ChevronDownIcon, DownloadIcon, ExternalLinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { fileFormatLabel } from '@/lib/media-types';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { vocab } from '@/lib/brand-vocabulary';
 import type { DocumentApplication } from '@/tauri/documents';
 import { FileTypeIcon } from './file-type-icon';
+import { hasEmbeddedDocumentEditors } from './document-open-policy';
+import { AssociatedApplicationItems } from './associated-application-items';
 
 export type DocumentOpenTarget =
-  | 'native'
-  | 'word'
-  | 'powerpoint'
-  | 'excel'
-  | 'onlyoffice'
-  | 'collabora';
+  | { kind: 'native'; application: DocumentApplication; format: 'original' | 'pdf' }
+  | { kind: 'embedded'; provider: 'onlyoffice' | 'collabora' };
 
-const applicationLabels = { word: 'Word', powerpoint: 'PowerPoint', excel: 'Excel' };
-const extensions = {
-  word: ['docx', 'doc', 'odt', 'rtf'],
-  powerpoint: ['pptx', 'ppt', 'odp'],
-  excel: ['xlsx', 'xls', 'ods'],
-};
-
-/** Only offer installed native apps and healthy configured browser editors. */
+/** App launching, original downloads, and PDF exports stay distinct from CLIO's view controls. */
 export function DocumentOpenMenu({
   artifact,
   manifest,
-  previewName,
-  hasPdf,
   applications,
+  pdfApplications,
+  applicationsPending = false,
+  applicationsError,
+  pdfApplicationsPending = false,
+  pdfApplicationsError,
   editorHealth,
   openPending,
   pdfPending,
   downloadPending,
   onOpen,
-  onPdf,
+  onPdfDownload,
   onDownload,
   hideDownload = false,
 }: {
   artifact: Artifact;
   manifest: DocumentManifest;
-  previewName: string;
-  hasPdf: boolean;
   applications: readonly DocumentApplication[];
+  pdfApplications: readonly DocumentApplication[];
+  applicationsPending?: boolean;
+  applicationsError?: string;
+  pdfApplicationsPending?: boolean;
+  pdfApplicationsError?: string;
   editorHealth?: DocumentEditorHealth;
   openPending: boolean;
   pdfPending: boolean;
   downloadPending: boolean;
   onOpen: (target: DocumentOpenTarget) => void;
-  onPdf: () => void;
+  onPdfDownload: () => void;
   onDownload: () => void;
   hideDownload?: boolean;
 }) {
   const native = inTauri();
-  const extension = artifact.name.split('.').at(-1)?.toLowerCase() ?? '';
+  const pdf =
+    manifest.profile !== 'pdf' &&
+    (Boolean(manifest.pdf_rendition_artifact_id) || manifest.rendition_formats.includes('pdf'));
+  const providers = hasEmbeddedDocumentEditors(manifest.profile) ? manifest.embedded_editors : [];
+  const configuredProviders = providers.filter((provider) =>
+    editorHealth?.editors.some((editor) => editor.provider === provider && editor.configured),
+  );
+  const label = native || configuredProviders.length ? 'Open in' : 'Export';
+  const hasOriginal =
+    (manifest.native_open && native) || configuredProviders.length > 0 || !hideDownload;
+  const appItems = (
+    apps: readonly DocumentApplication[],
+    format: 'original' | 'pdf',
+    pending: boolean,
+    error?: string,
+  ) => (
+    <AssociatedApplicationItems
+      applications={apps}
+      pending={pending}
+      error={error}
+      disabled={openPending || pdfPending}
+      onSelect={(application) => onOpen({ kind: 'native', application, format })}
+    />
+  );
+  if (!hasOriginal && !pdf) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          aria-label="Open in"
-          title="Open in"
+          aria-label={label}
+          title={label}
           className="h-7 gap-1 px-2 text-xs @max-[520px]/viewer:px-1.5"
           size="sm"
           variant="outline"
         >
-          <FileTypeIcon name={previewName} className="size-3.5" />
-          <span className="@max-[520px]/viewer:sr-only">Open in</span>{' '}
+          <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} className="size-3.5" />
+          <span className="@max-[520px]/viewer:sr-only">{label}</span>
           <ChevronDownIcon aria-hidden="true" className="size-3 @max-[360px]/viewer:hidden" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-56">
-        {hasPdf || manifest.rendition_formats.includes('pdf') ? (
-          <DropdownMenuItem disabled={pdfPending} onSelect={onPdf}>
-            <FileTypeIcon name="preview.pdf" className="size-4 text-red-600" />
-            {pdfPending ? 'Preparing PDF…' : 'PDF preview'}
-          </DropdownMenuItem>
-        ) : null}
-        {manifest.native_open && native ? (
-          <>
-            {applications
-              .filter((app) => extensions[app].includes(extension))
-              .map((app) => (
-                <DropdownMenuItem key={app} disabled={openPending} onSelect={() => onOpen(app)}>
-                  <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} />
-                  Open in {applicationLabels[app]}
+      <DropdownMenuContent align="end" className="min-w-56 max-w-72">
+        {hasOriginal ? (
+          <DropdownMenuGroup
+            aria-label={`Original ${fileFormatLabel(artifact.name, artifact.media_type)}`}
+          >
+            <DropdownMenuLabel>
+              {fileFormatLabel(artifact.name, artifact.media_type)}
+            </DropdownMenuLabel>
+            {manifest.native_open && native
+              ? appItems(applications, 'original', applicationsPending, applicationsError)
+              : null}
+            {configuredProviders.map((provider) => {
+              const health = editorHealth?.editors.find((entry) => entry.provider === provider);
+              if (!health?.configured) return null;
+              return (
+                <DropdownMenuItem
+                  disabled={openPending || !health.healthy}
+                  key={provider}
+                  onSelect={() => onOpen({ kind: 'embedded', provider })}
+                  title={health.error}
+                >
+                  <ExternalLinkIcon aria-hidden="true" />
+                  {provider === 'onlyoffice' ? 'ONLYOFFICE' : 'Collabora'} (in {vocab.agent})
+                  {!health.healthy ? ' — unavailable' : ''}
                 </DropdownMenuItem>
-              ))}
-            <DropdownMenuItem disabled={openPending} onSelect={() => onOpen('native')}>
-              <ExternalLinkIcon aria-hidden="true" />
-              Default desktop app
-            </DropdownMenuItem>
-          </>
+              );
+            })}
+            {!hideDownload ? (
+              <DropdownMenuItem disabled={downloadPending} onSelect={onDownload}>
+                <DownloadIcon aria-hidden="true" />
+                Download original
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuGroup>
         ) : null}
-        {manifest.embedded_editors.map((provider) => {
-          const health = editorHealth?.editors.find((entry) => entry.provider === provider);
-          if (!health?.configured && !health?.healthy) return null;
-          return (
-            <DropdownMenuItem
-              disabled={openPending || !health.healthy}
-              key={provider}
-              onSelect={() => onOpen(provider)}
-              title={health.error}
-            >
-              <ExternalLinkIcon aria-hidden="true" />
-              {provider === 'onlyoffice' ? 'ONLYOFFICE' : 'Collabora'}
-              {!health.healthy ? ' — unavailable' : ''}
-            </DropdownMenuItem>
-          );
-        })}
-        {!hideDownload ? (
+        {pdf ? (
           <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={downloadPending} onSelect={onDownload}>
-              <DownloadIcon aria-hidden="true" />
-              Download {fileFormatLabel(artifact.name, artifact.media_type)} file
-            </DropdownMenuItem>
+            {hasOriginal ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuGroup aria-label="PDF copy">
+              <DropdownMenuLabel>PDF</DropdownMenuLabel>
+              {native
+                ? appItems(pdfApplications, 'pdf', pdfApplicationsPending, pdfApplicationsError)
+                : null}
+              <DropdownMenuItem disabled={pdfPending || openPending} onSelect={onPdfDownload}>
+                <DownloadIcon aria-hidden="true" />
+                {pdfPending ? 'Preparing PDF…' : 'Download PDF'}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </>
-        ) : null}
-        {manifest.native_open && !native ? (
-          <DropdownMenuItem disabled={openPending} onSelect={() => onOpen('native')}>
-            <CopyIcon aria-hidden="true" />
-            Copy path
-          </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>

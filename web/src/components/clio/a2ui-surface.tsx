@@ -8,7 +8,15 @@ import { MarkdownContext } from '@a2ui/react/v0_9';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon, Loader2Icon } from 'lucide-react';
-import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
 import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
@@ -25,6 +33,8 @@ import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 import { A2uiRegionCaptureProvider } from './a2ui-region-capture';
 import { SurfaceAttentionProvider } from '@/lib/a2ui/attention-selection';
+import type { A2uiRegistrySnapshot } from '@/lib/a2ui/registry-store';
+import { useA2uiVisualViewer } from './a2ui-visual-viewer';
 
 function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
@@ -124,6 +134,9 @@ function ClioA2UISurfaceContent({
   surface,
   viewport,
   readOnly,
+  catalogRegistry,
+  captureArtifactId,
+  visualFeedback,
 }: {
   /**
    * The server-truth footer's data (dispatcher slice S5,
@@ -139,14 +152,14 @@ function ClioA2UISurfaceContent({
   surface: DomainSurface;
   viewport: 'inline' | 'fullscreen';
   readOnly: boolean;
+  catalogRegistry?: A2uiRegistrySnapshot;
+  captureArtifactId?: string;
+  visualFeedback?: boolean;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
-  const {
-    registry,
-    catalogs,
-    isLoading: catalogsLoading,
-  } = useA2uiCatalogRegistry(surface.session_id);
+  const sessionRegistry = useA2uiCatalogRegistry(surface.session_id);
+  const { registry, catalogs, isLoading: catalogsLoading } = catalogRegistry ?? sessionRegistry;
   const [validationPostFailure, setValidationPostFailure] = useState<{
     revision: number;
     message: string;
@@ -251,6 +264,10 @@ function ClioA2UISurfaceContent({
         setValidationNotice({ revision: surface.revision, message: validationError.message });
       }
       setValidationPostFailure(undefined);
+      if (readOnly) {
+        setValidationNotice({ revision: surface.revision, message: validationError.message });
+        return;
+      }
       try {
         await repository.a2uiAction(surface.session_id, {
           version: `v${A2UI_VERSION}`,
@@ -271,7 +288,7 @@ function ClioA2UISurfaceContent({
         });
       }
     },
-    [repository, surface.id, surface.revision, surface.session_id],
+    [repository, surface.id, surface.revision, surface.session_id, readOnly],
   );
   const { model, failure } = useA2uiSurfaceModel(
     surface,
@@ -279,7 +296,10 @@ function ClioA2UISurfaceContent({
     catalogsLoading,
     handleAction,
     handleValidationFailed,
+    !readOnly,
   );
+  const visualRoot = useRef<HTMLDivElement>(null);
+  useA2uiVisualViewer(visualRoot, surface, model, captureArtifactId, visualFeedback);
   const reportUrlViolation = useCallback(
     (componentId: string, propName: string, message: string) => {
       void model?.dispatchError({
@@ -351,12 +371,13 @@ function ClioA2UISurfaceContent({
       // div is the thing being moved in every case, so index.css scopes its
       // catalog-wide patches (ChoicePicker, TextField/Label) here instead.
       data-slot="a2ui-surface-root"
+      ref={visualRoot}
     >
       <MarkdownContext.Provider value={renderMarkdown}>
         <A2uiUrlViolationProvider value={reportUrlViolation}>
           <A2uiReferenceSessionProvider value={surface.session_id}>
             <AutoDatasetSelectionProvider>
-              <SurfaceAttentionProvider surface={surface}>
+              <SurfaceAttentionProvider surface={surface} disabled={readOnly}>
                 <A2uiRegionCaptureProvider surface={surface}>
                   <A2uiSurface surface={model} />
                 </A2uiRegionCaptureProvider>
@@ -427,6 +448,9 @@ export function ClioA2UISurface({
   surface,
   viewport = 'inline',
   readOnly = false,
+  catalogRegistry,
+  captureArtifactId,
+  visualFeedback,
 }: {
   actionLifecycle?: A2UIActionLifecycle;
   onLocalAction?: A2UILocalActionHandler;
@@ -434,6 +458,9 @@ export function ClioA2UISurface({
   surface: DomainSurface;
   viewport?: 'inline' | 'fullscreen';
   readOnly?: boolean;
+  catalogRegistry?: A2uiRegistrySnapshot;
+  captureArtifactId?: string;
+  visualFeedback?: boolean;
 }) {
   return (
     <SurfaceBoundary key={surface.id}>
@@ -444,6 +471,9 @@ export function ClioA2UISurface({
         surface={surface}
         viewport={viewport}
         readOnly={readOnly}
+        catalogRegistry={catalogRegistry}
+        captureArtifactId={captureArtifactId}
+        visualFeedback={visualFeedback}
       />
     </SurfaceBoundary>
   );

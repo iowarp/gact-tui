@@ -1,4 +1,5 @@
 export * from './a2ui/index.js';
+export * from './a2ui-visual-contract.js';
 export * from './domain.js';
 export * from './agent-task-domain.js';
 export * from './usage-domain.js';
@@ -58,6 +59,7 @@ export * from './variant-schemas.js';
 export * from './repository.js';
 export * from './session-history-repository.js';
 export * from './session-export-snapshot.js';
+export * from './dashboard-report.js';
 export * from './session-observability-repository.js';
 export * from './schemas.js';
 export * from './schema-contracts.js';

@@ -654,6 +654,7 @@ export function ClioChart(props: ClioChartProps) {
       className="group relative min-w-0"
       data-slot="a2ui-chart"
       data-a2ui-component-id={componentId}
+      data-visual-state={failure ? 'failed' : loading ? 'loading' : 'ready'}
       role="group"
       style={dataViewFlexStyle(weight)}
     >

@@ -2,6 +2,53 @@ import { expect, it } from 'vitest';
 import { TransportError, type ClioTransport, type TransportRequest } from './transport.js';
 import { captureSessionReview } from './session-export-snapshot.js';
 
+it('captures the authored dashboard only, including references in inactive tabs', async () => {
+  const requests: string[] = [];
+  const transport: ClioTransport = {
+    async request<T>(request: TransportRequest<T>): Promise<T> {
+      requests.push(request.path);
+      if (request.path.includes('/references/resolve?'))
+        return request.decode({
+          uri: 'artifact://detail-image',
+          kind: 'artifact',
+          workspace_id: 'ws',
+          name: 'detail.png',
+          media_type: 'image/png',
+          artifact_id: 'detail-image',
+          fetch_path: '/v1/artifacts/detail-image/bytes',
+        });
+      if (request.path === '/v1/artifacts/detail-image/bytes')
+        return request.decode(new Uint8Array([1, 2, 3]));
+      if (request.path.endsWith('/a2ui/surfaces') || request.path.includes('/interactions'))
+        throw new Error('Unrelated chat state must not enter a dashboard bundle');
+      return request.decode({});
+    },
+    async *stream() {
+      return;
+    },
+  };
+  const surface = {
+    messages: [
+      {
+        updateComponents: {
+          components: [
+            { id: 'root', component: 'Tabs', tabs: [{ title: 'Evidence', child: 'detail' }] },
+            { id: 'detail', component: 'Image', url: 'artifact://detail-image' },
+          ],
+        },
+      },
+    ],
+  };
+  const snapshot = await captureSessionReview(transport, ['s'], undefined, { s: [surface] });
+  expect(snapshot.sessions.s).toEqual([surface]);
+  expect(snapshot.responses['GET /v1/artifacts/detail-image/bytes']?.bytes).toBe(
+    btoa('\u0001\u0002\u0003'),
+  );
+  expect(snapshot.failures).toEqual([]);
+  expect(requests).toContain('/v1/sessions/s/a2ui/catalogs');
+  expect(requests).toContain('/v1/sessions/s/a2ui/capabilities');
+});
+
 it('preserves the authoritative custody redirect and its actual owned image bytes', async () => {
   const transport: ClioTransport = {
     async request<T>(request: TransportRequest<T>): Promise<T> {

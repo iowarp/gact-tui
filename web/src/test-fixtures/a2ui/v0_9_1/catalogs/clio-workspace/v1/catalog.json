@@ -444,6 +444,44 @@
       ],
       "type": "object"
     },
+    "MapCamera": {
+      "additionalProperties": false,
+      "properties": {
+        "bearing": {
+          "default": 0,
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number"
+        },
+        "latitude": {
+          "maximum": 85,
+          "minimum": -85,
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number"
+        },
+        "pitch": {
+          "default": 0,
+          "maximum": 60,
+          "minimum": 0,
+          "type": "number"
+        },
+        "zoom": {
+          "maximum": 16,
+          "minimum": 1,
+          "type": "number"
+        }
+      },
+      "required": [
+        "longitude",
+        "latitude",
+        "zoom"
+      ],
+      "type": "object"
+    },
     "MapPoint": {
       "additionalProperties": false,
       "properties": {
@@ -1947,6 +1985,9 @@
         },
         {
           "properties": {
+            "activeTab": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
             "component": {
               "const": "Tabs"
             },
@@ -2884,6 +2925,17 @@
             },
             "actionLabel": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "camera": {
+              "description": "Camera literal or data-model binding. longitude/latitude/zoom are required; bearing and pitch default to zero. Bound cameras are shared and updated by human navigation. Use update_a2ui_data_model on the declared path to pan, zoom or rotate, then capture the resulting view.",
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MapCamera"
+                },
+                {
+                  "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+                }
+              ]
             },
             "categoryField": {
               "$ref": "#/$defs/FieldName",

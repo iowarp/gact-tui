@@ -1,14 +1,12 @@
 import { queryKeys } from '@/lib/query-keys';
-import { artifactDeliverables, isDocumentPreview } from '@/lib/artifact-presentation';
+import {
+  artifactEvidenceLabel,
+  isDocumentPreview,
+  latestResponseArtifacts,
+} from '@/lib/artifact-presentation';
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import {
-  FileTextIcon,
-  ImageIcon,
-  FileSpreadsheetIcon,
-  FileIcon,
-  TriangleAlertIcon,
-} from 'lucide-react';
+import { TriangleAlertIcon } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import {
   Artifact,
@@ -43,6 +41,7 @@ import { describeReferenceError } from '@/lib/a2ui/reference-failure';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 import { downloadBytes } from './surface-export';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
+import { ArtifactTypeIcon } from './artifact-type-icon';
 
 export interface ClioArtifactCardProps {
   artifact: ArtifactEntity;
@@ -52,6 +51,7 @@ export interface ClioArtifactCardProps {
     event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
   ) => void;
   preview?: boolean;
+  presentation?: 'response' | 'evidence';
 }
 
 export interface ClioArtifactAttachmentsProps {
@@ -69,7 +69,7 @@ export function ClioArtifactAttachments({
   className,
   onOpen,
 }: ClioArtifactAttachmentsProps) {
-  const deliverables = artifactDeliverables(artifacts);
+  const deliverables = latestResponseArtifacts(artifacts);
   if (!deliverables.length) return null;
   return (
     <div
@@ -88,6 +88,7 @@ export function ClioArtifactAttachments({
             key={artifact.id}
             onOpen={onOpen}
             preview={false}
+            presentation="response"
           />
         );
       })}
@@ -97,7 +98,9 @@ export function ClioArtifactAttachments({
 
 /** Maps a GACT artifact into AI Elements' artifact and attachment presentation. */
 export function ClioArtifactCard(props: ClioArtifactCardProps) {
-  return isDocumentPreview(props.artifact) ? null : <ArtifactCardContent {...props} />;
+  return !props.presentation && isDocumentPreview(props.artifact) ? null : (
+    <ArtifactCardContent {...props} />
+  );
 }
 
 function ArtifactCardContent({
@@ -105,19 +108,13 @@ function ArtifactCardContent({
   className,
   onOpen,
   preview = true,
+  presentation,
 }: ClioArtifactCardProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
   const tabular = isTabularArtifact(artifact);
-  const FormatIcon = image
-    ? ImageIcon
-    : tabular
-      ? FileSpreadsheetIcon
-      : text
-        ? FileTextIcon
-        : FileIcon;
   const withinBudget = artifact.size !== undefined && artifact.size <= INLINE_PREVIEW_MAX_BYTES;
   const textWithinBudget = artifact.size !== undefined && artifact.size <= TEXT_PREVIEW_MAX_BYTES;
   const imageBytes = useQuery({
@@ -203,21 +200,28 @@ function ArtifactCardContent({
   };
 
   return (
-    <Artifact className={cn('group/artifact group relative', className)}>
-      <ArtifactHeader className="gap-2.5 px-3 py-2">
+    <Artifact
+      className={cn(
+        'group/artifact group relative isolate',
+        onOpen &&
+          'transition-[background-color,border-color] hover:border-primary/50 hover:bg-accent/60',
+        className,
+      )}
+    >
+      <ArtifactHeader
+        className={cn('gap-2.5 px-3 py-2', onOpen && 'group-hover/artifact:bg-accent/60')}
+      >
         <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted/60 text-muted-foreground">
-          <FormatIcon aria-hidden="true" className="size-4" />
+          <ArtifactTypeIcon artifact={artifact} className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
           {onOpen ? (
-            // The "open" target, NOT the whole card: a `role="button"` card
-            // containing the toolbar's own buttons is a nested-interactive
-            // a11y violation (axe) -- one real `<button>` around the name
-            // gets native keyboard activation (Enter/Space) for free and
-            // never nests another control.
+            // Stretch a native button's hit area across the card. Toolbar
+            // controls and preview links sit above it as independent siblings,
+            // so the whole card opens without nesting interactive controls.
             <button
               aria-label={`Open ${artifact.name}`}
-              className="block w-full truncate rounded-sm text-left text-sm font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="block w-full truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 after:z-10 after:cursor-pointer after:rounded-lg after:content-[''] group-hover/artifact:text-primary focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
               onClick={(event) => onOpen(artifact, event as unknown as MouseEvent<HTMLDivElement>)}
               title={artifact.name}
               type="button"
@@ -233,17 +237,24 @@ function ArtifactCardContent({
           >
             {fileFormatLabel(artifact.name, artifact.media_type)}
             {artifact.size === undefined ? '' : ` · ${formatBytes(artifact.size)}`}
+            {artifact.version === undefined ? '' : ` · v${artifact.version}`}
           </ArtifactDescription>
         </div>
-        {artifact.session_relation ? (
+        {artifact.session_relation || presentation === 'evidence' ? (
           <Badge className="shrink-0" variant="outline">
-            {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
+            {presentation === 'evidence'
+              ? artifactEvidenceLabel(artifact)
+              : artifact.session_relation === 'produced'
+                ? 'Output'
+                : 'Input'}
           </Badge>
         ) : null}
-        <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
+        <div className="relative z-20 shrink-0">
+          <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
+        </div>
       </ArtifactHeader>
       {preview ? (
-        <ArtifactContent className="p-0">
+        <ArtifactContent className="p-0 [&_a]:relative [&_a]:z-20 [&_button]:relative [&_button]:z-20">
           {textPreview.data ? (
             <div className="relative max-h-44 overflow-hidden border-t bg-muted/15 px-4 py-3">
               {isMarkdownArtifact(artifact) ? (

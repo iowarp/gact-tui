@@ -30,12 +30,14 @@ export function FileViewerShell({
   label = 'File views',
   value,
   onValueChange,
+  hasDocumentActions = false,
 }: {
   source: FileViewerSource;
   tabs: readonly FileViewerTab[];
   label?: string;
   value?: string;
   onValueChange?: (value: string) => void;
+  hasDocumentActions?: boolean;
 }) {
   const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
   const [informationHost, setInformationHost] = useState<HTMLDivElement | null>(null);
@@ -118,6 +120,7 @@ export function FileViewerShell({
                   <div className="flex shrink-0 items-center gap-0.5">
                     <FileViewerActions
                       source={source}
+                      hasDocumentActions={hasDocumentActions}
                       formatActions={[...formatActions.values()].flat()}
                       fullscreen={fullscreen}
                       onFullscreen={() => void toggleFullscreen()}

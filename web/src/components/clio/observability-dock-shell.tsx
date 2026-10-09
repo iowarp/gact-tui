@@ -42,6 +42,7 @@ import { EvidenceLayoutIcon } from './evidence-layout-icon';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { getToolPresentation } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
+import type { ObservabilityView } from './observability-view-storage';
 
 export interface ClioObservabilityDockProps {
   artifacts: readonly Artifact[];
@@ -76,7 +77,8 @@ export interface ClioObservabilityDockProps {
     autocompact_pct?: number;
   }) => Promise<unknown>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  onOpenCanvas?: () => void;
+  onOpenCanvas?: (view?: ObservabilityView) => void;
+  requestedView?: { key: string; view: ObservabilityView };
   onOpenWork?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;

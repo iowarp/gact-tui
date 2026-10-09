@@ -196,43 +196,6 @@ describe('connected source picker', () => {
     },
   );
 
-  it.each([1, 2])(
-    'Files always opens the list with %s sources and cannot add data',
-    async (count) => {
-      fixtures.repository.connectedSources.mockResolvedValue(
-        Array.from({ length: count }, (_, i) => ({
-          ...source,
-          id: `s${i + 1}`,
-          label: `Inputs ${i + 1}`,
-        })),
-      );
-      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      const scope = connectionScope({
-        endpoint: fixtures.endpoint,
-        token: fixtures.token,
-      });
-      client.setQueryData(['connected-storage-selection', scope, 'w'], 's1');
-      const view = (open: boolean) => (
-        <QueryClientProvider client={client}>
-          <ConnectedSourcePicker workspaceId="w" manageOnly open={open} onOpenChange={vi.fn()} />
-        </QueryClientProvider>
-      );
-      const rendered = render(view(true));
-      const user = userEvent.setup();
-      expect(await screen.findByText('Your sources')).toBeVisible();
-      expect(screen.queryByRole('button', { name: 'Choose folder' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Connect' })).toBeNull();
-      await user.click(screen.getByRole('button', { name: /^Inputs 1/ }));
-      expect(await screen.findByRole('heading', { name: 'Inputs 1' })).toBeVisible();
-      expect(screen.queryByRole('button', { name: 'Download all' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Download file' })).toBeNull();
-      rendered.rerender(view(false));
-      rendered.rerender(view(true));
-      expect(await screen.findByText('Your sources')).toBeVisible();
-      expect(client.getQueryData(['connected-storage-selection', scope, 'w'])).toBe('s1');
-    },
-  );
-
   it('removing the copy clears availability despite a retained completed transfer', async () => {
     fixtures.repository.sourceOperations.mockResolvedValue([
       { id: 'op1', state: 'completed', created_at: '2026-10-04', bytes_done: 14, bytes_total: 14 },

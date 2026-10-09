@@ -316,6 +316,7 @@ function ResourcePreview({
         content={bytes ? new TextDecoder().decode(bytes) : undefined}
         error={error}
         path={resource.name}
+        mediaType={resource.detected_mime}
       />
     );
   }

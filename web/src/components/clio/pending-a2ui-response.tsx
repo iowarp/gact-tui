@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
+import { useConversationWidth } from '@/providers/appearance-provider';
 import {
   clampViewportHeight,
   initialViewportHeight,
@@ -69,6 +70,7 @@ export function PendingA2UIResponse({
   responseError,
   showOwner,
 }: PendingA2UIResponseProps) {
+  const conversationWidth = useConversationWidth();
   const [fullscreen, setFullscreen] = useState(false);
   // The surface id is this card's identity across renders and across visits —
   // the interaction id changes with the response cycle, so it is a fallback
@@ -120,7 +122,7 @@ export function PendingA2UIResponse({
     const start = resizeStart.current;
     if (!start || event.buttons === 0) return;
     if (Math.abs(event.clientY - start.y) > 2) start.moved = true;
-    const next = clampViewportHeight(start.height + event.clientY - start.y, window.innerHeight);
+    const next = clampViewportHeight(start.height + start.y - event.clientY, window.innerHeight);
     setViewportHeight(next);
     persistViewportHeight(surfaceKey, next);
   };
@@ -246,7 +248,10 @@ export function PendingA2UIResponse({
       <Dialog onOpenChange={setFullscreen} open={fullscreen}>
         <DialogContent
           aria-describedby={undefined}
-          className="grid h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none"
+          className={cn(
+            'top-1/2 -translate-y-1/2 grid h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0',
+            conversationWidth === 'wide' ? 'sm:max-w-6xl' : 'sm:max-w-4xl',
+          )}
           showCloseButton={false}
         >
           <div className="flex items-center justify-between gap-2 border-b px-4 py-3">

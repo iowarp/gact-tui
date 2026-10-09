@@ -12,6 +12,7 @@ const variantRunFields = {
   strategy: forwardCompatibleEnum(['best_of_n', 'refine']).default('unknown'),
   judge: forwardCompatibleEnum(['lm', 'user']).default('unknown'),
   n: z.number().int().nonnegative().default(0),
+  rubric: optionalWireString(),
 };
 
 const nullableNumber = z

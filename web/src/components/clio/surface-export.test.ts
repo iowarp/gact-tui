@@ -10,6 +10,9 @@ import {
   rowsToJson,
 } from './surface-export';
 
+const nativeDownloads = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('@/tauri/downloads', () => ({ openDownloads: nativeDownloads }));
+
 describe('filenameStemFromTitle', () => {
   it('slugifies a title into a safe filename stem', () => {
     expect(filenameStemFromTitle('Depth vs. Magnitude (2024)')).toBe('Depth_vs._Magnitude_2024');
@@ -42,6 +45,16 @@ describe('rowsToJson', () => {
 describe('browser download helpers', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    nativeDownloads.mockClear();
+    Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  });
+
+  it('leaves automatic desktop Downloads opening to the actual native transfer event', () => {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    downloadBytes('activity,hours\nCoding,30', 'text/csv', 'sample.csv');
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(nativeDownloads).not.toHaveBeenCalled();
   });
 
   it('downloadBlob creates an object URL, clicks a download anchor, and revokes it later', () => {
@@ -85,6 +98,7 @@ describe('browser download helpers', () => {
     ) {
       expect(this.href).toBe('blob:existing/abc');
       expect(this.download).toBe('photo.png');
+      expect(this.referrerPolicy).toBe('no-referrer');
     });
 
     downloadUrl('blob:existing/abc', 'photo.png');
@@ -98,7 +112,10 @@ describe('copyTextToClipboard', () => {
   const originalExecCommand = document.execCommand;
   afterEach(() => {
     vi.restoreAllMocks();
-    Object.defineProperty(document, 'execCommand', { configurable: true, value: originalExecCommand });
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: originalExecCommand,
+    });
     // @ts-expect-error -- restoring a test-only override
     delete navigator.clipboard;
   });
@@ -124,7 +141,10 @@ describe('copyTextToClipboard', () => {
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
     });
-    Object.defineProperty(document, 'execCommand', { configurable: true, value: vi.fn().mockReturnValue(false) });
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: vi.fn().mockReturnValue(false),
+    });
     await expect(copyTextToClipboard('hello')).resolves.toBe(false);
   });
 });

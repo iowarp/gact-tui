@@ -209,7 +209,7 @@ function TryPanel({
         <HarnessInjection block={block} key={block.id} />
       ))}
       {tab.thinking ? (
-        <Reasoning className="mb-0" isStreaming={tab.state === 'running' && !tab.text}>
+        <Reasoning className="mb-0" defaultOpen={false}>
           <ReasoningTrigger className="min-h-6" />
           <ReasoningContent className="mt-1 leading-5">{tab.thinking}</ReasoningContent>
         </Reasoning>
@@ -285,6 +285,22 @@ export function VariantTabsBlock({ view, onPick }: { view: VariantRunView; onPic
         </span>
       </FrameHeader>
       <FramePanel className="min-w-0">
+        {view.rubric ? (
+          <Collapsible className="mb-3">
+            <CollapsibleTrigger className="text-xs font-medium text-muted-foreground hover:text-foreground">
+              Evaluation criteria
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-1 space-y-1 text-sm">
+              <p className="whitespace-pre-wrap">{view.rubric}</p>
+              {view.judge === 'lm' ? (
+                <p className="text-xs text-muted-foreground">
+                  The model scores each evaluated draft from 0 to 1 against these criteria. Higher
+                  scores are better; the Selected badge marks its choice.
+                </p>
+              ) : null}
+            </CollapsibleContent>
+          </Collapsible>
+        ) : null}
         {view.closed ? <ClosedNotice closed={view.closed} /> : null}
         {view.pick?.prompt ? (
           <p className="mb-2 text-sm text-foreground">{view.pick.prompt}</p>

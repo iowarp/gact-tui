@@ -344,11 +344,19 @@ function HumanQuestionActivity({
           ) : null}
           <ActivityStep
             icon={ArrowUpToLineIcon}
-            title={isMcp ? 'Response returned to MCP' : 'Answer sent to the agent'}
+            title={
+              isMcp
+                ? 'Response returned to MCP'
+                : interaction.payload?.response_mode === 'async'
+                  ? 'Answer added to the queue'
+                  : 'Answer sent to the agent'
+            }
           >
             {isMcp
               ? 'The waiting request resumed with your response.'
-              : 'The agent continues with your answer.'}
+              : interaction.payload?.response_mode === 'async'
+                ? 'Your answer follows the other queued messages.'
+                : 'The agent continues with your answer.'}
           </ActivityStep>
         </>
       ) : null}
@@ -436,6 +444,7 @@ function answerEntries(interaction: PendingInteraction): AnswerEntry[] {
         key !== 'answer' &&
         key !== 'option_comments' &&
         key !== 'attachments' &&
+        key !== 'queued_message_id' &&
         key !== 'answer_message_id',
     )
     .forEach(([key, value], index) =>

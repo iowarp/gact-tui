@@ -51,6 +51,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClioContextMeter } from './context-meter';
 import { ClioArtifactCard } from './artifact-card';
+import { ArtifactFilters } from './artifact-filters';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus } from './status';
 
@@ -176,13 +177,17 @@ export function ClioInspector({
 
           <TabsContent className="m-0 grid gap-3 p-4" value="artifacts">
             <h2 className="mb-1 text-sm font-semibold">Artifacts</h2>
-            {artifacts.map((artifact) => (
-              <ClioArtifactCard
-                artifact={artifact}
-                key={artifact.id}
-                onOpen={() => openArtifact(artifact.uri)}
-              />
-            ))}
+            <ArtifactFilters artifacts={artifacts}>
+              {(visible) =>
+                visible.map((artifact) => (
+                  <ClioArtifactCard
+                    artifact={artifact}
+                    key={artifact.id}
+                    onOpen={() => openArtifact(artifact.uri)}
+                  />
+                ))
+              }
+            </ArtifactFilters>
             {artifacts.length === 0 ? (
               <Unavailable icon={BoxIcon} label="Artifacts unavailable" />
             ) : null}

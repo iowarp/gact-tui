@@ -1,141 +1,112 @@
-//! Named Office applications discovered locally, independently of file associations.
-
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
-#[derive(Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum DocumentApplication {
-    Word,
-    Powerpoint,
-    Excel,
-}
-
-impl DocumentApplication {
-    fn accepts(self, path: &Path) -> bool {
-        let extension = path
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        match self {
-            Self::Word => ["docx", "doc", "odt", "rtf"].contains(&extension.as_str()),
-            Self::Powerpoint => ["pptx", "ppt", "odp"].contains(&extension.as_str()),
-            Self::Excel => ["xlsx", "xls", "ods"].contains(&extension.as_str()),
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    fn executable(self) -> &'static str {
-        match self {
-            Self::Word => "WINWORD.EXE",
-            Self::Powerpoint => "POWERPNT.EXE",
-            Self::Excel => "EXCEL.EXE",
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    fn bundle(self) -> &'static str {
-        match self {
-            Self::Word => "Microsoft Word.app",
-            Self::Powerpoint => "Microsoft PowerPoint.app",
-            Self::Excel => "Microsoft Excel.app",
-        }
-    }
-}
-
+//! Discover file handlers from the desktop's associations, never from an Office allowlist.
+use serde::Serialize;
+use std::path::Path;
+use tauri::Manager;
 #[cfg(target_os = "windows")]
-fn installed_path(application: DocumentApplication) -> Option<PathBuf> {
-    use winreg::enums::{
-        HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, KEY_WOW64_64KEY,
-    };
-    use winreg::RegKey;
-    let key_path = format!(
-        "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\{}",
-        application.executable()
-    );
-    for hive in [HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE] {
-        for view in [KEY_WOW64_64KEY, KEY_WOW64_32KEY] {
-            if let Ok(key) = RegKey::predef(hive).open_subkey_with_flags(&key_path, KEY_READ | view)
-            {
-                if let Ok(value) = key.get_value::<String, _>("") {
-                    let path = PathBuf::from(value.trim().trim_matches('"'));
-                    if path.is_file() {
-                        return Some(path);
-                    }
-                }
-            }
-        }
-    }
-    for variable in ["ProgramFiles", "ProgramFiles(x86)"] {
-        if let Some(root) = std::env::var_os(variable) {
-            for folder in [
-                "Microsoft Office/root/Office16",
-                "Microsoft Office/Office16",
-            ] {
-                let path = PathBuf::from(&root)
-                    .join(folder)
-                    .join(application.executable());
-                if path.is_file() {
-                    return Some(path);
-                }
-            }
-        }
-    }
-    None
-}
-
+#[path = "document_apps_windows.rs"]
+mod platform;
 #[cfg(target_os = "macos")]
-fn installed_path(application: DocumentApplication) -> Option<PathBuf> {
-    let mut roots = vec![PathBuf::from("/Applications")];
-    if let Some(home) = std::env::var_os("HOME") {
-        roots.push(PathBuf::from(home).join("Applications"));
-    }
-    roots
-        .into_iter()
-        .map(|root| root.join(application.bundle()))
-        .find(|path| path.is_dir())
+#[path = "document_apps_macos.rs"]
+mod platform;
+#[cfg(target_os = "linux")]
+#[path = "document_apps_linux.rs"]
+mod platform;
+
+/// A named handler registered with the operating system for a file type.
+#[derive(Clone, Debug, Serialize)]
+pub struct DocumentApplication {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
-fn installed_path(_application: DocumentApplication) -> Option<PathBuf> {
-    None
-}
-
-/// Discover supported editors without invoking their executable or shell associations.
+/// Read associations off the UI thread without launching an application.
 #[tauri::command]
-pub fn document_applications() -> Vec<DocumentApplication> {
-    [
-        DocumentApplication::Word,
-        DocumentApplication::Powerpoint,
-        DocumentApplication::Excel,
-    ]
-    .into_iter()
-    .filter(|application| installed_path(*application).is_some())
-    .collect()
+pub async fn document_applications(
+    name: String,
+    mime_type: String,
+) -> Result<Vec<DocumentApplication>, String> {
+    crate::blocking_command::off_main(move || discover(&name, &mime_type)).await
 }
 
-/// Resolve the app again at launch; the caller cannot supply an executable or arguments.
-pub fn open_in(application: DocumentApplication, path: &Path) -> Result<(), String> {
-    if !application.accepts(path) {
-        return Err("This document type does not match the selected application.".into());
+/// Return unique named handlers, with the operating system's default first.
+pub(crate) fn discover(name: &str, mime_type: &str) -> Result<Vec<DocumentApplication>, String> {
+    let extension = extension(name)?;
+    let mut applications = platform::discover(&extension, mime_type)?;
+    applications.retain(|app| !app.id.is_empty() && !app.name.trim().is_empty());
+    applications.sort_by_key(|app| (!app.is_default, app.name.to_lowercase(), app.id.clone()));
+    let mut ids = std::collections::HashSet::new();
+    applications.retain(|app| ids.insert(app.id.clone()));
+    Ok(applications)
+}
+
+/// Only invoke a handler rediscovered for this exact extension at launch time.
+pub fn open_in(application: &str, path: &Path) -> Result<(), String> {
+    if !path.is_file() {
+        return Err("The file is no longer available.".into());
     }
-    let installed =
-        installed_path(application).ok_or("The selected application is no longer installed.")?;
-    #[cfg(target_os = "macos")]
-    let mut command = {
-        let mut command = Command::new("open");
-        command.arg("-a").arg(installed);
-        command
-    };
-    #[cfg(not(target_os = "macos"))]
-    let mut command = Command::new(installed);
-    command
-        .arg(path)
-        .spawn()
-        .map_err(|error| format!("Could not open the selected application: {error}"))?;
-    Ok(())
+    let extension = extension(&path.to_string_lossy())?;
+    platform::open_in(application, path, &extension)
+}
+
+/// Materialize an uploaded or remote file on this desktop before invoking its handler.
+#[tauri::command]
+pub async fn open_file_bytes(
+    app: tauri::AppHandle,
+    name: String,
+    bytes: Vec<u8>,
+    application: String,
+) -> Result<String, String> {
+    let root = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| error.to_string())?;
+    crate::blocking_command::off_main(move || {
+        let path = stage_file(&root, &name, &bytes)?;
+        if let Err(error) = open_in(&application, &path) {
+            let _ = std::fs::remove_file(&path);
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::remove_dir(parent);
+            }
+            return Err(error);
+        }
+        Ok(path.display().to_string())
+    })
+    .await
+}
+
+fn stage_file(root: &Path, name: &str, bytes: &[u8]) -> Result<std::path::PathBuf, String> {
+    if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\', ':', '\0']) {
+        return Err("Opening a file requires a plain filename.".into());
+    }
+    let directory = root
+        .join("open-in")
+        .join(format!("{:016x}", rand::random::<u64>()));
+    std::fs::create_dir_all(root.join("open-in"))
+        .and_then(|_| std::fs::create_dir(&directory))
+        .map_err(|error| format!("Prepare the desktop copy: {error}"))?;
+    let file = directory.join(name);
+    if let Err(error) = std::fs::write(&file, bytes) {
+        let _ = std::fs::remove_dir(&directory);
+        return Err(format!("Save the desktop copy: {error}"));
+    }
+    Ok(file)
+}
+
+fn extension(name: &str) -> Result<String, String> {
+    if name.contains('\0') {
+        return Err("The filename contains a null character.".into());
+    }
+    // A service can use another OS's path separator. Only the suffix is used for lookup.
+    let filename = name.rsplit(['/', '\\']).next().unwrap_or(name);
+    let suffix = filename
+        .rsplit_once('.')
+        .map(|(_, suffix)| suffix)
+        .unwrap_or("");
+    if suffix.len() > 64 || suffix.chars().any(|ch| ch.is_control()) {
+        return Err("The file extension is invalid.".into());
+    }
+    Ok(suffix.to_lowercase())
 }
 
 #[cfg(test)]
@@ -143,12 +114,54 @@ mod tests {
     use super::*;
 
     #[test]
-    fn editor_selection_rejects_mismatched_document_types() {
-        assert!(DocumentApplication::Word.accepts(Path::new("report.DOCX")));
-        assert!(DocumentApplication::Powerpoint.accepts(Path::new("briefing.pptx")));
-        assert!(DocumentApplication::Excel.accepts(Path::new("data.xlsx")));
-        assert!(!DocumentApplication::Word.accepts(Path::new("briefing.pptx")));
-        assert!(!DocumentApplication::Powerpoint.accepts(Path::new("report.pdf")));
-        assert!(open_in(DocumentApplication::Word, Path::new("command.exe")).is_err());
+    fn staged_copy_preserves_bytes_and_confines_names() {
+        let root =
+            std::env::temp_dir().join(format!("clio-staging-{:016x}", rand::random::<u64>()));
+        for bad in ["../outside.txt", "C:\\outside.txt", "a/b.txt", "..", ""] {
+            assert!(stage_file(&root, bad, b"content").is_err());
+        }
+        let file = stage_file(&root, "plot.png", b"\0image bytes\xff").unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"\0image bytes\xff");
+        std::fs::remove_file(&file).unwrap();
+        std::fs::remove_dir(file.parent().unwrap()).unwrap();
+        std::fs::remove_dir(root.join("open-in")).unwrap();
+        std::fs::remove_dir(root).unwrap();
+    }
+    #[test]
+    fn resolves_the_original_suffix_on_either_os() {
+        assert_eq!(extension("C:\\reports\\slide.PPTX").unwrap(), "pptx");
+        assert_eq!(extension("/reports/plot.SVG").unwrap(), "svg");
+        assert_eq!(extension("a.b.pdf").unwrap(), "pdf");
+        assert_eq!(extension("README").unwrap(), "");
+        assert!(extension("bad\0.pdf").is_err());
+    }
+    #[test]
+    fn caller_cannot_supply_an_arbitrary_program() {
+        let path =
+            std::env::temp_dir().join(format!("clio-association-{}.txt", rand::random::<u64>()));
+        std::fs::write(&path, "association test").unwrap();
+        let result = open_in("unregistered-program-with-arguments", &path);
+        std::fs::remove_file(path).unwrap();
+        assert!(result.is_err());
+    }
+    #[test]
+    fn actual_desktop_discovery_is_sorted_and_unique() {
+        for name in [
+            "notes.md",
+            "page.html",
+            "document.pdf",
+            "image.png",
+            "table.csv",
+        ] {
+            let apps = discover(name, "").unwrap();
+            let mut ids = std::collections::HashSet::new();
+            for app in &apps {
+                assert!(!app.name.trim().is_empty());
+                assert!(ids.insert(&app.id));
+            }
+            assert!(!apps
+                .windows(2)
+                .any(|pair| !pair[0].is_default && pair[1].is_default));
+        }
     }
 }

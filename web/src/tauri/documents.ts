@@ -1,21 +1,31 @@
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
-export type DocumentApplication = 'word' | 'powerpoint' | 'excel';
+export type DocumentApplication = { id: string; name: string; is_default: boolean };
 
-/** Installed named editors; discovery never launches an app or returns executable paths. */
-export async function documentApplications(): Promise<DocumentApplication[]> {
+/** Read the OS handlers for this file type without launching any application. */
+export async function documentApplications(
+  name: string,
+  mimeType: string,
+): Promise<DocumentApplication[]> {
   if (!inTauri()) return [];
   const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<DocumentApplication[]>('document_applications');
+  return invoke<DocumentApplication[]>('document_applications', { name, mimeType });
 }
 
-/** Opens only a server-confined working copy in a selected app or the OS default. */
-export async function openDocumentWorkingCopy(
-  path: string,
-  application?: DocumentApplication,
-): Promise<boolean> {
-  if (!inTauri()) return false;
+/** Open a server-confined working copy in a freshly validated OS handler. */
+export async function openDocumentWorkingCopy(path: string, application: string): Promise<void> {
+  if (!inTauri()) throw new Error('Opening desktop apps requires the desktop application.');
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke<string>('open_document_path', { path, application });
-  return true;
+}
+
+/** Open a desktop copy, including when the connected service uses a remote filesystem. */
+export async function openFileBytes(
+  name: string,
+  bytes: Uint8Array,
+  application: string,
+): Promise<string> {
+  if (!inTauri()) throw new Error('Opening desktop apps requires the desktop application.');
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<string>('open_file_bytes', { name, bytes: Array.from(bytes), application });
 }
