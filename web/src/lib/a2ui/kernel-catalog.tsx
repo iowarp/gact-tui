@@ -65,6 +65,7 @@ import { KernelIcon } from './kernel-catalog-icon';
 import { copyTextToClipboard } from '@/components/clio/surface-export';
 import { SurfaceToolbar, type SurfaceCapabilities } from '@/components/clio/surface-toolbar';
 import { A2uiSurface } from './kernel-surface';
+import { dataViewFlexStyle } from '@/components/clio/data-view-layout';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
@@ -137,10 +138,16 @@ const Grid = createComponentImplementation(
       {...a2uiAccessibilityProps(props.accessibility)}
       className="a2ui-grid grid gap-3"
       role="group"
-      style={{ ['--a2ui-grid-columns' as string]: props.columns ?? 2 }}
+      style={{
+        ...dataViewFlexStyle(props.weight),
+        ['--a2ui-grid-columns' as string]: props.columns ?? 2,
+        ...(props.gap === undefined ? {} : { gap: `${props.gap * 0.25}rem` }),
+      }}
     >
       {props.children.map((child) => (
-        <div key={childRefId(child)}>{buildChild(childRefId(child), childRefBasePath(child))}</div>
+        <div className="min-w-0" key={childRefId(child)}>
+          {buildChild(childRefId(child), childRefBasePath(child))}
+        </div>
       ))}
     </div>
   ),
@@ -163,6 +170,8 @@ const Frame = createComponentImplementation(
     <div
       {...a2uiAccessibilityProps(props.accessibility)}
       className="min-w-0 space-y-2"
+      style={dataViewFlexStyle(props.weight)}
+      data-slot="a2ui-frame"
       role="group"
     >
       {props.title || props.description ? (
@@ -240,12 +249,13 @@ const Metric = createComponentImplementation(
     return (
       <div
         {...a2uiAccessibilityProps(props.accessibility)}
-        className="group relative min-w-0 rounded-lg border p-4"
+        className="group relative min-w-0 rounded-lg border border-t-2 border-t-foreground/50 bg-card/70 p-4"
+        style={dataViewFlexStyle(props.weight)}
         role="group"
       >
         <SurfaceToolbar capabilities={metricCapabilities} />
-        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{props.label}</p>
-        <p className="mt-2 font-mono text-2xl font-semibold">
+        <p className="text-sm font-medium text-muted-foreground">{props.label}</p>
+        <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">
           {String(props.value)}
           {props.unit ? (
             <span className="ml-1 text-sm text-muted-foreground">{props.unit}</span>
@@ -344,7 +354,9 @@ function RenderedCode({
   title?: string;
 }) {
   return (
-    <Suspense fallback={<div aria-busy="true" className="h-24 animate-pulse rounded-lg bg-muted" />}>
+    <Suspense
+      fallback={<div aria-busy="true" className="h-24 animate-pulse rounded-lg bg-muted" />}
+    >
       <ClioA2UICodeView
         accessibility={componentAccessibility}
         code={code}

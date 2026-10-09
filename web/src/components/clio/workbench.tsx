@@ -23,7 +23,8 @@ import {
   WorkflowIcon,
 } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
-import { FileTypeIcon } from './file-type-icon';
+import { ArtifactTypeIcon } from './artifact-type-icon';
+import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import {
   forwardRef,
   useCallback,
@@ -368,7 +369,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             openTab({
               id: `artifact:${request.artifact.id}`,
               kind: 'artifact',
-              label: request.artifact.name,
+              label: artifactDisplayName(request.artifact),
               artifact: request.artifact,
               workspaceId: request.artifact.workspace_id ?? workspaceId,
             });
@@ -558,7 +559,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                               value={tab.id}
                             >
                               <TabIcon tab={tab} />
-                              <span className="truncate">{tab.label}</span>
+                              <span className="truncate">
+                                {tab.kind === 'artifact'
+                                  ? artifactDisplayName(tab.artifact)
+                                  : tab.label}
+                              </span>
                             </TabsTrigger>
                           </SortableItemHandle>
                           {/*
@@ -580,7 +585,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                               event.stopPropagation();
                               closeTab(tab.id);
                             }}
-                            title={`Close ${tab.label}`}
+                            title={`Close ${tab.kind === 'artifact' ? artifactDisplayName(tab.artifact) : tab.label}`}
                           >
                             <CloseIcon aria-hidden="true" className="size-3.5" />
                           </span>
@@ -707,7 +712,7 @@ function WorkbenchRequestDispatcher({
 
 function TabIcon({ tab }: { tab: WorkbenchTab }) {
   if (tab.kind === 'artifact' && tab.artifact)
-    return <FileTypeIcon name={tab.artifact.name} mediaType={tab.artifact.media_type} />;
+    return <ArtifactTypeIcon artifact={tab.artifact} className="size-3.5" />;
   const Icon = workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }

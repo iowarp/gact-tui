@@ -13,6 +13,7 @@ import { ClioToolInvocation } from './tool-invocation';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioMotionProvider } from './motion';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
+import { TranscriptDisclosures } from './transcript-disclosures';
 
 afterEach(() => {
   cleanup();
@@ -168,6 +169,29 @@ it('retains an opened tool group across live updates and answer arrival', () => 
   expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
     'aria-expanded',
     'true',
+  );
+});
+
+it('retains reader choices when a virtualized row unmounts and returns', () => {
+  const entry = <ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />;
+  const view = render(<TranscriptDisclosures>{entry}</TranscriptDisclosures>);
+  fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^Reasoning:/ }));
+  view.rerender(<TranscriptDisclosures>{null}</TranscriptDisclosures>);
+  expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument();
+  view.rerender(<TranscriptDisclosures>{entry}</TranscriptDisclosures>);
+  expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  expect(screen.getByRole('button', { name: /^Reasoning:/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  view.rerender(<TranscriptDisclosures key="another-conversation">{entry}</TranscriptDisclosures>);
+  expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
+    'aria-expanded',
+    'false',
   );
 });
 

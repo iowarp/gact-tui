@@ -11,6 +11,7 @@ export function TranscriptIterationText({ iteration }: { iteration: Conversation
       {iteration.thinking.map((thinking) => (
         <TranscriptReasoningRow
           key={thinking.id}
+          id={thinking.id}
           text={thinking.text}
           streaming={thinking.streaming}
           source={thinking.source}

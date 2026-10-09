@@ -10,7 +10,7 @@ export const CATEGORY_COLORS = [
   '#4f46e5',
   '#db2777',
   '#0f766e',
-  '#a16207',
+  '#ca8a04',
   '#a21caf',
 ] as const;
 

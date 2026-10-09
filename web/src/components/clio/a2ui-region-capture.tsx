@@ -55,7 +55,11 @@ function regionRect(region: Region, bounds: DOMRect): CSSProperties {
   };
 }
 
-async function labelledPng(target: HTMLElement, regions: readonly Region[]): Promise<Blob> {
+async function labelledPng(
+  target: HTMLElement,
+  regions: readonly Region[],
+  pixelRatio = Math.min(window.devicePixelRatio || 1, 2),
+): Promise<Blob> {
   let background: Element | null = target;
   let backgroundColor = 'white';
   while (background) {
@@ -75,7 +79,7 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
         (node as Element).getAttribute('data-slot') === 'surface-toolbar' ||
         (node as Element).getAttribute('data-capture-ui') === 'true'
       ),
-    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+    pixelRatio,
   });
   const context = canvas.getContext('2d');
   if (!context) throw new Error('The browser could not create an image drawing context.');
@@ -107,7 +111,7 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
     const overlay = await toCanvas(mapElement, {
       cacheBust: true,
       backgroundColor: 'transparent',
-      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      pixelRatio,
       filter: (node) => !(node instanceof HTMLCanvasElement),
     });
     const overlayRect = mapElement.getBoundingClientRect();
@@ -179,8 +183,11 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
 /** A surface-level camera mode with persistent, labelled visual regions. */
 /** Capture the displayed artifact, including live mesh and map canvases. */
 // oxlint-disable-next-line react/only-export-components
-export async function captureRenderedSurfacePng(target: HTMLElement): Promise<Blob> {
-  return labelledPng(target, []);
+export async function captureRenderedSurfacePng(
+  target: HTMLElement,
+  pixelRatio?: number,
+): Promise<Blob> {
+  return labelledPng(target, [], pixelRatio);
 }
 
 export function A2uiRegionCaptureProvider({

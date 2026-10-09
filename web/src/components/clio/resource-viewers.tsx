@@ -309,6 +309,7 @@ export function ArtifactView({
     !canLoadInline ? (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
     ) : text.data ? (
+      artifact.producer?.['designation'] === 'dashboard-report' ||
       artifact.name.endsWith('.dashboard.json') ? (
         <DashboardResourceView content={text.data.content} artifactId={artifact.id} />
       ) : isHtmlFile(artifact.name, artifact.media_type) ? (

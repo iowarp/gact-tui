@@ -742,7 +742,8 @@ html[data-clio-motion='reduced'] *::after {
   flex-wrap: wrap;
 }
 
-@container (max-width: 700px) {
+/* Stack analytical panels in a narrow dock; preserve authored weights when wide. */
+@container (max-width: 900px) {
   [data-slot='a2ui-dashboard'] [data-slot='a2ui-surface-root'] div[style*='flex-direction: row'] {
     flex-wrap: wrap;
   }
@@ -750,7 +751,14 @@ html[data-clio-motion='reduced'] *::after {
     [data-slot='a2ui-surface-root']
     div[style*='flex-direction: row']
     > * {
-    flex: 1 1 12rem;
-    min-width: min(100%, 12rem);
+    flex: 1 1 100% !important;
+    min-width: 0;
   }
+}
+
+[data-slot='a2ui-dashboard'] [data-slot='a2ui-frame'] {
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-radius: 0.5rem;
+  background: var(--card);
+  padding: 1rem;
 }

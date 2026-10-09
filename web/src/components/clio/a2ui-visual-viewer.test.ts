@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { captureVisualRequest, compactVisualState, visualViewState } from './a2ui-visual-viewer';
+import {
+  captureVisualRequest,
+  compactVisualState,
+  visualViewState,
+  visualCapturePixelRatio,
+} from './a2ui-visual-viewer';
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -7,6 +12,16 @@ afterEach(() => {
 });
 
 describe('real renderer readiness inspection', () => {
+  it('captures a tall composed report within the PNG bound at normal and Retina density', () => {
+    for (const density of [1, 1.25, 2, 3]) {
+      const ratio = visualCapturePixelRatio(660, 3200, density);
+      expect(ratio).toBeGreaterThanOrEqual(1);
+      expect(3200 * ratio).toBeLessThanOrEqual(4096);
+      expect(660 * ratio).toBeLessThanOrEqual(4096);
+    }
+    expect(visualCapturePixelRatio(660, 3200, 1)).toBe(1);
+    expect(() => visualCapturePixelRatio(660, 4097, 1)).toThrow(/smaller component/u);
+  });
   it.each([
     { markup: '', reason: /components have not mounted/u },
     {

@@ -27,6 +27,7 @@ import {
   surfaceAwaitsPendingResponse,
 } from './conversation-message-projection';
 import { PresentationNavigation } from './presentation-navigation';
+import { TranscriptDisclosures } from './transcript-disclosures';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
 import {
   useTranscriptReadingPosition,
@@ -47,7 +48,9 @@ import { ConversationMessageRow } from './conversation-message-row';
 export function ClioConversation(props: ClioConversationProps) {
   return (
     <PresentationNavigation.Provider value={props}>
-      <ConversationBody {...props} />
+      <TranscriptDisclosures key={props.messages[0]?.session_id ?? ''}>
+        <ConversationBody {...props} />
+      </TranscriptDisclosures>
     </PresentationNavigation.Provider>
   );
 }
