@@ -703,7 +703,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await expect(page.getByText('Which evidence view should remain primary?')).toHaveCount(0);
 });
 
-test('keeps a pending EarthScope map flat, resizable, and available full-window', async ({
+test('keeps a pending EarthScope map flat, resizable, and centered when expanded', async ({
   page,
 }) => {
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/a2ui-map-demo`, {
@@ -749,7 +749,7 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
     .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
     .toBeGreaterThan(initialHeight);
 
-  const griped = await viewport.evaluate((element) => element.getBoundingClientRect().height);
+  const enlargedHeight = await viewport.evaluate((element) => element.getBoundingClientRect().height);
   const corner = pendingResponses.getByRole('button', {
     name: 'Corner resize handle',
   });
@@ -762,12 +762,31 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
     const cornerY = cornerBox.y + cornerBox.height / 2;
     await page.mouse.move(cornerX, cornerY);
     await page.mouse.down();
-    await page.mouse.move(cornerX, cornerY - 15, { steps: 5 });
-    await page.mouse.move(cornerX, cornerY - 30, { steps: 5 });
+    // The keyboard resize button has already grown the tray to its limit.
+    // Drag downward to shrink it before checking that an upward drag grows it.
+    await page.mouse.move(cornerX, cornerY + 15, { steps: 5 });
+    await page.mouse.move(cornerX, cornerY + 30, { steps: 5 });
     await page.mouse.up();
     await expect
       .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
-      .toBeLessThan(griped);
+      .toBeLessThan(enlargedHeight);
+    const smallerHeight = await viewport.evaluate(
+      (element) => element.getBoundingClientRect().height,
+    );
+    const smallerCornerBox = await corner.boundingBox();
+    expect(smallerCornerBox).not.toBeNull();
+    if (smallerCornerBox) {
+      const smallerX = smallerCornerBox.x + smallerCornerBox.width / 2;
+      const smallerY = smallerCornerBox.y + smallerCornerBox.height / 2;
+      await page.mouse.move(smallerX, smallerY);
+      await page.mouse.down();
+      await page.mouse.move(smallerX, smallerY - 15, { steps: 5 });
+      await page.mouse.move(smallerX, smallerY - 30, { steps: 5 });
+      await page.mouse.up();
+      await expect
+        .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
+        .toBeGreaterThan(smallerHeight);
+    }
   }
   const beforeFullscreenHeight = await viewport.evaluate(
     (element) => element.getBoundingClientRect().height,
@@ -786,7 +805,14 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
     .getByRole('group', { name: 'Nearest EarthScope GNSS stations' })
     .boundingBox();
   const pageSize = page.viewportSize();
-  expect(dialogBounds?.width ?? 0).toBeGreaterThan((pageSize?.width ?? 0) * 0.9);
+  expect(dialogBounds).not.toBeNull();
+  expect(pageSize).not.toBeNull();
+  if (dialogBounds && pageSize) {
+    expect(dialogBounds.width).toBeGreaterThan(pageSize.width * 0.5);
+    expect(dialogBounds.width).toBeLessThan(pageSize.width * 0.9);
+    expect(Math.abs(dialogBounds.x + dialogBounds.width / 2 - pageSize.width / 2)).toBeLessThan(1);
+    expect(Math.abs(dialogBounds.y + dialogBounds.height / 2 - pageSize.height / 2)).toBeLessThan(1);
+  }
   expect(dialogBounds?.height ?? 0).toBeGreaterThan((pageSize?.height ?? 0) * 0.9);
   expect(mapBounds?.height ?? 0).toBeGreaterThan((pageSize?.height ?? 0) * 0.75);
 
