@@ -8,7 +8,6 @@ import {
 } from '@a2ui/web_core/v0_9';
 import type { ResolvedChildRef } from '@a2ui/web_core/v0_9';
 import {
-  A2uiSurface,
   Button as A2UIButton,
   CheckBox,
   Column,
@@ -65,6 +64,7 @@ import { resolvedCardAction } from './kernel-catalog-card-actions';
 import { KernelIcon } from './kernel-catalog-icon';
 import { copyTextToClipboard } from '@/components/clio/surface-export';
 import { SurfaceToolbar, type SurfaceCapabilities } from '@/components/clio/surface-toolbar';
+import { A2uiSurface } from './kernel-surface';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
