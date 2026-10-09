@@ -4,9 +4,10 @@ import type {
   PendingInteractionResponse,
   ToolInvocation,
 } from '@clio/core/v3';
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import type { SessionSendInput } from '@/hooks/use-session-mutations';
 import { ClioPendingInteractions, type ClioPendingInteractionsProps } from './pending-interactions';
+import { AgentQuestionDialog } from './agent-question-dialog';
 import { useQuestionAnswering } from './use-question-answering';
 import * as workspaceRouteState from './workspace-route-state';
 
@@ -51,6 +52,7 @@ export function useWorkspaceQuestions({
   questionAnswering: ReturnType<typeof useQuestionAnswering>;
   pendingInteractionsPanel: ReactNode;
 } {
+  const [openedId, setOpenedId] = useState<string>();
   const handleInteractionResponse = useCallback<Respond>(
     async (interaction, response) => {
       await respondInteraction({ interaction, response });
@@ -73,6 +75,11 @@ export function useWorkspaceQuestions({
   const pendingInteractionsPanel = (
     <>
       {questionAnswering.notice}
+      <AgentQuestionDialog
+        interaction={interactions.find((row) => row.id === openedId && row.status === 'pending')}
+        onClose={() => setOpenedId(undefined)}
+        onResponse={handleInteractionResponse}
+      />
       <ClioPendingInteractions
         {...tray}
         interactions={trayInteractions}
@@ -80,5 +87,17 @@ export function useWorkspaceQuestions({
       />
     </>
   );
-  return { handleInteractionResponse, questionAnswering, pendingInteractionsPanel };
+  return {
+    handleInteractionResponse,
+    questionAnswering: {
+      ...questionAnswering,
+      context: {
+        ...questionAnswering.context,
+        openQuestion: (interaction: PendingInteraction) => setOpenedId(interaction.id),
+        surfaces: tray.surfaces,
+        refetchSurfaces: tray.onRefetchSurfaces,
+      },
+    },
+    pendingInteractionsPanel,
+  };
 }

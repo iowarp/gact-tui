@@ -39,6 +39,7 @@ export const permissionLedgerItemSchema = z
   }));
 
 export const userQuestionSchema = z.object({
+  response_mode: z.enum(['blocking', 'async']).optional(),
   id: z.string(),
   session_id: z.string(),
   prompt: z.string(),

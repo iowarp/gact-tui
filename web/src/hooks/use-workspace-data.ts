@@ -289,7 +289,7 @@ export function useWorkspaceData({
     () => [
       ...new Set(
         interactions
-          .filter((interaction) => interaction.kind === 'a2ui')
+          .filter((interaction) => Boolean(interaction.source.surface_id))
           .map((interaction) => interaction.owner_session_id),
       ),
     ],

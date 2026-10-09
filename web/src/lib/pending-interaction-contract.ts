@@ -118,9 +118,15 @@ export function legacyPendingInteractions(
         status: question.status,
         title: planExit ? 'Review execution plan' : 'Question from agent',
         prompt: question.prompt,
-        source: { protocol: 'native', ...(planExit ? { tool_name: 'plan_exit' } : {}) },
+        source: {
+          protocol: 'native',
+          surface_id:
+            typeof metadata.a2ui_surface_id === 'string' ? metadata.a2ui_surface_id : undefined,
+          ...(planExit ? { tool_name: 'plan_exit' } : {}),
+        },
         created_at: question.created_at,
         payload: {
+          response_mode: question.response_mode,
           question_id: question.id,
           question_kind: question.kind,
           options: question.options,

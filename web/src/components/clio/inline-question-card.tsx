@@ -13,6 +13,7 @@ import {
   FieldTitle,
 } from '@/components/ui/field';
 import { CloseIcon, EditIcon } from '@/lib/icon-vocabulary';
+import { vocab } from '@/lib/brand-vocabulary';
 import { inlineQuestionDomId } from '@/lib/inline-question';
 import { respondFromControl } from './interaction-control';
 import { ResponseErrorNotice } from './pending-interaction-notices';
@@ -63,6 +64,28 @@ export function InlineQuestionCard({
     }
   };
 
+  if (interaction.payload?.response_mode && answerState?.openQuestion) {
+    return (
+      <Button
+        className="h-auto max-w-full justify-start whitespace-normal text-left"
+        data-interaction-id={interaction.id}
+        id={inlineQuestionDomId(interaction.source.invocation_id ?? interaction.id)}
+        onClick={() => answerState.openQuestion?.(interaction)}
+        variant="outline"
+      >
+        <MessageCircleQuestionIcon aria-hidden="true" />
+        <span>
+          <span className="block text-xs text-muted-foreground">
+            {vocab.agent} asked a question ·{' '}
+            {interaction.payload.response_mode === 'async'
+              ? 'Answer when ready'
+              : 'Answer needed to continue'}
+          </span>
+          {interaction.prompt ?? interaction.title}
+        </span>
+      </Button>
+    );
+  }
   return (
     <Frame
       aria-label="Question from the agent"

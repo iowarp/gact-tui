@@ -262,6 +262,7 @@ export interface ApprovalRequest {
 }
 
 export interface UserQuestion {
+  response_mode?: 'blocking' | 'async';
   id: string;
   session_id: string;
   prompt: string;

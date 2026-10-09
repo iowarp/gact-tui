@@ -152,11 +152,12 @@ describe('PendingA2UIResponse', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeVisible();
+    expect(dialog).toHaveClass('top-1/2', '-translate-y-1/2', 'sm:max-w-4xl');
     expect(dialog).toHaveTextContent('Choose an observed EarthScope station');
     expect(screen.getByRole('button', { name: 'Submit selection' })).toBeVisible();
   });
 
-  it('pending_a2ui_renders_single_bordered_container: keeps exactly one bordered box, the catalog component\'s own', () => {
+  it("pending_a2ui_renders_single_bordered_container: keeps exactly one bordered box, the catalog component's own", () => {
     renderPendingA2UI(mapSurface());
 
     const card = document.querySelector('[data-slot="pending-a2ui"]');
@@ -187,9 +188,10 @@ describe('PendingA2UIResponse', () => {
     expect(dialog).toBeVisible();
     // The SAME <ClioScientificMap> instance now renders inside the dialog —
     // a remount would have reset it back to Station 1.
-    expect(
-      within(dialog).getByRole('button', { name: 'Station 2' }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    expect(within(dialog).getByRole('button', { name: 'Station 2' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
 
     await user.click(within(dialog).getByRole('button', { name: 'Exit full screen' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -199,7 +201,7 @@ describe('PendingA2UIResponse', () => {
     );
   });
 
-  it('lets pointer and keyboard users resize the inline viewport', async () => {
+  it('grows upward when the bottom-anchored tray handle is dragged up', async () => {
     const user = userEvent.setup();
     renderPendingA2UI();
 
@@ -215,8 +217,8 @@ describe('PendingA2UIResponse', () => {
       releasePointerCapture: vi.fn(),
     });
     fireEvent.pointerDown(resize, { buttons: 1, clientY: 200, pointerId: 1 });
-    fireEvent.pointerMove(resize, { buttons: 1, clientY: 240, pointerId: 1 });
-    fireEvent.pointerUp(resize, { clientY: 240, pointerId: 1 });
+    fireEvent.pointerMove(resize, { buttons: 1, clientY: 160, pointerId: 1 });
+    fireEvent.pointerUp(resize, { clientY: 160, pointerId: 1 });
     expect(viewport).toHaveStyle({ height: '520px' });
 
     // Browsers synthesize a click after pointer release. It must not undo the
@@ -231,7 +233,9 @@ describe('PendingA2UIResponse', () => {
 
   it('drag_resizes_viewport_and_persists_height: a drag survives a remount of the same surface', () => {
     const { unmount } = render(
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}
+      >
         <ClioPendingInteractions
           interactions={[pendingA2UI()]}
           onResponse={vi.fn(async () => undefined)}
@@ -248,17 +252,17 @@ describe('PendingA2UIResponse', () => {
       releasePointerCapture: vi.fn(),
     });
     fireEvent.pointerDown(resize, { buttons: 1, clientY: 200, pointerId: 1 });
-    fireEvent.pointerMove(resize, { buttons: 1, clientY: 300, pointerId: 1 });
-    fireEvent.pointerUp(resize, { clientY: 300, pointerId: 1 });
+    fireEvent.pointerMove(resize, { buttons: 1, clientY: 100, pointerId: 1 });
+    fireEvent.pointerUp(resize, { clientY: 100, pointerId: 1 });
     const viewport = screen
       .getByRole('button', { name: 'Submit selection' })
       .closest('[data-slot="a2ui-response-viewport"]');
     expect(viewport).toHaveStyle({ height: '580px' });
     // Namespaced by the owning session — never a bare surface id, which two
     // sessions could otherwise collide on.
-    expect(
-      window.sessionStorage.getItem('clio.a2ui-viewport-height:sess_child%3Asurface_1'),
-    ).toBe('580');
+    expect(window.sessionStorage.getItem('clio.a2ui-viewport-height:sess_child%3Asurface_1')).toBe(
+      '580',
+    );
 
     unmount();
     renderPendingA2UI();
@@ -283,8 +287,8 @@ describe('PendingA2UIResponse', () => {
     expect(viewport).toHaveStyle({ height: '480px' });
 
     fireEvent.pointerDown(corner, { buttons: 1, clientY: 100, pointerId: 2 });
-    fireEvent.pointerMove(corner, { buttons: 1, clientY: 160, pointerId: 2 });
-    fireEvent.pointerUp(corner, { clientY: 160, pointerId: 2 });
+    fireEvent.pointerMove(corner, { buttons: 1, clientY: 40, pointerId: 2 });
+    fireEvent.pointerUp(corner, { clientY: 40, pointerId: 2 });
     expect(viewport).toHaveStyle({ height: '540px' });
   });
 
@@ -299,8 +303,8 @@ describe('PendingA2UIResponse', () => {
       releasePointerCapture: vi.fn(),
     });
     fireEvent.pointerDown(resize, { buttons: 1, clientY: 200, pointerId: 1 });
-    fireEvent.pointerMove(resize, { buttons: 1, clientY: 260, pointerId: 1 });
-    fireEvent.pointerUp(resize, { clientY: 260, pointerId: 1 });
+    fireEvent.pointerMove(resize, { buttons: 1, clientY: 140, pointerId: 1 });
+    fireEvent.pointerUp(resize, { clientY: 140, pointerId: 1 });
     const viewport = screen
       .getByRole('button', { name: 'Submit selection' })
       .closest('[data-slot="a2ui-response-viewport"]');

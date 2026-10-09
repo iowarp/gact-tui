@@ -67,8 +67,16 @@ export function useQuestionAnswering({
   );
   // Read the live row: a question answered or expired elsewhere stops being a
   // target. A pick between drafts never is: it is answered in its tabs block.
-  const answering = questions.find(
-    (question) => question.id === answeringId && !isVariantPickInteraction(question),
+  const answering = interactions.find(
+    (question) =>
+      question.id === answeringId &&
+      question.kind === 'question' &&
+      question.source.protocol === 'native' &&
+      !question.payload?.mode &&
+      question.status === 'pending' &&
+      question.requires_human_response !== false &&
+      question.source.tool_name !== 'plan_exit' &&
+      !isVariantPickInteraction(question),
   );
   const stopAnswer = useCallback(() => setAnsweringId(undefined), []);
   const context = useMemo<QuestionAnswerState>(
@@ -90,7 +98,7 @@ export function useQuestionAnswering({
     [messages],
   );
   const notice =
-    questions.length > 0 ? (
+    answering || questions.some((row) => !row.payload?.response_mode) ? (
       <PendingQuestionNotice
         answering={answering}
         onGoToQuestion={goToQuestion}
@@ -102,7 +110,12 @@ export function useQuestionAnswering({
     async (value) => {
       const answer = questionAnswerFromComposer(answering, sessionId, value);
       if (answer?.kind === 'response') await respond(answer.interaction, answer.response);
-      else if (answer) await send({ ...value, answersQuestionId: answer.questionId });
+      else if (answer)
+        await send({
+          ...value,
+          ...(answering?.payload?.response_mode === 'async' ? { delivery: 'queued' as const } : {}),
+          answersQuestionId: answer.questionId,
+        });
       else {
         const revision = planRevisionFromComposer(interactions, value);
         await (revision ? respond(revision.interaction, revision.response) : send(value));

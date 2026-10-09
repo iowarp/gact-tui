@@ -191,18 +191,24 @@ export function useSessionMutations({
     [queryClient, repository, sessionId, settings.endpoint, workspaceId],
   );
 
-  const discardFiles = useCallback(async (files: readonly UploadableFilePart[]) => {
-    for (const file of files) {
-      const key = `${sessionId}\u0000${file.url}`;
-      const uploadId = draftUploads.current.get(key);
-      if (!uploadId) continue;
-      await repository.discardResourceUpload(workspaceId, uploadId);
-      preparedUploads.current.delete(key);
-      draftUploads.current.delete(key);
-    }
-    await queryClient.invalidateQueries({ predicate: (query) =>
-      query.queryKey.includes('workspace-resources') || query.queryKey.includes('workspace-files') });
-  }, [queryClient, repository, sessionId, workspaceId]);
+  const discardFiles = useCallback(
+    async (files: readonly UploadableFilePart[]) => {
+      for (const file of files) {
+        const key = `${sessionId}\u0000${file.url}`;
+        const uploadId = draftUploads.current.get(key);
+        if (!uploadId) continue;
+        await repository.discardResourceUpload(workspaceId, uploadId);
+        preparedUploads.current.delete(key);
+        draftUploads.current.delete(key);
+      }
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey.includes('workspace-resources') ||
+          query.queryKey.includes('workspace-files'),
+      });
+    },
+    [queryClient, repository, sessionId, workspaceId],
+  );
 
   const sendIdentities = useRef(new SendIdentities());
   const reconcileTurnMode = async (behavior: MessageBehavior, target = session) => {
@@ -239,9 +245,6 @@ export function useSessionMutations({
       if (parts.length === 0) throw new Error('Write a message or attach a resource.');
 
       const route = { model_id: model, provider_id: provider };
-      if (value.delivery === 'queued' && value.answersQuestionId) {
-        throw new Error("Answer the agent's question now, or stop answering to queue a message.");
-      }
       const controller = uploadController.current;
       let target = session;
       if (!sessionId && createOnSend) {
@@ -272,6 +275,9 @@ export function useSessionMutations({
           idempotency_key: identity.idempotencyKey,
           model: route,
           parts,
+          ...(value.answersQuestionId
+            ? { metadata: { answers_question_id: value.answersQuestionId } }
+            : {}),
         });
         if (!sessionId && target) openStartedSession(target, controller);
         return result;
