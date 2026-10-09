@@ -675,6 +675,31 @@ export function ClioScientificMapView({
       onMouseDownCapture={handleMouseDownCapture}
       onMouseMoveCapture={handleMouseMoveCapture}
       onMouseUpCapture={handleMouseUpCapture}
+      onPointerDownCapture={(event) => {
+        if (!onZoneSelect || event.button !== 0 ||
+          (!boxSelectMode && !event.shiftKey && !event.ctrlKey && !event.metaKey)) return;
+        // Own the entire selection gesture, including a release over the
+        // composer or outside this map. Preventing the pointer default also
+        // keeps MapLibre from starting a competing compatibility mouse drag.
+        event.currentTarget.setPointerCapture(event.pointerId);
+        handleMouseDownCapture(event as unknown as ReactMouseEvent<HTMLDivElement>);
+      }}
+      onPointerMoveCapture={(event) => {
+        if (dragBoxRef.current) {
+          handleMouseMoveCapture(event as unknown as ReactMouseEvent<HTMLDivElement>);
+        }
+      }}
+      onPointerUpCapture={(event) => {
+        if (!dragBoxRef.current) return;
+        handleMouseUpCapture(event as unknown as ReactMouseEvent<HTMLDivElement>);
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+      }}
+      onPointerCancelCapture={() => {
+        dragBoxRef.current = null;
+        setDragBox(null);
+      }}
       onClickCapture={(event) => {
         if (!suppressHandledClick.current) return;
         suppressHandledClick.current = false;
