@@ -29,7 +29,7 @@ export function TranscriptReasoningRow({
         ) : (
           <BrainIcon aria-hidden="true" className="size-3.5 shrink-0" />
         )}
-        <span className="shrink-0 font-medium">{label}</span>
+        {kind === 'update' ? <span className="shrink-0 font-medium">{label}</span> : null}
         <span className="min-w-0 flex-1 truncate text-left font-normal">{preview}</span>
         <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0" />
       </ReasoningTrigger>

@@ -1,5 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { ConversationTurn } from './conversation-turn';
@@ -9,6 +9,42 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { PresentationNavigation } from './presentation-navigation';
 
 afterEach(cleanup);
+it.each([true, false])(
+  'keeps the reasoning preview and disclosure without repeating its state label (streaming=%s)',
+  async (streaming) => {
+    const text = 'Creating inline SVG animation';
+    const iteration: ConversationIteration = {
+      id: 'i',
+      index: 0,
+      agentId: 'main',
+      thinking: [{ id: 'r', text, label: 'Thinking', streaming }],
+      nextThoughts: [],
+      activity: [],
+      tools: [],
+      tasks: [],
+      terminal: !streaming,
+      interrupted: false,
+      streaming,
+      summary: text,
+    };
+    render(<ConversationTurn iterations={[iteration]} mode="chain" subagents={{}} />);
+    const preview = screen.getByRole('button', {
+      name: `${streaming ? 'Thinking' : 'Reasoning'}: ${text}`,
+    });
+    expect(preview).toHaveTextContent(/^Creating inline SVG animation$/u);
+    expect(preview.querySelectorAll('svg.animate-spin')).toHaveLength(streaming ? 1 : 0);
+    expect(screen.queryAllByText('Thinking', { exact: true })).toHaveLength(streaming ? 1 : 0);
+    expect(preview).toHaveAttribute('aria-expanded', 'false');
+    await act(async () => {
+      fireEvent.click(preview);
+    });
+    expect(preview).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByText(text)).toHaveLength(2);
+    fireEvent.click(preview);
+    expect(preview).toHaveAttribute('aria-expanded', 'false');
+  },
+);
+
 it('shows a flat timeline, renders repeated thought once and opens complete tool details', async () => {
   const tool: ToolInvocation = {
     id: 'read',

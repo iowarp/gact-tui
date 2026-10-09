@@ -25,7 +25,10 @@ test('renders one compact causal timeline and a truthful completion footer at de
   const message = page.locator('#message-msg_flat_assistant');
   const activity = message.getByRole('button', { name: /^Activity:/ });
   await expect(activity).toHaveAttribute('aria-expanded', 'true');
-  await expect(message.getByRole('button', { name: /^Thinking/ })).toBeVisible();
+  const thinking = message.getByRole('button', { name: /^Thinking/ });
+  await expect(thinking).toBeVisible();
+  await expect(thinking).not.toContainText('Thinking');
+  await expect(thinking.locator('svg.animate-spin')).toHaveCount(1);
   await expect(
     message.getByText('Read the fixture notes before preparing the report.', { exact: true }),
   ).toHaveCount(1);
