@@ -105,17 +105,26 @@ export function AsyncTaskList({ processes, onCancelTask }: AsyncTaskListProps) {
           if (!open) setSelected(undefined);
         }}
       >
-        <AlertDialogContent layer="task-confirmation">
-          <AlertDialogHeader>
+        <AlertDialogContent layer="task-confirmation" className="flex flex-col overflow-hidden">
+          <AlertDialogHeader className="shrink-0">
             <AlertDialogTitle>Cancel this task?</AlertDialogTitle>
             <AlertDialogDescription>
-              {selected?.description || selected?.title}
               {selected?.task_kind === 'Subagent' || selected?.kind === 'agent'
-                ? ' This also cancels all descendant agents, downloads and shell processes.'
-                : ' Cancellation is requested from its owner and may take time to finish.'}
+                ? 'This also cancels all descendant agents, downloads and shell processes.'
+                : 'Cancellation is requested from its owner and may take time to finish.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <div
+            role="region"
+            aria-label="Task assignment"
+            tabIndex={0}
+            className="min-h-0 max-h-[50dvh] overflow-y-auto rounded-md border p-2"
+          >
+            <p className="break-words text-sm [overflow-wrap:anywhere]">
+              {selected?.description || selected?.title}
+            </p>
+          </div>
+          <AlertDialogFooter className="shrink-0">
             <AlertDialogCancel>Keep running</AlertDialogCancel>
             <AlertDialogAction onClick={() => void confirm()}>Cancel task</AlertDialogAction>
           </AlertDialogFooter>

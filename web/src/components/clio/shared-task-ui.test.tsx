@@ -134,58 +134,64 @@ it('keeps a linked folder pending until its exact indexing operation completes',
   client.clear();
 });
 
-it('confirms subagent subtree cancellation and suppresses duplicate pending requests', async () => {
-  const task: AsyncProcess = {
-    kind: 'agent',
-    task_kind: 'Subagent',
-    id: 'child',
-    handle: 'task_child',
-    title: 'Child',
-    description: 'Inspect owned files',
-    live_state: 'running',
-    effective_status: 'running',
-    status: 'running',
-    supported_actions: ['cancel'],
-    metadata: {},
-  };
-  let finish!: () => void;
-  const cancel = vi.fn(
-    () =>
-      new Promise<void>((resolve) => {
-        finish = resolve;
-      }),
-  );
-  const view = render(<AsyncTaskList processes={[task]} onCancelTask={cancel} />);
-  const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Cancel Subagent: Inspect owned files' }));
-  expect(screen.getByRole('alertdialog')).toHaveTextContent(
-    'all descendant agents, downloads and shell processes',
-  );
-  expect(cancel).not.toHaveBeenCalled();
-  await user.click(screen.getByRole('button', { name: 'Keep running' }));
-  expect(cancel).not.toHaveBeenCalled();
-  await user.click(screen.getByRole('button', { name: 'Cancel Subagent: Inspect owned files' }));
-  await user.click(screen.getByRole('button', { name: 'Cancel task' }));
-  expect(cancel).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('Cancellation requested')).toBeVisible();
-  expect(
-    screen.getByRole('button', { name: 'Cancel Subagent: Inspect owned files' }),
-  ).toBeDisabled();
-  finish();
-  await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
-  view.rerender(
-    <AsyncTaskList
-      processes={[
-        {
-          ...task,
-          live_state: 'cancelled',
-          effective_status: 'cancelled',
-          supported_actions: ['observe', 'wait', 'result'],
-        },
-      ]}
-      onCancelTask={cancel}
-    />,
-  );
-  expect(screen.getByText('cancelled')).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Cancel Subagent: Inspect owned files' })).toBeNull();
-});
+it.each([
+  ['short', 'Inspect owned files'],
+  ['long assignment', 'Inspect owned files and retain every requested path. '.repeat(80).trim()],
+])(
+  'confirms subagent subtree cancellation and suppresses duplicate pending requests (%s)',
+  async (_label, description) => {
+    const task: AsyncProcess = {
+      kind: 'agent',
+      task_kind: 'Subagent',
+      id: 'child',
+      handle: 'task_child',
+      title: 'Child',
+      description,
+      live_state: 'running',
+      effective_status: 'running',
+      status: 'running',
+      supported_actions: ['cancel'],
+      metadata: {},
+    };
+    let finish!: () => void;
+    const cancel = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const view = render(<AsyncTaskList processes={[task]} onCancelTask={cancel} />);
+    const user = userEvent.setup();
+    const buttonName = `Cancel Subagent: ${description}`;
+    await user.click(screen.getByRole('button', { name: buttonName }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(
+      'all descendant agents, downloads and shell processes',
+    );
+    expect(cancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('region', { name: 'Task assignment' }).textContent).toBe(description);
+    await user.click(screen.getByRole('button', { name: 'Keep running' }));
+    expect(cancel).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: buttonName }));
+    await user.click(screen.getByRole('button', { name: 'Cancel task' }));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Cancellation requested')).toBeVisible();
+    expect(screen.getByRole('button', { name: buttonName })).toBeDisabled();
+    finish();
+    await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
+    view.rerender(
+      <AsyncTaskList
+        processes={[
+          {
+            ...task,
+            live_state: 'cancelled',
+            effective_status: 'cancelled',
+            supported_actions: ['observe', 'wait', 'result'],
+          },
+        ]}
+        onCancelTask={cancel}
+      />,
+    );
+    expect(screen.getByText('cancelled')).toBeVisible();
+    expect(screen.queryByRole('button', { name: buttonName })).toBeNull();
+  },
+);
