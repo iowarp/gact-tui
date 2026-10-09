@@ -249,7 +249,7 @@ describe('ClioConversation activity and interactive surfaces', () => {
     fireEvent.click(activity);
     expect(activity).toHaveAttribute('aria-expanded', 'true');
     expect(
-      screen.getByRole('button', { name: /^Thinking: Inspecting the evidence/ }),
+      screen.getByRole('button', { name: /^Reasoning: Inspecting the evidence/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Technical details for Read evidence file' }),

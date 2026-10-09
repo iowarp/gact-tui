@@ -90,7 +90,7 @@ it('alternates visible text entries and independently collapsed tool groups', as
   ).toEqual(['false', 'false']);
   expect(
     screen
-      .getAllByRole('button', { name: /^Thinking:/ })
+      .getAllByRole('button', { name: /^Reasoning:/ })
       .map((b) => b.getAttribute('aria-expanded')),
   ).toEqual(['false', 'false']);
   fireEvent.click(screen.getAllByRole('button', { name: /^Activity:/ })[0]);
@@ -115,7 +115,7 @@ it.each(['codex', 'claude_code', 'vllm'])(
     if (first.kind !== 'iterations') throw new Error('Missing recorded text entry');
     render(<ConversationTurn iterations={first.iterations} mode="chain" subagents={{}} />);
     expect(await screen.findAllByText('First public update.')).toHaveLength(1);
-    const thinking = screen.getByRole('button', { name: /^Thinking: Recorded reasoning/ });
+    const thinking = screen.getByRole('button', { name: /^Reasoning: Recorded reasoning/ });
     expect(thinking).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('button', { name: /^Update:/ })).not.toBeInTheDocument();
     fireEvent.click(thinking);
@@ -145,10 +145,11 @@ it('leaves streaming thinking collapsed and retains the reader choice after comp
       subagents={{}}
     />,
   );
-  expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: /^Reasoning:/ })).toHaveAttribute(
     'aria-expanded',
     'true',
   );
+  expect(screen.queryByRole('button', { name: /^Thinking:/ })).not.toBeInTheDocument();
 });
 
 it('retains an opened tool group across live updates and answer arrival', () => {
