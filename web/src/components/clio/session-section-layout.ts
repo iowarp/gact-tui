@@ -3,6 +3,24 @@ export interface SessionSectionDemand {
   collapsed: boolean;
 }
 
+/** Read fractional layout height without a popover's transient scale transform. */
+export function untransformedBorderBoxHeight(element: HTMLElement | null, fallback = 0): number {
+  if (!element) return fallback;
+  const style = getComputedStyle(element);
+  const height = Number.parseFloat(style.height);
+  if (!Number.isFinite(height)) return element.offsetHeight;
+  const extras =
+    style.boxSizing === 'border-box'
+      ? 0
+      : [
+          style.paddingTop,
+          style.paddingBottom,
+          style.borderTopWidth,
+          style.borderBottomWidth,
+        ].reduce((sum, value) => sum + (Number.parseFloat(value) || 0), 0);
+  return height + extras;
+}
+
 /** Fit two independent sections, lending unused space to the larger inventory. */
 export function sessionSectionHeights(
   available: number,

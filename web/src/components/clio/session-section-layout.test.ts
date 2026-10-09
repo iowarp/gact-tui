@@ -1,9 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { sessionSectionHeights } from './session-section-layout';
+import { sessionSectionHeights, untransformedBorderBoxHeight } from './session-section-layout';
 
 const expanded = (height: number) => ({ height, collapsed: false });
 
 describe('Session column allocation', () => {
+  it('uses fractional CSS height while a popover scale is animating', () => {
+    const element = document.createElement('div');
+    element.style.cssText = 'box-sizing:border-box;height:36.25px;transform:scale(0.95)';
+    document.body.append(element);
+    expect(untransformedBorderBoxHeight(element)).toBe(36.25);
+    element.remove();
+    expect(untransformedBorderBoxHeight(null, 36)).toBe(36);
+  });
+  it('includes vertical padding and borders for a content-box element', () => {
+    const element = document.createElement('div');
+    element.style.cssText = 'box-sizing:content-box;height:100.5px;padding:8px;border:1px solid';
+    document.body.append(element);
+    expect(untransformedBorderBoxHeight(element)).toBe(118.5);
+    element.remove();
+  });
   it('gives an enabled section the entire column when it is the only view', () => {
     expect(sessionSectionHeights(800, expanded(200), undefined)).toEqual({ data: 800 });
     expect(sessionSectionHeights(800, undefined, expanded(200))).toEqual({ work: 800 });

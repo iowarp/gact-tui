@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { sessionSectionHeights } from './session-section-layout';
+import { sessionSectionHeights, untransformedBorderBoxHeight } from './session-section-layout';
 
 /** Data sits at the top, Work by the composer; each gets only the space it needs. */
 export function SessionEvidenceColumn({
@@ -36,12 +36,12 @@ export function SessionEvidenceColumn({
       ) => ({
         // Round up so fractional line heights don't create a one-pixel scrollbar.
         height:
-          Math.ceil(header?.getBoundingClientRect().height ?? 36) +
-          (collapsed ? 0 : Math.ceil(content?.getBoundingClientRect().height ?? 0) + 1),
+          Math.ceil(untransformedBorderBoxHeight(header, 36)) +
+          (collapsed ? 0 : Math.ceil(untransformedBorderBoxHeight(content)) + 1),
         collapsed,
       });
       const next = sessionSectionHeights(
-        column.current?.getBoundingClientRect().height ?? 0,
+        untransformedBorderBoxHeight(column.current),
         hasData ? demand(dataHeader.current, dataContent.current, dataCollapsed) : undefined,
         hasWork ? demand(workHeader.current, workContent.current, workCollapsed) : undefined,
       );
