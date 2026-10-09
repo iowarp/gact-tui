@@ -8,7 +8,7 @@ import {
   type Region,
 } from './a2ui-region-evidence';
 export type { CaptureSurface } from './a2ui-region-evidence';
-import { toCanvas } from 'html-to-image';
+import { getFontEmbedCSS, toCanvas } from 'html-to-image';
 import { CheckIcon, GripVerticalIcon, ListIcon, SendIcon } from 'lucide-react';
 import { CloseIcon, DeleteIcon } from '@/lib/icon-vocabulary';
 import {
@@ -70,9 +70,18 @@ async function labelledPng(
     }
     background = background.parentElement;
   }
+  // SVG foreignObject uses classic scrollbars even when the live browser uses
+  // overlay scrollbars. Their added height otherwise covers the last table
+  // row. Clip the same column viewport without drawing clone-only scrollbars;
+  // keep this styling in the export so the live table remains scrollable.
+  const fontEmbedCSS = `${await getFontEmbedCSS(target)}
+    [data-slot="data-grid"] [role="region"],
+    [data-slot="clio-data-grid-viewport"] { overflow: hidden !important; }
+  `;
   const canvas = await toCanvas(target, {
     cacheBust: true,
     backgroundColor,
+    fontEmbedCSS,
     filter: (node) =>
       node.nodeType !== Node.ELEMENT_NODE ||
       !(
