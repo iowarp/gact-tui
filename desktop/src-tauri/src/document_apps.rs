@@ -1,4 +1,5 @@
 //! Discover file handlers from the desktop's associations, never from an Office allowlist.
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use std::path::Path;
 use tauri::Manager;
@@ -18,15 +19,34 @@ pub struct DocumentApplication {
     pub id: String,
     pub name: String,
     pub is_default: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_data_url: Option<String>,
 }
 
 /// Read associations off the UI thread without launching an application.
 #[tauri::command]
 pub async fn document_applications(
+    app: tauri::AppHandle,
     name: String,
     mime_type: String,
 ) -> Result<Vec<DocumentApplication>, String> {
-    crate::blocking_command::off_main(move || discover(&name, &mime_type)).await
+    let applications =
+        crate::blocking_command::off_main(move || discover(&name, &mime_type)).await?;
+    #[cfg(target_os = "linux")]
+    return Ok(platform::attach_icons(app, applications).await);
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = app;
+        Ok(applications)
+    }
+}
+
+/// Keep app icons local, raster-only and bounded; missing icons do not hide valid handlers.
+fn png_data_url(bytes: &[u8]) -> Option<String> {
+    if bytes.len() > 2 * 1024 * 1024 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        return None;
+    }
+    Some(format!("data:image/png;base64,{}", STANDARD.encode(bytes)))
 }
 
 /// Return unique named handlers, with the operating system's default first.
@@ -112,6 +132,18 @@ fn extension(name: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn icon_payloads_are_local_raster_images_with_a_bounded_size() {
+        assert!(png_data_url(b"<svg/>").is_none());
+        assert!(png_data_url(&vec![0; 2 * 1024 * 1024 + 1]).is_none());
+        let png = b"\x89PNG\r\n\x1a\nicon";
+        let encoded = png_data_url(png).unwrap();
+        assert_eq!(
+            STANDARD.decode(encoded.split_once(',').unwrap().1).unwrap(),
+            png
+        );
+    }
 
     #[test]
     fn staged_copy_preserves_bytes_and_confines_names() {

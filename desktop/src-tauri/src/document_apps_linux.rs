@@ -27,9 +27,57 @@ pub(super) fn discover(
                 is_default: default.as_ref() == Some(&id),
                 id: id.to_string(),
                 name: app.display_name().to_string(),
+                icon_data_url: None,
             })
         })
         .collect())
+}
+
+/// Resolve the active desktop theme on GTK's thread, then encode images off that thread.
+pub(super) async fn attach_icons(
+    app: tauri::AppHandle,
+    mut applications: Vec<DocumentApplication>,
+) -> Vec<DocumentApplication> {
+    use gtk::prelude::*;
+    let ids: Vec<_> = applications.iter().map(|app| app.id.clone()).collect();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    if app
+        .run_on_main_thread(move || {
+            let theme = gtk::IconTheme::default();
+            let paths: Vec<_> = ids
+                .iter()
+                .map(|id| {
+                    let icon = gio::DesktopAppInfo::new(id)?.icon()?;
+                    theme
+                        .as_ref()?
+                        .lookup_by_gicon(&icon, 32, gtk::IconLookupFlags::FORCE_SIZE)?
+                        .filename()
+                })
+                .collect();
+            let _ = sender.send(paths);
+        })
+        .is_err()
+    {
+        return applications;
+    }
+    let icons = crate::blocking_command::off_main(move || {
+        let paths = receiver
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|error| format!("Read desktop icon theme: {error}"))?;
+        Ok(paths
+            .into_iter()
+            .map(|path| {
+                let pixbuf = gdk_pixbuf::Pixbuf::from_file_at_scale(path?, 32, 32, true).ok()?;
+                super::png_data_url(&pixbuf.save_to_bufferv("png", &[]).ok()?)
+            })
+            .collect::<Vec<_>>())
+    })
+    .await
+    .unwrap_or_default();
+    for (application, icon) in applications.iter_mut().zip(icons) {
+        application.icon_data_url = icon;
+    }
+    applications
 }
 pub(super) fn open_in(id: &str, path: &Path, extension: &str) -> Result<(), String> {
     let file = gio::File::for_path(path);

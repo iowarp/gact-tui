@@ -61,7 +61,11 @@ it('shows real handlers and separates the PDF apps from the original apps', asyn
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Open in' }));
   expect(screen.getByRole('menuitem', { name: 'Visual Studio Code (default)' })).toBeVisible();
-  expect(screen.getByText('PDF')).toBeVisible();
+  expect(screen.getByText('PDF copy')).toBeVisible();
+  expect(screen.getByRole('menuitem', { name: 'Adobe Acrobat' })).toHaveAttribute(
+    'title',
+    'Open a PDF copy in Adobe Acrobat',
+  );
   expect(screen.queryByText(/Markdown preview|Markdown source|PDF preview|Copy path/u)).toBeNull();
   await user.click(screen.getByRole('menuitem', { name: 'Adobe Acrobat' }));
   expect(onOpen).toHaveBeenCalledWith({ kind: 'native', application: viewer, format: 'pdf' });

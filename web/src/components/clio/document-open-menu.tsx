@@ -80,6 +80,7 @@ export function DocumentOpenMenu({
       pending={pending}
       error={error}
       disabled={openPending || pdfPending}
+      pdfCopy={format === 'pdf'}
       onSelect={(application) => onOpen({ kind: 'native', application, format })}
     />
   );
@@ -138,7 +139,7 @@ export function DocumentOpenMenu({
           <>
             {hasOriginal ? <DropdownMenuSeparator /> : null}
             <DropdownMenuGroup aria-label="PDF copy">
-              <DropdownMenuLabel>PDF</DropdownMenuLabel>
+              <DropdownMenuLabel>PDF copy</DropdownMenuLabel>
               {native
                 ? appItems(pdfApplications, 'pdf', pdfApplicationsPending, pdfApplicationsError)
                 : null}
