@@ -45,8 +45,16 @@ export function approvalOptionViews<T extends string>(
   spotter: SpotterAvailability | undefined,
 ): ApprovalOptionView<T>[] {
   return options.map((option) => {
-    if (option.value !== 'spotter-ai' || !spotter || spotter.available) {
+    if (option.value !== 'spotter-ai' || !spotter) {
       return { ...option, disabled: false, unavailableDetail: '' };
+    }
+    if (spotter.available) {
+      // The service checked the setup but has not started the watcher yet.
+      const description =
+        spotter.verified === 'static'
+          ? `${option.description} Setup checked; not verified until first use.`
+          : option.description;
+      return { ...option, description, disabled: false, unavailableDetail: '' };
     }
     const remedy = sentence(spotter.remedy);
     return {
