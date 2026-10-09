@@ -79,7 +79,14 @@ export function AttentionModeBanner({
   );
 }
 
-function AttentionBreakdown({ data }: { data: AttentionAvailable }) {
+/** Every prompt section the capture scored (system, tool definitions, tool calls/results, user, …) plus the spread-thin residual. */
+export function AttentionBreakdown({
+  data,
+}: {
+  data: Pick<AttentionAvailable, 'residual' | 'flags' | 'unmapped_content'> & {
+    sources: readonly { domain: string; share: number }[];
+  };
+}) {
   const sources = [...data.sources]
     .filter((source) => source.share > 0)
     .sort((left, right) => right.share - left.share);
@@ -141,7 +148,8 @@ function AttentionBreakdown({ data }: { data: AttentionAvailable }) {
         ) : null}
         {data.unmapped_content?.length ? (
           <span className="inline-flex items-center gap-1.5">
-            {data.unmapped_content.length} unmapped {data.unmapped_content.length === 1 ? 'block' : 'blocks'}
+            {data.unmapped_content.length} unmapped{' '}
+            {data.unmapped_content.length === 1 ? 'block' : 'blocks'}
             <InfoTip label="About unmapped attention content">
               These blocks have no unique compatible passage in the captured prompt. Their content
               may be absent, transformed, or repeated. No transcript heat is inferred.
