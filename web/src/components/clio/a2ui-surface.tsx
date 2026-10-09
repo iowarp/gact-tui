@@ -8,7 +8,15 @@ import { MarkdownContext } from '@a2ui/react/v0_9';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon, Loader2Icon } from 'lucide-react';
-import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
 import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
@@ -26,6 +34,7 @@ import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 import { A2uiRegionCaptureProvider } from './a2ui-region-capture';
 import { SurfaceAttentionProvider } from '@/lib/a2ui/attention-selection';
 import type { A2uiRegistrySnapshot } from '@/lib/a2ui/registry-store';
+import { useA2uiVisualViewer } from './a2ui-visual-viewer';
 
 function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
@@ -126,6 +135,8 @@ function ClioA2UISurfaceContent({
   viewport,
   readOnly,
   catalogRegistry,
+  captureArtifactId,
+  visualFeedback,
 }: {
   /**
    * The server-truth footer's data (dispatcher slice S5,
@@ -142,6 +153,8 @@ function ClioA2UISurfaceContent({
   viewport: 'inline' | 'fullscreen';
   readOnly: boolean;
   catalogRegistry?: A2uiRegistrySnapshot;
+  captureArtifactId?: string;
+  visualFeedback?: boolean;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -285,6 +298,8 @@ function ClioA2UISurfaceContent({
     handleValidationFailed,
     !readOnly,
   );
+  const visualRoot = useRef<HTMLDivElement>(null);
+  useA2uiVisualViewer(visualRoot, surface, model, captureArtifactId, visualFeedback);
   const reportUrlViolation = useCallback(
     (componentId: string, propName: string, message: string) => {
       void model?.dispatchError({
@@ -356,6 +371,7 @@ function ClioA2UISurfaceContent({
       // div is the thing being moved in every case, so index.css scopes its
       // catalog-wide patches (ChoicePicker, TextField/Label) here instead.
       data-slot="a2ui-surface-root"
+      ref={visualRoot}
     >
       <MarkdownContext.Provider value={renderMarkdown}>
         <A2uiUrlViolationProvider value={reportUrlViolation}>
@@ -433,6 +449,8 @@ export function ClioA2UISurface({
   viewport = 'inline',
   readOnly = false,
   catalogRegistry,
+  captureArtifactId,
+  visualFeedback,
 }: {
   actionLifecycle?: A2UIActionLifecycle;
   onLocalAction?: A2UILocalActionHandler;
@@ -441,6 +459,8 @@ export function ClioA2UISurface({
   viewport?: 'inline' | 'fullscreen';
   readOnly?: boolean;
   catalogRegistry?: A2uiRegistrySnapshot;
+  captureArtifactId?: string;
+  visualFeedback?: boolean;
 }) {
   return (
     <SurfaceBoundary key={surface.id}>
@@ -452,6 +472,8 @@ export function ClioA2UISurface({
         viewport={viewport}
         readOnly={readOnly}
         catalogRegistry={catalogRegistry}
+        captureArtifactId={captureArtifactId}
+        visualFeedback={visualFeedback}
       />
     </SurfaceBoundary>
   );

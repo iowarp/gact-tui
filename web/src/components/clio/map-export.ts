@@ -28,10 +28,15 @@ export function mapPngBlob(map: RepaintableMap): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const canvas = map.getCanvas();
     let settled = false;
+    const timeout = window.setTimeout(
+      () => fail('PNG export timed out waiting for a map frame.'),
+      5000,
+    );
     const cleanup = () => {
       map.off?.('render', onRender);
       map.off?.('remove', onRemove);
       canvas.removeEventListener('webglcontextlost', onContextLost);
+      window.clearTimeout(timeout);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
     const fail = (reason: string) => {

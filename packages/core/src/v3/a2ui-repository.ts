@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import {
+  a2uiCaptureRequestSchema,
+  type A2uiViewerReport,
+  type A2uiCaptureReply,
+} from './a2ui-visual-contract.js';
+import {
   a2uiCapabilitiesResponseSchema,
   decodeA2uiCatalogRows,
   mergeA2uiClientMetadata,
@@ -27,6 +32,28 @@ import {
  * these are `ClioRepository`'s own public methods either way.
  */
 export class A2uiRepository extends PresentationRepository {
+  /** Renew one mounted renderer's lease and claim only requests assigned to it. */
+  public reportA2uiViewer(sessionId: string, report: A2uiViewerReport, signal?: AbortSignal) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/visual-feedback`,
+      body: report,
+      signal,
+      decode: (value) =>
+        z.object({ requests: z.array(a2uiCaptureRequestSchema) }).parse(value).requests,
+    });
+  }
+
+  /** Return matching pixels or an explicit renderer failure to the waiting agent. */
+  public completeA2uiCapture(sessionId: string, reply: A2uiCaptureReply, signal?: AbortSignal) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/visual-feedback`,
+      body: reply,
+      signal,
+      decode: (value) => z.object({ accepted: z.boolean() }).parse(value),
+    });
+  }
   /** Capture only chosen views and all their source rows/media, with no sampling. */
   public captureDashboard(sessionId: string, surfaces: unknown[]) {
     return captureSessionReview(this.transport, [sessionId], undefined, { [sessionId]: surfaces });
@@ -60,6 +87,23 @@ export class A2uiRepository extends PresentationRepository {
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/dashboards`,
       decode: (value) => z.array(savedDashboardSchema).parse(value),
+    });
+  }
+
+  /** Retain displayed dashboard pixels and download through the ordinary export ticket. */
+  public prepareDashboardImageExport(sessionId: string, artifactId: string, pngBase64: string) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/dashboards/${encodeURIComponent(artifactId)}/export`,
+      body: { png_base64: pngBase64 },
+      decode: (value) =>
+        z
+          .object({
+            download_path: z.string().regex(/^\/v1\/session-export-downloads\/[a-f0-9]{64}$/u),
+            filename: z.string(),
+            artifact_id: z.string(),
+          })
+          .parse(value),
     });
   }
 

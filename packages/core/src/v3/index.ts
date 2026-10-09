@@ -1,4 +1,5 @@
 export * from './a2ui/index.js';
+export * from './a2ui-visual-contract.js';
 export * from './domain.js';
 export * from './agent-task-domain.js';
 export * from './usage-domain.js';

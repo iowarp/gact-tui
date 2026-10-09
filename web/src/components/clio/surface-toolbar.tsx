@@ -309,6 +309,16 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
   const [downloadBusy, setDownloadBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    const node = rootRef.current as
+      | (HTMLDivElement & { __clioVisualReference?: SurfaceCapabilities['buildReference'] })
+      | null;
+    if (!node) return;
+    node.__clioVisualReference = capabilities.buildReference;
+    return () => {
+      delete node.__clioVisualReference;
+    };
+  }, [capabilities.buildReference]);
+  useEffect(() => {
     // The hover-reveal classes below only ever activate under a `.group`
     // ancestor (`group-hover:`/`group-focus-within:`). A caller that forgets
     // that class on its card gets a toolbar permanently stuck at

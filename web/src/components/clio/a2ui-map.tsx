@@ -45,6 +45,7 @@ import {
   type SurfaceExportFormat,
 } from './surface-toolbar';
 import type { QueryRow } from './table-query-rows';
+import { useMapCamera, mapCameraSchema, type MapCameraProps } from './map-camera';
 import { downloadInlineRowsAsCsv, downloadInlineRowsAsJson } from './table-export-client';
 
 const ClioScientificMapView = lazy(() =>
@@ -55,7 +56,7 @@ const MAP_LIST_ROW_HEIGHT = 48;
 const MAP_LIST_CHROME_HEIGHT = 64;
 const DEFAULT_MAP_HEIGHT = 416;
 
-interface ClioMapProps {
+interface ClioMapProps extends MapCameraProps {
   accessibility?: A2UIAccessibility;
   title?: string;
   points: ScientificMapPoint[];
@@ -112,6 +113,8 @@ export function ClioScientificMap({
   selection,
   selectionField,
   setSelection,
+  camera,
+  setCamera,
 }: ClioMapProps) {
   const [localId, setLocalId] = useState(
     points.some((point) => point.id === selected) ? selected : undefined,
@@ -291,6 +294,7 @@ export function ClioScientificMap({
   // full-screen toggle reparents this SAME instance rather than replacing it.
   const mapInstanceRef = useRef<MapLibreMap | undefined>(undefined);
   const [mapInstance, setMapInstance] = useState<MapLibreMap | undefined>(undefined);
+  useMapCamera(mapInstance, camera, setCamera);
   const homeCameraRef = useRef<{ longitude: number; latitude: number; zoom: number } | undefined>(
     undefined,
   );
@@ -504,6 +508,9 @@ export function ClioScientificMap({
       className="relative min-w-0"
       data-slot="a2ui-map"
       data-a2ui-component-id={componentId}
+      data-visual-state={
+        camera != null && !mapCameraSchema.safeParse(camera).success ? 'failed' : 'ready'
+      }
       ref={surfaceRef}
     >
       <section

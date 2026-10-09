@@ -1,7 +1,28 @@
+import {
+  captureText,
+  displayedRegion,
+  geographicBounds,
+  mapSurface,
+  type CaptureSurface,
+  type CaptureTarget,
+  type Region,
+} from './a2ui-region-evidence';
+export type { CaptureSurface } from './a2ui-region-evidence';
 import { toCanvas } from 'html-to-image';
 import { CheckIcon, GripVerticalIcon, ListIcon, SendIcon } from 'lucide-react';
 import { CloseIcon, DeleteIcon } from '@/lib/icon-vocabulary';
-import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { useModelImageInput } from '@/lib/model-image-input';
@@ -11,29 +32,6 @@ import { imageAttentionRegion } from '@/lib/a2ui/attention-selection-coordinates
 import { InfoTip } from './info-tip';
 import { mapPngBlob } from './map-export';
 import type { MapDebugSurface } from './scientific-map-view';
-
-interface Region {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  comment: string;
-  geographicBounds?: { west: number; north: number; east: number; south: number };
-}
-
-interface CaptureTarget {
-  element: HTMLElement;
-  componentId?: string;
-  title: string;
-  reference?: () => { summary: string; query?: unknown };
-}
-
-export interface CaptureSurface {
-  id: string;
-  revision: number;
-  messages: readonly unknown[];
-}
 
 interface CaptureContext {
   allowed: boolean;
@@ -57,223 +55,26 @@ function regionRect(region: Region, bounds: DOMRect): CSSProperties {
   };
 }
 
-function mapSurface(target: HTMLElement): MapDebugSurface | null {
-  return target.matches('[data-slot="a2ui-map-surface"]')
-    ? target as MapDebugSurface
-    : target.querySelector<MapDebugSurface>('[data-slot="a2ui-map-surface"]');
-}
-
-function geographicBounds(target: HTMLElement, region: Pick<Region, 'x' | 'y' | 'width' | 'height'>): Region['geographicBounds'] {
-  const map = mapSurface(target)?.__clioMap;
-  if (!map) return undefined;
-  const targetRect = target.getBoundingClientRect();
-  const canvasRect = map.getCanvas().getBoundingClientRect();
-  const left = targetRect.left + region.x * targetRect.width - canvasRect.left;
-  const top = targetRect.top + region.y * targetRect.height - canvasRect.top;
-  const right = left + region.width * targetRect.width;
-  const bottom = top + region.height * targetRect.height;
-  const northwest = map.unproject([left, top]);
-  const southeast = map.unproject([right, bottom]);
-  return { west: northwest.lng, north: northwest.lat, east: southeast.lng, south: southeast.lat };
-}
-
-function displayedRegion(target: HTMLElement, region: Region): Region {
-  const map = mapSurface(target)?.__clioMap;
-  if (!map || !region.geographicBounds) return region;
-  const targetRect = target.getBoundingClientRect();
-  const canvasRect = map.getCanvas().getBoundingClientRect();
-  const northwest = map.project([region.geographicBounds.west, region.geographicBounds.north]);
-  const southeast = map.project([region.geographicBounds.east, region.geographicBounds.south]);
-  const x1 = (canvasRect.left + northwest.x - targetRect.left) / targetRect.width;
-  const x2 = (canvasRect.left + southeast.x - targetRect.left) / targetRect.width;
-  const y1 = (canvasRect.top + northwest.y - targetRect.top) / targetRect.height;
-  const y2 = (canvasRect.top + southeast.y - targetRect.top) / targetRect.height;
-  return { ...region, x: Math.min(x1, x2), y: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) };
-}
-
-function surfaceComponent(surface: CaptureSurface, componentId: string | undefined): Record<string, unknown> | undefined {
-  if (!componentId) return undefined;
-  for (const message of [...(surface.messages as unknown as Record<string, unknown>[])].reverse()) {
-    const update = message.updateComponents as { components?: Record<string, unknown>[] } | undefined;
-    const component = update?.components?.find((item) => item.id === componentId);
-    if (component) return component;
-  }
-  return undefined;
-}
-
-function visibleTextUnderBox(target: HTMLElement, region: Region): string[] {
-  const bounds = target.getBoundingClientRect();
-  const left = bounds.left + region.x * bounds.width;
-  const top = bounds.top + region.y * bounds.height;
-  const right = left + region.width * bounds.width;
-  const bottom = top + region.height * bounds.height;
-  const values = new Set<string>();
-  for (const element of target.querySelectorAll('tr, [role="row"], li, [role="listitem"], p, label, h1, h2, h3, h4, h5, h6, input, textarea, [data-slot="a2ui-map-selected-point"], .maplibregl-marker button, svg text')) {
-    if (element.matches('p, label, h1, h2, h3, h4, h5, h6') && element.closest('li, [role="listitem"], tr, [role="row"]')) continue;
-    const rect = element.getBoundingClientRect();
-    if (rect.right < left || rect.left > right || rect.bottom < top || rect.top > bottom) continue;
-    const rawValue = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
-      ? element.value
-      : element.getAttribute('aria-label') || (element as HTMLElement).innerText || element.textContent;
-    const value = rawValue?.trim().replace(/\s+/gu, ' ');
-    if (value) values.add(value.slice(0, 500));
-    if (values.size === 30) break;
-  }
-  return [...values];
-}
-
-interface CapturableChart extends HTMLElement {
-  __clioChart?: {
-    view: {
-      origin: () => [number, number];
-      scale: (name: string) => ((value: unknown) => number) & { bandwidth?: () => number };
-    };
-    rows: () => readonly Record<string, unknown>[];
-    xField?: string;
-    yField?: string;
-  };
-}
-
-function chartRowsUnderBox(target: HTMLElement, region: Region): Record<string, unknown> | null {
-  const candidates = target.matches('[data-slot="a2ui-chart-view"]')
-    ? [target as CapturableChart]
-    : [...target.querySelectorAll<CapturableChart>('[data-slot="a2ui-chart-view"]')];
-  const host = candidates
-    .find((element) => element.__clioChart);
-  const chart = host?.__clioChart;
-  if (!host || !chart) return null;
-  if (!chart.xField || !chart.yField) {
-    return { available: false, reason: 'This chart does not expose two data fields for box lookup.' };
-  }
-  let xScale: ReturnType<typeof chart.view.scale>;
-  let yScale: ReturnType<typeof chart.view.scale>;
-  try {
-    xScale = chart.view.scale('x');
-    yScale = chart.view.scale('y');
-  } catch {
-    return { available: false, reason: 'This chart has no shared x/y scales for box lookup.' };
-  }
-  if (!xScale || !yScale) {
-    return { available: false, reason: 'This chart has no shared x/y scales for box lookup.' };
-  }
-  const canvas = host.querySelector('canvas.marks');
-  if (!canvas) return { available: false, reason: 'The chart canvas is not ready for box lookup.' };
-  const bounds = target.getBoundingClientRect();
-  const canvasBounds = canvas.getBoundingClientRect();
-  const [originX, originY] = chart.view.origin();
-  const left = bounds.left + region.x * bounds.width;
-  const top = bounds.top + region.y * bounds.height;
-  const right = left + region.width * bounds.width;
-  const bottom = top + region.height * bounds.height;
-  const matches: Record<string, unknown>[] = [];
-  let count = 0;
-  for (const row of chart.rows()) {
-    const rawX = row[chart.xField];
-    const rawY = row[chart.yField];
-    const x = canvasBounds.left + originX + xScale(rawX) + (xScale.bandwidth?.() ?? 0) / 2;
-    const y = canvasBounds.top + originY + yScale(rawY) + (yScale.bandwidth?.() ?? 0) / 2;
-    if (!Number.isFinite(x) || !Number.isFinite(y) || x < left || x > right || y < top || y > bottom) continue;
-    count += 1;
-    if (matches.length < 100) matches.push(row);
-  }
-  return { available: true, count, rows: matches, rowsTruncated: count > matches.length };
-}
-
-function mapFeaturesUnderBox(target: HTMLElement, region: Region): Record<string, unknown> | null {
-  const mapElement = mapSurface(target);
-  const map = mapElement?.__clioMap;
-  const layers = [
-    'clio-map-points-circles',
-    'clio-map-geometry-fill',
-    'clio-map-geometry-line',
-    'clio-map-geometry-points',
-  ].filter((id) => map?.getLayer(id));
-  if (!map || !layers.length) return null;
-  const canvasRect = map.getCanvas().getBoundingClientRect();
-  const bounds = target.getBoundingClientRect();
-  const left = bounds.left + region.x * bounds.width - canvasRect.left;
-  const top = bounds.top + region.y * bounds.height - canvasRect.top;
-  const right = left + region.width * bounds.width;
-  const bottom = top + region.height * bounds.height;
-  try {
-    const ids = [...new Set(map.queryRenderedFeatures([[left, top], [right, bottom]], { layers }).map((feature) => feature.properties?.id).filter((id): id is string => typeof id === 'string'))];
-    const northwest = map.unproject([left, top]);
-    const southeast = map.unproject([right, bottom]);
-    return {
-      count: ids.length,
-      ids: ids.slice(0, 100),
-      idsTruncated: ids.length > 100,
-      geographicBounds: {
-        west: northwest.lng,
-        north: northwest.lat,
-        east: southeast.lng,
-        south: southeast.lat,
-      },
-    };
-  } catch {
-    return null;
-  }
-}
-
-function meshNodesUnderBox(target: HTMLElement, region: Region): Record<string, unknown> | null {
-  const mesh = target as HTMLElement & {
-    __clioMeshInspect?: (box: { left: number; top: number; right: number; bottom: number }) => Record<string, unknown>;
-  };
-  if (!mesh.__clioMeshInspect) return null;
-  const bounds = target.getBoundingClientRect();
-  return mesh.__clioMeshInspect({
-    left: region.x * bounds.width,
-    top: region.y * bounds.height,
-    right: (region.x + region.width) * bounds.width,
-    bottom: (region.y + region.height) * bounds.height,
-  });
-}
-
-function captureText(surface: CaptureSurface, target: CaptureTarget, regions: readonly Region[]): string {
-  const component = surfaceComponent(surface, target.componentId);
-  const viewReference = target.reference?.();
-  const activeQuery = viewReference?.query && typeof viewReference.query === 'object' && !Array.isArray(viewReference.query)
-    ? viewReference.query as Record<string, unknown>
-    : undefined;
-  const activeDataQuery = activeQuery?.dataQuery as { filter?: unknown } | undefined;
-  const context = {
-    surface: surface.id,
-    revision: surface.revision,
-    component: component?.component ?? target.title,
-    componentId: target.componentId,
-    dataReference: activeQuery?.dataUri ?? component?.dataUri ?? component?.geojsonUri ?? component?.meshUri ?? component?.imageUri ?? null,
-    filters: activeDataQuery?.filter ?? (component?.dataQuery as { filter?: unknown } | undefined)?.filter ?? [],
-    selection: activeQuery?.selection ?? component?.selection ?? null,
-    currentView: viewReference?.summary ?? null,
-    regions: regions.map((region) => ({
-      label: region.id,
-      box: (() => { const shown = displayedRegion(target.element, region); return { x: shown.x, y: shown.y, width: shown.width, height: shown.height }; })(),
-      geographicBounds: region.geographicBounds ?? null,
-      comment: region.comment,
-      visibleDataUnderBox: visibleTextUnderBox(target.element, displayedRegion(target.element, region)),
-      chartRowsUnderBox: chartRowsUnderBox(target.element, displayedRegion(target.element, region)),
-      mapFeaturesUnderBox: mapFeaturesUnderBox(target.element, displayedRegion(target.element, region)),
-      meshNodesUnderBox: meshNodesUnderBox(target.element, displayedRegion(target.element, region)),
-    })),
-  };
-  return [
-    `Region capture of ${target.title}. The attached image has labelled boxes.`,
-    ...regions.map((region) => `${region.id}: ${region.comment || '(no comment)'}`),
-    '```json',
-    // Keep the exact structured context while avoiding a hundreds-line code
-    // block in the sent conversation when a region covers many data points.
-    JSON.stringify(context),
-    '```',
-  ].join('\n');
-}
-
 async function labelledPng(target: HTMLElement, regions: readonly Region[]): Promise<Blob> {
+  let background: Element | null = target;
+  let backgroundColor = 'white';
+  while (background) {
+    const color = getComputedStyle(background).backgroundColor;
+    if (color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)') {
+      backgroundColor = color;
+      break;
+    }
+    background = background.parentElement;
+  }
   const canvas = await toCanvas(target, {
     cacheBust: true,
-    filter: (node) => node.nodeType !== Node.ELEMENT_NODE || !(
-      (node as Element).getAttribute('data-slot') === 'surface-toolbar' ||
-      (node as Element).getAttribute('data-capture-ui') === 'true'
-    ),
+    backgroundColor,
+    filter: (node) =>
+      node.nodeType !== Node.ELEMENT_NODE ||
+      !(
+        (node as Element).getAttribute('data-slot') === 'surface-toolbar' ||
+        (node as Element).getAttribute('data-capture-ui') === 'true'
+      ),
     pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
   });
   const context = canvas.getContext('2d');
@@ -281,40 +82,69 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
   const scaleX = canvas.width / target.getBoundingClientRect().width;
   const scaleY = canvas.height / target.getBoundingClientRect().height;
   const targetRect = target.getBoundingClientRect();
-  const mapElement = mapSurface(target);
-  const mapCanvas = target.querySelector<HTMLCanvasElement>('canvas.maplibregl-canvas');
-  if (mapElement && mapCanvas) {
-    if (!mapElement.__clioMap) throw new Error('The map is still loading, so its tiles cannot be captured yet.');
+  const mapCanvases = new Set<HTMLCanvasElement>();
+  for (const mapElement of target.querySelectorAll<MapDebugSurface>(
+    '[data-slot="a2ui-map-surface"]',
+  )) {
+    const mapCanvas = mapElement.querySelector<HTMLCanvasElement>('canvas.maplibregl-canvas');
+    if (!mapCanvas || !mapCanvas.getBoundingClientRect().width) continue;
+    mapCanvases.add(mapCanvas);
+    if (!mapElement.__clioMap)
+      throw new Error('The map is still loading, so its tiles cannot be captured yet.');
     const mapImage = await createImageBitmap(await mapPngBlob(mapElement.__clioMap));
     const rect = mapCanvas.getBoundingClientRect();
-    context.drawImage(mapImage, (rect.left - targetRect.left) * scaleX, (rect.top - targetRect.top) * scaleY, rect.width * scaleX, rect.height * scaleY);
+    context.drawImage(
+      mapImage,
+      (rect.left - targetRect.left) * scaleX,
+      (rect.top - targetRect.top) * scaleY,
+      rect.width * scaleX,
+      rect.height * scaleY,
+    );
     mapImage.close();
+    // The live WebGL frame covers the DOM clone's markers and attribution.
+    // Composite the actual DOM overlay above it, retaining marker colours,
+    // icons, popups and labels instead of drawing approximate white dots.
+    const overlay = await toCanvas(mapElement, {
+      cacheBust: true,
+      backgroundColor: 'transparent',
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      filter: (node) => !(node instanceof HTMLCanvasElement),
+    });
+    const overlayRect = mapElement.getBoundingClientRect();
+    context.drawImage(
+      overlay,
+      (overlayRect.left - targetRect.left) * scaleX,
+      (overlayRect.top - targetRect.top) * scaleY,
+      overlayRect.width * scaleX,
+      overlayRect.height * scaleY,
+    );
   }
   for (const source of target.querySelectorAll('canvas')) {
-    if (source === mapCanvas) continue;
+    if (mapCanvases.has(source)) continue;
     if (!source.width || !source.height) continue;
     const rect = source.getBoundingClientRect();
     if (!rect.width || !rect.height) continue;
     try {
       // html-to-image cannot clone a live WebGL framebuffer. Read the live
       // canvas directly while it is still mounted, then paint the boxes last.
-      const liveSource = (source.closest<HTMLElement>('[role="img"]') as HTMLElement & { __clioMeshCapture?: () => HTMLCanvasElement } | null)?.__clioMeshCapture?.() ?? source;
-      context.drawImage(liveSource, (rect.left - targetRect.left) * scaleX, (rect.top - targetRect.top) * scaleY, rect.width * scaleX, rect.height * scaleY);
+      const liveSource =
+        (
+          source.closest<HTMLElement>('[role="img"]') as
+            | (HTMLElement & { __clioMeshCapture?: () => HTMLCanvasElement })
+            | null
+        )?.__clioMeshCapture?.() ?? source;
+      context.drawImage(
+        liveSource,
+        (rect.left - targetRect.left) * scaleX,
+        (rect.top - targetRect.top) * scaleY,
+        rect.width * scaleX,
+        rect.height * scaleY,
+      );
     } catch (error) {
-      throw new Error(`The ${source.classList.contains('maplibregl-canvas') ? 'map' : 'canvas'} pixels cannot be captured: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `The ${source.classList.contains('maplibregl-canvas') ? 'map' : 'canvas'} pixels cannot be captured: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-  }
-  for (const marker of target.querySelectorAll<HTMLElement>('.maplibregl-marker')) {
-    const rect = marker.getBoundingClientRect();
-    const button = marker.querySelector<HTMLElement>('button');
-    if (!rect.width || !rect.height || !button) continue;
-    context.beginPath();
-    context.arc((rect.left + rect.width / 2 - targetRect.left) * scaleX, (rect.top + rect.height / 2 - targetRect.top) * scaleY, 6 * scaleX, 0, Math.PI * 2);
-    context.fillStyle = getComputedStyle(button).color;
-    context.fill();
-    context.lineWidth = Math.max(1, scaleX);
-    context.strokeStyle = '#ffffff';
-    context.stroke();
   }
   context.lineWidth = Math.max(2, 2 * scaleX);
   context.font = `bold ${Math.round(14 * scaleX)}px sans-serif`;
@@ -335,7 +165,11 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
   }
   return new Promise<Blob>((resolve, reject) => {
     try {
-      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('The capture canvas returned no PNG data.')), 'image/png');
+      canvas.toBlob(
+        (blob) =>
+          blob ? resolve(blob) : reject(new Error('The capture canvas returned no PNG data.')),
+        'image/png',
+      );
     } catch (error) {
       reject(error);
     }
@@ -349,7 +183,15 @@ export async function captureRenderedSurfacePng(target: HTMLElement): Promise<Bl
   return labelledPng(target, []);
 }
 
-export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture = false }: { children: ReactNode; surface: CaptureSurface; allowDemoCapture?: boolean }) {
+export function A2uiRegionCaptureProvider({
+  children,
+  surface,
+  allowDemoCapture = false,
+}: {
+  children: ReactNode;
+  surface: CaptureSurface;
+  allowDemoCapture?: boolean;
+}) {
   const acceptsImages = useModelImageInput();
   const attention = useContext(SurfaceAttentionContext);
   const allowed = allowDemoCapture || acceptsImages || Boolean(attention);
@@ -368,31 +210,47 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
   const nextId = useRef(1);
   const dragStart = useRef<{ x: number; y: number } | undefined>(undefined);
   const draftRef = useRef<Region | undefined>(undefined);
-  const controlDrag = useRef<{ x: number; y: number; left: number; top: number } | undefined>(undefined);
-  const start = useCallback((next: CaptureTarget) => {
-    if (!allowed) return;
-    if (target?.element === next.element) {
-      setSelecting((active) => !active);
-      return;
-    }
-    if (target?.element !== next.element) {
-      setRegions([]);
-      nextId.current = 1;
-    }
-    setTarget(next);
-    setSelecting(true);
-    setError('');
-    const rect = next.element.getBoundingClientRect();
-    // Start below the surface toolbar. In full screen the dialog sits above
-    // ordinary popovers, so the controls must also stack above that dialog.
-    setControlPosition({ x: clamp(rect.right - 265, 8, window.innerWidth - 260), y: clamp(rect.top + 56, 8, window.innerHeight - 90) });
-  }, [allowed, target?.element]);
-  const context = useMemo(() => ({ allowed, start, selectingComponentId: selecting ? target?.componentId : undefined }), [allowed, start, selecting, target?.componentId]);
+  const controlDrag = useRef<{ x: number; y: number; left: number; top: number } | undefined>(
+    undefined,
+  );
+  const start = useCallback(
+    (next: CaptureTarget) => {
+      if (!allowed) return;
+      if (target?.element === next.element) {
+        setSelecting((active) => !active);
+        return;
+      }
+      if (target?.element !== next.element) {
+        setRegions([]);
+        nextId.current = 1;
+      }
+      setTarget(next);
+      setSelecting(true);
+      setError('');
+      const rect = next.element.getBoundingClientRect();
+      // Start below the surface toolbar. In full screen the dialog sits above
+      // ordinary popovers, so the controls must also stack above that dialog.
+      setControlPosition({
+        x: clamp(rect.right - 265, 8, window.innerWidth - 260),
+        y: clamp(rect.top + 56, 8, window.innerHeight - 90),
+      });
+    },
+    [allowed, target?.element],
+  );
+  const context = useMemo(
+    () => ({ allowed, start, selectingComponentId: selecting ? target?.componentId : undefined }),
+    [allowed, start, selecting, target?.componentId],
+  );
   useEffect(() => {
     if (!selecting || !target) return;
     const leaveCaptureForOtherTool = (event: globalThis.PointerEvent) => {
       const button = (event.target as Element).closest('button');
-      if (!button || button.closest('[data-capture-ui="true"]') || button.matches('[data-capture-toggle="true"]')) return;
+      if (
+        !button ||
+        button.closest('[data-capture-ui="true"]') ||
+        button.matches('[data-capture-toggle="true"]')
+      )
+        return;
       const component = target.element.closest<HTMLElement>('.group');
       if (component?.contains(button)) setSelecting(false);
     };
@@ -409,18 +267,32 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
         const candidates = slot
           ? [...document.querySelectorAll<HTMLElement>(`[data-slot="${slot}"]`)]
           : [];
-        const replacement = candidates.find((candidate) =>
-          candidate.isConnected
-          && candidate.getBoundingClientRect().width > 0
-          && (!target.componentId || candidate.closest<HTMLElement>('[data-a2ui-component-id]')?.dataset.a2uiComponentId === target.componentId),
-        ) ?? (candidates.length === 1 ? candidates[0] : undefined);
+        const replacement =
+          candidates.find(
+            (candidate) =>
+              candidate.isConnected &&
+              candidate.getBoundingClientRect().width > 0 &&
+              (!target.componentId ||
+                candidate.closest<HTMLElement>('[data-a2ui-component-id]')?.dataset
+                  .a2uiComponentId === target.componentId),
+          ) ?? (candidates.length === 1 ? candidates[0] : undefined);
         if (replacement) {
-          setTarget((current) => current?.element === target.element ? { ...current, element: replacement } : current);
+          setTarget((current) =>
+            current?.element === target.element ? { ...current, element: replacement } : current,
+          );
         }
         return;
       }
       const next = target.element.getBoundingClientRect();
-      setBounds((current) => current && current.x === next.x && current.y === next.y && current.width === next.width && current.height === next.height ? current : next);
+      setBounds((current) =>
+        current &&
+        current.x === next.x &&
+        current.y === next.y &&
+        current.width === next.width &&
+        current.height === next.height
+          ? current
+          : next,
+      );
       const map = mapSurface(target.element)?.__clioMap;
       if (map && map !== observedMap) {
         observedMap?.off('move', onMapMove);
@@ -459,25 +331,49 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
     if (!selecting || !bounds || event.button !== 0) return;
     const at = point(event);
     dragStart.current = at;
-    draftRef.current = { id: `S${nextId.current}`, x: at.x, y: at.y, width: 0, height: 0, comment: '' };
+    draftRef.current = {
+      id: `S${nextId.current}`,
+      x: at.x,
+      y: at.y,
+      width: 0,
+      height: 0,
+      comment: '',
+    };
     setDraft(draftRef.current);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const pointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!dragStart.current || !draftRef.current) return;
     const at = point(event);
-    draftRef.current = { ...draftRef.current, x: Math.min(at.x, dragStart.current.x), y: Math.min(at.y, dragStart.current.y), width: Math.abs(at.x - dragStart.current.x), height: Math.abs(at.y - dragStart.current.y) };
+    draftRef.current = {
+      ...draftRef.current,
+      x: Math.min(at.x, dragStart.current.x),
+      y: Math.min(at.y, dragStart.current.y),
+      width: Math.abs(at.x - dragStart.current.x),
+      height: Math.abs(at.y - dragStart.current.y),
+    };
     setDraft(draftRef.current);
   };
   const pointerUp = () => {
     dragStart.current = undefined;
     const finished = draftRef.current;
     draftRef.current = undefined;
-    if (!finished || !bounds || finished.width * bounds.width < 6 || finished.height * bounds.height < 6) {
+    if (
+      !finished ||
+      !bounds ||
+      finished.width * bounds.width < 6 ||
+      finished.height * bounds.height < 6
+    ) {
       setDraft(undefined);
       return;
     }
-    setRegions((current) => [...current, { ...finished, geographicBounds: target ? geographicBounds(target.element, finished) : undefined }]);
+    setRegions((current) => [
+      ...current,
+      {
+        ...finished,
+        geographicBounds: target ? geographicBounds(target.element, finished) : undefined,
+      },
+    ]);
     nextId.current += 1;
     setEditingId(finished.id);
     setEditText('');
@@ -491,7 +387,11 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
     setError('');
   };
   const done = () => {
-    setRegions((current) => current.map((region) => region.id === editingId ? { ...region, comment: editText.trim() } : region));
+    setRegions((current) =>
+      current.map((region) =>
+        region.id === editingId ? { ...region, comment: editText.trim() } : region,
+      ),
+    );
     setEditingId(undefined);
   };
   const send = async () => {
@@ -500,16 +400,20 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
     setError('');
     try {
       const blob = await labelledPng(target.element, regions);
-      const file = new File([blob], `clio-capture-${surface.id}-${Date.now()}.png`, { type: 'image/png' });
-      window.dispatchEvent(new CustomEvent('clio:add-region-capture', {
-        detail: {
-          file,
-          filename: file.name,
-          text: captureText(surface, target, regions),
-          title: `Region capture · ${target.title}`,
-          summary: `${regions.map((region) => region.id).join(', ')} · ${regions.length} labelled region${regions.length === 1 ? '' : 's'}`,
-        },
-      }));
+      const file = new File([blob], `clio-capture-${surface.id}-${Date.now()}.png`, {
+        type: 'image/png',
+      });
+      window.dispatchEvent(
+        new CustomEvent('clio:add-region-capture', {
+          detail: {
+            file,
+            filename: file.name,
+            text: captureText(surface, target, regions),
+            title: `Region capture · ${target.title}`,
+            summary: `${regions.map((region) => region.id).join(', ')} · ${regions.length} labelled region${regions.length === 1 ? '' : 's'}`,
+          },
+        }),
+      );
       // Staging the image does not end Select mode. The person can add more
       // labelled regions until they turn Select off or send the message.
     } catch (cause) {
@@ -522,7 +426,9 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
   return (
     <A2uiRegionCaptureContext.Provider value={context}>
       {children}
-      {target && bounds && createPortal(
+      {target &&
+        bounds &&
+        createPortal(
           <div
             aria-label={`Select regions on ${target.title}`}
             className="absolute inset-0 z-10"
@@ -531,79 +437,323 @@ export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture 
             onPointerMove={pointerMove}
             onPointerUp={pointerUp}
             role="presentation"
-            style={{ pointerEvents: selecting ? 'auto' : 'none', cursor: selecting ? 'crosshair' : undefined, touchAction: 'none' }}
+            style={{
+              pointerEvents: selecting ? 'auto' : 'none',
+              cursor: selecting ? 'crosshair' : undefined,
+              touchAction: 'none',
+            }}
           >
             {[...regions, ...(draft ? [draft] : [])].map((region) => {
               const shown = displayedRegion(target.element, region);
-              if (shown.x >= 1 || shown.y >= 1 || shown.x + shown.width <= 0 || shown.y + shown.height <= 0) return null;
+              if (
+                shown.x >= 1 ||
+                shown.y >= 1 ||
+                shown.x + shown.width <= 0 ||
+                shown.y + shown.height <= 0
+              )
+                return null;
               const left = shown.x * bounds.width;
               const top = shown.y * bounds.height;
-              return <button
-                aria-label={`Edit ${region.id} region${region.comment ? `: ${region.comment}` : ''}`}
-                className="absolute border-2 border-blue-600 bg-blue-500/10 text-left"
-                key={region.id}
-                onClick={() => { setEditingId(region.id); setEditText(region.comment); }}
-                onPointerDown={(event) => event.stopPropagation()}
-                style={{ ...regionRect(shown, bounds), pointerEvents: 'auto' }}
-                type="button"
-              >
-                <span className="absolute rounded-t bg-blue-700 px-1.5 py-0.5 text-xs font-bold text-white" style={{ left: Math.max(0, -left), top: top >= 24 ? -24 : Math.max(0, -top) }}>{region.id}</span>
-              </button>
+              return (
+                <button
+                  aria-label={`Edit ${region.id} region${region.comment ? `: ${region.comment}` : ''}`}
+                  className="absolute border-2 border-blue-600 bg-blue-500/10 text-left"
+                  key={region.id}
+                  onClick={() => {
+                    setEditingId(region.id);
+                    setEditText(region.comment);
+                  }}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  style={{ ...regionRect(shown, bounds), pointerEvents: 'auto' }}
+                  type="button"
+                >
+                  <span
+                    className="absolute rounded-t bg-blue-700 px-1.5 py-0.5 text-xs font-bold text-white"
+                    style={{ left: Math.max(0, -left), top: top >= 24 ? -24 : Math.max(0, -top) }}
+                  >
+                    {region.id}
+                  </span>
+                </button>
+              );
             })}
-          </div>
-        , target.element)}
-      {target && bounds && createPortal(
-        <>
-          <div className="fixed z-40 w-64 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg" data-capture-ui="true" style={{ left: controlPosition?.x ?? 8, top: controlPosition?.y ?? 8 }}>
-            <div className="flex items-center gap-1">
-              <button
-                aria-label="Move capture controls"
-                className="cursor-move rounded p-1 text-muted-foreground hover:bg-muted"
-                onPointerDown={(event) => { controlDrag.current = { x: event.clientX, y: event.clientY, left: controlPosition?.x ?? 8, top: controlPosition?.y ?? 8 }; event.currentTarget.setPointerCapture(event.pointerId); }}
-                onPointerMove={(event) => { if (controlDrag.current) setControlPosition({ x: clamp(controlDrag.current.left + event.clientX - controlDrag.current.x, 0, window.innerWidth - 250), y: clamp(controlDrag.current.top + event.clientY - controlDrag.current.y, 0, window.innerHeight - 60) }); }}
-                onPointerUp={() => { controlDrag.current = undefined; }}
-                type="button"
-              ><GripVerticalIcon aria-hidden="true" className="size-4" /></button>
-              <Button aria-pressed={selecting} onClick={() => setSelecting((active) => !active)} size="sm" variant={selecting ? 'secondary' : 'ghost'}>Select</Button>
-              <Button aria-label="Selections list" aria-expanded={listOpen} onClick={() => setListOpen((open) => !open)} size="icon-sm" variant="ghost"><ListIcon aria-hidden="true" className="size-4" /></Button>
-              <Button aria-label="Close capture" className="ml-auto" onClick={close} size="icon-sm" variant="ghost"><CloseIcon aria-hidden="true" className="size-4" /></Button>
+          </div>,
+          target.element,
+        )}
+      {target &&
+        bounds &&
+        createPortal(
+          <>
+            <div
+              className="fixed z-40 w-64 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg"
+              data-capture-ui="true"
+              style={{ left: controlPosition?.x ?? 8, top: controlPosition?.y ?? 8 }}
+            >
+              <div className="flex items-center gap-1">
+                <button
+                  aria-label="Move capture controls"
+                  className="cursor-move rounded p-1 text-muted-foreground hover:bg-muted"
+                  onPointerDown={(event) => {
+                    controlDrag.current = {
+                      x: event.clientX,
+                      y: event.clientY,
+                      left: controlPosition?.x ?? 8,
+                      top: controlPosition?.y ?? 8,
+                    };
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={(event) => {
+                    if (controlDrag.current)
+                      setControlPosition({
+                        x: clamp(
+                          controlDrag.current.left + event.clientX - controlDrag.current.x,
+                          0,
+                          window.innerWidth - 250,
+                        ),
+                        y: clamp(
+                          controlDrag.current.top + event.clientY - controlDrag.current.y,
+                          0,
+                          window.innerHeight - 60,
+                        ),
+                      });
+                  }}
+                  onPointerUp={() => {
+                    controlDrag.current = undefined;
+                  }}
+                  type="button"
+                >
+                  <GripVerticalIcon aria-hidden="true" className="size-4" />
+                </button>
+                <Button
+                  aria-pressed={selecting}
+                  onClick={() => setSelecting((active) => !active)}
+                  size="sm"
+                  variant={selecting ? 'secondary' : 'ghost'}
+                >
+                  Select
+                </Button>
+                <Button
+                  aria-label="Selections list"
+                  aria-expanded={listOpen}
+                  onClick={() => setListOpen((open) => !open)}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <ListIcon aria-hidden="true" className="size-4" />
+                </Button>
+                <Button
+                  aria-label="Close capture"
+                  className="ml-auto"
+                  onClick={close}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <CloseIcon aria-hidden="true" className="size-4" />
+                </Button>
+              </div>
+              <Button
+                className="mt-2 w-full"
+                size="sm"
+                variant="outline"
+                disabled={busy || regions.length >= 32}
+                onClick={() => {
+                  const region: Region = {
+                    id: `S${nextId.current++}`,
+                    x: 0.25,
+                    y: 0.25,
+                    width: 0.5,
+                    height: 0.5,
+                    comment: '',
+                  };
+                  setRegions((current) => [
+                    ...current,
+                    { ...region, geographicBounds: geographicBounds(target.element, region) },
+                  ]);
+                  setEditingId(region.id);
+                  setEditText('');
+                }}
+              >
+                Add region
+              </Button>
+              {listOpen ? (
+                <div className="mt-2 max-h-44 space-y-1 overflow-auto border-t pt-2 text-xs">
+                  {regions.length ? (
+                    regions.map((region) => (
+                      <button
+                        className="block w-full truncate rounded p-1 text-left hover:bg-muted"
+                        key={region.id}
+                        onClick={() => {
+                          setEditingId(region.id);
+                          setEditText(region.comment);
+                        }}
+                        type="button"
+                      >
+                        {region.id} · {region.comment || 'Add a comment'}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground">Drag over the surface to add a region.</p>
+                  )}
+                </div>
+              ) : null}
+              {regions.length && (allowDemoCapture || acceptsImages) ? (
+                <Button
+                  className="mt-2 w-full"
+                  disabled={busy || !!editingId}
+                  onClick={() => void send()}
+                  size="sm"
+                  type="button"
+                >
+                  <SendIcon aria-hidden="true" className="size-3.5" />
+                  {busy
+                    ? 'Capturing…'
+                    : `Add ${regions.length} ${regions.length === 1 ? 'region' : 'regions'} to message`}
+                </Button>
+              ) : null}
+              {attention && regions.length ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <Button
+                    className="flex-1"
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    disabled={busy || !!editingId}
+                    onClick={() =>
+                      void (async () => {
+                        setError('');
+                        setBusy(true);
+                        try {
+                          const image = target.element.querySelector('img');
+                          const query = target.reference?.().query as
+                            | { sourceRef?: string }
+                            | undefined;
+                          if (!image || !query?.sourceRef)
+                            throw new Error(
+                              'For data views, select rows or points and use More → Add selection to attention set. Image regions require a referenced image.',
+                            );
+                          if (regions.length > 32)
+                            throw new Error('Select at most 32 image regions.');
+                          for (const region of regions)
+                            await attention.image(
+                              target.componentId,
+                              query.sourceRef,
+                              imageAttentionRegion(
+                                image,
+                                target.element,
+                                displayedRegion(target.element, region),
+                              ),
+                            );
+                          close();
+                        } catch (cause) {
+                          setError(
+                            cause instanceof Error ? cause.message : 'Could not add image regions.',
+                          );
+                        } finally {
+                          setBusy(false);
+                        }
+                      })()
+                    }
+                  >
+                    Add to attention set
+                  </Button>
+                  <InfoTip label="About image attention">
+                    Keeps the image region and recorded source. Heat is available only when the
+                    capture includes a verified image-patch mapping.
+                  </InfoTip>
+                </div>
+              ) : null}
+              {error ? (
+                <p className="mt-2 text-xs text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
             </div>
-            <Button className="mt-2 w-full" size="sm" variant="outline" disabled={busy || regions.length >= 32} onClick={() => {
-              const region: Region = { id: `S${nextId.current++}`, x: .25, y: .25, width: .5, height: .5, comment: '' };
-              setRegions((current) => [...current, { ...region, geographicBounds: geographicBounds(target.element, region) }]);
-              setEditingId(region.id); setEditText('');
-            }}>Add region</Button>
-            {listOpen ? <div className="mt-2 max-h-44 space-y-1 overflow-auto border-t pt-2 text-xs">{regions.length ? regions.map((region) => <button className="block w-full truncate rounded p-1 text-left hover:bg-muted" key={region.id} onClick={() => { setEditingId(region.id); setEditText(region.comment); }} type="button">{region.id} · {region.comment || 'Add a comment'}</button>) : <p className="text-muted-foreground">Drag over the surface to add a region.</p>}</div> : null}
-            {regions.length && (allowDemoCapture || acceptsImages) ? <Button className="mt-2 w-full" disabled={busy || !!editingId} onClick={() => void send()} size="sm" type="button"><SendIcon aria-hidden="true" className="size-3.5" />{busy ? 'Capturing…' : `Add ${regions.length} ${regions.length === 1 ? 'region' : 'regions'} to message`}</Button> : null}
-            {attention && regions.length ? <div className="mt-2 flex items-center gap-2">
-              <Button className="flex-1" size="sm" variant="outline" type="button" disabled={busy || !!editingId}
-                onClick={() => void (async () => {
-                  setError(''); setBusy(true);
-                  try {
-                    const image = target.element.querySelector('img');
-                    const query = target.reference?.().query as { sourceRef?: string } | undefined;
-                    if (!image || !query?.sourceRef) throw new Error('For data views, select rows or points and use More → Add selection to attention set. Image regions require a referenced image.');
-                    if (regions.length > 32) throw new Error('Select at most 32 image regions.');
-                    for (const region of regions) await attention.image(target.componentId, query.sourceRef, imageAttentionRegion(image, target.element, displayedRegion(target.element, region)));
-                    close();
-                  } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not add image regions.'); }
-                  finally { setBusy(false); }
-                })()}>Add to attention set</Button>
-              <InfoTip label="About image attention">Keeps the image region and recorded source. Heat is available only when the capture includes a verified image-patch mapping.</InfoTip>
-            </div> : null}
-            {error ? <p className="mt-2 text-xs text-destructive" role="alert">{error}</p> : null}
-          </div>
-          {editorRegion ? <div className="fixed z-40 max-h-[calc(100dvh-1rem)] w-[min(26rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl" data-capture-ui="true" style={{ left: clamp(bounds.left + (displayedRegion(target.element, editorRegion).x + displayedRegion(target.element, editorRegion).width) * bounds.width - 260, 8, Math.max(8, window.innerWidth - 424)), top: clamp(bounds.top + (displayedRegion(target.element, editorRegion).y + displayedRegion(target.element, editorRegion).height) * bounds.height + 12, 8, Math.max(8, window.innerHeight - 340)) }}>
-            <p className="mb-2 text-sm font-semibold">{editorRegion.id} · {target.title}</p>
-            <RegionCoordinateInputs box={displayedRegion(target.element, editorRegion)} onChange={(box) => setRegions((current) => current.map((region) => region.id === editorRegion.id ? { ...region, ...box, geographicBounds: geographicBounds(target.element, box) } : region))} />
-            <textarea autoFocus aria-label={`Comment for ${editorRegion.id}`} className="min-h-28 w-full resize-y rounded-md border bg-background p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary" onChange={(event) => setEditText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') setEditingId(undefined); else if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); done(); } }} placeholder="What should the agent notice here?" value={editText} />
-            <div className="mt-2 flex justify-end gap-2">
-              <Button aria-label={`Delete ${editorRegion.id}`} className="mr-auto" onClick={() => { setRegions((current) => current.filter((region) => region.id !== editorRegion.id)); setEditingId(undefined); }} size="icon-sm" variant="ghost"><DeleteIcon aria-hidden="true" className="size-4" /></Button>
-              <Button onClick={() => setEditingId(undefined)} size="sm" variant="ghost">Cancel</Button>
-              <Button onClick={done} size="sm"><CheckIcon aria-hidden="true" className="size-4" />Done</Button>
-            </div>
-          </div> : null}
-        </>, target.element.closest('[data-slot="dialog-content"]') ?? document.body)}
+            {editorRegion ? (
+              <div
+                className="fixed z-40 max-h-[calc(100dvh-1rem)] w-[min(26rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl"
+                data-capture-ui="true"
+                style={{
+                  left: clamp(
+                    bounds.left +
+                      (displayedRegion(target.element, editorRegion).x +
+                        displayedRegion(target.element, editorRegion).width) *
+                        bounds.width -
+                      260,
+                    8,
+                    Math.max(8, window.innerWidth - 424),
+                  ),
+                  top: clamp(
+                    bounds.top +
+                      (displayedRegion(target.element, editorRegion).y +
+                        displayedRegion(target.element, editorRegion).height) *
+                        bounds.height +
+                      12,
+                    8,
+                    Math.max(8, window.innerHeight - 340),
+                  ),
+                }}
+              >
+                <p className="mb-2 text-sm font-semibold">
+                  {editorRegion.id} · {target.title}
+                </p>
+                <RegionCoordinateInputs
+                  box={displayedRegion(target.element, editorRegion)}
+                  onChange={(box) =>
+                    setRegions((current) =>
+                      current.map((region) =>
+                        region.id === editorRegion.id
+                          ? {
+                              ...region,
+                              ...box,
+                              geographicBounds: geographicBounds(target.element, box),
+                            }
+                          : region,
+                      ),
+                    )
+                  }
+                />
+                <textarea
+                  autoFocus
+                  aria-label={`Comment for ${editorRegion.id}`}
+                  className="min-h-28 w-full resize-y rounded-md border bg-background p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  onChange={(event) => setEditText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') setEditingId(undefined);
+                    else if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      done();
+                    }
+                  }}
+                  placeholder="What should the agent notice here?"
+                  value={editText}
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button
+                    aria-label={`Delete ${editorRegion.id}`}
+                    className="mr-auto"
+                    onClick={() => {
+                      setRegions((current) =>
+                        current.filter((region) => region.id !== editorRegion.id),
+                      );
+                      setEditingId(undefined);
+                    }}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <DeleteIcon aria-hidden="true" className="size-4" />
+                  </Button>
+                  <Button onClick={() => setEditingId(undefined)} size="sm" variant="ghost">
+                    Cancel
+                  </Button>
+                  <Button onClick={done} size="sm">
+                    <CheckIcon aria-hidden="true" className="size-4" />
+                    Done
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </>,
+          target.element.closest('[data-slot="dialog-content"]') ?? document.body,
+        )}
     </A2uiRegionCaptureContext.Provider>
   );
 }

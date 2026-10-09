@@ -7,7 +7,7 @@ import { ClioA2UISurface } from './a2ui-surface';
 import { ArtifactReferenceContext } from './artifact-reference-context';
 import { A2uiRegionCaptureProvider, captureRenderedSurfacePng } from './a2ui-region-capture';
 import { SurfaceToolbar } from './surface-toolbar';
-import { downloadBlob, downloadUrl, filenameStemFromTitle } from './surface-export';
+import { downloadUrl } from './surface-export';
 import { ResourceUnavailable } from './resource-states';
 import { useSavedA2uiCatalogs } from '@/lib/a2ui/saved-catalogs';
 
@@ -19,13 +19,17 @@ export function DashboardResourceView({
   content: string;
   artifactId: string;
 }) {
-  let report: DashboardReport | undefined;
-  try {
-    const parsed = dashboardReportSchema.safeParse(JSON.parse(content));
-    if (parsed.success) report = parsed.data;
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-  }
+  // Session streaming re-renders the artifact pane. Keep an unchanged saved
+  // definition stable so its local controls and capture lease are not reset.
+  const report = useMemo(() => {
+    try {
+      const parsed = dashboardReportSchema.safeParse(JSON.parse(content));
+      return parsed.success ? parsed.data : undefined;
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      return undefined;
+    }
+  }, [content]);
   if (report) return <DashboardView report={report} artifactId={artifactId} />;
   return (
     <ResourceUnavailable
@@ -50,7 +54,6 @@ export function DashboardView({
   const catalogRegistry = useSavedA2uiCatalogs(report.session_id);
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const filename = filenameStemFromTitle(report.title);
   const components = report.definition.components;
   const modalTriggers = new Set(
     Array.isArray(components)
@@ -113,9 +116,24 @@ export function DashboardView({
                       label: 'PNG image (displayed view)',
                       run: async () => {
                         if (!root.current) throw new Error('The dashboard is not displayed.');
-                        downloadBlob(
-                          await captureRenderedSurfacePng(root.current),
-                          `${filename}.png`,
+                        if (!artifactId)
+                          throw new Error('This dashboard has no saved artifact identity.');
+                        const pixels = await captureRenderedSurfacePng(root.current);
+                        const encoded = await new Promise<string>((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+                          reader.onerror = () =>
+                            reject(reader.error ?? new Error('PNG encoding failed.'));
+                          reader.readAsDataURL(pixels);
+                        });
+                        const prepared = await repository.prepareDashboardImageExport(
+                          report.session_id,
+                          artifactId,
+                          encoded,
+                        );
+                        downloadUrl(
+                          `${settings.endpoint.replace(/\/$/u, '')}${prepared.download_path}`,
+                          prepared.filename,
                         );
                       },
                     },
@@ -129,6 +147,8 @@ export function DashboardView({
             surface={surface}
             catalogRegistry={catalogRegistry}
             readOnly
+            captureArtifactId={artifactId}
+            visualFeedback={!offline && Boolean(artifactId)}
             onRemoteAction={async ({ action }) => {
               // Modal opens locally. Its trigger Button's required action is
               // not a command against a live chat surface for this saved artifact.

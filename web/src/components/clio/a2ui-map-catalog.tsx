@@ -17,6 +17,7 @@ import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
 import { dataViewFlexStyle } from './data-view-layout';
 import { isBoundToPath, type SelectionWriter } from './selection-state';
 import type { TableDataQuery } from './table-query-rows';
+import { mapCameraSchema, type MapCameraProps } from './map-camera';
 
 const pointSchema = z
   .object({
@@ -31,10 +32,17 @@ const pointSchema = z
   .strict();
 
 const mapDataProperties = {
+  camera: z.union([mapCameraSchema, z.object({ path: z.string().min(1) }).strict()]).optional(),
   title: CommonSchemas.DynamicString.optional(),
   points: z.array(pointSchema).min(1).max(A2UI_MAP_POINTS_MAX).optional(),
-  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
-  geojsonUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  dataUri: z
+    .string()
+    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+    .optional(),
+  geojsonUri: z
+    .string()
+    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+    .optional(),
   dataQuery: dataQuerySchema.optional(),
   latitudeField: fieldNameSchema.optional(),
   longitudeField: fieldNameSchema.optional(),
@@ -42,7 +50,12 @@ const mapDataProperties = {
   idField: fieldNameSchema.optional(),
   trackField: fieldNameSchema.optional(),
   orderField: fieldNameSchema.optional(),
-  filterFields: z.array(fieldNameSchema).min(1).max(12).refine((fields) => new Set(fields).size === fields.length, 'filterFields must be distinct').optional(),
+  filterFields: z
+    .array(fieldNameSchema)
+    .min(1)
+    .max(12)
+    .refine((fields) => new Set(fields).size === fields.length, 'filterFields must be distinct')
+    .optional(),
   detailField: fieldNameSchema.optional(),
   categoryField: fieldNameSchema.optional(),
   valueField: fieldNameSchema.optional(),
@@ -61,7 +74,10 @@ type MapShape = z.infer<z.ZodObject<typeof mapDataProperties>>;
 
 function checkMapComponent(value: MapShape, context: z.RefinementCtx): void {
   if ([value.points, value.dataUri, value.geojsonUri].filter(Boolean).length !== 1) {
-    context.addIssue({ code: 'custom', message: 'Provide exactly one of points, dataUri, or geojsonUri' });
+    context.addIssue({
+      code: 'custom',
+      message: 'Provide exactly one of points, dataUri, or geojsonUri',
+    });
   }
   if (value.dataUri) {
     const missing = (['latitudeField', 'longitudeField', 'labelField'] as const).filter(
@@ -86,10 +102,16 @@ function checkMapComponent(value: MapShape, context: z.RefinementCtx): void {
     context.addIssue({ code: 'custom', message: 'filterFields requires dataUri' });
   }
   if (isBoundToPath(value.selection) && !value.selectionField) {
-    context.addIssue({ code: 'custom', message: 'selectionField is required when selection is bound' });
+    context.addIssue({
+      code: 'custom',
+      message: 'selectionField is required when selection is bound',
+    });
   }
   if (value.categoryField && value.valueField) {
-    context.addIssue({ code: 'custom', message: 'Choose categoryField or valueField for the map colour, not both' });
+    context.addIssue({
+      code: 'custom',
+      message: 'Choose categoryField or valueField for the map colour, not both',
+    });
   }
 }
 
@@ -98,41 +120,54 @@ export const mapComponentSchema = refinedStrictObject(mapDataProperties, checkMa
 export const ClioMapCatalogComponent = createComponentImplementation(
   { name: 'clio.map.v1', schema: mapComponentSchema },
   ({ props, context }) => {
+    const cameraProps: MapCameraProps = {
+      camera: props.camera,
+      setCamera: isBoundToPath(context.componentModel.properties.camera)
+        ? (props.setCamera as unknown as MapCameraProps['setCamera'])
+        : undefined,
+    };
     const setSelection = isBoundToPath(context.componentModel.properties.selection)
       ? (props.setSelection as unknown as SelectionWriter)
       : undefined;
     return (
       <div style={dataViewFlexStyle(props.weight)}>
         {props.dataUri ? (
-          <BoundDataQuery dataContext={context.dataContext} query={props.dataQuery as TableDataQuery | undefined}>
-            {(resolvedQuery) => <ClioMapArtifactSource
-              accessibility={props.accessibility}
-              action={props.action ? () => void props.action?.() : undefined}
-              actionLabel={props.actionLabel}
-              categoryField={props.categoryField}
-              valueField={props.valueField}
-              componentId={context.componentModel.id}
-              dataQuery={resolvedQuery}
-              dataUri={props.dataUri!}
-              detailField={props.detailField}
-              idField={props.idField}
-              trackField={props.trackField}
-              orderField={props.orderField}
-              filterFields={props.filterFields as string[] | undefined}
-              labelField={props.labelField!}
-              latitudeField={props.latitudeField!}
-              longitudeField={props.longitudeField!}
-              selected={props.selected}
-              selection={props.selection}
-              selectionField={props.selectionField}
-              setSelection={setSelection}
-              title={props.title}
-              valueLabel={props.valueLabel}
-              valueUnit={props.valueUnit}
-            />}
+          <BoundDataQuery
+            dataContext={context.dataContext}
+            query={props.dataQuery as TableDataQuery | undefined}
+          >
+            {(resolvedQuery) => (
+              <ClioMapArtifactSource
+                {...cameraProps}
+                accessibility={props.accessibility}
+                action={props.action ? () => void props.action?.() : undefined}
+                actionLabel={props.actionLabel}
+                categoryField={props.categoryField}
+                valueField={props.valueField}
+                componentId={context.componentModel.id}
+                dataQuery={resolvedQuery}
+                dataUri={props.dataUri!}
+                detailField={props.detailField}
+                idField={props.idField}
+                trackField={props.trackField}
+                orderField={props.orderField}
+                filterFields={props.filterFields as string[] | undefined}
+                labelField={props.labelField!}
+                latitudeField={props.latitudeField!}
+                longitudeField={props.longitudeField!}
+                selected={props.selected}
+                selection={props.selection}
+                selectionField={props.selectionField}
+                setSelection={setSelection}
+                title={props.title}
+                valueLabel={props.valueLabel}
+                valueUnit={props.valueUnit}
+              />
+            )}
           </BoundDataQuery>
         ) : props.geojsonUri ? (
           <ClioMapGeoJsonSource
+            {...cameraProps}
             accessibility={props.accessibility}
             action={props.action ? () => void props.action?.() : undefined}
             actionLabel={props.actionLabel}
@@ -152,6 +187,7 @@ export const ClioMapCatalogComponent = createComponentImplementation(
           />
         ) : (
           <ClioScientificMap
+            {...cameraProps}
             accessibility={props.accessibility}
             action={props.action ? () => void props.action?.() : undefined}
             actionLabel={props.actionLabel}

@@ -22,8 +22,15 @@ const repository = vi.hoisted(() => ({
   a2uiCapabilities: vi.fn(),
   captureDashboard: vi.fn(),
   prepareDashboardExport: vi.fn(),
+  prepareDashboardImageExport: vi.fn(),
+  reportA2uiViewer: vi.fn(),
 }));
 const downloads = vi.hoisted(() => ({ downloadUrl: vi.fn(), downloadBlob: vi.fn() }));
+const capture = vi.hoisted(() => vi.fn());
+vi.mock('./a2ui-region-capture', async (original) => ({
+  ...(await original<typeof import('./a2ui-region-capture')>()),
+  captureRenderedSurfacePng: capture,
+}));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://localhost:8100/base' } }),
@@ -89,6 +96,7 @@ const report: DashboardReport = {
 };
 
 beforeEach(() => {
+  repository.reportA2uiViewer.mockResolvedValue([]);
   repository.a2uiCatalogs.mockResolvedValue({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
   repository.a2uiCapabilities.mockResolvedValue({
     agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
@@ -96,6 +104,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -123,6 +132,75 @@ function show(offline = false, savedReport = report) {
 }
 
 describe('authored dashboard', () => {
+  it('prepares displayed PNG pixels through the same download door as HTML', async () => {
+    capture.mockResolvedValue(new Blob(['pixels'], { type: 'image/png' }));
+    repository.prepareDashboardImageExport.mockResolvedValue({
+      download_path: '/v1/session-export-downloads/image',
+      filename: 'design.png',
+      artifact_id: 'image-artifact',
+    });
+    show();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.hover(screen.getByText('Download'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'PNG image (displayed view)' }));
+    await waitFor(() =>
+      expect(repository.prepareDashboardImageExport).toHaveBeenCalledWith(
+        report.session_id,
+        'artifact_dashboard',
+        btoa('pixels'),
+      ),
+    );
+    expect(capture.mock.calls[0][0]).toBe(screen.getByRole('article'));
+    expect(downloads.downloadUrl).toHaveBeenCalledWith(
+      'http://localhost:8100/base/v1/session-export-downloads/image',
+      'design.png',
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+  it('preserves the local view and capture epoch during unrelated session renders', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      width: 200,
+      height: 100,
+    } as DOMRect);
+    const client = new QueryClient();
+    const content = JSON.stringify(report);
+    const pane = (tick: number) => (
+      <QueryClientProvider client={client}>
+        <A2uiSessionRegistryOwner sessionId={report.session_id}>
+          <span>{tick}</span>
+          <DashboardResourceView content={content} artifactId="artifact_dashboard" />
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>
+    );
+    const mounted = render(pane(0));
+    const user = userEvent.setup();
+    const field = await screen.findByRole('textbox', { name: 'Scenario' });
+    await user.clear(field);
+    await user.type(field, 'Human choice');
+    await user.click(screen.getByRole('tab', { name: 'Comparisons' }));
+    await waitFor(() => expect(repository.reportA2uiViewer.mock.calls.length).toBeGreaterThan(2), {
+      timeout: 4000,
+    });
+    const before = repository.reportA2uiViewer.mock.calls.at(-1)![1];
+    const count = repository.reportA2uiViewer.mock.calls.length;
+    mounted.rerender(pane(1));
+    await waitFor(
+      () => expect(repository.reportA2uiViewer.mock.calls.length).toBeGreaterThan(count),
+      {
+        timeout: 4000,
+      },
+    );
+    const after = repository.reportA2uiViewer.mock.calls.at(-1)![1];
+    expect(after.viewer_id).toBe(before.viewer_id);
+    expect(after.view_revision).toBe(before.view_revision);
+    expect(screen.getByRole('tab', { name: 'Comparisons' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByText('Human choice')).toBeVisible();
+  });
+
   it.each([false, true])('opens a methodology Modal locally (offline=%s)', async (offline) => {
     const components = [
       { id: 'root', component: 'Modal', trigger: 'open', content: 'method' },
@@ -159,7 +237,7 @@ describe('authored dashboard', () => {
     const field = await screen.findByRole('textbox', { name: 'Scenario' });
     await user.clear(field);
     await user.type(field, 'Evolution two');
-    await user.click(screen.getByRole('button', { name: 'Comparisons' }));
+    await user.click(screen.getByRole('tab', { name: 'Comparisons' }));
     expect(await screen.findByText('Evolution two')).toBeVisible();
     expect(repository.a2uiAction).not.toHaveBeenCalled();
   });
@@ -207,7 +285,7 @@ describe('authored dashboard', () => {
 
   it('keeps saved tabs interactive offline while omitting live agent and export actions', async () => {
     show(true);
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'Comparisons' }));
+    await userEvent.setup().click(await screen.findByRole('tab', { name: 'Comparisons' }));
     expect(await screen.findByText('Baseline')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
     expect(repository.a2uiAction).not.toHaveBeenCalled();

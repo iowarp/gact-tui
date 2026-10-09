@@ -1,3 +1,4 @@
+import { initialView, rasterStyle } from './map-initial-view';
 import { MapPinIcon } from 'lucide-react';
 import type { FeatureCollection } from 'geojson';
 import type { ExpressionSpecification, GeoJSONSource, MapLibreMap } from 'maplibre-gl';
@@ -10,7 +11,6 @@ import Map, {
   useMap,
   type MapLayerMouseEvent,
   type MapRef,
-  type ViewState,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { cn } from '@/lib/utils';
@@ -51,7 +51,7 @@ interface ScientificMapViewProps {
    * for the linked-highlight look; defaults to just `selectedId` when unset,
    * so callers with no shared selection (the "one point at a time" case)
    * need not pass it at all.
-  */
+   */
   highlightedIds?: ReadonlySet<string>;
   onSelect: (pointId: string, additive?: boolean, wholeTrack?: boolean) => void;
   onClearSelection?: () => void;
@@ -87,7 +87,11 @@ const MANY_POINTS_THRESHOLD = 150;
 const POINTS_SOURCE_ID = 'clio-map-points';
 const POINTS_LAYER_ID = 'clio-map-points-circles';
 const GEOMETRY_SOURCE_ID = 'clio-map-geometry';
-const GEOMETRY_LAYER_IDS = ['clio-map-geometry-fill', 'clio-map-geometry-line', 'clio-map-geometry-points'] as const;
+const GEOMETRY_LAYER_IDS = [
+  'clio-map-geometry-fill',
+  'clio-map-geometry-line',
+  'clio-map-geometry-points',
+] as const;
 /** Which mounted view last claimed the points layer on a (possibly pooled) map instance. */
 const pointsLayerOwners = new WeakMap<MapLibreMap, symbol>();
 /** Paint-expression colors; maplibre evaluates these itself and cannot read CSS custom properties. */
@@ -132,6 +136,7 @@ type PointsGeoJson = ReturnType<typeof pointsToGeoJson>;
  */
 export interface MapDebugSurface extends HTMLDivElement {
   __clioMap?: MapLibreMap;
+  __clioMapFailure?: string;
 }
 
 /** Container-relative pixel coordinates of a rubber-band drag in progress. */
@@ -144,49 +149,6 @@ interface DragBox {
 
 /** Pixels a shift+drag must move before it counts as a zone (not a shift+click). */
 const ZONE_DRAG_THRESHOLD_PX = 4;
-
-const rasterStyle = {
-  version: 8 as const,
-  sources: {
-    openStreetMap: {
-      type: 'raster' as const,
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      minzoom: 0,
-      maxzoom: 19,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [{ id: 'openStreetMap', type: 'raster' as const, source: 'openStreetMap' }],
-};
-
-function initialView(points: readonly ScientificMapPoint[], geometryBounds?: [[number, number], [number, number]]): Partial<ViewState> & {
-  bounds?: [[number, number], [number, number]];
-  fitBoundsOptions?: { padding: number; maxZoom: number };
-} {
-  if (points.length === 1 && !geometryBounds) {
-    return {
-      longitude: points[0]!.longitude,
-      latitude: points[0]!.latitude,
-      zoom: 8,
-    };
-  }
-  const longitudes = points.map((point) => point.longitude);
-  const latitudes = points.map((point) => point.latitude);
-  let west = geometryBounds?.[0][0] ?? Math.min(...longitudes);
-  let east = geometryBounds?.[1][0] ?? Math.max(...longitudes);
-  let south = geometryBounds?.[0][1] ?? Math.min(...latitudes);
-  let north = geometryBounds?.[1][1] ?? Math.max(...latitudes);
-  if (west === east) [west, east] = [west - 0.01, east + 0.01];
-  if (south === north) [south, north] = [south - 0.01, north + 0.01];
-  return {
-    bounds: [
-      [west, south],
-      [east, north],
-    ],
-    fitBoundsOptions: { padding: 48, maxZoom: 12 },
-  };
-}
 
 /** Get the map instance from the provider, including maps returned from the reuse pool. */
 function MapInstanceReporter({ onMapInstance }: { onMapInstance: (map: MapLibreMap) => void }) {
@@ -240,7 +202,10 @@ export function ClioScientificMapView({
     if (viewState.bounds) {
       mapInstance.fitBounds(viewState.bounds, { ...viewState.fitBoundsOptions, duration: 0 });
     } else if (viewState.longitude !== undefined && viewState.latitude !== undefined) {
-      mapInstance.jumpTo({ center: [viewState.longitude, viewState.latitude], zoom: viewState.zoom ?? 8 });
+      mapInstance.jumpTo({
+        center: [viewState.longitude, viewState.latitude],
+        zoom: viewState.zoom ?? 8,
+      });
     }
   }, [mapInstance, points.length, viewState]);
   const handleMapInstance = useCallback(
@@ -264,7 +229,10 @@ export function ClioScientificMapView({
     [highlightedIds, selectedId],
   );
   const pointsGeoJson = useMemo(
-    () => (manyPoints ? pointsToGeoJson(points, resolvedHighlightedIds, categoryColors, valueExtent) : undefined),
+    () =>
+      manyPoints
+        ? pointsToGeoJson(points, resolvedHighlightedIds, categoryColors, valueExtent)
+        : undefined,
     [manyPoints, points, resolvedHighlightedIds, categoryColors, valueExtent],
   );
   const pointsGeoJsonRef = useRef<PointsGeoJson | undefined>(pointsGeoJson);
@@ -291,7 +259,9 @@ export function ClioScientificMapView({
     };
   }, [geometry, points, categoryColors, valueExtent, resolvedHighlightedIds]);
   const styledGeometryRef = useRef(styledGeometry);
-  useEffect(() => { styledGeometryRef.current = styledGeometry; }, [styledGeometry]);
+  useEffect(() => {
+    styledGeometryRef.current = styledGeometry;
+  }, [styledGeometry]);
   useEffect(() => {
     if (!geometry || !mapInstance) return undefined;
     const map = mapInstance;
@@ -304,15 +274,38 @@ export function ClioScientificMapView({
       // hide every data overlay even though the map itself is visible.
       if (!map.getLayer('openStreetMap')) return;
       pointsLayerOwners.set(map, owner);
-      if (!map.getSource(GEOMETRY_SOURCE_ID)) map.addSource(GEOMETRY_SOURCE_ID, {
-        type: 'geojson', data: styledGeometryRef.current ?? geometry,
-      });
-      const color: ExpressionSpecification = ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, ['get', 'color']];
+      if (!map.getSource(GEOMETRY_SOURCE_ID))
+        map.addSource(GEOMETRY_SOURCE_ID, {
+          type: 'geojson',
+          data: styledGeometryRef.current ?? geometry,
+        });
+      const color: ExpressionSpecification = [
+        'case',
+        ['get', 'highlighted'],
+        POINT_HIGHLIGHTED_COLOR,
+        ['get', 'color'],
+      ];
       const lineWidth: ExpressionSpecification = denseTrajectories
-        ? ['interpolate', ['linear'], ['zoom'], 1, ['case', ['get', 'highlighted'], 5, 1], 5, ['case', ['get', 'highlighted'], 5, 3]]
+        ? [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            1,
+            ['case', ['get', 'highlighted'], 5, 1],
+            5,
+            ['case', ['get', 'highlighted'], 5, 3],
+          ]
         : ['case', ['get', 'highlighted'], 5, 3];
       const lineOpacity: ExpressionSpecification | number = denseTrajectories
-        ? ['interpolate', ['linear'], ['zoom'], 1, ['case', ['get', 'highlighted'], 1, 0.35], 5, ['case', ['get', 'highlighted'], 1, 0.9]]
+        ? [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            1,
+            ['case', ['get', 'highlighted'], 1, 0.35],
+            5,
+            ['case', ['get', 'highlighted'], 1, 0.9],
+          ]
         : 1;
       const pointOpacity: ExpressionSpecification | number = denseTrajectories
         ? ['step', ['zoom'], ['case', ['get', 'highlighted'], 1, 0], 4, 1]
@@ -332,32 +325,41 @@ export function ClioScientificMapView({
           // The new style's load event will install the layer and its paint.
         }
       };
-      if (!map.getLayer(GEOMETRY_LAYER_IDS[0])) map.addLayer({
-        id: GEOMETRY_LAYER_IDS[0], type: 'fill', source: GEOMETRY_SOURCE_ID,
-        filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: { 'fill-color': color, 'fill-opacity': 0.42, 'fill-outline-color': '#f8fafc' },
-      });
-      if (!map.getLayer(GEOMETRY_LAYER_IDS[1])) map.addLayer({
-        id: GEOMETRY_LAYER_IDS[1], type: 'line', source: GEOMETRY_SOURCE_ID,
-        filter: ['==', ['geometry-type'], 'LineString'],
-        paint: {
-          'line-color': color,
-          'line-width': lineWidth,
-          'line-opacity': lineOpacity,
-        },
-      });
-      if (!map.getLayer(GEOMETRY_LAYER_IDS[2])) map.addLayer({
-        id: GEOMETRY_LAYER_IDS[2], type: 'circle', source: GEOMETRY_SOURCE_ID,
-        filter: ['==', ['geometry-type'], 'Point'],
-        paint: {
-          'circle-color': color,
-          'circle-radius': ['case', ['get', 'highlighted'], 7, ['get', 'endpoint'], 6, 4],
-          'circle-opacity': pointOpacity,
-          'circle-stroke-color': '#fff',
-          'circle-stroke-width': 1,
-          'circle-stroke-opacity': pointOpacity,
-        },
-      });
+      if (!map.getLayer(GEOMETRY_LAYER_IDS[0]))
+        map.addLayer({
+          id: GEOMETRY_LAYER_IDS[0],
+          type: 'fill',
+          source: GEOMETRY_SOURCE_ID,
+          filter: ['==', ['geometry-type'], 'Polygon'],
+          paint: { 'fill-color': color, 'fill-opacity': 0.42, 'fill-outline-color': '#f8fafc' },
+        });
+      if (!map.getLayer(GEOMETRY_LAYER_IDS[1]))
+        map.addLayer({
+          id: GEOMETRY_LAYER_IDS[1],
+          type: 'line',
+          source: GEOMETRY_SOURCE_ID,
+          filter: ['==', ['geometry-type'], 'LineString'],
+          paint: {
+            'line-color': color,
+            'line-width': lineWidth,
+            'line-opacity': lineOpacity,
+          },
+        });
+      if (!map.getLayer(GEOMETRY_LAYER_IDS[2]))
+        map.addLayer({
+          id: GEOMETRY_LAYER_IDS[2],
+          type: 'circle',
+          source: GEOMETRY_SOURCE_ID,
+          filter: ['==', ['geometry-type'], 'Point'],
+          paint: {
+            'circle-color': color,
+            'circle-radius': ['case', ['get', 'highlighted'], 7, ['get', 'endpoint'], 6, 4],
+            'circle-opacity': pointOpacity,
+            'circle-stroke-color': '#fff',
+            'circle-stroke-width': 1,
+            'circle-stroke-opacity': pointOpacity,
+          },
+        });
       // A pooled map can already own these layer IDs from a previous sparse
       // view. Keep its paint in sync when the new view is dense.
       setPaintIfChanged(GEOMETRY_LAYER_IDS[1], 'line-width', lineWidth);
@@ -367,7 +369,10 @@ export function ClioScientificMapView({
     };
     const updateCursor = (event: MapLayerMouseEvent) => {
       const layers = GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id));
-      canvas.style.cursor = layers.length && map.queryRenderedFeatures(event.point, { layers }).length ? 'pointer' : previousCursor;
+      canvas.style.cursor =
+        layers.length && map.queryRenderedFeatures(event.point, { layers }).length
+          ? 'pointer'
+          : previousCursor;
     };
     ensureGeometryLayers();
     map.on('load', ensureGeometryLayers);
@@ -385,16 +390,21 @@ export function ClioScientificMapView({
       try {
         for (const id of GEOMETRY_LAYER_IDS) if (map.getLayer(id)) map.removeLayer(id);
         if (map.getSource(GEOMETRY_SOURCE_ID)) map.removeSource(GEOMETRY_SOURCE_ID);
-      } catch { /* Pooled map style was already removed. */ }
+      } catch {
+        /* Pooled map style was already removed. */
+      }
     };
   }, [geometry, mapInstance, denseTrajectories]);
   useEffect(() => {
     if (!styledGeometry || !mapInstance) return;
-    (mapInstance.getSource(GEOMETRY_SOURCE_ID) as GeoJSONSource | undefined)?.setData(styledGeometry);
+    (mapInstance.getSource(GEOMETRY_SOURCE_ID) as GeoJSONSource | undefined)?.setData(
+      styledGeometry,
+    );
   }, [styledGeometry, mapInstance]);
   // Test-only hook (see `MapDebugSurface`).
   useEffect(() => {
-    if (mapInstance && rootRef.current) (rootRef.current as MapDebugSurface).__clioMap = mapInstance;
+    if (mapInstance && rootRef.current)
+      (rootRef.current as MapDebugSurface).__clioMap = mapInstance;
   }, [mapInstance]);
   // Imperative, not the declarative <Source>/<Layer> children: those gate
   // creation on `map.style._loaded` and retry only on the library's own
@@ -442,7 +452,12 @@ export function ClioScientificMapView({
           type: 'circle',
           source: POINTS_SOURCE_ID,
           paint: {
-            'circle-color': ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, ['get', 'color']],
+            'circle-color': [
+              'case',
+              ['get', 'highlighted'],
+              POINT_HIGHLIGHTED_COLOR,
+              ['get', 'color'],
+            ],
             'circle-opacity': 0.85,
             'circle-radius': ['case', ['get', 'highlighted'], 6, 4],
             'circle-stroke-color': '#ffffff',
@@ -491,19 +506,25 @@ export function ClioScientificMapView({
     // before react-map-gl refreshes its interactive layer list. Ask the live
     // map for the hit in that case, so a visible line is always clickable.
     const map = mapRef.current?.getMap();
-    const feature = event.features?.[0] ?? (geometry
-      ? mapRef.current?.getMap().queryRenderedFeatures(event.point, {
-          layers: GEOMETRY_LAYER_IDS.filter((id) => mapRef.current?.getMap().getLayer(id)),
-        })[0]
-      : undefined);
+    const feature =
+      event.features?.[0] ??
+      (geometry
+        ? mapRef.current?.getMap().queryRenderedFeatures(event.point, {
+            layers: GEOMETRY_LAYER_IDS.filter((id) => mapRef.current?.getMap().getLayer(id)),
+          })[0]
+        : undefined);
     // MapLibre can draw a freshly swapped GeoJSON source before its hit index
     // catches up. Project the same data as a fallback so visible dots and
     // segments remain selectable during that interval.
-    const projected = map && geometry
-      ? nearestProjectedGeometryId(map, event.point, points, geometry)
-      : undefined;
+    const projected =
+      map && geometry ? nearestProjectedGeometryId(map, event.point, points, geometry) : undefined;
     const id = feature?.properties?.id ?? projected;
-    if (typeof id === 'string') onSelect(id, event.originalEvent.shiftKey, event.originalEvent.ctrlKey || event.originalEvent.metaKey);
+    if (typeof id === 'string')
+      onSelect(
+        id,
+        event.originalEvent.shiftKey,
+        event.originalEvent.ctrlKey || event.originalEvent.metaKey,
+      );
     else onClearSelection?.();
   };
 
@@ -513,7 +534,12 @@ export function ClioScientificMapView({
   };
   const handleMouseDownCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
     suppressHandledClick.current = false;
-    if (!onZoneSelect || (!boxSelectMode && !event.shiftKey && !event.ctrlKey && !event.metaKey) || event.button !== 0) return;
+    if (
+      !onZoneSelect ||
+      (!boxSelectMode && !event.shiftKey && !event.ctrlKey && !event.metaKey) ||
+      event.button !== 0
+    )
+      return;
     // MapLibre listens for mouse events separately from pointer events. Take
     // ownership of the mouse gesture before its canvas can begin a pan.
     event.preventDefault();
@@ -550,21 +576,37 @@ export function ClioScientificMapView({
       const east = Math.max(corner1.lng, corner2.lng);
       const south = Math.min(corner1.lat, corner2.lat);
       const north = Math.max(corner1.lat, corner2.lat);
-      const ids = geometry && !geometrySelectionByPoints
-        ? [...new Set(map.queryRenderedFeatures(
-            [[Math.min(completed.startX, completed.x), Math.min(completed.startY, completed.y)],
-              [Math.max(completed.startX, completed.x), Math.max(completed.startY, completed.y)]],
-            { layers: GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id)) },
-          ).map((feature) => feature.properties?.id).filter((id): id is string => typeof id === 'string'))]
-        : points
-          .filter(
-            (candidate) =>
-              candidate.longitude >= west &&
-              candidate.longitude <= east &&
-              candidate.latitude >= south &&
-              candidate.latitude <= north,
-          )
-          .map((candidate) => candidate.id);
+      const ids =
+        geometry && !geometrySelectionByPoints
+          ? [
+              ...new Set(
+                map
+                  .queryRenderedFeatures(
+                    [
+                      [
+                        Math.min(completed.startX, completed.x),
+                        Math.min(completed.startY, completed.y),
+                      ],
+                      [
+                        Math.max(completed.startX, completed.x),
+                        Math.max(completed.startY, completed.y),
+                      ],
+                    ],
+                    { layers: GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id)) },
+                  )
+                  .map((feature) => feature.properties?.id)
+                  .filter((id): id is string => typeof id === 'string'),
+              ),
+            ]
+          : points
+              .filter(
+                (candidate) =>
+                  candidate.longitude >= west &&
+                  candidate.longitude <= east &&
+                  candidate.latitude >= south &&
+                  candidate.latitude <= north,
+              )
+              .map((candidate) => candidate.id);
       onZoneSelect?.(ids, event.ctrlKey || event.metaKey, event.shiftKey);
     } else if (map && (boxSelectMode || event.shiftKey || event.ctrlKey || event.metaKey)) {
       // A tap in rectangle mode is still a point click. DOM markers sit above
@@ -572,11 +614,18 @@ export function ClioScientificMapView({
       const feature = map.queryRenderedFeatures([point.x, point.y], {
         layers: geometry
           ? GEOMETRY_LAYER_IDS.filter((id) => map.getLayer(id))
-          : manyPoints && map.getLayer(POINTS_LAYER_ID) ? [POINTS_LAYER_ID] : [],
+          : manyPoints && map.getLayer(POINTS_LAYER_ID)
+            ? [POINTS_LAYER_ID]
+            : [],
       })[0];
       const hit = points.find((candidate) => {
         const projected = map.project([candidate.longitude, candidate.latitude]);
-        return Math.hypot(projected.x - point.x, projected.y - (geometrySelectionByPoints ? 0 : 16) - point.y) <= 18;
+        return (
+          Math.hypot(
+            projected.x - point.x,
+            projected.y - (geometrySelectionByPoints ? 0 : 16) - point.y,
+          ) <= 18
+        );
       });
       const id = feature?.properties?.id;
       if (typeof id === 'string') {
@@ -637,15 +686,19 @@ export function ClioScientificMapView({
       <Map
         dragPan={!boxSelectMode}
         initialViewState={viewState}
-        interactiveLayerIds={geometry ? [...GEOMETRY_LAYER_IDS] : manyPoints ? [POINTS_LAYER_ID] : undefined}
+        interactiveLayerIds={
+          geometry ? [...GEOMETRY_LAYER_IDS] : manyPoints ? [POINTS_LAYER_ID] : undefined
+        }
         mapStyle={rasterStyle}
-        maxPitch={0}
+        maxPitch={60}
         maxZoom={16}
         minZoom={1}
         onClick={handleLayerClick}
-        onError={(event) =>
-          setMapError(event.error?.message || 'The map tiles could not be loaded.')
-        }
+        onError={(event) => {
+          const detail = event.error?.message || 'The map tiles could not be loaded.';
+          setMapError(detail);
+          if (rootRef.current) (rootRef.current as MapDebugSurface).__clioMapFailure = detail;
+        }}
         ref={mapRef}
         reuseMaps
         style={{ height: '100%', width: '100%' }}
@@ -657,13 +710,19 @@ export function ClioScientificMapView({
           : points.map((point) => {
               const highlighted = resolvedHighlightedIds.has(point.id);
               return (
-                <Marker anchor="bottom" key={point.id} latitude={point.latitude} longitude={point.longitude}>
+                <Marker
+                  anchor="bottom"
+                  key={point.id}
+                  latitude={point.latitude}
+                  longitude={point.longitude}
+                >
                   <button
                     aria-label={`Select ${point.label}`}
                     aria-pressed={highlighted}
                     className={cn(
                       'group grid size-8 cursor-pointer place-items-center rounded-full border border-white/80 text-white shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      highlighted && 'scale-110 ring-2 ring-primary ring-offset-1 ring-offset-background',
+                      highlighted &&
+                        'scale-110 ring-2 ring-primary ring-offset-1 ring-offset-background',
                     )}
                     style={{ backgroundColor: mapPointColor(point, categoryColors, valueExtent) }}
                     onClick={(event) => {
@@ -721,7 +780,10 @@ export function ClioScientificMapView({
           className="absolute inset-x-3 bottom-3 rounded-md border border-destructive/30 bg-background/95 px-3 py-2 text-xs text-destructive shadow-sm"
           role="alert"
         >
-          {mapError.startsWith('layers.') ? 'Map data layer unavailable' : 'Map background unavailable'}: {mapError}
+          {mapError.startsWith('layers.')
+            ? 'Map data layer unavailable'
+            : 'Map background unavailable'}
+          : {mapError}
         </p>
       ) : null}
     </div>
