@@ -12,6 +12,7 @@ import { SessionConnectedSources, SessionWorkShowcase } from './session-showcase
 import { ClioContextMeter } from './context-meter';
 import { useShowcasePlacement } from './use-showcase-placement';
 import { cycleEvidenceLayout, type EvidenceLayout } from './evidence-layout';
+import { SessionEvidenceColumn } from './session-evidence-column';
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
 
 /** A compact launcher that stays docked while the transcript has room beside it. */
@@ -136,52 +137,64 @@ export function SessionEvidencePopover({
               : { height: flyoutHeight }
           }
           aria-label="Activity and evidence"
-          className="w-[min(30rem,calc(100vw-2rem))] h-[min(32rem,var(--radix-popover-content-available-height))] overflow-hidden gap-0 p-0"
+          className="w-[min(30rem,calc(100vw-2rem))] h-[min(32rem,var(--radix-popover-content-available-height))] overflow-hidden gap-0 bg-transparent p-0 shadow-none ring-0"
         >
-          <div
-            data-slot="session-summary-header"
-            className="flex shrink-0 items-center gap-1 border-b px-3 py-2"
-          >
-            <h2 className="flex-1 text-sm font-medium">Session</h2>
-            {evidence.onOpenCanvas ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      aria-label="Open full details"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => {
-                        dismissTemporary();
-                        evidence.onOpenCanvas?.();
-                      }}
-                    >
-                      <PanelRightOpenIcon />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Open full details</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
-            <Button
-              aria-label="Hide activity and evidence"
-              title="Hide activity and evidence"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setOpen(false)}
-            >
-              <CloseIcon />
-            </Button>
-          </div>
-          <div className="@container flex min-h-0 flex-1 flex-col">
-            <div
-              className={`clio-scrollbar grid min-h-0 flex-1 content-start overflow-y-auto ${layout === 'both' ? '@min-[400px]:grid-cols-2 @min-[400px]:grid-rows-[minmax(0,1fr)] @min-[400px]:overflow-hidden' : ''}`}
-            >
-              {layout !== 'bottom' ? (
-                <div
-                  className="clio-scrollbar min-h-0 min-w-0 px-3 py-2 @min-[400px]:overflow-y-auto"
-                  data-showcase-section="top"
+          <SessionEvidenceColumn
+            actions={
+              <>
+                {evidence.onOpenCanvas ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          aria-label="Open full details"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => {
+                            dismissTemporary();
+                            evidence.onOpenCanvas?.();
+                          }}
+                        >
+                          <PanelRightOpenIcon />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Open full details</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : null}
+                <Button
+                  aria-label="Hide activity and evidence"
+                  title="Hide activity and evidence"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setOpen(false)}
                 >
+                  <CloseIcon />
+                </Button>
+              </>
+            }
+            workActions={
+              openWork ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="Open Work view"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={openWork}
+                      >
+                        <PanelRightOpenIcon />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Open Work view</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null
+            }
+            data={
+              layout !== 'bottom' ? (
+                <>
                   {evidence.onOpenCanvas ? (
                     <button
                       type="button"
@@ -214,25 +227,12 @@ export function SessionEvidencePopover({
                     />
                   ) : null}
                   <ClioEvidenceView {...evidence} {...summaryActions} compact section="data" />
-                </div>
-              ) : null}
-              {layout !== 'top' ? (
-                <div
-                  className={`clio-scrollbar min-h-0 min-w-0 px-3 py-2 @min-[400px]:overflow-y-auto ${layout === 'both' ? 'border-t @min-[400px]:border-t-0 @min-[400px]:border-l' : ''}`}
-                  data-showcase-section="bottom"
-                >
-                  {openWork ? (
-                    <Button
-                      variant="ghost"
-                      className="h-7 w-full justify-start px-1 text-xs"
-                      aria-label="Open Work view"
-                      onClick={openWork}
-                    >
-                      Work
-                    </Button>
-                  ) : (
-                    <h2 className="py-1 text-xs font-medium">Work</h2>
-                  )}
+                </>
+              ) : undefined
+            }
+            work={
+              layout !== 'top' ? (
+                <>
                   {evidence.sessionId && openWork ? (
                     <SessionWorkSummary sessionId={evidence.sessionId} onOpen={openWork} />
                   ) : null}
@@ -240,10 +240,10 @@ export function SessionEvidencePopover({
                   {evidence.sessionId ? (
                     <SessionWorkShowcase sessionId={evidence.sessionId} onOpenWork={openWork} />
                   ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
+                </>
+              ) : undefined
+            }
+          />
         </PopoverContent>
       </Popover>
       {evidence.workspaceId ? (

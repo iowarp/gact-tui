@@ -61,7 +61,7 @@ test('keeps response preparation in the transcript and showcases beside the canv
     const details = panel.getByRole('button', { name: 'Open full details' });
     await expect(
       panel
-        .locator('[data-slot="session-summary-header"]')
+        .locator('[data-slot="session-section-header"]')
         .getByRole('button', { name: 'Open full details' }),
     ).toBeVisible();
     await expect(details).toHaveText('');

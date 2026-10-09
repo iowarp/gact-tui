@@ -1,6 +1,7 @@
 /** Test-only source and work inventory for the compact Session viewer. */
 export function createSessionSummaryFixture({ sendJson, sessionId, workspaceId }) {
   let enabled = false;
+  let density = '';
   const source = {
     id: 'source_summary',
     label: 'Sensor repository',
@@ -23,17 +24,28 @@ export function createSessionSummaryFixture({ sendJson, sessionId, workspaceId }
   return {
     reset() {
       enabled = false;
+      density = '';
     },
     async handle(request, response, url) {
       if (request.method === 'POST' && url.pathname === '/__test/session-summary') {
         enabled = true;
+        density = url.searchParams.get('density') ?? '';
         sendJson(response, { enabled });
         return true;
       }
       if (!enabled) return false;
       const root = `/v1/workspaces/${workspaceId}/sources`;
       if (url.pathname === root && request.method === 'GET') {
-        sendJson(response, { sources: [source] });
+        sendJson(response, {
+          sources:
+            density === 'both'
+              ? Array.from({ length: 25 }, (_, index) => ({
+                  ...source,
+                  id: index ? `source_summary_${index}` : source.id,
+                  label: index ? `Sensor repository ${index + 1}` : source.label,
+                }))
+              : [source],
+        });
         return true;
       }
       if (url.pathname === '/v1/storage/providers' && request.method === 'GET') {
@@ -67,7 +79,12 @@ export function createSessionSummaryFixture({ sendJson, sessionId, workspaceId }
           loop: null,
           goals: [],
           loops: [],
-          todos: [{ content: 'Check the report', status: 'in_progress' }],
+          todos: density
+            ? Array.from({ length: 60 }, (_, index) => ({
+                content: index ? `Review station ${index + 1}` : 'Check the report',
+                status: 'in_progress',
+              }))
+            : [{ content: 'Check the report', status: 'in_progress' }],
           goal_next_cursor: null,
           loop_next_cursor: null,
         });
