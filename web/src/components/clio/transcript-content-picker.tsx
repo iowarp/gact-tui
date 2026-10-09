@@ -65,7 +65,12 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
             Add whole blocks to the attention set, including collapsed activity.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="min-h-0 flex-1 max-h-[55dvh]">
+        <ScrollArea
+          className="min-h-0 flex-1 max-h-[55dvh]"
+          // Radix wraps the list in display:table, which grows to the widest
+          // unbroken preview (tool JSON, paths) and pushes labels out of view.
+          viewportProps={{ className: '[&>div]:!block' }}
+        >
           <div className="space-y-1 pr-3">
             {rows.map((row) => {
               const key = JSON.stringify(row.reference);
@@ -88,7 +93,7 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
                   <Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{row.label}</p>
-                    <p className="line-clamp-2 break-words text-xs text-muted-foreground">
+                    <p className="line-clamp-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">
                       {row.preview || 'Recorded content reference'}
                     </p>
                   </div>
