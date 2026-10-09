@@ -365,7 +365,7 @@ function ConversationBody({
           if (['Enter', ' '].includes(event.key) && target.closest('button[aria-expanded]')) {
             markUserScrollIntent();
             disengage();
-            captureReadingAnchor();
+            captureReadingAnchor(target);
           }
           const ownsKey = target.closest(
             'input, textarea, select, [contenteditable="true"], [role="combobox"], [role="listbox"], [role="menu"], [role="tablist"], [role="radiogroup"]',
@@ -389,7 +389,7 @@ function ConversationBody({
             disengage();
             // A streaming row can finish before a native scroll event fires.
             // Keep the visible reader anchor mounted through that transition.
-            captureReadingAnchor();
+            captureReadingAnchor(event.target);
           }
           if (event.target === event.currentTarget) markUserScrollIntent();
           autoscroll.onPointerDown(event);

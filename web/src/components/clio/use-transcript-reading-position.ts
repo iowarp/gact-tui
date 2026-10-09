@@ -69,24 +69,31 @@ export function useTranscriptReadingPosition({
     pinnedToBottomRef,
     setActiveMessageIndex,
   ]);
-  const captureReadingAnchor = useCallback(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    const viewportTop = element.getBoundingClientRect().top;
-    const row = Array.from(
-      element.querySelectorAll<HTMLElement>('[data-index][id^="message-"]'),
-    ).find((item) => {
-      const rect = item.getBoundingClientRect();
-      return rect.bottom > viewportTop && rect.top < viewportTop + element.clientHeight;
-    });
-    readingAnchorRef.current = row
-      ? {
-          id: row.id,
-          index: Number(row.dataset.index),
-          offset: row.getBoundingClientRect().top - viewportTop,
-        }
-      : null;
-  }, [scrollRef, readingAnchorRef]);
+  const captureReadingAnchor = useCallback(
+    (target?: Element | null) => {
+      const element = scrollRef.current;
+      if (!element) return;
+      const viewportTop = element.getBoundingClientRect().top;
+      const selected = target?.closest<HTMLElement>('[data-index][id^="message-"]');
+      const row =
+        selected && element.contains(selected)
+          ? selected
+          : Array.from(element.querySelectorAll<HTMLElement>('[data-index][id^="message-"]')).find(
+              (item) => {
+                const rect = item.getBoundingClientRect();
+                return rect.bottom > viewportTop && rect.top < viewportTop + element.clientHeight;
+              },
+            );
+      readingAnchorRef.current = row
+        ? {
+            id: row.id,
+            index: Number(row.dataset.index),
+            offset: row.getBoundingClientRect().top - viewportTop,
+          }
+        : null;
+    },
+    [scrollRef, readingAnchorRef],
+  );
 
   useLayoutEffect(() => {
     // A native scroll event can arrive before virtualization has mounted its
