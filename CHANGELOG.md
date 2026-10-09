@@ -6,6 +6,13 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Fixed
+
+- Release summaries use the embedding product's changelog and release version,
+  alongside separately versioned interface notes. CLIO installers no longer
+  select an unrelated old UI release. Clear source labels, readable Markdown,
+  and expandable older releases and technical notes make updates easier to scan.
+
 ## [0.11.3-beta.9] - 2026-10-08
 
 ### Fixed
