@@ -116,6 +116,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: desktop/sidecar-launcher/go.sum
       - uses: actions/cache@v4
         with:
           path: |
@@ -176,6 +180,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: desktop/sidecar-launcher/go.sum
       - name: Install Linux desktop and WebDriver dependencies
         run: |
           sudo apt-get update
