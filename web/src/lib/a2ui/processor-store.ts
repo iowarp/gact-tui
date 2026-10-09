@@ -397,7 +397,10 @@ function applyPendingMessages(
           const alreadyReported = entry.reportedFailures.get(componentId) === definition;
           const noticeMessage = `${componentLabel(component)} could not be validated and was skipped: ${detail}`;
           if (alreadyReported) {
-            onValidationFailed({ code: 'a2ui_component_failure_unchanged', message: noticeMessage });
+            onValidationFailed({
+              code: 'a2ui_component_failure_unchanged',
+              message: noticeMessage,
+            });
           } else {
             entry.reportedFailures.set(componentId, definition);
             onValidationFailed({ code: 'VALIDATION_FAILED', message: noticeMessage });
@@ -500,6 +503,7 @@ export function useA2uiSurfaceModel(
   catalogsLoading: boolean,
   handleAction: (action: A2uiClientAction) => void | Promise<void>,
   onValidationFailed: (error: { code: string; path?: string; message: string }) => void,
+  registerClientMetadata = true,
 ): A2uiProcessorResult {
   const entryRef = useRef<ProcessorEntry | undefined>(undefined);
   const degradedProtocolReportedRef = useRef(false);
@@ -511,11 +515,11 @@ export function useA2uiSurfaceModel(
       entryRef.current?.errorUnsubscribe();
       entryRef.current = undefined;
       degradedProtocolReportedRef.current = false;
-      unregisterA2uiSurfaceProcessor(surface.session_id, surface.id);
+      if (registerClientMetadata) unregisterA2uiSurfaceProcessor(surface.session_id, surface.id);
     };
     // Torn down only when the surface identity itself changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface.id, surface.session_id]);
+  }, [surface.id, surface.session_id, registerClientMetadata]);
 
   useLayoutEffect(() => {
     // The registry has not resolved this session's catalogs yet — an empty
@@ -530,11 +534,14 @@ export function useA2uiSurfaceModel(
     // `surface.protocol_version` is `typeof A2UI_VERSION` ('0.9.1' today), so
     // this is always a real `MessageProcessorOptions['version']` member; the
     // cast only exists because a plain template literal widens to `string`.
-    const version = `v${surface.protocol_version}` as NonNullable<MessageProcessorOptions['version']>;
+    const version = `v${surface.protocol_version}` as NonNullable<
+      MessageProcessorOptions['version']
+    >;
     if (!entryRef.current || entryRef.current.catalogsKey !== catalogIds) {
       entryRef.current?.errorUnsubscribe();
       entryRef.current = createProcessorEntry(catalogs, catalogIds, handleAction, version);
-      registerA2uiSurfaceProcessor(surface.session_id, surface.id, entryRef.current.processor);
+      if (registerClientMetadata)
+        registerA2uiSurfaceProcessor(surface.session_id, surface.id, entryRef.current.processor);
     }
     let entry = entryRef.current;
 
@@ -570,7 +577,8 @@ export function useA2uiSurfaceModel(
         entry.errorUnsubscribe();
         entry = createProcessorEntry(catalogs, catalogIds, handleAction, version);
         entryRef.current = entry;
-        registerA2uiSurfaceProcessor(surface.session_id, surface.id, entry.processor);
+        if (registerClientMetadata)
+          registerA2uiSurfaceProcessor(surface.session_id, surface.id, entry.processor);
       } else if (entry.partId !== undefined && surface.revision <= entry.appliedRevision) {
         // Same lifecycle, but at or behind what is already applied (a
         // post-gap REST reconcile racing the live stream) -- never
@@ -590,8 +598,11 @@ export function useA2uiSurfaceModel(
       // revision can denote a fresh lifecycle and must still rebuild.
       const unchangedLegacyRevision =
         entry.partId === surface.part_id && surface.revision === entry.appliedRevision;
-      if (!isRecreate && (unchangedLegacyRevision ||
-        (entry.partId !== undefined && surface.revision <= entry.appliedRevision))) {
+      if (
+        !isRecreate &&
+        (unchangedLegacyRevision ||
+          (entry.partId !== undefined && surface.revision <= entry.appliedRevision))
+      ) {
         return;
       }
       // No stamps to incrementally trust -- tear down and replay the WHOLE
@@ -602,12 +613,14 @@ export function useA2uiSurfaceModel(
       entry.errorUnsubscribe();
       entry = createProcessorEntry(catalogs, catalogIds, handleAction, version);
       entryRef.current = entry;
-      registerA2uiSurfaceProcessor(surface.session_id, surface.id, entry.processor);
+      if (registerClientMetadata)
+        registerA2uiSurfaceProcessor(surface.session_id, surface.id, entry.processor);
       entry.partId = surface.part_id;
       pending = incoming;
     }
 
-    const failure = pending.length > 0 ? applyPendingMessages(entry, pending, onValidationFailed) : undefined;
+    const failure =
+      pending.length > 0 ? applyPendingMessages(entry, pending, onValidationFailed) : undefined;
     entry.appliedRevision = surface.revision;
 
     const model = entry.processor.model.getSurface(surface.id);
@@ -644,7 +657,15 @@ export function useA2uiSurfaceModel(
     // `surface` (not just its id/messages) intentionally drives this effect:
     // a new message array reference is the signal that there is pending work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface, catalogs, catalogIds, catalogsLoading, handleAction, onValidationFailed]);
+  }, [
+    surface,
+    catalogs,
+    catalogIds,
+    catalogsLoading,
+    handleAction,
+    onValidationFailed,
+    registerClientMetadata,
+  ]);
 
   return result;
 }

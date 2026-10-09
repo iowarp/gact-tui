@@ -68,8 +68,9 @@ export function formatDuration(milliseconds: number, style: DurationStyle = 'uni
       ? `${seconds.toFixed(1).replace(/\.0$/u, '')} s`
       : `${Math.round(seconds)} s`;
   }
-  const minutes = Math.floor(elapsed / MILLISECONDS_PER_MINUTE);
-  const seconds = Math.round((elapsed % MILLISECONDS_PER_MINUTE) / MILLISECONDS_PER_SECOND);
+  const roundedSeconds = Math.round(elapsed / MILLISECONDS_PER_SECOND);
+  const minutes = Math.floor(roundedSeconds / 60);
+  const seconds = roundedSeconds % 60;
   return seconds ? `${minutes} min ${seconds} s` : `${minutes} min`;
 }
 

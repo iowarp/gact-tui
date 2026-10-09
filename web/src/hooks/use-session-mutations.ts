@@ -245,9 +245,6 @@ export function useSessionMutations({
       if (parts.length === 0) throw new Error('Write a message or attach a resource.');
 
       const route = { model_id: model, provider_id: provider };
-      if (value.delivery === 'queued' && value.answersQuestionId) {
-        throw new Error("Answer the agent's question now, or stop answering to queue a message.");
-      }
       const controller = uploadController.current;
       let target = session;
       if (!sessionId && createOnSend) {
@@ -278,6 +275,9 @@ export function useSessionMutations({
           idempotency_key: identity.idempotencyKey,
           model: route,
           parts,
+          ...(value.answersQuestionId
+            ? { metadata: { answers_question_id: value.answersQuestionId } }
+            : {}),
         });
         if (!sessionId && target) openStartedSession(target, controller);
         return result;

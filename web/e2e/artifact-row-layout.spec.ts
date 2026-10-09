@@ -72,8 +72,35 @@ test('centers artifact row actions without covering the relation badge', async (
       )
       .toBe(true);
     await page.mouse.move(0, 0);
+    // Resizing remeasures the virtualized history above this output. Wait
+    // for its real scroll geometry to settle before comparing absolute
+    // positions across hover and keyboard focus.
+    let previousGeometry = '';
+    let stableReads = 0;
+    await expect
+      .poll(async () => {
+        const geometry = await card.evaluate((element) => {
+          const scroller = element.closest<HTMLElement>('[role="log"]')!;
+          return JSON.stringify([
+            scroller.scrollTop,
+            scroller.scrollHeight,
+            scroller.clientHeight,
+            element.getBoundingClientRect().y,
+          ]);
+        });
+        stableReads = geometry === previousGeometry ? stableReads + 1 : 0;
+        previousGeometry = geometry;
+        return stableReads;
+      })
+      .toBeGreaterThanOrEqual(3);
     const resting = await measure();
+    const restingBorder = await card.evaluate(
+      (element) => getComputedStyle(element).borderTopColor,
+    );
     await card.hover();
+    await expect
+      .poll(() => card.evaluate((element) => getComputedStyle(element).borderTopColor))
+      .not.toBe(restingBorder);
     const hovered = await measure();
     expect(hovered).toEqual(resting);
     for (const item of [hovered.badge, hovered.action, hovered.icon, hovered.content]) {
@@ -83,6 +110,12 @@ test('centers artifact row actions without covering the relation badge', async (
     expect(hovered.badge.x - hovered.content.right).toBeGreaterThanOrEqual(8);
     expect(hovered.action.right).toBeLessThanOrEqual(hovered.header.right);
     await open.focus();
+    const hitArea = await open.evaluate((element) => {
+      const hit = getComputedStyle(element, '::after');
+      return { height: Number.parseFloat(hit.height), focus: hit.boxShadow };
+    });
+    expect(hitArea.height).toBeGreaterThanOrEqual(hovered.header.height - 2);
+    expect(hitArea.focus).not.toBe('none');
     await page.keyboard.press('Tab');
     await expect(more).toBeFocused();
     expect(await measure()).toEqual(resting);
@@ -90,5 +123,10 @@ test('centers artifact row actions without covering the relation badge', async (
     await expect(page.getByRole('menuitem', { name: 'Download', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
   }
+  // Padding and the file icon open the artifact, not just its name.
+  await card.click({ position: { x: 8, y: 8 } });
+  await expect(
+    page.getByRole('tab', { name: 'vertical-displacement.png', exact: true }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -55,8 +55,8 @@ vi.mock('./conversation', () => ({
 }));
 
 vi.mock('./observability-dock', () => ({
-  ClioObservabilityDock: ({ activeTurnResponded }: { activeTurnResponded?: boolean }) => (
-    <output data-testid="turn-responded">{String(activeTurnResponded)}</output>
+  ClioObservabilityDock: ({ sessionId }: { sessionId?: string }) => (
+    <output data-testid="dock-session">{sessionId}</output>
   ),
   ClioObservabilityView: ({
     messages,
@@ -74,10 +74,30 @@ vi.mock('./observability-dock', () => ({
 
 import {
   WorkspaceLiveConversation,
+  WorkspaceLiveObservabilityDock,
   WorkspaceLiveObservabilityView,
 } from './workspace-live-projections';
 
 describe('WorkspaceLiveConversation', () => {
+  it('passes the active session identity to the compact work inventory', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <WorkspaceLiveObservabilityDock
+          sessionId="sess_summary"
+          artifacts={[]}
+          contextFiles={[]}
+          contextFrames={[]}
+          diffs={[]}
+          processes={[]}
+          runs={[]}
+          subagents={[]}
+          tasks={[]}
+          tools={[]}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByTestId('dock-session')).toHaveTextContent('sess_summary');
+  });
   beforeEach(() => {
     cleanup();
     mocks.entities.artifacts = {};

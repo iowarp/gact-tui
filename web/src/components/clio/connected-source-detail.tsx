@@ -392,8 +392,8 @@ export function ConnectedSourceDetail({
       )}
       {source.connected && canAccessSource && source.origin !== 'desktop_upload' && (
         <SourceMappingOptions
-          canDownload={Boolean(!manageOnly && canDownload)}
-          canLink={Boolean(source.link_available && (!manageOnly || source.linked))}
+          canDownload={Boolean(canDownload)}
+          canLink={Boolean(source.link_available)}
           linked={Boolean(source.linked)}
           linkAccess={linkAccess}
           downloadAccess={downloadAccess}
@@ -700,20 +700,16 @@ export function ConnectedSourceDetail({
                         {browsingCopies ? 'Add to message' : 'Download file'}
                       </Button>
                     )}
-                    {!manageOnly &&
-                      canDownload &&
-                      !browsingCopies &&
-                      source.connected &&
-                      canAccessSource && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={Boolean(active) || download.isPending}
-                          onClick={() => download.mutate(entry.path)}
-                        >
-                          Download file
-                        </Button>
-                      )}
+                    {canDownload && !browsingCopies && source.connected && canAccessSource && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={Boolean(active) || download.isPending}
+                        onClick={() => download.mutate(entry.path)}
+                      >
+                        Download file
+                      </Button>
+                    )}
                   </>
                 )}
               </div>

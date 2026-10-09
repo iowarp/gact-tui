@@ -49,6 +49,7 @@ import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import { ClioArtifactCard } from './artifact-card';
+import { ArtifactFilters } from './artifact-filters';
 import { ClioInteractiveRow } from './interactive-row';
 import { WorkspaceFileView } from './resource-viewers';
 import { ClioStatus } from './status';
@@ -333,18 +334,22 @@ export function ArtifactBrowser({
     <ScrollArea className="h-full p-2">
       <div className="grid gap-2">
         {artifactsPending ? <LoadingRows label="Loading session artifacts" /> : null}
-        {artifacts.map((artifact) => (
-          <ClioArtifactCard
-            artifact={artifact}
-            className={cn(
-              'shadow-none',
-              splitArtifact?.id === artifact.id && 'border-primary bg-primary/5',
-            )}
-            key={artifact.id}
-            onOpen={openArtifact}
-            preview={false}
-          />
-        ))}
+        <ArtifactFilters artifacts={artifacts}>
+          {(visible) =>
+            visible.map((artifact) => (
+              <ClioArtifactCard
+                artifact={artifact}
+                className={cn(
+                  'shadow-none',
+                  splitArtifact?.id === artifact.id && 'border-primary bg-primary/5',
+                )}
+                key={artifact.id}
+                onOpen={openArtifact}
+                preview={false}
+              />
+            ))
+          }
+        </ArtifactFilters>
         {!artifactsPending && !artifacts.length ? (
           <Unavailable
             detail={artifactsError}

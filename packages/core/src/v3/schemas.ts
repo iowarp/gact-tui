@@ -39,6 +39,7 @@ export const permissionLedgerItemSchema = z
   }));
 
 export const userQuestionSchema = z.object({
+  response_mode: z.enum(['blocking', 'async']).optional(),
   id: z.string(),
   session_id: z.string(),
   prompt: z.string(),
@@ -176,6 +177,7 @@ export const sessionSchema = z.object({
   effort: z.string().optional(),
   branch: z.string().optional(),
   parent_session_id: z.string().optional(),
+  session_kind: forwardCompatibleEnum(['conversation', 'branch', 'agent', 'lookup']).optional(),
   agent_id: z.string().optional(),
   active_blueprint_id: z.string().optional(),
   active_blueprint_name: z.string().optional(),
@@ -657,6 +659,7 @@ export const artifactSchema = z.object({
   custody: z.string().optional(),
   sha256: z.string().optional(),
   size: z.number().optional(),
+  version: z.number().int().positive().optional(),
   created_at: z.string().optional(),
   producer: z.record(z.string(), z.unknown()).optional(),
 });

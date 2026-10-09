@@ -1,8 +1,22 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { isSessionActive, isSessionRunning, showsBaseAgent } from './session-state';
+import {
+  isManagedChildSession,
+  isSessionActive,
+  isSessionRunning,
+  showsBaseAgent,
+} from './session-state';
 
 describe('session state semantics', () => {
+  it('gives user branches a composer while retaining the managed-child footer', () => {
+    expect(isManagedChildSession({ parent_session_id: 'parent', session_kind: 'branch' })).toBe(
+      false,
+    );
+    for (const session_kind of ['agent', 'lookup', 'unknown', undefined] as const) {
+      expect(isManagedChildSession({ parent_session_id: 'parent', session_kind })).toBe(true);
+    }
+    expect(isManagedChildSession({})).toBe(false);
+  });
   it('keeps response blockers active without presenting them as working', () => {
     expect(isSessionRunning('waiting_permission')).toBe(false);
     expect(isSessionRunning('waiting_user')).toBe(false);

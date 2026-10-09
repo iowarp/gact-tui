@@ -107,6 +107,14 @@ describe('variant run reducer', () => {
     });
   });
 
+  it('keeps live evaluation criteria when older score frames omit them', () => {
+    const state = reduce([
+      tryFrame(0, { rubric: 'One concise poem.' }),
+      tryFrame(0, { state: 'completed', score: 0.9 }),
+    ]);
+    expect(state.variant_runs.var_1!.rubric).toBe('One concise poem.');
+  });
+
   it('records the selection with its scores and the user pick', () => {
     const state = reduce([
       tryFrame(0, { state: 'completed', text: 'A' }),

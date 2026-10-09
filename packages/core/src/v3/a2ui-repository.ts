@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import {
+  a2uiCaptureRequestSchema,
+  type A2uiViewerReport,
+  type A2uiCaptureReply,
+} from './a2ui-visual-contract.js';
+import {
   a2uiCapabilitiesResponseSchema,
   decodeA2uiCatalogRows,
   mergeA2uiClientMetadata,
@@ -11,6 +16,14 @@ import type {
 } from './a2ui/index.js';
 import { resolveSessionReference, readResolvedReferenceBytes } from './a2ui/reference-transport.js';
 import { PresentationRepository } from './presentation-repository.js';
+import { captureSessionReview } from './session-export-snapshot.js';
+import type { SessionReviewSnapshot } from './session-export-snapshot.js';
+import {
+  dashboardReportSchema,
+  savedDashboardSchema,
+  type DashboardReport,
+  type SavedDashboard,
+} from './dashboard-report.js';
 
 /**
  * The A2UI transport doors (`docs/gact/a2ui-binding.md`): posting a client
@@ -19,6 +32,89 @@ import { PresentationRepository } from './presentation-repository.js';
  * these are `ClioRepository`'s own public methods either way.
  */
 export class A2uiRepository extends PresentationRepository {
+  /** Renew one mounted renderer's lease and claim only requests assigned to it. */
+  public reportA2uiViewer(sessionId: string, report: A2uiViewerReport, signal?: AbortSignal) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/visual-feedback`,
+      body: report,
+      signal,
+      decode: (value) =>
+        z.object({ requests: z.array(a2uiCaptureRequestSchema) }).parse(value).requests,
+    });
+  }
+
+  /** Return matching pixels or an explicit renderer failure to the waiting agent. */
+  public completeA2uiCapture(sessionId: string, reply: A2uiCaptureReply, signal?: AbortSignal) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/visual-feedback`,
+      body: reply,
+      signal,
+      decode: (value) => z.object({ accepted: z.boolean() }).parse(value),
+    });
+  }
+  /** Capture only chosen views and all their source rows/media, with no sampling. */
+  public captureDashboard(sessionId: string, surfaces: unknown[]) {
+    return captureSessionReview(this.transport, [sessionId], undefined, { [sessionId]: surfaces });
+  }
+
+  /** Package an agent-authored report with its actual data and the existing offline renderer. */
+  public prepareDashboardExport(
+    sessionId: string,
+    artifactId: string,
+    renderer: { javascript: string; stylesheet: string },
+    snapshot: SessionReviewSnapshot,
+  ): Promise<{ download_path: string; filename: string; artifact_id: string }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/dashboards/${encodeURIComponent(artifactId)}/export`,
+      body: { ...renderer, snapshot },
+      timeoutMs: 30 * 60 * 1000,
+      decode: (value) =>
+        z
+          .object({
+            download_path: z.string().regex(/^\/v1\/session-export-downloads\/[a-f0-9]{64}$/u),
+            filename: z.string(),
+            artifact_id: z.string(),
+          })
+          .parse(value),
+    });
+  }
+
+  public dashboards(sessionId: string): Promise<SavedDashboard[]> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/dashboards`,
+      decode: (value) => z.array(savedDashboardSchema).parse(value),
+    });
+  }
+
+  /** Retain displayed dashboard pixels and download through the ordinary export ticket. */
+  public prepareDashboardImageExport(sessionId: string, artifactId: string, pngBase64: string) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/dashboards/${encodeURIComponent(artifactId)}/export`,
+      body: { png_base64: pngBase64 },
+      decode: (value) =>
+        z
+          .object({
+            download_path: z.string().regex(/^\/v1\/session-export-downloads\/[a-f0-9]{64}$/u),
+            filename: z.string(),
+            artifact_id: z.string(),
+          })
+          .parse(value),
+    });
+  }
+
+  public dashboard(sessionId: string, artifactId: string): Promise<DashboardReport> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/dashboards/${encodeURIComponent(artifactId)}`,
+      decode: (value) => dashboardReportSchema.parse(value),
+    });
+  }
+
   public a2uiAction(
     sessionId: string,
     message: unknown,

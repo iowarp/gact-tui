@@ -25,9 +25,11 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   const message = page.locator('#message-msg_flat_assistant');
   const activity = message.getByRole('button', { name: /^Activity:/ });
   await expect(activity).toHaveAttribute('aria-expanded', 'false');
-  const thinking = message.getByRole('button', { name: /^Thinking/ });
+  const thinking = message.getByRole('button', { name: /^(?:Thinking|Reasoning):/u });
   await expect(thinking).toBeVisible();
   await expect(thinking).toHaveAttribute('aria-expanded', 'false');
+  await expect(thinking).not.toContainText('Thinking');
+  await expect(thinking.locator('svg.animate-spin')).toHaveCount(1);
   await expect(
     message
       .locator('p')

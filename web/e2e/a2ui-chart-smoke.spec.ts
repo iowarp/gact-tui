@@ -123,6 +123,41 @@ test('renders a clio.chart.v1 scatter preset over inline data', async ({ page })
   await screenshotElement(page, surfaceSection, test.info().outputPath('chart-scatter-preset.png'));
 });
 
+test('keeps the chart background and legend readable across a live theme change', async ({
+  page,
+}, testInfo) => {
+  await page.goto(workspaceUrl);
+  await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
+  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  expect(
+    (
+      await page.request.post(`${fixtureEndpoint}/__test/a2ui-chart-demo`, {
+        data: { legend: true },
+      })
+    ).ok(),
+  ).toBe(true);
+  const surface = await revealSurface(page);
+  const chart = surface.locator('[data-slot="a2ui-chart-view"]');
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate(
+      (theme) => document.documentElement.classList.toggle('dark', theme === 'dark'),
+      theme,
+    );
+    await expectRenderedChart(chart);
+    await expect(surface.getByRole('img', { name: /9 rows$/u })).toBeVisible();
+    await expect
+      .poll(() =>
+        chart.evaluate((node) => {
+          const canvas = node.querySelector('canvas');
+          if (canvas) return canvas.getContext('2d')?.getImageData(0, 0, 1, 1).data[3];
+          return node.querySelector('svg')?.style.backgroundColor === 'transparent' ? 0 : undefined;
+        }),
+      )
+      .toBe(0);
+    await screenshotElement(page, surface, testInfo.outputPath(`chart-${theme}.png`));
+  }
+});
+
 test('the chart still renders in full screen, and again after exiting (#1551/#516 review item 7)', async ({
   page,
 }) => {

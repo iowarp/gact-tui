@@ -100,6 +100,20 @@ function renderDraft() {
 }
 
 describe('presentation-only conversation', () => {
+  it('preserves question ownership on the ordinary queued-message path', async () => {
+    mocks.repository.createQueuedMessage.mockResolvedValue({ id: 'queued_answer' });
+    const { result } = renderDraft();
+    await result.current.send.mutateAsync({
+      ...draft,
+      delivery: 'queued',
+      answersQuestionId: 'q1',
+    });
+    expect(mocks.repository.createQueuedMessage).toHaveBeenCalledWith(
+      'sess_created',
+      expect.objectContaining({ metadata: { answers_question_id: 'q1' } }),
+    );
+    expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
+  });
   it('shares session creation between overlapping sends', async () => {
     mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
     const { result } = renderDraft();

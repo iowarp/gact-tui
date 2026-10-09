@@ -4,11 +4,8 @@
 //! status/install/repair (supervisor), SSH tunnels, and boot-log reveal.
 
 use crate::blocking_command::off_main;
+use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
-use std::{
-    path::{Component, Path, PathBuf},
-    process::Command,
-};
 
 use crate::supervisor::Supervisor;
 use crate::supervisor_boot_log;
@@ -142,14 +139,13 @@ pub fn read_logs() -> Result<String, String> {
     supervisor_boot_log::read_boot_log()
 }
 
-/// Open one confined document working copy in the operating system's default
-/// application. The backend chooses and materializes the path; this command
-/// validates that it names a real file and passes it as an argv element.
+/// Open a confined working copy with a handler currently associated with its type.
 #[tauri::command]
-pub fn open_document_path(
-    path: String,
-    application: Option<crate::document_apps::DocumentApplication>,
-) -> Result<String, String> {
+pub async fn open_document_path(path: String, application: String) -> Result<String, String> {
+    off_main(move || open_document_path_blocking(path, application)).await
+}
+
+fn open_document_path_blocking(path: String, application: String) -> Result<String, String> {
     let requested = PathBuf::from(path);
     let canonical = requested
         .canonicalize()
@@ -160,31 +156,7 @@ pub fn open_document_path(
     if !is_document_working_copy_path(&canonical) {
         return Err("document path is outside a CLIO working copy".to_string());
     }
-    if let Some(application) = application {
-        crate::document_apps::open_in(application, &canonical)?;
-        return Ok(canonical.display().to_string());
-    }
-    #[cfg(target_os = "windows")]
-    let mut command = {
-        let mut value = Command::new("explorer.exe");
-        value.arg(&canonical);
-        value
-    };
-    #[cfg(target_os = "macos")]
-    let mut command = {
-        let mut value = Command::new("open");
-        value.arg(&canonical);
-        value
-    };
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let mut command = {
-        let mut value = Command::new("xdg-open");
-        value.arg(&canonical);
-        value
-    };
-    command
-        .spawn()
-        .map_err(|error| format!("could not open document: {error}"))?;
+    crate::document_apps::open_in(&application, &canonical)?;
     Ok(canonical.display().to_string())
 }
 

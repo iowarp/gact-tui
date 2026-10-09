@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import { ResponseErrorNotice } from './pending-interaction-notices';
+import { QuestionSurface } from './question-surface';
 import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
 
 /**
@@ -110,6 +111,7 @@ export function QuestionResponse({
       />
       <FramePanel className="min-w-0 overflow-hidden">
         <ResponseErrorNotice error={responseError} />
+        <QuestionSurface interaction={interaction} />
         {!canAnswer ? (
           <p className="text-sm text-muted-foreground">Input controls are not available yet.</p>
         ) : usesMulti ? (

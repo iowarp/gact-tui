@@ -698,8 +698,12 @@ test('shift+dragging a rectangle on the map selects points and links the table',
   await page.mouse.up();
   await page.keyboard.up('Shift');
 
+  // The composer can cover the drag endpoint. Pointer capture must still
+  // complete the selection and clear the rectangle when released there.
+  await expect(page.locator('[data-slot="a2ui-map-zone-drag"]')).toHaveCount(0);
   const selectedRows = page.getByRole('table').locator('tr[aria-selected="true"]');
   await expect.poll(async () => selectedRows.count(), { timeout: 20_000 }).toBeGreaterThan(0);
+  await page.screenshot({ path: `${test.info().outputDir}/completed-map-selection.png` });
 });
 
 test('"Reference this" puts a clean chip in the composer and a properly rendered quote once sent', async ({

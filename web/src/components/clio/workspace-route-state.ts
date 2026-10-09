@@ -93,7 +93,10 @@ export function responseTrayInteractions(
     (interaction) =>
       // A draft pick lives in its tabs block in the log, wherever it was asked.
       !isVariantPickInteraction(interaction) &&
-      ((interaction.source.tool_name !== 'plan_exit' && !isToolAnchoredQuestion(interaction)) ||
+      interaction.payload?.response_mode !== 'async' &&
+      ((interaction.source.tool_name !== 'plan_exit' &&
+        interaction.payload?.response_mode === 'blocking') ||
+        (interaction.source.tool_name !== 'plan_exit' && !isToolAnchoredQuestion(interaction)) ||
         !interaction.source.invocation_id ||
         !anchoredInvocationIds.has(interaction.source.invocation_id)),
   );
