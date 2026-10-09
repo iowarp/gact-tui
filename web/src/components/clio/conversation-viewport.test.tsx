@@ -4,11 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioConversation } from './conversation';
+import type { Range } from '@tanstack/react-virtual';
 
 const virtualizerMocks = vi.hoisted(() => ({
   measure: vi.fn(),
   scrollToIndex: vi.fn(),
   scrollToOffset: vi.fn(),
+  rangeExtractor: undefined as ((range: Range) => number[]) | undefined,
 }));
 // Counts turn-model builds without replacing the real projection, so the
 // memoization assertion below observes production behaviour.
@@ -29,21 +31,30 @@ vi.mock('./conversation-turn-model', async (importOriginal) => {
 
 vi.mock('@tanstack/react-virtual', () => ({
   defaultRangeExtractor: () => [],
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getTotalSize: () => count * 180,
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, index) => ({
-        end: (index + 1) * 180,
-        index,
-        key: index,
-        size: 180,
-        start: index * 180,
-      })),
-    measureElement: () => undefined,
-    measure: virtualizerMocks.measure,
-    scrollToIndex: virtualizerMocks.scrollToIndex,
-    scrollToOffset: virtualizerMocks.scrollToOffset,
-  }),
+  useVirtualizer: ({
+    count,
+    rangeExtractor,
+  }: {
+    count: number;
+    rangeExtractor: (range: Range) => number[];
+  }) => {
+    virtualizerMocks.rangeExtractor = rangeExtractor;
+    return {
+      getTotalSize: () => count * 180,
+      getVirtualItems: () =>
+        Array.from({ length: count }, (_, index) => ({
+          end: (index + 1) * 180,
+          index,
+          key: index,
+          size: 180,
+          start: index * 180,
+        })),
+      measureElement: () => undefined,
+      measure: virtualizerMocks.measure,
+      scrollToIndex: virtualizerMocks.scrollToIndex,
+      scrollToOffset: virtualizerMocks.scrollToOffset,
+    };
+  },
 }));
 
 Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
@@ -59,6 +70,7 @@ afterEach(() => {
   virtualizerMocks.measure.mockClear();
   virtualizerMocks.scrollToIndex.mockClear();
   virtualizerMocks.scrollToOffset.mockClear();
+  virtualizerMocks.rangeExtractor = undefined;
   turnModelMocks.presentation.mockClear();
   window.history.replaceState(null, '', window.location.pathname);
 });
@@ -122,6 +134,72 @@ function plainMessages(count: number, withText = true) {
 }
 
 describe('ClioConversation transcript viewport', () => {
+  it('keeps the explicitly expanded row mounted through a layout scroll and completion', () => {
+    stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
+    const props = { artifacts: {}, subagents: {}, surfaces: {}, tasks: {}, tools: {} };
+    const history = plainMessages(79, false);
+    const assistant = {
+      id: 'selected',
+      session_id: 'session_1',
+      role: 'assistant' as const,
+      created_at: '2026-08-22T00:00:01Z',
+      blocks: [
+        {
+          id: 'reasoning',
+          type: 'reasoning' as const,
+          text: 'Selected evidence.',
+          streaming: true,
+        },
+      ],
+    };
+    const view = renderConversation(
+      <ClioConversation {...props} messages={[...history, assistant]} />,
+    );
+    const disclosure = screen.getByRole('button', { name: 'Thinking: Selected evidence.' });
+    fireEvent.pointerDown(disclosure);
+    fireEvent.click(disclosure);
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.scroll(screen.getByRole('log', { name: 'Conversation' }));
+    // Persisted history can arrive after the live row; its identity stays the
+    // same while its index changes from 79 to 99.
+    const backfill = plainMessages(20, false).map((message) => ({
+      ...message,
+      id: `backfilled_${message.id}`,
+    }));
+    view.rerender(
+      <AppearanceProvider>
+        <ConversationDisplayProvider>
+          <ClioConversation
+            {...props}
+            messages={[
+              ...backfill,
+              ...history,
+              {
+                ...assistant,
+                blocks: [{ ...assistant.blocks[0], streaming: false }],
+              },
+            ]}
+          />
+        </ConversationDisplayProvider>
+      </AppearanceProvider>,
+    );
+    expect(
+      virtualizerMocks.rangeExtractor?.({ startIndex: 0, endIndex: 0, overscan: 0, count: 100 }),
+    ).toEqual([99]);
+    expect(screen.getByRole('button', { name: 'Reasoning: Selected evidence.' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    // A later user scroll deliberately releases the old disclosure's anchor.
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    fireEvent.wheel(log, { deltaY: -100 });
+    fireEvent.scroll(log);
+    expect(
+      virtualizerMocks.rangeExtractor?.({ startIndex: 0, endIndex: 0, overscan: 0, count: 100 }),
+    ).toEqual([0]);
+  });
   it('honors keyboard scrolling from a focused transcript button before resizing', () => {
     const viewport = stubViewport();
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
