@@ -1,6 +1,11 @@
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
-export type DocumentApplication = { id: string; name: string; is_default: boolean };
+export type DocumentApplication = {
+  id: string;
+  name: string;
+  is_default: boolean;
+  icon_data_url?: string;
+};
 
 /** Read the OS handlers for this file type without launching any application. */
 export async function documentApplications(

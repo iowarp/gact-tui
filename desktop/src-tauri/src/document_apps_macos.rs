@@ -1,7 +1,8 @@
 //! NSWorkspace resolves Launch Services handlers and the user's preferred app.
 use super::DocumentApplication;
-use objc2_app_kit::NSWorkspace;
-use objc2_foundation::{NSFileManager, NSString, NSURL};
+use objc2::AllocAny;
+use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSWorkspace};
+use objc2_foundation::{NSDictionary, NSFileManager, NSString, NSURL};
 use std::{path::Path, process::Command};
 struct Probe(std::path::PathBuf, std::path::PathBuf);
 impl Drop for Probe {
@@ -38,6 +39,7 @@ pub(super) fn discover(
                     .displayNameAtPath(&path)
                     .to_string();
                 DocumentApplication {
+                    icon_data_url: application_icon(&workspace, &path),
                     is_default: default.as_ref().map(|value| value.to_string())
                         == Some(path.to_string()),
                     id: path.to_string(),
@@ -46,6 +48,16 @@ pub(super) fn discover(
             })
             .collect()
     }))
+}
+
+fn application_icon(workspace: &NSWorkspace, path: &NSString) -> Option<String> {
+    let tiff = workspace.iconForFile(path).TIFFRepresentation()?;
+    let bitmap = NSBitmapImageRep::initWithData(NSBitmapImageRep::alloc(), &tiff)?;
+    // An empty dictionary is valid for PNG encoding and carries no untyped properties.
+    let png = unsafe {
+        bitmap.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())
+    }?;
+    super::png_data_url(&png.to_vec())
 }
 pub(super) fn open_in(id: &str, path: &Path, extension: &str) -> Result<(), String> {
     if !discover(extension, "")?.iter().any(|app| app.id == id) {

@@ -1,5 +1,7 @@
 //! Shell handlers include Store applications and the user's default.
 use super::DocumentApplication;
+#[path = "document_app_icon_windows.rs"]
+mod icons;
 use std::path::Path;
 use windows::{
     core::{HSTRING, PCWSTR, PWSTR},
@@ -63,7 +65,10 @@ fn association_value(extension: &HSTRING, field: windows::Win32::UI::Shell::ASSO
     }
     String::from_utf16_lossy(&buffer[..buffer.iter().position(|v| *v == 0).unwrap_or(buffer.len())])
 }
-fn handlers(extension: &str) -> Result<Vec<(DocumentApplication, IAssocHandler)>, String> {
+fn handlers(
+    extension: &str,
+    include_icons: bool,
+) -> Result<Vec<(DocumentApplication, IAssocHandler)>, String> {
     if extension.is_empty() {
         return Ok(Vec::new());
     }
@@ -95,6 +100,9 @@ fn handlers(extension: &str) -> Result<Vec<(DocumentApplication, IAssocHandler)>
                 id,
                 name,
                 is_default,
+                icon_data_url: include_icons
+                    .then(|| icons::application_icon(&handler))
+                    .flatten(),
             },
             handler,
         ));
@@ -106,14 +114,14 @@ pub(super) fn discover(
     _mime_type: &str,
 ) -> Result<Vec<DocumentApplication>, String> {
     let _apartment = ComApartment::new()?;
-    Ok(handlers(extension)?
+    Ok(handlers(extension, true)?
         .into_iter()
         .map(|(app, _)| app)
         .collect())
 }
 pub(super) fn open_in(id: &str, path: &Path, extension: &str) -> Result<(), String> {
     let _apartment = ComApartment::new()?;
-    let handler = handlers(extension)?
+    let handler = handlers(extension, false)?
         .into_iter()
         .find(|(app, _)| app.id == id)
         .map(|(_, handler)| handler)
