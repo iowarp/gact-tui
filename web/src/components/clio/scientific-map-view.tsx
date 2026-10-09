@@ -2,7 +2,7 @@ import { initialView, rasterStyle } from './map-initial-view';
 import { MapPinIcon } from 'lucide-react';
 import type { FeatureCollection } from 'geojson';
 import type { ExpressionSpecification, GeoJSONSource, MapLibreMap } from 'maplibre-gl';
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map, {
   Marker,
@@ -16,6 +16,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { cn } from '@/lib/utils';
 import { mapCategoryColors, mapPointColor, mapValueExtent } from './map-category-palette';
 import { nearestProjectedGeometryId } from './map-points';
+import { useMapSelectionPointerHandlers } from './map-selection-pointer';
 
 export interface ScientificMapPoint {
   id: string;
@@ -643,30 +644,12 @@ export function ClioScientificMapView({
     setDragBox(null);
   };
 
-  // The map canvas owns its native drag gesture. An explicit selection layer
-  // gives rectangle mode a stable pointer target even when the map reuses its
-  // canvas after scrolling or a full-screen transition.
-  const handleOverlayPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const point = containerPoint(event);
-    const next = { startX: point.x, startY: point.y, x: point.x, y: point.y };
-    dragBoxRef.current = next;
-    setDragBox(next);
-  };
-  const handleOverlayPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragBoxRef.current) return;
-    const point = containerPoint(event);
-    const next = { ...dragBoxRef.current, x: point.x, y: point.y };
-    dragBoxRef.current = next;
-    setDragBox(next);
-  };
-  const handleOverlayPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragBoxRef.current) return;
-    // Reuse the same selection calculation as Shift+drag.
-    handleMouseUpCapture(event as unknown as ReactMouseEvent<HTMLDivElement>);
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  };
+  const selectionPointerHandlers = useMapSelectionPointerHandlers(Boolean(onZoneSelect), boxSelectMode, {
+    start: handleMouseDownCapture,
+    move: handleMouseMoveCapture,
+    finish: handleMouseUpCapture,
+    cancel: () => { dragBoxRef.current = null; setDragBox(null); },
+  });
 
   return (
     <div
@@ -675,31 +658,7 @@ export function ClioScientificMapView({
       onMouseDownCapture={handleMouseDownCapture}
       onMouseMoveCapture={handleMouseMoveCapture}
       onMouseUpCapture={handleMouseUpCapture}
-      onPointerDownCapture={(event) => {
-        if (!onZoneSelect || event.button !== 0 ||
-          (!boxSelectMode && !event.shiftKey && !event.ctrlKey && !event.metaKey)) return;
-        // Own the entire selection gesture, including a release over the
-        // composer or outside this map. Preventing the pointer default also
-        // keeps MapLibre from starting a competing compatibility mouse drag.
-        event.currentTarget.setPointerCapture(event.pointerId);
-        handleMouseDownCapture(event as unknown as ReactMouseEvent<HTMLDivElement>);
-      }}
-      onPointerMoveCapture={(event) => {
-        if (dragBoxRef.current) {
-          handleMouseMoveCapture(event as unknown as ReactMouseEvent<HTMLDivElement>);
-        }
-      }}
-      onPointerUpCapture={(event) => {
-        if (!dragBoxRef.current) return;
-        handleMouseUpCapture(event as unknown as ReactMouseEvent<HTMLDivElement>);
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        }
-      }}
-      onPointerCancelCapture={() => {
-        dragBoxRef.current = null;
-        setDragBox(null);
-      }}
+      {...selectionPointerHandlers}
       onClickCapture={(event) => {
         if (!suppressHandledClick.current) return;
         suppressHandledClick.current = false;
@@ -783,9 +742,6 @@ export function ClioScientificMapView({
         <div
           aria-label="Drag to select map points"
           className="absolute inset-0 z-[1] cursor-crosshair touch-none"
-          onPointerDown={handleOverlayPointerDown}
-          onPointerMove={handleOverlayPointerMove}
-          onPointerUp={handleOverlayPointerUp}
         />
       ) : null}
       {dragBox ? (
