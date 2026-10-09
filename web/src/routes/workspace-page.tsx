@@ -31,6 +31,7 @@ import {
   WorkspaceLiveStatusStrip,
 } from '@/components/clio/workspace-live-projections';
 import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
+import { useDashboardReviewOpening } from '@/hooks/use-dashboard-review-opening';
 import { useA2uiCatalogRegistry } from '@/lib/a2ui/processor-store';
 import { A2uiSourceSignInHost } from '@/components/clio/a2ui-source-sign-in';
 import { useRepository } from '@/hooks/use-repository';
@@ -236,6 +237,7 @@ export function WorkspacePage() {
     ],
   );
   useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
+  useDashboardReviewOpening(entities.tools, entities.artifacts, sessionId, openArtifact, repository);
 
   const {
     actionCard,

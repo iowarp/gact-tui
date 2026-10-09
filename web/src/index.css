@@ -720,15 +720,21 @@ html[data-clio-motion='reduced'] *::after {
 [data-diff-line] {
   padding-inline: 0.5rem;
 }
-/* Grid layout follows its containing view, including a narrow side panel. */
+/* Keep authored column counts as a maximum, with readable cards at docked widths. */
 .a2ui-grid {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@container (min-width: 640px) {
-  .a2ui-grid {
-    grid-template-columns: repeat(var(--a2ui-grid-columns, 2), minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(
+      min(
+        100%,
+        max(
+          10rem,
+          calc((100% - (var(--a2ui-grid-columns, 2) - 1) * 0.75rem) / var(--a2ui-grid-columns, 2))
+        )
+      ),
+      1fr
+    )
+  );
 }
 
 /* Dashboards contain nested rows under tabs; keep their cards readable when docked. */
