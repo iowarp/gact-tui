@@ -17,11 +17,75 @@ vi.mock('@/providers/connection-provider', () => ({
 import { AsyncTaskList } from './async-task-list';
 import { SourceDownloadAttachment } from './source-download-attachment';
 import { RunActions } from './run-actions';
+import { ClioEvidenceView } from './observability-evidence';
 
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
 });
+
+it.each(['MCP', 'Subagent'] as const)(
+  'keeps shared %s controls in the compact Work inventory',
+  async (kind) => {
+    const task: AsyncProcess = {
+      id: 'owned-task',
+      handle: 'task_owned',
+      kind: kind === 'Subagent' ? 'agent' : 'mcp-task',
+      task_kind: kind,
+      title: 'Owned work',
+      description: 'Inspect the original owned assignment',
+      live_state: 'running',
+      effective_status: 'running',
+      status: 'working',
+      progress: { message: 'Reading owned evidence' },
+      supported_actions: ['observe', 'wait', 'result', 'cancel'],
+      metadata: {},
+    };
+    let finish!: () => void;
+    const cancel = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    render(
+      <ClioEvidenceView
+        compact
+        section="work"
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[task]}
+        onCancelTask={cancel}
+      />,
+    );
+    const user = userEvent.setup();
+    expect(screen.getByText(`${kind} · Owned work`)).toBeVisible();
+    expect(screen.getByText(task.description!)).toBeVisible();
+    expect(screen.getByText('running — Reading owned evidence')).toBeVisible();
+    const name = `Cancel ${kind}: ${task.description}`;
+    await user.click(screen.getByRole('button', { name }));
+    expect(screen.getByRole('region', { name: 'Task assignment' })).toHaveTextContent(
+      task.description!,
+    );
+    if (kind === 'Subagent') {
+      expect(screen.getByRole('alertdialog')).toHaveTextContent(
+        'all descendant agents, downloads and shell processes',
+      );
+    }
+    await user.click(screen.getByRole('button', { name: 'Keep running' }));
+    expect(cancel).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name }));
+    await user.click(screen.getByRole('button', { name: 'Cancel task' }));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledWith(task);
+    expect(screen.getByText('Cancellation requested — Reading owned evidence')).toBeVisible();
+    expect(screen.getByRole('button', { name })).toBeDisabled();
+    finish();
+    await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
+  },
+);
 
 it('keeps advertised subtree cancellation available after the subagent itself completes', async () => {
   const user = userEvent.setup();

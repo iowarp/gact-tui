@@ -30,6 +30,7 @@ import { diffStatus, friendlyStatus, type EvidenceSource } from './observability
 import { SessionSummaryRow } from './session-summary-row';
 import { clioStatusLabel } from './status';
 import { ClioToolInvocation } from './tool-invocation';
+import { AsyncTaskList } from './async-task-list';
 
 /** Compact inventory of the same authoritative evidence used by the full view. */
 export function SessionEvidenceSummary({
@@ -53,6 +54,7 @@ export function SessionEvidenceSummary({
   | 'onOpenSubagent'
   | 'onOpenWork'
   | 'onOpenActivity'
+  | 'onCancelTask'
 > & {
   outputs: readonly Artifact[];
   files: readonly EvidenceFile[];
@@ -170,15 +172,7 @@ export function SessionEvidenceSummary({
           value="background"
           count={backgroundProcesses.length}
         >
-          {backgroundProcesses.map((process) => (
-            <SessionSummaryRow
-              key={process.id}
-              icon={<ServerIcon />}
-              label={process.title}
-              metadata={clioStatusLabel(process.live_state)}
-              onOpen={actions.onOpenActivity}
-            />
-          ))}
+          <AsyncTaskList processes={backgroundProcesses} onCancelTask={actions.onCancelTask} />
         </EvidenceSection>
       ) : null}
       {files.length ? (
