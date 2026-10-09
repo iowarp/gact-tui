@@ -109,6 +109,8 @@ export interface Session {
   effort?: string;
   branch?: string;
   parent_session_id?: string;
+  /** Conversation ownership is distinct from provenance parentage. */
+  session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup'>;
   agent_id?: string;
   active_blueprint_id?: string;
   active_blueprint_name?: string;
@@ -260,6 +262,7 @@ export interface ApprovalRequest {
 }
 
 export interface UserQuestion {
+  response_mode?: 'blocking' | 'async';
   id: string;
   session_id: string;
   prompt: string;
@@ -314,6 +317,7 @@ export interface Artifact {
   custody?: string;
   sha256?: string;
   size?: number;
+  version?: number;
   created_at?: string;
   session_relation?: 'produced' | 'used';
   producer?: Record<string, unknown>;

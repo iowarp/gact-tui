@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { CheckIcon, ChevronRightIcon, CircleAlertIcon, LoaderCircleIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DialogTrigger } from '@/components/ui/dialog';
+import { formatDuration } from '@/lib/format';
 import {
   getToolActionLabel,
   getToolHeaderMetadata,
@@ -15,9 +16,11 @@ import {
 export function ToolCompactRow({
   tool,
   attention,
+  duration,
 }: {
   tool: ToolInvocation;
   attention?: ReactNode;
+  duration?: number;
 }) {
   const status = getToolStatus(tool);
   const active = status === 'pending' || status === 'running';
@@ -58,6 +61,15 @@ export function ToolCompactRow({
           <span className="min-w-0 max-w-[35%] truncate text-muted-foreground">{metadata}</span>
         ) : null}
         {!active && !success ? <span className="shrink-0 text-destructive">{status}</span> : null}
+        {duration !== undefined ? (
+          <span
+            className="shrink-0 tabular-nums text-muted-foreground"
+            data-slot="tool-duration"
+            title={active ? 'Elapsed time; updates while running' : 'Execution time'}
+          >
+            {formatDuration(duration, 'tenths')}
+          </span>
+        ) : null}
         {attention}
         <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
       </Button>

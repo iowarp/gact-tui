@@ -189,7 +189,7 @@ export function surfaceAwaitsPendingResponse(
   return (
     interactions?.some(
       (interaction) =>
-        interaction.kind === 'a2ui' &&
+        (interaction.kind === 'a2ui' || interaction.kind === 'question') &&
         interaction.status === 'pending' &&
         interaction.source.surface_id === surfaceId,
     ) ?? false

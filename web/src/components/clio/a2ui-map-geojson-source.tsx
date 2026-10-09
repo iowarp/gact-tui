@@ -9,8 +9,9 @@ import { parseSelectionState, type SelectionWriter } from './selection-state';
 import { downloadBlob, filenameStemFromTitle } from './surface-export';
 import type { SurfaceExportFormat } from './surface-toolbar';
 import { artifactIdFromDataUri } from './table-query-rows';
+import type { MapCameraProps } from './map-camera';
 
-interface GeoJsonSourceProps {
+interface GeoJsonSourceProps extends MapCameraProps {
   accessibility?: A2UIAccessibility;
   action?: () => void;
   actionLabel?: string;
@@ -66,47 +67,74 @@ export function ClioMapGeoJsonSource({
     }
   }, [artifact.text, categoryField, detailField, labelField, effectiveSelectionField, valueField]);
   if (artifact.error || parsed.error) {
-    return <p className="text-sm text-destructive" role="alert">Map unavailable: {artifact.error || parsed.error}</p>;
+    return (
+      <p className="text-sm text-destructive" role="alert">
+        Map unavailable: {artifact.error || parsed.error}
+      </p>
+    );
   }
   if (!parsed.data) {
-    return <p className="text-sm text-muted-foreground" role="status">Loading {title} map…</p>;
+    return (
+      <p className="text-sm text-muted-foreground" role="status">
+        Loading {title} map…
+      </p>
+    );
   }
   const { collection, points, bounds } = parsed.data;
   const selectedValues = parseSelectionState(effectiveSelection)?.values;
   const selected = selectedValues?.length
     ? points.filter((point) => selectedValues.includes(point.selectionValue ?? -1))
     : [];
-  const reference = () => buildZoneReference({
-    componentLabel: title,
-    datasetLabel: artifactIdFromDataUri(geojsonUri) ?? geojsonUri,
-    filters: [],
-    previewColumns: ['id', 'label', 'category', 'value'],
-    previewRows: (selected.length ? selected : points).slice(0, 5).map((point) => ({
-      id: point.id, label: point.label, category: point.category, value: point.value,
-    })),
-    query: {
-      geojsonUri,
-      ...(selected.length ? { selection: { field: effectiveSelectionField, values: selected.map((point) => point.selectionValue) } } : {}),
+  const reference = () =>
+    buildZoneReference({
+      componentLabel: title,
+      datasetLabel: artifactIdFromDataUri(geojsonUri) ?? geojsonUri,
+      filters: [],
+      previewColumns: ['id', 'label', 'category', 'value'],
+      previewRows: (selected.length ? selected : points).slice(0, 5).map((point) => ({
+        id: point.id,
+        label: point.label,
+        category: point.category,
+        value: point.value,
+      })),
+      query: {
+        geojsonUri,
+        ...(selected.length
+          ? {
+              selection: {
+                field: effectiveSelectionField,
+                values: selected.map((point) => point.selectionValue),
+              },
+            }
+          : {}),
+      },
+      zoneDescription: selected.length
+        ? `${selected.length.toLocaleString()} selected ${selected.length === 1 ? 'feature' : 'features'} of ${points.length.toLocaleString()}`
+        : `the filtered current view (${points.length.toLocaleString()} features)`,
+    });
+  const exportFormats: SurfaceExportFormat[] = [
+    {
+      id: 'geojson',
+      label: 'GeoJSON data',
+      run: () =>
+        downloadBlob(
+          new Blob([JSON.stringify(collection)], { type: 'application/geo+json' }),
+          `${filenameStemFromTitle(title)}.geojson`,
+        ),
     },
-    zoneDescription: selected.length
-      ? `${selected.length.toLocaleString()} selected ${selected.length === 1 ? 'feature' : 'features'} of ${points.length.toLocaleString()}`
-      : `the filtered current view (${points.length.toLocaleString()} features)`,
-  });
-  const exportFormats: SurfaceExportFormat[] = [{
-    id: 'geojson',
-    label: 'GeoJSON data',
-    run: () => downloadBlob(new Blob([JSON.stringify(collection)], { type: 'application/geo+json' }), `${filenameStemFromTitle(title)}.geojson`),
-  }];
-  return <ClioScientificMap
-    {...rest}
-    dataCapabilities={{ buildReference: reference, exportFormats }}
-    geometry={collection}
-    geometryBounds={bounds}
-    points={points}
-    selection={effectiveSelection}
-    selectionField={effectiveSelectionField}
-    setSelection={effectiveSetSelection}
-    title={title}
-    valueLabel={valueLabel ?? valueField}
-  />;
+  ];
+  return (
+    <ClioScientificMap
+      {...rest}
+      dataCapabilities={{ buildReference: reference, exportFormats }}
+      geometry={collection}
+      geometryBounds={bounds}
+      points={points}
+      selection={effectiveSelection}
+      selectionField={effectiveSelectionField}
+      setSelection={effectiveSetSelection}
+      title={title}
+      valueLabel={valueLabel ?? valueField}
+    />
+  );
 }

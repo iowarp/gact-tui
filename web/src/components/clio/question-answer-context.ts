@@ -1,3 +1,4 @@
+import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
 import { createContext, useContext } from 'react';
 
 /**
@@ -8,6 +9,9 @@ import { createContext, useContext } from 'react';
 export interface QuestionAnswerState {
   /** The interaction id of the question the composer's next message answers. */
   answeringId?: string;
+  openQuestion?: (interaction: PendingInteraction) => void;
+  surfaces?: Readonly<Record<string, A2UISurface>>;
+  refetchSurfaces?: () => void;
   startAnswer: (interactionId: string) => void;
   stopAnswer: () => void;
 }

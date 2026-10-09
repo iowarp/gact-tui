@@ -4,6 +4,40 @@ import { writeFile } from 'node:fs/promises';
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
 for (const theme of ['dark', 'light'] as const) {
+  test(`joins the ${theme} question and queue trays to the composer surface`, async ({
+    page,
+  }, testInfo) => {
+    expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
+    await page.request.post(`${endpoint}/v1/permissions/perm_fixture`);
+    expect((await page.request.post(`${endpoint}/__test/question-tray`)).ok()).toBe(true);
+    await page.addInitScript(
+      ({ endpoint, theme }) => {
+        localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
+        localStorage.setItem('theme', theme);
+      },
+      { endpoint, theme },
+    );
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+    const composer = page.locator('[data-slot="clio-composer-stack"]');
+    const input = composer.locator('form > [data-slot="input-group"]');
+    const question = page.locator('[data-slot="pending-question-notice"]');
+    await expect(question).toBeVisible();
+    const background = await input.evaluate((node) => getComputedStyle(node).backgroundColor);
+    await expect
+      .poll(() => question.evaluate((node) => getComputedStyle(node).backgroundColor))
+      .toBe(background);
+    await composer.screenshot({ path: testInfo.outputPath(`question-${theme}.png`) });
+    expect((await page.request.post(`${endpoint}/__test/queue-demo`)).ok()).toBe(true);
+    await page.reload();
+    const queue = composer.locator('[aria-label="Queued messages"]');
+    await expect(queue).toBeVisible();
+    await expect
+      .poll(() => queue.evaluate((node) => getComputedStyle(node).backgroundColor))
+      .toBe(background);
+    await composer.screenshot({ path: testInfo.outputPath(`queue-${theme}.png`) });
+  });
+
   test(`keeps the ${theme} composer distinct with stable focus geometry`, async ({
     page,
   }, testInfo) => {

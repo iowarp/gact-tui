@@ -137,6 +137,29 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('VariantTabsBlock', () => {
+  it('keeps streaming reasoning out of draft text and collapsed', () => {
+    const id = 'var_1:0';
+    apply(
+      tryUpsert(0),
+      frame(
+        'variant.try.delta',
+        {
+          id,
+          variants_id: 'var_1',
+          try_index: 0,
+          kind: 'thinking',
+          delta: 'I should plan five poems.',
+        },
+        id,
+      ),
+      tryDelta(0, 'One poem only'),
+    );
+    renderRuns();
+    expect(screen.getByText('One poem only')).toBeVisible();
+    expect(screen.queryByText('I should plan five poems.')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="variant-try-text"]')).not.toHaveTextContent('plan');
+  });
+
   it('shows one tab per try, each streaming its own try live', () => {
     apply(tryUpsert(0), tryUpsert(1), tryDelta(0, 'Alpha '), tryDelta(1, 'Beta '));
     renderRuns();
@@ -156,7 +179,14 @@ describe('VariantTabsBlock', () => {
     apply(
       frame(
         'variant.try.upserted',
-        { ...tryPayload(0), judge: 'lm', state: 'completed', text: 'A', score: 0.5 },
+        {
+          ...tryPayload(0),
+          judge: 'lm',
+          rubric: 'One concise poem for a friend.',
+          state: 'completed',
+          text: 'A',
+          score: 0.5,
+        },
         'var_1:0',
       ),
       frame(
@@ -169,6 +199,9 @@ describe('VariantTabsBlock', () => {
     const tabs = screen.getAllByRole('tab');
     expect(tabs[0]).toHaveTextContent('Score 0.5');
     expect(tabs[1]).toHaveTextContent('Score 0.88');
+    await userEvent.click(screen.getByRole('button', { name: 'Evaluation criteria' }));
+    expect(screen.getByText('One concise poem for a friend.')).toBeVisible();
+    expect(screen.getByText(/The model scores each evaluated draft from 0 to 1/u)).toBeVisible();
     await userEvent.click(tabs[1]!);
     expect(screen.getByRole('tabpanel')).toHaveTextContent('B');
   });

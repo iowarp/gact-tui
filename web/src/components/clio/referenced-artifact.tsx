@@ -38,6 +38,7 @@ export function ReferencedArtifact({
         artifact={artifactDetailVersionEntity(detail.data, artifactId, sessionId)}
         onOpen={onOpen}
         preview={false}
+        presentation="response"
       />
     );
   }

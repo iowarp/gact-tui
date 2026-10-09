@@ -13,7 +13,7 @@ import {
   Layers3Icon,
   WaypointsIcon,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -94,20 +94,31 @@ export function ClioObservabilityView({
   onProvenanceProviderChange,
   resources,
   sessionId,
+  requestedView,
   interactions = [],
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const [activeView, setActiveView] = useState<ObservabilityView>(() =>
-    restoredObservabilityView(sessionId),
+  const [activeView, setActiveView] = useState<ObservabilityView>(
+    () => requestedView?.view ?? restoredObservabilityView(sessionId),
   );
   // Reset the restored view when the session identity itself changes, without
   // an effect: adjusting state from a prop change during render (rather than
   // in a post-commit effect) avoids the extra render-then-reset flash.
   const [viewedSessionId, setViewedSessionId] = useState(sessionId);
+  const [viewedRequestKey, setViewedRequestKey] = useState(requestedView?.key);
   if (sessionId !== viewedSessionId) {
     setViewedSessionId(sessionId);
-    setActiveView(restoredObservabilityView(sessionId));
+    setViewedRequestKey(requestedView?.key);
+    setActiveView(requestedView?.view ?? restoredObservabilityView(sessionId));
+  } else if (requestedView && requestedView.key !== viewedRequestKey) {
+    setViewedRequestKey(requestedView.key);
+    setActiveView(requestedView.view);
   }
+  useLayoutEffect(() => {
+    if (!requestedView) return;
+    if (sessionId)
+      window.localStorage.setItem(observabilityViewStorageKey(sessionId), requestedView.view);
+  }, [requestedView, sessionId]);
   const toolTurnContext = useMemo(() => toolActivityContext(messages), [messages]);
   const subagentTurnContext = useMemo(() => subagentActivityContext(messages), [messages]);
   const waitTurnContext = useMemo(

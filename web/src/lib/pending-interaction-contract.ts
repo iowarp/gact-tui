@@ -6,6 +6,7 @@ import type {
   Session,
   UserQuestion,
 } from '@clio/core/v3';
+import { isUserBranch } from './session-state';
 
 export type PermissionAction = 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
 
@@ -69,7 +70,9 @@ export function interactionRootSessionId(
   const visited = new Set<string>();
   while (!visited.has(currentId)) {
     visited.add(currentId);
-    const parentId = sessionsById.get(currentId)?.parent_session_id;
+    const current = sessionsById.get(currentId);
+    if (current && isUserBranch(current)) return { id: currentId, resolved: true };
+    const parentId = current?.parent_session_id;
     if (!parentId) return { id: currentId, resolved: true };
     if (!sessionsById.has(parentId)) return { id: currentId, resolved: false };
     currentId = parentId;
@@ -115,9 +118,15 @@ export function legacyPendingInteractions(
         status: question.status,
         title: planExit ? 'Review execution plan' : 'Question from agent',
         prompt: question.prompt,
-        source: { protocol: 'native', ...(planExit ? { tool_name: 'plan_exit' } : {}) },
+        source: {
+          protocol: 'native',
+          surface_id:
+            typeof metadata.a2ui_surface_id === 'string' ? metadata.a2ui_surface_id : undefined,
+          ...(planExit ? { tool_name: 'plan_exit' } : {}),
+        },
         created_at: question.created_at,
         payload: {
+          response_mode: question.response_mode,
           question_id: question.id,
           question_kind: question.kind,
           options: question.options,

@@ -24,13 +24,17 @@ const base = {
   delivery: 'start' as const,
 };
 
-function setup(toolName = 'ask_user') {
+function setup(toolName = 'ask_user', mode?: 'async') {
   const respond = vi.fn().mockResolvedValue(undefined);
   const send = vi.fn().mockResolvedValue(undefined);
   const hook = renderHook(() =>
     useQuestionAnswering({
-      interactions: [question(toolName)],
-      tools: [{ id: 'call_1', session_id: 'session_1', name: toolName, state: 'succeeded' }],
+      interactions: [
+        { ...question(toolName), payload: { question_id: 'q1', response_mode: mode } },
+      ],
+      tools: mode
+        ? []
+        : [{ id: 'call_1', session_id: 'session_1', name: toolName, state: 'succeeded' }],
       messages: [],
       sessionId: 'session_1',
       focusComposer: vi.fn(),
@@ -42,6 +46,20 @@ function setup(toolName = 'ask_user') {
 }
 
 describe('useQuestionAnswering.submit (#1448)', () => {
+  it('queues an async attachment answer even before its tool anchor is loaded', async () => {
+    const { result, respond, send } = setup('ask_user', 'async');
+    act(() => result.current.context.startAnswer('question:q1'));
+    const files = [{ filename: 'stations.csv' }] as never;
+    await act(() => result.current.submit({ ...base, text: 'attached', files }));
+    expect(send).toHaveBeenCalledWith({
+      ...base,
+      delivery: 'queued',
+      text: 'attached',
+      files,
+      answersQuestionId: 'q1',
+    });
+    expect(respond).not.toHaveBeenCalled();
+  });
   it('sends an ordinary message when no question was picked', async () => {
     const { result, respond, send } = setup();
 

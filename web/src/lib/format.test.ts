@@ -27,6 +27,7 @@ describe('formatDuration', () => {
     expect(formatDuration(9_400)).toBe('9 s');
     expect(formatDuration(150_000)).toBe('2 min 30 s');
     expect(formatDuration(120_000)).toBe('2 min');
+    expect(formatDuration(119_999)).toBe('2 min');
   });
 
   it('keeps one decimal below a minute in the tenths style', () => {

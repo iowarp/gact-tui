@@ -1,5 +1,6 @@
 import {
   ArchiveIcon,
+  BoxIcon,
   FileCodeIcon,
   FileIcon,
   FileSpreadsheetIcon,
@@ -10,6 +11,7 @@ import {
   PresentationIcon,
 } from 'lucide-react';
 import { fileFormatLabel } from '@/lib/media-types';
+import { fileCategory } from '@/lib/artifact-categories';
 
 /** Shared file identity for canvas tabs and explorer rows. */
 export function FileTypeIcon({
@@ -22,23 +24,30 @@ export function FileTypeIcon({
   className?: string;
 }) {
   const format = fileFormatLabel(name, mediaType);
+  const category = fileCategory(name, mediaType);
   const Icon =
-    mediaType.startsWith('image/') || ['PNG', 'JPEG', 'SVG', 'WebP', 'GIF'].includes(format)
-      ? ImageIcon
-      : ['PowerPoint', 'Presentation'].includes(format)
-        ? PresentationIcon
-        : ['Excel', 'Spreadsheet', 'CSV', 'TSV'].includes(format)
-          ? FileSpreadsheetIcon
-          : ['Word', 'Document', 'Markdown', 'PDF', 'Text'].includes(format)
-            ? FileTextIcon
-            : ['JSON', 'YAML'].includes(format)
-              ? FileCodeIcon
-              : format === 'Video'
-                ? FilmIcon
-                : format === 'Audio'
-                  ? MusicIcon
-                  : format === 'ZIP'
-                    ? ArchiveIcon
-                    : FileIcon;
+    category === 'models'
+      ? BoxIcon
+      : category === 'scripts'
+        ? FileCodeIcon
+        : category === 'slides'
+          ? PresentationIcon
+          : category === 'images'
+            ? ImageIcon
+            : ['PowerPoint', 'Presentation'].includes(format)
+              ? PresentationIcon
+              : ['Excel', 'Spreadsheet', 'CSV', 'TSV'].includes(format)
+                ? FileSpreadsheetIcon
+                : ['Word', 'Document', 'Markdown', 'PDF', 'Text'].includes(format)
+                  ? FileTextIcon
+                  : ['JSON', 'YAML'].includes(format)
+                    ? FileCodeIcon
+                    : format === 'Video'
+                      ? FilmIcon
+                      : format === 'Audio'
+                        ? MusicIcon
+                        : format === 'ZIP'
+                          ? ArchiveIcon
+                          : FileIcon;
   return <Icon aria-hidden="true" className={className} />;
 }

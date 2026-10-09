@@ -12,6 +12,7 @@ describe('showcase free-space placement', () => {
     expect(placement.left + placement.width).toBeLessThan(surface.right);
     expect(placement.top).toBeGreaterThan(surface.top);
     expect(placement.top + placement.height).toBeLessThan(surface.bottom);
+    expect(placement.height).toBe(776);
     expect(showcaseGutter({ ...surface, right: 1800 }, transcript, composer)).toBeUndefined();
     expect(showcaseGutter({ ...surface, bottom: 250 }, transcript, composer)).toBeUndefined();
   });

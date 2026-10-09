@@ -126,7 +126,9 @@ export function agentInteractionActivityItems(
             ? 'Your response was validated and returned to MCP'
             : 'Your answer resumed the agent'
           : humanPending
-            ? 'Waiting for your response'
+            ? interaction.payload?.response_mode === 'async'
+              ? 'Open question; agent can continue'
+              : 'Waiting for your response'
             : humanAnswered
               ? isMcp
                 ? 'Your response was validated and returned to MCP'

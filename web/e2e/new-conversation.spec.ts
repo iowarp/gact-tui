@@ -4,6 +4,12 @@ const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'
 const draftRoute = '/workspaces/ws_flat_ndp/new';
 const sessionRoute = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
 
+test.afterEach(async ({ page }) => {
+  // Navigation can leave a capabilities fetch in flight. Finish its route handler
+  // while the request context is alive, before Playwright disposes the page.
+  await page.unrouteAll({ behavior: 'wait' });
+});
+
 test('entry composer and Settings navigation never allocate sessions', async ({ page }) => {
   const reset = await page.request.post(`${endpoint}/__test/reset`);
   expect(reset.ok()).toBe(true);
@@ -42,6 +48,12 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(page.getByRole('combobox', { name: 'Conversation workspace' })).toHaveValue(
     'ws_flat_ndp',
   );
+  await expect(page.getByText('No active work', { exact: true })).toBeVisible();
+  await expect(page.getByText('Tokens: 0', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'New conversation actions' }).click();
+  await page.getByRole('menuitem', { name: 'Workspace files', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Files', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close workspace canvas' }).click();
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   await expect(page.getByRole('tab', { name: 'Files', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open a canvas tab' }).click();
@@ -59,6 +71,17 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
 
   await page.getByRole('link', { name: /^EarthScope NDP evidence review/ }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
+  // URL changes precede session hydration. Settings must leave a validated
+  // conversation, so its return route has actually been persisted.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (connection) =>
+          localStorage.getItem(`clio.last-workspace-route:${encodeURIComponent(connection)}`),
+        endpoint,
+      ),
+    )
+    .toBe(sessionRoute);
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('link', { name: 'Notifications', exact: true }).click();
   await page.getByRole('link', { name: 'Back to workspace', exact: true }).click();
