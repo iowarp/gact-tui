@@ -1,4 +1,4 @@
-import { BrainIcon, ChevronRightIcon, LoaderCircleIcon, MessageCircleIcon } from 'lucide-react';
+import { BrainIcon, ChevronRightIcon, LoaderCircleIcon } from 'lucide-react';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { TranscriptReasoning, type ThoughtSource } from './transcript-reasoning';
 
@@ -7,29 +7,26 @@ export function TranscriptReasoningRow({
   text,
   streaming = false,
   source,
-  kind = 'reasoning',
 }: {
   text: string;
   streaming?: boolean;
   source?: ThoughtSource;
-  kind?: 'reasoning' | 'update';
 }) {
   const preview = text
     .replace(/(\*\*|__|`)/gu, '')
     .replace(/\s+/gu, ' ')
     .trim();
-  const label = kind === 'update' ? 'Update' : streaming ? 'Thinking' : 'Reasoning';
+  const label = streaming ? 'Thinking' : 'Reasoning';
   return (
-    <Reasoning className="mb-0" defaultOpen={false} isStreaming={streaming}>
+    // The reader owns the disclosure. Streaming status belongs on the trigger,
+    // rather than opting into Reasoning's automatic open/close behavior.
+    <Reasoning className="mb-0" defaultOpen={false}>
       <ReasoningTrigger aria-label={`${label}: ${preview}`} className="w-full min-w-0 py-1 text-xs">
         {streaming ? (
           <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
-        ) : kind === 'update' ? (
-          <MessageCircleIcon aria-hidden="true" className="size-3.5 shrink-0" />
         ) : (
           <BrainIcon aria-hidden="true" className="size-3.5 shrink-0" />
         )}
-        {kind === 'update' ? <span className="shrink-0 font-medium">{label}</span> : null}
         <span className="min-w-0 flex-1 truncate text-left font-normal">{preview}</span>
         <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0" />
       </ReasoningTrigger>

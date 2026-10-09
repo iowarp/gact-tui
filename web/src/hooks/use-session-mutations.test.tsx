@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     createSession: vi.fn(),
     answerQuestion: vi.fn(async () => ({})),
     cancelQuestion: vi.fn(async () => ({})),
+    cancelSession: vi.fn(async () => undefined),
     createQueuedMessage: vi.fn(),
     languageModelConfiguration: vi.fn(),
     pendingSteers: vi.fn(async () => []),
@@ -225,6 +226,32 @@ function renderMutationsWithClient(client: QueryClient) {
     },
   );
 }
+
+describe('stopping a turn', () => {
+  it('reconciles submitted feedback and the paused queue after Stop', async () => {
+    const client = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const { result } = renderMutationsWithClient(client);
+
+    await result.current.cancel.mutateAsync();
+
+    expect(mocks.repository.cancelSession).toHaveBeenCalledWith('sess_1');
+    const endpoint = 'http://127.0.0.1:8790';
+    for (const queryKey of [
+      queryKeys.pendingSteers(endpoint, 'sess_1'),
+      queryKeys.queuedMessages(endpoint, 'sess_1'),
+      queryKeys.transcript(endpoint, 'sess_1'),
+      queryKeys.sessions(endpoint, 'ws_1'),
+      queryKeys.sessions(endpoint, 'all'),
+    ]) {
+      expect(invalidate).toHaveBeenCalledWith({ queryKey });
+    }
+    expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
+    expect(mocks.repository.createQueuedMessage).not.toHaveBeenCalled();
+  });
+});
 
 describe('useSessionMutations send identity', () => {
   it('sends the picked model as the message route with no global provider apply', async () => {

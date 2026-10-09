@@ -316,6 +316,10 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await page.goto(workspaceUrl);
   const attention = page.getByRole('region', { name: 'Agent needs your response' });
   await expect(attention.getByRole('button', { name: '3 responses needed' })).toBeVisible();
+  await settleConversationAtLatest(page);
+  const activity = page.getByRole('button', { name: /^Activity:/ }).last();
+  await expect(activity).toHaveAttribute('aria-expanded', 'false');
+  await activity.click();
   await expect(page.locator('[data-agent-question-state="answering"]')).toContainText(
     'Agent is reading conversation context',
   );
@@ -397,6 +401,11 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   expect(replaced.ok()).toBe(true);
   await page.reload();
   await settleConversationAtLatest(page);
+  await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
+  await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
+  const history = page.getByRole('button', { name: /^Activity:/ }).last();
+  await expect(history).toHaveAttribute('aria-expanded', 'false');
+  await history.click();
   await expect(page.getByText('MCP v2 exerciser view closed')).toBeVisible();
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
@@ -637,6 +646,8 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await alignLatestActivityAtTop(page);
+  // The reviewed baseline reflects reader-controlled collapsed activity and
+  // the completion footer's separate fields. Keep the existing pixel budget.
   // maxDiffPixels absorbs sub-row anti-aliasing jitter at the latest-anchored
   // transcript's top edge (~400px originally observed); a real layout
   // regression moves orders of magnitude more (tens of thousands of pixels,

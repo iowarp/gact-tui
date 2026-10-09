@@ -3,7 +3,6 @@ import type {
   ComposerMessagePart,
   MessageBehavior,
   MessageDelivery,
-  QueuedMessage,
   RunState,
   WorkspaceReference,
   WorkspaceResource,
@@ -42,7 +41,7 @@ import { Button } from '@/components/ui/button';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
-import { ClioComposerQueue } from './composer-queue';
+import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import {
   defaultReasoningLabel,
@@ -74,7 +73,7 @@ import {
   useComposerSourceAttachments,
 } from './use-composer-source-attachments';
 
-export interface ClioComposerProps {
+export interface ClioComposerProps extends ComposerQueueControls {
   state: RunState;
   attachments: boolean;
   provider?: string;
@@ -131,15 +130,9 @@ export interface ClioComposerProps {
   activityControl?: ReactNode;
   workSummary?: ReactNode;
   pendingInteractions?: ReactNode;
-  queuedMessages?: QueuedMessage[];
   resources?: readonly WorkspaceResource[];
-  queueBusy?: boolean;
-  onDeleteQueuedMessage?: (message: QueuedMessage) => Promise<void>;
-  onPromoteQueuedMessage?: (message: QueuedMessage, delivery: MessageDelivery) => Promise<void>;
   onOpenResource?: (resource: WorkspaceResource) => void;
   onOpenReference?: (reference: WorkspaceReference) => void;
-  onReorderQueuedMessages?: (messages: QueuedMessage[]) => Promise<void>;
-  onUpdateQueuedMessage?: (message: QueuedMessage, text: string) => Promise<void>;
   value?: string;
   onValueChange?: (value: string) => void;
   /**
@@ -194,6 +187,7 @@ export function ClioComposer({
   queuedMessages = [],
   resources = [],
   queueBusy,
+  queuePaused = false,
   onDeleteQueuedMessage,
   onPromoteQueuedMessage,
   onOpenResource,
@@ -519,6 +513,7 @@ export function ClioComposer({
       onUpdateQueuedMessage ? (
         <ClioComposerQueue
           busy={queueBusy}
+          paused={queuePaused}
           messages={queuedMessages}
           onDelete={onDeleteQueuedMessage}
           onOpenResource={onOpenResource}

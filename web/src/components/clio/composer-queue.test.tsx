@@ -88,6 +88,17 @@ function renderQueue(overrides: Partial<Parameters<typeof ClioComposerQueue>[0]>
 }
 
 describe('ClioComposerQueue', () => {
+  it('shows that future messages are paused while keeping Send now available', async () => {
+    const user = userEvent.setup();
+    const props = renderQueue({ paused: true });
+
+    expect(screen.getByText('2 queued messages (paused)')).toBeInTheDocument();
+    expect(props.onPromote).not.toHaveBeenCalled();
+    await user.click(screen.getAllByRole('button', { name: 'Send queued message now' })[0]);
+    expect(props.onPromote).toHaveBeenCalledOnce();
+    expect(props.onPromote).toHaveBeenCalledWith(props.messages[0], 'steer');
+  });
+
   it('keeps compact icon actions inside the ReUI sortable contract', () => {
     renderQueue();
 

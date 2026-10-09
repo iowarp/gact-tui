@@ -1,32 +1,69 @@
 import { expect, it } from 'vitest';
+import type { ToolInvocation } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { transcriptActivitySummary } from './transcript-activity-summary';
 
-it('counts invocation identities once and preserves failure rather than claiming all completed', () => {
+function iteration(
+  tools: ToolInvocation[],
+  overrides: Partial<ConversationIteration> = {},
+): ConversationIteration {
+  return {
+    id: 'i',
+    index: 0,
+    agentId: 'main',
+    thinking: [],
+    nextThoughts: [],
+    activity: tools.map((tool) => ({ kind: 'tool', id: tool.id, tool })),
+    tools,
+    tasks: [],
+    terminal: false,
+    interrupted: false,
+    streaming: false,
+    summary: '',
+    ...overrides,
+  };
+}
+
+it('labels recorded actions without repeating counts or outcomes above the answer', () => {
   const tools = [
     { id: 'read', session_id: 's', name: 'fs_read_file', state: 'succeeded' as const },
     { id: 'run', session_id: 's', name: 'shell_bash', state: 'failed' as const },
   ];
-  const iterations = [
-    { tools, streaming: false },
-    { tools: [tools[0]], streaming: false },
-  ] as ConversationIteration[];
+  const iterations = [iteration(tools), iteration([tools[0]])];
   expect(transcriptActivitySummary(iterations)).toEqual({
-    label: '2 tools · 1 completed · 1 failed',
-    detail: '1 read, ran 1 command',
+    label: 'Read files, ran commands',
     running: false,
-    failed: true,
   });
   expect(
     transcriptActivitySummary([
-      {
-        tools: [
-          { ...tools[0], id: 'denied', presentation: { status: 'denied', blocks: [] } },
-          { ...tools[0], id: 'cancelled', state: 'cancelled' },
-          { ...tools[0], id: 'partial', presentation: { status: 'degraded', blocks: [] } },
-        ],
-        streaming: false,
-      },
-    ] as ConversationIteration[]).label,
-  ).toBe('3 tools · 0 completed · 1 denied · 1 cancelled · 1 partial');
+      iteration([
+        {
+          ...tools[0],
+          id: 'denied',
+          presentation: { status: 'denied', summary: 'Denied', blocks: [] },
+        },
+        { ...tools[0], id: 'cancelled', state: 'cancelled' },
+        {
+          ...tools[0],
+          id: 'partial',
+          presentation: { status: 'degraded', summary: 'Partial', blocks: [] },
+        },
+      ]),
+    ]).label,
+  ).toBe('Read files');
+});
+
+it('keeps streaming and interrupted action entries identifiable without a numeric summary', () => {
+  const tools = [
+    { id: 'run', session_id: 's', name: 'exec_command', state: 'running' as const },
+    { id: 'edit', session_id: 's', name: 'apply_patch', state: 'running' as const },
+  ];
+  expect(transcriptActivitySummary([iteration(tools, { streaming: true })])).toEqual({
+    label: 'Running commands, editing files',
+    running: true,
+  });
+  expect(transcriptActivitySummary([iteration([], { interrupted: true })])).toEqual({
+    label: 'Activity (Interrupted)',
+    running: false,
+  });
 });

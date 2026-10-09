@@ -1,18 +1,11 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import {
-  CheckIcon,
-  CircleAlertIcon,
-  ListChecksIcon,
-  LoaderCircleIcon,
-  WorkflowIcon,
-} from 'lucide-react';
+import { ListChecksIcon, LoaderCircleIcon, WorkflowIcon } from 'lucide-react';
 import { Fragment, useState, type ReactNode } from 'react';
 import {
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtHeader,
 } from '@/components/ai-elements/chain-of-thought';
-import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { cn } from '@/lib/utils';
 import type {
   Artifact,
@@ -39,10 +32,8 @@ import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { workflowDescriptor } from './workflow-tool-presentation';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
-import { TranscriptReasoning } from './transcript-reasoning';
-import { GroundedMessageResponse } from './grounded-message-response';
 import { transcriptActivitySummary } from './transcript-activity-summary';
-import { TranscriptReasoningRow } from './transcript-reasoning-row';
+import { TranscriptIterationText } from './transcript-iteration-text';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 type SubagentActivityEntry = Extract<
@@ -63,7 +54,7 @@ function toolAttentionBadge(
 }
 
 interface ConversationTurnProps {
-  /** The final answer has started streaming below: the chain Activity collapses. */
+  /** Retained for callers; entry disclosures are now entirely reader-controlled. */
   answerStarted?: boolean;
   iterations: readonly ConversationIteration[];
   mode: 'chain' | 'full';
@@ -84,7 +75,6 @@ interface ConversationTurnProps {
 
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
 export function ConversationTurn({
-  answerStarted = false,
   iterations,
   mode,
   onOpenSubagent,
@@ -117,10 +107,16 @@ export function ConversationTurn({
       }),
     ),
   );
-  if (mode === 'chain' && boundaries.size > 0) {
+  const hasActiveApp = iterations.some((iteration) =>
+    iteration.activity.some(
+      (entry) => entry.kind === 'mcp_app' && entry.block.app_instance_id === activeMcpAppId,
+    ),
+  );
+  if (mode === 'chain' && (boundaries.size > 0 || hasActiveApp)) {
     const sections: Array<
       | { kind: 'activity'; iterations: ConversationIteration[] }
       | { kind: 'review'; interaction: PendingInteraction }
+      | { kind: 'app'; entry: McpAppActivityEntry }
     > = [];
     let group: ConversationIteration[] = [];
     for (const iteration of iterations) {
@@ -138,6 +134,13 @@ export function ConversationTurn({
         });
       };
       iteration.activity.forEach((entry, index) => {
+        if (entry.kind === 'mcp_app' && entry.block.app_instance_id === activeMcpAppId) {
+          appendSegment(index);
+          sections.push({ kind: 'activity', iterations: group }, { kind: 'app', entry });
+          group = [];
+          start = index + 1;
+          return;
+        }
         const reviews = entry.kind === 'tool' ? boundaries.get(entry.id) : undefined;
         if (!reviews) return;
         appendSegment(index + 1);
@@ -162,10 +165,17 @@ export function ConversationTurn({
               onOpenArtifact={onOpenArtifact}
               onResponse={onInteractionResponse}
             />
+          ) : section.kind === 'app' ? (
+            <McpAppActivity
+              key={section.entry.id}
+              entry={section.entry}
+              activeMcpAppId={activeMcpAppId}
+              mcpAppRepository={mcpAppRepository}
+              messageSessionId={messageSessionId}
+            />
           ) : (
             <ConversationTurn
               key={section.iterations[0].id}
-              answerStarted={answerStarted}
               iterations={section.iterations}
               mode={mode}
               subagents={subagents}
@@ -210,85 +220,67 @@ export function ConversationTurn({
     );
   }
 
-  const summary = transcriptActivitySummary(iterations);
   return (
-    <ActivityChain
-      answerStarted={
-        answerStarted ||
-        Boolean(
-          interactions?.some((item) => isToolAnchoredQuestion(item) && item.status !== 'pending') &&
-            !iterations.some((iteration) => iteration.streaming),
-        )
-      }
-    >
-      <ChainOfThoughtHeader
-        aria-label={`Activity: ${summary.label}${summary.detail ? ` · ${summary.detail}` : ''}`}
-        className="min-h-7 [&>svg:first-child]:hidden"
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          {summary.running ? (
-            <LoaderCircleIcon
-              aria-hidden="true"
-              className="size-3.5 shrink-0 animate-spin text-primary"
-            />
-          ) : summary.failed ? (
-            <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
-          ) : (
-            <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-success" />
-          )}
-          <span className="min-w-0 truncate font-medium">{summary.label}</span>
-          {summary.detail ? (
-            <span className="hidden min-w-0 truncate font-normal @min-[28rem]:inline">
-              · {summary.detail}
-            </span>
-          ) : null}
-        </span>
-      </ChainOfThoughtHeader>
-      <ChainOfThoughtContent
-        className="ml-1 mt-1 space-y-1 border-l pl-3"
-        data-slot="transcript-activity-timeline"
-      >
-        {iterations.map((iteration) => (
-          <IterationDetail
-            compact
-            iteration={iteration}
-            key={iteration.id}
-            onOpenSubagent={onOpenSubagent}
-            subagents={subagents}
-            interactions={interactions}
-            activeMcpAppId={activeMcpAppId}
-            mcpAppRepository={mcpAppRepository}
-            messageSessionId={messageSessionId}
-            artifacts={artifacts}
-            onInteractionResponse={onInteractionResponse}
-            onOpenArtifact={onOpenArtifact}
-            messageAttentionIndex={messageAttentionIndex}
-          />
-        ))}
-      </ChainOfThoughtContent>
-    </ActivityChain>
+    <div className="space-y-4" data-slot="transcript-entry-sequence">
+      {iterations.map((iteration) => {
+        const summary = transcriptActivitySummary([iteration]);
+        return (
+          <Fragment key={iteration.id}>
+            <TranscriptIterationText iteration={iteration} />
+            {iteration.activity.length || iteration.interrupted ? (
+              <ActivityChain>
+                <ChainOfThoughtHeader
+                  aria-label={`Activity: ${summary.label}`}
+                  className="min-h-7 [&>svg:first-child]:hidden"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    {summary.running ? (
+                      <LoaderCircleIcon
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 animate-spin text-primary"
+                      />
+                    ) : null}
+                    <span className="min-w-0 truncate font-medium">{summary.label}</span>
+                  </span>
+                </ChainOfThoughtHeader>
+                <ChainOfThoughtContent
+                  className="ml-1 mt-1 space-y-1 border-l pl-3"
+                  data-slot="transcript-activity-timeline"
+                >
+                  <IterationDetail
+                    compact
+                    showText={false}
+                    iteration={iteration}
+                    key={iteration.id}
+                    onOpenSubagent={onOpenSubagent}
+                    subagents={subagents}
+                    interactions={interactions}
+                    activeMcpAppId={activeMcpAppId}
+                    mcpAppRepository={mcpAppRepository}
+                    messageSessionId={messageSessionId}
+                    artifacts={artifacts}
+                    onInteractionResponse={onInteractionResponse}
+                    onOpenArtifact={onOpenArtifact}
+                    messageAttentionIndex={messageAttentionIndex}
+                  />
+                </ChainOfThoughtContent>
+              </ActivityChain>
+            ) : null}
+          </Fragment>
+        );
+      })}
+    </div>
   );
 }
 
 /**
- * The chain view's Activity block: open while the agent works, folded away once
- * the final answer's first token arrives, the way a finished thinking step
- * folds. A reader's own open or close wins from then on.
+ * A recorded iteration's tool group. Only the reader opens it, including while
+ * tools stream; a later answer never changes that choice.
  */
-function ActivityChain({
-  answerStarted,
-  children,
-}: {
-  answerStarted: boolean;
-  children: ReactNode;
-}) {
-  const [readerOpen, setReaderOpen] = useState<boolean | undefined>(undefined);
+function ActivityChain({ children }: { children: ReactNode }) {
+  const [readerOpen, setReaderOpen] = useState(false);
   return (
-    <ChainOfThought
-      className="@container space-y-0"
-      onOpenChange={setReaderOpen}
-      open={readerOpen ?? !answerStarted}
-    >
+    <ChainOfThought className="@container space-y-0" onOpenChange={setReaderOpen} open={readerOpen}>
       {children}
     </ChainOfThought>
   );
@@ -302,6 +294,7 @@ function IterationDetail({
   showTasks = true,
   showSubagents = true,
   showQuestionInteractions = true,
+  showText = true,
   compact = false,
   activeMcpAppId,
   hiddenMcpAppIds,
@@ -319,6 +312,7 @@ function IterationDetail({
   showTasks?: boolean;
   showSubagents?: boolean;
   showQuestionInteractions?: boolean;
+  showText?: boolean;
   compact?: boolean;
   activeMcpAppId?: string;
   hiddenMcpAppIds?: readonly string[];
@@ -347,56 +341,7 @@ function IterationDetail({
   return (
     <article>
       <div className="space-y-2">
-        {compact
-          ? iteration.thinking.map((thinking) => (
-              <TranscriptReasoningRow
-                key={thinking.id}
-                text={thinking.text}
-                streaming={thinking.streaming}
-                source={thinking.source}
-              />
-            ))
-          : iteration.thinking.length > 0
-            ? iteration.thinking.map((thinking) => (
-                <Reasoning className="mb-0" isStreaming={thinking.streaming} key={thinking.id}>
-                  <ReasoningTrigger
-                    className="min-h-6"
-                    getThinkingMessage={(streaming) =>
-                      streaming ? `${thinking.label} in progress` : thinking.label
-                    }
-                  />
-                  <ReasoningContent className="mt-1 leading-5 [&_p]:my-0.5">
-                    {thinking.text}
-                  </ReasoningContent>
-                </Reasoning>
-              ))
-            : null}
-
-        {iteration.nextThoughts.map((thought, index) =>
-          compact ? (
-            iteration.thinking.some(
-              (thinking) => thinking.text.trim() === thought.trim(),
-            ) ? null : (
-              <TranscriptReasoningRow
-                key={`${iteration.id}:response:${index}`}
-                kind="update"
-                text={thought}
-                streaming={iteration.streaming && iteration.activity.length === 0}
-                source={iteration.nextThoughtSources?.[index]}
-              />
-            )
-          ) : (
-            <TranscriptReasoning
-              text={thought}
-              source={iteration.nextThoughtSources?.[index]}
-              key={`${iteration.id}:response:${index}`}
-            >
-              <GroundedMessageResponse className="text-sm leading-5">
-                {thought}
-              </GroundedMessageResponse>
-            </TranscriptReasoning>
-          ),
-        )}
+        {showText ? <TranscriptIterationText iteration={iteration} /> : null}
 
         {/*
           One ordered lane: a Task carries no owning-tool field, so its position
@@ -409,6 +354,7 @@ function IterationDetail({
               <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
                 <ClioToolInvocation
                   compact={compact}
+                  inlineDetails={compact}
                   attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
                   attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
                   sessionId={messageSessionId}

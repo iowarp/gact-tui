@@ -2,7 +2,6 @@ import type { RunState, WorkspaceReference } from '@clio/core/v3';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioMoreDetails } from '@/components/clio/more-details';
@@ -52,8 +51,7 @@ import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-
 import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
-import { navigateComposerReference } from '@/lib/composer-reference-navigation';
-import { referenceKindLabel } from '@/lib/composer-reference-domain';
+import { navigateComposerReferenceOrToast } from '@/lib/composer-reference-navigation';
 import { isManagedChildSession, showsBaseAgent } from '@/lib/session-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
@@ -202,40 +200,25 @@ export function WorkspacePage() {
   );
   const openComposerReference = useCallback(
     async (reference: WorkspaceReference) => {
-      try {
-        const outcome = await navigateComposerReference({
-          artifacts,
-          diffs: sessionObservability.diffs.data ?? [],
-          openArtifact,
-          openDiff,
-          openExternal: openExternalUrlOrToast,
-          openSession: (targetWorkspaceId, targetSessionId) =>
-            void navigate(
-              `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
-            ),
-          openWorkspaceFile,
-          openWorkspaceResource,
-          reference,
-          repository,
-          resources: workspaceResourceEntities,
-          revealSession: () => revealWorkbench({ kind: 'session' }),
-          sessionId,
-          workspaceId,
-        });
-        if (outcome.status === 'unresolved') {
-          toast.error(`Could not open ${referenceKindLabel(reference.kind)} reference`, {
-            description: outcome.reason,
-          });
-        }
-      } catch (error) {
-        console.error('Could not open composer reference', reference, error);
-        toast.error(`Could not open ${referenceKindLabel(reference.kind)} reference`, {
-          description:
-            error instanceof Error
-              ? error.message
-              : 'The workspace is still available. Refresh the reference and try again.',
-        });
-      }
+      await navigateComposerReferenceOrToast({
+        artifacts,
+        diffs: sessionObservability.diffs.data ?? [],
+        openArtifact,
+        openDiff,
+        openExternal: openExternalUrlOrToast,
+        openSession: (targetWorkspaceId, targetSessionId) =>
+          void navigate(
+            `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+          ),
+        openWorkspaceFile,
+        openWorkspaceResource,
+        reference,
+        repository,
+        resources: workspaceResourceEntities,
+        revealSession: () => revealWorkbench({ kind: 'session' }),
+        sessionId,
+        workspaceId,
+      });
     },
     [
       artifacts,
@@ -479,6 +462,7 @@ export function WorkspacePage() {
           onValueChange={composerDraft.onValueChange}
           provider={activeProvider}
           queuedMessages={queuedMessages.data ?? []}
+          queuePaused={session?.metadata?.composer_queue_paused === true}
           resources={workspaceResources.data ?? []}
           queueBusy={
             deleteQueuedMessage.isPending ||

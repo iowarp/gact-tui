@@ -63,6 +63,7 @@ import {
 } from './infrastructure-foundation';
 import { SandboxFoundationRow } from './infrastructure-sandbox-row';
 import { connectionScope } from '@/lib/connection-scope';
+import { InfrastructureFoundationGroups } from './infrastructure-foundation-groups';
 export function InfrastructurePage() {
   const location = useLocation();
   const { section } = useParams();
@@ -473,19 +474,19 @@ export function InfrastructurePage() {
 
           {currentSection === 'agent' ? (
             <>
-              <InfrastructureInventory section="hosts" />
-              <div className="mt-6 border-y">
-                <div className="divide-y">
-                  {(health.data?.integrations ?? []).map((integration) => (
+              <InfrastructureInventory section="hosts">
+                <InfrastructureFoundationGroups
+                  integrations={health.data?.integrations ?? []}
+                  renderRow={(integration) => (
                     <FoundationRow integration={integration} key={integration.name} />
-                  ))}
-                </div>
+                  )}
+                />
                 {!health.isPending && !health.data?.integrations.length ? (
                   <p className="p-5 text-sm text-muted-foreground">
                     No supporting-component details were reported.
                   </p>
                 ) : null}
-              </div>
+              </InfrastructureInventory>
             </>
           ) : null}
 
@@ -676,12 +677,14 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
   const action = foundationAction(integration);
   return (
     <details className="group px-1 py-3">
-      <summary className="flex cursor-pointer list-none items-center gap-3">
+      <summary className="grid cursor-pointer list-none grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:flex sm:gap-3">
         <ServerIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        <span className="min-w-0 text-sm font-medium sm:flex-1">
           {foundationTitle(integration.name)}
         </span>
-        <ClioStatus label={integrationStatusLabel(status)} value={status} />
+        <div className="col-start-2 shrink-0 justify-self-start sm:ml-auto">
+          <ClioStatus label={integrationStatusLabel(status)} value={status} />
+        </div>
       </summary>
       <div className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
         <p>{summary}</p>
@@ -716,10 +719,8 @@ function clioServiceDescription(
 ): string {
   if (!health) return `Checking ${vocab.agent}.`;
   if (!health.healthy) return `${vocab.agent} needs attention.`;
-  if (foundationIssues === 1) return 'Running with 1 supporting service needing attention.';
-  if (foundationIssues > 1) {
-    return `Running with ${foundationIssues} supporting services needing attention.`;
-  }
+  if (foundationIssues > 0)
+    return 'Running. Review the errors and warnings for each computer below.';
   return `${vocab.agent} is running normally.`;
 }
 
@@ -736,6 +737,14 @@ function foundationAction(
       description: 'Use the full conversation-memory service to restore complete agent behavior.',
       label: 'Memory settings',
       to: '/settings/memory',
+    };
+  }
+  if (integration.name === 'lm_provider') {
+    return {
+      description:
+        'Sign-in is stored locally. Check the provider connection and its available models.',
+      label: 'Provider setup',
+      to: '/settings/providers',
     };
   }
   if (integration.name === 'child_parentage') {

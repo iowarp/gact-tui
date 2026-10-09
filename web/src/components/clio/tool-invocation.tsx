@@ -5,10 +5,11 @@ import { useContext, useEffect, useState } from 'react';
 import { ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ActivityRow } from './activity-row';
 import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
-import { ResultDialogContent } from './result-dialog-content';
+import { ToolDetailsContent } from './tool-details-content';
 import { PresentationLink } from './presentation-link';
 import {
   getToolActionLabel,
@@ -33,11 +34,13 @@ export function ClioToolInvocation({
   tool,
   defaultOpen,
   compact = false,
+  inlineDetails = false,
 }: {
   tool?: ToolInvocation;
   defaultOpen?: boolean;
   embedded?: boolean;
   compact?: boolean;
+  inlineDetails?: boolean;
   /** Attention-mode badge: this tool call's share of the selection's attention, and its intensity bucket. */
   attention?: { share: number; bucket: number };
   attentionFields?: readonly AttentionBlock[];
@@ -98,8 +101,10 @@ export function ClioToolInvocation({
   const actionLabel = getToolActionLabel(presentedTool);
   const summaryInHeader =
     Boolean(headerMetadata) && headerMetadata === presentedTool.presentation?.summary?.trim();
+  const Disclosure = inlineDetails ? Collapsible : Dialog;
+  const DetailsTrigger = inlineDetails ? CollapsibleTrigger : DialogTrigger;
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Disclosure open={open} onOpenChange={setOpen}>
       <div
         className="flex min-w-0 scroll-m-6 flex-col gap-0.5 rounded-sm focus:outline-2 focus:outline-offset-2 focus:outline-primary"
         data-slot="tool-activity"
@@ -109,6 +114,7 @@ export function ClioToolInvocation({
         {compact ? (
           <ToolCompactRow
             tool={presentedTool}
+            inline={inlineDetails}
             duration={duration}
             attention={
               attention ? (
@@ -160,7 +166,7 @@ export function ClioToolInvocation({
               ) : null
             }
             action={
-              <DialogTrigger asChild>
+              <DetailsTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -170,7 +176,7 @@ export function ClioToolInvocation({
                 >
                   <InfoIcon className="size-4" />
                 </Button>
-              </DialogTrigger>
+              </DetailsTrigger>
             }
           />
         )}
@@ -194,10 +200,7 @@ export function ClioToolInvocation({
             {tool.error}
           </p>
         ) : null}
-        <ResultDialogContent
-          title={`${actionLabel}: Technical details`}
-          description="Original tool arguments, result, and diagnostics."
-        >
+        <ToolDetailsContent inline={inlineDetails} title={`${actionLabel}: Technical details`}>
           {duration !== undefined ? (
             <p className="text-sm tabular-nums text-muted-foreground">
               {status === 'running' || status === 'pending' ? 'Elapsed time' : 'Execution time'}:{' '}
@@ -259,15 +262,24 @@ export function ClioToolInvocation({
                 />
               ))
           ) : (
-            <ToolOutput errorText={tool.error as never} output={tool.output as never} />
+            <ToolOutput
+              errorText={tool.error as never}
+              // Preserve explicit JSON scalars that ToolOutput would otherwise
+              // treat as an absent result (false, zero, null or an empty string).
+              output={
+                (tool.output !== undefined && !tool.output
+                  ? JSON.stringify(tool.output)
+                  : tool.output) as never
+              }
+            />
           )}
           {attentionFields?.some((entry) => entry.kind === 'tool_result') && tool.error ? (
             <p role="alert">{String(tool.error)}</p>
           ) : null}
           {tool.presentation?.diagnostic ? <p>{tool.presentation.diagnostic}</p> : null}
-        </ResultDialogContent>
+        </ToolDetailsContent>
       </div>
-    </Dialog>
+    </Disclosure>
   );
 }
 

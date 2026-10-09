@@ -33,7 +33,8 @@ it.each([true, false])(
     });
     expect(preview).toHaveTextContent(/^Creating inline SVG animation$/u);
     expect(preview.querySelectorAll('svg.animate-spin')).toHaveLength(streaming ? 1 : 0);
-    expect(screen.queryAllByText('Thinking', { exact: true })).toHaveLength(streaming ? 1 : 0);
+    // A reasoning-only entry uses its preview spinner without a second state row.
+    expect(screen.queryAllByText('Thinking', { exact: true })).toHaveLength(0);
     expect(preview).toHaveAttribute('aria-expanded', 'false');
     await act(async () => {
       fireEvent.click(preview);
@@ -45,7 +46,7 @@ it.each([true, false])(
   },
 );
 
-it('shows a flat timeline, renders repeated thought once and opens complete tool details', async () => {
+it('keeps updates visible and opens complete tool details inline', async () => {
   const tool: ToolInvocation = {
     id: 'read',
     session_id: 's',
@@ -84,16 +85,23 @@ it('shows a flat timeline, renders repeated thought once and opens complete tool
       <ConversationTurn iterations={[iteration]} mode="chain" subagents={{}} />
     </PresentationNavigation.Provider>,
   );
-  expect(screen.getByRole('button', { name: /^Activity: 1 tool completed/ })).toBeVisible();
-  expect(screen.getAllByText(text)).toHaveLength(1);
-  expect(screen.getByRole('button', { name: /^Update: The notes are ready/ })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Activity: Read files' })).toBeVisible();
+  expect(await screen.findByText('The notes are ready for the report.')).toBeVisible();
+  expect(screen.getByRole('button', { name: /^Reasoning:/ })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
   expect(view.container.querySelector('[data-slot="transcript-activity-timeline"]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: /Expand activity/ })).not.toBeInTheDocument();
   const detail = screen.getByRole('button', { name: 'Technical details for Read' });
   expect(detail).toHaveTextContent('notes.md');
   expect(detail).toHaveTextContent('61 lines');
   fireEvent.click(detail);
-  expect(await screen.findByRole('dialog')).toHaveTextContent('Complete recorded file contents.');
+  expect(await screen.findByRole('region', { name: 'Read: Technical details' })).toHaveTextContent(
+    'Complete recorded file contents.',
+  );
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'notes.md' }));
   expect(openFile).toHaveBeenCalledWith('D:/review/notes.md');
   view.rerender(

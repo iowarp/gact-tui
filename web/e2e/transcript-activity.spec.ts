@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
-test('renders one compact causal timeline and a truthful completion footer at desktop and phone widths', async ({
+test('renders reader-controlled causal entries and a truthful completion footer at desktop and phone widths', async ({
   page,
 }) => {
   await page.request.post(`${endpoint}/__test/reset`);
@@ -24,18 +24,23 @@ test('renders one compact causal timeline and a truthful completion footer at de
   });
   const message = page.locator('#message-msg_flat_assistant');
   const activity = message.getByRole('button', { name: /^Activity:/ });
-  await expect(activity).toHaveAttribute('aria-expanded', 'true');
-  const thinking = message.getByRole('button', { name: /^Thinking/ });
+  await expect(activity).toHaveAttribute('aria-expanded', 'false');
+  const thinking = message.getByRole('button', { name: /^(?:Thinking|Reasoning):/u });
   await expect(thinking).toBeVisible();
+  await expect(thinking).toHaveAttribute('aria-expanded', 'false');
   await expect(thinking).not.toContainText('Thinking');
   await expect(thinking.locator('svg.animate-spin')).toHaveCount(1);
   await expect(
-    message.getByText('Read the fixture notes before preparing the report.', { exact: true }),
+    message
+      .locator('p')
+      .filter({ hasText: /^Read the fixture notes before preparing the report\.$/u }),
   ).toHaveCount(1);
   await expect(message.getByRole('group', { name: 'Activity detail' })).toHaveCount(0);
+  await activity.click();
   await page.request.post(`${endpoint}/__test/transcript-activity`, { data: { phase: 'answer' } });
-  await expect(activity).toHaveAttribute('aria-expanded', 'false');
-  await expect(activity).toContainText('2 tools · 1 completed');
+  await expect(activity).toHaveAttribute('aria-expanded', 'true');
+  await expect(activity).not.toContainText(/\d+ tools|·/u);
+  await expect(thinking).toHaveAttribute('aria-expanded', 'false');
   const persisted = await (
     await page.request.get(`${endpoint}/v1/sessions/sess_flat_ndp/messages`)
   ).json();
@@ -72,6 +77,11 @@ test('renders one compact causal timeline and a truthful completion footer at de
         { intervals: [50, 100, 200], timeout: 10000 },
       )
       .toBeGreaterThanOrEqual(3);
+    if ((await activity.getAttribute('aria-expanded')) === 'true') {
+      await activity.focus();
+      await activity.press('Enter');
+      await expect(activity).toHaveAttribute('aria-expanded', 'false');
+    }
     await activity.scrollIntoViewIfNeeded();
     const before = await activity.boundingBox();
     await page.mouse.click(before!.x + 20, before!.y + before!.height / 2);
@@ -83,7 +93,7 @@ test('renders one compact causal timeline and a truthful completion footer at de
       contentType: 'application/json',
     });
     expect(Math.abs((await activity.boundingBox())!.y - before!.y)).toBeLessThanOrEqual(2);
-    await expect(message.getByRole('button', { name: /^Reasoning/ })).toHaveCount(1);
+    await expect(message.getByRole('button', { name: /^Reasoning:/ })).toHaveCount(1);
     const read = message.getByRole('button', { name: 'Technical details for Read' });
     const run = message.getByRole('button', { name: 'Technical details for Run' });
     await expect(read).toContainText('61 lines');
@@ -94,11 +104,17 @@ test('renders one compact causal timeline and a truthful completion footer at de
     await expect(footer).toContainText('Done');
     await expect(footer).toContainText('129K in / 3K out');
     await expect(footer).toContainText('$0');
-    await expect(footer).toContainText('2 tool calls');
+    await expect(footer).toContainText('2 (1 failed) tool calls');
+    await expect(footer).not.toContainText('·');
     expect(await footer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     await read.click();
-    await expect(page.getByRole('dialog')).toContainText('Complete fixture file contents.');
-    await page.keyboard.press('Escape');
+    const details = message.getByRole('region', { name: 'Read: Technical details' });
+    await expect(details).toContainText('Complete fixture file contents.');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await read.focus();
+    await read.press('Enter');
+    await expect(details).toHaveCount(0);
+    await expect(read).toBeFocused();
     await activity.click();
   }
 });
