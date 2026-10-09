@@ -589,6 +589,7 @@ export function ClioScientificMap({
                 <Suspense
                   fallback={
                     <Skeleton
+                      aria-busy="true"
                       aria-label={`Loading ${title} map`}
                       className="size-full rounded-none"
                     />

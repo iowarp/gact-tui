@@ -1,6 +1,6 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
 import { ListChecksIcon, LoaderCircleIcon, WorkflowIcon } from 'lucide-react';
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -34,6 +34,7 @@ import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { transcriptActivitySummary } from './transcript-activity-summary';
 import { TranscriptIterationText } from './transcript-iteration-text';
+import { useTranscriptDisclosure } from './transcript-disclosure-context';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 type SubagentActivityEntry = Extract<
@@ -228,7 +229,7 @@ export function ConversationTurn({
           <Fragment key={iteration.id}>
             <TranscriptIterationText iteration={iteration} />
             {iteration.activity.length || iteration.interrupted ? (
-              <ActivityChain>
+              <ActivityChain id={iteration.id}>
                 <ChainOfThoughtHeader
                   aria-label={`Activity: ${summary.label}`}
                   className="min-h-7 [&>svg:first-child]:hidden"
@@ -277,8 +278,8 @@ export function ConversationTurn({
  * A recorded iteration's tool group. Only the reader opens it, including while
  * tools stream; a later answer never changes that choice.
  */
-function ActivityChain({ children }: { children: ReactNode }) {
-  const [readerOpen, setReaderOpen] = useState(false);
+function ActivityChain({ children, id }: { children: ReactNode; id: string }) {
+  const [readerOpen, setReaderOpen] = useTranscriptDisclosure(`activity:${id}`);
   return (
     <ChainOfThought className="@container space-y-0" onOpenChange={setReaderOpen} open={readerOpen}>
       {children}

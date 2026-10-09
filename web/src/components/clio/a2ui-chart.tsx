@@ -320,6 +320,7 @@ export function ClioChart(props: ClioChartProps) {
   } = useChartView({
     containerRef,
     displayRows,
+    colorRows: rows,
     selectionState,
     setSelection,
     embedSpec,

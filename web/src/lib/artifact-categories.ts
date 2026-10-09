@@ -1,6 +1,8 @@
+import { artifactDisplayName, isDashboardArtifact } from './dashboard-presentation';
 import type { Artifact } from '@clio/core/v3';
 
 export const ARTIFACT_CATEGORIES = [
+  { value: 'dashboards', label: 'Dashboards' },
   { value: 'plans', label: 'Plans' },
   { value: 'scripts', label: 'Scripts' },
   { value: 'images', label: 'Images' },
@@ -65,6 +67,7 @@ export function fileCategory(name: string, mediaType: string): ArtifactCategory 
 
 /** Plans retain their recorded designation, with the existing legacy naming fallback. */
 export function artifactCategory(artifact: Artifact): ArtifactCategory {
+  if (isDashboardArtifact(artifact)) return 'dashboards';
   if (
     artifact.producer?.['designation'] === 'plan' ||
     /^plan[-_].*\.(md|markdown|pdf|txt)$/iu.test(artifact.name)
@@ -84,6 +87,8 @@ export function filterArtifacts(
     (artifact) =>
       (category === 'all' || artifactCategory(artifact) === category) &&
       (!normalized ||
-        `${artifact.name} ${artifact.media_type}`.toLocaleLowerCase().includes(normalized)),
+        `${artifactDisplayName(artifact)} ${artifact.name} ${artifact.media_type}`
+          .toLocaleLowerCase()
+          .includes(normalized)),
   );
 }

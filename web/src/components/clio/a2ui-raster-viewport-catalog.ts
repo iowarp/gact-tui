@@ -22,6 +22,6 @@ export const rasterViewportSchema = z.object({
 /** Protocol adapter for a registered grid sampled by the raster-query route. */
 export const ClioRasterViewportCatalogComponent = createComponentImplementation(
   { name: 'clio.raster-viewport.v1', schema: rasterViewportSchema },
-  ({ props, context }) => createElement(Suspense, { fallback: createElement(Skeleton, { className: 'h-80' }) },
+  ({ props, context }) => createElement(Suspense, { fallback: createElement(Skeleton, { 'aria-busy': true, className: 'h-80' }) },
     createElement(LazyRasterViewport, { ...props, componentId: context.componentModel.id })),
 );

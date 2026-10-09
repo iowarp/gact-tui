@@ -91,6 +91,9 @@ export function MapLegend({
           Uncategorized
         </span>
       ) : null}
+      {new Set(categoryColors.values()).size < categoryColors.size ? (
+        <span>Some category colours repeat; use labels or filter to compare them.</span>
+      ) : null}
     </div>
   ) : null;
 }

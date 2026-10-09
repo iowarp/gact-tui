@@ -1,5 +1,6 @@
 import type { Artifact } from '@clio/core/v3';
-import { ListTreeIcon } from 'lucide-react';
+import { LayoutDashboardIcon, ListTreeIcon } from 'lucide-react';
+import { isDashboardArtifact } from '@/lib/dashboard-presentation';
 import { artifactCategory } from '@/lib/artifact-categories';
 import { FileTypeIcon } from './file-type-icon';
 
@@ -11,7 +12,9 @@ export function ArtifactTypeIcon({
   artifact: Artifact;
   className?: string;
 }) {
-  return artifactCategory(artifact) === 'plans' ? (
+  return isDashboardArtifact(artifact) ? (
+    <LayoutDashboardIcon aria-hidden="true" className={className} />
+  ) : artifactCategory(artifact) === 'plans' ? (
     <ListTreeIcon aria-hidden="true" className={className} />
   ) : (
     <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} className={className} />

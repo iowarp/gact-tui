@@ -38,6 +38,16 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   await expect(message.getByRole('group', { name: 'Activity detail' })).toHaveCount(0);
   await activity.click();
   await page.request.post(`${endpoint}/__test/transcript-activity`, { data: { phase: 'answer' } });
+  // Completion changes virtualized row heights. Keep the current message
+  // mounted before inspecting its content; this does not toggle the activity.
+  await expect
+    .poll(async () => {
+      await page
+        .getByRole('log', { name: 'Conversation' })
+        .evaluate((node) => node.scrollTo({ top: node.scrollHeight, behavior: 'instant' }));
+      return activity.isVisible();
+    })
+    .toBe(true);
   await expect(activity).toHaveAttribute('aria-expanded', 'true');
   await expect(activity).not.toContainText(/\d+ tools|·/u);
   await expect(thinking).toHaveAttribute('aria-expanded', 'false');
