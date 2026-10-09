@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import type { Session } from '@clio/core/v3';
+import { providerComponentsSchema, type Session } from '@clio/core/v3';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
@@ -927,7 +927,24 @@ test('renders the discovered catalog and the steer the service is holding', asyn
   // message, so that message offers to cancel it before delivery.
   await expect(page.getByRole('button', { name: 'Cancel pending message' })).toHaveCount(1);
 
+  const componentStatusResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === 'GET' &&
+      url.pathname === '/v1/providers/codex/components' &&
+      url.searchParams.get('refresh') === 'true'
+    );
+  });
   await page.getByRole('button', { name: 'Change model' }).click();
+  const componentStatus = await componentStatusResponse;
+  expect(componentStatus.ok()).toBe(true);
+  expect(providerComponentsSchema.parse(await componentStatus.json())).toMatchObject({
+    provider_id: 'codex',
+    provider_kind: 'codex',
+    installed: true,
+    update_available: false,
+    components: [],
+  });
   const picker = page.getByRole('dialog', { name: 'Choose a model' });
   await expect(picker).toBeVisible();
   // Both live providers reach the picker: the one that answered with models,

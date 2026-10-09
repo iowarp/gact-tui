@@ -86,7 +86,7 @@ export function SettingsChoice({
           htmlFor={`${id}-${option}`}
           title={description}
           className={cn(
-            'flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-1 py-1.5 text-center text-sm text-muted-foreground @2xs:flex-row @2xs:px-3 has-focus-visible:ring-2 has-focus-visible:ring-ring',
+            'flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-0.5 py-1.5 text-center text-sm text-muted-foreground @2xs:flex-row has-focus-visible:ring-2 has-focus-visible:ring-ring',
             value === option && 'bg-background text-foreground shadow-sm',
           )}
         >
@@ -101,7 +101,7 @@ export function SettingsChoice({
             }}
           />
           {Icon ? <Icon aria-hidden="true" className="size-4 shrink-0" /> : null}
-          <span className="min-w-0 max-w-full [overflow-wrap:anywhere]">{name}</span>
+          <span className="min-w-0 max-w-full [overflow-wrap:normal]">{name}</span>
         </Label>
       ))}
     </RadioGroup>

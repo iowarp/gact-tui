@@ -165,9 +165,19 @@ export function ClioModelPicker({
   // group instead, so the clear that follows is dropped.
   const keepQueryOnce = useRef(false);
   const activePreset = presetsById.get(activeGroup?.id ?? '');
+  const closingForSettings = useRef(false);
   // The provider in view's right-hand panel: its setup state and
   // action row, from the SAME shared action hook every provider surface uses.
-  const panel = useProviderPanel({ group: activeGroup, preset: activePreset, open, notice });
+  const panel = useProviderPanel({
+    group: activeGroup,
+    preset: activePreset,
+    open,
+    notice,
+    onClose: () => {
+      closingForSettings.current = true;
+      handleOpenChange(false);
+    },
+  });
   const activeStage = panel.stage;
 
   function hideProvider(group: ProviderGroup): void {
@@ -193,6 +203,7 @@ export function ClioModelPicker({
     setFacetsOpen(false);
     resetCollapsed();
     if (nextOpen) {
+      closingForSettings.current = false;
       setTokens([...DEFAULT_FILTER_TOKENS]);
       const preferred = providers.find((item) => item.id === provider);
       setPath(preferred ? [providerNodeValue(preferred.id)] : []);
@@ -222,6 +233,10 @@ export function ClioModelPicker({
       <ModelSelectorContent
         className="h-[min(38rem,calc(100dvh-2rem))] w-[min(56rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden sm:h-[min(42rem,calc(100dvh-3rem))] sm:max-w-[56rem]"
         commandProps={{ className: 'min-h-0 p-0', shouldFilter: false }}
+        onCloseAutoFocus={(event) => {
+          // Settings owns focus after navigation; ordinary dismissal returns to the trigger.
+          if (closingForSettings.current) event.preventDefault();
+        }}
         onEscapeKeyDown={(event) => {
           // Escape closes the filter panel first, the picker second.
           if (!facetsOpen) return;

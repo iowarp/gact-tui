@@ -22,6 +22,7 @@ const { repository } = vi.hoisted(() => ({
     saveProviderApiKey: vi.fn(),
     clearProviderApiKey: vi.fn(),
     providerCatalog: vi.fn(),
+    providerComponents: vi.fn(),
     savedServers: vi.fn(),
     addSavedServer: vi.fn(),
     updateSavedServer: vi.fn(),
@@ -110,6 +111,11 @@ beforeEach(() => {
   setWideViewport(true);
   repository.languageModelConfiguration.mockResolvedValue(configuration);
   repository.savedServers.mockResolvedValue([]);
+  repository.providerComponents.mockResolvedValue({
+    installed: true,
+    update_available: false,
+    components: [],
+  });
   repository.providerCatalog.mockResolvedValue(
     catalog(
       catalogEntry('codex', [{ model_id: 'gpt-5.5' }], { name: 'Codex' }),
@@ -140,10 +146,10 @@ afterEach(() => {
   for (const mock of Object.values(repository)) mock.mockReset();
 });
 
-function renderPage() {
+function renderPage(url = '/settings/providers') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <MemoryRouter initialEntries={['/settings/providers']}>
+    <MemoryRouter initialEntries={[url]}>
       <QueryClientProvider client={queryClient}>
         <ProvidersSettings />
       </QueryClientProvider>
@@ -153,15 +159,66 @@ function renderPage() {
 
 async function card(id: string): Promise<HTMLElement> {
   await waitFor(() =>
-    expect(document.querySelector(`[data-slot="local-server-card"][data-provider-id="${id}"]`)).not.toBeNull(),
+    expect(
+      document.querySelector(`[data-slot="local-server-card"][data-provider-id="${id}"]`),
+    ).not.toBeNull(),
   );
-  return document.querySelector(`[data-slot="local-server-card"][data-provider-id="${id}"]`) as HTMLElement;
+  return document.querySelector(
+    `[data-slot="local-server-card"][data-provider-id="${id}"]`,
+  ) as HTMLElement;
 }
 
 /** Words that belong only in the Technical details sheet. */
 const TECHNICAL = /endpoint|configuration|credential|catalog|handshake|probe/iu;
 
 describe('ProvidersSettings', () => {
+  it('saves an Ollama root without adding the OpenAI API prefix', async () => {
+    repository.languageModelConfiguration.mockResolvedValue({
+      ...configuration,
+      presets: [
+        ...presets,
+        {
+          ...local('ollama', 'Ollama', 11434),
+          provider: 'ollama',
+          api_base: 'http://127.0.0.1:11434',
+        },
+      ],
+    });
+    repository.addSavedServer.mockResolvedValue({
+      id: 'ollama',
+      address: 'http://gpu-7:11434',
+      custom: false,
+    });
+    const user = userEvent.setup();
+    renderPage();
+    const target = await card('ollama');
+    await user.click(within(target).getByRole('button', { name: 'Change the Ollama address' }));
+    const field = within(target).getByLabelText('Ollama address');
+    await user.clear(field);
+    await user.type(field, 'gpu-7:11434');
+    await user.click(within(target).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(repository.addSavedServer).toHaveBeenCalledWith({
+        address: 'http://gpu-7:11434',
+        preset_id: 'ollama',
+        label: undefined,
+      }),
+    );
+    expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+  });
+  it('anchors a picker shortcut on the requested server without changing the model', async () => {
+    const scroll = vi.fn();
+    vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(scroll);
+    try {
+      renderPage('/settings/providers?provider=vllm');
+      const target = await screen.findByLabelText('vLLM provider settings');
+      await waitFor(() => expect(target).toHaveFocus());
+      expect(scroll).toHaveBeenCalledWith({ block: 'center' });
+      expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
   it('lists only the servers on this computer as cards; a stopped one is grey, never red', async () => {
     renderPage();
 
@@ -216,7 +273,9 @@ describe('ProvidersSettings', () => {
     renderPage();
     const lmStudio = await card('lm_studio');
 
-    await user.click(within(lmStudio).getByRole('button', { name: 'Change the LM Studio address' }));
+    await user.click(
+      within(lmStudio).getByRole('button', { name: 'Change the LM Studio address' }),
+    );
     const field = within(lmStudio).getByLabelText('LM Studio address');
     await user.clear(field);
     await user.type(field, '127.0.0.1:1235');
@@ -301,11 +360,15 @@ describe('ProvidersSettings', () => {
     expect(within(node).getByText('GPU node')).toBeVisible();
     expect(within(node).getByText('Not running')).toBeVisible();
     await user.click(within(node).getByRole('button', { name: 'Check' }));
-    await waitFor(() => expect(repository.checkSavedServer).toHaveBeenCalledWith('server-gpu-node'));
+    await waitFor(() =>
+      expect(repository.checkSavedServer).toHaveBeenCalledWith('server-gpu-node'),
+    );
     expect(await within(node).findByText('Running, 1 model')).toBeVisible();
 
     await user.click(within(node).getByRole('button', { name: 'Remove' }));
-    await waitFor(() => expect(repository.removeSavedServer).toHaveBeenCalledWith('server-gpu-node'));
+    await waitFor(() =>
+      expect(repository.removeSavedServer).toHaveBeenCalledWith('server-gpu-node'),
+    );
   });
 
   it('a runtime with a saved address can go back to its own', async () => {
@@ -354,7 +417,9 @@ describe('ProvidersSettings', () => {
         preset_id: undefined,
       }),
     );
-    expect(await within(dialog).findByText('GPU node was added. It is running, with 1 model.')).toBeVisible();
+    expect(
+      await within(dialog).findByText('GPU node was added. It is running, with 1 model.'),
+    ).toBeVisible();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
   });
 
