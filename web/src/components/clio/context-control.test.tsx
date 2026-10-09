@@ -24,13 +24,7 @@ function Harness(props: Partial<ContextControlProps> & { initial?: ContextDraft 
   const [draft, setDraft] = useState<ContextDraft>(props.initial ?? EMPTY_CONTEXT_DRAFT);
   return (
     <>
-      <ContextControl
-        draft={draft}
-        id="test-context"
-        minimum={256}
-        onDraft={setDraft}
-        {...props}
-      />
+      <ContextControl draft={draft} id="test-context" minimum={256} onDraft={setDraft} {...props} />
       <output data-testid="draft">{JSON.stringify(draft)}</output>
     </>
   );
@@ -141,8 +135,10 @@ describe('ContextControl', () => {
 
   it('shows the effective value and its reason after deploy or save', () => {
     render(<Harness effective={{ length: 16_384, reason: 'Fit to GPU on 1 GPU' }} />);
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'In force: 16,384 tokens · Fit to GPU on 1 GPU',
-    );
+    // The harness's <output> draft mirror is also a status region; pick the control's own.
+    const effective = screen
+      .getAllByRole('status')
+      .find((node) => node.getAttribute('data-slot') === 'context-effective');
+    expect(effective).toHaveTextContent('In force: 16,384 tokens · Fit to GPU on 1 GPU');
   });
 });
