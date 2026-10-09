@@ -66,10 +66,12 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
           </DialogDescription>
         </DialogHeader>
         <ScrollArea
-          className="min-h-0 flex-1 max-h-[55dvh]"
+          className="min-h-0 flex-1 overflow-hidden"
           // Radix wraps the list in display:table, which grows to the widest
           // unbroken preview (tool JSON, paths) and pushes labels out of view.
-          viewportProps={{ className: '[&>div]:!block' }}
+          // The viewport carries the height bound: a size-full viewport inside
+          // an auto-height root never scrolls, and long lists slid under Done.
+          viewportProps={{ className: '[&>div]:!block max-h-[55dvh]' }}
         >
           <div className="space-y-1 pr-3">
             {rows.map((row) => {
@@ -131,7 +133,7 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
             ) : null}
           </div>
         </ScrollArea>
-        <div className="flex justify-between gap-2">
+        <div className="flex shrink-0 justify-between gap-2">
           {content.hasNextPage ? (
             <Button
               variant="outline"
