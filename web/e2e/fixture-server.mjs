@@ -22,6 +22,9 @@ import {
   runEarthquakeTableQuery,
 } from './a2ui-data-demo-fixture.mjs';
 import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
+import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
+import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
+import { createHtmlPreviewFixture } from './html-preview-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -31,6 +34,7 @@ const streamMessageId = 'msg_stream';
 const streamBlockId = 'block_stream';
 let permissionPending = true;
 let questionPending = true;
+let questionTrayDemo = false;
 let mcpV2UiDemo = false;
 let a2uiMapDemo = false;
 let a2uiDataDemo = false;
@@ -714,6 +718,8 @@ function seedQueuedMessages() {
 
 /** Return a dense sanitized transcript with one active, always-mounted streaming turn. */
 function transcriptMessages() {
+  const compact = branchArtifacts.compactMessages();
+  if (compact) return [...compact, ...transcriptActivityMessages];
   const messages = Array.from({ length: 998 }, (_, index) => ({
     id: `msg_history_${String(index).padStart(4, '0')}`,
     session_id: sessionId,
@@ -767,6 +773,9 @@ function transcriptMessages() {
         streaming: false,
       },
       { id: 'block_tool', type: 'tool', tool_id: 'tool_earthscope' },
+      ...(questionTrayDemo
+        ? [{ id: 'block_fixture_question', type: 'tool', tool_id: 'tool_fixture_question' }]
+        : []),
       { id: 'block_task', type: 'task', task_id: 'task_quality' },
       { id: 'block_subagent', type: 'subagent', subagent_id: 'subagent_station' },
       { id: 'block_artifact', type: 'artifact', artifact_id: 'artifact_plot' },
@@ -1077,7 +1086,7 @@ const CHART_DEMO_ROWS = [
 ];
 
 /** A lone clio.chart.v1 (scatter preset, inline data) — proves the kernel draws. */
-function chartDemoMessages() {
+function chartDemoMessages(legend = false) {
   return [
     {
       version: 'v0.9.1',
@@ -1093,10 +1102,20 @@ function chartDemoMessages() {
             id: 'chart',
             component: 'clio.chart.v1',
             title: 'Wave amplitude by run',
-            preset: 'scatter',
-            xField: 't',
-            yField: 'v',
-            entityField: 'run',
+            ...(!legend ? { preset: 'scatter', xField: 't', yField: 'v', entityField: 'run' } : {}),
+            ...(legend
+              ? {
+                  spec: {
+                    mark: 'point',
+                    config: { background: '#ffffff' },
+                    encoding: {
+                      x: { field: 't', type: 'quantitative' },
+                      y: { field: 'v', type: 'quantitative' },
+                      color: { field: 'run', type: 'nominal' },
+                    },
+                  },
+                }
+              : {}),
             data: CHART_DEMO_ROWS,
           },
         ],
@@ -1369,6 +1388,24 @@ function startHighRateStream() {
   }, 10);
 }
 
+const branchArtifacts = createBranchArtifactFixture({
+  session,
+  workspaceId,
+  observedAt,
+  transcriptMessages,
+  readJson,
+  sendJson,
+  commonHeaders,
+});
+
+const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const htmlPreview = createHtmlPreviewFixture({
+  artifactRecord,
+  sessionId,
+  workspaceId,
+  sendJson,
+  commonHeaders,
+});
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
   if (request.method === 'OPTIONS') {
@@ -1377,10 +1414,14 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
+    sessionSummary.reset();
+    htmlPreview.reset();
+    branchArtifacts.reset();
     session.state = 'running';
     session.updated_at = observedAt;
     permissionPending = true;
     questionPending = true;
+    questionTrayDemo = false;
     mcpV2UiDemo = false;
     a2uiMapDemo = false;
     // Every spec shares this server: a demo left on by one spec file (the
@@ -1413,6 +1454,9 @@ const server = createServer(async (request, response) => {
     response.end();
     return;
   }
+  if (await branchArtifacts.handle(request, response, url)) return;
+  if (await sessionSummary.handle(request, response, url)) return;
+  if (await htmlPreview.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
     session.state = 'failed';
     session.updated_at = new Date().toISOString();
@@ -1467,6 +1511,13 @@ const server = createServer(async (request, response) => {
       closes: mcpAppCloses,
       resolved_interactions: [...resolvedInteractionIds],
     });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/question-tray') {
+    questionTrayDemo = true;
+    questionPending = false;
+    sendJson(response, { status: 'pending' }, 202);
     return;
   }
 
@@ -1533,7 +1584,7 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && url.pathname === '/__test/transcript-activity') {
-    const { phase } = await readJson(request);
+    const { phase, timed = false } = await readJson(request);
     if (!['thinking', 'answer'].includes(phase)) {
       sendJson(response, { error: 'Unknown transcript activity phase' }, 400);
       return;
@@ -1563,6 +1614,7 @@ const server = createServer(async (request, response) => {
         name: 'fs_read_file',
         title: 'Read',
         state: 'succeeded',
+        ...(timed ? { duration_ms: 240 } : {}),
         input: { path: 'notes.md' },
         output: 'Complete fixture file contents.',
         presentation: {
@@ -1579,6 +1631,7 @@ const server = createServer(async (request, response) => {
         name: 'shell_bash',
         title: 'Run',
         state: 'failed',
+        ...(timed ? { duration_ms: 75_500 } : {}),
         input: { command: 'python review.py' },
         error: 'Fixture command failed.',
         output: 'ModuleNotFoundError: fixture_package',
@@ -1591,6 +1644,30 @@ const server = createServer(async (request, response) => {
           ],
         },
       });
+      if (timed) {
+        transcriptActivityTools.push({
+          id: 'flat_environment',
+          session_id: sessionId,
+          run_id: 'run_flat_activity',
+          name: 'prepare_execution_runtime',
+          title: 'Get execution environment',
+          state: 'running',
+          started_at: new Date(Date.now() - 12_000).toISOString(),
+        });
+      }
+      for (const tool of transcriptActivityTools) publish('tool.upserted', tool);
+    }
+    if (phase === 'answer' && timed) {
+      transcriptActivityTools = transcriptActivityTools.map((tool) =>
+        tool.id === 'flat_environment'
+          ? {
+              ...tool,
+              state: 'succeeded',
+              duration_ms: 24_840,
+              completed_at: new Date().toISOString(),
+            }
+          : tool,
+      );
       for (const tool of transcriptActivityTools) publish('tool.upserted', tool);
     }
     const assistantMessage = {
@@ -1618,6 +1695,9 @@ const server = createServer(async (request, response) => {
         { id: 'flat_next', type: 'text', channel: 'next_thought', text: thought },
         { id: 'flat_read_part', type: 'tool', tool_id: 'flat_read' },
         { id: 'flat_run_part', type: 'tool', tool_id: 'flat_run' },
+        ...(timed
+          ? [{ id: 'flat_environment_part', type: 'tool', tool_id: 'flat_environment' }]
+          : []),
         ...(phase === 'answer'
           ? [
               {
@@ -1659,6 +1739,7 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && url.pathname === '/__test/a2ui-chart-demo') {
+    const { legend = false } = await readJson(request);
     const surfaceId = 'surface_chart_demo';
     publish('a2ui.surface.upserted', {
       id: surfaceId,
@@ -1667,7 +1748,7 @@ const server = createServer(async (request, response) => {
       protocol_version: '0.9.1',
       revision: 1,
       state: 'ready',
-      messages: chartDemoMessages(),
+      messages: chartDemoMessages(legend),
     });
     sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
     return;
@@ -1749,6 +1830,22 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (
+    request.method === 'POST' &&
+    url.pathname === `/v1/sessions/${sessionId}/a2ui/visual-feedback`
+  ) {
+    // Current renderers send leases even when this scenario has no queued
+    // control/capture. Match the production bridge's report/reply envelopes;
+    // don't hide unexpected HTTP errors in the browser assertions.
+    const body = await readJson(request);
+    if (typeof body.viewer_id !== 'string' || typeof body.surface_id !== 'string') {
+      sendJson(response, { error: 'A mounted viewer and surface are required.' }, 422);
+      return;
+    }
+    sendJson(response, 'request_id' in body ? { accepted: true } : { requests: [] });
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/a2ui/actions`) {
     // Only acknowledges receipt (the `isPending` mutation this resolves is
     // what gates the surface header's optimistic "Sending action" label,
@@ -1826,7 +1923,7 @@ const server = createServer(async (request, response) => {
       ...capabilities,
       capabilities: {
         ...capabilities.capabilities,
-        ...(mcpV2UiDemo || a2uiMapDemo ? { x_clio_interactions: true } : {}),
+        ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo ? { x_clio_interactions: true } : {}),
         ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
       },
     });
@@ -1903,7 +2000,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/sessions') {
-    sendJson(response, { sessions: [session] });
+    sendJson(response, { sessions: [session, ...branchArtifacts.sessions()] });
     return;
   }
   if (
@@ -1922,6 +2019,19 @@ const server = createServer(async (request, response) => {
     sendJson(response, {
       messages: transcriptMessages(),
       tools: [
+        ...(questionTrayDemo
+          ? [
+              {
+                id: 'tool_fixture_question',
+                session_id: sessionId,
+                name: 'ask_user',
+                title: 'Ask user',
+                state: 'succeeded',
+                input: { question: 'Which evidence view?' },
+                output: 'Waiting for your answer.',
+              },
+            ]
+          : []),
         ...transcriptActivityTools,
         {
           id: 'tool_earthscope',
@@ -2132,7 +2242,10 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
-    const artifacts = a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord];
+    const artifacts = [
+      ...(a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord]),
+      ...branchArtifacts.artifacts(),
+    ];
     sendJson(response, {
       artifacts,
       used: [],
@@ -2326,12 +2439,40 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (
-    (mcpV2UiDemo || a2uiMapDemo) &&
+    (mcpV2UiDemo || a2uiMapDemo || questionTrayDemo) &&
     request.method === 'GET' &&
     url.pathname === `/v1/sessions/${sessionId}/interactions`
   ) {
     sendJson(response, {
-      interactions: a2uiMapDemo ? earthScopeMapInteractions() : mcpV2Interactions(),
+      interactions: questionTrayDemo
+        ? [
+            {
+              id: 'native:question:tray',
+              kind: 'question',
+              status: 'pending',
+              requires_human_response: true,
+              audience: 'human',
+              owner_session_id: sessionId,
+              attended_session_id: sessionId,
+              title: 'Question',
+              prompt: 'Which evidence view should remain primary?',
+              created_at: observedAt,
+              source: {
+                protocol: 'native',
+                tool_name: 'ask_user',
+                invocation_id: 'tool_fixture_question',
+              },
+              actions: ['answer'],
+              payload: {
+                question_id: 'tray',
+                kind: 'choice',
+                options: [{ label: 'Table', value: 'table' }],
+              },
+            },
+          ]
+        : a2uiMapDemo
+          ? earthScopeMapInteractions()
+          : mcpV2Interactions(),
     });
     return;
   }

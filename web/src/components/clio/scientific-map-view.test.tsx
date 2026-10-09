@@ -170,6 +170,38 @@ describe('ClioScientificMapView zone selection', () => {
     expect(container.querySelector('[data-slot="a2ui-map-zone-drag"]')).toBeNull();
   });
 
+  it('captures a selection pointer and finishes a release outside the map', () => {
+    const onZoneSelect = vi.fn();
+    const { container } = render(
+      <ClioScientificMapView onSelect={vi.fn()} onZoneSelect={onZoneSelect} points={POINTS} />,
+    );
+    const surface = container.querySelector<HTMLElement>('[data-slot="a2ui-map-surface"]')!;
+    stubContainerRect(surface);
+    const capture = vi.spyOn(surface, 'setPointerCapture');
+    vi.spyOn(surface, 'hasPointerCapture').mockReturnValue(true);
+    const release = vi.spyOn(surface, 'releasePointerCapture');
+    fireEvent.pointerDown(surface, { button: 0, pointerId: 1, clientX: 0, clientY: 0, shiftKey: true });
+    fireEvent.pointerMove(surface, { pointerId: 1, clientX: 100, clientY: 350, shiftKey: true });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 100, clientY: 350, shiftKey: true });
+    expect(capture).toHaveBeenCalledWith(1);
+    expect(release).toHaveBeenCalledWith(1);
+    expect(onZoneSelect).toHaveBeenCalledWith(['inside-1', 'inside-2'], false, true);
+    expect(container.querySelector('[data-slot="a2ui-map-zone-drag"]')).toBeNull();
+  });
+
+  it('clears a cancelled pointer selection without submitting a zone', () => {
+    const onZoneSelect = vi.fn();
+    const { container } = render(
+      <ClioScientificMapView onSelect={vi.fn()} onZoneSelect={onZoneSelect} points={POINTS} />,
+    );
+    const surface = container.querySelector('[data-slot="a2ui-map-surface"]')!;
+    fireEvent.pointerDown(surface, { button: 0, pointerId: 1, clientX: 0, clientY: 0, shiftKey: true });
+    fireEvent.pointerMove(surface, { pointerId: 1, clientX: 100, clientY: 100, shiftKey: true });
+    fireEvent.pointerCancel(surface, { pointerId: 1 });
+    expect(onZoneSelect).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-slot="a2ui-map-zone-drag"]')).toBeNull();
+  });
+
   it('ignores an ordinary drag (no shift): normal map panning is left alone', () => {
     const onZoneSelect = vi.fn();
     const { container } = render(

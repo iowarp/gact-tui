@@ -18,6 +18,26 @@ const baseSession: Session = {
   archived: false,
 };
 
+it('keeps branch attention on its own navigation row, including delegated worker input', () => {
+  const branch: Session = {
+    ...baseSession,
+    id: 'branch',
+    parent_session_id: baseSession.id,
+    session_kind: 'branch',
+    state: 'completed',
+  };
+  const worker: Session = {
+    ...branch,
+    id: 'worker',
+    parent_session_id: branch.id,
+    session_kind: 'agent',
+    state: 'waiting_user',
+  };
+  const map = buildSessionAttentionMap([baseSession, branch, worker], []);
+  expect(map[branch.id]?.questionIds).toEqual(['state:worker:waiting_user']);
+  expect(map[baseSession.id]?.total ?? 0).toBe(0);
+});
+
 function interaction(kind: PendingInteraction['kind'], id: string): PendingInteraction {
   return {
     id,

@@ -34,6 +34,7 @@ export async function captureSessionReview(
   transport: ClioTransport,
   sessionIds: readonly string[],
   transcript?: unknown,
+  selectedSurfaces?: Record<string, unknown[]>,
 ): Promise<SessionReviewSnapshot> {
   const snapshot: SessionReviewSnapshot = { responses: {}, sessions: {}, tables: {}, failures: [] };
   const captured: ClioTransport = {
@@ -66,7 +67,9 @@ export async function captureSessionReview(
     captured.request({ method: body ? 'POST' : 'GET', path, body, decode: (v) => v });
   for (const sid of sessionIds) {
     const prefix = `/v1/sessions/${encodeURIComponent(sid)}`;
-    await json(`${prefix}/interactions?include_recent_resolved=true&resolved_limit=100`);
+    // A dashboard captures its authored views and their data, not unrelated chat questions.
+    if (selectedSurfaces?.[sid] === undefined)
+      await json(`${prefix}/interactions?include_recent_resolved=true&resolved_limit=100`);
     type SummaryRow = {
       session?: { id?: string };
       surfaces?: unknown[];
@@ -75,10 +78,18 @@ export async function captureSessionReview(
     };
     const raw = transcript as (SummaryRow & { children?: SummaryRow[] }) | undefined;
     const current = [raw, ...(raw?.children ?? [])].find((row) => row?.session?.id === sid);
-    const response = (await json(`${prefix}/a2ui/surfaces`)) as {
+    const response = (
+      selectedSurfaces?.[sid]
+        ? { surfaces: selectedSurfaces[sid] }
+        : await json(`${prefix}/a2ui/surfaces`)
+    ) as {
       surfaces: unknown[];
       degradations?: unknown[];
     };
+    if (selectedSurfaces?.[sid])
+      snapshot.responses[sessionReviewRequestKey('GET', `${prefix}/a2ui/surfaces`)] = {
+        json: response,
+      };
     if (response.degradations?.length && current?.surfaces) {
       snapshot.failures.push({
         path: `${prefix}/a2ui/surfaces`,

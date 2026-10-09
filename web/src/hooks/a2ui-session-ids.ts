@@ -10,7 +10,7 @@ import type { Session, SubagentRun } from '@clio/core/v3';
 export function computeInteractionSessionIds(
   sessionId: string,
   subagents: Iterable<Pick<SubagentRun, 'session_id' | 'child_session_id'>>,
-  sessions: Iterable<Pick<Session, 'id' | 'parent_session_id'>>,
+  sessions: Iterable<Pick<Session, 'id' | 'parent_session_id' | 'session_kind'>>,
 ): Set<string> {
   const subagentList = [...subagents];
   const sessionList = [...sessions];
@@ -31,6 +31,7 @@ export function computeInteractionSessionIds(
     for (const candidate of sessionList) {
       if (
         candidate.parent_session_id &&
+        candidate.session_kind !== 'branch' &&
         related.has(candidate.parent_session_id) &&
         !related.has(candidate.id)
       ) {

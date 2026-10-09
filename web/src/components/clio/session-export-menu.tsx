@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { SessionExportMode } from '@clio/core/v3';
-import { DownloadIcon } from 'lucide-react';
+import { CheckIcon, DownloadIcon } from 'lucide-react';
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
@@ -22,8 +22,9 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
         <DownloadIcon aria-hidden="true" /> Export session
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-72">
-        <DropdownMenuLabel>Transcript: one self-contained HTML</DropdownMenuLabel>
+        <DropdownMenuLabel>Transcript included</DropdownMenuLabel>
         <DropdownMenuCheckboxItem
+          className="pr-2 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
           checked={effects}
           onSelect={(event) => event.preventDefault()}
           onCheckedChange={(value) => {
@@ -31,9 +32,16 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
             if (!value) setFull(false);
           }}
         >
-          Effects: include session artifacts
+          <span
+            aria-hidden="true"
+            className="flex size-4 items-center justify-center rounded-sm border border-current"
+          >
+            {effects ? <CheckIcon className="size-3" /> : null}
+          </span>
+          Include session artifacts
         </DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem
+          className="pr-2 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
           checked={full}
           onSelect={(event) => event.preventDefault()}
           onCheckedChange={(value) => {
@@ -41,12 +49,17 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
             if (value) setEffects(true);
           }}
         >
-          Full: include workspace files
+          <span
+            aria-hidden="true"
+            className="flex size-4 items-center justify-center rounded-sm border border-current"
+          >
+            {full ? <CheckIcon className="size-3" /> : null}
+          </span>
+          Include workspace files
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onExport(mode)}>
-          <DownloadIcon aria-hidden="true" /> Download{' '}
-          {mode === 'transcript' ? 'transcript HTML' : `${mode} archive`}
+          <DownloadIcon aria-hidden="true" /> Download {mode === 'transcript' ? 'HTML' : 'ZIP'}
         </DropdownMenuItem>
       </DropdownMenuSubContent>
     </DropdownMenuSub>

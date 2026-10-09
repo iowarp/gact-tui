@@ -90,6 +90,12 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
 }
 
 // Provider and hook intentionally share one private context identity.
+/** Dialogs outside a workspace preview use the focused transcript width. */
+// oxlint-disable-next-line react/only-export-components
+export function useConversationWidth(): ConversationWidth {
+  return useContext(AppearanceContext)?.conversationWidth ?? defaults.conversationWidth;
+}
+
 // oxlint-disable-next-line react/only-export-components
 export function useAppearancePreferences(): AppearanceContextValue {
   const value = useContext(AppearanceContext);

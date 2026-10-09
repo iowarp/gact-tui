@@ -143,7 +143,7 @@ describe('ClioArtifactCard', () => {
     );
   });
 
-  it('opens via the labeled name button, not the whole card (G0: no nested-interactive a11y violation)', async () => {
+  it('opens via a native button whose hit area spans the card', async () => {
     const user = userEvent.setup();
     const onOpen = renderCard();
 
@@ -154,6 +154,23 @@ describe('ClioArtifactCard', () => {
         expect.objectContaining({ shiftKey: false }),
       ),
     );
+  });
+
+  it('supports keyboard opening with the split-view modifier', async () => {
+    const user = userEvent.setup();
+    const onOpen = renderCard();
+    const openButton = screen.getByRole('button', { name: 'Open station-timeseries.png' });
+    await user.tab();
+    expect(openButton).toHaveFocus();
+    await user.keyboard('[Space]');
+    expect(onOpen).toHaveBeenCalledOnce();
+    await user.keyboard('{Shift>}[Enter]{/Shift}');
+    expect(onOpen).toHaveBeenCalledTimes(2);
+    expect(onOpen).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'artifact_plot' }),
+      expect.objectContaining({ shiftKey: true }),
+    );
+    expect(openButton.querySelector('button, a, input')).toBeNull();
   });
 
   it('keeps tabular artifacts bounded without verbose instructional copy', () => {

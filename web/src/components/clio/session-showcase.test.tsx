@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioEvidenceView, type ClioEvidenceViewProps } from './observability-evidence';
 import { SessionConnectedSources, SessionWorkShowcase } from './session-showcase-inventory';
@@ -91,6 +91,81 @@ describe('session showcase inventory', () => {
     expect(repository.sessionWork).toHaveBeenCalledWith('session', 0, expect.any(AbortSignal));
     expect(repository.scheduledTurns).toHaveBeenCalledWith('session', expect.any(AbortSignal));
     expect(repository.connectedSources).toHaveBeenCalledWith('workspace', expect.any(AbortSignal));
+    client.clear();
+  });
+  it('opens an artifact from a compact row with format, size and timestamp, without an output card', () => {
+    const onOpenArtifact = vi.fn();
+    const artifact = { ...evidence.artifacts[0]!, size: 158, created_at: '2026-10-08T12:00:00Z' };
+    renderEvidence({
+      ...evidence,
+      artifacts: [artifact],
+      compact: true,
+      section: 'data',
+      onOpenArtifact,
+    });
+    const row = screen.getByRole('button', { name: 'Open Report.docx' });
+    expect(row).toHaveTextContent('158 B');
+    expect(row.querySelector('time')).not.toBeNull();
+    expect(screen.queryByText('Output')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="artifact"]')).toBeNull();
+    fireEvent.click(row);
+    expect(onOpenArtifact).toHaveBeenCalledWith(artifact);
+  });
+  it('routes compact files, tasks, and agent runs to their actual full views', () => {
+    const onOpenFile = vi.fn();
+    const onOpenWork = vi.fn();
+    const onOpenActivity = vi.fn();
+    renderEvidence({
+      ...evidence,
+      compact: true,
+      onOpenFile,
+      onOpenWork,
+      onOpenActivity,
+      runs: [{ id: 'run', session_id: 'session', state: 'completed', summary: 'Checked sensors' }],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open sensor.csv' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open Review evidence' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open Checked sensors' }));
+    expect(onOpenFile).toHaveBeenCalledWith('sensor.csv');
+    expect(onOpenWork).toHaveBeenCalledOnce();
+    expect(onOpenActivity).toHaveBeenCalledOnce();
+  });
+  it('opens the canonical technical details dialog from a compact tool row', async () => {
+    renderEvidence({
+      ...evidence,
+      compact: true,
+      section: 'work',
+      tools: [
+        {
+          id: 'tool',
+          session_id: 'session',
+          name: 'write_file',
+          input: { path: 'report.txt' },
+          output: 'Saved report',
+          state: 'succeeded',
+        },
+      ],
+    });
+    expect(screen.queryByText('Saved report')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Technical details for/ }));
+    const dialog = screen.getByRole('dialog');
+    expect(await within(dialog).findByText(/Saved report/)).toBeVisible();
+  });
+  it('opens the selected connected source and current work instead of embedding their pages', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const onOpenSource = vi.fn();
+    const onOpenWork = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <SessionConnectedSources workspaceId="workspace" onOpenSource={onOpenSource} />
+        <SessionWorkShowcase sessionId="session" onOpenWork={onOpenWork} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Sensor repository' }));
+    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'source' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Check the report' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Review tomorrow' }));
+    expect(onOpenWork).toHaveBeenCalledTimes(2);
     client.clear();
   });
 });

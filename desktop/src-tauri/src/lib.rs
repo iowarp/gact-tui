@@ -13,6 +13,7 @@ mod clio_core_registry;
 mod commands;
 mod credentials;
 mod document_apps;
+mod downloads;
 mod execution_install;
 mod gact_http;
 mod gact_http_response;
@@ -146,6 +147,9 @@ pub fn run() {
     let supervisor = Supervisor::new();
     let state = Mutex::new(supervisor);
 
+    let mut context = tauri::generate_context!();
+    let startup_windows = downloads::defer_configured_windows(context.config_mut());
+
     let app = tauri::Builder::default()
         // A second launch restores the existing tray-resident process instead
         // of booting another managed backend beside it.
@@ -155,6 +159,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(downloads::plugin())
         // Auto-update: pulls the signed latest.json marker from GitHub
         // releases, verifies it against the `plugins.updater.pubkey` in
         // tauri.conf.json, then downloads + installs on demand. The frontend
@@ -186,6 +191,7 @@ pub fn run() {
             commands::read_logs,
             commands::open_document_path,
             document_apps::document_applications,
+            document_apps::open_file_bytes,
             ssh_transport::ssh_transport_open,
             remote_lifecycle::desktop_deployment_owner,
             ssh_transport::ssh_transport_status,
@@ -211,6 +217,7 @@ pub fn run() {
             credentials::ssh_identity_store,
             gact_http::gact_http,
             update_channel::check_release_update,
+            downloads::open_downloads,
             sse_bridge::gact_sse_open,
             sse_bridge::gact_sse_close,
             plugins::exec_plugin,
@@ -223,7 +230,8 @@ pub fn run() {
             restart_clio,
             close_prompt_shown
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            downloads::create_configured_windows(app, &startup_windows)?;
             // Resolve + remember the persisted boot-log path FIRST so the
             // supervisor's worker threads (spawn + install/repair streamers)
             // can append to it and the "Open logs" command can reveal it
@@ -344,7 +352,7 @@ pub fn run() {
                 _ => {}
             }
         })
-        .build(tauri::generate_context!());
+        .build(context);
 
     let app = match app {
         Ok(app) => app,

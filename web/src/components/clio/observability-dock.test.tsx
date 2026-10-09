@@ -33,6 +33,31 @@ afterEach(() => {
 });
 
 describe('ClioObservabilityView', () => {
+  it('honors a new requested tab even when the same session view is already mounted', async () => {
+    const props = {
+      artifacts: [],
+      contextFiles: [],
+      contextFrames: [],
+      diffs: [],
+      messages: [],
+      processes: [],
+      tasks: [],
+      tools: [],
+      runs: [],
+      subagents: [],
+      sessionId: 'requested-context',
+    };
+    const view = (key: string, tab: 'context' | 'activity') => (
+      <ClioObservabilityView {...props} requestedView={{ key, view: tab }} />
+    );
+    const rendered = render(view('first', 'context'));
+    expect(screen.getByRole('tab', { name: 'Context' })).toHaveAttribute('data-state', 'active');
+    await userEvent.setup().click(screen.getByRole('tab', { name: 'Timeline' }));
+    rendered.rerender(view('second', 'context'));
+    expect(screen.getByRole('tab', { name: 'Context' })).toHaveAttribute('data-state', 'active');
+    rendered.rerender(view('third', 'activity'));
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('data-state', 'active');
+  });
   it('surfaces governed presentation fallbacks beside the live session status', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     reportPresentationOverride({
@@ -110,9 +135,7 @@ describe('ClioObservabilityView', () => {
     await user.click(screen.getByRole('button', { name: 'Hide activity and evidence' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^Evidence layout:/ }));
-    await user.click(
-      screen.getByRole('button', { name: 'Open observability in workspace canvas' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Open full details' }));
 
     expect(onOpenCanvas).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

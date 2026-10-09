@@ -18,12 +18,15 @@ export const SurfaceAttentionContext = createContext<SurfaceAttention | undefine
 export function SurfaceAttentionProvider({
   surface,
   children,
+  disabled = false,
 }: {
   surface: A2UISurface;
   children: ReactNode;
+  disabled?: boolean;
 }) {
   const registry = useContext(SelectionActionsContext);
-  return registry && surface.part_id ? (
+  if (disabled) return <SurfaceAttentionContext.Provider value={undefined}>{children}</SurfaceAttentionContext.Provider>;
+  return registry && surface.part_id && !disabled ? (
     <BoundSurface surface={surface}>{children}</BoundSurface>
   ) : (
     children
@@ -91,14 +94,7 @@ function BoundSurface({ surface, children }: { surface: A2UISurface; children: R
       image: (componentId, source, region) =>
         add(componentId, source, region, 'Selected image region'),
     };
-  }, [
-    registry,
-    repository,
-    surface.id,
-    surface.session_id,
-    surface.part_id,
-    surface.revision,
-  ]);
+  }, [registry, repository, surface.id, surface.session_id, surface.part_id, surface.revision]);
   return (
     <SurfaceAttentionContext.Provider value={value}>{children}</SurfaceAttentionContext.Provider>
   );

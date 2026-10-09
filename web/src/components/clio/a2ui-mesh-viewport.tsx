@@ -1,3 +1,13 @@
+import {
+  artifactIdFromMeshUri,
+  describe,
+  edgeColorForTheme,
+  isCameraState,
+  rangeOf,
+  slug,
+  supportsWebGL,
+  type ViewInputs,
+} from './a2ui-mesh-view-state';
 import { useQuery } from '@tanstack/react-query';
 import { Link2Icon, MousePointerSquareDashedIcon, ZoomInIcon } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent } from 'react';
@@ -20,7 +30,7 @@ import { formatFieldValue } from './mesh-viewport-colormap';
 import { MeshLegend, type MeshLegendState } from './mesh-viewport-legend';
 import { composeSnapshot } from './mesh-viewport-snapshot';
 import { parsedMeshCache } from './mesh-viewport-cache';
-import { type MeshField, type ParsedFeaMesh } from './mesh-viewport-mesh';
+import { type MeshField } from './mesh-viewport-mesh';
 import { parseMeshArtifact, type MeshFormat } from './mesh-viewport-formats';
 import { MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
 import {
@@ -62,35 +72,22 @@ export interface ClioMeshViewportProps {
   weight?: number;
 }
 
-interface ViewInputs {
-  color?: MeshField;
-  threshold?: { field: MeshField; min: number; max: number };
-  frame: number;
-}
-
-function artifactIdFromMeshUri(uri: string): string | undefined {
-  return /^artifact:\/\/(artifact_[A-Za-z0-9_-]+)$/u.exec(uri)?.[1];
-}
-
-function isCameraState(value: unknown): value is MeshCameraState {
-  if (!value || typeof value !== 'object') return false;
-  const { position, target } = value as Partial<MeshCameraState>;
-  const vector = (v: unknown) =>
-    Array.isArray(v) &&
-    v.length === 3 &&
-    v.every((n) => typeof n === 'number' && Number.isFinite(n));
-  return vector(position) && vector(target);
-}
-
 const STAGE_LABEL: Record<string, string> = {
   baseline: 'Before optimization',
   optimized: 'After optimization',
 };
 
 const MESH_MIME_TYPE: Record<MeshFormat, string> = {
-  glb: 'model/gltf-binary', gltf: 'model/gltf+json', obj: 'model/obj', stl: 'model/stl',
-  ply: 'application/octet-stream', fbx: 'application/octet-stream', '3mf': 'model/3mf',
-  vtk: 'application/octet-stream', vtp: 'application/xml', drc: 'application/octet-stream',
+  glb: 'model/gltf-binary',
+  gltf: 'model/gltf+json',
+  obj: 'model/obj',
+  stl: 'model/stl',
+  ply: 'application/octet-stream',
+  fbx: 'application/octet-stream',
+  '3mf': 'model/3mf',
+  vtk: 'application/octet-stream',
+  vtp: 'application/xml',
+  drc: 'application/octet-stream',
 };
 
 /** An orbitable view of one registered mesh, colored, thresholded, and stepped by its fields. */
@@ -121,15 +118,24 @@ export function ClioMeshViewport({
   // byte-budgeted LRU (`mesh-viewport-cache.ts`), never in the query cache.
   const mesh = useQuery({
     enabled: Boolean(artifactId),
-    queryKey: queryKeys.key('artifact-mesh', settings.endpoint, artifactId, format, materialArtifactId),
+    queryKey: queryKeys.key(
+      'artifact-mesh',
+      settings.endpoint,
+      artifactId,
+      format,
+      materialArtifactId,
+    ),
     queryFn: async ({ signal }) => {
       const key = `${settings.endpoint}|${artifactId}|${format ?? 'auto'}|${materialArtifactId ?? ''}`;
       const cached = parsedMeshCache.get(key);
       if (cached) return cached;
-      if (materialUri && !materialArtifactId) throw new Error('materialUri must name a registered artifact.');
+      if (materialUri && !materialArtifactId)
+        throw new Error('materialUri must name a registered artifact.');
       const [bytes, materialBytes] = await Promise.all([
         repository.readArtifactBytes(artifactId!, undefined, signal),
-        materialArtifactId ? repository.readArtifactBytes(materialArtifactId, undefined, signal) : Promise.resolve(undefined),
+        materialArtifactId
+          ? repository.readArtifactBytes(materialArtifactId, undefined, signal)
+          : Promise.resolve(undefined),
       ]);
       const parsedMesh = await parseMeshArtifact(bytes, format, materialBytes);
       parsedMeshCache.set(key, parsedMesh);
@@ -155,7 +161,7 @@ export function ClioMeshViewport({
     box: { left: number; top: number; right: number; bottom: number };
   }>();
   const selectedNodes = useMemo(
-    () => nodeSelection?.meshUri === meshUri ? nodeSelection.ids : [],
+    () => (nodeSelection?.meshUri === meshUri ? nodeSelection.ids : []),
     [meshUri, nodeSelection],
   );
   const [draftBox, setDraftBox] = useState<{ x0: number; y0: number; x1: number; y1: number }>();
@@ -216,17 +222,47 @@ export function ClioMeshViewport({
   useEffect(() => {
     const node = canvasRef.current;
     if (!node || !parsed || !webgl) return;
-    const restoredCamera = localCameraRef.current?.meshUri === meshUri ? localCameraRef.current.state : undefined;
+    const restoredCamera =
+      localCameraRef.current?.meshUri === meshUri ? localCameraRef.current.state : undefined;
     const scene = new MeshViewportScene(node);
     sceneRef.current = scene;
     const captureNode = node as HTMLDivElement & {
       __clioMeshCapture?: () => HTMLCanvasElement;
-      __clioMeshInspect?: (box: { left: number; top: number; right: number; bottom: number }) => { count: number; nodeIds: number[]; nodesTruncated: boolean };
+      __clioMeshState?: () => unknown;
+      __clioMeshInspect?: (box: { left: number; top: number; right: number; bottom: number }) => {
+        count: number;
+        nodeIds: number[];
+        nodesTruncated: boolean;
+      };
     };
     captureNode.__clioMeshCapture = () => scene.capture();
+    captureNode.__clioMeshState = () => {
+      const current = inputsRef.current;
+      const fieldMetadata = (field: MeshField | undefined) => {
+        if (!field) return undefined;
+        const { data: _data, ...metadata } = field;
+        return metadata;
+      };
+      return {
+        camera: scene.cameraState(),
+        meshUri,
+        frame: current.frame,
+        color: fieldMetadata(current.color),
+        threshold: current.threshold
+          ? {
+              ...current.threshold,
+              field: fieldMetadata(current.threshold.field),
+            }
+          : undefined,
+      };
+    };
     captureNode.__clioMeshInspect = (box) => {
       const nodeIds = scene.nodesInScreenBox(box);
-      return { count: nodeIds.length, nodeIds: nodeIds.slice(0, 100), nodesTruncated: nodeIds.length > 100 };
+      return {
+        count: nodeIds.length,
+        nodeIds: nodeIds.slice(0, 100),
+        nodesTruncated: nodeIds.length > 100,
+      };
     };
     scene.setMesh(parsed, edgeColorForTheme());
     let userMoved = false;
@@ -300,6 +336,7 @@ export function ClioMeshViewport({
       resetRef.current = undefined;
       sceneRef.current = undefined;
       delete captureNode.__clioMeshCapture;
+      delete captureNode.__clioMeshState;
       delete captureNode.__clioMeshInspect;
       scene.dispose();
     };
@@ -353,12 +390,20 @@ export function ClioMeshViewport({
 
   const boxPoint = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    return { x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)) };
+    return {
+      x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+    };
   };
   const onBoxPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     dragStart.current = boxPoint(event);
-    setDraftBox({ x0: dragStart.current.x, y0: dragStart.current.y, x1: dragStart.current.x, y1: dragStart.current.y });
+    setDraftBox({
+      x0: dragStart.current.x,
+      y0: dragStart.current.y,
+      x1: dragStart.current.x,
+      y1: dragStart.current.y,
+    });
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const onBoxPointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -373,13 +418,15 @@ export function ClioMeshViewport({
     if (!start) return;
     const end = boxPoint(event);
     const rect = event.currentTarget.getBoundingClientRect();
-    if (Math.abs(end.x - start.x) * rect.width < 6 || Math.abs(end.y - start.y) * rect.height < 6) return;
-    const nodes = sceneRef.current?.nodesInScreenBox({
-      left: Math.min(start.x, end.x) * rect.width,
-      top: Math.min(start.y, end.y) * rect.height,
-      right: Math.max(start.x, end.x) * rect.width,
-      bottom: Math.max(start.y, end.y) * rect.height,
-    }) ?? [];
+    if (Math.abs(end.x - start.x) * rect.width < 6 || Math.abs(end.y - start.y) * rect.height < 6)
+      return;
+    const nodes =
+      sceneRef.current?.nodesInScreenBox({
+        left: Math.min(start.x, end.x) * rect.width,
+        top: Math.min(start.y, end.y) * rect.height,
+        right: Math.max(start.x, end.x) * rect.width,
+        bottom: Math.max(start.y, end.y) * rect.height,
+      }) ?? [];
     setNodeSelection({
       meshUri,
       ids: nodes,
@@ -437,7 +484,11 @@ export function ClioMeshViewport({
         if (!artifactId) return;
         const bytes = await repository.readArtifactBytes(artifactId);
         const extension = (parsed?.sourceFormat ?? format ?? 'glb') as MeshFormat;
-        downloadBytes(bytes, MESH_MIME_TYPE[extension], `${filenameStemFromTitle(heading)}.${extension}`);
+        downloadBytes(
+          bytes,
+          MESH_MIME_TYPE[extension],
+          `${filenameStemFromTitle(heading)}.${extension}`,
+        );
       },
     },
   ];
@@ -451,7 +502,17 @@ export function ClioMeshViewport({
       filters: [],
       previewColumns: [],
       previewRows: [],
-      query: { field, frame: frameIndex, meshUri, format: parsed?.sourceFormat ?? format, materialUri, thresholdField, thresholdMax, thresholdMin, ...(selectedNodes.length ? { selection: { field: 'node', values: selectedNodes } } : {}) },
+      query: {
+        field,
+        frame: frameIndex,
+        meshUri,
+        format: parsed?.sourceFormat ?? format,
+        materialUri,
+        thresholdField,
+        thresholdMax,
+        thresholdMin,
+        ...(selectedNodes.length ? { selection: { field: 'node', values: selectedNodes } } : {}),
+      },
       zoneDescription: selectedNodes.length
         ? `${selectedNodes.length} selected mesh ${selectedNodes.length === 1 ? 'node' : 'nodes'}`
         : `the current view, ${[colorLabel, frameLabel].filter(Boolean).join(', ')}`,
@@ -481,32 +542,68 @@ export function ClioMeshViewport({
     ),
   };
 
-  const boxButton = () => parsed && webgl ? <Tooltip>
-    <TooltipTrigger asChild>
-      <Button aria-label="Box select mesh nodes" aria-pressed={boxMode} className={`shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 ${boxMode ? 'opacity-100' : ''}`} onClick={() => setBoxMode((active) => !active)} size="icon-sm" variant={boxMode ? 'secondary' : 'ghost'}>
-        <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
-      </Button>
-    </TooltipTrigger>
-    <TooltipContent side="bottom">Drag a rectangle to select mesh nodes. Click again to orbit.</TooltipContent>
-  </Tooltip> : null;
-  const zoomButtons = () => <>
-    {selectedNodes.length ? <Button aria-label="Zoom to selection" onClick={() => {
-      const scene = sceneRef.current;
-      const box = nodeSelection?.meshUri === meshUri ? nodeSelection.box : undefined;
-      if (box && scene?.zoomToScreenBox(box)) {
-        setZoomActive(true);
-        const member = memberRef.current;
-        if (member) publishMeshCamera(group, member, scene.cameraState());
-        localCameraRef.current = { meshUri, state: scene.cameraState() };
-      }
-    }} size="icon-sm" title="Zoom to selection" variant="ghost"><ZoomInIcon aria-hidden="true" className="size-3.5" /></Button> : null}
-    {zoomActive ? <Button aria-label="Reset zoom" onClick={() => resetRef.current?.()} size="icon-sm" title="Reset zoom" variant="ghost"><RetryIcon aria-hidden="true" className="size-3.5" /></Button> : null}
-  </>;
+  const boxButton = () =>
+    parsed && webgl ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            aria-label="Box select mesh nodes"
+            aria-pressed={boxMode}
+            className={`shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 ${boxMode ? 'opacity-100' : ''}`}
+            onClick={() => setBoxMode((active) => !active)}
+            size="icon-sm"
+            variant={boxMode ? 'secondary' : 'ghost'}
+          >
+            <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          Drag a rectangle to select mesh nodes. Click again to orbit.
+        </TooltipContent>
+      </Tooltip>
+    ) : null;
+  const zoomButtons = () => (
+    <>
+      {selectedNodes.length ? (
+        <Button
+          aria-label="Zoom to selection"
+          onClick={() => {
+            const scene = sceneRef.current;
+            const box = nodeSelection?.meshUri === meshUri ? nodeSelection.box : undefined;
+            if (box && scene?.zoomToScreenBox(box)) {
+              setZoomActive(true);
+              const member = memberRef.current;
+              if (member) publishMeshCamera(group, member, scene.cameraState());
+              localCameraRef.current = { meshUri, state: scene.cameraState() };
+            }
+          }}
+          size="icon-sm"
+          title="Zoom to selection"
+          variant="ghost"
+        >
+          <ZoomInIcon aria-hidden="true" className="size-3.5" />
+        </Button>
+      ) : null}
+      {zoomActive ? (
+        <Button
+          aria-label="Reset zoom"
+          onClick={() => resetRef.current?.()}
+          size="icon-sm"
+          title="Reset zoom"
+          variant="ghost"
+        >
+          <RetryIcon aria-hidden="true" className="size-3.5" />
+        </Button>
+      ) : null}
+    </>
+  );
 
   return (
     <div
       className="min-w-0"
       data-slot="a2ui-mesh-viewport"
+      data-a2ui-component-id={componentId}
+      data-visual-state={failure ? 'failed' : parsed && webgl ? 'ready' : 'loading'}
       style={typeof weight === 'number' ? { flex: `${weight}`, minHeight: 0 } : undefined}
     >
       <section
@@ -540,7 +637,14 @@ export function ClioMeshViewport({
         <SurfaceFullScreenHost
           fullscreen={fullscreen}
           headerExtra={
-            <>{boxButton()}{zoomButtons()}<SurfaceToolbar capabilities={{ ...toolbarCapabilities, fullScreen: undefined }} floating={false} /></>
+            <>
+              {boxButton()}
+              {zoomButtons()}
+              <SurfaceToolbar
+                capabilities={{ ...toolbarCapabilities, fullScreen: undefined }}
+                floating={false}
+              />
+            </>
           }
           onOpenChange={setFullscreen}
           title={heading}
@@ -551,21 +655,39 @@ export function ClioMeshViewport({
             ) : (
               <div
                 aria-label={ariaSummary}
-                className={fullscreen ? 'relative h-[calc(100dvh-6rem)] min-h-64 overflow-hidden' : 'relative h-80 min-h-64 overflow-hidden'}
+                className={
+                  fullscreen
+                    ? 'relative h-[calc(100dvh-6rem)] min-h-64 overflow-hidden'
+                    : 'relative h-80 min-h-64 overflow-hidden'
+                }
                 onPointerLeave={() => setProbe(undefined)}
                 onPointerMove={onPointerMove}
                 ref={canvasRef}
                 role="img"
               >
-                {boxMode ? <div
-                  aria-label="Drag to select mesh nodes"
-                  className="absolute inset-0 z-10 cursor-crosshair"
-                  onPointerDown={onBoxPointerDown}
-                  onPointerMove={onBoxPointerMove}
-                  onPointerUp={onBoxPointerUp}
-                  role="presentation"
-                  style={{ touchAction: 'none' }}
-                >{draftBox ? <div className="pointer-events-none absolute border-2 border-cyan-400 bg-cyan-400/10" style={{ left: `${Math.min(draftBox.x0, draftBox.x1) * 100}%`, top: `${Math.min(draftBox.y0, draftBox.y1) * 100}%`, width: `${Math.abs(draftBox.x1 - draftBox.x0) * 100}%`, height: `${Math.abs(draftBox.y1 - draftBox.y0) * 100}%` }} /> : null}</div> : null}
+                {boxMode ? (
+                  <div
+                    aria-label="Drag to select mesh nodes"
+                    className="absolute inset-0 z-10 cursor-crosshair"
+                    onPointerDown={onBoxPointerDown}
+                    onPointerMove={onBoxPointerMove}
+                    onPointerUp={onBoxPointerUp}
+                    role="presentation"
+                    style={{ touchAction: 'none' }}
+                  >
+                    {draftBox ? (
+                      <div
+                        className="pointer-events-none absolute border-2 border-cyan-400 bg-cyan-400/10"
+                        style={{
+                          left: `${Math.min(draftBox.x0, draftBox.x1) * 100}%`,
+                          top: `${Math.min(draftBox.y0, draftBox.y1) * 100}%`,
+                          width: `${Math.abs(draftBox.x1 - draftBox.x0) * 100}%`,
+                          height: `${Math.abs(draftBox.y1 - draftBox.y0) * 100}%`,
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
                 {!parsed ? (
                   <Skeleton
                     aria-label={`Loading ${heading} mesh`}
@@ -597,72 +719,24 @@ export function ClioMeshViewport({
               </p>
             ) : null}
             {parsed?.warnings?.map((warning) => (
-              <p className="mt-2 border-t py-2 text-xs text-muted-foreground" key={warning}>{warning}</p>
+              <p className="mt-2 border-t py-2 text-xs text-muted-foreground" key={warning}>
+                {warning}
+              </p>
             ))}
             {snapshotError ? (
               <p className="mt-2 border-t py-2 text-xs text-destructive">
                 The image was not saved: {snapshotError}
               </p>
             ) : null}
-            {selectedNodes.length ? <p className="mt-2 text-xs text-cyan-500">{selectedNodes.length} mesh {selectedNodes.length === 1 ? 'node' : 'nodes'} selected</p> : null}
+            {selectedNodes.length ? (
+              <p className="mt-2 text-xs text-cyan-500">
+                {selectedNodes.length} mesh {selectedNodes.length === 1 ? 'node' : 'nodes'} selected
+              </p>
+            ) : null}
             {legend ? <MeshLegend legend={legend} /> : null}
           </div>
         </SurfaceFullScreenHost>
       </section>
     </div>
   );
-}
-
-function describe(
-  parsed: ParsedFeaMesh | undefined,
-  frame: number,
-  inputs: ViewInputs,
-  visibleCells: number | undefined,
-  artifactId: string | undefined,
-): string {
-  if (!parsed) return artifactId ? 'Loading mesh…' : 'Mesh unavailable';
-  const parts: string[] = [];
-  if (parsed.frames.length > 1) parts.push(parsed.frames[frame] ?? `Frame ${frame}`);
-  const threshold = inputs.threshold;
-  if (threshold && threshold.field.location === 'cell' && visibleCells !== undefined) {
-    const bound = Number.isFinite(threshold.min)
-      ? ` at ${threshold.field.label.toLowerCase()} ≥ ${formatFieldValue(threshold.min)}${threshold.field.unit ? ` ${threshold.field.unit}` : ''}`
-      : '';
-    parts.push(
-      `${visibleCells.toLocaleString()} of ${parsed.cells.toLocaleString()} elements${bound}`,
-    );
-  } else if (parsed.topology === 'cells') {
-    parts.push(`${parsed.cells.toLocaleString()} elements`);
-  } else {
-    parts.push(`${(parsed.triangles.length / 3).toLocaleString()} surface triangles`);
-  }
-  if (parsed.lengthUnit) parts.push(`units ${parsed.lengthUnit}`);
-  return parts.join(', ');
-}
-
-function slug(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/gu, '-')
-      .replace(/^-|-$/gu, '') || 'view'
-  );
-}
-
-/** Feature-edge color; three.js cannot parse the theme's oklch() tokens. */
-function edgeColorForTheme(): string {
-  return document.documentElement.classList.contains('dark') ? '#cbd5e1' : '#1e293b';
-}
-
-function supportsWebGL(): boolean {
-  try {
-    const canvas = document.createElement('canvas');
-    return Boolean(canvas.getContext('webgl2') ?? canvas.getContext('webgl'));
-  } catch {
-    return false;
-  }
-}
-
-function rangeOf(field: MeshField | undefined) {
-  return field ? { field: field.name, min: field.min, max: field.max } : undefined;
 }

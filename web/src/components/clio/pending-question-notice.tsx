@@ -30,9 +30,8 @@ export function PendingQuestionNotice({
   return (
     <div
       aria-live="polite"
-      // Stacked on the composer like the response tray: same width, the same
-      // translucent card tone and blur, open at the bottom into the input.
-      className="pointer-events-auto relative z-10 mx-auto -mb-px flex w-[calc(100%_-_1.5rem)] min-w-0 max-w-[54.5rem] items-center gap-2 rounded-t-xl border border-b-0 border-border/30 bg-card/70 px-3 py-1 text-sm backdrop-blur-xl dark:bg-card/60"
+      // Match the composer surface so the tray joins the input in either theme.
+      className="pointer-events-auto relative z-10 mx-auto -mb-px flex w-[calc(100%_-_1.5rem)] min-w-0 max-w-[54.5rem] items-center gap-2 rounded-t-xl border border-b-0 border-composer-border bg-composer px-3 py-1 text-sm"
       data-slot="pending-question-notice"
       role="status"
     >

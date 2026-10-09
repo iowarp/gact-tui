@@ -1,4 +1,5 @@
 import type { Session } from '@clio/core/v3';
+import { isManagedChildSession } from './session-state';
 
 const DEFAULT_RECENT_LIMIT = 8;
 const SEARCH_LIMIT = 20;
@@ -23,7 +24,7 @@ export function visibleWorkspaceSessions(
 }
 
 export function isPrimarySession(session: Session): boolean {
-  return !session.parent_session_id;
+  return !isManagedChildSession(session);
 }
 
 /**

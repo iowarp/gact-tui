@@ -261,16 +261,21 @@ export function useWorkspaceData({
   const attentionInteractionsError = attentionInteractionQueries.find(
     (query) => query.error,
   )?.error;
+  const legacyInteractions = useMemo(
+    () => legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),
+    [approvals.data, hierarchySessions, questions.data],
+  );
   const interactions = useMemo(
     () =>
       supportsUnifiedInteractions
         ? (normalizedInteractions.data?.interactions ?? [])
-        : legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),
+        : legacyInteractions.filter(
+            (interaction) => interaction.attended_session_id === attendedSessionId,
+          ),
     [
-      approvals.data,
-      hierarchySessions,
+      attendedSessionId,
+      legacyInteractions,
       normalizedInteractions.data,
-      questions.data,
       supportsUnifiedInteractions,
     ],
   );
@@ -279,12 +284,12 @@ export function useWorkspaceData({
         ...interactions,
         ...attentionInteractionQueries.flatMap((query) => query.data?.interactions ?? []),
       ]
-    : interactions;
+    : legacyInteractions;
   const a2uiOwnerIds = useMemo(
     () => [
       ...new Set(
         interactions
-          .filter((interaction) => interaction.kind === 'a2ui')
+          .filter((interaction) => Boolean(interaction.source.surface_id))
           .map((interaction) => interaction.owner_session_id),
       ),
     ],
@@ -453,6 +458,16 @@ export function useWorkspaceData({
     () => sessionArtifactEntities(sessionArtifacts.data, transcriptArtifacts, sessionId),
     [sessionArtifacts.data, sessionId, transcriptArtifacts],
   );
+  const artifactEvidence = useMemo(() => {
+    const retained = sessionArtifacts.data
+      ? sessionArtifactVersionEntities(sessionArtifacts.data, sessionId)
+      : [];
+    return [
+      ...new Map(
+        [...transcriptArtifacts, ...retained].map((artifact) => [artifact.id, artifact]),
+      ).values(),
+    ];
+  }, [sessionArtifacts.data, sessionId, transcriptArtifacts]);
   const liveSubagents = useMemo(
     () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
     [entities.subagents, sessionId],
@@ -554,6 +569,7 @@ export function useWorkspaceData({
     allSessions,
     approvals,
     artifacts,
+    artifactEvidence,
     capabilities,
     context,
     contextObservability,

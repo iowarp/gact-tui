@@ -177,6 +177,8 @@ export interface VariantRunView {
   title: string;
   /** How the run chooses: `Best of 3 · you pick`. */
   method: string;
+  rubric?: string;
+  judge: VariantRun['judge'];
   status: string;
   tabs: VariantTabView[];
   defaultTab: number;
@@ -326,6 +328,8 @@ export function variantRunView(
         ? 'Alternative drafts'
         : `${run.agent_id || 'Agent'} tries`,
     method: methodLabel(run),
+    rubric: run.rubric ?? pick?.rubric,
+    judge: run.judge,
     status: statusLabel(run, noun, pick),
     tabs,
     defaultTab,

@@ -104,7 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-latest]
+        os: [ubuntu-22.04, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -116,6 +116,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: desktop/sidecar-launcher/go.sum
       - uses: actions/cache@v4
         with:
           path: |
@@ -134,6 +138,8 @@ jobs:
             librsvg2-dev \
             libayatana-appindicator3-dev \
             libdbus-1-dev \
+            dbus-x11 \
+            xvfb \
             patchelf
       - run: pnpm install --frozen-lockfile
       - name: Build webview
@@ -144,6 +150,22 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: desktop/src-tauri
         run: cargo test --lib runtime_pack::tests -- --test-threads=1
+      - name: Download lifecycle regressions
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib downloads::tests
+      - name: Native file associations and confinement
+        run: |
+          cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib document_apps
+          cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib document_path_tests
+      - name: Real native downloads (Windows/macOS)
+        if: matrix.os != 'ubuntu-22.04'
+        run: cargo run --manifest-path desktop/src-tauri/Cargo.toml --locked --example downloads_acceptance
+      - name: Real native downloads (Linux WebKitGTK)
+        if: matrix.os == 'ubuntu-22.04'
+        env:
+          WEBKIT_DISABLE_COMPOSITING_MODE: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GDK_BACKEND: x11
+        run: xvfb-run -a dbus-run-session -- cargo run --manifest-path desktop/src-tauri/Cargo.toml --locked --example downloads_acceptance
 
   native-webview-proof:
     name: native WebView proof · fixture-backed
@@ -162,6 +184,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: desktop/sidecar-launcher/go.sum
       - name: Install Linux desktop and WebDriver dependencies
         run: |
           sudo apt-get update

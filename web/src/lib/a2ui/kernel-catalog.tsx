@@ -8,7 +8,6 @@ import {
 } from '@a2ui/web_core/v0_9';
 import type { ResolvedChildRef } from '@a2ui/web_core/v0_9';
 import {
-  A2uiSurface,
   Button as A2UIButton,
   CheckBox,
   Column,
@@ -19,7 +18,6 @@ import {
   Modal,
   Row,
   Slider,
-  Tabs,
   Text,
   TextField,
   createComponentImplementation,
@@ -50,6 +48,7 @@ import { refinedStrictObject } from '@/components/clio/a2ui-refined-schema';
 import { ClioChartCatalogComponent } from '@/components/clio/a2ui-chart-catalog';
 import { ClioDataTableCatalogComponent } from '@/components/clio/a2ui-data-table';
 import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map-catalog';
+import { ClioTabs } from '@/components/clio/a2ui-tabs';
 import { ClioMessageDraftCatalogComponent } from '@/components/clio/a2ui-message-draft';
 import { ClioWeatherCatalogComponent } from '@/components/clio/a2ui-weather';
 import { ClioStepsCatalogComponent } from '@/components/clio/a2ui-steps';
@@ -65,6 +64,7 @@ import { resolvedCardAction } from './kernel-catalog-card-actions';
 import { KernelIcon } from './kernel-catalog-icon';
 import { copyTextToClipboard } from '@/components/clio/surface-export';
 import { SurfaceToolbar, type SurfaceCapabilities } from '@/components/clio/surface-toolbar';
+import { A2uiSurface } from './kernel-surface';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
@@ -677,7 +677,7 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   Column,
   List,
   Card,
-  Tabs,
+  ClioTabs,
   Modal,
   Divider,
   A2UIButton,

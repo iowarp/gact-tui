@@ -146,7 +146,9 @@ function rootSessionId(sessionId: string, sessionsById: ReadonlyMap<string, Sess
   const visited = new Set<string>();
   while (!visited.has(currentId)) {
     visited.add(currentId);
-    const parentId = sessionsById.get(currentId)?.parent_session_id;
+    const current = sessionsById.get(currentId);
+    if (current?.session_kind === 'branch') return currentId;
+    const parentId = current?.parent_session_id;
     if (!parentId || !sessionsById.has(parentId)) return currentId;
     currentId = parentId;
   }

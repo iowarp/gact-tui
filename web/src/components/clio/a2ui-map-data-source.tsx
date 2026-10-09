@@ -17,10 +17,11 @@ import { buildZoneReference, type DataZoneReference } from './data-zone-referenc
 import { parseSelectionState, selectionIncludes, type SelectionWriter } from './selection-state';
 import { filenameStemFromTitle } from './surface-export';
 import type { SurfaceCapabilities, SurfaceExportFormat } from './surface-toolbar';
+import type { MapCameraProps } from './map-camera';
 import { artifactIdFromDataUri, useTableQueryRows, type TableDataQuery } from './table-query-rows';
 import { downloadServerTableExport, type ServerExportQuery } from './table-export-client';
 
-export interface ClioMapArtifactSourceProps extends MapFieldNames {
+export interface ClioMapArtifactSourceProps extends MapFieldNames, MapCameraProps {
   accessibility?: A2UIAccessibility;
   title?: string;
   valueLabel?: string;
@@ -190,14 +191,21 @@ export function ClioMapArtifactSource({
       latitudeField,
       longitudeField,
     ].filter((name): name is string => Boolean(name));
-    const selectedTracks = trackField && visibleSelectedValues.length
-      ? new Set<unknown>(selectedRows.map((row) => row[trackField]).filter((value) => value !== undefined && value !== null))
-      : undefined;
-    const wholeTracks = selectedTracks && rows?.every((row) =>
-      !selectedTracks.has(row[trackField!]) || selectedRows.includes(row));
-    const selectedDescription = wholeTracks && selectedTracks?.size
-      ? `${selectedTracks.size.toLocaleString()} selected ${selectedTracks.size === 1 ? 'track' : 'tracks'} containing ${visibleSelectedValues.length.toLocaleString()} of ${total.toLocaleString()} points`
-      : `${visibleSelectedValues.length.toLocaleString()} selected ${visibleSelectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`;
+    const selectedTracks =
+      trackField && visibleSelectedValues.length
+        ? new Set<unknown>(
+            selectedRows
+              .map((row) => row[trackField])
+              .filter((value) => value !== undefined && value !== null),
+          )
+        : undefined;
+    const wholeTracks =
+      selectedTracks &&
+      rows?.every((row) => !selectedTracks.has(row[trackField!]) || selectedRows.includes(row));
+    const selectedDescription =
+      wholeTracks && selectedTracks?.size
+        ? `${selectedTracks.size.toLocaleString()} selected ${selectedTracks.size === 1 ? 'track' : 'tracks'} containing ${visibleSelectedValues.length.toLocaleString()} of ${total.toLocaleString()} points`
+        : `${visibleSelectedValues.length.toLocaleString()} selected ${visibleSelectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`;
     return buildZoneReference({
       componentLabel: title,
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
@@ -303,9 +311,10 @@ export function ClioMapArtifactSource({
             longitudeField,
             selectionField: effectiveSelectionField,
           }).map((point) => {
-            const value = trackField && point.rowIndex !== undefined
-              ? rows[point.rowIndex]?.[trackField]
-              : undefined;
+            const value =
+              trackField && point.rowIndex !== undefined
+                ? rows[point.rowIndex]?.[trackField]
+                : undefined;
             return typeof value === 'string' || typeof value === 'number'
               ? { ...point, track: String(value) }
               : point;
@@ -354,10 +363,9 @@ export function ClioMapArtifactSource({
         {...rest}
         dataCapabilities={dataCapabilities}
         emptyFiltered={Boolean(
-          !points.length && (
-            (totalRows !== undefined && totalRows > 0 && matchedRows === 0) ||
-            (effectiveDataQuery?.filter?.length ?? 0) > 0
-          )
+          !points.length &&
+            ((totalRows !== undefined && totalRows > 0 && matchedRows === 0) ||
+              (effectiveDataQuery?.filter?.length ?? 0) > 0),
         )}
         points={points}
         geometry={geometry}

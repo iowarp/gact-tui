@@ -121,7 +121,13 @@ export function WorkspaceLiveObservabilityDock({
   sessionId,
   ...props
 }: LiveObservabilityDockProps) {
-  return <ClioObservabilityDock {...props} messages={useSessionMessages(sessionId)} />;
+  return (
+    <ClioObservabilityDock
+      {...props}
+      messages={useSessionMessages(sessionId)}
+      sessionId={sessionId}
+    />
+  );
 }
 
 type LiveObservabilityViewProps = Omit<ComponentProps<typeof ClioObservabilityView>, 'messages'> & {

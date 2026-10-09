@@ -98,9 +98,36 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
   embedded.views = [];
+  document.documentElement.classList.remove('dark');
 });
 
 describe('ClioChart', () => {
+  it('keeps a producer white background transparent across a live theme change', async () => {
+    render(
+      wrap(
+        <ClioChart
+          componentId="theme-chart"
+          data={ROWS}
+          spec={{
+            mark: 'point',
+            config: { background: '#ffffff' },
+            encoding: {
+              x: { field: 't', type: 'quantitative' },
+              y: { field: 'v', type: 'quantitative' },
+            },
+          }}
+        />,
+      ),
+    );
+    const light = await embeddedView();
+    expect(light.background()).toBe('transparent');
+    document.documentElement.classList.add('dark');
+    await waitFor(() => expect(embedded.views.length).toBeGreaterThan(1));
+    const dark = embedded.views.at(-1)!;
+    expect(dark.background()).toBe('transparent');
+    expect(dark.data('source')).toHaveLength(ROWS.length);
+  });
+
   it('draws a preset over inline rows as the named dataset "source"', async () => {
     const user = userEvent.setup();
     const { container } = render(
@@ -445,18 +472,17 @@ describe('ClioChart', () => {
   it('box-selects rows independently and exposes manual zoom reset without refetching', async () => {
     const user = userEvent.setup();
     const setSelection = vi.fn();
-    repository.artifactTableQuery.mockImplementation(
-      () =>
-        Promise.resolve({
-          columns: { run: ['a', 'a', 'b', 'b'], t: [0, 1, 0, 1], v: [1.5, 1.2, 2, 2.4] },
-          rowKey: { column: '__row', values: [0, 1, 2, 3] },
-          downsample: { mode: 'none' },
-          matchedRows: 4,
-          returnedRows: 4,
-          schema: [],
-          totalRows: 4,
-          truncated: false,
-        }),
+    repository.artifactTableQuery.mockImplementation(() =>
+      Promise.resolve({
+        columns: { run: ['a', 'a', 'b', 'b'], t: [0, 1, 0, 1], v: [1.5, 1.2, 2, 2.4] },
+        rowKey: { column: '__row', values: [0, 1, 2, 3] },
+        downsample: { mode: 'none' },
+        matchedRows: 4,
+        returnedRows: 4,
+        schema: [],
+        totalRows: 4,
+        truncated: false,
+      }),
     );
     render(
       wrap(
@@ -479,7 +505,11 @@ describe('ClioChart', () => {
     await view.runAsync();
 
     await waitFor(() =>
-      expect(setSelection).toHaveBeenCalledWith({ field: '__row', values: [0, 1, 2, 3], source: 'ch9' }),
+      expect(setSelection).toHaveBeenCalledWith({
+        field: '__row',
+        values: [0, 1, 2, 3],
+        source: 'ch9',
+      }),
     );
     expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/^Zoomed to/u)).not.toBeInTheDocument();
@@ -489,7 +519,9 @@ describe('ClioChart', () => {
     const resetZoom = await screen.findByRole('button', { name: 'Reset zoom' });
     expect(resetZoom).toBeVisible();
     await user.click(resetZoom);
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Reset zoom' })).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Reset zoom' })).not.toBeInTheDocument(),
+    );
     expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1);
   });
 
