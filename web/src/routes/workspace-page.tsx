@@ -54,9 +54,10 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
-import { showsBaseAgent } from '@/lib/session-state';
+import { isManagedChildSession, showsBaseAgent } from '@/lib/session-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
+import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -91,6 +92,7 @@ export function WorkspacePage() {
     agentBlueprints,
     allSessions,
     artifacts,
+    artifactEvidence,
     capabilities,
     context,
     contextObservability,
@@ -178,6 +180,9 @@ export function WorkspacePage() {
     openWorkspaceResource,
     revealWorkbench,
   } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  const { openObservability, requestedView } = useObservabilityNavigation(sessionId, () =>
+    revealWorkbench({ kind: 'session' }),
+  );
   const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
   useDesktopTitleSync({
     blueprint: activeBlueprint?.display_name,
@@ -383,15 +388,15 @@ export function WorkspacePage() {
       layout
       layoutId={`session-composer:${sessionId}`}
     >
-      {parentSession ? (
+      {isManagedChildSession(session) ? (
         <ClioChildSessionFooter
           onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
           onReturnToParent={() =>
             navigate(
-              `/workspaces/${encodeURIComponent(parentSession.workspace_id)}/sessions/${encodeURIComponent(parentSession.id)}`,
+              `/workspaces/${encodeURIComponent(parentSession?.workspace_id ?? workspaceId)}/sessions/${encodeURIComponent(session.parent_session_id!)}`,
             )
           }
-          parentTitle={parentSession.title}
+          parentTitle={parentSession?.title ?? 'Parent conversation'}
           pendingInteractions={pendingInteractionsPanel}
           state={state}
           variant={variant}
@@ -516,7 +521,7 @@ export function WorkspacePage() {
               diffs={sessionObservability.diffs.data ?? []}
               executionProvenance={executionProvenance.execution.data}
               interactions={interactions}
-              onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
+              onOpenCanvas={openObservability}
               onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
               onOpenArtifact={openArtifact}
               onOpenDiff={openDiff}
@@ -572,7 +577,6 @@ export function WorkspacePage() {
               }}
               onOpenBlueprint={(blueprint) => revealWorkbench({ kind: 'blueprint', blueprint })}
               onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
-              onOpenTerminal={terminalActions.onOpenTerminal}
               onReturnToParent={(parent) =>
                 navigate(
                   `/workspaces/${encodeURIComponent(parent.workspace_id)}/sessions/${encodeURIComponent(parent.id)}`,
@@ -633,7 +637,8 @@ export function WorkspacePage() {
               sessionId={sessionId}
               sessionView={
                 <WorkspaceLiveObservabilityView
-                  artifacts={artifacts}
+                  requestedView={requestedView}
+                  artifacts={artifactEvidence}
                   artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
                   context={context}
                   contextError={sessionContext.state.error?.message}

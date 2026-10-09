@@ -22,6 +22,22 @@ const session = (id: string, title: string, updated_at: string): Session => ({
 });
 
 describe('visibleWorkspaceSessions', () => {
+  it('lists and searches user branches while excluding managed children', () => {
+    const parent = session('parent', 'Sweep', '2026-08-24T00:00:00Z');
+    const branch: Session = {
+      ...parent,
+      id: 'branch',
+      title: 'Independent sweep',
+      parent_session_id: parent.id,
+      session_kind: 'branch',
+    };
+    const child: Session = { ...branch, id: 'child', session_kind: 'agent' };
+    const lookup: Session = { ...branch, id: 'lookup', session_kind: 'lookup', agent_id: 'main' };
+    expect(isPrimarySession(branch)).toBe(true);
+    expect(
+      visibleWorkspaceSessions([parent, branch, child, lookup], 'ws_1', 'independent'),
+    ).toEqual([branch]);
+  });
   it('keeps recent order stable instead of moving the active session', () => {
     const sessions = Array.from({ length: 30 }, (_, index) =>
       session(

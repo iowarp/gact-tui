@@ -256,7 +256,9 @@ function MinimapRail({
           const look = attention ? heatLook(mark) : landmarkLook(message);
           const restingWidth = look.base * Math.min(1.5, maxMarkerWidth / 24);
           const active = row.index === activeIndex;
-          const lift = Math.max(placed[position]?.lift ?? 0, active ? 1 : 0);
+          const lift = placed[position]?.lift ?? 0;
+          const activeWidth = Math.min(maxMarkerWidth * 0.5, restingWidth * 1.5);
+          const baseWidth = active ? Math.max(restingWidth, activeWidth) : restingWidth;
           return (
             <HoverCard key={message.id} openDelay={120}>
               <HoverCardTrigger asChild>
@@ -280,9 +282,9 @@ function MinimapRail({
                     data-heat={mark?.heated ? mark.bucket : undefined}
                     data-slot="transcript-minimap-landmark"
                     style={{
-                      height: 3 + 2 * lift,
-                      opacity: look.opacity + (1 - look.opacity) * lift,
-                      width: restingWidth + (maxMarkerWidth - restingWidth) * lift,
+                      height: (active ? 4 : 3) + 2 * lift,
+                      opacity: active ? 1 : look.opacity + (1 - look.opacity) * lift,
+                      width: baseWidth + (maxMarkerWidth - baseWidth) * lift,
                     }}
                   />
                 </button>

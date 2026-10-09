@@ -18,6 +18,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { ArtifactLineageGraph } from './artifact-lineage-graph';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
+import { downloadBytes } from './surface-export';
 
 export function ArtifactProvenance({
   artifact,
@@ -43,7 +44,8 @@ export function ArtifactProvenance({
   });
   const exportBundle = useMutation({
     mutationFn: () => repository.exportArtifact(artifact.id),
-    onSuccess: (bytes) => downloadBundle(bytes, artifact.name),
+    onSuccess: (bytes) =>
+      downloadBytes(bytes, 'application/zip', `${safeFileName(artifact.name)}.crate.zip`),
   });
 
   if (view === 'lineage') {
@@ -141,17 +143,6 @@ export function ArtifactProvenance({
 function formatObservedTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
-function downloadBundle(bytes: Uint8Array, artifactName: string): void {
-  const owned = new Uint8Array(bytes.byteLength);
-  owned.set(bytes);
-  const url = URL.createObjectURL(new Blob([owned.buffer], { type: 'application/zip' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `${safeFileName(artifactName)}.crate.zip`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function safeFileName(value: string): string {

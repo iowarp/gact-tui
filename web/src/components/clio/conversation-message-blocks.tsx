@@ -1,4 +1,5 @@
 import { ActionCardButton } from './action-card-button';
+import { responseArtifactBlocks } from '@/lib/artifact-presentation';
 import type {
   A2UIActionLifecycle,
   A2UISurface,
@@ -251,7 +252,7 @@ function MessageBlockView({
     case 'artifact': {
       const artifact = artifacts[block.artifact_id];
       return artifact ? (
-        <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} />
+        <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} presentation="response" />
       ) : (
         <ReferencedArtifact
           artifactId={block.artifact_id}
@@ -499,7 +500,10 @@ export function MessageBlockSequence({
   blocks: readonly MessageBlock[];
   resourcesFirst?: boolean;
 }) {
-  const uniqueBlocks = [...new Map(blocks.map((block) => [block.id, block] as const)).values()];
+  const uniqueBlocks = responseArtifactBlocks(
+    [...new Map(blocks.map((block) => [block.id, block] as const)).values()],
+    props.artifacts,
+  );
   const orderedBlocks = resourcesFirst
     ? [
         ...uniqueBlocks.filter((block) => block.type === 'resource'),

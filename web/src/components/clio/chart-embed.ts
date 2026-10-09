@@ -131,7 +131,9 @@ export function embedChart(
     sanitize: escapeHtml,
     theme: dark ? 'dark' : 'light',
   });
-  return embed(element, spec as VisualizationSpec, {
+  // A producer's top-level background overrides embed config. Keep the entire
+  // plot on the same surface as the theme-aware labels, including custom specs.
+  return embed(element, { ...spec, background: 'transparent' } as VisualizationSpec, {
     actions: false,
     ast: true,
     config: { background: 'transparent', range: { category: [...CATEGORY_COLORS] } },

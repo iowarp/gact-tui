@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 
 describe('computeInteractionSessionIds', () => {
+  it('keeps independent branch surfaces outside their provenance parent closure', () => {
+    const sessions = [
+      { id: 'branch', parent_session_id: 'root', session_kind: 'branch' as const },
+      { id: 'worker', parent_session_id: 'branch', session_kind: 'agent' as const },
+    ];
+    expect([...computeInteractionSessionIds('root', [], sessions)]).toEqual(['root']);
+    expect([...computeInteractionSessionIds('branch', [], sessions)]).toEqual(['branch', 'worker']);
+  });
   it('includes a subagent child session (S1 item 4: the child/subagent id must reach the derived set)', () => {
     const ids = computeInteractionSessionIds(
       'sess_root',

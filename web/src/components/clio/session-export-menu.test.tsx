@@ -24,19 +24,15 @@ describe('session export modes', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Actions' }));
     await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
-    expect(screen.getByRole('menuitem', { name: 'Download transcript HTML' })).toBeVisible();
-    fireEvent.click(
-      screen.getByRole('menuitemcheckbox', { name: 'Full: include workspace files' }),
-    );
+    expect(screen.getByRole('menuitem', { name: 'Download HTML' })).toBeVisible();
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Include workspace files' }));
     expect(
-      screen.getByRole('menuitemcheckbox', { name: 'Effects: include session artifacts' }),
+      screen.getByRole('menuitemcheckbox', { name: 'Include session artifacts' }),
     ).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('menuitem', { name: 'Download full archive' })).toBeVisible();
-    fireEvent.click(
-      screen.getByRole('menuitemcheckbox', { name: 'Full: include workspace files' }),
-    );
-    expect(screen.getByRole('menuitem', { name: 'Download effects archive' })).toBeVisible();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Download effects archive' }));
+    expect(screen.getByRole('menuitem', { name: 'Download ZIP' })).toBeVisible();
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Include workspace files' }));
+    expect(screen.getByRole('menuitem', { name: 'Download ZIP' })).toBeVisible();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Download ZIP' }));
     expect(download).toHaveBeenCalledWith('effects');
   });
 });

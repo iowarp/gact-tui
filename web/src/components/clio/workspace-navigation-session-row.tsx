@@ -1,5 +1,12 @@
 import type { AgentBlueprintReference, Session, SessionExportMode } from '@clio/core/v3';
-import { ArchiveIcon, BellRingIcon, LoaderCircleIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import {
+  ArchiveIcon,
+  BellRingIcon,
+  GitForkIcon,
+  LoaderCircleIcon,
+  PinIcon,
+  PinOffIcon,
+} from 'lucide-react';
 import { DeleteIcon, EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { sessionInteractionAt } from '@/lib/recent-sessions';
-import { isSessionRunning } from '@/lib/session-state';
+import { isSessionRunning, isUserBranch } from '@/lib/session-state';
 import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
@@ -138,6 +145,11 @@ export function SessionNavigationRow({
             to={`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`}
           >
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}
+            {isUserBranch(session) ? (
+              <span title="Conversation branch" className="inline-flex shrink-0">
+                <GitForkIcon aria-hidden="true" className="size-3" />
+              </span>
+            ) : null}
             <span className="min-w-0 flex-1 truncate">{session.title || 'Untitled session'}</span>
             {needsAttention && attention ? (
               <span

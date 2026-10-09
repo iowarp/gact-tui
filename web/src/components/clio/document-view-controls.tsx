@@ -14,18 +14,30 @@ import { ToolbarAction } from './viewer-toolbar';
 /** The same document views as direct tabs or a menu, selected by the actual pane width. */
 export function DocumentViewControls({
   markdown,
+  html = false,
+  latex = false,
   reviewCount,
   value,
   onChange,
 }: {
   markdown: boolean;
+  html?: boolean;
+  latex?: boolean;
   reviewCount: number;
   value: string;
   onChange: (view: string) => void;
 }) {
   const views = [
-    { value: 'preview', label: 'Read document', icon: BookOpenIcon },
-    ...(markdown ? [{ value: 'raw', label: 'Read raw', icon: FileCode2Icon }] : []),
+    { value: 'preview', label: html ? 'HTML preview' : 'Read document', icon: BookOpenIcon },
+    ...(markdown || html || latex
+      ? [
+          {
+            value: 'raw',
+            label: html ? 'HTML source' : latex ? 'LaTeX source' : 'Read raw',
+            icon: FileCode2Icon,
+          },
+        ]
+      : []),
     {
       value: 'reviews',
       label: `Reviews${reviewCount ? `, ${reviewCount}` : ''}`,

@@ -24,6 +24,8 @@ import { PresentationNavigation } from './presentation-navigation';
 import { ToolAttentionField } from './tool-attention-fields';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import { ToolCompactRow } from './tool-compact-row';
+import { useToolDuration } from './use-tool-duration';
+import { formatDuration } from '@/lib/format';
 
 export function ClioToolInvocation({
   attention,
@@ -46,6 +48,7 @@ export function ClioToolInvocation({
 }) {
   const navigation = useContext(PresentationNavigation);
   const [open, setOpen] = useState(defaultOpen ?? false);
+  const duration = useToolDuration(tool);
   useEffect(() => {
     let frame = 0;
     const inspect = () => {
@@ -112,6 +115,7 @@ export function ClioToolInvocation({
           <ToolCompactRow
             tool={presentedTool}
             inline={inlineDetails}
+            duration={duration}
             attention={
               attention ? (
                 <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
@@ -155,7 +159,7 @@ export function ClioToolInvocation({
             }
             metadata={headerMetadata}
             status={status}
-            duration={tool.duration_ms}
+            duration={duration}
             attention={
               attention ? (
                 <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
@@ -197,6 +201,12 @@ export function ClioToolInvocation({
           </p>
         ) : null}
         <ToolDetailsContent inline={inlineDetails} title={`${actionLabel}: Technical details`}>
+          {duration !== undefined ? (
+            <p className="text-sm tabular-nums text-muted-foreground">
+              {status === 'running' || status === 'pending' ? 'Elapsed time' : 'Execution time'}:{' '}
+              {formatDuration(duration, 'tenths')}
+            </p>
+          ) : null}
           {compact && subject ? (
             workflow && navigation?.onOpenWorkflow ? (
               <Button

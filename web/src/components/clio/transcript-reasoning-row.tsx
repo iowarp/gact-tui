@@ -16,17 +16,17 @@ export function TranscriptReasoningRow({
     .replace(/(\*\*|__|`)/gu, '')
     .replace(/\s+/gu, ' ')
     .trim();
+  const label = streaming ? 'Thinking' : 'Reasoning';
   return (
     // The reader owns the disclosure. Streaming status belongs on the trigger,
     // rather than opting into Reasoning's automatic open/close behavior.
     <Reasoning className="mb-0" defaultOpen={false}>
-      <ReasoningTrigger aria-label={`Thinking: ${preview}`} className="w-full min-w-0 py-1 text-xs">
+      <ReasoningTrigger aria-label={`${label}: ${preview}`} className="w-full min-w-0 py-1 text-xs">
         {streaming ? (
           <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
         ) : (
           <BrainIcon aria-hidden="true" className="size-3.5 shrink-0" />
         )}
-        <span className="shrink-0 font-medium">Thinking</span>
         <span className="min-w-0 flex-1 truncate text-left font-normal">{preview}</span>
         <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0" />
       </ReasoningTrigger>

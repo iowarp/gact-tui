@@ -7,17 +7,23 @@ export function EvidenceSection({
   value,
   count,
   children,
+  compact = false,
 }: {
   icon: typeof FileDiffIcon;
   label: string;
   value: string;
   count: number;
   children: React.ReactNode;
+  compact?: boolean;
 }) {
   return (
     <AccordionItem value={value}>
       <AccordionTrigger
-        className="min-h-9 py-2 text-xs hover:no-underline"
+        className={
+          compact
+            ? 'min-h-7 py-1 text-xs hover:no-underline'
+            : 'min-h-9 py-2 text-xs hover:no-underline'
+        }
         aria-label={`${label}, ${count.toLocaleString()} recorded`}
       >
         <span className="flex items-center gap-2">
@@ -29,7 +35,13 @@ export function EvidenceSection({
         </span>
       </AccordionTrigger>
       <AccordionContent>
-        <div className="clio-scrollbar grid min-w-0 grid-cols-1 max-h-[min(24rem,60vh)] gap-2 overflow-y-auto pr-1">
+        <div
+          className={
+            compact
+              ? 'grid min-w-0 gap-0.5'
+              : 'clio-scrollbar grid min-w-0 grid-cols-1 max-h-[min(24rem,60vh)] gap-2 overflow-y-auto pr-1'
+          }
+        >
           {children}
         </div>
       </AccordionContent>

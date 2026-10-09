@@ -113,6 +113,7 @@ function artifactVersionEntity(
     custody: version.custody,
     sha256: version.sha256,
     size: version.size_bytes,
+    version: version.version,
     created_at: version.created_at,
     session_relation: relation,
     producer: version.producer,

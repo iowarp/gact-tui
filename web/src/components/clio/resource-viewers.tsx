@@ -44,10 +44,13 @@ import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifac
 import { ClioJsonResourceView } from './json-resource-view';
 import { ClioDocumentWorkspace } from './document-workspace';
 import { MarkdownFilePreview } from './markdown-file-preview';
+import { HtmlFilePreview } from './html-file-preview';
+import { isHtmlFile } from './html-preview-policy';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { FileViewerShell } from './file-viewer-shell';
 import { ImageResourceView } from './image-resource-view';
+import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
 
 export function WorkspaceFileView({
@@ -72,7 +75,7 @@ export function WorkspaceFileView({
     ) : detected.startsWith('image/') ? (
       <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
     ) : isTextMediaType(detected) ? (
-      <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} />
+      <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
     ) : (
       <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
     );
@@ -115,10 +118,12 @@ function WorkspaceTextView({
   workspaceId,
   path,
   size,
+  mediaType,
 }: {
   workspaceId: string;
   path: string;
   size?: number;
+  mediaType?: string;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -129,7 +134,14 @@ function WorkspaceTextView({
     enabled: canLoad,
   });
   if (!canLoad) return <LargeResourceNotice name={fileName(path)} size={size} />;
-  return <TextResourceView content={content.data} error={content.error?.message} path={path} />;
+  return (
+    <TextResourceView
+      content={content.data}
+      error={content.error?.message}
+      path={path}
+      mediaType={mediaType}
+    />
+  );
 }
 
 function WorkspaceImageView({
@@ -297,7 +309,11 @@ export function ArtifactView({
     !canLoadInline ? (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
     ) : text.data ? (
-      isMarkdownArtifact(artifact.media_type, artifact.name) ? (
+      artifact.name.endsWith('.dashboard.json') ? (
+        <DashboardResourceView content={text.data.content} artifactId={artifact.id} />
+      ) : isHtmlFile(artifact.name, artifact.media_type) ? (
+        <HtmlFilePreview name={artifact.name} content={text.data.content} />
+      ) : isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <article className="min-w-0 overflow-hidden rounded-lg border bg-background px-5 py-4">
           <MessageResponse className={DOCUMENT_MARKDOWN_CLASS_NAME}>
             {normalizeConvertedMarkdown(text.data.content)}
@@ -342,6 +358,9 @@ export function ArtifactView({
   return (
     <FileViewerShell
       source={{ kind: 'artifact', artifact, workspaceId }}
+      hasDocumentActions={
+        !canPreviewImage && isDocumentArtifact(artifact.media_type, artifact.name)
+      }
       label="Artifact views"
       tabs={[
         {
@@ -411,10 +430,12 @@ export function TextResourceView({
   path,
   content,
   error,
+  mediaType,
 }: {
   path: string;
   content?: string;
   error?: string;
+  mediaType?: string;
 }) {
   if (content === undefined && !error)
     return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
@@ -424,6 +445,9 @@ export function TextResourceView({
         <ResourceUnavailable detail={error} label="File preview unavailable" />
       </div>
     );
+  if (isHtmlFile(path, mediaType)) {
+    return <HtmlFilePreview name={fileName(path)} content={content ?? ''} />;
+  }
   if (isMarkdownArtifact('', path)) {
     return <MarkdownFilePreview name={fileName(path)} content={content ?? ''} />;
   }
@@ -480,6 +504,7 @@ function isTextArtifact(mediaType: string, name: string): boolean {
       'csv',
       'go',
       'html',
+      'htm',
       'java',
       'js',
       'json',
@@ -547,6 +572,7 @@ function isDocumentArtifact(mediaType: string, name: string): boolean {
     'pdf',
     'tex',
     'html',
+    'htm',
     'docx',
     'xlsx',
     'pptx',

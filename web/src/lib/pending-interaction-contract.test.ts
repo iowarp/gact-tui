@@ -129,6 +129,28 @@ describe('pending interaction legacy compatibility', () => {
     });
   });
 
+  it('attends an independent branch and its delegated children at the branch', () => {
+    const branch: Session = {
+      ...root,
+      id: 'branch',
+      parent_session_id: root.id,
+      session_kind: 'branch',
+    };
+    const delegated: Session = { ...child, parent_session_id: branch.id, session_kind: 'agent' };
+    expect(interactionRootSessionId(branch.id, [root, branch, delegated])).toEqual({
+      id: branch.id,
+      resolved: true,
+    });
+    expect(interactionRootSessionId(delegated.id, [root, branch, delegated])).toEqual({
+      id: branch.id,
+      resolved: true,
+    });
+    expect(interactionRootSessionId(branch.id, [branch])).toEqual({
+      id: branch.id,
+      resolved: true,
+    });
+  });
+
   it('marks the root unresolved rather than looping on a cyclic hierarchy', () => {
     const cyclicA: Session = { ...root, id: 'sess_a', parent_session_id: 'sess_b' };
     const cyclicB: Session = { ...root, id: 'sess_b', parent_session_id: 'sess_a' };

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Cat on a bicycle</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; padding: 24px; background: #faf2df; color: #334b52; font: 16px system-ui; }
+    main { max-width: 900px; margin: auto; text-align: center; }
+    h1 { font-size: clamp(24px, 4vw, 38px); }
+    svg { display: block; width: 100%; border-radius: 22px; }
+    .wheel { transform-box: fill-box; transform-origin: center; animation: roll 3s linear infinite; }
+    @keyframes roll { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .wheel { animation: none; } }
+  </style>
+  <script>document.body.dataset.scriptExecuted = 'true';</script>
+</head>
+<body>
+  <main>
+    <h1>Pedal, little adventurer!</h1>
+    <p>A self-contained HTML and animated SVG example.</p>
+    <svg viewBox="0 0 900 560" role="img" aria-label="An orange cat riding a bicycle on a sunny path">
+      <defs>
+        <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#a8defd"/><stop offset="1" stop-color="#e9f9e4"/></linearGradient>
+        <g id="spokes" stroke="#334b52" stroke-width="6"><circle r="67" fill="none" stroke-width="12"/><path d="M-64 0H64M0-64V64M-45-45L45 45M-45 45L45-45"/></g>
+      </defs>
+      <path fill="url(#sky)" d="M0 0H900V560H0Z"/>
+      <circle cx="755" cy="95" r="48" fill="#ffd77a"/>
+      <path fill="#a9cf85" d="M0 390Q220 220 420 365T900 300V560H0Z"/>
+      <path fill="#e8d4a0" d="M0 480Q430 410 900 490V560H0Z"/>
+      <g transform="translate(325 430)"><use class="wheel" href="#spokes"/></g>
+      <g transform="translate(610 430)"><use class="wheel" href="#spokes"/></g>
+      <path d="M325 430L425 310L495 430H325L510 320L610 430M425 310H385M510 320L535 278H575" fill="none" stroke="#f96557" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M412 300Q365 270 384 225Q405 184 456 220L503 285L552 284M450 302L477 359L496 390" fill="none" stroke="#ee9c43" stroke-width="30" stroke-linecap="round"/>
+      <path d="M400 208L397 148L431 174L472 145L477 206Z" fill="#ee9c43"/>
+      <ellipse cx="437" cy="207" rx="43" ry="35" fill="#f5af59"/>
+      <g fill="#334b52"><circle cx="421" cy="204" r="5"/><circle cx="449" cy="204" r="5"/><path d="M433 216H441L437 222Z"/></g>
+      <path d="M382 250Q313 270 317 214" fill="none" stroke="#ee9c43" stroke-width="17" stroke-linecap="round"/>
+    </svg>
+    <p>CSS animation remains live; the original source stays available.</p>
+    <img id="blocked-external-image" src="/preview-network-trap" alt="">
+  </main>
+</body>
+</html>

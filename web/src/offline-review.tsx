@@ -6,6 +6,8 @@ import {
   a2uiSurfaceSchema,
   type SessionReviewSnapshot,
   type Artifact,
+  dashboardReportSchema,
+  type DashboardReport,
 } from '@clio/core/v3';
 import { ArchiveConnectionProvider } from './providers/connection-provider';
 import { RepositoryOverrideProvider } from './providers/repository-override';
@@ -32,10 +34,12 @@ import {
 } from './lib/session-export/archive-conversation';
 import { ArtifactView, TextResourceView } from './components/clio/resource-viewers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
+import { DashboardView } from './components/clio/dashboard-view';
 
 declare global {
   interface Window {
     CLIO_EXPORT_DATA?: string;
+    CLIO_DASHBOARD_DATA?: string;
   }
 }
 setWorkerUrl(
@@ -321,8 +325,21 @@ class ReviewBoundary extends Component<{ children: ReactNode }, { failed: boolea
     return this.state.failed ? null : this.props.children;
   }
 }
+function OfflineDashboard({ report }: { report: DashboardReport }) {
+  useA2uiSessionRegistry([report.session_id]);
+  useEffect(() => {
+    document.getElementById('archive-document')!.hidden = true;
+    document.getElementById('root')!.hidden = false;
+  }, []);
+  return (
+    <main className="mx-auto max-w-7xl">
+      <DashboardView report={report} offline />
+    </main>
+  );
+}
+
 async function mountReview(): Promise<void> {
-  const encoded = window.CLIO_EXPORT_DATA;
+  const encoded = window.CLIO_DASHBOARD_DATA ?? window.CLIO_EXPORT_DATA;
   const decoded = encoded
     ? await new Response(
         new Blob([Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0))])
@@ -331,10 +348,19 @@ async function mountReview(): Promise<void> {
       ).text()
     : document.getElementById('clio-export-data')?.textContent;
   if (!decoded) throw new Error('The archive review data is missing.');
-  data = JSON.parse(decoded) as ArchiveData;
-  const repository = new ClioRepository(new ArchiveTransport(data.snapshot));
-  rows = [data.transcript, ...data.transcript.children];
-  ids = rows.map((row) => row.session.id);
+  const decodedData = JSON.parse(decoded);
+  const dashboard = window.CLIO_DASHBOARD_DATA
+    ? {
+        report: dashboardReportSchema.parse(decodedData.report),
+        snapshot: decodedData.snapshot as SessionReviewSnapshot,
+      }
+    : undefined;
+  if (!dashboard) {
+    data = decodedData as ArchiveData;
+    rows = [data.transcript, ...data.transcript.children];
+    ids = rows.map((row) => row.session.id);
+  }
+  const repository = new ClioRepository(new ArchiveTransport(dashboard?.snapshot ?? data.snapshot));
   document.documentElement.classList.remove('dark');
   createRoot(document.getElementById('root')!).render(
     <ReviewBoundary>
@@ -344,7 +370,7 @@ async function mountReview(): Promise<void> {
         <ArchiveConnectionProvider>
           <RepositoryOverrideProvider repository={repository}>
             <TooltipProvider>
-              <Review />
+              {dashboard ? <OfflineDashboard report={dashboard.report} /> : <Review />}
             </TooltipProvider>
           </RepositoryOverrideProvider>
         </ArchiveConnectionProvider>

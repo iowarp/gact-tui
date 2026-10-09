@@ -14,6 +14,7 @@ import { ClioCompactionProgress } from './conversation-summarization';
 import { ClioTurnPreparation } from './turn-preparation';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
+import { OpenQuestionsTracker } from './open-questions-tracker';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
@@ -337,6 +338,7 @@ function ConversationBody({
 
   return (
     <div className="relative h-full min-h-0">
+      <OpenQuestionsTracker interactions={entities.interactions ?? []} bottomInset={bottomInset} />
       {messages.length > 0 ? (
         <>
           <ClioTranscriptMinimap
@@ -363,6 +365,7 @@ function ConversationBody({
           if (['Enter', ' '].includes(event.key) && target.closest('button[aria-expanded]')) {
             markUserScrollIntent();
             disengage();
+            captureReadingAnchor();
           }
           const ownsKey = target.closest(
             'input, textarea, select, [contenteditable="true"], [role="combobox"], [role="listbox"], [role="menu"], [role="tablist"], [role="radiogroup"]',
@@ -384,6 +387,9 @@ function ConversationBody({
           if (event.target instanceof Element && event.target.closest('button[aria-expanded]')) {
             markUserScrollIntent();
             disengage();
+            // A streaming row can finish before a native scroll event fires.
+            // Keep the visible reader anchor mounted through that transition.
+            captureReadingAnchor();
           }
           if (event.target === event.currentTarget) markUserScrollIntent();
           autoscroll.onPointerDown(event);
