@@ -4,13 +4,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioConversation } from './conversation';
-import type { Range } from '@tanstack/react-virtual';
+import type { Range, VirtualItem, Virtualizer } from '@tanstack/react-virtual';
 
 const virtualizerMocks = vi.hoisted(() => ({
   measure: vi.fn(),
   scrollToIndex: vi.fn(),
   scrollToOffset: vi.fn(),
   rangeExtractor: undefined as ((range: Range) => number[]) | undefined,
+  shouldAdjust: undefined as
+    | Virtualizer<HTMLDivElement, Element>['shouldAdjustScrollPositionOnItemSizeChange']
+    | undefined,
 }));
 // Counts turn-model builds without replacing the real projection, so the
 // memoization assertion below observes production behaviour.
@@ -40,6 +43,14 @@ vi.mock('@tanstack/react-virtual', () => ({
   }) => {
     virtualizerMocks.rangeExtractor = rangeExtractor;
     return {
+      set shouldAdjustScrollPositionOnItemSizeChange(
+        callback: Virtualizer<
+          HTMLDivElement,
+          Element
+        >['shouldAdjustScrollPositionOnItemSizeChange'],
+      ) {
+        virtualizerMocks.shouldAdjust = callback;
+      },
       getTotalSize: () => count * 180,
       getVirtualItems: () =>
         Array.from({ length: count }, (_, index) => ({
@@ -71,6 +82,7 @@ afterEach(() => {
   virtualizerMocks.scrollToIndex.mockClear();
   virtualizerMocks.scrollToOffset.mockClear();
   virtualizerMocks.rangeExtractor = undefined;
+  virtualizerMocks.shouldAdjust = undefined;
   turnModelMocks.presentation.mockClear();
   window.history.replaceState(null, '', window.location.pathname);
 });
@@ -403,6 +415,175 @@ describe('ClioConversation transcript viewport', () => {
     displacement = 70;
     viewport.resizeTo(640);
     expect(log.scrollTop).toBe(470);
+  });
+
+  it('updates the visible anchor as one navigation gesture settles', () => {
+    const viewport = stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
+    const props = { artifacts: {}, subagents: {}, surfaces: {}, tasks: {}, tools: {} };
+    const messages = plainMessages(3);
+    renderConversation(<ClioConversation {...props} messages={messages} />);
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    let firstTop = -100;
+    let secondTop = 500;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const top =
+        this.id === 'message-message_0'
+          ? firstTop
+          : this.id === 'message-message_1'
+            ? secondTop
+            : this.id === 'message-message_2'
+              ? 1100
+              : 0;
+      return {
+        top,
+        bottom: top + 600,
+        width: 800,
+        height: 600,
+        left: 0,
+        right: 800,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      };
+    });
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 400 });
+    fireEvent.wheel(log, { deltaY: 300 });
+    fireEvent.scroll(log);
+    // One native navigation can emit several scroll events as its visible
+    // range settles. Its first row must not become a permanent selection.
+    firstTop = -680;
+    secondTop = -80;
+    log.scrollTop = 700;
+    fireEvent.scroll(log);
+    firstTop = -820;
+    secondTop = -10;
+    viewport.resizeTo(640);
+    expect(log.scrollTop).toBe(770);
+  });
+
+  it('preserves navigation anchors through layout scrolls before resizing', () => {
+    const viewport = stubViewport();
+    let viewportWidth = 800;
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => viewportWidth);
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    let contentHeight = 2000;
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => contentHeight);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
+    const props = { artifacts: {}, subagents: {}, surfaces: {}, tasks: {}, tools: {} };
+    const messages = plainMessages(3);
+    renderConversation(<ClioConversation {...props} messages={messages} />);
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 400 });
+    let position = 300;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const top = this.id === 'message-message_0' ? position - log.scrollTop : 0;
+      return {
+        top,
+        bottom: top + 600,
+        width: 800,
+        height: 600,
+        left: 0,
+        right: 800,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      };
+    });
+    fireEvent.wheel(log, { deltaY: -100 });
+    fireEvent.scroll(log);
+    // Wrapped rows change geometry and emit compensation before the width
+    // observer runs. That scroll is layout, not a new reading position.
+    now = 1000;
+    viewportWidth = 640;
+    contentHeight = 2100;
+    position = 340;
+    fireEvent.scroll(log);
+    position = 370;
+    viewport.resizeTo(640);
+    expect(log.scrollTop).toBe(470);
+    // A new reader gesture establishes its own position for the next resize.
+    fireEvent.wheel(log, { deltaY: 180 });
+    log.scrollTop = 700;
+    fireEvent.scroll(log);
+    position = 440;
+    now = 2000;
+    viewportWidth = 580;
+    contentHeight = 2200;
+    fireEvent.scroll(log);
+    position = 510;
+    viewport.resizeTo(580);
+    expect(log.scrollTop).toBe(840);
+  });
+
+  it('compensates only measurements before the visible anchor after resizing', () => {
+    stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(18000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={plainMessages(80)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 1000 });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const index = Number(this.dataset.index ?? -1);
+      const top = index < 0 ? 0 : index * 180 - log.scrollTop;
+      return {
+        top,
+        bottom: top + 180,
+        height: 180,
+        width: 800,
+        left: 0,
+        right: 800,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      };
+    });
+    fireEvent.wheel(log, { deltaY: -100 });
+    fireEvent.scroll(log);
+    const instance = { scrollOffset: 1000 } as Virtualizer<HTMLDivElement, Element>;
+    const adjust = (index: number): boolean => {
+      const item: VirtualItem = {
+        index,
+        key: index,
+        start: index * 180,
+        end: (index + 1) * 180,
+        size: 180,
+        lane: 0,
+      };
+      return virtualizerMocks.shouldAdjust?.(item, 26, instance) ?? item.start < 1000;
+    };
+    expect(adjust(4)).toBe(true);
+    expect(adjust(5)).toBe(false);
+    expect(adjust(6)).toBe(false);
+    // History hydration can move the same durable message to another index.
+    document.getElementById('message-message_5')!.dataset.index = '7';
+    expect(adjust(6)).toBe(true);
+    expect(adjust(7)).toBe(false);
   });
 
   it('derives the active landmark from the virtualizer without reading rail anchors', () => {

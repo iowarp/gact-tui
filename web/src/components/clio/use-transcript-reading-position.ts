@@ -13,6 +13,8 @@ export interface TranscriptReadingAnchor {
   id: string;
   index: number;
   offset: number;
+  disclosure: boolean;
+  viewportWidth: number;
 }
 
 interface ReadingPositionOptions {
@@ -38,11 +40,20 @@ export function useTranscriptReadingPosition({
   virtualRangeKey,
 }: ReadingPositionOptions) {
   useLayoutEffect(() => {
-    // In-flow rows use browser layout plus our reading anchor. Letting the
-    // virtualizer also compensate their measured heights double-scrolls them.
+    // In-flow rows use browser layout plus our reading anchor. For virtualized
+    // rows, compensate only changes before that row: changing the partially
+    // visible anchor's own height must not move its top after width restoration.
     // oxlint-disable-next-line react/immutability -- TanStack exposes this imperative configuration property on its stable instance.
-    virtualizer.shouldAdjustScrollPositionOnItemSizeChange = virtualized ? undefined : () => false;
-  }, [virtualized, virtualizer]);
+    virtualizer.shouldAdjustScrollPositionOnItemSizeChange = virtualized
+      ? (item, _delta, instance) => {
+          const anchor = readingAnchorRef.current;
+          if (!anchor) return item.start < (instance.scrollOffset ?? 0);
+          const row = document.getElementById(anchor.id);
+          const index = row ? Number(row.dataset.index) : anchor.index;
+          return item.index < index;
+        }
+      : () => false;
+  }, [virtualized, virtualizer, readingAnchorRef]);
   const scrollIntentVersionRef = useRef(0);
   useLayoutEffect(() => {
     const element = scrollRef.current;
@@ -73,6 +84,10 @@ export function useTranscriptReadingPosition({
     (target?: Element | null) => {
       const element = scrollRef.current;
       if (!element) return;
+      const current = readingAnchorRef.current;
+      // Row observers can scroll before the viewport's resize observer runs.
+      // Keep the stable old-width anchor until its restoration completes.
+      if (current && current.viewportWidth !== element.clientWidth) return;
       const viewportTop = element.getBoundingClientRect().top;
       const selected = target?.closest<HTMLElement>('[data-index][id^="message-"]');
       const row =
@@ -89,6 +104,8 @@ export function useTranscriptReadingPosition({
             id: row.id,
             index: Number(row.dataset.index),
             offset: row.getBoundingClientRect().top - viewportTop,
+            disclosure: row === selected,
+            viewportWidth: element.clientWidth,
           }
         : null;
     },
@@ -96,9 +113,9 @@ export function useTranscriptReadingPosition({
   );
 
   useLayoutEffect(() => {
-    // A native scroll event can arrive before virtualization has mounted its
-    // new range. Never anchor an off-screen overscan row from the old range.
-    if (!pinnedToBottomRef.current && !readingAnchorRef.current) captureReadingAnchor();
+    // Measurement can settle after the last native scroll. Refresh ordinary
+    // reading positions at the same width, preserving explicit disclosures.
+    if (!pinnedToBottomRef.current && !readingAnchorRef.current?.disclosure) captureReadingAnchor();
   }, [virtualRangeKey, captureReadingAnchor, pinnedToBottomRef, readingAnchorRef]);
 
   /**
@@ -171,9 +188,11 @@ export function useTranscriptWidth({
         else if (intentVersion === scrollIntentVersionRef.current) {
           const anchor = resizeAnchor;
           const row = anchor ? document.getElementById(anchor.id) : null;
-          if (row && anchor)
+          if (row && anchor) {
             element.scrollTop +=
               row.getBoundingClientRect().top - element.getBoundingClientRect().top - anchor.offset;
+            readingAnchorRef.current = { ...anchor, viewportWidth: element.clientWidth };
+          }
         }
       });
     });

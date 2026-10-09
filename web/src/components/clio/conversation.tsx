@@ -248,7 +248,7 @@ function ConversationBody({
     if (firstVisible) setActiveMessageIndex(firstVisible.index);
     // Layout scrolls after expanding a disclosure must retain its exact row.
     // New wheel/key/pointer navigation clears the anchor before this handler.
-    if (!readingAnchorRef.current) captureReadingAnchor();
+    if (!readingAnchorRef.current?.disclosure) captureReadingAnchor();
   }, [messages.length, virtualizer, captureReadingAnchor, onAutoscroll, followingRef]);
 
   const jumpToMessage = useCallback(
