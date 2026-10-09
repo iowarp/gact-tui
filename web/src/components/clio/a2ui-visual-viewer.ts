@@ -164,6 +164,11 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
 function assertReady(target: HTMLElement): void {
   if (!displayed(target) || document.visibilityState !== 'visible')
     throw new Error('The requested view is hidden or unmounted.');
+  if (
+    target.matches('[data-slot="a2ui-surface-root"]') &&
+    !target.querySelector('[data-a2ui-component-id]')
+  )
+    throw new Error('The surface components have not mounted yet.');
   const failed = [
     ...(target.matches('[role="alert"], [data-visual-state="failed"]') ? [target] : []),
     ...target.querySelectorAll<HTMLElement>('[role="alert"], [data-visual-state="failed"]'),

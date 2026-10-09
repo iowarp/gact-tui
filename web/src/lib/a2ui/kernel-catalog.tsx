@@ -344,7 +344,7 @@ function RenderedCode({
   title?: string;
 }) {
   return (
-    <Suspense fallback={<div className="h-24 animate-pulse rounded-lg bg-muted" />}>
+    <Suspense fallback={<div aria-busy="true" className="h-24 animate-pulse rounded-lg bg-muted" />}>
       <ClioA2UICodeView
         accessibility={componentAccessibility}
         code={code}

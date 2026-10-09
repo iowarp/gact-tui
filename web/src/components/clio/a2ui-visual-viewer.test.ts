@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { compactVisualState, visualViewState } from './a2ui-visual-viewer';
+import { captureVisualRequest, compactVisualState, visualViewState } from './a2ui-visual-viewer';
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -7,6 +7,47 @@ afterEach(() => {
 });
 
 describe('real renderer readiness inspection', () => {
+  it.each([
+    { markup: '', reason: /components have not mounted/u },
+    {
+      markup: '<div data-a2ui-component-id="chart"><div aria-busy="true"></div></div>',
+      reason: /still loading/u,
+    },
+  ])(
+    'refuses an empty surface or lazy renderer placeholder: $markup',
+    async ({ markup, reason }) => {
+      const root = document.createElement('div');
+      root.dataset.slot = 'a2ui-surface-root';
+      root.innerHTML = markup;
+      document.body.append(root);
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        width: 100,
+        height: 100,
+      } as DOMRect);
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+      Object.defineProperty(document, 'fonts', {
+        configurable: true,
+        value: { ready: Promise.resolve() },
+      });
+      await expect(
+        captureVisualRequest(
+          root,
+          {
+            request_id: 'pending',
+            surface_id: 'surface',
+            revision: 3,
+            view_revision: 0,
+            component_id: '',
+            artifact_id: 'saved',
+          },
+          () => false,
+        ),
+      ).rejects.toThrow(reason);
+    },
+  );
   it('bounds large dataset evidence without losing camera or reference identity', () => {
     const result = compactVisualState({
       camera: { position: [1, 2, 3] },
