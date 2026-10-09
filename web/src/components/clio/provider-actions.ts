@@ -13,9 +13,16 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { openExternalUrl } from '@/tauri/external-url';
 import { storeProviderCredential } from '@/tauri/secure-credentials';
 import { useOwnedState } from './provider-owned-state';
+import { refreshModelsWithClient } from './provider-model-refresh';
+import { toast } from 'sonner';
 
 /** The visible progress text of a running provider action. */
 export type ProviderActionStage =
+  | 'Checking client updates…'
+  | 'Downloading client…'
+  | 'Updating client…'
+  | 'Checking updated client…'
+  | 'Client update failed.'
   | 'Checking…'
   | 'Finding models…'
   | 'Installing…'
@@ -58,11 +65,7 @@ interface ProviderActionsInput {
  * then re-reads the catalog for exactly that provider with `refresh=true`, so
  * every open model picker shows the new truth instead of the boot snapshot.
  */
-export function useProviderActions({
-  presetId,
-  apiBase,
-  preset,
-}: ProviderActionsInput) {
+export function useProviderActions({ presetId, apiBase, preset }: ProviderActionsInput) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -72,6 +75,7 @@ export function useProviderActions({
   const owner = presetId;
   const [refreshResult, setRefreshResult, clearRefreshResults] =
     useOwnedState<ProviderModelRefreshResult>(owner);
+  const [refreshNotice, setRefreshNotice, clearRefreshNotices] = useOwnedState<string>(owner);
   const [handshakeResult, setHandshakeResult, clearHandshakeResults] =
     useOwnedState<ProviderHandshake>(owner);
   const [authFlow, setAuthFlow, clearAuthFlows] = useOwnedState<ProviderAuthStart>(owner);
@@ -142,19 +146,24 @@ export function useProviderActions({
     mutationKey: actionKey('refreshModels'),
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
-      setStage('Finding models…');
-      const results = await repository.refreshProviderModels([presetId]);
-      const result = results[0];
-      if (!result) throw new Error('The service returned no catalog result for this provider.');
-      return result;
+      setRefreshNotice(undefined);
+      return refreshModelsWithClient({
+        repository,
+        providerId: presetId,
+        providerKind: preset?.provider,
+        onStage: setStage,
+      });
     },
-    onSuccess: async (result) => {
-      setRefreshResult(result);
+    onSuccess: async ({ result, notice }) => {
+      if (result) setRefreshResult(result);
+      setRefreshNotice(notice);
+      if (notice) toast.info(notice);
       await invalidate(
         modelsKey,
         configurationKey,
         queryKeys.key('capabilities', settings.endpoint),
         queryKeys.providerCatalog(settings.endpoint),
+        queryKeys.key('provider-components', settings.endpoint, presetId),
       );
     },
     ...settle,
@@ -352,6 +361,7 @@ export function useProviderActions({
    */
   const reset = useCallback(() => {
     clearRefreshResults();
+    clearRefreshNotices();
     clearHandshakeResults();
     clearAuthFlows();
     clearAuthPastes();
@@ -365,6 +375,7 @@ export function useProviderActions({
     clearAuthPastes,
     clearHandshakeResults,
     clearRefreshResults,
+    clearRefreshNotices,
     clearStages,
   ]);
   // A stale sign-in/check/install result from the PREVIOUS provider must not
@@ -387,6 +398,7 @@ export function useProviderActions({
     logout,
     refreshModels,
     refreshResult,
+    refreshNotice,
     removeApiKey,
     reset,
     saveApiKey,

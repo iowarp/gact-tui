@@ -2429,6 +2429,17 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/providers/codex/components') {
+    sendJson(response, {
+      provider_id: 'codex',
+      provider_kind: 'codex',
+      installed: true,
+      update_available: false,
+      checked_at: observedAt,
+      components: [],
+    });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/providers/codex/models') {
     sendJson(response, {
       models: [{ id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', context_window: 262144 }],

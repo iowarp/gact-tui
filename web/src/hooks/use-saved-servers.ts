@@ -10,7 +10,7 @@ import { useRepository } from './use-repository';
  * service and returns it with the entry. A saved runtime address changes what
  * the service probes, so each change re-reads the provider list and catalog.
  */
-export function useSavedServers() {
+export function useSavedServers({ enabled = true }: { enabled?: boolean } = {}) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -18,6 +18,7 @@ export function useSavedServers() {
   const servers = useQuery({
     queryKey: key,
     queryFn: ({ signal }) => repository.savedServers(false, signal),
+    enabled,
   });
 
   const adopt = async (entry?: SavedServer) => {
@@ -39,9 +40,17 @@ export function useSavedServers() {
 
   /** Save an address -- a catalog runtime's (`presetId`) or a new custom server -- and check it. */
   const save = useMutation({
-    mutationFn: (input: { address: string; label?: string; presetId?: string; serverId?: string }) =>
+    mutationFn: (input: {
+      address: string;
+      label?: string;
+      presetId?: string;
+      serverId?: string;
+    }) =>
       input.serverId
-        ? repository.updateSavedServer(input.serverId, { address: input.address, label: input.label })
+        ? repository.updateSavedServer(input.serverId, {
+            address: input.address,
+            label: input.label,
+          })
         : repository.addSavedServer({
             address: input.address,
             label: input.label,
