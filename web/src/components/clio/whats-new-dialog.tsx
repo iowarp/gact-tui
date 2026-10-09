@@ -1,7 +1,6 @@
 import { brand } from '@brand';
-import { SparklesIcon } from 'lucide-react';
+import { ArrowUpRightIcon, SparklesIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { MarkdownText } from '@/components/ai-elements/markdown';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,31 +10,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ExternalLink } from '@/components/ui/external-link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ChangelogEntry } from '@/lib/changelog';
-import { desktopChangesSince, readSeen, writeSeen } from '@/lib/desktop-changelog';
+import {
+  desktopChangesSince,
+  hasProductChangelog,
+  interfaceChangesSince,
+  readSeen,
+  writeSeen,
+} from '@/lib/desktop-changelog';
 import { displayReleaseVersion } from '@/lib/release-version';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { readPendingUpdateMarker } from '@/store/update-flow-store';
+import { ReleaseChanges } from './whats-new-release-changes';
 
-/** One product's changes since the version the person last ran. */
+/** Notes and release identity for one independently versioned product. */
 export interface WhatsNewTab {
   id: string;
   label: string;
+  version: string;
+  description: string;
   entries: ChangelogEntry[];
+  releaseUrl?: string | null;
 }
 
-/**
- * "What's new" after an update: a centered window with one tab per updated
- * product (the tab bar appears only when more than one has news), each
- * rendering that product's changelog sections since the last version run.
- */
+/** Show bundled product and interface notes after an installed-app update. */
 export function WhatsNewDialog() {
   const [tabs, setTabs] = useState<WhatsNewTab[]>([]);
   const [open, setOpen] = useState(false);
-  // Read on the first render: the restart-recovery flow clears this marker
-  // once the backend reconnects.
   const [justUpdatedDesktop] = useState(() => {
     const action = readPendingUpdateMarker()?.action;
     return action === 'desktop' || action === 'both';
@@ -48,12 +51,55 @@ export function WhatsNewDialog() {
       .then(({ getVersion }) => getVersion())
       .then(
         (raw) => {
-          const current = displayReleaseVersion(raw);
-          if (disposed || !current) return;
-          const entries = desktopChangesSince(readSeen(), current, justUpdatedDesktop);
-          writeSeen(current);
-          if (entries.length === 0) return;
-          setTabs([{ id: 'desktop', label: `${brand.wordmark} app`, entries }]);
+          const nativeVersion = displayReleaseVersion(raw);
+          if (disposed || !nativeVersion) return;
+          const uiVersion = displayReleaseVersion(import.meta.env.VITE_CLIO_WORKSPACE_VERSION);
+          const productNotes = hasProductChangelog();
+          const previousNative = readSeen();
+          const separateUiIdentity = !productNotes && uiVersion && uiVersion !== nativeVersion;
+          const current = productNotes ? nativeVersion : (uiVersion ?? nativeVersion);
+          const previous = separateUiIdentity ? readSeen('interface') : previousNative;
+          const entries = desktopChangesSince(
+            previous,
+            current,
+            justUpdatedDesktop ||
+              Boolean(separateUiIdentity && previousNative && previousNative !== nativeVersion),
+          );
+          const nextTabs: WhatsNewTab[] = [];
+          if (entries.length) {
+            nextTabs.push({
+              id: 'desktop',
+              label: hasProductChangelog() ? `${brand.wordmark} release` : 'Interface',
+              version: current,
+              description: hasProductChangelog()
+                ? 'Agent, tools and application changes shipped in this release.'
+                : 'Desktop and workspace interface changes.',
+              entries,
+              releaseUrl: separateUiIdentity ? undefined : brand.desktopReleaseUrl,
+            });
+          }
+          if (productNotes && uiVersion) {
+            // Older builds recorded only the native version. On that first
+            // migration show this UI build's notes, not its entire history.
+            const uiEntries = interfaceChangesSince(
+              readSeen('interface'),
+              uiVersion,
+              justUpdatedDesktop || Boolean(previousNative && previousNative !== nativeVersion),
+            );
+            if (uiEntries.length) {
+              nextTabs.push({
+                id: 'interface',
+                label: 'Interface',
+                version: uiVersion,
+                description: 'Desktop and workspace interface changes.',
+                entries: uiEntries,
+              });
+            }
+          }
+          if (uiVersion) writeSeen(uiVersion, 'interface');
+          writeSeen(nativeVersion);
+          if (!nextTabs.length) return;
+          setTabs(nextTabs);
           setOpen(true);
         },
         (error: unknown) => console.error("What's new: desktop version unavailable", error),
@@ -63,67 +109,76 @@ export function WhatsNewDialog() {
     };
   }, [justUpdatedDesktop]);
 
-  if (tabs.length === 0) return null;
+  if (!tabs.length) return null;
+  return <WhatsNewReleaseDialog onOpenChange={setOpen} open={open} tabs={tabs} />;
+}
+
+/** Shared release-note presentation; the installed-app wrapper supplies real versions. */
+export function WhatsNewReleaseDialog({
+  tabs,
+  open,
+  onOpenChange,
+}: {
+  tabs: WhatsNewTab[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!tabs.length) return null;
+  const releaseUrl = tabs.find((tab) => tab.releaseUrl)?.releaseUrl;
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
-      <DialogContent className="grid max-h-[min(760px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-2xl">
-        <DialogHeader>
-          <div className="flex items-start gap-3 pr-8">
-            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="grid max-h-[min(800px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden sm:max-w-3xl">
+        <DialogHeader className="pb-5">
+          <div className="flex items-center gap-3 pr-8">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
               <SparklesIcon aria-hidden="true" className="size-5" />
             </span>
-            <div className="min-w-0">
-              <DialogTitle>What&apos;s new</DialogTitle>
-              <DialogDescription className="mt-1">
-                {brand.wordmark} was updated. Here is what changed.
-              </DialogDescription>
+            <div className="min-w-0 space-y-2">
+              <DialogTitle className="text-xl font-semibold">What&apos;s new</DialogTitle>
+              <DialogDescription>Explore what changed in your update.</DialogDescription>
             </div>
           </div>
         </DialogHeader>
         {tabs.length === 1 ? (
-          <ChangeList entries={tabs[0].entries} />
+          <ReleaseChanges tab={tabs[0]} />
         ) : (
-          <Tabs className="min-h-0" defaultValue={tabs[0].id}>
-            <TabsList>
+          <Tabs className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]" defaultValue={tabs[0].id}>
+            <TabsList
+              variant="line"
+              className="mb-4 h-auto w-full justify-start gap-2 border-b p-0 pb-2 group-data-horizontal/tabs:h-auto"
+            >
               {tabs.map((tab) => (
-                <TabsTrigger key={tab.id} value={tab.id}>
-                  {tab.label}
+                <TabsTrigger
+                  className="h-auto min-h-14 min-w-0 flex-col items-start gap-1 px-3 py-2 data-[state=active]:text-primary"
+                  key={tab.id}
+                  value={tab.id}
+                >
+                  <span>{tab.label}</span>
+                  <span className="font-mono text-xs text-muted-foreground">{tab.version}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
             {tabs.map((tab) => (
-              <TabsContent className="min-h-0" key={tab.id} value={tab.id}>
-                <ChangeList entries={tab.entries} />
+              <TabsContent className="mt-0 grid min-h-0" key={tab.id} value={tab.id}>
+                <ReleaseChanges tab={tab} />
               </TabsContent>
             ))}
           </Tabs>
         )}
-        <DialogFooter>
-          <Button onClick={() => setOpen(false)}>Got it</Button>
+        <DialogFooter className="mt-4 flex-row items-center justify-between sm:justify-between">
+          {releaseUrl ? (
+            <ExternalLink
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              href={releaseUrl}
+            >
+              Release history <ArrowUpRightIcon aria-hidden="true" className="size-3.5" />
+            </ExternalLink>
+          ) : (
+            <span className="text-xs text-muted-foreground">Notes included with this build</span>
+          )}
+          <Button onClick={() => onOpenChange(false)}>Got it</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ChangeList({ entries }: { entries: ChangelogEntry[] }) {
-  return (
-    <ScrollArea className="min-h-0 pr-3">
-      <div className="grid gap-6">
-        {entries.map((entry) => (
-          <section key={entry.version}>
-            <h3 className="text-sm font-semibold">
-              Version {entry.version}
-              {entry.date ? (
-                <span className="ml-2 font-normal text-muted-foreground">{entry.date}</span>
-              ) : null}
-            </h3>
-            <MarkdownText className="mt-2 text-sm leading-6 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-muted-foreground">
-              {entry.body}
-            </MarkdownText>
-          </section>
-        ))}
-      </div>
-    </ScrollArea>
   );
 }
