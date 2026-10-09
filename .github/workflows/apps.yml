@@ -98,7 +98,9 @@ jobs:
 
   tauri-debug:
     name: tauri debug · ${{ matrix.os }}
-    needs: ci
+    # Native jobs build their own web bundle; start independent platform checks
+    # alongside web CI so a platform compile error is not delayed by that suite.
+    # Release jobs below still require both ci and tauri-debug to succeed.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -146,6 +148,10 @@ jobs:
         run: pnpm build
       - name: Build native debug application
         run: pnpm --filter @clio/desktop tauri:build:debug
+      - name: Test Windows runtime installation and progress
+        if: runner.os == 'Windows'
+        working-directory: desktop/src-tauri
+        run: cargo test --lib runtime_pack::tests -- --test-threads=1
       - name: Download lifecycle regressions
         run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib downloads::tests
       - name: Native file associations and confinement
