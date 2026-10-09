@@ -31,6 +31,20 @@ test('compact Session rows open source, tool, Context and Work destinations', as
   const work = panel.locator('[data-showcase-section="bottom"]');
   await expect(top.getByRole('button', { name: 'Open Sensor repository' })).toBeVisible();
   await expect(work.getByRole('button', { name: 'Open Check the report' })).toBeVisible();
+  // Successive bounds calls can land on different opening-animation frames.
+  // Wait for the popup and its ancestors to settle, retaining exact geometry
+  // assertions below; descendant spinners do not prevent this wait.
+  await expect
+    .poll(() =>
+      panel.evaluate((node) => {
+        for (let element: Element | null = node; element; element = element.parentElement) {
+          if (element.getAnimations().some((animation) => animation.playState === 'running'))
+            return false;
+        }
+        return true;
+      }),
+    )
+    .toBe(true);
   const topBounds = await top.boundingBox();
   const workBounds = await work.boundingBox();
   expect(workBounds!.x).toBe(topBounds!.x);
