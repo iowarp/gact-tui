@@ -29,6 +29,7 @@ import {
 import { downloadBytes } from './surface-export';
 import { ToolbarAction } from './viewer-toolbar';
 import { WorkspaceResourceRemoveDialog } from './workspace-resource-remove';
+import { NativeFileOpenMenu } from './native-file-open-menu';
 
 /** Shared original-file actions for uploads, artifacts and workspace files. */
 export function FileViewerActions({
@@ -37,12 +38,14 @@ export function FileViewerActions({
   onFullscreen,
   onInformationHost,
   formatActions,
+  hasDocumentActions = false,
 }: {
   source: FileViewerSource;
   fullscreen: boolean;
   onFullscreen: () => void;
   onInformationHost: (host: HTMLDivElement | null) => void;
   formatActions: readonly FileViewerAction[];
+  hasDocumentActions?: boolean;
 }) {
   const repository = useRepository();
   const [copyOpen, setCopyOpen] = useState(false);
@@ -63,6 +66,7 @@ export function FileViewerActions({
     ['ready', 'failed', 'quarantined'].includes(source.resource.state);
   return (
     <>
+      {!hasDocumentActions ? <NativeFileOpenMenu source={source} /> : null}
       <ToolbarAction
         label={download.isPending ? 'Downloading file…' : 'Download file'}
         disabled={!identity.available || download.isPending}

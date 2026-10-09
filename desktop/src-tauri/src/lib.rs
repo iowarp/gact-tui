@@ -191,6 +191,7 @@ pub fn run() {
             commands::read_logs,
             commands::open_document_path,
             document_apps::document_applications,
+            document_apps::open_file_bytes,
             ssh_transport::ssh_transport_open,
             remote_lifecycle::desktop_deployment_owner,
             ssh_transport::ssh_transport_status,

@@ -38,6 +38,25 @@ export function createHtmlPreviewFixture({
     '# Investigation notes\n\nThe original data and conclusions remain linked.\n',
   );
   const markdownHash = createHash('sha256').update(markdown).digest('hex');
+  const pdfBytes = readFileSync(
+    new URL('../tests/fixtures/document-preview/docx.pdf', import.meta.url),
+  );
+  const pdfId = 'artifact_markdown_pdf';
+  const pdfManifest = {
+    artifact_id: pdfId,
+    workspace_id: workspaceId,
+    name: 'investigation.pdf',
+    version: 1,
+    sha256: createHash('sha256').update(pdfBytes).digest('hex'),
+    mime_type: 'application/pdf',
+    profile: 'pdf',
+    content_url: `/v1/artifacts/${pdfId}/document/content`,
+    anchors: [],
+    native_open: true,
+    embedded_editors: [],
+    rendition_formats: [],
+    provenance: {},
+  };
   const markdownRecord = {
     ...record,
     name: markdownName,
@@ -73,6 +92,21 @@ export function createHtmlPreviewFixture({
         response.end();
       } else if (url.pathname === '/__test/html-preview' && request.method === 'GET') {
         sendJson(response, { conversions, networkRequests });
+      } else if (
+        request.method === 'POST' &&
+        url.pathname === `/v1/artifacts/${markdownId}/renditions`
+      ) {
+        conversions += 1;
+        sendJson(response, {
+          source_artifact_id: markdownId,
+          converter: 'browser-test-fixture',
+          artifact: pdfManifest,
+        });
+      } else if (url.pathname === `/v1/artifacts/${pdfId}/document`) {
+        sendJson(response, pdfManifest);
+      } else if (url.pathname === `/v1/artifacts/${pdfId}/document/content`) {
+        response.writeHead(200, commonHeaders('application/pdf'));
+        response.end(pdfBytes);
       } else if (request.method !== 'GET' && url.pathname.endsWith('/renditions')) {
         conversions += 1;
         sendJson(response, { detail: 'HTML preview must not request a PDF.' }, 500);

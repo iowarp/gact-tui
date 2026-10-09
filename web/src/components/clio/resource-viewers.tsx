@@ -358,6 +358,9 @@ export function ArtifactView({
   return (
     <FileViewerShell
       source={{ kind: 'artifact', artifact, workspaceId }}
+      hasDocumentActions={
+        !canPreviewImage && isDocumentArtifact(artifact.media_type, artifact.name)
+      }
       label="Artifact views"
       tabs={[
         {

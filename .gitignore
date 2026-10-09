@@ -57,6 +57,7 @@ tui/gact.exe
 .env
 .env.*
 brand.config.local.json
+web/tests/fixtures/file-associations/native-apps.json
 *.pem
 *.key
 

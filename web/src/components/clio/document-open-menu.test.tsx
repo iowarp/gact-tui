@@ -1,197 +1,145 @@
+import type { Artifact, DocumentManifest } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DocumentOpenMenu } from './document-open-menu';
-
-vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => true }));
-afterEach(cleanup);
-
-it('offers installed Word for a Word file and preserves the default app choice', async () => {
-  const onOpen = vi.fn();
-  render(
-    <DocumentOpenMenu
-      artifact={{
-        id: 'art_1',
-        workspace_id: 'ws_1',
-        session_id: 'sess_1',
-        name: 'report.docx',
-        media_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        uri: 'artifact://report.docx',
-      }}
-      manifest={{
-        artifact_id: 'art_1',
-        workspace_id: 'ws_1',
-        name: 'report.docx',
-        version: 1,
-        sha256: 'a'.repeat(64),
-        mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        profile: 'ooxml-word',
-        content_url: '',
-        native_open: true,
-        embedded_editors: [],
-        anchors: [],
-        rendition_formats: ['pdf'],
-        provenance: {},
-      }}
-      hasPdf
-      applications={['word', 'powerpoint']}
-      openPending={false}
-      pdfPending={false}
-      downloadPending={false}
-      onOpen={onOpen}
-      onPdf={vi.fn()}
-      onDownload={vi.fn()}
-    />,
-  );
-  await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
-  expect(screen.getByRole('menuitem', { name: 'Default document app' })).toBeVisible();
-  expect(screen.queryByRole('menuitem', { name: 'Open in PowerPoint' })).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('menuitem', { name: 'Open in Word' }));
-  expect(onOpen).toHaveBeenCalledWith('word');
+import { vocab } from '@/lib/brand-vocabulary';
+const host = vi.hoisted(() => ({ native: true }));
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => host.native }));
+afterEach(() => {
+  cleanup();
+  host.native = true;
 });
-
-it('gives HTML its preview, source and native targets without PDF or Office actions', async () => {
-  const onPreview = vi.fn();
-  const onSource = vi.fn();
-  const onOpen = vi.fn();
+const artifact: Artifact = {
+  id: 'art',
+  workspace_id: 'ws',
+  session_id: 'sess',
+  name: 'report.md',
+  media_type: 'text/markdown',
+  uri: 'artifact://report.md',
+};
+const manifest: DocumentManifest = {
+  artifact_id: 'art',
+  workspace_id: 'ws',
+  name: 'report.md',
+  version: 1,
+  sha256: 'a'.repeat(64),
+  mime_type: 'text/markdown',
+  profile: 'markdown',
+  content_url: '',
+  native_open: true,
+  embedded_editors: [],
+  anchors: [],
+  rendition_formats: ['pdf'],
+  provenance: {},
+};
+const editor = { id: 'os-editor', name: 'Visual Studio Code', is_default: true };
+const viewer = { id: 'os-pdf-app', name: 'Adobe Acrobat', is_default: false };
+function menu(profile: DocumentManifest['profile'] = 'markdown', overrides = {}) {
+  const onOpen = vi.fn(),
+    onPdfDownload = vi.fn(),
+    onDownload = vi.fn();
   render(
     <DocumentOpenMenu
-      artifact={{
-        id: 'html',
-        workspace_id: 'ws',
-        session_id: 's',
-        name: 'cat.HTML',
-        media_type: 'text/html',
-        uri: 'artifact://cat',
-      }}
-      manifest={{
-        artifact_id: 'html',
-        workspace_id: 'ws',
-        name: 'cat.HTML',
-        version: 1,
-        sha256: 'a'.repeat(64),
-        mime_type: 'text/html',
-        profile: 'html-static',
-        content_url: '',
-        native_open: true,
-        embedded_editors: ['onlyoffice'],
-        anchors: [],
-        rendition_formats: ['pdf'],
-        provenance: {},
-      }}
-      hasPdf
-      applications={['word', 'powerpoint', 'excel']}
-      editorHealth={{
-        editors: [{ provider: 'onlyoffice', url: '', configured: true, healthy: true }],
-      }}
+      artifact={artifact}
+      manifest={{ ...manifest, profile }}
+      applications={[editor]}
+      pdfApplications={[viewer]}
       openPending={false}
       pdfPending={false}
       downloadPending={false}
-      hideDownload
-      onPreview={onPreview}
-      onSource={onSource}
       onOpen={onOpen}
-      onPdf={vi.fn()}
-      onDownload={vi.fn()}
+      onPdfDownload={onPdfDownload}
+      onDownload={onDownload}
+      {...overrides}
     />,
   );
+  return { onOpen, onPdfDownload, onDownload };
+}
+it('shows real handlers and separates the PDF apps from the original apps', async () => {
+  const { onOpen } = menu();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Open in' }));
-  expect(screen.queryByRole('menuitem', { name: 'PDF preview' })).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole('menuitem', { name: /Word|PowerPoint|Excel|ONLYOFFICE/u }),
-  ).not.toBeInTheDocument();
-  expect(screen.getByRole('menuitem', { name: 'Default HTML app' })).toBeVisible();
-  await user.click(screen.getByRole('menuitem', { name: 'HTML source' }));
-  expect(onSource).toHaveBeenCalledOnce();
+  expect(screen.getByRole('menuitem', { name: 'Visual Studio Code (default)' })).toBeVisible();
+  expect(screen.getByText('PDF')).toBeVisible();
+  expect(screen.queryByText(/Markdown preview|Markdown source|PDF preview|Copy path/u)).toBeNull();
+  await user.click(screen.getByRole('menuitem', { name: 'Adobe Acrobat' }));
+  expect(onOpen).toHaveBeenCalledWith({ kind: 'native', application: viewer, format: 'pdf' });
   await user.click(screen.getByRole('button', { name: 'Open in' }));
-  await user.click(screen.getByRole('menuitem', { name: 'HTML preview' }));
-  expect(onPreview).toHaveBeenCalledOnce();
-  await user.click(screen.getByRole('button', { name: 'Open in' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Default HTML app' }));
-  expect(onOpen).toHaveBeenCalledWith('native');
+  await user.click(screen.getByRole('menuitem', { name: 'Visual Studio Code (default)' }));
+  expect(onOpen).toHaveBeenLastCalledWith({
+    kind: 'native',
+    application: editor,
+    format: 'original',
+  });
 });
-
 it.each([
-  ['slides.pptx', 'ooxml-slides', 'Default presentation app', 'PowerPoint'],
-  ['table.xlsx', 'ooxml-sheet', 'Default spreadsheet app', 'Excel'],
-  ['paper.pdf', 'pdf', 'Default PDF viewer', undefined],
-  ['notes.md', 'markdown', 'Default text editor', undefined],
-  ['article.tex', 'latex', 'Default text editor', undefined],
-  ['report.odt', 'odf-text', 'Default document app', 'Word'],
-  ['table.ods', 'odf-sheet', 'Default spreadsheet app', 'Excel'],
-  ['slides.odp', 'odf-slides', 'Default presentation app', 'PowerPoint'],
-  ['picture.png', 'binary', 'Default image viewer', undefined],
-  ['sound.wav', 'binary', 'Default audio player', undefined],
-  ['clip.mp4', 'binary', 'Default video player', undefined],
-  ['data.csv', 'binary', 'Default spreadsheet app', 'Excel'],
-  ['data.json', 'binary', 'Default JSON app', undefined],
-  ['script.py', 'binary', 'Default Python app', undefined],
-  ['output.zip', 'binary', 'Default archive app', undefined],
-  ['mesh.glb', 'binary', 'Default 3D app', undefined],
-  ['output.unknown', 'binary', 'Default desktop app', undefined],
-] as const)('keeps Open in choices specific to %s', async (name, profile, label, application) => {
-  render(
-    <DocumentOpenMenu
-      artifact={{
-        id: 'doc',
-        workspace_id: 'ws',
-        session_id: 's',
-        name,
-        media_type: '',
-        uri: 'artifact://doc',
-      }}
-      manifest={{
-        artifact_id: 'doc',
-        workspace_id: 'ws',
-        name,
-        version: 1,
-        sha256: 'a'.repeat(64),
-        mime_type: '',
-        profile,
-        content_url: '',
-        native_open: true,
-        embedded_editors: ['onlyoffice', 'collabora'],
-        anchors: [],
-        rendition_formats: ['pdf'],
-        provenance: {},
-      }}
-      hasPdf={profile === 'pdf'}
-      applications={['word', 'powerpoint', 'excel']}
-      editorHealth={{
-        editors: [
-          { provider: 'onlyoffice', url: '', configured: true, healthy: true },
-          { provider: 'collabora', url: '', configured: true, healthy: false },
-        ],
-      }}
-      openPending={false}
-      pdfPending={false}
-      downloadPending={false}
-      onOpen={vi.fn()}
-      onPdf={vi.fn()}
-      onDownload={vi.fn()}
-      onPreview={vi.fn()}
-      onSource={vi.fn()}
-    />,
-  );
+  'html-static',
+  'markdown',
+  'latex',
+  'pdf',
+  'ooxml-word',
+  'odf-text',
+  'ooxml-sheet',
+  'odf-sheet',
+  'ooxml-slides',
+  'odf-slides',
+  'binary',
+] as const)('uses OS handlers for %s instead of guessed Office apps', async (profile) => {
+  menu(profile);
   await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
-  expect(screen.getByRole('menuitem', { name: label })).toBeVisible();
-  for (const app of ['Word', 'PowerPoint', 'Excel']) {
-    expect(screen.queryByRole('menuitem', { name: `Open in ${app}` }) !== null).toBe(
-      app === application,
-    );
-  }
-  expect(screen.queryByRole('menuitem', { name: 'PDF preview' }) !== null).toBe(
-    profile !== 'binary',
+  expect(screen.getByRole('menuitem', { name: 'Visual Studio Code (default)' })).toBeVisible();
+  expect(
+    screen.queryByRole('menuitem', { name: /Word|Excel|PowerPoint|Default .* app/u }),
+  ).toBeNull();
+  expect(screen.queryByRole('menuitem', { name: 'Adobe Acrobat' }) !== null).toBe(
+    profile !== 'pdf',
   );
-  const office = profile.startsWith('ooxml-') || profile.startsWith('odf-');
-  expect(screen.queryByRole('menuitem', { name: 'ONLYOFFICE' }) !== null).toBe(office);
-  if (office)
-    expect(screen.getByRole('menuitem', { name: /Collabora/u })).toHaveAttribute('data-disabled');
-  expect(screen.queryByRole('menuitem', { name: 'Markdown source' }) !== null).toBe(
-    profile === 'markdown',
+});
+it('does not duplicate a PDF conversion section for an original PDF', async () => {
+  menu('pdf', { artifact: { ...artifact, name: 'report.pdf', media_type: 'application/pdf' } });
+  await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
+  expect(screen.getAllByText('PDF')).toHaveLength(1);
+  expect(screen.queryByRole('menuitem', { name: 'Download PDF' })).toBeNull();
+});
+it('does not show an empty Export menu when the PDF already has a shared download action', () => {
+  host.native = false;
+  menu('pdf', { hideDownload: true });
+  expect(screen.queryByRole('button')).toBeNull();
+});
+it('offers downloads in the web host without pretending to enumerate native apps', async () => {
+  host.native = false;
+  const { onPdfDownload, onDownload } = menu();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Export' }));
+  expect(screen.queryByText(/Visual Studio Code|Adobe Acrobat|Copy path/u)).toBeNull();
+  await user.click(screen.getByRole('menuitem', { name: 'Download PDF' }));
+  expect(onPdfDownload).toHaveBeenCalledOnce();
+  await user.click(screen.getByRole('button', { name: 'Export' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Download original' }));
+  expect(onDownload).toHaveBeenCalledOnce();
+});
+it('shows empty, failed, and pending association queries explicitly', async () => {
+  menu('markdown', { applications: [], pdfApplications: [], pdfApplicationsPending: true });
+  await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
+  expect(screen.getByRole('menuitem', { name: 'No associated apps' })).toHaveAttribute(
+    'data-disabled',
   );
-  expect(screen.queryByRole('menuitem', { name: 'LaTeX source' }) !== null).toBe(
-    profile === 'latex',
-  );
+  expect(screen.getByRole('menuitem', { name: 'Finding apps…' })).toHaveAttribute('data-disabled');
+});
+it('keeps configured embedded editors specific to office formats', async () => {
+  menu('ooxml-word', {
+    manifest: { ...manifest, profile: 'ooxml-word', embedded_editors: ['onlyoffice', 'collabora'] },
+    editorHealth: {
+      editors: [
+        { provider: 'onlyoffice', configured: true, healthy: true, url: '' },
+        { provider: 'collabora', configured: true, healthy: false, url: '', error: 'offline' },
+      ],
+    },
+  });
+  await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
+  expect(screen.getByRole('menuitem', { name: `ONLYOFFICE (in ${vocab.agent})` })).toBeVisible();
+  expect(
+    screen.getByRole('menuitem', { name: `Collabora (in ${vocab.agent}) — unavailable` }),
+  ).toHaveAttribute('data-disabled');
 });

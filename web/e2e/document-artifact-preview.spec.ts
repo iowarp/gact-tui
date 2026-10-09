@@ -301,11 +301,18 @@ for (const layout of [
             }),
           )
           .toBeGreaterThanOrEqual(0.99);
-        await canvas.getByRole('button', { name: 'Open in', exact: true }).click();
+        await canvas.getByRole('button', { name: 'Export', exact: true }).click();
         await expect(
-          page.getByRole('menuitem', { name: 'PDF preview', exact: true }),
+          page.getByRole('menuitem', { name: 'Download PDF', exact: true }),
         ).toBeVisible();
-        await page.getByRole('menuitem', { name: 'PDF preview', exact: true }).click();
+        const pdfDownload = page.waitForEvent('download');
+        await page.getByRole('menuitem', { name: 'Download PDF', exact: true }).click();
+        const downloadedPdf = await pdfDownload;
+        expect(downloadedPdf.suggestedFilename()).toMatch(/\.pdf$/u);
+        const downloadedStream = await downloadedPdf.createReadStream();
+        const downloadedChunks: Buffer[] = [];
+        for await (const chunk of downloadedStream!) downloadedChunks.push(Buffer.from(chunk));
+        expect(hash(Buffer.concat(downloadedChunks))).toBe(hash(pdf));
         const scroller = document.locator('[data-pdf-scroller]');
         const scrollerBounds = await scroller.boundingBox();
         const canvasBounds = await canvas.boundingBox();
