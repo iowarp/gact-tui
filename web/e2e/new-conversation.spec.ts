@@ -4,6 +4,12 @@ const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'
 const draftRoute = '/workspaces/ws_flat_ndp/new';
 const sessionRoute = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
 
+test.afterEach(async ({ page }) => {
+  // Navigation can leave a capabilities fetch in flight. Finish its route handler
+  // while the request context is alive, before Playwright disposes the page.
+  await page.unrouteAll({ behavior: 'wait' });
+});
+
 test('entry composer and Settings navigation never allocate sessions', async ({ page }) => {
   const reset = await page.request.post(`${endpoint}/__test/reset`);
   expect(reset.ok()).toBe(true);
