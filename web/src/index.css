@@ -292,11 +292,14 @@
    half-width data views become unusable in the transcript. Stack root rows
    when the surface itself is narrow, including in the workspace canvas. */
 @container (max-width: 700px) {
-  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row'] {
+  [data-slot='a2ui-surface-root']
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
     flex-direction: column !important;
   }
 
-  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row'] > * {
+  [data-slot='a2ui-surface-root']
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
+    > * {
     flex: 0 1 auto !important;
     width: 100%;
   }
@@ -306,12 +309,16 @@
    remains wider than the generic two-column breakpoint. */
 @container (max-width: 900px) {
   [data-slot='a2ui-surface-root']
-    > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart']) {
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row']):has(
+      > [data-slot='a2ui-chart']
+    ) {
     flex-direction: column !important;
   }
 
   [data-slot='a2ui-surface-root']
-    > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart'])
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row']):has(
+      > [data-slot='a2ui-chart']
+    )
     > * {
     flex: 0 1 auto !important;
     width: 100%;
@@ -744,12 +751,19 @@ html[data-clio-motion='reduced'] *::after {
 
 /* Stack analytical panels in a narrow dock; preserve authored weights when wide. */
 @container (max-width: 900px) {
-  [data-slot='a2ui-dashboard'] [data-slot='a2ui-surface-root'] div[style*='flex-direction: row'] {
+  [data-slot='a2ui-dashboard']
+    [data-slot='a2ui-surface-root']
+    div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
     flex-wrap: wrap;
   }
   [data-slot='a2ui-dashboard']
     [data-slot='a2ui-surface-root']
-    div[style*='flex-direction: row']
+    div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
+    > *,
+  [data-slot='a2ui-dashboard']
+    [data-slot='a2ui-surface-root']
+    div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
+    > [style*='contents']
     > * {
     flex: 1 1 100% !important;
     min-width: 0;
