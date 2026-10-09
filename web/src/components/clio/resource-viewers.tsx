@@ -48,6 +48,7 @@ import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { FileViewerShell } from './file-viewer-shell';
 import { ImageResourceView } from './image-resource-view';
+import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
 
 export function WorkspaceFileView({
@@ -297,7 +298,9 @@ export function ArtifactView({
     !canLoadInline ? (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
     ) : text.data ? (
-      isMarkdownArtifact(artifact.media_type, artifact.name) ? (
+      artifact.name.endsWith('.dashboard.json') ? (
+        <DashboardResourceView content={text.data.content} artifactId={artifact.id} />
+      ) : isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <article className="min-w-0 overflow-hidden rounded-lg border bg-background px-5 py-4">
           <MessageResponse className={DOCUMENT_MARKDOWN_CLASS_NAME}>
             {normalizeConvertedMarkdown(text.data.content)}

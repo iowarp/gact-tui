@@ -26,6 +26,7 @@ import { DataReferenceThisButton } from './data-reference-this-button';
 import type { DataZoneReference } from './data-zone-reference';
 import { A2uiRegionCaptureContext } from './a2ui-region-capture';
 import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
+import { ArtifactReferenceContext } from './artifact-reference-context';
 
 /**
  * The ONE shared affordance framework (G0): a per-component capability
@@ -87,6 +88,8 @@ export interface SurfaceCapabilities {
   imageAttention?: boolean;
   /** Preserve the protocol component identity when a full-screen toolbar is portalled outside it. */
   captureComponentId?: string;
+  /** Capture an authored artifact's whole displayed view rather than its first chart. */
+  captureWholeSurface?: boolean;
   /** The download menu, nested in the overflow. Omit entirely when the component has nothing to export. */
   exportFormats?: readonly SurfaceExportFormat[];
   /**
@@ -301,6 +304,7 @@ export interface SurfaceToolbarProps {
 export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbarProps) {
   const capture = useContext(A2uiRegionCaptureContext);
   const attention = useContext(SurfaceAttentionContext);
+  const artifactReference = useContext(ArtifactReferenceContext);
   const [menuOpen, setMenuOpen] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -322,7 +326,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
   });
   if (!hasToolbarContent(capabilities)) return null;
   const {
-    buildReference,
+    buildReference: originalReference,
     copyLabel,
     exportFormats,
     filters,
@@ -331,8 +335,21 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
     overflowContent,
     selectionHint,
   } = capabilities;
+  const buildReference =
+    originalReference &&
+    (() => {
+      const reference = originalReference();
+      if (!artifactReference) return reference;
+      return {
+        ...reference,
+        markdown: `${reference.markdown}\n\nDashboard artifact: ${artifactReference.uri}\nSource document: ${artifactReference.definition_path}\n\n\`\`\`json\n${JSON.stringify({ dashboard: artifactReference }, null, 2)}\n\`\`\``,
+        query: { view: reference.query, dashboard: artifactReference },
+      };
+    });
   const hasAttentionSelection = attention && buildReference && !capabilities.imageAttention;
-  const hasOverflow = Boolean(exportFormats?.length || overflowContent || selectionHint || onCopy || hasAttentionSelection);
+  const hasOverflow = Boolean(
+    exportFormats?.length || overflowContent || selectionHint || onCopy || hasAttentionSelection,
+  );
   // Stays revealed (and clickable) while one of its own menus/popovers is
   // open, even if the pointer or focus has moved off the surface in the
   // meantime (e.g. a Filters popover opened upward, or a long "More" menu).
@@ -380,38 +397,59 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
               <span className="inline-flex">
                 <Button
                   aria-label="Capture labelled regions"
-                  aria-pressed={capture.selectingComponentId !== undefined && capture.selectingComponentId === capabilities.captureComponentId}
+                  aria-pressed={
+                    capture.selectingComponentId !== undefined &&
+                    capture.selectingComponentId === capabilities.captureComponentId
+                  }
                   data-capture-toggle="true"
                   disabled={!capture.allowed}
                   onClick={() => {
-                    const container = rootRef.current?.closest<HTMLElement>('[data-slot^="a2ui-"]')
-                      ?? rootRef.current?.closest<HTMLElement>('[data-slot="dialog-content"]')
-                      ?? rootRef.current?.closest<HTMLElement>('.group');
+                    const container =
+                      rootRef.current?.closest<HTMLElement>('[data-slot^="a2ui-"]') ??
+                      rootRef.current?.closest<HTMLElement>('[data-slot="dialog-content"]') ??
+                      rootRef.current?.closest<HTMLElement>('.group');
                     if (!container) return;
                     // Capture the rendered chart itself. The full-screen dialog
                     // has substantial empty space and its size changes when the
                     // host returns inline; chart-relative boxes stay aligned.
-                    const element = container.querySelector<HTMLElement>('[data-slot="a2ui-chart-view"]')
-                      ?? container.querySelector<HTMLElement>('[data-slot="a2ui-map-surface"]')
-                      ?? container.querySelector<HTMLElement>('[data-slot="a2ui-raster-surface"]')
-                      ?? container.querySelector('canvas')?.closest<HTMLElement>('[role="img"]')
-                      ?? container;
-                    const title = container.querySelector('h1,h2,h3,h4')?.textContent?.trim()
-                      || container.getAttribute('data-slot')?.replaceAll('-', ' ')
-                      || 'Interactive surface';
-                    const componentId = capabilities?.captureComponentId ?? container.dataset.a2uiComponentId
-                      ?? container.querySelector<HTMLElement>('[data-a2ui-component-id]')?.dataset.a2uiComponentId;
+                    const element = capabilities.captureWholeSurface
+                      ? container
+                      : (container.querySelector<HTMLElement>('[data-slot="a2ui-chart-view"]') ??
+                        container.querySelector<HTMLElement>('[data-slot="a2ui-map-surface"]') ??
+                        container.querySelector<HTMLElement>('[data-slot="a2ui-raster-surface"]') ??
+                        container.querySelector('canvas')?.closest<HTMLElement>('[role="img"]') ??
+                        container);
+                    const title =
+                      container.querySelector('h1,h2,h3,h4')?.textContent?.trim() ||
+                      container.getAttribute('data-slot')?.replaceAll('-', ' ') ||
+                      'Interactive surface';
+                    const componentId =
+                      capabilities?.captureComponentId ??
+                      container.dataset.a2uiComponentId ??
+                      container.querySelector<HTMLElement>('[data-a2ui-component-id]')?.dataset
+                        .a2uiComponentId;
                     capture.start({ element, title, componentId, reference: buildReference });
                   }}
                   size="icon-sm"
                   variant="ghost"
-                ><CameraIcon aria-hidden="true" className="size-3.5" /></Button>
+                >
+                  <CameraIcon aria-hidden="true" className="size-3.5" />
+                </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent side="bottom">{capture.allowed ? 'Capture labelled regions' : 'Choose a model that accepts images to capture a region'}</TooltipContent>
+            <TooltipContent side="bottom">
+              {capture.allowed
+                ? 'Capture labelled regions'
+                : 'Choose a model that accepts images to capture a region'}
+            </TooltipContent>
           </Tooltip>
         ) : null}
-        {buildReference ? <DataReferenceThisButton buildReference={buildReference} onReferenced={capabilities.onReferenced} /> : null}
+        {buildReference ? (
+          <DataReferenceThisButton
+            buildReference={buildReference}
+            onReferenced={capabilities.onReferenced}
+          />
+        ) : null}
         {fullScreen && !fullScreen.isOpen ? (
           <ToolbarIconButton
             aria-pressed={fullScreen.isOpen}
@@ -455,13 +493,27 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
                 />
               ) : null}
               {overflowContent}
-              {hasAttentionSelection ? <DropdownMenuItem onSelect={() => {
-                const componentId = capabilities.captureComponentId ?? rootRef.current?.closest<HTMLElement>('[data-a2ui-component-id]')?.dataset.a2uiComponentId;
-                const reference = buildReference();
-                void attention.structured(componentId, reference.query, reference.summary)
-                  .then(() => toast.success('Selection added to attention set'))
-                  .catch((error: unknown) => toast.error('Could not add this selection', { description: exportFailureReason(error) }));
-              }}>Add selection to attention set</DropdownMenuItem> : null}
+              {hasAttentionSelection ? (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    const componentId =
+                      capabilities.captureComponentId ??
+                      rootRef.current?.closest<HTMLElement>('[data-a2ui-component-id]')?.dataset
+                        .a2uiComponentId;
+                    const reference = buildReference();
+                    void attention
+                      .structured(componentId, reference.query, reference.summary)
+                      .then(() => toast.success('Selection added to attention set'))
+                      .catch((error: unknown) =>
+                        toast.error('Could not add this selection', {
+                          description: exportFailureReason(error),
+                        }),
+                      );
+                  }}
+                >
+                  Add selection to attention set
+                </DropdownMenuItem>
+              ) : null}
               {selectionHint ? (
                 // A disabled `DropdownMenuItem`, not a bare `<div>` (#516
                 // review item 16): a plain div sits outside the menu's roving

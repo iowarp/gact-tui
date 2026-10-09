@@ -343,6 +343,12 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
 }
 
 /** A surface-level camera mode with persistent, labelled visual regions. */
+/** Capture the displayed artifact, including live mesh and map canvases. */
+// oxlint-disable-next-line react/only-export-components
+export async function captureRenderedSurfacePng(target: HTMLElement): Promise<Blob> {
+  return labelledPng(target, []);
+}
+
 export function A2uiRegionCaptureProvider({ children, surface, allowDemoCapture = false }: { children: ReactNode; surface: CaptureSurface; allowDemoCapture?: boolean }) {
   const acceptsImages = useModelImageInput();
   const attention = useContext(SurfaceAttentionContext);

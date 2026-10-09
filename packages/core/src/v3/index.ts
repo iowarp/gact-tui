@@ -58,6 +58,7 @@ export * from './variant-schemas.js';
 export * from './repository.js';
 export * from './session-history-repository.js';
 export * from './session-export-snapshot.js';
+export * from './dashboard-report.js';
 export * from './session-observability-repository.js';
 export * from './schemas.js';
 export * from './schema-contracts.js';

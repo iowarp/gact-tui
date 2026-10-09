@@ -25,6 +25,7 @@ import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 import { A2uiRegionCaptureProvider } from './a2ui-region-capture';
 import { SurfaceAttentionProvider } from '@/lib/a2ui/attention-selection';
+import type { A2uiRegistrySnapshot } from '@/lib/a2ui/registry-store';
 
 function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
@@ -124,6 +125,7 @@ function ClioA2UISurfaceContent({
   surface,
   viewport,
   readOnly,
+  catalogRegistry,
 }: {
   /**
    * The server-truth footer's data (dispatcher slice S5,
@@ -139,14 +141,12 @@ function ClioA2UISurfaceContent({
   surface: DomainSurface;
   viewport: 'inline' | 'fullscreen';
   readOnly: boolean;
+  catalogRegistry?: A2uiRegistrySnapshot;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
-  const {
-    registry,
-    catalogs,
-    isLoading: catalogsLoading,
-  } = useA2uiCatalogRegistry(surface.session_id);
+  const sessionRegistry = useA2uiCatalogRegistry(surface.session_id);
+  const { registry, catalogs, isLoading: catalogsLoading } = catalogRegistry ?? sessionRegistry;
   const [validationPostFailure, setValidationPostFailure] = useState<{
     revision: number;
     message: string;
@@ -251,6 +251,10 @@ function ClioA2UISurfaceContent({
         setValidationNotice({ revision: surface.revision, message: validationError.message });
       }
       setValidationPostFailure(undefined);
+      if (readOnly) {
+        setValidationNotice({ revision: surface.revision, message: validationError.message });
+        return;
+      }
       try {
         await repository.a2uiAction(surface.session_id, {
           version: `v${A2UI_VERSION}`,
@@ -271,7 +275,7 @@ function ClioA2UISurfaceContent({
         });
       }
     },
-    [repository, surface.id, surface.revision, surface.session_id],
+    [repository, surface.id, surface.revision, surface.session_id, readOnly],
   );
   const { model, failure } = useA2uiSurfaceModel(
     surface,
@@ -279,6 +283,7 @@ function ClioA2UISurfaceContent({
     catalogsLoading,
     handleAction,
     handleValidationFailed,
+    !readOnly,
   );
   const reportUrlViolation = useCallback(
     (componentId: string, propName: string, message: string) => {
@@ -356,7 +361,7 @@ function ClioA2UISurfaceContent({
         <A2uiUrlViolationProvider value={reportUrlViolation}>
           <A2uiReferenceSessionProvider value={surface.session_id}>
             <AutoDatasetSelectionProvider>
-              <SurfaceAttentionProvider surface={surface}>
+              <SurfaceAttentionProvider surface={surface} disabled={readOnly}>
                 <A2uiRegionCaptureProvider surface={surface}>
                   <A2uiSurface surface={model} />
                 </A2uiRegionCaptureProvider>
@@ -427,6 +432,7 @@ export function ClioA2UISurface({
   surface,
   viewport = 'inline',
   readOnly = false,
+  catalogRegistry,
 }: {
   actionLifecycle?: A2UIActionLifecycle;
   onLocalAction?: A2UILocalActionHandler;
@@ -434,6 +440,7 @@ export function ClioA2UISurface({
   surface: DomainSurface;
   viewport?: 'inline' | 'fullscreen';
   readOnly?: boolean;
+  catalogRegistry?: A2uiRegistrySnapshot;
 }) {
   return (
     <SurfaceBoundary key={surface.id}>
@@ -444,6 +451,7 @@ export function ClioA2UISurface({
         surface={surface}
         viewport={viewport}
         readOnly={readOnly}
+        catalogRegistry={catalogRegistry}
       />
     </SurfaceBoundary>
   );

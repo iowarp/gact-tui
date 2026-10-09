@@ -678,13 +678,31 @@ html[data-clio-motion='reduced'] *::after {
 [data-diff-line] {
   padding-inline: 0.5rem;
 }
-/* Grid surfaces use one readable column on phones, then the requested count. */
+/* Grid layout follows its containing view, including a narrow side panel. */
 .a2ui-grid {
   grid-template-columns: minmax(0, 1fr);
 }
 
-@media (min-width: 640px) {
+@container (min-width: 640px) {
   .a2ui-grid {
     grid-template-columns: repeat(var(--a2ui-grid-columns, 2), minmax(0, 1fr));
+  }
+}
+
+/* Dashboards contain nested rows under tabs; keep their cards readable when docked. */
+[data-slot='a2ui-dashboard'] div:has(> .a2ui-tabs-header) {
+  flex-wrap: wrap;
+}
+
+@container (max-width: 700px) {
+  [data-slot='a2ui-dashboard'] [data-slot='a2ui-surface-root'] div[style*='flex-direction: row'] {
+    flex-wrap: wrap;
+  }
+  [data-slot='a2ui-dashboard']
+    [data-slot='a2ui-surface-root']
+    div[style*='flex-direction: row']
+    > * {
+    flex: 1 1 12rem;
+    min-width: min(100%, 12rem);
   }
 }
