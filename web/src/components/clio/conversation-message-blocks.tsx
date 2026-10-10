@@ -13,7 +13,6 @@ import {
   FileCode2Icon,
   PanelsTopLeftIcon,
   RouteIcon,
-  SyringeIcon,
 } from 'lucide-react';
 import { createElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -34,13 +33,6 @@ import {
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
@@ -57,8 +49,8 @@ import { TranscriptResourceAttachments } from './transcript-resource-attachment'
 import { TranscriptTextBlock } from './transcript-text-block';
 import { toolOutputDiffKey } from './declared-diff-key';
 import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
-import { vocab } from '@/lib/brand-vocabulary';
 import { SummarizationInjection, TranscriptNotice } from './conversation-summarization';
+import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
@@ -243,7 +235,7 @@ function MessageBlockView({
       // a second, unnamed tool call beside the generated surface.
       if (block.source === 'tool_use') return null;
       return block.source === 'summarization' ? (
-        <SummarizationInjection block={block} label={INJECTION_LABELS.summarization} />
+        <SummarizationInjection block={block} label="Summarization" />
       ) : (
         <HarnessInjection block={block} />
       );
@@ -418,78 +410,6 @@ function MessageBlockView({
         </Alert>
       );
   }
-}
-
-type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
-
-const INJECTION_LABELS: Record<string, string> = {
-  earlier_turns: 'Recovered conversation context',
-  todos: 'Todo list',
-  plan_mode: 'Plan reminder',
-  replan: 'Replanning suggestion',
-  memory_search: 'Memory search results',
-  task_results: 'Results from background tasks',
-  path_hint: 'Path suggestion',
-  circuit_breaker: 'Repeated-failure warning',
-  result_spilled: 'Large result saved to a file',
-  hook: 'Hook',
-  summarization: 'Summarization',
-  variant_drafting: 'Drafting alternatives',
-  variant_advice: 'Advice for this draft',
-};
-
-/**
- * Harness data the agent was given (a syringe: CLIO put this into the agent's
- * context). Collapsed to what it is; expanded to exactly the text the agent got,
- * so the user sees the same thing the agent saw.
- */
-export function HarnessInjection({ block }: { block: InjectionBlock }) {
-  const [expanded, setExpanded] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const label = INJECTION_LABELS[block.source] ?? humanizeProtocolValue(block.source);
-  return (
-    <section className="min-w-0 max-w-full" data-slot="harness-injection">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-muted-foreground">
-        <SyringeIcon aria-hidden="true" className="size-4 shrink-0" />
-        <span>
-          {vocab.product} gave the agent: {label}
-        </span>
-        <button
-          aria-expanded={expanded}
-          className="text-xs font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          onClick={() => setExpanded((value) => !value)}
-          type="button"
-        >
-          {expanded ? 'Hide' : 'Show what it got'}
-        </button>
-        <button
-          className="text-xs font-medium text-primary hover:underline"
-          onClick={() => setDetailsOpen(true)}
-          type="button"
-        >
-          Open exact details
-        </button>
-      </div>
-      {expanded ? (
-        <pre className="mt-2 min-w-0 max-w-full whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-xs leading-5">
-          {block.text}
-        </pre>
-      ) : null}
-      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="flex max-h-[88dvh] flex-col sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{label}</DialogTitle>
-            <DialogDescription>
-              The recorded content {vocab.agent} gave the agent.
-            </DialogDescription>
-          </DialogHeader>
-          <pre className="min-h-0 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 text-xs leading-5">
-            {block.text}
-          </pre>
-        </DialogContent>
-      </Dialog>
-    </section>
-  );
 }
 
 export function MessageBlockSequence({

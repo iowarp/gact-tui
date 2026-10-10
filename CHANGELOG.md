@@ -8,6 +8,12 @@ UI aren't tracked.
 
 ### Fixed
 
+- Tool-scoped harness feedback, including saved large results, path suggestions
+  and repeated-failure warnings, stays inside the recorded activity chain.
+  Exact agent-visible text remains available without duplicating the notice
+  in the response. Turn-wide context and compaction keep their own placement.
+- Evidence links can reveal Full activity without repeatedly reapplying the
+  same display mode and causing a render loop.
 - Release summaries use the embedding product's changelog and release version,
   alongside separately versioned interface notes. CLIO installers no longer
   select an unrelated old UI release. Clear source labels, readable Markdown,

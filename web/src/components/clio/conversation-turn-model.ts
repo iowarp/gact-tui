@@ -11,6 +11,11 @@ export type ConversationActivity =
   | { kind: 'tool'; id: string; tool: ToolInvocation }
   | { kind: 'task'; id: string; task: Task }
   | {
+      kind: 'injection';
+      id: string;
+      block: Extract<MessageBlock, { type: 'injection' }>;
+    }
+  | {
       kind: 'subagent';
       id: string;
       block: Extract<MessageBlock, { type: 'subagent' }>;
@@ -155,6 +160,16 @@ function fallbackIterations(
       compactionRecords.push({ afterIteration: iterations.length, block });
       consumed.add(block.id);
       segments.push({ kind: 'block', block });
+      continue;
+    }
+    // Tool-scoped harness additions belong to the activity lane at their
+    // recorded position. The call identity is authoritative even while the
+    // invocation has not arrived; turn-wide reminders remain visible boundaries.
+    if (block.type === 'injection' && block.call_id?.trim()) {
+      if (!alreadyInLane(current, 'injection', block.id)) {
+        current.activity.push({ kind: 'injection', id: block.id, block });
+      }
+      consumed.add(block.id);
       continue;
     }
     if (block.type === 'reasoning') {

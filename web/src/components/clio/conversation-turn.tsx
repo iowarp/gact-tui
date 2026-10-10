@@ -35,6 +35,7 @@ import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-
 import { transcriptActivitySummary } from './transcript-activity-summary';
 import { TranscriptIterationText } from './transcript-iteration-text';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
+import { HarnessInjection } from './conversation-harness-injection';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 type SubagentActivityEntry = Extract<
@@ -398,6 +399,14 @@ function IterationDetail({
                   ))
                 : null}
             </Fragment>
+          ) : entry.kind === 'injection' ? (
+            <div
+              data-call-id={entry.block.call_id}
+              data-turn-activity={`injection:${entry.id}`}
+              key={`injection:${entry.id}`}
+            >
+              <HarnessInjection block={entry.block} compact={compact} />
+            </div>
           ) : entry.kind === 'subagent' ? (
             workflowTaskIds.has(entry.block.subagent_id) ? null : showSubagents ? (
               <div data-turn-activity={`subagent:${entry.id}`} key={`subagent:${entry.id}`}>

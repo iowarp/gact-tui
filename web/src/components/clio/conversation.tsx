@@ -97,7 +97,9 @@ function ConversationBody({
     {},
   );
   const setTurnDisplayMode = useCallback((messageId: string, mode: ConversationDisplayMode) => {
-    setTurnDisplayModes((current) => ({ ...current, [messageId]: mode }));
+    setTurnDisplayModes((current) =>
+      current[messageId] === mode ? current : { ...current, [messageId]: mode },
+    );
   }, []);
   const referencedSurfaceIds = useMemo(
     () =>
