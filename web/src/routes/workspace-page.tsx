@@ -237,7 +237,13 @@ export function WorkspacePage() {
     ],
   );
   useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
-  useDashboardReviewOpening(entities.tools, entities.artifacts, sessionId, openArtifact, repository);
+  useDashboardReviewOpening(
+    entities.tools,
+    entities.artifacts,
+    sessionId,
+    openArtifact,
+    repository,
+  );
 
   const {
     actionCard,
@@ -547,6 +553,11 @@ export function WorkspacePage() {
           contextBar={
             <ClioSessionContextBar
               activeBlueprint={activeBlueprint}
+              management={
+                session
+                  ? { session, actions: navigationActions, endpoint: settings.endpoint }
+                  : undefined
+              }
               actionsPending={
                 sessionHistory.fork.isPending ||
                 sessionHistory.compact.isPending ||
