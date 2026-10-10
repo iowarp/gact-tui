@@ -23,14 +23,15 @@ pub(crate) fn install_command(runtime: &Path, workspace: &Path, user: &Path) -> 
         .args([
             "-I",
             "-B",
+            "-X",
+            "utf8",
+            "-u",
             "-m",
             "clio_agent.runtime.document_install",
             "--workspace",
         ])
         .arg(workspace)
         .env("GACT_BUNDLED_RUNTIME_DIR", runtime)
-        .env("PYTHONUTF8", "1")
-        .env("PYTHONUNBUFFERED", "1")
         .stdin(Stdio::null());
     if std::env::var_os("CLIO_AGENT_HOME").is_none() && std::env::var_os("CLIO_USER_DIR").is_none()
     {
@@ -52,6 +53,25 @@ pub(crate) fn prepare_packages(
     user: &Path,
 ) -> Result<(), String> {
     run_install(install_command(runtime, workspace, user), &boot_log_line)
+}
+
+#[cfg(windows)]
+pub(crate) fn prepare_packages_for_install(
+    runtime: &Path,
+    workspace: &Path,
+    user: &Path,
+) -> Result<(), String> {
+    run_install(
+        explicit_install_command(runtime, workspace, user),
+        &boot_log_line,
+    )
+}
+
+#[cfg(windows)]
+fn explicit_install_command(runtime: &Path, workspace: &Path, user: &Path) -> Command {
+    let mut command = install_command(runtime, workspace, user);
+    command.arg("--setup-protected-execution");
+    command
 }
 
 fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(), String> {
@@ -108,6 +128,20 @@ fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(),
 mod tests {
     use super::*;
 
+    #[cfg(windows)]
+    #[test]
+    fn only_explicit_installation_requests_sandbox_creation() {
+        let path = Path::new("fixture");
+        let ordinary = install_command(path, path, path);
+        let installation = explicit_install_command(path, path, path);
+        assert!(!ordinary
+            .get_args()
+            .any(|arg| arg == "--setup-protected-execution"));
+        assert!(installation
+            .get_args()
+            .any(|arg| arg == "--setup-protected-execution"));
+    }
+
     #[test]
     fn installer_output_fixture() {
         if std::env::var("CLIO_INSTALL_OUTPUT_FIXTURE").as_deref() != Ok("1") {
@@ -158,6 +192,9 @@ mod tests {
             [
                 "-I",
                 "-B",
+                "-X",
+                "utf8",
+                "-u",
                 "-m",
                 "clio_agent.runtime.document_install",
                 "--workspace",

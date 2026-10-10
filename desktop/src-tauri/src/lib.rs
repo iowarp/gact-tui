@@ -430,7 +430,7 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
         .map_err(|error| format!("prepare package workspace: {error}"))?;
     let user = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
         .map_err(|error| format!("prepare package storage: {error}"))?;
-    execution_install::prepare_packages(&runtime, &workspace, &user)?;
+    execution_install::prepare_packages_for_install(&runtime, &workspace, &user)?;
     Ok(())
 }
 
