@@ -38,6 +38,7 @@ import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { MessageCompletionFooter } from './message-completion-footer';
+import { ResponseRating } from './response-rating';
 import { messageToolCallCounts } from './message-tool-call-counts';
 import { ConversationModelCheckpoint } from './conversation-model-boundary';
 import { modelBoundariesEqual } from './conversation-model-boundaries';
@@ -157,6 +158,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
         </MessageAction>
       ) : null}
       <TranscriptContentPicker sessionId={message.session_id} messageId={message.id} />
+      <ResponseRating message={message} active={active} />
       <ClioMessageHistoryActions
         forking={entities.forkingMessageId === message.id}
         onFork={

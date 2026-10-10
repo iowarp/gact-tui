@@ -75,6 +75,7 @@ export type ClioQueryNamespace =
   | 'queued-messages'
   | 'tools'
   | 'transcript'
+  | 'response-feedback'
   | 'variant-runs'
   | 'workspace-file'
   | 'workspace-file-bytes'

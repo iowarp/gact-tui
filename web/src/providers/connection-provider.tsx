@@ -106,6 +106,7 @@ function parseInfrastructure(value: unknown): ConnectionSettings['infrastructure
 }
 
 interface ConnectionContextValue {
+  readOnly?: boolean;
   settings: ConnectionSettings;
   recents: SavedConnection[];
   credentialsReady: boolean;
@@ -145,6 +146,7 @@ export function ArchiveConnectionProvider({ children }: { children: ReactNode })
     <ConnectionContext.Provider
       value={{
         settings: { endpoint: 'https://archive.invalid', label: 'Offline archive' },
+        readOnly: true,
         recents: [],
         credentialsReady: true,
         managedConnectionReady: true,
