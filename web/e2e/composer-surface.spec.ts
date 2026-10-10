@@ -4,6 +4,91 @@ import { writeFile } from 'node:fs/promises';
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
 for (const theme of ['dark', 'light'] as const) {
+  test(`softens content behind the ${theme} composer while retaining gutter scrolling`, async ({
+    page,
+  }, testInfo) => {
+    expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
+    await page.request.post(`${endpoint}/v1/permissions/perm_fixture`);
+    await page.request.post(
+      `${endpoint}/v1/sessions/sess_flat_ndp/questions/question_fixture/answer`,
+      { data: { selected_options: ['table'] } },
+    );
+    await page.addInitScript(
+      ({ endpoint, theme }) => {
+        localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
+        localStorage.setItem('theme', theme);
+      },
+      { endpoint, theme },
+    );
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+    const composer = page.locator('[data-slot="clio-composer-stack"]');
+    const log = page.getByRole('log', { name: 'Conversation' });
+    const message = log.getByText(
+      'Review the EarthScope station evidence and keep provenance visible.',
+      { exact: true },
+    );
+    await expect(composer.getByRole('combobox')).toBeVisible();
+    await expect(message).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await log.hover();
+      await page.mouse.wheel(0, -100);
+      // Align real transcript text with the bottom gutter, where it previously
+      // remained sharp. Wait for virtualization and resized rows to settle.
+      await expect
+        .poll(async () => {
+          const box = (await composer.boundingBox())!;
+          const top = box.y + box.height - 11;
+          const aligned = await message.evaluate((node, top) => {
+            const scroller = node.closest<HTMLElement>('[role="log"]');
+            if (!scroller) return false;
+            scroller.scrollTop += node.getBoundingClientRect().top - top;
+            return true;
+          }, top);
+          if (!aligned) return Number.POSITIVE_INFINITY;
+          await page.evaluate(
+            () =>
+              new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+          );
+          const messageBox = await message.boundingBox();
+          return messageBox ? Math.abs(messageBox.y - top) : Number.POSITIVE_INFINITY;
+        })
+        .toBeLessThan(2);
+      const backdrop = await composer.evaluate((node) => {
+        const style = getComputedStyle(node, '::before');
+        return {
+          blur: style.backdropFilter,
+          mask: style.maskImage,
+          pointerEvents: style.pointerEvents,
+        };
+      });
+      expect(backdrop.blur).toMatch(/^blur\(/);
+      expect(backdrop.mask).toContain('linear-gradient');
+      expect(backdrop.pointerEvents).toBe('none');
+      await page.mouse.move(8, 8);
+      await page.screenshot({ path: testInfo.outputPath(`diffused-${theme}-${width}.png`) });
+
+      const box = (await composer.boundingBox())!;
+      const gutter = { x: box.x + box.width / 2, y: box.y + box.height - 6 };
+      expect(
+        await page.evaluate(
+          ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('[role="log"]')),
+          gutter,
+        ),
+      ).toBe(true);
+      await page.mouse.move(gutter.x, gutter.y);
+      await page.mouse.wheel(0, 500);
+      await expect
+        .poll(async () => (await message.boundingBox())!.y + (await message.boundingBox())!.height)
+        .toBeLessThan(box.y);
+      await expect(message).toHaveCSS('opacity', '1');
+      await expect(composer.getByRole('combobox')).toBeEnabled();
+    }
+  });
+
   test(`joins the ${theme} question and queue trays to the composer surface`, async ({
     page,
   }, testInfo) => {

@@ -48,7 +48,7 @@ export function ClioChildSessionFooter({
       className={cn(
         'relative',
         variant === 'docked'
-          ? 'pointer-events-none flex max-h-full min-h-0 flex-col px-4 pb-3 lg:px-6'
+          ? 'clio-composer-docked pointer-events-none flex max-h-full min-h-0 flex-col px-4 pb-3 lg:px-6'
           : 'w-full',
       )}
       data-slot="clio-child-session-footer"
