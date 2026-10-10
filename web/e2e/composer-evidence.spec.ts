@@ -107,11 +107,21 @@ test('keeps response preparation in the transcript and showcases beside the canv
     const both = await panel.boundingBox();
     await activity.click({ button: 'right' });
     await expect(activity).toHaveAttribute('data-evidence-layout', 'top');
-    expect(await panel.boundingBox()).toEqual(both);
+    if (width === 1920) expect(await panel.boundingBox()).toEqual(both);
+    else {
+      await expect(panel.getByRole('button', { name: 'Collapse Data', exact: true })).toBeVisible();
+      await expect.poll(async () => (await panel.boundingBox())!.height).toBeLessThan(both!.height);
+    }
     await expect(panel.locator('[data-showcase-section="bottom"]')).toHaveCount(0);
     await activity.click({ button: 'right' });
     await expect(activity).toHaveAttribute('data-evidence-layout', 'bottom');
-    expect(await panel.boundingBox()).toEqual(both);
+    if (width === 1920) expect(await panel.boundingBox()).toEqual(both);
+    else {
+      await expect(panel.getByRole('button', { name: 'Collapse Work', exact: true })).toBeVisible();
+      expect(
+        (await panel.boundingBox())!.y + (await panel.boundingBox())!.height,
+      ).toBeLessThanOrEqual(form!.y);
+    }
     await expect(panel.getByRole('button', { name: 'Artifacts, 1 recorded' })).toHaveCount(0);
     await activity.click({ button: 'right' });
     await expect(activity).toHaveAttribute('data-evidence-layout', 'none');
@@ -144,4 +154,106 @@ test('keeps response preparation in the transcript and showcases beside the canv
   await expect(page.getByRole('dialog', { name: 'Activity and evidence' })).toHaveCount(0);
   await expect(activity).toHaveAttribute('data-evidence-layout', 'none');
   expect(errors).toEqual([]);
+});
+
+for (const [width, height] of [
+  [1280, 900],
+  [640, 620],
+  [390, 500],
+]) {
+  test(`forced evidence popup stays together when collapsed at ${width}x${height}`, async ({
+    page,
+  }, testInfo) => {
+    await page.request.post(`${endpoint}/__test/reset`);
+    await page.addInitScript((value) => {
+      localStorage.setItem('clio.recent-connections', JSON.stringify([value]));
+      localStorage.setItem('theme', 'light');
+    }, endpoint);
+    await page.setViewportSize({ width, height });
+    await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+    if (width === 1280) {
+      await page
+        .getByRole('button', { name: 'Open vertical-displacement.png', exact: true })
+        .click();
+    }
+    const toggle = page.getByRole('button', { name: /^Evidence layout:/ });
+    await toggle.click({ button: 'right' });
+    const panel = page.getByRole('dialog', { name: 'Activity and evidence' });
+    await expect(panel).toHaveAttribute('data-showcase-mode', 'temporary');
+    const data = panel.getByRole('region', { name: 'Data', exact: true });
+    const work = panel.getByRole('region', { name: 'Work', exact: true });
+    const column = panel.locator('[data-slot="session-evidence-column"]');
+    await work.getByRole('button', { name: 'Collapse Work', exact: true }).click();
+    const combinedHeight = async () => {
+      const d = (await data.boundingBox())!;
+      const w = (await work.boundingBox())!;
+      return {
+        height: (await panel.boundingBox())!.height,
+        content: d.height + w.height,
+        gap: w.y - d.y - d.height,
+      };
+    };
+    await expect.poll(async () => (await combinedHeight()).gap).toBeCloseTo(0, 0);
+    await expect
+      .poll(async () => {
+        const bounds = await combinedHeight();
+        return bounds.height - bounds.content;
+      })
+      .toBeCloseTo(0, 0);
+    await page.screenshot({ path: testInfo.outputPath('work-collapsed-popup.png') });
+    await data.getByRole('button', { name: 'Collapse Data', exact: true }).click();
+    await expect.poll(async () => (await panel.boundingBox())!.height).toBeLessThanOrEqual(75);
+    await expect(
+      panel.getByRole('button', { name: 'Hide activity and evidence', exact: true }),
+    ).toBeVisible();
+    await data.getByRole('button', { name: 'Expand Data', exact: true }).click();
+    await work.getByRole('button', { name: 'Expand Work', exact: true }).click();
+    await expect(column).toBeVisible();
+    expect(await panel.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    const bounds = (await panel.boundingBox())!;
+    const composer = (await page.locator('[data-slot="clio-composer-stack"] form').boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(composer.y);
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    await expect(toggle).toBeFocused();
+  });
+}
+
+test('dense forced evidence scrolls as one panel and shrinks when both sections collapse', async ({
+  page,
+}) => {
+  await page.request.post(`${endpoint}/__test/reset`);
+  await page.request.post(`${endpoint}/__test/session-summary?density=both`);
+  await page.addInitScript((value) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([value]));
+  }, endpoint);
+  await page.setViewportSize({ width: 1100, height: 620 });
+  await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  const toggle = page.getByRole('button', { name: /^Evidence layout:/ });
+  await toggle.click({ button: 'right' });
+  const panel = page.getByRole('dialog', { name: 'Activity and evidence' });
+  await expect(panel).toHaveAttribute('data-showcase-mode', 'temporary');
+  const column = panel.locator('[data-slot="session-evidence-column"]');
+  await expect
+    .poll(() => column.evaluate((element) => element.scrollHeight > element.clientHeight))
+    .toBe(true);
+  for (const name of ['Data', 'Work']) {
+    const section = panel.getByRole('region', { name, exact: true });
+    expect(
+      await section.evaluate((element) => {
+        const content = element.children[1]!;
+        return content.scrollHeight <= content.clientHeight;
+      }),
+    ).toBe(true);
+    await section.getByRole('button', { name: `Collapse ${name}`, exact: true }).click();
+  }
+  await expect.poll(async () => (await panel.boundingBox())!.height).toBeLessThanOrEqual(75);
+  await expect
+    .poll(() => column.evaluate((element) => element.scrollHeight <= element.clientHeight))
+    .toBe(true);
+  await panel.getByRole('button', { name: 'Hide activity and evidence', exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(toggle).toBeFocused();
 });

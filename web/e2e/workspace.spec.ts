@@ -52,9 +52,15 @@ async function waitForArtifactPreview(page: Page) {
 
 async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
   await expect(anchor).toBeVisible();
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  // Navigate as a reader before positioning the screenshot. Direct DOM
+  // scrolling alone leaves following engaged and can scroll into our padding.
+  await conversation.press('ArrowUp');
+  await conversation.evaluate((element) => element.blur());
+  let stablePasses = 0;
   await expect
-    .poll(() =>
-      anchor.evaluate((element) => {
+    .poll(async () => {
+      await anchor.evaluate((element) => {
         const scroller = element.closest<HTMLElement>('[role="log"]');
         if (!scroller) return Number.POSITIVE_INFINITY;
         const delta = element.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
@@ -64,10 +70,23 @@ async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
           scroller.style.paddingBottom = `${paddingBottom + delta - remainingScroll}px`;
         }
         scroller.scrollBy({ behavior: 'instant', top: delta });
-        return Math.abs(element.getBoundingClientRect().top - scroller.getBoundingClientRect().top);
-      }),
-    )
-    .toBeLessThanOrEqual(1);
+      });
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      const offset = await anchor.evaluate((element) => {
+        const scroller = element.closest<HTMLElement>('[role="log"]');
+        return scroller
+          ? Math.abs(element.getBoundingClientRect().top - scroller.getBoundingClientRect().top)
+          : Number.POSITIVE_INFINITY;
+      });
+      stablePasses = offset <= 1 ? stablePasses + 1 : 0;
+      return stablePasses;
+    })
+    .toBeGreaterThanOrEqual(3);
 }
 
 async function alignLatestActivityAtTop(page: Page) {
@@ -759,7 +778,9 @@ test('keeps a pending EarthScope map flat, resizable, and centered when expanded
     .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
     .toBeGreaterThan(initialHeight);
 
-  const enlargedHeight = await viewport.evaluate((element) => element.getBoundingClientRect().height);
+  const enlargedHeight = await viewport.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
   const corner = pendingResponses.getByRole('button', {
     name: 'Corner resize handle',
   });
@@ -821,7 +842,9 @@ test('keeps a pending EarthScope map flat, resizable, and centered when expanded
     expect(dialogBounds.width).toBeGreaterThan(pageSize.width * 0.5);
     expect(dialogBounds.width).toBeLessThan(pageSize.width * 0.9);
     expect(Math.abs(dialogBounds.x + dialogBounds.width / 2 - pageSize.width / 2)).toBeLessThan(1);
-    expect(Math.abs(dialogBounds.y + dialogBounds.height / 2 - pageSize.height / 2)).toBeLessThan(1);
+    expect(Math.abs(dialogBounds.y + dialogBounds.height / 2 - pageSize.height / 2)).toBeLessThan(
+      1,
+    );
   }
   expect(dialogBounds?.height ?? 0).toBeGreaterThan((pageSize?.height ?? 0) * 0.9);
   expect(mapBounds?.height ?? 0).toBeGreaterThan((pageSize?.height ?? 0) * 0.75);

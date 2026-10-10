@@ -416,9 +416,10 @@ function ConversationBody({
         tabIndex={0}
       >
         {messages.length > 0 && loading ? (
+          // Background refreshes must not change the transcript's reading position.
           <div
             aria-live="polite"
-            className="sticky top-2 z-20 mx-auto flex w-fit items-center gap-1.5 rounded-full border bg-background/90 px-2.5 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur"
+            className="pointer-events-none absolute left-1/2 top-2 z-20 flex w-fit -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background/90 px-2.5 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur"
             role="status"
           >
             <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
