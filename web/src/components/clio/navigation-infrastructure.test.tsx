@@ -16,6 +16,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { NavigationInfrastructure } from './navigation-infrastructure';
 import { HISTORY_MODE_LABEL } from '@/lib/context-mode';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -59,9 +60,11 @@ function renderInfrastructure(
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <SidebarProvider>
-          <NavigationInfrastructure endpoint="http://127.0.0.1:8790" from="/" />
-        </SidebarProvider>
+        <TooltipProvider>
+          <SidebarProvider>
+            <NavigationInfrastructure endpoint="http://127.0.0.1:8790" from="/" />
+          </SidebarProvider>
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
