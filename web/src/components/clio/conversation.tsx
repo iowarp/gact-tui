@@ -177,14 +177,19 @@ function ConversationBody({
           indexes.push(activeStreamingIndex);
           indexes.sort((left, right) => left - right);
         }
-        const anchorIndex = readingAnchorRef.current?.index;
-        if (anchorIndex !== undefined && !indexes.includes(anchorIndex)) {
+        const anchor = readingAnchorRef.current;
+        // Persisted history may prepend rows after a live message was selected.
+        // Its durable identity remains authoritative when its index changes.
+        const anchorIndex = anchor
+          ? messages.findIndex((message) => `message-${message.id}` === anchor.id)
+          : -1;
+        if (anchorIndex >= 0 && !indexes.includes(anchorIndex)) {
           indexes.push(anchorIndex);
           indexes.sort((left, right) => left - right);
         }
         return indexes;
       },
-      [activeStreamingIndex],
+      [activeStreamingIndex, messages],
     ),
   });
   const virtualRows = virtualizer.getVirtualItems();
@@ -246,7 +251,9 @@ function ConversationBody({
       .getVirtualItems()
       .find((item) => item.end >= element.scrollTop);
     if (firstVisible) setActiveMessageIndex(firstVisible.index);
-    captureReadingAnchor();
+    // Layout scrolls after expanding a disclosure must retain its exact row.
+    // New wheel/key/pointer navigation clears the anchor before this handler.
+    if (!readingAnchorRef.current?.disclosure) captureReadingAnchor();
   }, [messages.length, virtualizer, captureReadingAnchor, onAutoscroll, followingRef]);
 
   const jumpToMessage = useCallback(

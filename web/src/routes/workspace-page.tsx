@@ -325,7 +325,7 @@ export function WorkspacePage() {
           }
           statusStrip={
             <WorkspaceLiveStatusStrip
-              activeWorkCount={workspaceRouteState.countActiveWork(runs, tasks, tools)}
+              activeWorkCount={workspaceRouteState.countActiveWork(runs, tasks, tools, processes)}
               sessionId={sessionId}
             />
           }
@@ -367,7 +367,7 @@ export function WorkspacePage() {
     session.state === 'running' ? 'running' : send.isPending ? 'queued' : session.state;
   const { pendingMessageIds, cancellablePendingMessageIds } =
     workspaceRouteState.pendingSteerMessageIds(pendingSteers.data ?? []);
-  const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
+  const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools, processes);
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
       className={
@@ -394,6 +394,7 @@ export function WorkspacePage() {
         />
       ) : (
         <ClioComposer
+          sessionId={sessionId}
           catalogPreparing={a2uiCatalog.isLoading}
           attachments={workspaceRouteState.canUploadWorkspaceResources(
             capabilities.data?.capabilities,

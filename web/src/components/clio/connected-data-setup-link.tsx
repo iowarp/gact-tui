@@ -71,6 +71,7 @@ export function ConnectedDataSetupLink({ block }: { block: ToolPresentationBlock
         <ConnectedSourcePicker
           key={`${scope}:${workspaceId}`}
           workspaceId={workspaceId}
+          sessionId={navigation?.sessionId}
           open
           onOpenChange={(next) => {
             if (!next) setOpenedScope(undefined);

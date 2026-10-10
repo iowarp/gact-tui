@@ -677,7 +677,7 @@ describe('ClioComposer service commands', () => {
     expect(onStop).not.toHaveBeenCalled();
   });
 
-  it('delivers Enter and Ctrl+Enter at the next iteration while work is running', async () => {
+  it('steers Enter, Ctrl+Enter and Cmd+Enter into the running turn', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderComposer({ state: 'running' });
     const input = composerEditor();
@@ -699,6 +699,13 @@ describe('ClioComposer service commands', () => {
           delivery: 'steer',
           text: 'Stop using the stale catalog.',
         }),
+      ),
+    );
+
+    await user.type(input, 'Use the updated source.{Meta>}{Enter}{/Meta}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'steer', text: 'Use the updated source.' }),
       ),
     );
   });
@@ -723,7 +730,7 @@ describe('ClioComposer service commands', () => {
     );
   });
 
-  it('resets a running-turn feedback intent when the session becomes idle', async () => {
+  it('resets a live-feedback intent when the session becomes idle', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => undefined);
     const renderState = (state: 'completed' | 'running') =>
@@ -742,10 +749,10 @@ describe('ClioComposer service commands', () => {
     const view = render(renderState('running'));
     const input = composerEditor();
 
-    await user.type(input, 'Use this while running.{Enter}');
+    await user.type(input, 'Use this feedback while running.{Enter}');
     await waitFor(() =>
       expect(onSubmit).toHaveBeenLastCalledWith(
-        expect.objectContaining({ delivery: 'steer', text: 'Use this while running.' }),
+        expect.objectContaining({ delivery: 'steer', text: 'Use this feedback while running.' }),
       ),
     );
 

@@ -7,6 +7,7 @@ import {
   type RunState,
   type ToolState,
   type PendingSteer,
+  type AsyncProcess,
 } from '@clio/core/v3';
 
 /** Name only owners discovered through this session's hierarchy. */
@@ -43,11 +44,22 @@ export function countActiveWork(
   runs: readonly { state: RunState }[],
   tasks: readonly { state: RunState }[],
   tools: readonly { state: ToolState }[],
+  processes: readonly Pick<AsyncProcess, 'effective_status' | 'live_state'>[] = [],
 ): number {
   return (
     runs.filter(({ state }) => state === 'running' || state === 'queued').length +
     tasks.filter(({ state }) => state === 'running' || state === 'queued').length +
-    tools.filter(({ state }) => state === 'running' || state === 'pending').length
+    tools.filter(({ state }) => state === 'running' || state === 'pending').length +
+    processes.filter((process) =>
+      [
+        'queued',
+        'running',
+        'working',
+        'input_required',
+        'waiting_permission',
+        'waiting_user',
+      ].includes(process.effective_status ?? process.live_state),
+    ).length
   );
 }
 

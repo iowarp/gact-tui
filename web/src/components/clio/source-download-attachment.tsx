@@ -10,7 +10,7 @@ import { useSourceFolderReference } from './use-source-folder-reference';
 import { useSourceFileReference } from './use-source-file-reference';
 import type { SourceDownloadSelection } from './source-download-selection';
 
-/** Follow an explicitly attached download even after its picker is closed. */
+/** Follow an explicitly attached storage operation after its picker is closed. */
 export function SourceDownloadAttachment({
   workspaceId,
   source,
@@ -55,23 +55,26 @@ export function SourceDownloadAttachment({
   const attempted = useRef(false);
   const attach = isFile ? file.mutate : folder.mutate;
   const path = selection?.path ?? '';
+  const linked = selection?.linked ?? false;
   useEffect(() => {
     if (operation?.state === 'completed' && !attempted.current) {
       attempted.current = true;
-      attach({ source, path, draftId: selection?.draftId });
+      attach({ source, path, draftId: selection?.draftId, linked });
     }
-  }, [operation?.state, attach, source, path, selection?.draftId]);
+  }, [operation?.state, attach, source, path, selection?.draftId, linked]);
   const problem = receipt.error?.message || operations.error?.message || operation?.error;
   const stopped = operation && ['failed', 'cancelled', 'interrupted'].includes(operation.state);
   const detail =
     problem ||
     (stopped
-      ? `Download ${operation.state}`
+      ? `${linked ? 'Indexing' : 'Download'} ${operation.state}`
       : operation?.state === 'completed'
         ? 'Preparing attachment…'
-        : isFile
-          ? 'Downloading file…'
-          : 'Downloading folder…');
+        : linked
+          ? `Indexing folder… ${operation?.entries_done ?? 0} entries`
+          : isFile
+            ? 'Downloading file…'
+            : 'Downloading folder…');
   return (
     <SourceAttachmentCard
       id={operationId}
@@ -84,12 +87,12 @@ export function SourceDownloadAttachment({
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => attach({ source, path, draftId: selection?.draftId })}
+          onClick={() => attach({ source, path, draftId: selection?.draftId, linked })}
         >
           Retry attachment
         </Button>
       )}
-      {!problem && !stopped && operation?.bytes_total ? (
+      {!linked && !problem && !stopped && operation?.bytes_total ? (
         <progress
           aria-label={`Downloading ${source.label}`}
           className="mt-1 h-1 w-full accent-primary"

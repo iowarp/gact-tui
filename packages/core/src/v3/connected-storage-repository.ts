@@ -245,11 +245,15 @@ export class ConnectedStorageRepository extends A2uiRepository {
     unlink = false,
     draftId?: string,
     mapping?: { access: 'read_only' | 'publish_later' | 'write_through'; confirm_remote?: boolean },
+    sessionId?: string,
   ) {
     return this.transport.request({
       method: 'POST',
       path: `${sourcePath(workspaceId, sourceId)}/${unlink ? 'unlink' : 'link'}`,
-      body: draftId || mapping ? { draft_id: draftId, ...mapping } : undefined,
+      body:
+        draftId || mapping || sessionId
+          ? { draft_id: draftId, ...mapping, ...(sessionId ? { session_id: sessionId } : {}) }
+          : undefined,
       decode: (value) => connectedSourceStateSchema.parse(value),
     });
   }
@@ -259,13 +263,19 @@ export class ConnectedStorageRepository extends A2uiRepository {
     paths?: string[],
     draftId?: string,
     access?: 'read_only' | 'editable',
+    sessionId?: string,
   ) {
     return this.transport.request({
       method: 'POST',
       path: `${sourcePath(workspaceId, sourceId)}/transfer`,
       body:
-        paths || draftId || access
-          ? { access, ...(paths ? { paths } : {}), ...(draftId ? { draft_id: draftId } : {}) }
+        paths || draftId || access || sessionId
+          ? {
+              access,
+              ...(paths ? { paths } : {}),
+              ...(draftId ? { draft_id: draftId } : {}),
+              ...(sessionId ? { session_id: sessionId } : {}),
+            }
           : undefined,
       decode: (value) => sourceOperationSchema.parse(value),
     });

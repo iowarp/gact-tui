@@ -64,6 +64,7 @@ import {
 import { ClioStatus, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
+import { AsyncTaskList } from './async-task-list';
 import { SessionEvidenceSummary } from './session-evidence-summary';
 
 export interface ClioEvidenceViewProps {
@@ -74,6 +75,7 @@ export interface ClioEvidenceViewProps {
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
   processes: readonly AsyncProcess[];
+  onCancelTask?: (task: AsyncProcess) => Promise<void>;
   interactions?: readonly PendingInteraction[];
   runs?: readonly Run[];
   subagents?: readonly SubagentRun[];
@@ -101,9 +103,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
         (artifact) => artifact.session_relation !== 'used',
       )
     : [];
-  const backgroundProcesses = showActivity
-    ? props.processes.filter((process) => process.kind !== 'agent')
-    : [];
+  const backgroundProcesses = showActivity ? props.processes : [];
   const runs = showActivity ? (props.runs ?? []) : [];
   const subagents = showActivity ? (props.subagents ?? []) : [];
   const tasks = showActivity ? (props.tasks ?? []) : [];
@@ -227,7 +227,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             value="background"
             count={backgroundProcesses.length}
           >
-            <BackgroundEvidence processes={backgroundProcesses} />
+            <AsyncTaskList processes={backgroundProcesses} onCancelTask={props.onCancelTask} />
           </EvidenceSection>
         ) : null}
         {files.length ? (
@@ -424,23 +424,6 @@ function ToolEvidence({ tools }: { tools: readonly ToolInvocation[] }) {
             icon={WrenchIcon}
             label={getToolActivityTitle(tool)}
             state={getToolStatus(tool)}
-          />
-        </ClioInteractiveRow>
-      ))}
-    </div>
-  );
-}
-
-function BackgroundEvidence({ processes }: { processes: readonly AsyncProcess[] }) {
-  return (
-    <div className="grid gap-1">
-      {processes.map((process) => (
-        <ClioInteractiveRow key={process.id} running={process.live_state === 'running'}>
-          <EvidenceRecord
-            detail={[process.host, process.placement].filter(Boolean).join(', ') || undefined}
-            icon={ServerIcon}
-            label={process.title}
-            state={process.live_state}
           />
         </ClioInteractiveRow>
       ))}

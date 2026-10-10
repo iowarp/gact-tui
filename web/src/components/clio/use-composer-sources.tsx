@@ -14,12 +14,13 @@ export function useComposerSources(
   workspaceId: string,
   onSelect: (reference: WorkspaceReference) => void,
   onUploadFiles?: () => void,
+  sessionId?: string,
 ) {
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const lifecycle = useSourceDraftLifecycle(workspaceId);
   const [location, setLocation] = useState<{ folder: string; downloaded: boolean }>();
-  const scope = `${connectionScope(settings)}:${workspaceId}`;
+  const scope = `${connectionScope(settings)}:${workspaceId}:${sessionId ?? 'draft'}`;
   const current = useRef({ scope, onSelect });
   useLayoutEffect(() => {
     current.current = { scope, onSelect };
@@ -53,7 +54,7 @@ export function useComposerSources(
     attachments: pending.length ? (
       <div
         role="group"
-        aria-label="Downloading attachments"
+        aria-label="Preparing source attachments"
         className="flex w-full flex-wrap gap-2 px-3 pt-3"
       >
         {pending.map((row) => (
@@ -103,6 +104,7 @@ export function useComposerSources(
     picker: workspaceId ? (
       <ConnectedSourcePicker
         workspaceId={workspaceId}
+        sessionId={sessionId}
         open={open}
         onOpenChange={(next) => {
           if (next) setOpen(true);

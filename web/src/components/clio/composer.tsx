@@ -105,6 +105,7 @@ export interface ClioComposerProps extends ComposerQueueControls {
   catalogPreparing?: boolean;
   contextReferences?: boolean;
   workspaceId?: string;
+  sessionId?: string;
   commands?: CommandDefinition[];
   onSubmit: (value: {
     text: string;
@@ -172,6 +173,7 @@ export function ClioComposer({
   catalogPreparing = false,
   contextReferences = false,
   workspaceId = '',
+  sessionId,
   commands = [],
   onSubmit,
   onBehaviorChange,
@@ -294,7 +296,7 @@ export function ClioComposer({
   // The attachment in flight when a submit is rejected; the progress state is
   // cleared on the way out, so the name is kept separately.
   const uploadingFilenameRef = useRef<string>(undefined);
-  const nextDeliveryRef = useRef<MessageDelivery | 'queued'>('start');
+  const nextDeliveryRef = useRef<MessageDelivery>(state === 'running' ? 'steer' : 'start');
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
@@ -378,6 +380,7 @@ export function ClioComposer({
         ? sourceAttachments.add(reference)
         : composerReferences.select(reference),
     attachments ? () => setFileUploadOpen(true) : undefined,
+    sessionId,
   );
   const popoverOpen = showCommands || showReferences;
   // Send an explicit supported pick; the service applies configured defaults.
@@ -767,7 +770,7 @@ export function ClioComposer({
                 onClick={() => {
                   nextDeliveryRef.current = 'steer';
                 }}
-                title="Join the active turn at the next safe boundary"
+                title="Send feedback before the next model iteration"
                 type="submit"
                 variant="outline"
               >

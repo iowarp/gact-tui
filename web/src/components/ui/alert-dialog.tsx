@@ -37,19 +37,28 @@ function AlertDialogOverlay({
 
 function AlertDialogContent({
   className,
+  overlayClassName,
+  layer,
   onBackdropClick,
   size = 'default',
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: 'default' | 'sm';
+  overlayClassName?: string;
+  layer?: 'task-confirmation';
   onBackdropClick?: React.MouseEventHandler<HTMLDivElement>;
 }) {
   return (
     <AlertDialogPortal container={React.useContext(OverlayContainer)}>
-      <AlertDialogOverlay onClick={onBackdropClick} />
+      <AlertDialogOverlay
+        className={overlayClassName}
+        data-overlay-layer={layer}
+        onClick={onBackdropClick}
+      />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         data-size={size}
+        data-overlay-layer={layer}
         className={cn(
           'group/alert-dialog-content fixed top-4 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] min-w-0 -translate-x-1/2 gap-4 overflow-y-auto rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
           className,

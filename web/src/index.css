@@ -74,6 +74,14 @@
   [data-slot='tooltip-content'][data-state] {
     z-index: 120;
   }
+  /* Task cancellation can originate inside a popover. Its confirmation must
+     cover that originating surface, including the popper wrapper's layer. */
+  [data-slot='alert-dialog-overlay'][data-state][data-overlay-layer='task-confirmation'] {
+    z-index: 130;
+  }
+  [data-slot='alert-dialog-content'][data-state][data-overlay-layer='task-confirmation'] {
+    z-index: 140;
+  }
 }
 
 @theme inline {

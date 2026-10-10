@@ -69,6 +69,7 @@ beforeEach(() => {
   });
   repository.browseConnectedSource.mockResolvedValue({ entries: [], next_offset: null });
   repository.beginSourceDraft.mockResolvedValue({ id: 'draft_test' });
+  repository.linkConnectedSource.mockResolvedValue({ ...source, linked: true });
   repository.finishSourceDraft.mockResolvedValue({ finished: true });
   repository.attachSourceFolder.mockResolvedValue(resource);
   repository.workspaceReferences.mockResolvedValue([]);
@@ -93,6 +94,7 @@ function renderComposer() {
           attachments
           contextReferences
           workspaceId="w"
+          sessionId="sess_attachments"
           state="completed"
           provider="codex"
           model="gpt-5.6-luna"
@@ -209,15 +211,16 @@ describe('source attachments in the composer', () => {
     const { user, client, onSubmit } = renderComposer();
     await openSource(user);
     await user.click(await screen.findByRole('button', { name: 'Download file' }));
-    expect(await screen.findByRole('group', { name: 'Downloading attachments' })).toHaveTextContent(
-      'Research inputs / data.csv',
-    );
+    expect(
+      await screen.findByRole('group', { name: 'Preparing source attachments' }),
+    ).toHaveTextContent('Research inputs / data.csv');
     expect(repository.transferConnectedSource).toHaveBeenCalledWith(
       'w',
       source.id,
       ['data.csv'],
       'draft_test',
       'editable',
+      'sess_attachments',
     );
     repository.sourceOperations.mockResolvedValue([
       { ...running, state: 'completed', bytes_done: 14 },
@@ -281,9 +284,9 @@ describe('source attachments in the composer', () => {
     const { user, client, onSubmit } = renderComposer();
     await openSource(user);
     await user.click(screen.getByRole('button', { name: 'Download all' }));
-    expect(await screen.findByRole('group', { name: 'Downloading attachments' })).toHaveTextContent(
-      'Research inputs',
-    );
+    expect(
+      await screen.findByRole('group', { name: 'Preparing source attachments' }),
+    ).toHaveTextContent('Research inputs');
     expect(screen.queryByRole('dialog', { name: 'Attach' })).toBeNull();
     const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
     await user.type(editor, 'Inspect the download{Enter}');
@@ -318,7 +321,7 @@ describe('source attachments in the composer', () => {
     );
     await openSource(user);
     await user.click(screen.getByRole('button', { name: 'Download all' }));
-    await screen.findByRole('group', { name: 'Downloading attachments' });
+    await screen.findByRole('group', { name: 'Preparing source attachments' });
     repository.sourceOperations.mockResolvedValue([{ ...running, state: 'completed' }]);
     await client.invalidateQueries();
     await waitFor(() => expect(finish).toBeDefined());

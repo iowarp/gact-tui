@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Artifact, A2UISurface, PendingCompaction } from '@clio/core/v3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,6 +16,13 @@ const mocks = vi.hoisted(() => ({
     active_turns: {} as Record<string, string>,
     responded_turns: {} as Record<string, string>,
   },
+}));
+
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
+}));
+vi.mock('@/hooks/use-repository', () => ({
+  useRepository: () => ({ cancelTasks: vi.fn() }),
 }));
 
 vi.mock('@/store/live-store', () => ({
@@ -73,18 +81,20 @@ import {
 describe('WorkspaceLiveConversation', () => {
   it('passes the active session identity to the compact work inventory', () => {
     render(
-      <WorkspaceLiveObservabilityDock
-        sessionId="sess_summary"
-        artifacts={[]}
-        contextFiles={[]}
-        contextFrames={[]}
-        diffs={[]}
-        processes={[]}
-        runs={[]}
-        subagents={[]}
-        tasks={[]}
-        tools={[]}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <WorkspaceLiveObservabilityDock
+          sessionId="sess_summary"
+          artifacts={[]}
+          contextFiles={[]}
+          contextFrames={[]}
+          diffs={[]}
+          processes={[]}
+          runs={[]}
+          subagents={[]}
+          tasks={[]}
+          tools={[]}
+        />
+      </QueryClientProvider>,
     );
     expect(screen.getByTestId('dock-session')).toHaveTextContent('sess_summary');
   });
@@ -220,18 +230,20 @@ describe('WorkspaceLiveConversation', () => {
     };
 
     render(
-      <WorkspaceLiveObservabilityView
-        artifacts={[]}
-        contextFiles={[]}
-        contextFrames={[]}
-        diffs={[]}
-        processes={[]}
-        runs={[]}
-        sessionId="sess_1"
-        subagents={[]}
-        tasks={[]}
-        tools={[]}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <WorkspaceLiveObservabilityView
+          artifacts={[]}
+          contextFiles={[]}
+          contextFrames={[]}
+          diffs={[]}
+          processes={[]}
+          runs={[]}
+          sessionId="sess_1"
+          subagents={[]}
+          tasks={[]}
+          tools={[]}
+        />
+      </QueryClientProvider>,
     );
 
     expect(screen.getByTestId('observability-session')).toHaveTextContent('sess_1');

@@ -56,7 +56,7 @@ import {
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
 import { mergeA2uiClientMetadata } from './a2ui/index.js';
-import { ResponseFeedbackRepository } from './response-feedback-repository.js';
+import { TaskRepository } from './task-repository.js';
 import { decodeCapabilities } from './capability-negotiation.js';
 import { decodeTranscript } from './transcript-decoder.js';
 
@@ -73,7 +73,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  * silently swallowed.
  */
 const MAX_ARTIFACT_PAGES = 100;
-export class ClioRepository extends ResponseFeedbackRepository {
+export class ClioRepository extends TaskRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }

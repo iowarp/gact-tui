@@ -2,6 +2,7 @@ import type { Artifact, Message, RunState, SubagentRun } from '@clio/core/v3';
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useLiveStore } from '@/store/live-store';
+import { useTaskCancellation } from '@/hooks/use-task-cancellation';
 import { ClioConversation, type ClioConversationProps } from './conversation';
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
 import { WorkspaceStatusStrip } from './workspace-route-surfaces';
@@ -121,11 +122,13 @@ export function WorkspaceLiveObservabilityDock({
   sessionId,
   ...props
 }: LiveObservabilityDockProps) {
+  const onCancelTask = useTaskCancellation(sessionId);
   return (
     <ClioObservabilityDock
       {...props}
-      messages={useSessionMessages(sessionId)}
       sessionId={sessionId}
+      onCancelTask={onCancelTask}
+      messages={useSessionMessages(sessionId)}
     />
   );
 }
@@ -138,9 +141,11 @@ export function WorkspaceLiveObservabilityView({
   sessionId,
   ...props
 }: LiveObservabilityViewProps) {
+  const onCancelTask = useTaskCancellation(sessionId);
   return (
     <ClioObservabilityView
       {...props}
+      onCancelTask={onCancelTask}
       messages={useSessionMessages(sessionId)}
       sessionId={sessionId}
     />
