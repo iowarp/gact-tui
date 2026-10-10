@@ -1,5 +1,5 @@
 import type { AsyncProcess } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ClioProcessLanes } from './observability-processes';
 
@@ -58,5 +58,19 @@ describe('ClioProcessLanes row identity', () => {
 
     for (const element of screen.getAllByText('MCP task')) expect(element).toBeVisible();
     expect(screen.queryByText(/mcp_task_7f2a/u)).not.toBeInTheDocument();
+  });
+
+  it('lets the user inspect a failed event with its recorded timing', () => {
+    const view = render(
+      <ClioProcessLanes
+        processes={[asyncProcess({ title: 'Capacity reviewer', live_state: 'failed' })]}
+      />,
+    );
+    fireEvent.click(view.container.querySelector('[data-slot="gantt-bar"]')!);
+    const selection = screen.getByRole('region', { name: 'Selected execution event' });
+    expect(selection).toHaveTextContent('Capacity reviewer');
+    expect(selection).toHaveTextContent('30 s');
+    expect(selection).toHaveTextContent('Failed');
+    expect(selection).not.toHaveTextContent('100%');
   });
 });

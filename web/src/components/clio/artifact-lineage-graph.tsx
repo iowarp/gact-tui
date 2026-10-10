@@ -2,6 +2,8 @@ import type { Artifact, ArtifactLineage, ArtifactLineageNode } from '@clio/core/
 import { graphlib, layout } from '@dagrejs/dagre';
 import {
   Controls,
+  Background,
+  MiniMap,
   Handle,
   MarkerType,
   Position,
@@ -15,6 +17,7 @@ import { FileBoxIcon, TriangleAlertIcon, WrenchIcon } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { formatBytes } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { humanizeToolName } from './tool-presentation';
 
 interface LineageNodeData extends Record<string, unknown> {
   artifact?: Artifact;
@@ -50,14 +53,25 @@ export function ArtifactLineageGraph({
   return (
     <div
       aria-label="Artifact lineage graph"
-      className="h-[clamp(24rem,58vh,42rem)] min-w-0 overflow-hidden bg-background/40"
-      role="img"
+      className="flex h-[clamp(24rem,64vh,46rem)] min-w-0 flex-col overflow-hidden bg-background/40"
+      role="region"
     >
+      <div className="flex flex-wrap items-center gap-4 px-3 py-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <FileBoxIcon aria-hidden="true" className="size-3.5" />
+          {lineage.nodes.filter((node) => node.type === 'artifact').length} files
+        </span>
+        <span className="flex items-center gap-1.5">
+          <WrenchIcon aria-hidden="true" className="size-3.5" />
+          {lineage.nodes.filter((node) => node.type === 'activity').length} recorded actions
+        </span>
+        <span>Follow the arrows · select a file to open it</span>
+      </div>
       <ReactFlow<LineageFlowNode, Edge>
         edges={graph.edges}
         elementsSelectable
         fitView
-        fitViewOptions={{ maxZoom: 1, minZoom: 0.48, padding: 0.16 }}
+        fitViewOptions={{ maxZoom: 1, minZoom: 0.12, padding: 0.12 }}
         maxZoom={1.6}
         minZoom={0.12}
         nodes={graph.nodes}
@@ -68,6 +82,16 @@ export function ArtifactLineageGraph({
         proOptions={{ hideAttribution: true }}
         zoomOnDoubleClick={false}
       >
+        <Background color="var(--border)" gap={24} size={1} />
+        {graph.nodes.length >= 12 ? (
+          <MiniMap
+            aria-label="Lineage overview"
+            nodeColor="var(--primary)"
+            pannable
+            zoomable
+            className="!bg-background !shadow-none !border !border-border"
+          />
+        ) : null}
         <Controls
           aria-label="Lineage graph controls"
           className="!border-border !shadow-none [&_button]:!border-border [&_button]:!bg-background [&_button]:!fill-foreground [&_button:hover]:!bg-muted"
@@ -89,7 +113,14 @@ export function buildArtifactLineageGraph(
     const self = node.id === lineage.root;
     const linkedArtifact =
       node.type === 'artifact' && !self ? artifactFromNode(node, artifact) : undefined;
-    const details = lineageNodeDetails(node);
+    const output =
+      node.type === 'activity'
+        ? lineage.edges.find((edge) => edge.from === node.id && edge.type === 'generated')
+        : undefined;
+    const outputNode = output
+      ? lineage.nodes.find((candidate) => candidate.id === output.to)
+      : undefined;
+    const details = outputNode ? [lineageNodeLabel(outputNode)] : lineageNodeDetails(node);
     const label = lineageNodeLabel(node);
     const width = lineageNodeWidth(label, details);
     return {
@@ -168,9 +199,13 @@ function LineageNodeCard({ data }: NodeProps<LineageFlowNode>) {
     <div
       className={cn(
         'rounded-lg border bg-background px-2.5 py-2 shadow-sm',
+        data.nodeType === 'activity' && 'border-dashed bg-muted/60',
         data.self && 'border-primary/70 ring-1 ring-primary/20',
       )}
-      style={{ width: data.width }}
+      style={{ width: data.width, height: nodeHeight }}
+      title={[data.label, ...data.details, data.self ? 'Current result' : '']
+        .filter(Boolean)
+        .join(' · ')}
     >
       <Handle className="!size-0 !border-0" position={Position.Left} type="target" />
       {data.artifact && data.onOpenArtifact ? (
@@ -198,15 +233,10 @@ function layoutGraph(
   edges: Edge[];
 } {
   const graph = new graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  const longestRelationship = Math.max(
-    0,
-    ...edges.map((edge) => (typeof edge.label === 'string' ? edge.label.length : 0)),
-  );
-  const relationshipClearance = Math.max(112, longestRelationship * 7 + 52);
   graph.setGraph({
     rankdir: 'LR',
-    nodesep: 22,
-    ranksep: relationshipClearance,
+    nodesep: 34,
+    ranksep: 76,
     marginx: 28,
     marginy: 20,
   });
@@ -248,7 +278,10 @@ function artifactFromNode(node: ArtifactLineageNode, fallback: Artifact): Artifa
 }
 
 function lineageNodeLabel(node: ArtifactLineageNode): string {
-  if (node.type === 'activity') return stringField(node, 'tool') || 'Recorded activity';
+  if (node.type === 'activity') {
+    const tool = humanizeToolName(stringField(node, 'tool')).replaceAll('_', ' ');
+    return tool ? tool.charAt(0).toUpperCase() + tool.slice(1) : 'Recorded activity';
+  }
   if (node.type === 'gap') return stringField(node, 'reason') || 'Provenance gap';
   return stringField(node, 'name') || 'Artifact';
 }
@@ -265,10 +298,7 @@ function edgeLabel(type: ArtifactLineage['edges'][number]['type'], evidence: str
   const relationship =
     type === 'revision_of' ? 'Revises' : type === 'generated' ? 'Generated' : 'Used';
   return evidence && evidence !== 'hash-pair' ? (
-    <span className="flex items-center gap-1.5">
-      <span>{relationship}</span>
-      <span className="font-normal text-muted-foreground">{evidence}</span>
-    </span>
+    <span title={evidence}>{relationship}</span>
   ) : (
     relationship
   );

@@ -208,6 +208,13 @@ export function ClioObservabilityView({
                 process.parent_turn_id ??
                 (process.kind === 'mcp-task' ? `mcp-task:${process.id}` : undefined),
               timing: process.updated_at || process.created_at ? 'event' : undefined,
+              rootSessionId: process.root_session_id,
+              ownerSessionId: process.child_session_id ?? process.owner_session_id,
+              ownerLabel: process.title,
+              parentSessionId: process.parent_session_id,
+              taskId: process.id,
+              taskPath: process.task_path,
+              depth: process.depth ?? process.task_path?.length,
             }),
           )),
       ...agentInteractionActivityItems(

@@ -496,14 +496,11 @@ describe('ClioObservabilityView', () => {
     expect(screen.getByRole('region', { name: 'Observed execution spans' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Zoom in' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Main agent' })).toBeVisible();
-    // Every owner's non-tool lanes get their own "Agent work" child group
-    // (executionGantt names it generically per-owner, not per-title), so the
-    // main turn's own reasoning group AND the ndp #1 process's own reasoning
-    // group both render one — two rows sharing the label, not a duplicate.
-    const agentWorkGroups = screen.getAllByRole('button', { name: 'Agent work' });
-    expect(agentWorkGroups).toHaveLength(2);
-    for (const group of agentWorkGroups) expect(group).toBeVisible();
+    expect(screen.getByText('Main agent', { exact: true })).toBeVisible();
+    // Agent durations appear directly beside their named owner. Expanding an
+    // owner is only needed when it has tool-call rows to inspect.
+    expect(screen.queryByRole('button', { name: 'Agent work' })).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-slot="gantt-bar"]')).toHaveLength(2);
     // Renders once as the owner group's row title and once as the span's own
     // event label.
     for (const element of screen.getAllByText('ndp #1')) expect(element).toBeVisible();

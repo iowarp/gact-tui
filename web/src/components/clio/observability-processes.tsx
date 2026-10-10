@@ -7,21 +7,17 @@ import type {
   SubagentRun,
   ToolInvocation,
 } from '@clio/core/v3';
-import { Clock3Icon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Clock3Icon, ScanIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Gantt } from '@/components/reui/gantt/gantt';
 import { GanttNav, GanttTitle } from '@/components/reui/gantt/gantt-nav';
-import type {
-  GanttEvent,
-  GanttOccurrence,
-  GanttResource,
-} from '@/components/reui/gantt/gantt-types';
+import type { GanttEvent, GanttResource } from '@/components/reui/gantt/gantt-types';
 import { GanttView } from '@/components/reui/gantt/gantt-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { getToolActivityTitle, getToolStatus, humanizeToolName } from './tool-presentation';
 import { provenanceFileFact } from './session-evidence-projection';
-
 const BRANCH_COLORS = [
   'var(--color-chart-1)',
   'var(--color-chart-2)',
@@ -58,26 +54,62 @@ export function ClioProcessLanes({
   const branches = useMemo(() => branchPalette(spans), [spans]);
   const lanes = useMemo(() => executionLanes(spans, branches), [branches, spans]);
   const [now, setNow] = useState(() => Date.now());
-
+  const container = useRef<HTMLDivElement>(null);
+  const [geometry, setGeometry] = useState({ width: 1040, rem: 16 });
+  const [selected, setSelected] = useState<ProcessSpan | null>(null);
+  const hasLanes = lanes.length > 0;
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      setGeometry({
+        width: element.clientWidth,
+        rem: parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
+      });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasLanes]);
   const hasRunning = spans.some((span) => span.end === null);
   useEffect(() => {
     if (!hasRunning) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, [hasRunning]);
-
   const extent = useMemo(() => fullExtent(spans, now), [now, spans]);
-  const model = useMemo(() => executionGantt(lanes, now), [lanes, now]);
+  const model = useMemo(
+    () =>
+      executionGantt(
+        lanes,
+        now,
+        new Map(
+          executionProvenance?.session_lineage?.map((owner) => [
+            owner.session_id,
+            owner.label ?? 'Child agent',
+          ]),
+        ),
+      ),
+    [executionProvenance, lanes, now],
+  );
   const center = useMemo(() => new Date((extent.start + extent.end) / 2), [extent]);
-  const initialZoom = useMemo(() => executionZoom(extent), [extent]);
+  const treeWidth = Math.min(260, Math.max(170, geometry.width * 0.27));
+  const interval = extent.end - extent.start < 10 * 60_000 ? 1 : 15;
+  const initialZoom = executionZoom(extent, geometry.width - treeWidth, geometry.rem, interval);
   const ganttKey = useMemo(
-    () => spans.map((span) => `${span.id}:${span.start}:${span.end ?? 'running'}`).join('|'),
-    [spans],
+    () => `${geometry.width}:${spans.map((span) => `${span.id}:${span.start}`).join('|')}`,
+    [geometry.width, spans],
   );
   const [zoomState, setZoomState] = useState(() => ({ key: ganttKey, value: initialZoom }));
   const zoom = zoomState.key === ganttKey ? zoomState.value : initialZoom;
-  const height = Math.min(560, Math.max(280, 112 + resourceRowCount(model.resources) * 40));
-
+  const initialCollapsed = model.resources
+    .filter((resource) => resource.id !== 'owner:main')
+    .map((resource) => resource.id);
+  const [collapsedState, setCollapsedState] = useState({ key: ganttKey, ids: initialCollapsed });
+  const collapsed = collapsedState.key === ganttKey ? collapsedState.ids : initialCollapsed;
+  const height = Math.min(
+    560,
+    Math.max(240, 144 + resourceRowCount(model.resources, new Set(collapsed)) * 36),
+  );
   if (!lanes.length) {
     return (
       <p className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
@@ -85,25 +117,27 @@ export function ClioProcessLanes({
       </p>
     );
   }
-
   return (
     <div
+      ref={container}
       aria-label="Observed execution spans"
       className="min-h-0 overflow-hidden rounded-lg border bg-background"
       role="region"
     >
       <Gantt<ExecutionGanttData>
-        barLabel="auto"
+        barLabel="inside"
         baselineBars={false}
         className="w-full"
         defaultDate={center}
         defaultInteractions={{ drag: false, resize: false, selectSlot: false }}
+        collapsedGroups={collapsed}
+        onCollapsedGroupsChange={(ids) => setCollapsedState({ key: ganttKey, ids })}
         defaultScale="day"
-        dependencyLines
+        dependencyLines={false}
         events={model.events}
         infiniteScroll={false}
         initialCenter={center}
-        interval={15}
+        interval={interval}
         i18n={{ formats: { eventTime: 'h:mm:ss a' } }}
         key={ganttKey}
         metrics={{
@@ -116,16 +150,32 @@ export function ClioProcessLanes({
         nowIndicator={hasRunning}
         offDays={false}
         offscreenIndicators
-        onEventClick={(occurrence, event) =>
-          openGanttSubagent(occurrence, event.shiftKey, subagents, onOpenSubagent)
+        onEventClick={(occurrence, event) => {
+          const span = occurrence.event.data?.span;
+          setSelected(span ?? null);
+          if (span?.kind === 'agent') {
+            const child = subagents.find((candidate) => candidate.id === span.subagentId);
+            if (child?.child_session_id)
+              onOpenSubagent?.(child, event.shiftKey ? 'canvas' : 'conversation');
+          }
+        }}
+        onResourceClick={({ resource }) =>
+          setSelected(
+            model.events.find((event) => event.resourceId === resource.id)?.data?.span ?? null,
+          )
         }
         onZoomChange={(value) => setZoomState({ key: ganttKey, value })}
         resources={model.resources}
         rowCheckboxes={false}
         scheduleMode="single"
-        summaryBars
+        summaryBars={false}
         timelineLines="both"
-        treePanel={{ maxWidth: 360, minWidth: 150, nameColumnWidth: 200, width: 220 }}
+        treePanel={{
+          maxWidth: 360,
+          minWidth: 150,
+          nameColumnWidth: treeWidth - 20,
+          width: treeWidth,
+        }}
         wheelZoom
         zoom={zoom}
         zoomRange={{ max: 256, min: 0.02, step: Math.max(0.25, initialZoom / 8) }}
@@ -133,9 +183,31 @@ export function ClioProcessLanes({
       >
         <GanttNav className="py-1.5">
           <GanttTitle>{`Execution · ${formatWindow(extent)}`}</GanttTitle>
+          <Button
+            aria-label="Fit execution"
+            onClick={() => setZoomState({ key: ganttKey, value: initialZoom })}
+            size="sm"
+            variant="ghost"
+          >
+            <ScanIcon aria-hidden="true" />
+            Fit
+          </Button>
         </GanttNav>
         <GanttView />
       </Gantt>
+      {selected ? (
+        <ExecutionSelection
+          span={selected}
+          messages={messages}
+          now={now}
+          subagents={subagents}
+          onOpenSubagent={onOpenSubagent}
+        />
+      ) : (
+        <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+          Select a row or duration bar to inspect its recorded timing and outcome.
+        </p>
+      )}
     </div>
   );
 }
@@ -149,24 +221,29 @@ interface ExecutionGanttModel {
   resources: GanttResource[];
 }
 
-function executionGantt(lanes: readonly ProcessLane[], now: number): ExecutionGanttModel {
+function executionGantt(
+  lanes: readonly ProcessLane[],
+  now: number,
+  ownerNames: ReadonlyMap<string, string>,
+): ExecutionGanttModel {
   const laneResourceIds = new Map(lanes.map((lane) => [lane.id, `lane:${lane.id}`]));
   const byOwner = groupLanesByOwner(lanes);
   const resources = [...byOwner.entries()].map(([owner, ownerLanes]) => {
     const work = ownerLanes.filter((lane) => lane.kind !== 'tool');
     const tools = ownerLanes.filter((lane) => lane.kind === 'tool');
-    const children: GanttResource[] = [];
-    if (work.length) children.push(ganttLaneGroup(`${owner}:work`, 'Agent work', work, laneResourceIds));
-    if (tools.length)
-      children.push(ganttLaneGroup(`${owner}:tools`, 'Tool calls', tools, laneResourceIds));
+    const children = tools.map((lane) => ({
+      id: laneResourceIds.get(lane.id)!,
+      title: lane.label,
+      color: lane.color,
+    }));
     const ownerLabel =
       owner === 'main'
         ? 'Main agent'
         : (work.find((lane) => lane.kind === 'agent' || lane.kind === 'mcp-task')?.label ??
+          ownerNames.get(owner) ??
           'Background work');
     return { id: `owner:${owner}`, title: ownerLabel, children };
   });
-  const dependencyIds = ganttDependencies(lanes);
   const events = lanes.flatMap((lane) =>
     lane.spans.map(
       (span): GanttEvent<ExecutionGanttData> => ({
@@ -174,73 +251,77 @@ function executionGantt(lanes: readonly ProcessLane[], now: number): ExecutionGa
         title: span.label,
         start: new Date(span.start),
         end: new Date(span.end ?? now),
-        color: lane.color,
+        color: span.state === 'failed' ? 'var(--destructive)' : lane.color,
         data: { span },
-        dependencies: dependencyIds.get(span.id),
-        progress: span.state === 'done' ? 100 : undefined,
         readOnly: true,
-        resourceId: laneResourceIds.get(lane.id),
+        resourceId: span.kind === 'tool' ? laneResourceIds.get(lane.id) : `owner:${lane.owner}`,
       }),
     ),
   );
   return { events, resources };
 }
 
-function ganttLaneGroup(
-  id: string,
-  title: string,
-  lanes: readonly ProcessLane[],
-  resourceIds: ReadonlyMap<string, string>,
-): GanttResource {
-  return {
-    id: `group:${id}`,
-    title,
-    children: lanes.map((lane) => ({
-      id: resourceIds.get(lane.id)!,
-      title: lane.label,
-      color: lane.color,
-      scheduleMode: 'single',
-    })),
-  };
+function ExecutionSelection({
+  span,
+  messages,
+  now,
+  subagents,
+  onOpenSubagent,
+}: {
+  span: ProcessSpan;
+  messages: readonly Message[];
+  now: number;
+  subagents: readonly SubagentRun[];
+  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+}) {
+  const child = subagents.find((candidate) => candidate.id === span.subagentId);
+  const message = messages.find(
+    (candidate) =>
+      candidate.id === span.id ||
+      candidate.blocks.some((block) => block.type === 'tool' && block.tool_id === span.id),
+  );
+  const duration = ((span.end ?? now) - span.start) / 1000;
+  return (
+    <div
+      aria-label="Selected execution event"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t px-3 py-2 text-xs"
+      role="region"
+    >
+      <span className="font-medium">{span.label}</span>
+      <ClioStatus compact value={span.status} />
+      <span className="text-muted-foreground">
+        {span.timing === 'observed'
+          ? 'Observed in its containing turn; duration unavailable'
+          : `${duration.toLocaleString(undefined, { maximumFractionDigits: 3 })} s · ${formatClock(span.start)}${span.end === null ? ' · still running' : ` to ${formatClock(span.end)}`}`}
+      </span>
+      {child?.child_session_id && onOpenSubagent ? (
+        <Button onClick={() => onOpenSubagent(child, 'conversation')} size="sm" variant="ghost">
+          Open agent conversation
+        </Button>
+      ) : message ? (
+        <Button
+          onClick={() => {
+            window.location.hash = `#message-${encodeURIComponent(message.id)}${span.kind === 'tool' ? `/activity-${encodeURIComponent(span.id)}` : ''}`;
+          }}
+          size="sm"
+          variant="ghost"
+        >
+          Open transcript event
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
-function ganttDependencies(lanes: readonly ProcessLane[]): Map<string, string[]> {
-  const dependencies = new Map<string, string[]>();
-  const toolsByOwner = new Map<string, ProcessSpan[]>();
-  for (const span of lanes.filter((lane) => lane.kind === 'tool').flatMap((lane) => lane.spans)) {
-    const bucket = toolsByOwner.get(span.owner);
-    if (bucket) bucket.push(span);
-    else toolsByOwner.set(span.owner, [span]);
-  }
-  for (const spans of toolsByOwner.values()) {
-    const ordered = [...spans].sort((left, right) => left.start - right.start);
-    for (let index = 1; index < ordered.length; index++) {
-      const previous = ordered[index - 1]!;
-      const current = ordered[index]!;
-      if (previous.end !== null && previous.end <= current.start) {
-        dependencies.set(current.id, [`event:${previous.id}`]);
-      }
-    }
-  }
-  return dependencies;
-}
-
-function openGanttSubagent(
-  occurrence: GanttOccurrence<ExecutionGanttData>,
-  openCanvas: boolean,
-  subagents: readonly SubagentRun[],
-  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void,
-) {
-  const subagentId = occurrence.event.data?.span.subagentId;
-  const subagent = subagents.find((candidate) => candidate.id === subagentId);
-  if (subagent?.child_session_id) {
-    onOpenSubagent?.(subagent, openCanvas ? 'canvas' : 'conversation');
-  }
-}
-
-function resourceRowCount(resources: readonly GanttResource[]): number {
+function resourceRowCount(
+  resources: readonly GanttResource[],
+  collapsed: ReadonlySet<string>,
+): number {
   return resources.reduce(
-    (count, resource) => count + 1 + resourceRowCount(resource.children ?? []),
+    (count, resource) =>
+      count +
+      1 +
+      (collapsed.has(resource.id) ? 0 : resourceRowCount(resource.children ?? [], collapsed)),
     0,
   );
 }
@@ -255,9 +336,14 @@ function groupLanesByOwner(lanes: readonly ProcessLane[]): Map<string, ProcessLa
   return grouped;
 }
 
-function executionZoom(range: TimeRange): number {
+function executionZoom(range: TimeRange, width: number, rem: number, interval: number): number {
   const durationMinutes = Math.max(0.25, (range.end - range.start) / 60_000);
-  return Math.min(256, Math.max(0.02, 60 / durationMinutes));
+  // One axis unit is 2.5rem and represents `interval` minutes. Reserve room on
+  // both sides of the observed window instead of fitting a whole calendar day.
+  return Math.min(
+    256,
+    Math.max(0.02, (Math.max(120, width - 80) * interval) / (durationMinutes * 2.5 * rem)),
+  );
 }
 
 /**
@@ -385,31 +471,32 @@ function executionSpans({
   const hasDurableTurns = Boolean(
     executionProvenance?.spans.some((span) => span.event_type === 'turn.started'),
   );
-  const messageSpans = runSpans.length || hasDurableTurns
-    ? []
-    : messages
-        .filter(
-          (message) =>
-            message.role === 'assistant' && message.blocks.some((block) => block.type !== 'text'),
-        )
-        .map((message): ProcessSpan | undefined => {
-          const at = parseTimestamp(message.completed_at ?? message.created_at);
-          if (at === undefined) return undefined;
-          return {
-            id: message.id,
-            label: 'Main agent response',
-            branch: 'main',
-            owner: 'main',
-            kind: 'main',
-            start: at,
-            end: at,
-            state: message.error_info ? 'failed' : 'done',
-            status: message.error_info ? 'failed' : 'completed',
-            timing: 'observed',
-            depth: 0,
-          };
-        })
-        .filter((span): span is ProcessSpan => span !== undefined);
+  const messageSpans =
+    runSpans.length || hasDurableTurns
+      ? []
+      : messages
+          .filter(
+            (message) =>
+              message.role === 'assistant' && message.blocks.some((block) => block.type !== 'text'),
+          )
+          .map((message): ProcessSpan | undefined => {
+            const at = parseTimestamp(message.completed_at ?? message.created_at);
+            if (at === undefined) return undefined;
+            return {
+              id: message.id,
+              label: 'Main agent response',
+              branch: 'main',
+              owner: 'main',
+              kind: 'main',
+              start: at,
+              end: at,
+              state: message.error_info ? 'failed' : 'done',
+              status: message.error_info ? 'failed' : 'completed',
+              timing: 'observed',
+              depth: 0,
+            };
+          })
+          .filter((span): span is ProcessSpan => span !== undefined);
   const turnTimes = toolTurnTimes(messages);
   const toolSpans = tools
     .map((tool): ProcessSpan | undefined => {
@@ -429,7 +516,7 @@ function executionSpans({
       return {
         id: tool.id,
         label: getToolActivityTitle(tool),
-        branch: `${owner}:tool:${tool.name}`,
+        branch: `${owner}:tool:${tool.id}`,
         owner,
         kind: 'tool',
         start,
@@ -437,11 +524,15 @@ function executionSpans({
         state: getToolStatus(tool) === 'failed' ? 'failed' : running ? 'running' : 'done',
         status: getToolStatus(tool),
         timing: exact ? 'exact' : 'observed',
+        subagentId: processOwner?.id,
         depth: processOwner ? processOwner.depth + 1 : 1,
       };
     })
     .filter((span): span is ProcessSpan => span !== undefined);
-  const durableSpans = durableExecutionSpans(executionProvenance, tools, runs);
+  const durableSpans = durableExecutionSpans(executionProvenance, tools, runs).map((span) => {
+    const processOwner = processOwners.get(span.owner);
+    return processOwner ? { ...span, owner: processOwner.id, subagentId: processOwner.id } : span;
+  });
   return [...runSpans, ...messageSpans, ...processSpans, ...toolSpans, ...durableSpans].sort(
     (left, right) => left.start - right.start,
   );
@@ -499,19 +590,21 @@ function durableExecutionSpans(
       !matchesRecordedTool(span, tools),
   );
   return [
-    ...turnRows.map((span, index): ProcessSpan => ({
-      id: `provenance:${span.id}`,
-      label: `Main agent, turn ${index + 1}`,
-      branch: 'main',
-      owner: 'main',
-      kind: 'main',
-      start: span.start_time! * 1_000,
-      end: span.end_time === null ? null : Math.max(span.start_time!, span.end_time) * 1_000,
-      state: provenanceSpanState(span),
-      status: provenanceSpanStatus(span),
-      timing: 'exact',
-      depth: 0,
-    })),
+    ...turnRows.map(
+      (span, index): ProcessSpan => ({
+        id: `provenance:${span.id}`,
+        label: `Main agent, turn ${index + 1}`,
+        branch: 'main',
+        owner: 'main',
+        kind: 'main',
+        start: span.start_time! * 1_000,
+        end: span.end_time === null ? null : Math.max(span.start_time!, span.end_time) * 1_000,
+        state: provenanceSpanState(span),
+        status: provenanceSpanStatus(span),
+        timing: 'exact',
+        depth: 0,
+      }),
+    ),
     ...toolRows.map((span): ProcessSpan => {
       const owner =
         !span.owner_session_id || span.owner_session_id === rootSessionId
@@ -522,7 +615,7 @@ function durableExecutionSpans(
         id: `provenance:${span.id}`,
         label,
         laneLabel: span.tool_name === 'fs_read_file' ? 'Read files' : operationLabel(span),
-        branch: `${owner}:tool:${span.tool_name ?? span.id}`,
+        branch: `${owner}:tool:${span.id}`,
         owner,
         kind: 'tool',
         start: span.start_time! * 1_000,
@@ -644,7 +737,7 @@ function executionLanes(spans: readonly ProcessSpan[], colors: Map<string, strin
             : laneIndex
               ? `${lane[0]!.label} #${laneIndex + 1}`
               : (lane[0]!.laneLabel ?? lane[0]!.label),
-        color: colors.get(branch) ?? BRANCH_COLORS[0]!,
+        color: colors.get(lane[0]!.owner) ?? BRANCH_COLORS[0]!,
         kind: lane[0]!.kind,
         owner: lane[0]!.owner,
         depth: lane[0]!.depth,
@@ -654,7 +747,7 @@ function executionLanes(spans: readonly ProcessSpan[], colors: Map<string, strin
 }
 
 function branchPalette(spans: readonly ProcessSpan[]): Map<string, string> {
-  const branches = [...new Set(spans.map((span) => span.branch))].sort();
+  const branches = [...new Set(spans.map((span) => span.owner))];
   return new Map(
     branches.map((branch, index) => [branch, BRANCH_COLORS[index % BRANCH_COLORS.length]!]),
   );
