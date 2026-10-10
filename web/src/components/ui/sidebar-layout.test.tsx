@@ -10,6 +10,7 @@ import {
   useSidebar,
 } from './sidebar';
 import { TooltipProvider } from './tooltip';
+import { createPortal } from 'react-dom';
 
 afterEach(cleanup);
 
@@ -104,7 +105,28 @@ describe('collapsed navigation preview', () => {
     expect(button).toHaveFocus();
     expect(button).toHaveTextContent('expanded');
     expect(button.isConnected).toBe(true);
-    fireEvent.keyDown(button, { key: 'Escape' });
+    expect(button).not.toHaveAttribute('aria-describedby');
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    escape.preventDefault(); // A tooltip can consume Escape before React receives it.
+    fireEvent(button, escape);
     expect(button).toHaveTextContent('collapsed');
+  });
+
+  it('lets a portaled menu consume Escape without closing the navigation preview', () => {
+    const { container } = render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarState />
+          {createPortal(
+            <button onKeyDown={(event) => event.preventDefault()}>Menu item</button>,
+            document.body,
+          )}
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Menu item' }), { key: 'Escape' });
+    expect(sidebar).toHaveAttribute('data-preview', 'true');
   });
 });

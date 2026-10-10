@@ -232,7 +232,14 @@ function Sidebar({
           if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
         }}
         onKeyDown={(event) => {
-          if (event.key !== 'Escape' || event.defaultPrevented || !preview) return;
+          // Portaled menus/dialogs handle their own Escape. A tooltip on a
+          // navigation control must not prevent dismissing the whole preview.
+          if (
+            event.key !== 'Escape' ||
+            !preview ||
+            !event.currentTarget.contains(event.target as Node)
+          )
+            return;
           event.preventDefault();
           setHovered(false);
           setFocused(false);
@@ -558,6 +565,7 @@ function SidebarMenuButton({
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot.Root : 'button';
   const { isMobile, state } = useSidebar();
+  const [tooltipOpen, setTooltipOpen] = React.useState(false);
 
   const button = (
     <Comp
@@ -581,9 +589,9 @@ function SidebarMenuButton({
   }
 
   return (
-    <Tooltip>
+    <Tooltip open={state === 'collapsed' && tooltipOpen} onOpenChange={setTooltipOpen}>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
-      {state === 'collapsed' ? <TooltipContent side="right" align="center" {...tooltip} /> : null}
+      <TooltipContent side="right" align="center" {...tooltip} />
     </Tooltip>
   );
 }

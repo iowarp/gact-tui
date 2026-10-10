@@ -37,12 +37,36 @@ for (const width of [1100, 1600]) {
     expect(await page.evaluate(() => document.cookie)).toBe(cookie);
 
     await sidebar.hover();
+    const actions = sidebar.getByRole('button', {
+      name: 'Workspace actions for flat-NDP',
+      exact: true,
+    });
+    await actions.click();
+    const edit = page.getByRole('menuitem', { name: 'Edit workspace', exact: true });
+    await expect(edit).toBeVisible();
+    await edit.hover();
+    await expect(sidebar).toHaveAttribute('data-preview', 'true');
+    await page.screenshot({ path: testInfo.outputPath('workspace-menu-from-flyout.png') });
+    await page.keyboard.press('Escape');
+    await expect(edit).toHaveCount(0);
+    await expect(actions).toBeFocused();
+    await expect(sidebar).toHaveAttribute('data-preview', 'true');
+    await page.keyboard.press('Escape');
+    await expect(sidebar).not.toHaveAttribute('data-preview');
+
+    await sidebar.hover();
     await sidebar.getByRole('link', { name: 'Settings', exact: true }).focus();
     await page.getByRole('button', { name: 'Maximize canvas', exact: true }).hover();
     await expect(sidebar).toHaveAttribute('data-preview', 'true');
     await page.keyboard.press('Escape');
     await expect(sidebar).not.toHaveAttribute('data-preview');
     await expect(sidebar).toBeFocused();
+    await sidebar.hover();
+    await sidebar.getByRole('link', { name: 'Settings', exact: true }).focus();
+    const composer = page.locator('[data-slot="clio-composer-stack"] [contenteditable="true"]');
+    await composer.click();
+    await expect(composer).toBeFocused();
+    await expect(sidebar).not.toHaveAttribute('data-preview');
     await sidebar.hover();
     await sidebar.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(page).toHaveURL(/\/settings\/general$/);
