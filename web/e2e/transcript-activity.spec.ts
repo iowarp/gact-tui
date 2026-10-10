@@ -124,8 +124,8 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     expect((await thinking.boundingBox())!.y).toBeLessThan(
       (await message.getByRole('button', { name: 'Technical details for Read' }).boundingBox())!.y,
     );
-    const read = message.getByRole('button', { name: 'Technical details for Read' });
-    const run = message.getByRole('button', { name: 'Technical details for Run' });
+    const read = message.getByRole('button', { name: 'Show result for Read' });
+    const run = message.getByRole('button', { name: 'Show result for Run' });
     await expect(read).toContainText('61 lines');
     await expect(run).toContainText('failed');
     expect((await read.boundingBox())!.y).toBeLessThan((await run.boundingBox())!.y);
@@ -138,13 +138,17 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     await expect(footer).not.toContainText('·');
     expect(await footer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     await read.click();
-    const details = message.getByRole('region', { name: 'Read: Technical details' });
-    await expect(details).toContainText('Complete fixture file contents.');
+    const details = message.getByRole('region', { name: 'Read: Result' });
+    await expect(details).toContainText('notes.md');
+    await expect(details).not.toContainText('Arguments');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await read.focus();
     await read.press('Enter');
     await expect(details).toHaveCount(0);
     await expect(read).toBeFocused();
+    await message.getByRole('button', { name: 'Technical details for Read' }).click();
+    await expect(page.getByRole('dialog')).toContainText('Complete fixture file contents.');
+    await page.keyboard.press('Escape');
     await activity.click();
   }
 });

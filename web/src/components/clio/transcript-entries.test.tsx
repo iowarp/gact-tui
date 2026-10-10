@@ -209,7 +209,7 @@ it('retains reader choices when a virtualized row unmounts and returns', () => {
   );
 });
 
-it('expands complete tool arguments and result inline from the keyboard', async () => {
+it('opens complete tool arguments and result from the keyboard and restores focus', async () => {
   const user = userEvent.setup();
   render(<ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />);
   await user.click(screen.getByRole('button', { name: /^Activity:/ }));
@@ -217,13 +217,13 @@ it('expands complete tool arguments and result inline from the keyboard', async 
   trigger.focus();
   await user.keyboard('{Enter}');
   expect(
-    await screen.findByRole('region', { name: 'Read one: Technical details' }),
+    await screen.findByRole('dialog', { name: 'Read one: Technical details' }),
   ).toHaveTextContent('one.md');
   await waitFor(() => expect(screen.getByText('Complete one result.')).toBeVisible());
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  await user.keyboard('{Enter}');
+  await user.keyboard('{Escape}');
+  expect(trigger).toHaveFocus();
   expect(
-    screen.queryByRole('region', { name: 'Read one: Technical details' }),
+    screen.queryByRole('dialog', { name: 'Read one: Technical details' }),
   ).not.toBeInTheDocument();
 });
 
@@ -250,13 +250,11 @@ it('keeps unavailable invocations at their recorded place', () => {
   expect(model.residualBlocks.some((block) => block.id === 't1')).toBe(true);
 });
 
-it('retains explicit false and zero results in inline tool semantics', async () => {
-  const view = render(
-    <ClioToolInvocation compact inlineDetails tool={{ ...call('one'), output: false }} />,
-  );
+it('retains explicit false and zero results in technical details', async () => {
+  const view = render(<ClioToolInvocation compact tool={{ ...call('one'), output: false }} />);
   fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read one' }));
   expect(await screen.findByText('false', { exact: true })).toBeVisible();
-  view.rerender(<ClioToolInvocation compact inlineDetails tool={{ ...call('one'), output: 0 }} />);
+  view.rerender(<ClioToolInvocation compact tool={{ ...call('one'), output: 0 }} />);
   expect(await screen.findByText('0', { exact: true })).toBeVisible();
 });
 

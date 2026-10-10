@@ -1,5 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { ConversationTurn } from './conversation-turn';
@@ -40,7 +40,7 @@ it.each([true, false])(
   },
 );
 
-it('keeps updates visible and opens complete tool details inline', async () => {
+it('keeps updates visible, expands readable results and retains technical details', async () => {
   const tool: ToolInvocation = {
     id: 'read',
     session_id: 's',
@@ -55,6 +55,7 @@ it('keeps updates visible and opens complete tool details inline', async () => {
       subject: 'file',
       blocks: [
         { id: 'file', type: 'link', target: 'file', uri: 'D:/review/notes.md', label: 'notes.md' },
+        { id: 'content', type: 'text', text: 'Complete recorded file contents.' },
       ],
     },
   };
@@ -86,16 +87,21 @@ it('keeps updates visible and opens complete tool details inline', async () => {
   expect(await screen.findAllByText(text)).toHaveLength(2);
   expect(view.container.querySelector('[data-slot="transcript-activity-timeline"]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: /Expand activity/ })).not.toBeInTheDocument();
-  const detail = screen.getByRole('button', { name: 'Technical details for Read' });
+  const detail = screen.getByRole('button', { name: 'Show result for Read' });
   expect(detail).toHaveTextContent('notes.md');
   expect(detail).toHaveTextContent('61 lines');
   fireEvent.click(detail);
-  expect(await screen.findByRole('region', { name: 'Read: Technical details' })).toHaveTextContent(
+  expect(await screen.findByRole('region', { name: 'Read: Result' })).toHaveTextContent(
     'Complete recorded file contents.',
   );
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'notes.md' }));
   expect(openFile).toHaveBeenCalledWith('D:/review/notes.md');
+  fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read' }));
+  expect(
+    within(screen.getByRole('dialog')).getByRole('heading', { name: 'Arguments' }),
+  ).toBeVisible();
+  expect(screen.getByRole('dialog')).toHaveTextContent('Complete recorded file contents.');
   view.rerender(
     <TooltipProvider>
       <ClioToolInvocation compact tool={tool} attention={{ share: 0.25, bucket: 1 }} />

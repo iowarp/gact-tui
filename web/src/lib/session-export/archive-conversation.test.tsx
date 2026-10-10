@@ -77,22 +77,24 @@ it('uses native activity controls with the loaded skill and failed command at th
   );
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: /^Activity:/ }));
-  await user.click(screen.getByRole('button', { name: 'Technical details for Load skill' }));
-  const skillDetails = await screen.findByRole('region', { name: 'Load skill: Technical details' });
+  await user.click(screen.getByRole('button', { name: 'Show result for Load skill' }));
+  const skillDetails = await screen.findByRole('region', { name: 'Load skill: Result' });
   expect(skillDetails).toHaveTextContent('Recorded audit');
   expect(skillDetails).toHaveTextContent('Read the manifest.');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   await user.keyboard('{Enter}');
-  expect(screen.getByRole('button', { name: 'Technical details for Load skill' })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: 'Show result for Load skill' })).toHaveAttribute(
     'aria-expanded',
     'false',
   );
-  expect(
-    screen.queryByRole('region', { name: 'Load skill: Technical details' }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Load skill: Result' })).not.toBeInTheDocument();
   expect(screen.getByText('Get-Location')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Show result for Run' }));
+  expect(screen.getByRole('region', { name: 'Run: Result' })).toHaveTextContent(
+    'Connected-source access decisions could not be read',
+  );
   await user.click(screen.getByRole('button', { name: 'Technical details for Run' }));
-  const details = await screen.findByRole('region', { name: 'Run: Technical details' });
+  const details = await screen.findByRole('dialog', { name: 'Run: Technical details' });
   expect(within(details).getByText(/D:\/dataset/)).toBeVisible();
   expect(details).toHaveTextContent('Connected-source access decisions could not be read');
 });

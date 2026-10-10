@@ -88,6 +88,7 @@ export function ToolResultPresentation({
         <div
           className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
           data-slot="tool-result-panel"
+          role={contentBlocks.some((block) => block.severity === 'error') ? 'alert' : undefined}
         >
           {contentBlocks.some((block) => block.content_ref) ? (
             <PagedBlock block={contentBlocks[0]} groupedBlocks={contentBlocks} lines={budget} />
@@ -355,6 +356,7 @@ export function ToolResultPresentation({
                   : 'bg-muted/40',
             )}
             data-slot="tool-result-panel"
+            role={block.severity === 'error' ? 'alert' : undefined}
           >
             {block.label ? (
               <p

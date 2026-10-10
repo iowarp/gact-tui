@@ -17,7 +17,10 @@ createRoot(document.getElementById('root')!).render(
       >
         <main className="mx-auto max-w-3xl p-6">
           <h1 className="mb-4 text-sm text-muted-foreground">Shared tool result browser fixture</h1>
-          <ClioToolInvocation tool={tool} />
+          <ClioToolInvocation
+            tool={tool}
+            compact={new URLSearchParams(location.search).has('compact')}
+          />
         </main>
       </PresentationNavigation.Provider>
     </AppearanceProvider>

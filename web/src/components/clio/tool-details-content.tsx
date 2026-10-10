@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { CollapsibleContent } from '@/components/ui/collapsible';
 import { ResultDialogContent } from './result-dialog-content';
 
-/** Present the same original call details inline in a transcript or in its dialog. */
+/** Bound an inline readable result or the separate technical-details dialog. */
 export function ToolDetailsContent({
   inline,
   title,
