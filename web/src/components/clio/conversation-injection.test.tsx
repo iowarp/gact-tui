@@ -4,7 +4,7 @@ import { domAnimation, LazyMotion } from 'motion/react';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
-import { AppearanceProvider } from '@/providers/appearance-provider';
+import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
 
 // Harness injections (what CLIO gave the agent) get their own file, like the

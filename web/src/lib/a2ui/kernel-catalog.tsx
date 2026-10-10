@@ -329,6 +329,7 @@ const Callout = createComponentImplementation(
   ({ props }) => (
     <Alert
       {...a2uiAccessibilityProps(props.accessibility)}
+      data-a2ui-callout="true"
       variant={props.severity === 'critical' ? 'destructive' : 'default'}
     >
       <AlertTitle>{props.title}</AlertTitle>

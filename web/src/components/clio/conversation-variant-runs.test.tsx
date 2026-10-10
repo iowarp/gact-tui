@@ -10,7 +10,7 @@ import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppearanceProvider } from '@/providers/appearance-provider';
+import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { useLiveStore } from '@/store/live-store';
 import reloadFixture from '@/test-fixtures/variant-runs/refine-user-judged-reload.json';

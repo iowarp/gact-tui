@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { documentApplications, openFileBytes } from '@/tauri/documents';
+import { documentApplications, openFileBytes, revealFileBytes } from '@/tauri/documents';
 import { NativeFileOpenMenu } from './native-file-open-menu';
 import type { FileViewerSource } from './file-viewer-source';
 const host = vi.hoisted(() => ({ native: true }));
@@ -16,6 +16,7 @@ vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => host.native }))
 vi.mock('@/tauri/documents', () => ({
   documentApplications: vi.fn(),
   openFileBytes: vi.fn(),
+  revealFileBytes: vi.fn(),
 }));
 const bytes = new Uint8Array([0, 255, 10, 42]);
 beforeEach(() => {
@@ -24,6 +25,7 @@ beforeEach(() => {
     { id: 'os-app', name: 'Image Viewer', is_default: true },
   ]);
   vi.mocked(openFileBytes).mockResolvedValue('desktop/file.png');
+  vi.mocked(revealFileBytes).mockResolvedValue('desktop/file.png');
   for (const read of Object.values(repository)) read.mockResolvedValue(bytes);
 });
 afterEach(() => {
@@ -111,4 +113,14 @@ it('reports an association lookup failure without inventing app choices', async 
     await screen.findByRole('menuitem', { name: 'Could not read associated apps' }),
   ).toHaveAttribute('data-disabled');
   expect(openFileBytes).not.toHaveBeenCalled();
+});
+
+it.each(sources)('reveals original $kind bytes when there is no associated app', async (source) => {
+  vi.mocked(documentApplications).mockResolvedValue([]);
+  mount(source);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Open in' }));
+  expect(await screen.findByRole('menuitem', { name: 'No associated apps' })).toBeVisible();
+  await user.click(screen.getByRole('menuitem', { name: 'Open in folder' }));
+  await waitFor(() => expect(revealFileBytes).toHaveBeenCalledWith('plot.png', bytes));
 });

@@ -168,6 +168,14 @@ jobs:
       - name: Real native downloads (Windows/macOS)
         if: matrix.os != 'ubuntu-22.04'
         run: cargo run --manifest-path desktop/src-tauri/Cargo.toml --locked --example downloads_acceptance
+      - name: Preserve Windows download acceptance for visible review
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-downloads-acceptance
+          path: desktop/src-tauri/target/debug/examples/downloads_acceptance.exe
+          if-no-files-found: error
+          retention-days: 7
       - name: Real native downloads (Linux WebKitGTK)
         if: matrix.os == 'ubuntu-22.04'
         env:

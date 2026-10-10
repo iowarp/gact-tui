@@ -35,6 +35,10 @@ describe('rendered surface PNG', () => {
     expect(result.type).toBe('image/png');
     expect(embedFonts).toHaveBeenCalledWith(target);
     const options = renderCanvas.mock.calls[0]?.[1];
+    // Blob-backed artifact images cannot be fetched with an appended query.
+    expect(options.cacheBust).toBe(false);
+    expect(options.includeQueryParams).toBe(true);
+    expect(options.fetchRequestInit).toEqual({ cache: 'no-store' });
     expect(options.fontEmbedCSS).toContain('@font-face');
     expect(options.fontEmbedCSS).toContain('[data-slot="data-grid"] [role="region"]');
     expect(options.fontEmbedCSS).toContain(

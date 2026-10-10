@@ -5,6 +5,9 @@ mod blocking_command;
 #[allow(dead_code)]
 #[path = "../src/document_apps.rs"]
 mod document_apps;
+#[allow(dead_code)]
+#[path = "../src/file_reveal.rs"]
+mod file_reveal;
 
 fn main() -> Result<(), String> {
     let mut result = std::collections::BTreeMap::new();

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from 'react';
 
 export const TranscriptDisclosureContext = createContext<{
+  sessionId?: string;
   opened: ReadonlySet<string>;
   setOpen: (id: string, open: boolean) => void;
 } | null>(null);

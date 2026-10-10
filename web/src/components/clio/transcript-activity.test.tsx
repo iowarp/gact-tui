@@ -10,7 +10,7 @@ import { PresentationNavigation } from './presentation-navigation';
 
 afterEach(cleanup);
 it.each([true, false])(
-  'shows a reasoning-only update as full text without a brain disclosure (streaming=%s)',
+  'keeps thinking-only updates collapsed until requested (streaming=%s)',
   async (streaming) => {
     const text = 'Creating inline SVG animation';
     const iteration: ConversationIteration = {
@@ -28,15 +28,16 @@ it.each([true, false])(
       summary: text,
     };
     render(<ConversationTurn iterations={[iteration]} mode="chain" subagents={{}} />);
-    expect(
-      screen.queryByRole('button', { name: /^(Thinking|Reasoning):/ }),
-    ).not.toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: /^Thinking:/ });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument();
-    expect(await screen.findByText(text)).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Thinking details' })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
     expect(
-      screen.queryByRole('button', { name: /^(Thinking|Reasoning):/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryAllByText('Thinking', { exact: true })).toHaveLength(0);
+      await within(screen.getByRole('region', { name: 'Thinking details' })).findByText(text),
+    ).toBeVisible();
+    fireEvent.click(trigger);
+    expect(screen.queryByRole('region', { name: 'Thinking details' })).not.toBeInTheDocument();
   },
 );
 
@@ -84,7 +85,13 @@ it('keeps updates visible, expands readable results and retains technical detail
   expect(await screen.findByText('The notes are ready for the report.')).toBeVisible();
   expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-  expect(await screen.findAllByText(text)).toHaveLength(2);
+  const thinking = screen.getByRole('button', { name: /^Thinking:/ });
+  fireEvent.click(thinking);
+  expect(within(thinking).getByText(text)).toBeVisible();
+  expect(
+    await within(screen.getByRole('region', { name: 'Thinking details' })).findByText(text),
+  ).toBeVisible();
+  expect(screen.getAllByText(text)).toHaveLength(3);
   expect(view.container.querySelector('[data-slot="transcript-activity-timeline"]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: /Expand activity/ })).not.toBeInTheDocument();
   const detail = screen.getByRole('button', { name: 'Show result for Read' });

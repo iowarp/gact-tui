@@ -7,6 +7,8 @@ mod downloads;
 mod acceptance {
     use crate::downloads;
     use std::{
+        io::{Read, Write},
+        net::TcpListener,
         path::Path,
         sync::{
             atomic::{AtomicUsize, Ordering},
@@ -20,6 +22,30 @@ mod acceptance {
         Microsoft::Web::WebView2::Win32::{ICoreWebView2_4, ICoreWebView2_9},
     };
     use windows::core::{Interface, HSTRING};
+
+    const TRANSCRIPT: &[u8] =
+        b"<!doctype html><title>CLIO session export</title><h1>Conversation transcript</h1>";
+
+    fn serve_transcript() -> Result<String, String> {
+        let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
+        let address = listener.local_addr().map_err(|error| error.to_string())?;
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let result = (|| -> std::io::Result<()> {
+                    let mut stream = stream?;
+                    stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+                    let mut request = [0; 4096];
+                    stream.read(&mut request)?;
+                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Disposition: attachment; filename=conversation.html\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n", TRANSCRIPT.len())?;
+                    stream.write_all(TRANSCRIPT)
+                })();
+                if let Err(error) = result {
+                    eprintln!("Transcript download failed: {error}");
+                }
+            }
+        });
+        Ok(format!("http://{address}/conversation.html"))
+    }
 
     fn devtools(window: &WebviewWindow, method: &str, parameters: &str) -> Result<String, String> {
         let (sender, receiver) = std::sync::mpsc::channel();
@@ -53,7 +79,7 @@ mod acceptance {
             .map_err(|error| error.to_string())?
     }
 
-    fn click_embedded_download(window: &WebviewWindow) -> Result<(), String> {
+    fn click_download(window: &WebviewWindow) -> Result<(), String> {
         let mut ready = false;
         for _ in 0..50 {
             let result = devtools(
@@ -138,13 +164,20 @@ mod acceptance {
     pub fn run() {
         let root = std::env::temp_dir().join(format!("clio-download-proof-{}", std::process::id()));
         std::fs::create_dir_all(&root).expect("create acceptance directory");
-        let targets = [root.join("sample.csv"), root.join("embedded.json")];
+        let targets = [
+            root.join("sample.csv"),
+            root.join("embedded.json"),
+            root.join("conversation.html"),
+        ];
+        let transcript_url = serve_transcript().expect("serve transcript attachment");
         let started = Arc::new(AtomicUsize::new(0));
+        let hidden = Arc::new(AtomicUsize::new(0));
         let mut context = tauri::generate_context!();
         context.config_mut().app.windows = vec![WindowConfig {
             label: "download-proof".into(),
             url: WebviewUrl::External("about:blank".parse().expect("blank URL")),
-            visible: false,
+            title: "CLIO Downloads acceptance".into(),
+            visible: std::env::var_os("CLIO_DOWNLOAD_PROOF_VISIBLE").is_some(),
             data_directory: Some(root.join("webview-profile")),
             ..Default::default()
         }];
@@ -155,6 +188,7 @@ mod acceptance {
                 downloads::create_configured_windows(app, &startup_windows)?;
                 let window = app.get_webview_window("download-proof").expect("configured window");
                 let counter = started.clone();
+                let hidden_entries = hidden.clone();
                 let destinations = targets.clone();
                 // Choose disposable destinations and count actual native events.
                 // Production still controls dialog opening; the test never calls it.
@@ -163,8 +197,17 @@ mod acceptance {
                         .expect("WebView2").cast::<ICoreWebView2_4>().expect("download events");
                     core.add_DownloadStarting(&DownloadStartingEventHandler::create(Box::new(move |_, args| {
                         if let Some(args) = args {
+                            // File bytes plus an open dialog are insufficient:
+                            // Wry's default Handled=true hides the entry itself.
+                            // This observer runs after the production handler.
+                            let mut handled = Default::default();
+                            args.Handled(&mut handled)?;
+                            if handled.as_bool() {
+                                hidden_entries.fetch_add(1, Ordering::SeqCst);
+                            }
                             let index = counter.fetch_add(1, Ordering::SeqCst);
-                            args.SetResultFilePath(&HSTRING::from(destinations[index].to_string_lossy().as_ref()))?;
+                            let target = destinations.get(index).expect("unexpected native download");
+                            args.SetResultFilePath(&HSTRING::from(target.to_string_lossy().as_ref()))?;
                         }
                         Ok(())
                     })), &mut Default::default()).expect("observe native downloads");
@@ -178,18 +221,29 @@ mod acceptance {
                         dialog_state(&window, true)?;
                         wait_for_dialog(&window, false)?;
                         window.eval(r#"const f=document.createElement('iframe'); f.style='position:fixed;left:0;top:0;width:400px;height:200px;border:0'; f.srcdoc='<!doctype html><body></body>'; f.onload=()=>{const d=f.contentDocument; const b=d.createElement('button'); b.style='position:absolute;left:0;top:0;width:160px;height:70px'; b.textContent='Download'; b.onclick=()=>{const a=d.createElement('a'); a.href=f.contentWindow.URL.createObjectURL(new Blob(['{"saved":true}'],{type:'application/json'})); a.download='embedded.json'; d.body.append(a); a.click(); a.remove();}; d.body.append(b); window.__clioFrameReady=true;}; document.body.append(f);"#).map_err(|error| error.to_string())?;
-                        click_embedded_download(&window)?;
+                        click_download(&window)?;
                         verify_download(&window, &targets[1], br#"{"saved":true}"#)?;
+                        dialog_state(&window, true)?;
+                        wait_for_dialog(&window, false)?;
+                        let script = format!("document.body.replaceChildren(); const b=document.createElement('button'); b.style='position:fixed;left:0;top:0;width:160px;height:70px'; b.textContent='Export HTML'; b.onclick=()=>{{const t=document.createElement('a'); t.href={}; t.download='conversation.html'; document.body.append(t); t.click(); t.remove();}}; document.body.append(b);", serde_json::to_string(&transcript_url).map_err(|error| error.to_string())?);
+                        window.eval(&script).map_err(|error| error.to_string())?;
+                        click_download(&window)?;
+                        verify_download(&window, &targets[2], TRANSCRIPT)?;
                         // The existing header/shared-handler command remains
                         // safe when the observer already opened the dialog.
                         tauri::async_runtime::block_on(downloads::open_downloads(window.as_ref().clone()))?;
                         wait_for_dialog(&window, true)?;
-                        if started.load(Ordering::SeqCst) != 2 { return Err("Expected exactly two native downloads".into()); }
+                        if started.load(Ordering::SeqCst) != 3 { return Err("Expected exactly three native downloads".into()); }
+                        if hidden.load(Ordering::SeqCst) != 0 { return Err("Downloads were marked handled, suppressing their native entries".into()); }
+                        window.eval("document.body.replaceChildren(); const h=document.createElement('h1'); h.textContent='Native download acceptance'; const p=document.createElement('p'); p.textContent='Direct CSV, embedded JSON, and HTTP HTML export saved intact. Confirm all three filenames in Downloads.'; document.body.append(h,p);").map_err(|error| error.to_string())?;
                         Ok(())
                     })();
                     match result {
                         Ok(()) => {
-                            println!("PASS: direct CSV and embedded-frame JSON saved intact; each automatically opened native Downloads");
+                            println!("PASS: direct CSV, embedded-frame JSON and HTTP HTML export saved intact; all three retain native download entries and automatically open Downloads");
+                            if let Ok(seconds) = std::env::var("CLIO_DOWNLOAD_PROOF_HOLD_SECONDS") {
+                                std::thread::sleep(Duration::from_secs(seconds.parse().expect("hold seconds")));
+                            }
                             handle.exit(0);
                         }
                         Err(error) => { eprintln!("FAIL: {error}"); handle.exit(1); }
