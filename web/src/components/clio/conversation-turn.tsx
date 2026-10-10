@@ -370,7 +370,6 @@ function IterationDetail({
               <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
                 <ClioToolInvocation
                   compact={compact}
-                  inlineDetails={compact}
                   attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
                   attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
                   sessionId={messageSessionId}

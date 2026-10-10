@@ -270,10 +270,11 @@ test('short technical results fit their content instead of padding to the viewpo
   await page
     .getByRole('button', { name: 'Technical details for Search EarthScope catalog' })
     .click();
-  const body = page.getByRole('region', { name: 'Search EarthScope catalog: Technical details' });
+  const dialog = page.getByRole('dialog', { name: 'Search EarthScope catalog: Technical details' });
+  const body = dialog.getByRole('region', { name: 'Scrollable result content' });
   await expect(body).toContainText('"value": "x"');
   await expect(body).toContainText('"value": "y"');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(dialog).toBeVisible();
   await expect.poll(() => body.evaluate((e) => e.clientHeight)).toBeLessThan(400);
   await expect
     .poll(() => body.evaluate((e) => Math.abs(e.scrollHeight - e.clientHeight)))
@@ -292,7 +293,10 @@ for (const size of [
     await page
       .getByRole('button', { name: 'Technical details for Search EarthScope catalog' })
       .click();
-    const body = page.getByRole('region', { name: 'Search EarthScope catalog: Technical details' });
+    const dialog = page.getByRole('dialog', {
+      name: 'Search EarthScope catalog: Technical details',
+    });
+    const body = dialog.getByRole('region', { name: 'Scrollable result content' });
     await expect(body).toBeVisible();
     // Lazy syntax highlighting replaces its bounded fallback. Exercise keyboard
     // scrolling against the loaded panes, not during that geometry transition.
@@ -306,15 +310,12 @@ for (const size of [
     await expect.poll(() => body.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
     await expect(body.getByRole('heading', { name: 'Result' })).toBeAttached();
     await expect(body).toContainText('Row 49');
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(dialog).toBeVisible();
     await expect.poll(() => body.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
     const trigger = page.getByRole('button', {
       name: 'Technical details for Search EarthScope catalog',
     });
-    await trigger.scrollIntoViewIfNeeded();
-    await expect(trigger).toBeInViewport();
-    await trigger.focus();
-    await trigger.press('Enter');
+    await page.keyboard.press('Escape');
     await expect(body).toHaveCount(0);
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await expect(trigger).toBeFocused();

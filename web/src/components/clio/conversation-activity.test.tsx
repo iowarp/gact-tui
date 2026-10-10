@@ -146,14 +146,20 @@ describe('ClioConversation activity and interactive surfaces', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Activity: Read files' }));
     const activity = screen.getByRole('button', {
-      name: 'Technical details for Read evidence file',
+      name: 'Show result for Read evidence file',
     });
     expect(activity).toBeInTheDocument();
     expect(activity).toHaveTextContent('Read evidence.json');
     expect(screen.queryByRole('radio', { name: 'Full activity view' })).not.toBeInTheDocument();
     fireEvent.click(activity);
     expect(
-      await screen.findByRole('region', { name: /Read evidence file: Technical details/ }),
+      await screen.findByRole('region', { name: /Read evidence file: Result/ }),
+    ).toHaveTextContent('Read evidence.json');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Technical details for Read evidence file' }),
+    );
+    expect(
+      await screen.findByRole('dialog', { name: /Read evidence file: Technical details/ }),
     ).toHaveTextContent('large payload omitted from the collapsed summary');
   });
 

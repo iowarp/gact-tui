@@ -1,12 +1,15 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { CheckIcon, ChevronRightIcon, CircleAlertIcon, LoaderCircleIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DialogTrigger } from '@/components/ui/dialog';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDuration } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import {
   getToolActionLabel,
+  getToolFailureDetail,
   getToolHeaderMetadata,
   getToolStatus,
   getToolSubject,
@@ -17,13 +20,13 @@ import {
 export function ToolCompactRow({
   tool,
   attention,
-  inline = false,
   duration,
+  expanded,
 }: {
   tool: ToolInvocation;
   attention?: ReactNode;
-  inline?: boolean;
   duration?: number;
+  expanded: boolean;
 }) {
   const status = getToolStatus(tool);
   const active = status === 'pending' || status === 'running';
@@ -36,14 +39,17 @@ export function ToolCompactRow({
     terminal?.exit_code !== undefined && terminal.exit_code !== null
       ? `exit ${terminal.exit_code}`
       : getToolHeaderMetadata(tool) || getToolSummary(tool);
-  const Trigger = inline ? CollapsibleTrigger : DialogTrigger;
-  return (
-    <Trigger asChild>
+  const failure = getToolFailureDetail(tool);
+  const [tooltip, setTooltip] = useState({ failure, open: false });
+  // Keep the trigger mounted across lifecycle changes, but discard an old reason's open state.
+  if (tooltip.failure !== failure) setTooltip({ failure, open: false });
+  const row = (
+    <CollapsibleTrigger asChild>
       <Button
         variant="ghost"
-        aria-label={`Technical details for ${action}`}
-        title={[action, detail, metadata].filter(Boolean).join(' · ')}
-        className="group/tool-trigger h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal"
+        aria-label={`Show result for ${action}`}
+        title={failure ? undefined : [action, detail, metadata].filter(Boolean).join(' · ')}
+        className="group/tool-trigger h-auto min-h-7 min-w-0 flex-1 shrink justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal"
       >
         {active ? (
           <LoaderCircleIcon
@@ -77,9 +83,27 @@ export function ToolCompactRow({
         {attention}
         <ChevronRightIcon
           aria-hidden="true"
-          className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/tool-trigger:rotate-90"
+          className={cn(
+            'size-3 shrink-0 text-muted-foreground transition-transform',
+            expanded && 'rotate-90',
+          )}
         />
       </Button>
-    </Trigger>
+    </CollapsibleTrigger>
+  );
+  return (
+    <TooltipProvider>
+      <Tooltip
+        open={Boolean(failure) && tooltip.failure === failure && tooltip.open}
+        onOpenChange={(open) => setTooltip({ failure, open: Boolean(failure) && open })}
+      >
+        <TooltipTrigger asChild>{row}</TooltipTrigger>
+        {failure ? (
+          <TooltipContent className="max-w-sm whitespace-pre-wrap [overflow-wrap:anywhere]">
+            {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
+          </TooltipContent>
+        ) : null}
+      </Tooltip>
+    </TooltipProvider>
   );
 }
