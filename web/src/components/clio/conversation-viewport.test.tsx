@@ -306,7 +306,7 @@ describe('ClioConversation transcript viewport', () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: HTMLElement,
     ) {
-      const top = this.id === 'message-message_0' ? -100 + displacement : 0;
+      const top = this.id === 'message-message_0' ? -100 + displacement - (log.scrollTop - 400) : 0;
       return {
         top,
         bottom: top + 600,
@@ -325,6 +325,58 @@ describe('ClioConversation transcript viewport', () => {
     displacement = 70;
     viewport.resizeTo(640);
     expect(log.scrollTop).toBe(470);
+  });
+
+  it('waits for a remounted anchor and preserves later row measurements after resizing', () => {
+    const viewport = stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={plainMessages(80, false)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    frames.splice(0);
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 400 });
+    let displacement = 0;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const top = this.id === 'message-message_0' ? -100 + displacement - (log.scrollTop - 400) : 0;
+      return new DOMRect(0, top, 800, 600);
+    });
+    fireEvent.wheel(log, { deltaY: -100 });
+    fireEvent.scroll(log);
+    virtualizerMocks.measure.mockImplementationOnce(() => {
+      displacement = 40;
+    });
+    viewport.resizeTo(640);
+    const flushFrame = () => act(() => frames.splice(0).forEach((callback) => callback(0)));
+    const anchor = document.getElementById('message-message_0')!;
+    const container = anchor.parentElement!;
+    anchor.remove();
+    flushFrame();
+    expect(log.scrollTop).toBe(400);
+    container.append(anchor);
+    flushFrame();
+    expect(log.scrollTop).toBe(440);
+    displacement = 110;
+    flushFrame();
+    expect(log.scrollTop).toBe(510);
+    for (let index = 0; index < 4; index += 1) flushFrame();
+    expect(log.scrollTop).toBe(510);
+    expect(frames).toHaveLength(0);
   });
 
   it('derives the active landmark from the virtualizer without reading rail anchors', () => {

@@ -164,18 +164,31 @@ export function useTranscriptWidth({
       // up; re-estimating and re-measuring costs a frame and stays honest.
       if (virtualized) virtualizer.measure();
       window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
+      let settledFrames = 0;
+      let remainingFrames = 30;
+      const restore = () => {
         // Re-check intent at execution time; the user may have scrolled since
         // this resize was queued. Geometry alone never enables following.
-        if (pinnedToBottomRef.current) scrollToBottom('instant');
-        else if (intentVersion === scrollIntentVersionRef.current) {
-          const anchor = resizeAnchor;
-          const row = anchor ? document.getElementById(anchor.id) : null;
-          if (row && anchor)
-            element.scrollTop +=
-              row.getBoundingClientRect().top - element.getBoundingClientRect().top - anchor.offset;
+        if (pinnedToBottomRef.current) {
+          scrollToBottom('instant');
+          return;
         }
-      });
+        if (intentVersion !== scrollIntentVersionRef.current || !resizeAnchor) return;
+        const row = document.getElementById(resizeAnchor.id);
+        const delta = row
+          ? row.getBoundingClientRect().top -
+            element.getBoundingClientRect().top -
+            resizeAnchor.offset
+          : Number.POSITIVE_INFINITY;
+        if (Number.isFinite(delta) && Math.abs(delta) > 0.5) element.scrollTop += delta;
+        settledFrames = Math.abs(delta) <= 0.5 ? settledFrames + 1 : 0;
+        // A batched virtualizer commit may remount or reposition the anchor
+        // after the first frame. Stop after three settled frames, with a cap
+        // for an anchor the viewport cannot reach.
+        if (--remainingFrames > 0 && settledFrames < 3)
+          frame = window.requestAnimationFrame(restore);
+      };
+      frame = window.requestAnimationFrame(restore);
     });
     observer.observe(element);
     return () => {
