@@ -8,6 +8,15 @@ const browser = await chromium.launch({ headless: true });
 const errors = [];
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 page.on('pageerror', (error) => errors.push(error.message));
+page.on('console', (message) => {
+  if (message.type() === 'error') console.error(message.text());
+});
+page.on('requestfailed', (request) =>
+  console.error('Request failed:', request.url(), request.failure()),
+);
+page.on('response', (response) => {
+  if (response.status() >= 400) console.error('HTTP failure:', response.status(), response.url());
+});
 const captures = [];
 async function capture(name) {
   await page.screenshot({ path: resolve(output, name), fullPage: true });
@@ -27,15 +36,28 @@ try {
   await page.goto('http://127.0.0.1:5214/tests/review/transcript-entries.html');
   await page.getByText('The revised recommendations are saved.', { exact: false }).waitFor();
   await page.evaluate(async () => {
-    await document.fonts.load('14px "Inter Variable"');
     await document.fonts.ready;
     if (
       ![...document.fonts].some((font) => font.family.includes('Inter') && font.status === 'loaded')
     )
-      throw new Error('Inter did not load.');
+      throw new Error(
+        'Inter did not load: ' +
+          JSON.stringify({
+            family: getComputedStyle(document.body).fontFamily,
+            faces: [...document.fonts].map((font) => ({
+              family: font.family,
+              status: font.status,
+            })),
+            rules: [...document.styleSheets]
+              .flatMap((sheet) => [...sheet.cssRules])
+              .filter((rule) => rule instanceof CSSFontFaceRule)
+              .map((rule) => rule.cssText)
+              .slice(0, 2),
+          }),
+      );
   });
   const groups = page.getByRole('button', { name: /^Activity:/ });
-  const thinking = page.getByRole('button', { name: /^Thinking:/ });
+  const thinking = page.locator('[data-slot="transcript-reasoning-text"]');
   const footer = page.locator('[data-slot="message-completion-footer"]');
   await expect(footer).toContainText('8 (4 failed) tool calls');
   await expect(footer).not.toContainText('·');
@@ -46,13 +68,12 @@ try {
   await expect(groups).toHaveCount(2);
   for (const button of await groups.all())
     await expect(button).not.toContainText(/\d|completed|failed|·/u);
-  await expect(thinking).toHaveCount(2);
+  await expect(thinking).toHaveCount(0);
   for (const button of await groups.all())
-    await expect(button).toHaveAttribute('aria-expanded', 'false');
-  for (const button of await thinking.all())
     await expect(button).toHaveAttribute('aria-expanded', 'false');
   await capture('entries-collapsed-desktop-fixture.png');
   await groups.first().click();
+  await expect(thinking).toHaveCount(1);
   await page.getByRole('button', { name: 'Technical details for Read', exact: true }).click();
   const detail = page.getByRole('region', { name: 'Read: Technical details', exact: true });
   await expect(detail).toContainText('sources/field-measurements.csv');
@@ -65,11 +86,10 @@ try {
   if (!bounded) throw new Error('Long tool results are not bounded in the inline panel.');
   await capture('tool-expanded-desktop-fixture.png');
   await page.getByRole('button', { name: 'Stream recorded turn', exact: true }).click();
-  await expect(thinking.first()).toHaveAttribute('aria-expanded', 'false');
+  await expect(thinking.first()).toBeVisible();
   await expect(groups.first()).toHaveAttribute('aria-expanded', 'true');
-  await thinking.first().click();
   await page.getByRole('button', { name: 'Finish recorded turn', exact: true }).click();
-  await expect(thinking.first()).toHaveAttribute('aria-expanded', 'true');
+  await expect(thinking.first()).toBeVisible();
   await expect(groups.first()).toHaveAttribute('aria-expanded', 'true');
   await capture('thinking-expanded-desktop-fixture.png');
   await page.setViewportSize({ width: 390, height: 844 });
@@ -97,7 +117,7 @@ try {
     await page.goto(
       `http://127.0.0.1:5214/tests/review/transcript-entries.html?provider=${provider}`,
     );
-    await expect(thinking).toHaveCount(2);
+    await expect(thinking).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Update:/ })).toHaveCount(0);
     await expect(
       page.getByText(
@@ -107,15 +127,23 @@ try {
         },
       ),
     ).toHaveCount(1);
-    for (const button of await thinking.all())
-      await expect(button).toHaveAttribute('aria-expanded', 'false');
     await expect(footer).toContainText('8 (4 failed) tool calls');
     await capture(`${provider}-entries-desktop-fixture.png`);
+    await groups.first().click();
+    await expect(thinking).toHaveCount(1);
+    await capture(`${provider}-reasoning-inside-activity-fixture.png`);
     if (provider === 'claude_code') {
       await page.setViewportSize({ width: 390, height: 844 });
       await capture(`${provider}-entries-mobile-fixture.png`);
     }
   }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('http://127.0.0.1:5214/tests/review/transcript-entries.html?theme=dark');
+  await expect(thinking).toHaveCount(0);
+  await capture('entries-collapsed-dark-fixture.png');
+  await groups.first().click();
+  await expect(thinking).toHaveCount(1);
+  await capture('reasoning-inside-activity-dark-fixture.png');
   if (errors.length) throw new Error(errors.join('\n'));
   await writeFile(
     resolve(output, 'review.json'),

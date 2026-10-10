@@ -171,7 +171,13 @@ function Review() {
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <ArchiveConnectionProvider>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+      <ThemeProvider
+        attribute="class"
+        forcedTheme={
+          new URLSearchParams(window.location.search).get('theme') === 'dark' ? 'dark' : 'light'
+        }
+        enableSystem={false}
+      >
         <AppearanceProvider>
           <ClioMotionProvider>
             <ConversationDisplayProvider>
