@@ -124,6 +124,9 @@ export const RESOURCE_READY_POLL_ATTEMPTS = 12;
  */
 export const MANAGED_BACKEND_READY_TIMEOUT_MS = 90_000;
 
+/** First-use package preparation has its own budget, before service readiness. */
+export const MANAGED_BACKEND_PREPARE_TIMEOUT_MS = 15 * 60_000;
+
 /**
  * Timeout for the signed desktop update check. Unit: milliseconds. Bounded so a
  * slow or unreachable update feed cannot hang the Settings panel.
