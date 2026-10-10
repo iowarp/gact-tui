@@ -3,6 +3,7 @@ import { useCallback, useId, useRef, useState } from 'react';
 import { PanelRightOpenIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConnectedSourcePicker } from './connected-source-picker';
@@ -130,16 +131,28 @@ export function SessionEvidencePopover({
           side="bottom"
           sideOffset={docked ? 0 : 8}
           avoidCollisions={!docked}
+          collisionPadding={docked ? 0 : 8}
           data-showcase-mode={docked ? 'docked' : 'temporary'}
           style={
             docked && gutter
               ? { width: gutter.width, height: gutter.height }
-              : { height: flyoutHeight }
+              : {
+                  maxHeight:
+                    flyoutHeight === undefined
+                      ? undefined
+                      : `min(${flyoutHeight}px, var(--radix-popover-content-available-height))`,
+                }
           }
           aria-label="Activity and evidence"
-          className="w-[min(30rem,calc(100vw-2rem))] h-[min(32rem,var(--radix-popover-content-available-height))] overflow-hidden gap-0 bg-transparent p-0 shadow-none ring-0"
+          className={cn(
+            'w-[min(30rem,calc(100vw-2rem))] overflow-hidden gap-0 p-0',
+            docked
+              ? 'bg-transparent shadow-none ring-0'
+              : 'max-h-[min(32rem,var(--radix-popover-content-available-height))]',
+          )}
         >
           <SessionEvidenceColumn
+            docked={docked}
             actions={
               <>
                 {evidence.onOpenCanvas ? (
