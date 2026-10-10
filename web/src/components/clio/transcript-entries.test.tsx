@@ -10,7 +10,7 @@ import {
 } from './conversation-turn-model';
 import { ClioConversation } from './conversation';
 import { ClioToolInvocation } from './tool-invocation';
-import { AppearanceProvider } from '@/providers/appearance-provider';
+import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioMotionProvider } from './motion';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { TranscriptDisclosures } from './transcript-disclosures';
