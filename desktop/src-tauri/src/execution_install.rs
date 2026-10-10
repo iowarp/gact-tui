@@ -52,7 +52,13 @@ pub(crate) fn prepare_packages(
     workspace: &Path,
     user: &Path,
 ) -> Result<(), String> {
-    run_install(install_command(runtime, workspace, user), &boot_log_line)
+    run_install(startup_command(runtime, workspace, user), &boot_log_line)
+}
+
+fn startup_command(runtime: &Path, workspace: &Path, user: &Path) -> Command {
+    let mut command = install_command(runtime, workspace, user);
+    command.arg("--reuse-installed");
+    command
 }
 
 #[cfg(windows)]
@@ -128,15 +134,29 @@ fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(),
 mod tests {
     use super::*;
 
+    #[test]
+    fn routine_startup_requests_reuse_without_creating_sandbox_accounts() {
+        let path = Path::new("fixture");
+        let startup = startup_command(path, path, path);
+        assert!(startup.get_args().any(|arg| arg == "--reuse-installed"));
+        assert!(!startup
+            .get_args()
+            .any(|arg| arg == "--setup-protected-execution"));
+    }
+
     #[cfg(windows)]
     #[test]
     fn only_explicit_installation_requests_sandbox_creation() {
         let path = Path::new("fixture");
-        let ordinary = install_command(path, path, path);
+        let ordinary = startup_command(path, path, path);
         let installation = explicit_install_command(path, path, path);
         assert!(!ordinary
             .get_args()
             .any(|arg| arg == "--setup-protected-execution"));
+        assert!(ordinary.get_args().any(|arg| arg == "--reuse-installed"));
+        assert!(!installation
+            .get_args()
+            .any(|arg| arg == "--reuse-installed"));
         assert!(installation
             .get_args()
             .any(|arg| arg == "--setup-protected-execution"));
