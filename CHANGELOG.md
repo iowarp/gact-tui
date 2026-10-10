@@ -8,6 +8,11 @@ UI aren't tracked.
 
 ### Fixed
 
+- Local deployment displays the startup stage, elapsed time and package output
+  with expandable details. Package setup has its own bounded wait before service
+  readiness; an unresponsive Desktop command surfaces a retryable error.
+- Managed package stdout and stderr both reach the persisted boot log while the
+  installer runs, including failures before the agent process can start.
 - Windows runtime installation overlaps decompression with four bounded file
   writers and creates each directory once. Verified packs still stage before
   activation; failed extraction keeps the previous runtime. Invalid paths,

@@ -24,7 +24,9 @@ import {
   getManagedBackend,
   retryManagedBackend,
   waitForManagedBackend,
+  type ManagedBackendStatus,
 } from '@/tauri/managed-backend';
+import { LocalStartupProgress } from './local-startup-progress';
 import { DeployFailure, DeployStageList } from './deploy-progress';
 import { SshAuthentication } from './managed-service-target';
 import { SshHostPicker } from './ssh-host-picker';
@@ -59,6 +61,7 @@ export function DeployClioDialog({
   const [nameError, setNameError] = useState<string>();
   const [keepRunning, setKeepRunning] = useState(false);
   const [remotePort, setRemotePort] = useState(17800);
+  const [localStatus, setLocalStatus] = useState<ManagedBackendStatus>();
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
   const ready = async (settings: ConnectionSettings) => {
@@ -72,10 +75,11 @@ export function DeployClioDialog({
   const local = useMutation({
     mutationFn: async (): Promise<void> => {
       const current = await getManagedBackend();
+      setLocalStatus(current.status);
       if (current.status.kind === 'error') {
         await retryManagedBackend();
       }
-      const handle = await waitForManagedBackend({});
+      const handle = await waitForManagedBackend({ onStatus: setLocalStatus });
       await ready({
         endpoint: handle.url,
         token: handle.bearer_token || undefined,
@@ -284,6 +288,10 @@ export function DeployClioDialog({
               reason={local.error instanceof Error ? local.error.message : String(local.error)}
               title={`${vocab.agent} did not start`}
             />
+          ) : null}
+
+          {target === 'local' && (local.isPending || local.error) ? (
+            <LocalStartupProgress active={local.isPending} status={localStatus} />
           ) : null}
 
           <DialogFooter>
