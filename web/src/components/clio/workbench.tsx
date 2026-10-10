@@ -30,7 +30,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -56,6 +55,7 @@ import { workflowDescriptor } from './workflow-tool-presentation';
 import { CanvasLauncher, type CanvasResourceKind } from './workbench-resource-browser';
 import { WorkbenchTabContent } from './workbench-tab-content';
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
+import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 
 export interface ClioWorkbenchProps {
   workspaceId: string;
@@ -264,17 +264,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       return () => onFilesViewActiveChange?.(false);
     }, [activeTabId, onFilesViewActiveChange]);
 
-    useLayoutEffect(() => {
-      const strip = tabStripRef.current;
-      const activeTab = activeTabRef.current;
-      if (!strip || !activeTab) return;
-      const left = activeTab.offsetLeft;
-      const right = left + activeTab.offsetWidth;
-      if (left < strip.scrollLeft) strip.scrollTo({ behavior: 'smooth', left });
-      else if (right > strip.scrollLeft + strip.clientWidth) {
-        strip.scrollTo({ behavior: 'smooth', left: right - strip.clientWidth });
-      }
-    }, [activeTabId, tabs.length]);
+    useWorkbenchTabVisibility(tabStripRef, activeTabRef, activeTabId, tabs, maximized);
 
     const openTab = useCallback((tab: WorkbenchTab) => {
       setTabs((current) =>
@@ -460,7 +450,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             data-slot="canvas-header"
           >
             <div
-              className="no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+              className="@container no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
               ref={tabStripRef}
             >
               <Sortable
@@ -510,7 +500,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                         value={tab.id}
                       >
                         <div
-                          className="group/canvas-tab relative flex min-w-24 max-w-56 shrink-0"
+                          className="group/canvas-tab relative flex min-w-[min(6rem,100cqw)] max-w-[min(14rem,100cqw)] shrink-0"
                           ref={active ? activeTabRef : undefined}
                         >
                           <SortableItemHandle asChild>
