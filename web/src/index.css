@@ -292,11 +292,14 @@
    half-width data views become unusable in the transcript. Stack root rows
    when the surface itself is narrow, including in the workspace canvas. */
 @container (max-width: 700px) {
-  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row'] {
+  [data-slot='a2ui-surface-root']
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
     flex-direction: column !important;
   }
 
-  [data-slot='a2ui-surface-root'] > div[style*='flex-direction: row'] > * {
+  [data-slot='a2ui-surface-root']
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
+    > * {
     flex: 0 1 auto !important;
     width: 100%;
   }
@@ -306,12 +309,16 @@
    remains wider than the generic two-column breakpoint. */
 @container (max-width: 900px) {
   [data-slot='a2ui-surface-root']
-    > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart']) {
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row']):has(
+      > [data-slot='a2ui-chart']
+    ) {
     flex-direction: column !important;
   }
 
   [data-slot='a2ui-surface-root']
-    > div[style*='flex-direction: row']:has(> [data-slot='a2ui-chart'])
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row']):has(
+      > [data-slot='a2ui-chart']
+    )
     > * {
     flex: 0 1 auto !important;
     width: 100%;
@@ -720,15 +727,21 @@ html[data-clio-motion='reduced'] *::after {
 [data-diff-line] {
   padding-inline: 0.5rem;
 }
-/* Grid layout follows its containing view, including a narrow side panel. */
+/* Keep authored column counts as a maximum, with readable cards at docked widths. */
 .a2ui-grid {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@container (min-width: 640px) {
-  .a2ui-grid {
-    grid-template-columns: repeat(var(--a2ui-grid-columns, 2), minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(
+      min(
+        100%,
+        max(
+          10rem,
+          calc((100% - (var(--a2ui-grid-columns, 2) - 1) * 0.75rem) / var(--a2ui-grid-columns, 2))
+        )
+      ),
+      1fr
+    )
+  );
 }
 
 /* Dashboards contain nested rows under tabs; keep their cards readable when docked. */
@@ -736,15 +749,30 @@ html[data-clio-motion='reduced'] *::after {
   flex-wrap: wrap;
 }
 
-@container (max-width: 700px) {
-  [data-slot='a2ui-dashboard'] [data-slot='a2ui-surface-root'] div[style*='flex-direction: row'] {
+/* Stack analytical panels in a narrow dock; preserve authored weights when wide. */
+@container (max-width: 900px) {
+  [data-slot='a2ui-dashboard']
+    [data-slot='a2ui-surface-root']
+    div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
     flex-wrap: wrap;
   }
   [data-slot='a2ui-dashboard']
     [data-slot='a2ui-surface-root']
-    div[style*='flex-direction: row']
+    div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
+    > *,
+  [data-slot='a2ui-dashboard']
+    [data-slot='a2ui-surface-root']
+    div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
+    > [style*='contents']
     > * {
-    flex: 1 1 12rem;
-    min-width: min(100%, 12rem);
+    flex: 1 1 100% !important;
+    min-width: 0;
   }
+}
+
+[data-slot='a2ui-dashboard'] [data-slot='a2ui-frame'] {
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-radius: 0.5rem;
+  background: var(--card);
+  padding: 1rem;
 }

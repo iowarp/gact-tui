@@ -29,19 +29,35 @@ const requiredImports = {
     './streaming-text',
   ],
   'web/src/components/clio/conversation-process-sequence.tsx': [
-    '@/components/ai-elements/reasoning',
     '@/components/ai-elements/task',
     './grounded-message-response',
+    './transcript-reasoning-passage',
+    './transcript-reasoning',
     './subagent-card',
     './tool-invocation',
   ],
   // Chain mode moved to ConversationTurn; the ChainOfThought composition is required there.
   'web/src/components/clio/conversation-turn.tsx': [
     '@/components/ai-elements/chain-of-thought',
-    '@/components/ai-elements/reasoning',
-    './grounded-message-response',
+    './transcript-iteration-text',
     './subagent-card',
     './tool-invocation',
+  ],
+  // Both modes and residual blocks share full reasoning passages. The October 10
+  // review deliberately replaces preview disclosures with grounded prose while
+  // retaining original selection bindings and the sourced MessageResponse chain.
+  'web/src/components/clio/transcript-iteration-text.tsx': [
+    './transcript-reasoning-passage',
+    './transcript-reasoning',
+    './grounded-message-response',
+  ],
+  'web/src/components/clio/transcript-reasoning-passage.tsx': [
+    './transcript-reasoning',
+    './grounded-message-response',
+  ],
+  'web/src/components/clio/tool-details-content.tsx': [
+    '@/components/ui/collapsible',
+    './result-dialog-content',
   ],
   'web/src/components/clio/grounded-message-response.tsx': [
     '@/components/ai-elements/message',

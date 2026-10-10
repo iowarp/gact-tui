@@ -17,7 +17,7 @@ export function isLoopbackAddress(address: string | undefined): boolean {
 
 /**
  * The providers that run on the person's own hardware: those whose service
- * address the service reports on this computer, needing no key or sign-in
+ * address the service reports over HTTP, needing no key or sign-in
  * (LM Studio, Ollama, llama.cpp, vLLM). Derived from the preset's own data,
  * never a list of names.
  */
@@ -25,19 +25,19 @@ export function isLocalServerPreset(preset: LanguageModelPreset): boolean {
   return (
     !preset.requires_api_key &&
     (preset.auth_method ?? 'none') === 'none' &&
-    isLoopbackAddress(preset.api_base)
+    Boolean(preset.api_base && /^https?:\/\//iu.test(preset.api_base))
   );
 }
 
 /** An address as typed, made a URL a check can use ("localhost:1234" -> "http://localhost:1234/v1"). */
-export function normalizeServerAddress(typed: string): string | undefined {
+export function normalizeServerAddress(typed: string, defaultPath = '/v1'): string | undefined {
   const text = typed.trim();
   if (!text) return undefined;
   const withScheme = /^[a-z][a-z0-9+.-]*:\/\//iu.test(text) ? text : `http://${text}`;
   try {
     const url = new URL(withScheme);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
-    if (url.pathname === '/' || url.pathname === '') url.pathname = '/v1';
+    if (url.pathname === '/' || url.pathname === '') url.pathname = defaultPath;
     return url.toString().replace(/\/$/u, '');
   } catch {
     return undefined;
@@ -73,7 +73,10 @@ export function serverCheckResult(result: ProviderHandshake): ServerCheck {
   };
 }
 
-export type ServerStatus = { kind: 'running'; models: number } | { kind: 'stopped' } | { kind: 'unknown' };
+export type ServerStatus =
+  | { kind: 'running'; models: number }
+  | { kind: 'stopped' }
+  | { kind: 'unknown' };
 
 /**
  * A server's ONE status, as its card shows it: the latest explicit check when
@@ -89,7 +92,10 @@ export function serverStatus({
   group: { health: string; availableChoices: readonly unknown[] } | undefined;
   latest: { reachable: boolean; models: readonly string[] } | undefined;
 }): ServerStatus {
-  if (latest) return latest.reachable ? { kind: 'running', models: latest.models.length } : { kind: 'stopped' };
+  if (latest)
+    return latest.reachable
+      ? { kind: 'running', models: latest.models.length }
+      : { kind: 'stopped' };
   if (custom) return { kind: 'unknown' };
   if (group?.health === 'healthy' || group?.health === 'checking') {
     return { kind: 'running', models: group.availableChoices.length };
@@ -104,5 +110,7 @@ export function savedCheckSentence(
   if (!check) return 'It has not been checked yet.';
   if (!check.reachable) return 'Nothing is running at its address right now.';
   const count = check.models.length;
-  return count ? `It is running, with ${count} ${count === 1 ? 'model' : 'models'}.` : 'It is running, but no model is loaded yet.';
+  return count
+    ? `It is running, with ${count} ${count === 1 ? 'model' : 'models'}.`
+    : 'It is running, but no model is loaded yet.';
 }

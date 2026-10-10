@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { followTranscriptLink } from '@/lib/inline-question';
 import type { VariantClosedView, VariantRunView, VariantTabView } from '@/lib/variant-runs';
-import { HarnessInjection } from './conversation-message-blocks';
+import { HarnessInjection } from './conversation-harness-injection';
 import { respondFromControl } from './interaction-control';
 import { ResponseErrorNotice } from './pending-interaction-notices';
 import { VariantTrySteps } from './variant-try-steps';

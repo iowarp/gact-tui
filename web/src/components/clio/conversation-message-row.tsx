@@ -30,10 +30,6 @@ import type { ConversationMessageRowProps } from './conversation-types';
 import { specialMessageExecutionMode } from './conversation-message-projection';
 import { McpAppResponseMessageRow } from './conversation-message-projections';
 import { ClioCompactionProgress } from './conversation-summarization';
-import type {
-  ConversationIteration,
-  ConversationTurnCompactionRecord,
-} from './conversation-turn-model';
 import { useConversationTurn } from './use-conversation-turn';
 import { useMessageAttentionIndex } from './use-message-attention-index';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
@@ -42,6 +38,7 @@ import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { MessageCompletionFooter } from './message-completion-footer';
+import { messageToolCallCounts } from './message-tool-call-counts';
 import { ConversationModelCheckpoint } from './conversation-model-boundary';
 import { modelBoundariesEqual } from './conversation-model-boundaries';
 
@@ -57,6 +54,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   mcpAppResponse,
   messageCompactions,
   modelBoundary,
+  feedbackMessages,
+  active = false,
   ...entities
 }: ConversationMessageRowProps) {
   useAttentionEvidenceTarget(
@@ -79,8 +78,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const cancellablePendingSteer =
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
-  const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
-  const { compactionRecords, linkedSubagentIds, residualBlocks } = turn;
+  const turn = useConversationTurn(
+    message,
+    entities.tools,
+    entities.tasks,
+    entities.subagents,
+    feedbackMessages,
+  );
+  const { linkedSubagentIds, residualBlocks } = turn;
   const visibleResidualBlocks = residualBlocks.filter(
     (block) => block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
   );
@@ -267,46 +272,57 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   </AlertDescription>
                 ) : null}
               </Alert>
-            ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
+            ) : message.role === 'assistant' &&
+              (turn.iterations.length > 0 || Boolean(feedbackMessages?.length)) ? (
               <>
-                {turnSegments(turn.iterations, compactionRecords).map((segment) =>
-                  segment.kind === 'record' ? (
-                    <MessageBlockSequence
-                      blocks={[segment.block]}
-                      key={segment.block.id}
-                      messageId={message.id}
-                      messageAttentionIndex={messageAttentionIndex}
-                      messageSessionId={message.session_id}
-                      {...entities}
-                    />
-                  ) : (
-                    <div key={segment.iterations[0]?.id}>
-                      <ConversationTurn
-                        activeMcpAppId={entities.activeMcpAppId}
-                        answerStarted={answerStarted}
-                        artifacts={entities.artifacts}
-                        interactions={entities.interactions}
-                        iterations={segment.iterations}
-                        mcpAppRepository={entities.mcpAppRepository}
+                {turn.segments
+                  .filter(
+                    (segment) =>
+                      segment.kind !== 'block' ||
+                      segment.block.type !== 'subagent' ||
+                      !linkedSubagentIds.has(segment.block.subagent_id),
+                  )
+                  .map((segment) =>
+                    segment.kind === 'feedback' ? (
+                      <ConversationMessageRow
+                        {...entities}
+                        key={segment.message.id}
+                        message={segment.message}
+                        index={-1}
+                        recent={false}
+                        displayMode={displayMode}
+                        onDisplayModeChange={onDisplayModeChange}
+                      />
+                    ) : segment.kind === 'block' ? (
+                      <MessageBlockSequence
+                        blocks={[segment.block]}
+                        key={segment.block.id}
+                        messageId={message.id}
                         messageAttentionIndex={messageAttentionIndex}
                         messageSessionId={message.session_id}
-                        mode={displayMode}
-                        onOpenSubagent={entities.onOpenSubagent}
-                        onOpenArtifact={entities.onOpenArtifact}
-                        onInteractionResponse={entities.onInteractionResponse}
-                        subagents={entities.subagents}
+                        {...entities}
                       />
-                    </div>
-                  ),
-                )}
+                    ) : (
+                      <div key={segment.iterations[0]?.id}>
+                        <ConversationTurn
+                          activeMcpAppId={entities.activeMcpAppId}
+                          answerStarted={answerStarted}
+                          artifacts={entities.artifacts}
+                          interactions={entities.interactions}
+                          iterations={segment.iterations}
+                          mcpAppRepository={entities.mcpAppRepository}
+                          messageAttentionIndex={messageAttentionIndex}
+                          messageSessionId={message.session_id}
+                          mode={displayMode}
+                          onOpenSubagent={entities.onOpenSubagent}
+                          onOpenArtifact={entities.onOpenArtifact}
+                          onInteractionResponse={entities.onInteractionResponse}
+                          subagents={entities.subagents}
+                        />
+                      </div>
+                    ),
+                  )}
                 <VariantRunsForMessage message={message} />
-                <MessageBlockSequence
-                  blocks={visibleResidualBlocks}
-                  messageId={message.id}
-                  messageAttentionIndex={messageAttentionIndex}
-                  messageSessionId={message.session_id}
-                  {...entities}
-                />
               </>
             ) : (
               <>
@@ -325,51 +341,39 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             {messageCompactions?.map((compaction) => (
               <ClioCompactionProgress compaction={compaction} key={compaction.compaction_id} />
             ))}
+            {message.role === 'assistant' &&
+            message.blocks.length > 0 &&
+            emptyResponseErrorMessage &&
+            !emptyResponseWasClientCancelled &&
+            !message.blocks.some((block) => block.type === 'error') ? (
+              <Alert variant="destructive" className="mt-3">
+                <AlertTriangleIcon aria-hidden="true" />
+                <AlertTitle>Work interrupted</AlertTitle>
+                <AlertDescription>{emptyResponseErrorMessage}</AlertDescription>
+              </Alert>
+            ) : null}
           </MessageContent>
           {message.role === 'assistant' ? (
             <MessageCompletionFooter
+              active={active}
               message={message}
-              toolCount={
-                new Set(
-                  message.blocks.flatMap((block) => (block.type === 'tool' ? [block.tool_id] : [])),
-                ).size
-              }
+              {...messageToolCallCounts(message, entities.tools)}
             >
               {actions}
             </MessageCompletionFooter>
+          ) : null}
+          {message.role === 'assistant' &&
+          canRetry &&
+          !active &&
+          !message.completed_at &&
+          !message.stop_reason ? (
+            <div className="mt-3">{actions}</div>
           ) : null}
         </Message>
       </m.div>
     </div>
   );
 }, conversationMessageRowPropsEqual);
-
-type TurnSegment =
-  | { kind: 'iterations'; iterations: ConversationIteration[] }
-  | { kind: 'record'; block: ConversationTurnCompactionRecord['block'] };
-
-/** Splits a turn's iterations at the compaction records made inside it. */
-function turnSegments(
-  iterations: readonly ConversationIteration[],
-  records: readonly ConversationTurnCompactionRecord[],
-): TurnSegment[] {
-  const segments: TurnSegment[] = [];
-  let start = 0;
-  for (const record of records) {
-    if (record.afterIteration > start) {
-      segments.push({
-        kind: 'iterations',
-        iterations: iterations.slice(start, record.afterIteration),
-      });
-      start = record.afterIteration;
-    }
-    segments.push({ kind: 'record', block: record.block });
-  }
-  if (start < iterations.length) {
-    segments.push({ kind: 'iterations', iterations: iterations.slice(start) });
-  }
-  return segments;
-}
 
 interface MessageEntityRefs {
   artifacts: Set<string>;
@@ -445,6 +449,8 @@ export function conversationMessageRowPropsEqual(
 ): boolean {
   if (
     left.message !== right.message ||
+    left.active !== right.active ||
+    left.feedbackMessages !== right.feedbackMessages ||
     left.displayMode !== right.displayMode ||
     left.index !== right.index ||
     left.start !== right.start ||

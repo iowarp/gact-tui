@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { NavigationHeader } from './navigation-header';
 
 Object.defineProperty(window, 'matchMedia', {
@@ -23,34 +24,36 @@ it('shows saved service addresses and prevents selecting an unavailable service'
   const user = userEvent.setup();
   render(
     <MemoryRouter>
-      <SidebarProvider>
-        <NavigationHeader
-          activeLabel="Contained"
-          connectionAvailabilities={{
-            'http://127.0.0.1:8788': {
-              state: 'healthy',
-              label: 'Ready',
-              detail: 'Service is available.',
-            },
-            'http://127.0.0.1:9999': {
-              state: 'unavailable',
-              label: 'Unavailable',
-              detail: 'Connection refused',
-            },
-          }}
-          currentPath="/workspaces/ws_default/sessions/sess_default"
-          endpoint="http://127.0.0.1:8788"
-          onConnect={onConnect}
-          onImportSession={vi.fn()}
-          onNewSession={vi.fn()}
-          onNewWorkspace={vi.fn()}
-          onOpenArchived={vi.fn()}
-          recentConnections={[
-            { endpoint: 'http://127.0.0.1:8788', label: 'Contained' },
-            { endpoint: 'http://127.0.0.1:9999', label: 'Offline lab' },
-          ]}
-        />
-      </SidebarProvider>
+      <TooltipProvider>
+        <SidebarProvider>
+          <NavigationHeader
+            activeLabel="Contained"
+            connectionAvailabilities={{
+              'http://127.0.0.1:8788': {
+                state: 'healthy',
+                label: 'Ready',
+                detail: 'Service is available.',
+              },
+              'http://127.0.0.1:9999': {
+                state: 'unavailable',
+                label: 'Unavailable',
+                detail: 'Connection refused',
+              },
+            }}
+            currentPath="/workspaces/ws_default/sessions/sess_default"
+            endpoint="http://127.0.0.1:8788"
+            onConnect={onConnect}
+            onImportSession={vi.fn()}
+            onNewSession={vi.fn()}
+            onNewWorkspace={vi.fn()}
+            onOpenArchived={vi.fn()}
+            recentConnections={[
+              { endpoint: 'http://127.0.0.1:8788', label: 'Contained' },
+              { endpoint: 'http://127.0.0.1:9999', label: 'Offline lab' },
+            ]}
+          />
+        </SidebarProvider>
+      </TooltipProvider>
     </MemoryRouter>,
   );
 
@@ -68,26 +71,28 @@ it('explains the active service status when its indicator is hovered', async () 
   const user = userEvent.setup();
   render(
     <MemoryRouter>
-      <SidebarProvider>
-        <NavigationHeader
-          activeLabel="This device"
-          connectionAvailabilities={{
-            'http://127.0.0.1:8788': {
-              state: 'degraded',
-              label: 'Limited',
-              detail: 'No model is selected yet.',
-            },
-          }}
-          currentPath="/"
-          endpoint="http://127.0.0.1:8788"
-          onConnect={vi.fn()}
-          onImportSession={vi.fn()}
-          onNewSession={vi.fn()}
-          onNewWorkspace={vi.fn()}
-          onOpenArchived={vi.fn()}
-          recentConnections={[{ endpoint: 'http://127.0.0.1:8788', label: 'This device' }]}
-        />
-      </SidebarProvider>
+      <TooltipProvider>
+        <SidebarProvider>
+          <NavigationHeader
+            activeLabel="This device"
+            connectionAvailabilities={{
+              'http://127.0.0.1:8788': {
+                state: 'degraded',
+                label: 'Limited',
+                detail: 'No model is selected yet.',
+              },
+            }}
+            currentPath="/"
+            endpoint="http://127.0.0.1:8788"
+            onConnect={vi.fn()}
+            onImportSession={vi.fn()}
+            onNewSession={vi.fn()}
+            onNewWorkspace={vi.fn()}
+            onOpenArchived={vi.fn()}
+            recentConnections={[{ endpoint: 'http://127.0.0.1:8788', label: 'This device' }]}
+          />
+        </SidebarProvider>
+      </TooltipProvider>
     </MemoryRouter>,
   );
 
@@ -104,25 +109,27 @@ it('shows agent identity as location followed by the branded agent name', async 
   const user = userEvent.setup();
   render(
     <MemoryRouter>
-      <SidebarProvider>
-        <NavigationHeader
-          connectionAvailabilities={{}}
-          currentPath="/"
-          endpoint="http://127.0.0.1:49433"
-          onConnect={vi.fn()}
-          onImportSession={vi.fn()}
-          onNewSession={vi.fn()}
-          onNewWorkspace={vi.fn()}
-          onOpenArchived={vi.fn()}
-          recentConnections={[
-            {
-              endpoint: 'http://127.0.0.1:17800',
-              label: `Homelab ${brand.agentName}`,
-              location: 'Homelab',
-            },
-          ]}
-        />
-      </SidebarProvider>
+      <TooltipProvider>
+        <SidebarProvider>
+          <NavigationHeader
+            connectionAvailabilities={{}}
+            currentPath="/"
+            endpoint="http://127.0.0.1:49433"
+            onConnect={vi.fn()}
+            onImportSession={vi.fn()}
+            onNewSession={vi.fn()}
+            onNewWorkspace={vi.fn()}
+            onOpenArchived={vi.fn()}
+            recentConnections={[
+              {
+                endpoint: 'http://127.0.0.1:17800',
+                label: `Homelab ${brand.agentName}`,
+                location: 'Homelab',
+              },
+            ]}
+          />
+        </SidebarProvider>
+      </TooltipProvider>
     </MemoryRouter>,
   );
 
@@ -139,21 +146,23 @@ it('shows agent identity as location followed by the branded agent name', async 
 it('uses a user-defined agent name instead of forcing the branded fallback', () => {
   render(
     <MemoryRouter>
-      <SidebarProvider>
-        <NavigationHeader
-          activeLabel="Ares Research"
-          activeLocation="Ares"
-          connectionAvailabilities={{}}
-          currentPath="/"
-          endpoint="http://127.0.0.1:41849"
-          onConnect={vi.fn()}
-          onImportSession={vi.fn()}
-          onNewSession={vi.fn()}
-          onNewWorkspace={vi.fn()}
-          onOpenArchived={vi.fn()}
-          recentConnections={[]}
-        />
-      </SidebarProvider>
+      <TooltipProvider>
+        <SidebarProvider>
+          <NavigationHeader
+            activeLabel="Ares Research"
+            activeLocation="Ares"
+            connectionAvailabilities={{}}
+            currentPath="/"
+            endpoint="http://127.0.0.1:41849"
+            onConnect={vi.fn()}
+            onImportSession={vi.fn()}
+            onNewSession={vi.fn()}
+            onNewWorkspace={vi.fn()}
+            onOpenArchived={vi.fn()}
+            recentConnections={[]}
+          />
+        </SidebarProvider>
+      </TooltipProvider>
     </MemoryRouter>,
   );
 

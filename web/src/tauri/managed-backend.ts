@@ -1,4 +1,9 @@
-import { MANAGED_BACKEND_POLL_MS, MANAGED_BACKEND_READY_TIMEOUT_MS } from '@/lib/runtime-limits';
+import {
+  GACT_HTTP_TIMEOUT_MS,
+  MANAGED_BACKEND_POLL_MS,
+  MANAGED_BACKEND_PREPARE_TIMEOUT_MS,
+  MANAGED_BACKEND_READY_TIMEOUT_MS,
+} from '@/lib/runtime-limits';
 import { vocab } from '@/lib/brand-vocabulary';
 
 export type ManagedBackendStatus =
@@ -26,6 +31,7 @@ interface ManagedBackendOptions {
   onStatus?: (status: ManagedBackendStatus) => void;
   pollIntervalMs?: number;
   timeoutMs?: number;
+  prepareTimeoutMs?: number;
 }
 
 async function invokeManagedBackend<T>(
@@ -33,7 +39,25 @@ async function invokeManagedBackend<T>(
   args?: Record<string, unknown>,
 ): Promise<T> {
   const { invoke } = await import('@tauri-apps/api/core');
-  return args ? invoke<T>(command, args) : invoke<T>(command);
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      args ? invoke<T>(command, args) : invoke<T>(command),
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () =>
+            reject(
+              new Error(
+                `${vocab.product} did not respond to the local service request. Retry local startup or reopen the app.`,
+              ),
+            ),
+          GACT_HTTP_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 export async function getManagedBackend(): Promise<ManagedBackendHandle> {
@@ -146,10 +170,22 @@ export async function waitForManagedBackend(
   const timeoutMs = options.timeoutMs ?? MANAGED_BACKEND_READY_TIMEOUT_MS;
   let deadline = Date.now() + timeoutMs;
   let installStarted = false;
+  let stage: string | undefined;
 
   for (;;) {
     const handle = await getManagedBackend();
     options.onStatus?.(handle.status);
+    if (handle.status.kind === 'starting' && handle.status.detail !== stage) {
+      stage = handle.status.detail;
+      // Package preparation precedes the service boot. Do not spend the
+      // service's readiness budget on installation, or retrying a healthy
+      // first-run setup can only end in another misleading timeout.
+      deadline =
+        Date.now() +
+        (stage === 'installing_runtime'
+          ? (options.prepareTimeoutMs ?? MANAGED_BACKEND_PREPARE_TIMEOUT_MS)
+          : timeoutMs);
+    }
     if (handle.status.kind === 'ready') return handle;
     if (handle.status.kind === 'error') {
       throw new Error(

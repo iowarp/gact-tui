@@ -86,6 +86,37 @@ function buildSurface(components: Record<string, unknown>[], extraMessages: A2ui
 }
 
 describe('CLIO A2UI kernel catalog', () => {
+  it('preserves unequal analytical panel weights and explicit Grid spacing', () => {
+    const surface = buildSurface([
+      { id: 'root', component: 'Row', children: ['wide', 'narrow'] },
+      {
+        id: 'wide',
+        component: 'Frame',
+        weight: 2,
+        child: 'a',
+        accessibility: { label: 'Wide evidence' },
+      },
+      {
+        id: 'narrow',
+        component: 'Grid',
+        columns: 2,
+        gap: 6,
+        weight: 1,
+        children: ['b', 'c'],
+        accessibility: { label: 'Supporting evidence' },
+      },
+      { id: 'a', component: 'Text', text: 'Main comparison' },
+      { id: 'b', component: 'Text', text: 'Context' },
+      { id: 'c', component: 'Text', text: 'Source' },
+    ]);
+    render(<A2uiSurface surface={surface} />);
+    expect(screen.getByRole('group', { name: 'Wide evidence' })).toHaveStyle({ flex: '2 1 0%' });
+    expect(screen.getByRole('group', { name: 'Supporting evidence' })).toHaveStyle({
+      flex: '1 1 0%',
+      gap: '1.5rem',
+    });
+  });
+
   it('renders a titled Frame as plain typography without a nested panel', () => {
     const surface = buildSurface([
       { id: 'root', component: 'Column', children: ['frame'] },
@@ -230,7 +261,10 @@ describe('CLIO A2UI kernel catalog', () => {
     expect(screen.getByTitle('Total map locations')).toHaveTextContent('2 locations');
     const second = screen.getByRole('button', { name: /Station 2/ });
     fireEvent.click(second);
-    expect(screen.getByRole('button', { name: /Station 2/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Station 2/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.getByText('40.12000, -88.21000')).toBeVisible();
     expect(container.textContent).not.toContain('tile.openstreetmap.org');
   });

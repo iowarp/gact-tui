@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { vocab } from '@/lib/brand-vocabulary';
-import { InstallExpectation, installExpectation } from './install-expectation';
+import { InstallExpectation } from './install-expectation';
+import { installExpectation } from './install-expectation-model';
 
 afterEach(cleanup);
 

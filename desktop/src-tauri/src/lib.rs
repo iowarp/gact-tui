@@ -34,6 +34,8 @@ mod remote_lifecycle;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod runtime_install_report;
 mod runtime_pack;
+#[cfg(windows)]
+mod runtime_unpack;
 mod sidecar_setup;
 mod sse_bridge;
 mod sse_message;
@@ -422,14 +424,13 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
     let managed_storage =
         sidecar_setup::prepare_managed_storage_root(resource_dir, &resource_dir.join("data"))
             .map_err(|error| format!("prepare installer-managed storage: {error}"))?;
-    println!("Unpacking and checking the bundled CLIO runtime...");
-    let runtime = runtime_pack::prepare_bundled_runtime(resource_dir, &managed_storage)?
+    let runtime = runtime_pack::prepare_runtime_for_installer(resource_dir, &managed_storage)?
         .ok_or_else(|| "the installer did not include a bundled CLIO runtime".to_string())?;
     let workspace = sidecar_setup::prepare_desktop_workspace(&managed_storage)
         .map_err(|error| format!("prepare package workspace: {error}"))?;
     let user = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
         .map_err(|error| format!("prepare package storage: {error}"))?;
-    execution_install::prepare_packages(&runtime, &workspace, &user)?;
+    execution_install::prepare_packages_for_install(&runtime, &workspace, &user)?;
     Ok(())
 }
 

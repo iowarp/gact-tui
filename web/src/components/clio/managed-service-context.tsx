@@ -4,30 +4,16 @@ import { useEffect, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ContextControl } from './context-control';
+import { contextSizingParameter } from './context-sizing-parameter';
 import {
   deploymentContextDraft,
   deploymentContextEntries,
   deploymentEffectiveContext,
 } from './context-control-model';
-import {
-  PARAMETER_PREFIX,
-  configurationForVariant,
-  parametersForVariant,
-} from './managed-service-target-utils';
+import { PARAMETER_PREFIX, configurationForVariant } from './managed-service-target-utils';
 
 /** How long the model field must stay unchanged before the host is asked to size it. */
 const PREVIEW_DEBOUNCE_MS = 600;
-
-/** The engine's context parameter when CLIO offers the sizing control for it. */
-export function contextSizingParameter(
-  service: ManagedServiceDefinition,
-  variant: string,
-): (ServerParameter & { context_sizing: ContextSizingSpec }) | undefined {
-  return parametersForVariant(service.parameters ?? [], variant).find(
-    (row): row is ServerParameter & { context_sizing: ContextSizingSpec } =>
-      Boolean(row.context_sizing),
-  );
-}
 
 /**
  * The context control of a managed model server's deployment form. Rendered

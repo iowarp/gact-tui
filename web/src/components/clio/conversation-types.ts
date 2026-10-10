@@ -86,6 +86,9 @@ export interface ClioConversationProps {
 }
 
 export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
+  /** Feedback consumed at recorded boundaries inside this response. */
+  feedbackMessages?: readonly DomainMessage[];
+  active?: boolean;
   displayMode: ConversationDisplayMode;
   message: DomainMessage;
   index: number;

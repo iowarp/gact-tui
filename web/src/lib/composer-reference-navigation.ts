@@ -5,7 +5,9 @@ import type {
   WorkspaceReference,
   WorkspaceResource,
 } from '@clio/core/v3';
+import { toast } from 'sonner';
 import { artifactDetailEntity } from './session-artifacts';
+import { referenceKindLabel } from './composer-reference-domain';
 
 interface ComposerReferenceNavigation {
   artifacts: readonly Artifact[];
@@ -39,6 +41,25 @@ export type ComposerReferenceNavigationOutcome =
   | { status: 'unresolved'; reason: string };
 
 const OPENED: ComposerReferenceNavigationOutcome = { status: 'opened' };
+
+/** Open a reference and report unresolved destinations or request failures. */
+export async function navigateComposerReferenceOrToast(
+  options: ComposerReferenceNavigation,
+): Promise<void> {
+  const title = `Could not open ${referenceKindLabel(options.reference.kind)} reference`;
+  try {
+    const outcome = await navigateComposerReference(options);
+    if (outcome.status === 'unresolved') toast.error(title, { description: outcome.reason });
+  } catch (error) {
+    console.error('Could not open composer reference', options.reference, error);
+    toast.error(title, {
+      description:
+        error instanceof Error
+          ? error.message
+          : 'The workspace is still available. Refresh the reference and try again.',
+    });
+  }
+}
 
 function unresolved(reason: string): ComposerReferenceNavigationOutcome {
   return { reason, status: 'unresolved' };

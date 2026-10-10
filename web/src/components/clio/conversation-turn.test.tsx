@@ -52,39 +52,6 @@ function iteration(overrides: Partial<ConversationIteration> = {}): Conversation
   };
 }
 
-describe('ConversationTurn Activity folding', () => {
-  function activityHeader() {
-    return screen.getByRole('button', { name: /Activity/u });
-  }
-
-  it('stays open while the agent works, then folds when the answer starts', () => {
-    const { rerender } = render(
-      <ConversationTurn iterations={[iteration()]} mode="chain" subagents={{}} />,
-    );
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'true');
-
-    rerender(
-      <ConversationTurn answerStarted iterations={[iteration()]} mode="chain" subagents={{}} />,
-    );
-
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('opens a finished turn folded, and keeps the reader open once they open it', () => {
-    const { rerender } = render(
-      <ConversationTurn answerStarted iterations={[iteration()]} mode="chain" subagents={{}} />,
-    );
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(activityHeader());
-    rerender(
-      <ConversationTurn answerStarted iterations={[iteration()]} mode="chain" subagents={{}} />,
-    );
-
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'true');
-  });
-});
-
 describe('ConversationTurn incomplete state', () => {
   it('shows the interrupted state of a cancelled turn in full mode', () => {
     render(
@@ -436,6 +403,7 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
     expect(screen.getByText('v2ex_ui_echo closed')).toBeVisible();
     expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
     expect(screen.getByTestId('active-mcp-app')).toHaveTextContent('app_2');
@@ -725,6 +693,7 @@ describe('ConversationTurn announced state', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
     const line = document.querySelector('[data-turn-activity="task:task_permission"]');
     expect(line).toHaveTextContent('Permission needed');
     expect(line).not.toHaveTextContent('waiting_permission');

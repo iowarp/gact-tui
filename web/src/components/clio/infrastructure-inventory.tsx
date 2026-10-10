@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
 import { Link } from 'react-router-dom';
-import { LaptopIcon, ServerIcon, ArrowRightIcon } from 'lucide-react';
+import { ServerIcon } from 'lucide-react';
+import { vocab } from '@/lib/brand-vocabulary';
+import type { ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
@@ -15,14 +17,15 @@ import {
 } from '@/components/ui/select';
 import { HostStorageSettings } from './host-storage-settings';
 import { ModelAcquisitions } from './model-acquisition';
-import { InfoTip } from './info-tip';
-import { vocab } from '@/lib/brand-vocabulary';
+import { InfrastructureOverview, InfrastructureHostInspection } from './infrastructure-overview';
 
 /** Inventory is independent from deployment forms and survives navigation. */
 export function InfrastructureInventory({
   section,
+  children,
 }: {
   section: 'overview' | 'models' | 'activity' | 'hosts';
+  children?: ReactNode;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -66,6 +69,7 @@ export function InfrastructureInventory({
               ))}
           </SelectContent>
         </Select>
+        <InfrastructureHostInspection targetId={targetId} />
         <ModelAcquisitions
           key={`models:${targetId}`}
           targetId={targetId}
@@ -130,91 +134,44 @@ export function InfrastructureInventory({
         ))}
       </div>
     );
-  return (
-    <div className="mt-6 space-y-6">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span>Connected {vocab.agent}</span>
-        <code className="break-all">{settings.endpoint}</code>
-        <InfoTip label="About infrastructure status">
-          This inventory records the last observed state. Open a resource and inspect it to refresh
-          its health. An SSH disconnection makes remote health unknown.
-        </InfoTip>
-      </div>
-      {section === 'overview' ? (
-        <details className="rounded-lg border p-4">
-          <summary className="cursor-pointer font-medium">Connection map</summary>
-          <div className="mt-4 flex flex-wrap items-center gap-3" aria-label="Connection map">
-            <span className="inline-flex items-center gap-2 rounded-lg border p-3">
-              <LaptopIcon className="size-4" />
-              This client
+  if (section === 'hosts')
+    return (
+      <div className="mt-6 space-y-4">
+        <details open className="rounded-xl border">
+          <summary className="cursor-pointer p-4 font-medium">
+            {data.targets.find((host) => host.kind === 'local')?.label ||
+              `This ${vocab.agent}'s computer`}
+            <span className="ml-3 text-xs font-normal text-muted-foreground">
+              Connected {vocab.agent}
             </span>
-            <ArrowRightIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-            <Button asChild variant="outline">
-              <Link to="/infrastructure/agent">
-                <ServerIcon />
-                Connected {vocab.agent}
-              </Link>
-            </Button>
-            {data.targets
-              .filter((host) => host.kind !== 'local')
-              .map((host) => (
-                <Button key={host.id} asChild variant="outline">
+          </summary>
+          <div className="space-y-4 border-t p-4">{children}</div>
+        </details>
+        {data.targets
+          .filter((host) => host.kind !== 'local')
+          .map((host) => (
+            <details className="rounded-xl border" key={host.id}>
+              <summary className="flex cursor-pointer items-center gap-3 p-4">
+                <ServerIcon className="size-4 shrink-0" />
+                <span className="min-w-0 flex-1 font-medium">{host.label}</span>
+                <Badge variant="outline">{host.transport_state.replaceAll('_', ' ')}</Badge>
+              </summary>
+              <div className="space-y-3 border-t p-4">
+                <p className="break-all text-sm text-muted-foreground">
+                  {host.ssh?.host || 'External endpoint'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Connection status is separate from the health of services on this computer.
+                </p>
+                <Button asChild size="sm" variant="outline">
                   <Link to={`/infrastructure/services?target=${encodeURIComponent(host.id)}`}>
-                    <ServerIcon />
-                    {host.label}
+                    Inspect and manage {host.label}
                   </Link>
                 </Button>
-              ))}
-          </div>
-        </details>
-      ) : null}
-      <div className="divide-y rounded-lg border" aria-label="Execution hosts">
-        {data.targets.map((host) => (
-          <div className="flex flex-wrap items-center gap-3 p-4" key={host.id}>
-            <ServerIcon className="size-5 text-muted-foreground" />
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">{host.label}</p>
-              <p className="text-sm text-muted-foreground">
-                {host.kind === 'local'
-                  ? `Runs beside the connected ${vocab.agent}`
-                  : host.ssh?.host || host.ssh?.profile || 'External endpoint'}
-              </p>
-            </div>
-            <Badge variant="outline">{host.transport_state.replaceAll('_', ' ')}</Badge>
-            <Button asChild variant="ghost" size="sm">
-              <Link to={`/infrastructure/services?target=${encodeURIComponent(host.id)}`}>
-                Manage
-              </Link>
-            </Button>
-          </div>
-        ))}
-      </div>
-      {section === 'overview' ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            ['Services', data.services.length + data.connections.length, 'services'],
-            [
-              'Operations in progress',
-              data.operations.filter((op) => ['running', 'queued'].includes(op.state)).length,
-              'activity',
-            ],
-            [
-              'Storage locations',
-              data.targets.filter((host) => host.kind !== 'direct').length,
-              'models',
-            ],
-          ].map(([label, count, path]) => (
-            <Link
-              key={path}
-              to={`/infrastructure/${path}`}
-              className="rounded-lg border p-4 hover:bg-muted/50 focus-visible:outline-ring"
-            >
-              <p className="text-sm text-muted-foreground">{label}</p>
-              <p className="mt-2 text-2xl font-semibold">{count}</p>
-            </Link>
+              </div>
+            </details>
           ))}
-        </div>
-      ) : null}
-    </div>
-  );
+      </div>
+    );
+  return <InfrastructureOverview data={data} targetId={targetId} onTarget={setTargetId} />;
 }

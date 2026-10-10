@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changesBetween, parseChangelog } from './changelog';
+import { changelogSections, changesBetween, parseChangelog } from './changelog';
 
 const CHANGELOG = `# Changelog
 
@@ -81,5 +81,26 @@ describe('changesBetween', () => {
 
   it('is empty when nothing changed', () => {
     expect(changesBetween(entries, '0.11.2.22', '0.11.2.22')).toEqual([]);
+  });
+});
+
+describe('changelogSections', () => {
+  it('retains introductory copy and groups sections without rewriting Markdown', () => {
+    expect(
+      changelogSections(
+        'Release introduction.\n\n### Added\n\n- A **feature**.\n\n### Notes\n\nA caveat.',
+      ),
+    ).toEqual([
+      { title: undefined, body: 'Release introduction.' },
+      { title: 'Added', body: '- A **feature**.' },
+      { title: 'Notes', body: 'A caveat.' },
+    ]);
+  });
+  it('does not treat headings inside backtick or tilde fences as release sections', () => {
+    const body = '```md\n### Code example\n```\n~~~\n### Another example\n~~~';
+    expect(changelogSections(`### Fixed\r\n${body}\r\n### Notes\r\nDetails.`)).toEqual([
+      { title: 'Fixed', body },
+      { title: 'Notes', body: 'Details.' },
+    ]);
   });
 });

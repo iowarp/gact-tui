@@ -39,7 +39,7 @@ export const ClioMeshViewportCatalogComponent = createComponentImplementation(
   ({ props, context }) =>
     createElement(
       Suspense,
-      { fallback: createElement(Skeleton, { className: 'h-80 rounded-lg' }) },
+      { fallback: createElement(Skeleton, { 'aria-busy': true, className: 'h-80 rounded-lg' }) },
       createElement(LazyMeshViewport, {
         accessibility: props.accessibility,
         componentId: context.componentModel.id,

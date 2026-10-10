@@ -184,6 +184,10 @@ test('the chart still renders in full screen, and again after exiting (#1551/#51
   // layout can move the toolbar under the composer during the click.
   await page.getByRole('log', { name: 'Conversation' }).hover();
   await page.mouse.wheel(0, -200);
+  // Loading older transcript rows after the wheel can unmount this detached
+  // end-of-transcript surface. Navigate back to it before using its toolbar;
+  // scrolling an absent virtualized node cannot bring that node into view.
+  await revealSurface(page);
   await chartFrame.scrollIntoViewIfNeeded();
   await chartFrame.hover();
   await chartFrame.getByRole('button', { name: 'Full screen' }).click();

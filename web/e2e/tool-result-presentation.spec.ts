@@ -1,7 +1,148 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { ToolInvocation } from '@clio/core/v3';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const subjectUri = `D:\\workspace\\${'long-unbroken-directory-'.repeat(12)}\\evidence.txt`;
+
+async function openCompactTool(page: Page, tool: ToolInvocation) {
+  await page.route('**/__test/presentation-tool', (route) => route.fulfill({ json: tool }));
+  await page.addInitScript(() => localStorage.setItem('theme', 'light'));
+  await page.goto('/tests/review/tool-result.html?compact');
+  await expect(
+    page.getByRole('heading', { name: 'Shared tool result browser fixture' }),
+  ).toBeVisible();
+}
+
+test('compact runtime results are readable before JSON at desktop and phone widths', async ({
+  page,
+}) => {
+  await openCompactTool(page, {
+    id: 'runtime',
+    session_id: 's',
+    name: 'prepare_execution_runtime',
+    title: 'Get execution environment',
+    state: 'succeeded',
+    duration_ms: 42700,
+    input: { kwargs: { required_imports: ['PIL'] } },
+    output: { exact: 'Original runtime payload' },
+    presentation: {
+      summary: '',
+      blocks: [
+        { id: 'status', type: 'text', text: 'Status: ready' },
+        { id: 'python', type: 'text', text: 'Python version: 3.13.16' },
+        { id: 'node', type: 'text', text: 'Node version: v24.19.0' },
+      ],
+    },
+  });
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const row = page.getByRole('button', { name: 'Show result for Get execution environment' });
+    expect(
+      await page
+        .locator('[data-slot="tool-activity"]')
+        .evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+    await row.click();
+    const result = page.getByRole('region', { name: 'Get execution environment: Result' });
+    await expect(result).toContainText('Python version: 3.13.16');
+    await expect(result).not.toContainText('Arguments');
+    await expect(result).not.toContainText('required_imports');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await result.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThan(2);
+    await page.screenshot({ path: test.info().outputPath(`runtime-readable-${width}.png`) });
+    const info = page.getByRole('button', {
+      name: 'Technical details for Get execution environment',
+    });
+    await info.click();
+    await expect(page.getByRole('dialog')).toContainText('required_imports');
+    await expect(page.getByRole('dialog')).toContainText('Original runtime payload');
+    await page.keyboard.press('Escape');
+    await expect(info).toBeFocused();
+    await expect(result).toBeVisible();
+    await row.focus();
+    await row.press('Enter');
+    await expect(result).toHaveCount(0);
+  }
+});
+
+test('compact shell failures expose the recorded reason before a long command', async ({
+  page,
+}) => {
+  const failure = 'windows sandbox failed: CreateProcessWithLogonW failed: 267';
+  await page.setViewportSize({ width: 900, height: 800 });
+  await openCompactTool(page, {
+    id: 'shell',
+    session_id: 's',
+    name: 'shell_bash',
+    state: 'succeeded',
+    duration_ms: 9100,
+    input: { command: 'Get-Location', cwd: null },
+    output: { stderr: failure, exit_code: 1 },
+    presentation: {
+      action: 'Run',
+      status: 'failed',
+      summary: '',
+      blocks: [
+        {
+          id: 'terminal',
+          type: 'terminal',
+          command: Array.from({ length: 35 }, (_, index) => `# authored script line ${index}`).join(
+            '\n',
+          ),
+          text: `${failure}\n`,
+          exit_code: 1,
+        },
+      ],
+    },
+  });
+  const row = page.getByRole('button', { name: 'Show result for Run' });
+  await row
+    .locator('span')
+    .filter({ hasText: /^failed$/ })
+    .hover();
+  await expect(page.getByRole('tooltip')).toHaveText(failure);
+  await row.click();
+  const result = page.getByRole('region', { name: 'Run: Result' });
+  await expect(result.getByRole('alert')).toHaveText(failure);
+  const alert = (await result.getByRole('alert').boundingBox())!;
+  const bounds = (await result.boundingBox())!;
+  expect(alert.y).toBeLessThan(bounds.y + 60);
+  await expect(result).toContainText('Process exited with code 1.');
+  await page.mouse.move(0, 0);
+  await page.screenshot({ path: test.info().outputPath('shell-failure-readable.png') });
+  await page.getByRole('button', { name: 'Technical details for Run' }).focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(row).toBeFocused();
+  await expect(page.getByRole('tooltip')).toHaveText(failure);
+  await page.getByRole('button', { name: 'Technical details for Run' }).click();
+  await expect(page.getByRole('dialog')).toContainText('"cwd": null');
+  await expect(page.getByRole('dialog')).toContainText(failure);
+});
+
+test('compact widget rejection retains its semantic error when transport succeeds', async ({
+  page,
+}) => {
+  const reason = 'A2UI surface components must contain exactly one id="root" component';
+  await openCompactTool(page, {
+    id: 'widget',
+    session_id: 's',
+    name: 'create_a2ui_surface',
+    state: 'succeeded',
+    error: `ok=false: ${reason}`,
+    presentation: {
+      action: 'Generate widget',
+      status: 'failed',
+      summary: '',
+      blocks: [{ id: 'error', type: 'text', severity: 'error', text: reason }],
+    },
+  });
+  const row = page.getByRole('button', { name: 'Show result for Generate widget' });
+  await row.hover();
+  await expect(page.getByRole('tooltip')).toHaveText(reason);
+  await row.click();
+  await expect(page.getByRole('region').getByRole('alert')).toHaveText(reason);
+  await expect(page.getByRole('region')).not.toContainText('ok=false');
+});
 
 async function openFixture(page: Page, type: string, content?: string) {
   expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);

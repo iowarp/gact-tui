@@ -15,7 +15,12 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { restartClio } from '@/tauri/managed-backend';
 import { vocab } from '@/lib/brand-vocabulary';
-import { foundationSummary, foundationTitle, integrationStatus, integrationStatusLabel } from './infrastructure-foundation';
+import {
+  foundationSummary,
+  foundationTitle,
+  integrationStatus,
+  integrationStatusLabel,
+} from './infrastructure-foundation';
 
 /** The typed reason tokens (clio_agent.runtime.sandbox / sandbox_codex) this row words specifically. */
 const SANDBOX_REASON_LABELS: Record<string, string> = {
@@ -43,6 +48,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
   const desktop = inTauri();
   const [setupUnsupported, setSetupUnsupported] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [setupOutcome, setSetupOutcome] = useState<string>();
   const sandboxKey = queryKeys.key('sandbox-status', settings.endpoint);
   // Counts polls while setup_in_progress stays true; reset the moment it
   // isn't, and on every fresh "Set up" click (see the mutation's onMutate
@@ -88,6 +94,20 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
       setPollExhausted(false);
     },
     onSuccess: (result) => {
+      const outcome =
+        result.row?.summary ||
+        result.row?.detail ||
+        (result.reason
+          ? humanizeProtocolValue(result.reason)
+          : 'Setup finished. Inspect the current status below.');
+      setSetupOutcome(outcome);
+      if (result.row?.status === 'ready' || result.row?.status === 'healthy') {
+        toast.success('Protected execution is ready');
+      } else {
+        toast.message('Protected execution setup finished', {
+          description: outcome,
+        });
+      }
       // 501: nothing to provision on this platform — hide the button rather
       // than offer a fix that can never work here.
       if (result.reason === 'sandbox_setup_unsupported') setSetupUnsupported(true);
@@ -107,6 +127,9 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
       // is actually still running server-side must still flip this row
       // into the same poll a clean 409 would have.
       void queryClient.invalidateQueries({ queryKey: sandboxKey });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.key('service-health', settings.endpoint),
+      });
     },
   });
 
@@ -134,18 +157,25 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
 
   return (
     <details className="group px-1 py-3">
-      <summary className="flex cursor-pointer list-none items-center gap-3">
+      <summary className="grid cursor-pointer list-none grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:flex sm:gap-3">
         <ServerIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        <span className="min-w-0 text-sm font-medium sm:flex-1">
           {foundationTitle(integration.name)}
         </span>
-        <ClioStatus
-          label={reasonLabel ?? integrationStatusLabel(status)}
-          value={status === 'healthy' ? 'healthy' : polling ? 'connecting' : status}
-        />
+        <div className="col-start-2 shrink-0 justify-self-start sm:ml-auto">
+          <ClioStatus
+            label={reasonLabel ?? integrationStatusLabel(status)}
+            value={status === 'healthy' ? 'healthy' : polling ? 'connecting' : status}
+          />
+        </div>
       </summary>
       <div className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
         <p>{summary}</p>
+        {setupOutcome ? (
+          <p role="status" className="mt-2 text-foreground">
+            {setupOutcome}
+          </p>
+        ) : null}
         {status !== 'healthy' && !setupUnsupported ? (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-foreground">
             <Button
@@ -159,9 +189,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
               ) : null}
               Set up protected execution
             </Button>
-            {polling ? (
-              <span role="status">Waiting for Windows permission prompt…</span>
-            ) : null}
+            {polling ? <span role="status">Waiting for Windows permission prompt…</span> : null}
             {!polling && (pollGaveUpOnErrors || pollExhausted) ? (
               <span className="text-destructive" role="status">
                 {pollGaveUpOnErrors

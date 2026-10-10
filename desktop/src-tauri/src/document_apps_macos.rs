@@ -1,7 +1,8 @@
 //! NSWorkspace resolves Launch Services handlers and the user's preferred app.
 use super::DocumentApplication;
-use objc2_app_kit::NSWorkspace;
-use objc2_foundation::{NSFileManager, NSString, NSURL};
+use objc2::AnyThread;
+use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSWorkspace};
+use objc2_foundation::{NSDictionary, NSFileManager, NSString, NSURL};
 use std::{path::Path, process::Command};
 struct Probe(std::path::PathBuf, std::path::PathBuf);
 impl Drop for Probe {
@@ -38,6 +39,7 @@ pub(super) fn discover(
                     .displayNameAtPath(&path)
                     .to_string();
                 DocumentApplication {
+                    icon_data_url: application_icon(&workspace, &path),
                     is_default: default.as_ref().map(|value| value.to_string())
                         == Some(path.to_string()),
                     id: path.to_string(),
@@ -46,6 +48,16 @@ pub(super) fn discover(
             })
             .collect()
     }))
+}
+
+fn application_icon(workspace: &NSWorkspace, path: &NSString) -> Option<String> {
+    let tiff = workspace.iconForFile(path).TIFFRepresentation()?;
+    let bitmap = NSBitmapImageRep::initWithData(NSBitmapImageRep::alloc(), &tiff)?;
+    // An empty dictionary is valid for PNG encoding and carries no untyped properties.
+    let png = unsafe {
+        bitmap.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())
+    }?;
+    super::png_data_url(&png.to_vec())
 }
 pub(super) fn open_in(id: &str, path: &Path, extension: &str) -> Result<(), String> {
     if !discover(extension, "")?.iter().any(|app| app.id == id) {
@@ -63,4 +75,26 @@ pub(super) fn open_in(id: &str, path: &Path, extension: &str) -> Result<(), Stri
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+    #[test]
+    fn reads_the_installed_finder_icon_as_a_png() {
+        let finder = "/System/Library/CoreServices/Finder.app";
+        assert!(Path::new(finder).is_dir());
+        objc2::rc::autoreleasepool(|_| {
+            let icon =
+                application_icon(&NSWorkspace::sharedWorkspace(), &NSString::from_str(finder))
+                    .expect("the installed Finder application has a native icon");
+            let png = STANDARD.decode(icon.split_once(',').unwrap().1).unwrap();
+            assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+            assert_eq!(&png[12..16], b"IHDR");
+            assert!(u32::from_be_bytes(png[16..20].try_into().unwrap()) > 0);
+            assert!(u32::from_be_bytes(png[20..24].try_into().unwrap()) > 0);
+        });
+    }
 }

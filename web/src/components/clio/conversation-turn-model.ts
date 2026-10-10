@@ -11,6 +11,11 @@ export type ConversationActivity =
   | { kind: 'tool'; id: string; tool: ToolInvocation }
   | { kind: 'task'; id: string; task: Task }
   | {
+      kind: 'injection';
+      id: string;
+      block: Extract<MessageBlock, { type: 'injection' }>;
+    }
+  | {
       kind: 'subagent';
       id: string;
       block: Extract<MessageBlock, { type: 'subagent' }>;
@@ -71,19 +76,33 @@ export interface ConversationTurnPresentation {
   iterations: ConversationIteration[];
   compactionRecords: ConversationTurnCompactionRecord[];
   residualBlocks: MessageBlock[];
+  /** Every visible boundary in canonical order, including non-process blocks. */
+  segments: ConversationTurnSegment[];
 }
+
+export type ConversationTurnSegment =
+  | { kind: 'iterations'; iterations: ConversationIteration[] }
+  | { kind: 'feedback'; message: Message }
+  | { kind: 'block'; block: MessageBlock };
 
 /** Build one lossless turn view from the canonical ordered transcript parts. */
 export function conversationTurnPresentation(
   message: Message,
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task> = {},
+  feedback: readonly Message[] = [],
 ): ConversationTurnPresentation {
-  const { iterations, compactionRecords, consumed } = fallbackIterations(message, tools, tasks);
+  const { iterations, compactionRecords, consumed, segments } = fallbackIterations(
+    message,
+    tools,
+    tasks,
+    feedback,
+  );
   return {
     iterations,
     compactionRecords,
     residualBlocks: message.blocks.filter((block) => !consumed.has(block.id)),
+    segments,
   };
 }
 
@@ -91,19 +110,23 @@ function fallbackIterations(
   message: Message,
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task>,
+  feedback: readonly Message[],
 ): {
   iterations: ConversationIteration[];
   compactionRecords: ConversationTurnCompactionRecord[];
   consumed: Set<string>;
+  segments: ConversationTurnSegment[];
 } {
   const iterations: ConversationIteration[] = [];
   const compactionRecords: ConversationTurnCompactionRecord[] = [];
   const consumed = new Set<string>();
+  const segments: ConversationTurnSegment[] = [];
   const indexed = message.blocks.map((block, position) => ({ block, position }));
   const ordered = indexed.some(({ block }) => block.sequence === undefined)
     ? indexed
     : indexed.sort((left, right) => (left.block.sequence ?? 0) - (right.block.sequence ?? 0));
   let current = emptyIteration(message, iterations.length);
+  let publicThought: string | undefined;
 
   const flush = (terminal = false, interrupted = false) => {
     if (!hasIterationContent(current)) return;
@@ -124,16 +147,44 @@ function fallbackIterations(
       current.activity.find((entry) => entry.kind === 'subagent')?.block,
     );
     iterations.push(current);
+    const last = segments.at(-1);
+    if (last?.kind === 'iterations') last.iterations.push(current);
+    else segments.push({ kind: 'iterations', iterations: [current] });
     current = emptyIteration(message, iterations.length);
   };
 
+  const insertFeedback = (afterPartId: string) => {
+    for (const row of feedback) {
+      const delivery = row.metadata?.steer_delivery as { after_part_id?: string } | undefined;
+      if (delivery?.after_part_id !== afterPartId) continue;
+      flush();
+      segments.push({ kind: 'feedback', message: row });
+      consumed.add(row.id);
+    }
+  };
+  let previousPartId = '';
   for (const { block } of ordered) {
+    insertFeedback(previousPartId);
+    previousPartId = block.id;
+    // Transport-only instructions have no visible boundary to split.
+    if (block.type === 'injection' && (block.source === 'tool_use' || block.variants_id)) continue;
     if (
       (block.type === 'injection' && block.source === 'summarization') ||
       (block.type === 'notice' && block.source === 'compaction_failed')
     ) {
       flush();
       compactionRecords.push({ afterIteration: iterations.length, block });
+      consumed.add(block.id);
+      segments.push({ kind: 'block', block });
+      continue;
+    }
+    // Tool-scoped harness additions belong to the activity lane at their
+    // recorded position. The call identity is authoritative even while the
+    // invocation has not arrived; turn-wide reminders remain visible boundaries.
+    if (block.type === 'injection' && block.call_id?.trim()) {
+      if (!alreadyInLane(current, 'injection', block.id)) {
+        current.activity.push({ kind: 'injection', id: block.id, block });
+      }
       consumed.add(block.id);
       continue;
     }
@@ -142,6 +193,7 @@ function fallbackIterations(
         consumed.add(block.id);
         continue;
       }
+      publicThought = undefined;
       if (current.nextThoughts.length > 0 || current.activity.length > 0) {
         flush();
       }
@@ -164,6 +216,7 @@ function fallbackIterations(
     if (block.type === 'text' && block.channel === 'next_thought') {
       if (current.activity.length > 0) flush();
       current.nextThoughts.push(block.text);
+      publicThought = block.text;
       (current.nextThoughtSources ??= []).push({
         messageId: message.id,
         sessionId: message.session_id,
@@ -178,12 +231,18 @@ function fallbackIterations(
       const tool = tools[block.tool_id];
       // An unresolved invocation contributes nothing here; the block stays in the
       // residual lane so its typed unavailable state renders at its own position.
-      if (!tool) continue;
+      if (!tool) {
+        flush();
+        segments.push({ kind: 'block', block });
+        continue;
+      }
       if (!alreadyInLane(current, 'tool', tool.id)) {
         current.activity.push({ kind: 'tool', id: tool.id, tool });
       }
-      if (block.thought && current.nextThoughts.length === 0) {
+      if (block.thought && current.nextThoughts.length === 0 && block.thought !== publicThought) {
+        // A surface splits display entries, not the response's repeated tool metadata.
         current.nextThoughts.push(block.thought);
+        publicThought = block.thought;
         (current.nextThoughtSources ??= []).push({
           messageId: message.id,
           sessionId: message.session_id,
@@ -200,7 +259,11 @@ function fallbackIterations(
       const task = tasks[block.task_id];
       // An unresolved task contributes nothing here; like an unresolved tool the
       // block stays residual so its typed unavailable state renders in place.
-      if (!task) continue;
+      if (!task) {
+        flush();
+        segments.push({ kind: 'block', block });
+        continue;
+      }
       if (!alreadyInLane(current, 'task', task.id)) {
         current.activity.push({ kind: 'task', id: task.id, task });
       }
@@ -233,15 +296,19 @@ function fallbackIterations(
       consumed.add(block.id);
       continue;
     }
-    if (hasIterationContent(current) && block.type === 'text' && block.channel === 'answer') {
-      flush(!current.activity.some((entry) => entry.kind === 'tool'));
-    }
+    flush(
+      block.type === 'text' &&
+        block.channel === 'answer' &&
+        !current.activity.some((entry) => entry.kind === 'tool'),
+    );
+    segments.push({ kind: 'block', block });
   }
+  insertFeedback(previousPartId);
   flush(
     messageCompletedNormally(message) && !current.activity.some((entry) => entry.kind === 'tool'),
     messageInterrupted(message),
   );
-  return { compactionRecords, consumed, iterations };
+  return { compactionRecords, consumed, iterations, segments };
 }
 
 function messageToolOwnsReceipt(iteration: ConversationIteration, message: string): boolean {

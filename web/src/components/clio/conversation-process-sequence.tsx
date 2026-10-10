@@ -8,7 +8,6 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import { ChevronDownIcon, ListChecksIcon } from 'lucide-react';
-import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
@@ -19,8 +18,8 @@ import { ConversationInteractionActivity } from './conversation-interaction-acti
 import { GroundedMessageResponse } from './grounded-message-response';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
+import { TranscriptReasoning } from './transcript-reasoning';
+import { TranscriptReasoningPassage } from './transcript-reasoning-passage';
 
 export type ProcessBlock = Extract<
   MessageBlock,
@@ -90,17 +89,20 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   }
   if (block.type === 'reasoning') {
     return (
-      <Reasoning
-        className="mb-0"
-        defaultOpen={entities.reasoningDefaultOpen}
-        isStreaming={block.streaming}
-      >
-        <ReasoningTrigger
-          className="min-h-6"
-          getThinkingMessage={(streaming) => (streaming ? 'Thinking in progress' : 'Thinking')}
-        />
-        <ReasoningContent className="mt-1 leading-5">{block.text}</ReasoningContent>
-      </Reasoning>
+      <TranscriptReasoningPassage
+        text={block.text}
+        streaming={block.streaming}
+        source={
+          entities.messageId && entities.messageSessionId
+            ? {
+                messageId: entities.messageId,
+                sessionId: entities.messageSessionId,
+                partId: block.id,
+                field: 'text',
+              }
+            : undefined
+        }
+      />
     );
   }
   if (block.type === 'tool') {
@@ -117,18 +119,22 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     return (
       <div className="space-y-1">
         {block.thought ? (
-          <Reasoning className="mb-0">
-            <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Thinking'} />
-            <ReasoningContent
-              className="mt-1 leading-5"
-              data-field={thoughtAttention?.field}
-              data-message-id={thoughtAttention ? entities.messageId : undefined}
-              data-part-id={thoughtAttention?.part_id}
-              data-content-revision={bytesToHex(sha256(new TextEncoder().encode(block.thought)))}
-            >
-              {block.thought}
-            </ReasoningContent>
-          </Reasoning>
+          <TranscriptReasoning
+            text={block.thought}
+            source={
+              entities.messageId && entities.messageSessionId
+                ? {
+                    messageId: entities.messageId,
+                    sessionId: entities.messageSessionId,
+                    partId: thoughtAttention?.part_id ?? block.id,
+                    field: 'thought',
+                    callId: block.tool_id,
+                  }
+                : undefined
+            }
+          >
+            <GroundedMessageResponse>{block.thought}</GroundedMessageResponse>
+          </TranscriptReasoning>
         ) : null}
         <ClioToolInvocation
           attention={attentionBadge}

@@ -229,6 +229,36 @@ for (const shortTranscript of [false, true]) {
     await expect
       .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
       .toBeCloseTo(middleTop, 0);
+
+    // Hold a real background refresh so both edges of the history-sync
+    // indicator are observable without depending on the network's timing.
+    const syncing = log.getByRole('status').filter({ hasText: 'Syncing history' });
+    await expect(syncing).toHaveCount(0);
+    let releaseRefresh!: () => void;
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    await page.route(
+      `**/v1/sessions/${session}/messages`,
+      async (route) => {
+        await refreshGate;
+        await route.fallback();
+      },
+      { times: 1 },
+    );
+    const beforeRefresh = await middleAnchor.evaluate((e) => e.getBoundingClientRect().top);
+    try {
+      await expect(syncing).toBeVisible({ timeout: 10_000 });
+      await expect
+        .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
+        .toBeCloseTo(beforeRefresh, 0);
+    } finally {
+      releaseRefresh();
+    }
+    await expect(syncing).toHaveCount(0);
+    await expect
+      .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
+      .toBeCloseTo(beforeRefresh, 0);
   });
 }
 
@@ -240,7 +270,11 @@ test('short technical results fit their content instead of padding to the viewpo
   await page
     .getByRole('button', { name: 'Technical details for Search EarthScope catalog' })
     .click();
-  const body = page.getByRole('region', { name: 'Scrollable result content' });
+  const dialog = page.getByRole('dialog', { name: 'Search EarthScope catalog: Technical details' });
+  const body = dialog.getByRole('region', { name: 'Scrollable result content' });
+  await expect(body).toContainText('"value": "x"');
+  await expect(body).toContainText('"value": "y"');
+  await expect(dialog).toBeVisible();
   await expect.poll(() => body.evaluate((e) => e.clientHeight)).toBeLessThan(400);
   await expect
     .poll(() => body.evaluate((e) => Math.abs(e.scrollHeight - e.clientHeight)))
@@ -259,27 +293,31 @@ for (const size of [
     await page
       .getByRole('button', { name: 'Technical details for Search EarthScope catalog' })
       .click();
-    const dialog = page.getByRole('dialog');
+    const dialog = page.getByRole('dialog', {
+      name: 'Search EarthScope catalog: Technical details',
+    });
     const body = dialog.getByRole('region', { name: 'Scrollable result content' });
     await expect(body).toBeVisible();
     // Lazy syntax highlighting replaces its bounded fallback. Exercise keyboard
     // scrolling against the loaded panes, not during that geometry transition.
-    await expect(dialog.locator('[data-slot="code-block-scroll"]')).toHaveCount(2);
-    const input = dialog.getByRole('heading', { name: 'Arguments' }).locator('..');
+    await expect(body.locator('[data-slot="code-block-scroll"]')).toHaveCount(2);
+    const input = body.getByRole('heading', { name: 'Arguments' }).locator('..');
     await expect.poll(() => input.evaluate((e) => e.clientHeight >= e.scrollHeight)).toBe(true);
     await expect.poll(() => body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
     await body.focus();
     await expect(body).toBeFocused();
     await body.press('Control+End');
     await expect.poll(() => body.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
-    await expect(dialog.getByRole('heading', { name: 'Result' })).toBeAttached();
-    await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
-    await expect
-      .poll(() => dialog.evaluate((e) => e.getBoundingClientRect().bottom <= innerHeight))
-      .toBe(true);
+    await expect(body.getByRole('heading', { name: 'Result' })).toBeAttached();
+    await expect(body).toContainText('Row 49');
+    await expect(dialog).toBeVisible();
+    await expect.poll(() => body.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+    const trigger = page.getByRole('button', {
+      name: 'Technical details for Search EarthScope catalog',
+    });
     await page.keyboard.press('Escape');
-    await expect(
-      page.getByRole('button', { name: 'Technical details for Search EarthScope catalog' }),
-    ).toBeFocused();
+    await expect(body).toHaveCount(0);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(trigger).toBeFocused();
   });
 }

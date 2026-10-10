@@ -32,6 +32,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { AgentServicesOverview } from './agent-services-overview';
+import { Link } from 'react-router-dom';
 import {
   ManagedServiceCard,
   type ServiceAction,
@@ -59,7 +60,6 @@ import {
   targetMatchesHost,
   waitForOperation,
 } from './managed-service-target-utils';
-import { ManagedServiceHostFacts } from './managed-service-host-facts';
 import { ManagedServiceInventory } from './managed-service-inventory';
 
 type Target = ManagedTargetKind;
@@ -692,7 +692,11 @@ export function ManagedServices({
             </Field>
           ) : null}
 
-          {catalog.data ? <ManagedServiceHostFacts facts={catalog.data.facts} /> : null}
+          {catalog.data ? (
+            <Button asChild variant="link" className="h-auto px-0 py-2">
+              <Link to="/infrastructure/overview">View computer capabilities in Overview</Link>
+            </Button>
+          ) : null}
           <RefreshButton
             label="Inspect again"
             refreshing={catalog.isFetching}

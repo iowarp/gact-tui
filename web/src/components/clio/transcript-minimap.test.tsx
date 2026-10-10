@@ -95,6 +95,7 @@ describe('ClioTranscriptMinimap', () => {
     expect(
       screen.queryByRole('region', { name: 'user message 1 preview' }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Transcript outline' })).not.toBeInTheDocument();
   });
 
   // This case also runs alone during focused review, so allow the cold markdown chunk to load.

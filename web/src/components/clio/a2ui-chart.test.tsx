@@ -51,6 +51,7 @@ import { CHART_SELECTION_WRITE_DEBOUNCE_MS } from './chart-selection';
 import type { ChartRow } from './chart-data';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { escapeHtml, formatChartTooltip, refusingLoader } from './chart-embed';
+import { mapCategoryColors } from './map-category-palette';
 import { SelectionActionsProvider } from './selection-actions';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
 import type { ComposerAnnotation } from '@/lib/composer-annotations';
@@ -102,6 +103,62 @@ afterEach(() => {
 });
 
 describe('ClioChart', () => {
+  it('draws the same category colours as map subsets, including after the source changes', async () => {
+    const source = [
+      { t: 0, v: 2, region: 'Downtown' },
+      { t: 1, v: 4, region: 'Hill' },
+    ];
+    const definition = {
+      mark: 'point',
+      encoding: {
+        x: { field: 't', type: 'quantitative' },
+        y: { field: 'v', type: 'quantitative' },
+        color: { field: 'region', type: 'nominal' },
+      },
+    };
+    const chart = (data: typeof source) =>
+      wrap(<ClioChart componentId="categories" data={data} spec={definition} />);
+    const { rerender } = render(chart(source));
+    const first = await embeddedView();
+    const hill = first.scale('color')('Hill');
+    expect(hill).toBe(mapCategoryColors([{ category: 'Hill' }]).get('Hill'));
+    expect(first.scale('color')('Downtown')).toBe(
+      mapCategoryColors([{ category: 'Downtown' }]).get('Downtown'),
+    );
+    rerender(
+      chart([
+        { t: 2, v: 8, region: 'Hill' },
+        { t: 3, v: 9, region: 'A new region' },
+      ]),
+    );
+    await waitFor(() => expect(embedded.views.at(-1)).not.toBe(first));
+    expect(embedded.views.at(-1)!.scale('color')('Hill')).toBe(hill);
+  });
+
+  it('uses readable theme defaults while retaining a deliberate authored label size', async () => {
+    render(
+      wrap(
+        <ClioChart
+          componentId="guides"
+          data={ROWS}
+          spec={{
+            mark: 'point',
+            config: { axis: { labelFontSize: 17 } },
+            encoding: {
+              x: { field: 't', type: 'quantitative' },
+              y: { field: 'v', type: 'quantitative' },
+            },
+          }}
+        />,
+      ),
+    );
+    const view = await embeddedView();
+    const svg = await view.toSVG();
+    expect(svg).toContain('font-size="17px"');
+    expect(svg).toContain('#526174');
+    expect(svg).toContain('Inter');
+  });
+
   it('keeps a producer white background transparent across a live theme change', async () => {
     render(
       wrap(

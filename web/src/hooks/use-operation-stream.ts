@@ -50,7 +50,9 @@ export function useOperationStream(
   const cursor = useRef(0);
   const completed = useRef(false);
   const initialRef = useRef(initial);
-  initialRef.current = initial;
+  useEffect(() => {
+    initialRef.current = initial;
+  }, [initial]);
 
   useEffect(() => {
     if (!operationId) return;

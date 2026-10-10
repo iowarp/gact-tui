@@ -4,7 +4,7 @@ import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation
 import type { ConversationModelBoundary } from './conversation-model-boundaries';
 
 function modelLabel(model: NonNullable<ConversationModelBoundary['model']>): string {
-  return `${providerDisplayName(undefined, model.provider_id)} · ${model.model_id}`;
+  return `${providerDisplayName(undefined, model.provider_id)}, ${model.model_id}`;
 }
 
 /** The shared AI Elements checkpoint marks the beginning of each model segment. */
@@ -29,7 +29,19 @@ export function ConversationModelCheckpoint({ boundary }: { boundary: Conversati
           <ModelSelectorLogo provider={providerLogoId(boundary.model.provider_id)} />
         ) : undefined}
       </CheckpointIcon>
-      <span className="min-w-0 shrink text-xs leading-5 [overflow-wrap:anywhere]">{label}</span>
+      <span className="flex min-w-0 shrink flex-wrap items-center gap-x-2 text-xs leading-5 [overflow-wrap:anywhere]">
+        {boundary.model ? (
+          <>
+            <span>
+              {boundary.previous ? 'Switched to' : 'Using'}{' '}
+              {providerDisplayName(undefined, boundary.model.provider_id)}
+            </span>{' '}
+            <span className="border-l border-border pl-2">{boundary.model.model_id}</span>
+          </>
+        ) : (
+          label
+        )}
+      </span>
     </Checkpoint>
   );
 }

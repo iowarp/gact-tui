@@ -1,3 +1,4 @@
+import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import type {
   AgentBlueprint,
   Artifact as ArtifactEntity,
@@ -148,7 +149,7 @@ export function WorkbenchTabContent({
             onReplaceTab(tab.id, {
               id: `artifact:${artifact.id}`,
               kind: 'artifact',
-              label: artifact.name,
+              label: artifactDisplayName(artifact),
               artifact,
               workspaceId: artifact.workspace_id ?? workspaceId,
             })
@@ -255,7 +256,7 @@ export function WorkbenchTabContent({
               onOpenTab({
                 id: `artifact:${artifact.id}`,
                 kind: 'artifact',
-                label: artifact.name,
+                label: artifactDisplayName(artifact),
                 artifact,
                 workspaceId: artifact.workspace_id ?? tab.workspaceId,
               })
@@ -290,7 +291,7 @@ export function WorkbenchTabContent({
             onOpenTab({
               id: `artifact:${artifact.id}`,
               kind: 'artifact',
-              label: artifact.name,
+              label: artifactDisplayName(artifact),
               artifact,
               workspaceId: artifact.workspace_id ?? tab.workspaceId,
             })

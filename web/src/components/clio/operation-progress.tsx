@@ -16,7 +16,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useOperationStream } from '@/hooks/use-operation-stream';
 import { cn } from '@/lib/utils';
 import { formatElapsed } from './deploy-progress-model';
-import { useNow } from './deploy-progress';
+import { useNow } from '@/hooks/use-now';
 import { InstallExpectation, type InstallEstimate } from './install-expectation';
 import { OperationLogTerminal } from './operation-log-terminal';
 import {
