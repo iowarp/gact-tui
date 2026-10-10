@@ -30,6 +30,7 @@ import {
 import { SettingsProviderOptions } from './settings-provider-options';
 import { SettingsResponseSettings } from './settings-response-settings';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { SettingsWorkingContext } from './settings-working-context';
 
 /**
  * Settings > Models: the model new work starts with, as ONE card with Change
@@ -194,6 +195,16 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
             parameters={catalogModel?.accepted_parameters}
             saving={save.isPending}
             settings={values.settings}
+          />
+        </FramePanel>
+      ) : null}
+      {providerId && catalogModel?.context_controls ? (
+        <FramePanel className="py-3">
+          <SettingsWorkingContext
+            key={`${providerId}:${catalogModel.model_id}`}
+            modelId={catalogModel.model_id}
+            providerId={providerId}
+            seed={catalogModel.context_controls}
           />
         </FramePanel>
       ) : null}

@@ -65,7 +65,14 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
             Add whole blocks to the attention set, including collapsed activity.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="min-h-0 flex-1 max-h-[55dvh]">
+        <ScrollArea
+          className="min-h-0 flex-1 overflow-hidden"
+          // Radix wraps the list in display:table, which grows to the widest
+          // unbroken preview (tool JSON, paths) and pushes labels out of view.
+          // The viewport carries the height bound: a size-full viewport inside
+          // an auto-height root never scrolls, and long lists slid under Done.
+          viewportProps={{ className: '[&>div]:!block max-h-[55dvh]' }}
+        >
           <div className="space-y-1 pr-3">
             {rows.map((row) => {
               const key = JSON.stringify(row.reference);
@@ -88,7 +95,7 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
                   <Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{row.label}</p>
-                    <p className="line-clamp-2 break-words text-xs text-muted-foreground">
+                    <p className="line-clamp-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">
                       {row.preview || 'Recorded content reference'}
                     </p>
                   </div>
@@ -126,7 +133,7 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
             ) : null}
           </div>
         </ScrollArea>
-        <div className="flex justify-between gap-2">
+        <div className="flex shrink-0 justify-between gap-2">
           {content.hasNextPage ? (
             <Button
               variant="outline"

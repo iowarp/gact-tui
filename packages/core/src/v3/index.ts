@@ -17,6 +17,7 @@ export * from './agent-domain.js';
 export * from './document-domain.js';
 export * from './execution-provenance-domain.js';
 export * from './infrastructure-domain.js';
+export * from './context-sizing-contract.js';
 export * from './infrastructure-contract.js';
 export * from './storage-contract.js';
 export * from './infrastructure-repository.js';

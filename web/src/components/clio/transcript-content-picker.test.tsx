@@ -111,3 +111,39 @@ it('explains unavailable image coordinates and does not claim a rejected selecti
   await user.click(screen.getByRole('button', { name: /^Add$/ }));
   expect(screen.queryByRole('button', { name: 'Added' })).not.toBeInTheDocument();
 });
+
+it('scrolls a long block list inside the dialog and keeps Done outside it, closing the dialog', async () => {
+  const user = userEvent.setup();
+  const rows = Array.from({ length: 30 }, (_, index) => ({
+    ...row,
+    reference: { ...row.reference, part_id: `result-${index}` },
+  }));
+  mocks.content.mockResolvedValue({ items: rows, next_cursor: null });
+  const registry = createSelectionActionRegistry();
+  registry.register({
+    id: 'attention-set',
+    label: 'Add to attention set',
+    icon: LayersIcon,
+    order: 1,
+    kinds: ['transcript-content'],
+    run: vi.fn(),
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <SelectionActionsContext.Provider value={registry}>
+        <TranscriptContentPicker sessionId="s" messageId="m" />
+      </SelectionActionsContext.Provider>
+    </QueryClientProvider>,
+  );
+  await user.click(screen.getByRole('button', { name: 'Select content for attention' }));
+  expect(await screen.findAllByRole('button', { name: /^Add$/ })).toHaveLength(30);
+  const dialog = screen.getByRole('dialog');
+  const viewport = dialog.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+  // The viewport, not the auto-height root, carries the bound, so it scrolls.
+  expect(viewport?.className).toContain('max-h-[55dvh]');
+  const done = screen.getByRole('button', { name: 'Done' });
+  expect(viewport?.contains(done)).toBe(false);
+  await user.click(done);
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+});

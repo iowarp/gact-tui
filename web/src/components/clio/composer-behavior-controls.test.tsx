@@ -140,6 +140,7 @@ describe('ClioComposerBehaviorControls SPOTTER availability', () => {
           reason: 'spotter_watcher_provenance_unavailable',
           message: 'SPOTTER surveillance was not armed: no provenance store to read.',
           remedy: 'enable an agentic provenance provider (provenance.agentic.providers: [jsonl])',
+          verified: '',
         }}
       />,
     );
