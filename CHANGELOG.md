@@ -8,6 +8,10 @@ UI aren't tracked.
 
 ### Fixed
 
+- Windows installation explicitly requests backend protected execution setup,
+  allowing a visible one-time administrator approval when the backend needs the
+  legacy sandbox. Ordinary startup does not request account creation. Managed
+  package progress uses explicit UTF-8 and unbuffered Python flags in isolation.
 - Local deployment displays the startup stage, elapsed time and package output
   with expandable details. Package setup has its own bounded wait before service
   readiness; an unresponsive Desktop command surfaces a retryable error.
