@@ -25,11 +25,10 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   const message = page.locator('#message-msg_flat_assistant');
   const activity = message.getByRole('button', { name: /^Activity:/ });
   await expect(activity).toHaveAttribute('aria-expanded', 'false');
-  const thinking = message.getByRole('button', { name: /^(?:Thinking|Reasoning):/u });
-  await expect(thinking).toBeVisible();
-  await expect(thinking).toHaveAttribute('aria-expanded', 'false');
-  await expect(thinking).not.toContainText('Thinking');
-  await expect(thinking.locator('svg.animate-spin')).toHaveCount(1);
+  const thinking = message.locator('[data-slot="transcript-reasoning-text"]');
+  await expect(thinking).toHaveCount(0);
+  await expect(message.getByRole('button', { name: /^(?:Thinking|Reasoning):/u })).toHaveCount(0);
+  await expect(activity.locator('svg.animate-spin')).toHaveCount(1);
   await expect(
     message
       .locator('p')
@@ -37,26 +36,42 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   ).toHaveCount(1);
   await expect(message.getByRole('group', { name: 'Activity detail' })).toHaveCount(0);
   await activity.click();
+  await expect(thinking).toBeVisible();
   await page.request.post(`${endpoint}/__test/transcript-activity`, { data: { phase: 'answer' } });
+  const persisted = await (
+    await page.request.get(`${endpoint}/v1/sessions/sess_flat_ndp/messages`)
+  ).json();
+  expect(
+    persisted.messages.some(
+      (entry: { id: string; completed_at?: string }) =>
+        entry.id === 'msg_flat_assistant' && entry.completed_at,
+    ),
+  ).toBe(true);
   // Completion changes virtualized row heights. Keep the current message
   // mounted before inspecting its content; this does not toggle the activity.
+  let completedMeasurements = 0;
   await expect
     .poll(async () => {
       await page
         .getByRole('log', { name: 'Conversation' })
         .evaluate((node) => node.scrollTo({ top: node.scrollHeight, behavior: 'instant' }));
-      return activity.isVisible();
+      const completed = await message.evaluateAll((nodes) =>
+        nodes.some(
+          (node) =>
+            node.querySelector('button[aria-label^="Activity:"]')?.getAttribute('aria-expanded') ===
+              'true' &&
+            node
+              .querySelector('[data-slot="message-completion-footer"]')
+              ?.textContent?.includes('Done'),
+        ),
+      );
+      completedMeasurements = completed ? completedMeasurements + 1 : 0;
+      return completedMeasurements;
     })
-    .toBe(true);
+    .toBeGreaterThanOrEqual(3);
   await expect(activity).toHaveAttribute('aria-expanded', 'true');
   await expect(activity).not.toContainText(/\d+ tools|·/u);
-  await expect(thinking).toHaveAttribute('aria-expanded', 'false');
-  const persisted = await (
-    await page.request.get(`${endpoint}/v1/sessions/sess_flat_ndp/messages`)
-  ).json();
-  expect(
-    persisted.messages.some((entry: { id: string }) => entry.id === 'msg_flat_assistant'),
-  ).toBe(true);
+  await expect(thinking).toBeVisible();
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     // Let virtualized row measurements settle before measuring the actual click.
@@ -103,7 +118,11 @@ test('renders reader-controlled causal entries and a truthful completion footer 
       contentType: 'application/json',
     });
     expect(Math.abs((await activity.boundingBox())!.y - before!.y)).toBeLessThanOrEqual(2);
-    await expect(message.getByRole('button', { name: /^Reasoning:/ })).toHaveCount(1);
+    await expect(message.getByRole('button', { name: /^Reasoning:/ })).toHaveCount(0);
+    await expect(thinking).toBeVisible();
+    expect((await thinking.boundingBox())!.y).toBeLessThan(
+      (await message.getByRole('button', { name: 'Technical details for Read' }).boundingBox())!.y,
+    );
     const read = message.getByRole('button', { name: 'Technical details for Read' });
     const run = message.getByRole('button', { name: 'Technical details for Run' });
     await expect(read).toContainText('61 lines');
