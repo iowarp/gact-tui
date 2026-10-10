@@ -17,7 +17,8 @@ import { useOperationStream } from '@/hooks/use-operation-stream';
 import { cn } from '@/lib/utils';
 import { formatElapsed } from './deploy-progress-model';
 import { useNow } from '@/hooks/use-now';
-import { InstallExpectation, type InstallEstimate } from './install-expectation';
+import { InstallExpectation } from './install-expectation';
+import type { InstallEstimate } from './install-expectation-model';
 import { OperationLogTerminal } from './operation-log-terminal';
 import {
   operationElapsedSeconds,
