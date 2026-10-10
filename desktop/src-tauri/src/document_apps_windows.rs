@@ -126,7 +126,8 @@ pub(super) fn open_in(id: &str, path: &Path, extension: &str) -> Result<(), Stri
         .find(|(app, _)| app.id == id)
         .map(|(_, handler)| handler)
         .ok_or("This app is no longer associated with this file type.")?;
-    let filename = HSTRING::from(path.as_os_str());
+    let shell_path = crate::file_reveal::shell_path(path);
+    let filename = HSTRING::from(shell_path.as_os_str());
     unsafe {
         let item: IShellItem = SHCreateItemFromParsingName(&filename, None)
             .map_err(|error| format!("Prepare file for its Windows handler: {error}"))?;

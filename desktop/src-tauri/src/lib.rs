@@ -13,8 +13,10 @@ mod clio_core_registry;
 mod commands;
 mod credentials;
 mod document_apps;
+mod document_path;
 mod downloads;
 mod execution_install;
+mod file_reveal;
 mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
@@ -194,6 +196,7 @@ pub fn run() {
             commands::open_document_path,
             document_apps::document_applications,
             document_apps::open_file_bytes,
+            document_apps::reveal_file_bytes,
             ssh_transport::ssh_transport_open,
             remote_lifecycle::desktop_deployment_owner,
             ssh_transport::ssh_transport_status,

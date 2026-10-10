@@ -5,12 +5,14 @@ import { showsBaseAgent } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { ClioSessionActions } from './session-actions';
 import { ClioDownloadsButton } from './downloads-button';
+import type { ClioSessionActionsProps } from './session-actions';
 
 export interface ClioSessionContextBarProps {
   session?: Session;
   parentSession?: Session;
   activeBlueprint?: AgentBlueprintReference;
   actionsPending: boolean;
+  management?: ClioSessionActionsProps['management'];
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
   onOpenBlueprint: (blueprint: AgentBlueprintReference) => void;
@@ -27,6 +29,7 @@ export function ClioSessionContextBar({
   parentSession,
   activeBlueprint,
   actionsPending,
+  management,
   onCompact,
   onFork,
   onOpenBlueprint,
@@ -89,6 +92,7 @@ export function ClioSessionContextBar({
       )}
       <ClioSessionActions
         disabled={!session || actionsPending}
+        management={management}
         onCompact={onCompact}
         onFork={onFork}
         onOpenSystemTerminal={onOpenSystemTerminal}

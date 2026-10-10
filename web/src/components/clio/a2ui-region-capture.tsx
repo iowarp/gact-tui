@@ -79,7 +79,11 @@ async function labelledPng(
     [data-slot="clio-data-grid-viewport"] { overflow: hidden !important; }
   `;
   const canvas = await toCanvas(target, {
-    cacheBust: true,
+    // Reference images use immutable blob URLs. Appending a cache-busting query
+    // makes those URLs invalid, so capture must preserve their exact identity.
+    cacheBust: false,
+    includeQueryParams: true,
+    fetchRequestInit: { cache: 'no-store' },
     backgroundColor,
     fontEmbedCSS,
     filter: (node) =>
@@ -118,7 +122,9 @@ async function labelledPng(
     // Composite the actual DOM overlay above it, retaining marker colours,
     // icons, popups and labels instead of drawing approximate white dots.
     const overlay = await toCanvas(mapElement, {
-      cacheBust: true,
+      cacheBust: false,
+      includeQueryParams: true,
+      fetchRequestInit: { cache: 'no-store' },
       backgroundColor: 'transparent',
       pixelRatio,
       filter: (node) => !(node instanceof HTMLCanvasElement),

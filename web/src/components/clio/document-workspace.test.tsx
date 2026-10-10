@@ -4,7 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClioDocumentWorkspace } from './document-workspace';
 import type { Artifact } from '@clio/core/v3';
-import { documentApplications, openDocumentWorkingCopy, openFileBytes } from '@/tauri/documents';
+import {
+  documentApplications,
+  openDocumentWorkingCopy,
+  openFileBytes,
+  revealFileBytes,
+} from '@/tauri/documents';
 import { downloadBytes } from './surface-export';
 import { vocab } from '@/lib/brand-vocabulary';
 
@@ -48,6 +53,7 @@ vi.mock('@/providers/connection-provider', () => ({
 vi.mock('@/tauri/documents', () => ({
   openDocumentWorkingCopy: vi.fn().mockResolvedValue(undefined),
   openFileBytes: vi.fn().mockResolvedValue('desktop-copy'),
+  revealFileBytes: vi.fn().mockResolvedValue('desktop-copy'),
   documentApplications: vi.fn().mockResolvedValue([]),
 }));
 vi.mock('./document-pdf-viewer', () => ({
@@ -107,13 +113,13 @@ describe('ClioDocumentWorkspace', () => {
     renderWorkspace();
     await user.click(await screen.findByRole('button', { name: 'Open in' }));
     await user.click(await screen.findByRole('menuitem', { name: 'PDF Reader (default)' }));
-    expect(repository.createDocumentWorkingCopy).toHaveBeenCalledWith('new_pdf', {
-      session_id: 'sess_1',
-      provider: 'native',
-      writable: false,
-      auto_checkpoint: false,
-    });
-    expect(openDocumentWorkingCopy).toHaveBeenCalledWith('confined/evidence.pdf', 'pdf-app');
+    expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
+    expect(openDocumentWorkingCopy).not.toHaveBeenCalled();
+    expect(openFileBytes).toHaveBeenCalledWith(
+      'evidence.pdf',
+      new TextEncoder().encode('%PDF-test'),
+      'pdf-app',
+    );
     expect(await screen.findByText('Source stays here')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Open in' }));
     await user.click(screen.getByRole('menuitem', { name: 'Download PDF' }));
@@ -149,6 +155,51 @@ describe('ClioDocumentWorkspace', () => {
       'editor',
     );
     expect(repository.closeDocumentWorkingCopy).toHaveBeenCalledWith('remote_copy');
+  });
+
+  it('opens the exact original HTML in its browser without creating a server working copy', async () => {
+    const source =
+      '<h1>Raccoon</h1><script type="module">import "https://cdn.example/three.js";</script>';
+    repository.documentManifest.mockResolvedValue({
+      ...manifest,
+      name: 'raccoon.html',
+      profile: 'html-static',
+      mime_type: 'text/html',
+    });
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
+    repository.artifactReviews.mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderWorkspace({ name: 'raccoon.html', media_type: 'text/html' });
+    await user.click(await screen.findByRole('button', { name: 'Open in' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Test Editor (default)' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'raccoon.html opened in Test Editor',
+    );
+    expect(openFileBytes).toHaveBeenCalledWith(
+      'raccoon.html',
+      new TextEncoder().encode(source),
+      'editor',
+    );
+    expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
+    expect(openDocumentWorkingCopy).not.toHaveBeenCalled();
+  });
+
+  it('reveals the original HTML even when no associated apps are registered', async () => {
+    vi.mocked(documentApplications).mockResolvedValue([]);
+    const bytes = new TextEncoder().encode('<h1>Original</h1><script>active()</script>');
+    repository.documentManifest.mockResolvedValue({
+      ...manifest,
+      name: 'raccoon.html',
+      profile: 'html-static',
+    });
+    repository.documentContent.mockResolvedValue(bytes);
+    repository.artifactReviews.mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderWorkspace({ name: 'raccoon.html', media_type: 'text/html' });
+    await user.click(await screen.findByRole('button', { name: 'Open in' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Open in folder' }));
+    expect(revealFileBytes).toHaveBeenCalledWith('raccoon.html', bytes);
+    expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
 
   it('reports conversion failure without opening the original file in a PDF app', async () => {
@@ -208,7 +259,7 @@ describe('ClioDocumentWorkspace', () => {
     expect(repository.createDocumentRendition).not.toHaveBeenCalled();
   });
 
-  it('uses a read-only non-watched HTML copy for its native app', async () => {
+  it('shows a native HTML launch failure while retaining its static preview', async () => {
     repository.documentManifest.mockResolvedValue({
       ...manifest,
       name: 'cat.html',
@@ -217,21 +268,16 @@ describe('ClioDocumentWorkspace', () => {
     });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('<h1>Pedal!</h1>'));
     repository.artifactReviews.mockResolvedValue([]);
-    repository.createDocumentWorkingCopy.mockResolvedValue({
-      id: 'copy_html',
-      path: 'confined/cat.html',
-    });
+    vi.mocked(openFileBytes).mockRejectedValueOnce(
+      new Error('Open the selected app: access denied'),
+    );
     renderWorkspace({ name: 'cat.html', media_type: 'text/html' });
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Open in' }));
     await user.click(screen.getByRole('menuitem', { name: 'Test Editor (default)' }));
-    expect(repository.createDocumentWorkingCopy).toHaveBeenCalledWith('artifact_3', {
-      session_id: 'sess_1',
-      provider: 'native',
-      writable: false,
-      auto_checkpoint: false,
-    });
-    expect(await screen.findByText('cat.html opened in Test Editor.')).toBeInTheDocument();
+    expect(await screen.findByText('Open the selected app: access denied')).toBeVisible();
+    expect(screen.getByTitle('HTML preview of cat.html')).toBeVisible();
+    expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
 
   it.each(['ooxml-word', 'ooxml-slides', 'ooxml-sheet'] as const)(

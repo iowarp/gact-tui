@@ -10,7 +10,7 @@ import {
 } from './conversation-turn-model';
 import { ClioConversation } from './conversation';
 import { ClioToolInvocation } from './tool-invocation';
-import { AppearanceProvider } from '@/providers/appearance-provider';
+import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioMotionProvider } from './motion';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { TranscriptDisclosures } from './transcript-disclosures';
@@ -115,6 +115,7 @@ it.each(['codex', 'claude_code', 'vllm'])(
     expect(await screen.findAllByText('First public update.')).toHaveLength(1);
     expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
     expect(screen.queryByRole('button', { name: /^Update:/ })).not.toBeInTheDocument();
     expect(
       await screen.findByText('Recorded reasoning.', { exact: true, selector: 'p' }),
@@ -144,7 +145,10 @@ it('leaves streaming thinking collapsed and retains the reader choice after comp
     'aria-expanded',
     'true',
   );
-  expect(screen.queryByRole('button', { name: /^Thinking:/ })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
 });
 
 it('keeps reasoning-only continuations and their tools in one ordered activity block', () => {
@@ -160,13 +164,13 @@ it('keeps reasoning-only continuations and their tools in one ordered activity b
   const timeline = view.container.querySelector('[data-slot="transcript-activity-timeline"]')!;
   const ordered = Array.from(
     timeline.querySelectorAll(
-      '[data-slot="transcript-reasoning-text"],button[aria-label^="Technical details"]',
+      'button[aria-label^="Thinking:"],button[aria-label^="Technical details"]',
     ),
   ).map((node) => node.getAttribute('aria-label') ?? node.textContent);
   expect(ordered).toEqual([
-    'Private recorded one reasoning.',
+    'Thinking: Private recorded one reasoning.',
     'Technical details for Read one',
-    'Private recorded two reasoning.',
+    'Thinking: Private recorded two reasoning.',
     'Technical details for Read two',
   ]);
 });
@@ -194,6 +198,7 @@ it('retains reader choices when a virtualized row unmounts and returns', () => {
   const entry = <ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />;
   const view = render(<TranscriptDisclosures>{entry}</TranscriptDisclosures>);
   fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
   view.rerender(<TranscriptDisclosures>{null}</TranscriptDisclosures>);
   expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument();
   view.rerender(<TranscriptDisclosures>{entry}</TranscriptDisclosures>);
@@ -201,7 +206,13 @@ it('retains reader choices when a virtualized row unmounts and returns', () => {
     'aria-expanded',
     'true',
   );
-  expect(screen.getByText('Private recorded one reasoning.')).toBeVisible();
+  expect(screen.getByRole('region', { name: 'Thinking details' })).toHaveTextContent(
+    'Private recorded one reasoning.',
+  );
+  expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
   view.rerender(<TranscriptDisclosures key="another-conversation">{entry}</TranscriptDisclosures>);
   expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
     'aria-expanded',

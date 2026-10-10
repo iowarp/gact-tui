@@ -2,8 +2,10 @@ import { createContext, useContext, useEffect, useId, type ComponentType } from 
 
 export interface FileViewerAction {
   label: string;
+  /** Export formats belong beside the original file in the fixed download menu. */
+  kind?: 'download';
   icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
-  onSelect: () => void;
+  onSelect: () => void | Promise<void>;
   disabled?: boolean;
 }
 

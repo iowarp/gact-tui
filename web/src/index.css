@@ -38,6 +38,21 @@
     > [data-slot='input-group']:has([data-slot='input-group-control']:focus-visible) {
     @apply border-ring/65 bg-composer ring-2 ring-ring/15;
   }
+  /* Let scrolled content recede behind the floating composer, including its
+     bottom gutter, without fading the editor or intercepting transcript input. */
+  .clio-composer-docked {
+    isolation: isolate;
+  }
+  .clio-composer-docked::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: color-mix(in oklab, var(--background) 88%, transparent);
+    backdrop-filter: blur(4px);
+    mask-image: linear-gradient(to bottom, transparent, black 24px);
+  }
   /* The maximized canvas is at 80. Portalled controls and dialogs must remain
      above it, including controls opened from a dialog or a mobile canvas sheet. */
   [data-slot='dialog-overlay'][data-state],

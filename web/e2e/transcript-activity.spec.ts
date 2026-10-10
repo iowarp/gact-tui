@@ -37,8 +37,12 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   await expect(message.getByRole('group', { name: 'Activity detail' })).toHaveCount(0);
   await expect(message.locator('[data-slot="message-completion-footer"]')).toHaveCount(0);
   await activity.click();
+  const thinkingRow = message.getByRole('button', { name: /^Thinking:/ });
+  await expect(thinkingRow).toHaveAttribute('aria-expanded', 'false');
+  await expect(thinking).toHaveCount(0);
+  await thinkingRow.click();
   await expect(thinking).toBeVisible();
-  const reasoning = message.getByRole('complementary', { name: 'Reasoning' });
+  const reasoning = message.locator('[data-slot="transcript-reasoning"]');
   await expect(reasoning).toHaveCount(1);
   await expect(reasoning).toHaveAttribute('aria-busy', 'true');
   await expect(reasoning.locator('[data-slot="transcript-reasoning-text"]')).toHaveCount(1);
@@ -124,6 +128,7 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     });
     expect(Math.abs((await activity.boundingBox())!.y - before!.y)).toBeLessThanOrEqual(2);
     await expect(message.getByRole('button', { name: /^Reasoning:/ })).toHaveCount(0);
+    await expect(thinkingRow).toHaveAttribute('aria-expanded', 'true');
     await expect(thinking).toBeVisible();
     await expect(reasoning).not.toHaveAttribute('aria-busy');
     await expect(reasoning).toContainText('Read the fixture notes before preparing the report.');

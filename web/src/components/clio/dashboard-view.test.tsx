@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardReport } from '@clio/core/v3';
@@ -13,6 +13,7 @@ import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { DashboardResourceView, DashboardView } from './dashboard-view';
 import { toast } from 'sonner';
 import { ChartLineIcon } from 'lucide-react';
+import { FileViewerShell } from './file-viewer-shell';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
@@ -24,8 +25,13 @@ const repository = vi.hoisted(() => ({
   prepareDashboardExport: vi.fn(),
   prepareDashboardImageExport: vi.fn(),
   reportA2uiViewer: vi.fn(),
+  readWorkspaceFileBytes: vi.fn(),
 }));
-const downloads = vi.hoisted(() => ({ downloadUrl: vi.fn(), downloadBlob: vi.fn() }));
+const downloads = vi.hoisted(() => ({
+  downloadUrl: vi.fn(),
+  downloadBlob: vi.fn(),
+  downloadBytes: vi.fn(),
+}));
 const capture = vi.hoisted(() => vi.fn());
 vi.mock('./a2ui-region-capture', async (original) => ({
   ...(await original<typeof import('./a2ui-region-capture')>()),
@@ -96,6 +102,16 @@ const report: DashboardReport = {
 };
 
 beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+    width: 200,
+    height: 100,
+    x: 0,
+    y: 0,
+    top: 0,
+    right: 200,
+    bottom: 100,
+    left: 0,
+  } as DOMRect);
   repository.reportA2uiViewer.mockResolvedValue([]);
   repository.a2uiCatalogs.mockResolvedValue({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
   repository.a2uiCapabilities.mockResolvedValue({
@@ -132,6 +148,102 @@ function show(offline = false, savedReport = report) {
 }
 
 describe('authored dashboard', () => {
+  it.each(['info', 'warning', 'critical'])(
+    'reports an authored %s callout as rendered content',
+    async (severity) => {
+      const savedReport = structuredClone(report);
+      savedReport.surface.messages[1] = {
+        version: 'v0.9.1',
+        updateComponents: {
+          surfaceId,
+          components: [
+            {
+              id: 'root',
+              component: 'clio.callout.v1',
+              severity,
+              title: 'Verification notes',
+              body: 'Created does not mean fully tested.',
+            },
+          ],
+        },
+      };
+      show(false, savedReport);
+      expect(await screen.findByRole('alert')).toHaveTextContent('Verification notes');
+      await waitFor(() => expect(repository.reportA2uiViewer).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(repository.reportA2uiViewer.mock.calls.at(-1)![1].ready).toBe(true),
+      );
+      expect(repository.reportA2uiViewer.mock.calls.at(-1)![1].state.readiness.detail).toBe('');
+    },
+  );
+  it('offers PNG, bundled HTML and original JSON from the fixed file download button', async () => {
+    capture.mockResolvedValue(new Blob(['pixels'], { type: 'image/png' }));
+    repository.prepareDashboardImageExport.mockResolvedValue({
+      download_path: '/png',
+      filename: 'design.png',
+    });
+    repository.captureDashboard.mockResolvedValue({
+      sessions: {},
+      responses: {},
+      tables: {},
+      failures: [],
+    });
+    repository.prepareDashboardExport.mockResolvedValue({
+      download_path: '/html',
+      filename: 'design.html',
+    });
+    const original = new TextEncoder().encode(JSON.stringify(report));
+    repository.readWorkspaceFileBytes.mockResolvedValue(original);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <A2uiSessionRegistryOwner sessionId={report.session_id}>
+          <FileViewerShell
+            source={{
+              kind: 'workspace',
+              workspaceId: 'ws',
+              path: 'design.dashboard.json',
+              mediaType: 'application/json',
+            }}
+            tabs={[
+              {
+                value: 'preview',
+                label: 'Preview',
+                icon: ChartLineIcon,
+                content: (
+                  <DashboardResourceView
+                    content={JSON.stringify(report)}
+                    artifactId="artifact_dashboard"
+                  />
+                ),
+              },
+            ]}
+          />
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    const toolbar = document.querySelector('[data-slot="viewer-toolbar"]') as HTMLElement;
+    for (const label of [
+      'PNG image (displayed view)',
+      'HTML dashboard (all tabs and data)',
+      'Original file',
+    ]) {
+      await user.click(within(toolbar).getByRole('button', { name: 'Download file' }));
+      await user.click(await screen.findByRole('menuitem', { name: label }));
+      await waitFor(() =>
+        expect(within(toolbar).getByRole('button', { name: 'Download file' })).toBeEnabled(),
+      );
+    }
+    expect(repository.prepareDashboardImageExport).toHaveBeenCalledOnce();
+    expect(repository.prepareDashboardExport).toHaveBeenCalledOnce();
+    expect(repository.captureDashboard).toHaveBeenCalledWith(report.session_id, [report.surface]);
+    expect(downloads.downloadBytes).toHaveBeenCalledWith(
+      original,
+      'application/json',
+      'design.dashboard.json',
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
   it('prepares displayed PNG pixels through the same download door as HTML', async () => {
     capture.mockResolvedValue(new Blob(['pixels'], { type: 'image/png' }));
     repository.prepareDashboardImageExport.mockResolvedValue({

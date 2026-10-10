@@ -1,6 +1,7 @@
 import type { AttentionAvailable, AttentionRun } from '@clio/core/v3';
 import { bucketIntensity, findRunInRenderedText, projectText } from './attention-text';
 import type { ResolvedAttentionBlock } from './attention-highlight-sources';
+import { transcriptSourceStart } from './transcript-content-selection';
 
 /** One heat run reduced to its intensity bucket, before merging adjacents. */
 interface BucketedRun {
@@ -96,6 +97,25 @@ export interface AttentionHighlightRanges {
   heat: Range[][];
 }
 
+function findRenderedRun(
+  element: Element,
+  sourceText: string,
+  lo: number,
+  hi: number,
+  domProjection: ReturnType<typeof projectText>,
+  searchFrom = 0,
+) {
+  const sourceStart = transcriptSourceStart(element);
+  const prefixLength = [...sourceText.slice(0, sourceStart)].length;
+  return findRunInRenderedText(
+    sourceText.slice(sourceStart),
+    Math.max(0, lo - prefixLength),
+    hi - prefixLength,
+    domProjection,
+    searchFrom,
+  );
+}
+
 /**
  * Builds the `Range`s for every resolved attention block currently mounted in
  * `container`. A block whose element is not in the DOM (virtualized away, or
@@ -116,7 +136,7 @@ export function buildAttentionHighlightRanges(
     if (!domProjection.text) continue;
     let searchFrom = 0;
     for (const run of mergeRunsByBucket(block.runs, maxValue, levels)) {
-      const found = findRunInRenderedText(sourceText, run.lo, run.hi, domProjection, searchFrom);
+      const found = findRenderedRun(element, sourceText, run.lo, run.hi, domProjection, searchFrom);
       if (!found) continue;
       searchFrom = found.projectedEnd;
       const range = rangeFromTextOffsets(element, found.domLo, found.domHi);
@@ -143,6 +163,6 @@ export function buildSelectedRange(
   const element = findPartElement(container, data.message_id, partId, field);
   if (!element) return undefined;
   const domProjection = projectText(element.textContent ?? '', { source: false });
-  const found = findRunInRenderedText(sourceText, start, end, domProjection);
+  const found = findRenderedRun(element, sourceText, start, end, domProjection);
   return found ? rangeFromTextOffsets(element, found.domLo, found.domHi) : undefined;
 }
