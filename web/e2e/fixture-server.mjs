@@ -1712,6 +1712,9 @@ const server = createServer(async (request, response) => {
     };
     transcriptActivityMessages = [transcriptActivityMessages[0], assistantMessage];
     publish('message.upserted', assistantMessage);
+    session.state = phase === 'answer' ? 'completed' : 'running';
+    session.updated_at = new Date().toISOString();
+    publish('session.upserted', session);
     sendJson(response, { status: phase }, 202);
     return;
   }

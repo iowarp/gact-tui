@@ -82,6 +82,7 @@ export interface ConversationTurnPresentation {
 
 export type ConversationTurnSegment =
   | { kind: 'iterations'; iterations: ConversationIteration[] }
+  | { kind: 'feedback'; message: Message }
   | { kind: 'block'; block: MessageBlock };
 
 /** Build one lossless turn view from the canonical ordered transcript parts. */
@@ -89,11 +90,13 @@ export function conversationTurnPresentation(
   message: Message,
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task> = {},
+  feedback: readonly Message[] = [],
 ): ConversationTurnPresentation {
   const { iterations, compactionRecords, consumed, segments } = fallbackIterations(
     message,
     tools,
     tasks,
+    feedback,
   );
   return {
     iterations,
@@ -107,6 +110,7 @@ function fallbackIterations(
   message: Message,
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task>,
+  feedback: readonly Message[],
 ): {
   iterations: ConversationIteration[];
   compactionRecords: ConversationTurnCompactionRecord[];
@@ -149,7 +153,19 @@ function fallbackIterations(
     current = emptyIteration(message, iterations.length);
   };
 
+  const insertFeedback = (afterPartId: string) => {
+    for (const row of feedback) {
+      const delivery = row.metadata?.steer_delivery as { after_part_id?: string } | undefined;
+      if (delivery?.after_part_id !== afterPartId) continue;
+      flush();
+      segments.push({ kind: 'feedback', message: row });
+      consumed.add(row.id);
+    }
+  };
+  let previousPartId = '';
   for (const { block } of ordered) {
+    insertFeedback(previousPartId);
+    previousPartId = block.id;
     // Transport-only instructions have no visible boundary to split.
     if (block.type === 'injection' && (block.source === 'tool_use' || block.variants_id)) continue;
     if (
@@ -287,6 +303,7 @@ function fallbackIterations(
     );
     segments.push({ kind: 'block', block });
   }
+  insertFeedback(previousPartId);
   flush(
     messageCompletedNormally(message) && !current.activity.some((entry) => entry.kind === 'tool'),
     messageInterrupted(message),

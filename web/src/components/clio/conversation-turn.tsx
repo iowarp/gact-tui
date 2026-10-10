@@ -33,7 +33,7 @@ import { workflowDescriptor } from './workflow-tool-presentation';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { transcriptActivitySummary } from './transcript-activity-summary';
-import { TranscriptIterationText } from './transcript-iteration-text';
+import { IterationReasoningText, TranscriptIterationText } from './transcript-iteration-text';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { HarnessInjection } from './conversation-harness-injection';
 
@@ -222,14 +222,22 @@ export function ConversationTurn({
     );
   }
 
+  // Public updates are visible boundaries. Reasoning alone continues the same
+  // activity block, rather than inserting a separate brain row between groups.
+  const groups: ConversationIteration[][] = [];
+  for (const iteration of iterations) {
+    if (iteration.nextThoughts.length || groups.length === 0) groups.push([iteration]);
+    else groups[groups.length - 1].push(iteration);
+  }
   return (
     <div className="space-y-4" data-slot="transcript-entry-sequence">
-      {iterations.map((iteration) => {
-        const summary = transcriptActivitySummary([iteration]);
+      {groups.map((group) => {
+        const iteration = group[0];
+        const summary = transcriptActivitySummary(group);
         return (
           <Fragment key={iteration.id}>
-            <TranscriptIterationText iteration={iteration} />
-            {iteration.activity.length || iteration.interrupted ? (
+            <TranscriptIterationText iteration={iteration} showReasoning={false} />
+            {group.some((item) => item.activity.length || item.interrupted) ? (
               <ActivityChain id={iteration.id}>
                 <ChainOfThoughtHeader
                   aria-label={`Activity: ${summary.label}`}
@@ -249,25 +257,31 @@ export function ConversationTurn({
                   className="ml-1 mt-1 space-y-1 border-l pl-3"
                   data-slot="transcript-activity-timeline"
                 >
-                  <IterationDetail
-                    compact
-                    showText={false}
-                    iteration={iteration}
-                    key={iteration.id}
-                    onOpenSubagent={onOpenSubagent}
-                    subagents={subagents}
-                    interactions={interactions}
-                    activeMcpAppId={activeMcpAppId}
-                    mcpAppRepository={mcpAppRepository}
-                    messageSessionId={messageSessionId}
-                    artifacts={artifacts}
-                    onInteractionResponse={onInteractionResponse}
-                    onOpenArtifact={onOpenArtifact}
-                    messageAttentionIndex={messageAttentionIndex}
-                  />
+                  {group.map((item) => (
+                    <Fragment key={item.id}>
+                      <IterationReasoningText iteration={item} />
+                      <IterationDetail
+                        compact
+                        showText={false}
+                        iteration={item}
+                        onOpenSubagent={onOpenSubagent}
+                        subagents={subagents}
+                        interactions={interactions}
+                        activeMcpAppId={activeMcpAppId}
+                        mcpAppRepository={mcpAppRepository}
+                        messageSessionId={messageSessionId}
+                        artifacts={artifacts}
+                        onInteractionResponse={onInteractionResponse}
+                        onOpenArtifact={onOpenArtifact}
+                        messageAttentionIndex={messageAttentionIndex}
+                      />
+                    </Fragment>
+                  ))}
                 </ChainOfThoughtContent>
               </ActivityChain>
-            ) : null}
+            ) : (
+              group.map((item) => <IterationReasoningText key={item.id} iteration={item} />)
+            )}
           </Fragment>
         );
       })}
