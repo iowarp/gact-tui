@@ -8,6 +8,10 @@ UI aren't tracked.
 
 ### Fixed
 
+- Windows runtime installation overlaps decompression with four bounded file
+  writers and creates each directory once. Verified packs still stage before
+  activation; failed extraction keeps the previous runtime. Invalid paths,
+  links, duplicate files and mismatched file counts are rejected.
 - Tool-scoped harness feedback, including saved large results, path suggestions
   and repeated-failure warnings, stays inside the recorded activity chain.
   Exact agent-visible text remains available without duplicating the notice
