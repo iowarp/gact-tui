@@ -1,6 +1,15 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SidebarContent, SidebarFooter, SidebarHeader, SidebarProvider } from './sidebar';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarProvider,
+  SidebarMenuButton,
+  useSidebar,
+} from './sidebar';
+import { TooltipProvider } from './tooltip';
 
 afterEach(cleanup);
 
@@ -31,5 +40,71 @@ describe('sidebar vertical layout', () => {
       'flex-1',
       'overflow-y-auto',
     );
+  });
+});
+
+function SidebarState() {
+  const { open, state } = useSidebar();
+  return <button>{`${open ? 'pinned' : 'unpinned'} ${state}`}</button>;
+}
+
+function SidebarMenuState() {
+  const { state } = useSidebar();
+  return <SidebarMenuButton tooltip="Navigation">{state}</SidebarMenuButton>;
+}
+
+describe('collapsed navigation preview', () => {
+  it('expands on pointer hover without changing the pinned state', () => {
+    const { container } = render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarState />
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    expect(sidebar).toHaveAttribute('data-preview', 'true');
+    expect(screen.getByRole('button')).toHaveTextContent('unpinned expanded');
+    fireEvent.pointerLeave(sidebar);
+    expect(screen.getByRole('button')).toHaveTextContent('unpinned collapsed');
+  });
+
+  it('keeps the preview while a control has focus and dismisses with Escape', () => {
+    const { container } = render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarState />
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    fireEvent.focus(screen.getByRole('button'));
+    fireEvent.pointerLeave(sidebar);
+    expect(sidebar).toHaveAttribute('data-preview', 'true');
+    fireEvent.keyDown(screen.getByRole('button'), { key: 'Escape' });
+    expect(sidebar).not.toHaveAttribute('data-preview');
+    expect(sidebar).toHaveFocus();
+    expect(screen.getByRole('button')).toHaveTextContent('unpinned collapsed');
+  });
+
+  it('preserves the focused menu control when preview styling replaces icon styling', () => {
+    render(
+      <TooltipProvider>
+        <SidebarProvider defaultOpen={false}>
+          <Sidebar contained collapsible="icon">
+            <SidebarMenuState />
+          </Sidebar>
+        </SidebarProvider>
+      </TooltipProvider>,
+    );
+    const button = screen.getByRole('button');
+    act(() => button.focus());
+    expect(screen.getByRole('button')).toBe(button);
+    expect(button).toHaveFocus();
+    expect(button).toHaveTextContent('expanded');
+    expect(button.isConnected).toBe(true);
+    fireEvent.keyDown(button, { key: 'Escape' });
+    expect(button).toHaveTextContent('collapsed');
   });
 });
