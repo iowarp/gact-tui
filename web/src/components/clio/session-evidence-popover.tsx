@@ -13,6 +13,7 @@ import { SessionConnectedSources, SessionWorkShowcase } from './session-showcase
 import { ClioContextMeter } from './context-meter';
 import { useShowcasePlacement } from './use-showcase-placement';
 import { cycleEvidenceLayout, type EvidenceLayout } from './evidence-layout';
+import { restoreEvidenceFocus } from './evidence-focus';
 import { SessionEvidenceColumn } from './session-evidence-column';
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
 
@@ -114,8 +115,7 @@ export function SessionEvidencePopover({
           id={panelId}
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            if (!outsideRef.current) buttonRef.current?.focus();
+            restoreEvidenceFocus(event, buttonRef.current, outsideRef.current);
             outsideRef.current = false;
           }}
           onInteractOutside={(event) => {
