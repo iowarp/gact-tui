@@ -39,7 +39,7 @@ export function EvidenceSection({
           className={
             compact
               ? 'grid min-w-0 gap-0.5'
-              : 'clio-scrollbar grid min-w-0 grid-cols-1 max-h-[min(24rem,60vh)] gap-2 overflow-y-auto pr-1'
+              : 'grid min-w-0 grid-cols-1 gap-2'
           }
         >
           {children}

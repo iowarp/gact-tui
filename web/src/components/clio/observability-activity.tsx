@@ -362,6 +362,7 @@ export function ClioActivityTimeline({
   messages: readonly Message[];
 }) {
   const [zoom, setZoom] = useState(1);
+  const [agentFilter, setAgentFilter] = useState<string | null>(null);
   const rows = useMemo(
     () =>
       items
@@ -383,6 +384,10 @@ export function ClioActivityTimeline({
     [items],
   );
   const lanes = useMemo(() => causalLanes(rows), [rows]);
+  const filteredRows =
+    agentFilter && lanes.some((lane) => lane.id === agentFilter)
+      ? rows.filter((item) => causalLaneId(item) === agentFilter)
+      : rows;
   const fitZoom = Math.max(0.5, Math.min(1, 10 / Math.max(1, lanes.length)));
   const messageIds = useMemo(() => new Set(messages.map((message) => message.id)), [messages]);
   if (!rows.length) {
@@ -399,17 +404,7 @@ export function ClioActivityTimeline({
       <header className="flex items-center justify-between gap-2 border-b pb-2">
         <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
           <span>{lanes.length.toLocaleString()} agent strands</span>
-          <span aria-label="Agent strand colors" className="flex min-w-0 items-center gap-1">
-            {lanes.map((lane) => (
-              <span
-                aria-hidden="true"
-                className="size-2 shrink-0 rounded-full"
-                key={lane.id}
-                style={{ backgroundColor: lane.color }}
-                title={lane.label}
-              />
-            ))}
-          </span>
+          <span>{filteredRows.length.toLocaleString()} events</span>
         </div>
         <div
           className="flex shrink-0 items-center gap-1"
@@ -444,9 +439,39 @@ export function ClioActivityTimeline({
           </Button>
         </div>
       </header>
+      <div
+        aria-label="Filter activity by agent"
+        className="flex flex-wrap items-center gap-1 border-b py-2"
+        role="group"
+      >
+        <Button
+          aria-pressed={agentFilter === null}
+          onClick={() => setAgentFilter(null)}
+          size="sm"
+          variant={agentFilter === null ? 'secondary' : 'ghost'}
+        >
+          All agents
+        </Button>
+        {lanes.map((lane) => (
+          <Button
+            aria-pressed={agentFilter === lane.id}
+            key={lane.id}
+            onClick={() => setAgentFilter(lane.id)}
+            size="sm"
+            variant={agentFilter === lane.id ? 'secondary' : 'ghost'}
+          >
+            <span
+              aria-hidden="true"
+              className="size-2 rounded-full"
+              style={{ backgroundColor: lane.color }}
+            />
+            {lane.label}
+          </Button>
+        ))}
+      </div>
       <div className="min-w-0 overflow-x-auto py-1">
-        <div className="w-full max-w-3xl" style={{ minWidth: `${graphWidth + 280}px` }}>
-          {rows.map((item) => (
+        <div className="w-full" style={{ minWidth: `${graphWidth + 280}px` }}>
+          {filteredRows.map((item) => (
             <CausalActivityRow
               graphWidth={graphWidth}
               item={{
@@ -483,6 +508,10 @@ function CausalActivityRow({
   const parentX = 12 + parent.index * laneSpacing;
   const target = Boolean(item.transcriptMessageId || item.onActivate || item.onOpen);
   const activate = () => {
+    if (item.kind === 'process' && item.onOpen) {
+      item.onOpen('conversation');
+      return;
+    }
     if (item.transcriptMessageId) {
       const activityTarget = item.kind === 'tool' ? `/activity-${encodeURIComponent(item.id)}` : '';
       const hash = `#message-${encodeURIComponent(item.transcriptMessageId)}${activityTarget}`;
@@ -498,8 +527,13 @@ function CausalActivityRow({
   };
   const content = (
     <div className="grid min-h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2">
-      <div className="relative h-11 shrink-0" style={{ width: graphWidth }}>
-        <svg aria-hidden="true" className="absolute inset-0 size-full" preserveAspectRatio="none">
+      <div className="relative min-h-11 shrink-0 self-stretch" style={{ width: graphWidth }}>
+        <svg
+          aria-hidden="true"
+          className="absolute inset-0 size-full"
+          preserveAspectRatio="none"
+          viewBox={`0 0 ${graphWidth} 100`}
+        >
           {lanes.map((candidate) => {
             const lineX = 12 + candidate.index * laneSpacing;
             return (
@@ -511,24 +545,27 @@ function CausalActivityRow({
                 x1={lineX}
                 x2={lineX}
                 y1="0"
-                y2="44"
+                y2="100"
+                vectorEffect="non-scaling-stroke"
               />
             );
           })}
           {item.lifecycle === 'open' && lane.id !== parent.id ? (
             <path
-              d={`M ${parentX} 0 C ${parentX} 18, ${x} 18, ${x} 22`}
+              d={`M ${parentX} 0 C ${parentX} 35, ${x} 35, ${x} 50`}
               fill="none"
               stroke={lane.color}
               strokeWidth="2.5"
+              vectorEffect="non-scaling-stroke"
             />
           ) : null}
           {item.lifecycle === 'close' && lane.id !== parent.id ? (
             <path
-              d={`M ${x} 22 C ${x} 30, ${parentX} 30, ${parentX} 44`}
+              d={`M ${x} 50 C ${x} 65, ${parentX} 65, ${parentX} 100`}
               fill="none"
               stroke={lane.color}
               strokeWidth="2.5"
+              vectorEffect="non-scaling-stroke"
             />
           ) : null}
         </svg>
@@ -547,7 +584,7 @@ function CausalActivityRow({
           />
         </span>
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 py-2">
         <p className="truncate text-[0.625rem] leading-3 text-muted-foreground" title={lane.label}>
           {lane.label}
         </p>
@@ -613,7 +650,13 @@ function causalLanes(items: readonly ObservabilityActivityItem[]): CausalLane[] 
   ]);
   for (const item of items) {
     const id = causalLaneId(item);
-    if (lanes.has(id)) continue;
+    const existing = lanes.get(id);
+    if (existing) {
+      if (id !== 'main' && item.ownerLabel) existing.label = item.ownerLabel;
+      else if (existing.label === 'Child agent' && item.lifecycle === 'open')
+        existing.label = item.label;
+      continue;
+    }
     lanes.set(id, {
       id,
       label: item.ownerLabel || (item.lifecycle === 'open' ? item.label : 'Child agent'),

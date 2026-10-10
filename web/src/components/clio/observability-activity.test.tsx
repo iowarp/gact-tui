@@ -4,13 +4,15 @@ import type {
   Message,
   PendingInteraction,
 } from '@clio/core/v3';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   agentInteractionActivityItems,
   childProjectionActivityItems,
   ClioActivityTimeline,
 } from './observability-activity';
+
+afterEach(cleanup);
 
 const processes: AsyncProcess[] = [
   {
@@ -498,10 +500,53 @@ describe('child work activity projection', () => {
       name: 'Open transcript event Evidence researcher',
     });
     fireEvent.click(row);
-    expect(window.location.hash).toBe('#message-turn_root');
-    expect(onOpen).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe('');
+    expect(onOpen).toHaveBeenLastCalledWith('conversation');
     fireEvent.click(screen.getByRole('button', { name: 'Open Evidence researcher in canvas' }));
     expect(onOpen).toHaveBeenLastCalledWith('canvas');
+  });
+
+  it('uses a later recorded agent name in its filter and restores all events', () => {
+    render(
+      <ClioActivityTimeline
+        messages={[]}
+        items={[
+          {
+            id: 'root',
+            kind: 'tool',
+            label: 'Inspect inputs',
+            state: 'completed',
+            at: '2026-09-02T12:00:00Z',
+          },
+          {
+            id: 'early',
+            kind: 'tool',
+            label: 'Read stations',
+            state: 'completed',
+            rootSessionId: 'root',
+            ownerSessionId: 'worker',
+            at: '2026-09-02T12:00:01Z',
+          },
+          {
+            id: 'named',
+            kind: 'tool',
+            label: 'Check capacity',
+            state: 'completed',
+            rootSessionId: 'root',
+            ownerSessionId: 'worker',
+            ownerLabel: 'Capacity reviewer',
+            at: '2026-09-02T12:00:02Z',
+          },
+        ]}
+      />,
+    );
+    const filter = screen.getByRole('button', { name: 'Capacity reviewer' });
+    fireEvent.click(filter);
+    expect(filter).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText('Inspect inputs')).not.toBeInTheDocument();
+    expect(screen.getByText('Read stations')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'All agents' }));
+    expect(screen.getByText('Inspect inputs')).toBeVisible();
   });
 
   it('keeps a deeper child branch visibly nested when it has no containing root turn', () => {

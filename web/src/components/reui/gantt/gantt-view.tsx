@@ -422,7 +422,7 @@ function GanttView({
 
   const scale = useGanttSelector((state) => state.scale)
   const interval = Math.min(
-    Math.max(intervalProp ?? viewConfig.interval, 15),
+    Math.max(intervalProp ?? viewConfig.interval, 1),
     240
   )
   // Every layout metric is consumer-overridable; unset keys keep defaults.
@@ -3709,7 +3709,7 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
                       : `${from * 100}%`,
                     width: plan.baseline.milestone
                       ? `${laneHeightRem}rem`
-                      : `${Math.max((to - from) * 100, 0.5)}%`,
+                      : `max(2px, ${(to - from) * 100}%)`,
                     top: `${laneOffsetRem}rem`,
                     height: `${bandRemHeight}rem`,
                   } as CSSProperties
@@ -3770,7 +3770,7 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
                     : `${from * 100}%`,
                   width: plan.baseline.milestone
                     ? `${laneHeightRem}rem`
-                    : `${Math.max((to - from) * 100, 0.5)}%`,
+                    : `max(2px, ${(to - from) * 100}%)`,
                   top: `${laneTopRem(laneOffsetRem, plan.lane, laneHeightRem, laneGapRem)}rem`,
                   height: `${laneHeightRem}rem`,
                 } as CSSProperties
@@ -3857,7 +3857,7 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
                   : `${from * 100}%`,
                 width: milestone
                   ? `${laneHeightRem}rem`
-                  : `${Math.max((to - from) * 100, 0.5)}%`,
+                  : `max(2px, ${(to - from) * 100}%)`,
                 top: `${laneTopRem(laneOffsetRem, lane, laneHeightRem, laneGapRem)}rem`,
                 height: `${laneHeightRem}rem`,
                 // one track means every lane is 0, so paint order (not the
@@ -3871,7 +3871,7 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
                 segment={segment}
                 labelOutside={placement !== "inside"}
                 rowTitle={row.resource.title}
-                className="h-full"
+                className={cn("h-full", barRemWidth < 1 && "px-0")}
               />
               {placement !== "inside" && (
                 <span
@@ -3905,7 +3905,7 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
             className="pointer-events-none absolute top-1/2 -translate-y-1/2"
             style={{
               insetInlineStart: `${bars.summary.from * 100}%`,
-              width: `${Math.max((bars.summary.to - bars.summary.from) * 100, 0.5)}%`,
+              width: `max(2px, ${(bars.summary.to - bars.summary.from) * 100}%)`,
             }}
           >
             {viewConfig.renderSummary ? (
@@ -3987,7 +3987,7 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
                   : `${ghost.from * 100}%`,
                 width: ghost.milestone
                   ? `${laneHeightRem}rem`
-                  : `${Math.max((ghost.to - ghost.from) * 100, 0.5)}%`,
+                  : `max(2px, ${(ghost.to - ghost.from) * 100}%)`,
                 // sit on the dragged schedule's OWN lane. Centering the ghost
                 // in the row put it on no lane at all once a node stacked, so
                 // a 3-lane row showed the drop target floating in the middle.
@@ -4030,7 +4030,7 @@ const GanttTimelineRow = memo(function GanttTimelineRow({
             className="border-primary bg-background pointer-events-none absolute z-40 overflow-hidden rounded-sm border border-dashed"
             style={{
               insetInlineStart: `${draft.from * 100}%`,
-              width: `${Math.max((draft.to - draft.from) * 100, 0.5)}%`,
+              width: `max(2px, ${(draft.to - draft.from) * 100}%)`,
               // the destination lane, not the row's middle (which on a stacked
               // row is the GAP between two lanes), and the real lane height
               // rather than a hardcoded h-5 a consumer's metrics would break
