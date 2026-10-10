@@ -375,7 +375,40 @@ describe('ClioConversation transcript viewport', () => {
 
     expect(screen.getByRole('log', { name: 'Conversation' })).toHaveStyle({
       paddingBottom: '176px',
+      scrollPaddingBottom: '176px',
     });
+  });
+
+  it('accounts for an underestimated final row even without detached surfaces', () => {
+    const viewport = stubViewport();
+    let finalHeight = 233;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const finalRow = this.getAttribute('data-index') === '79';
+      return DOMRect.fromRect({
+        x: 0,
+        y: finalRow ? 79 * 180 : 0,
+        width: 800,
+        height: finalRow ? finalHeight : 800,
+      });
+    });
+    const view = renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        bottomInset={420}
+        messages={plainMessages(80, false)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    const column = view.container.querySelector('[data-slot="transcript-column"]');
+    expect(column).toHaveStyle({ height: '14453px' });
+    finalHeight = 260;
+    viewport.resizeTo(800);
+    expect(column).toHaveStyle({ height: '14480px' });
   });
 
   it('keeps the last message above a composer that grows while following (rel18)', () => {
@@ -403,6 +436,7 @@ describe('ClioConversation transcript viewport', () => {
     );
 
     expect(log).toHaveStyle({ paddingBottom: '259px' });
+    expect(log).toHaveStyle({ scrollPaddingBottom: '259px' });
     expect(scrollTo).toHaveBeenCalledWith({ behavior: 'instant', top: 1400 });
   });
 

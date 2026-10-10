@@ -164,6 +164,9 @@ function ConversationBody({
   // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: messages.length,
+    // Height corrections can scroll during commit; let React batch the range
+    // update instead of trying to flush another render inside that commit.
+    useFlushSync: false,
     estimateSize: () => 180,
     getScrollElement: () => scrollRef.current,
     overscan: 7,
@@ -189,22 +192,14 @@ function ConversationBody({
   const lastVirtualRow = virtualRows.at(-1);
   const virtualRangeKey = `${firstVirtualRow?.index ?? -1}:${firstVirtualRow?.start ?? -1}:${lastVirtualRow?.index ?? -1}:${lastVirtualRow?.end ?? -1}`;
 
-  // A detached surface (#1533 coordinator review) renders as a normal-flow
-  // sibling right after the virtualized message list, whose own height is
-  // set from `virtualizer.getTotalSize()` — the library's own cached/
-  // estimated size for the last row, not a live DOM read. That cache can
-  // persistently undercount a row (observed directly: a real session's last
-  // message, expanded to show a completed subagent card, measured ~53px
-  // taller than the virtualizer believed, with no further resize event ever
-  // arriving to correct it), which overlaps the detached surface behind it.
-  // Independently measuring the messages container's own real last child and
-  // padding the gap to match closes that regardless of why the cache was
-  // wrong — a correction, not a guess at the library's own internal cause.
+  // The virtualizer can retain an underestimated final row height. Account
+  // for its actual bottom in the list height so neither the composer nor
+  // following surfaces cover the row, even without detached surfaces.
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [detachedSurfacesGap, setDetachedSurfacesGap] = useState(0);
+  const [virtualizedRowsOverflow, setVirtualizedRowsOverflow] = useState(0);
   useLayoutEffect(() => {
-    if (!virtualized || detachedSurfaces.length === 0) {
-      setDetachedSurfacesGap(0);
+    if (!virtualized) {
+      setVirtualizedRowsOverflow(0);
       return undefined;
     }
     const container = messagesContainerRef.current;
@@ -215,7 +210,7 @@ function ConversationBody({
       const realBottom = lastChild.getBoundingClientRect().bottom;
       const containerTop = container.getBoundingClientRect().top;
       const declaredHeight = virtualizer.getTotalSize();
-      setDetachedSurfacesGap(Math.max(0, realBottom - containerTop - declaredHeight));
+      setVirtualizedRowsOverflow(Math.max(0, realBottom - containerTop - declaredHeight));
     };
     recompute();
     if (typeof ResizeObserver === 'undefined') return undefined;
@@ -223,7 +218,7 @@ function ConversationBody({
     observer.observe(container);
     if (container.lastElementChild) observer.observe(container.lastElementChild);
     return () => observer.disconnect();
-  }, [detachedSurfaces.length, virtualRangeKey, virtualized, virtualizer]);
+  }, [virtualRangeKey, virtualized, virtualizer]);
 
   const { scrollIntentVersionRef, captureReadingAnchor, markUserScrollIntent } =
     useTranscriptReadingPosition({
@@ -417,7 +412,7 @@ function ConversationBody({
         }}
         ref={scrollRef}
         role="log"
-        style={{ paddingBottom: bottomInset }}
+        style={{ paddingBottom: bottomInset, scrollPaddingBottom: bottomInset }}
         tabIndex={0}
       >
         {messages.length > 0 && loading ? (
@@ -463,7 +458,11 @@ function ConversationBody({
             }}
             data-slot="transcript-column"
             className={`${virtualized ? 'relative' : ''} mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
-            style={virtualized ? { height: virtualizer.getTotalSize() } : undefined}
+            style={
+              virtualized
+                ? { height: virtualizer.getTotalSize() + virtualizedRowsOverflow }
+                : undefined
+            }
           >
             {(virtualized
               ? virtualRows.map((virtualRow) => ({
@@ -527,7 +526,6 @@ function ConversationBody({
           <div
             ref={autoscroll.observeContent}
             className={`mx-auto grid w-full gap-4 px-5 pb-8 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
-            style={detachedSurfacesGap ? { marginTop: detachedSurfacesGap } : undefined}
           >
             {detachedSurfaces.map((surface) => (
               <DeferredA2UISurface
