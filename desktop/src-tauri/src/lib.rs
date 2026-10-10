@@ -419,6 +419,7 @@ pub fn run() {
 /// workspace, and model cache off the system drive.
 #[cfg(windows)]
 pub fn prepare_runtime_for_install() -> Result<(), String> {
+    let started = std::time::Instant::now();
     let executable = std::env::current_exe()
         .map_err(|error| format!("resolve installed desktop executable: {error}"))?;
     let resource_dir = executable
@@ -429,11 +430,19 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
             .map_err(|error| format!("prepare installer-managed storage: {error}"))?;
     let runtime = runtime_pack::prepare_runtime_for_installer(resource_dir, &managed_storage)?
         .ok_or_else(|| "the installer did not include a bundled CLIO runtime".to_string())?;
+    println!(
+        "Installer checkpoint: bundled runtime ready {:.3}s",
+        started.elapsed().as_secs_f64()
+    );
     let workspace = sidecar_setup::prepare_desktop_workspace(&managed_storage)
         .map_err(|error| format!("prepare package workspace: {error}"))?;
     let user = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
         .map_err(|error| format!("prepare package storage: {error}"))?;
     execution_install::prepare_packages_for_install(&runtime, &workspace, &user)?;
+    println!(
+        "Installer checkpoint: managed packages ready {:.3}s",
+        started.elapsed().as_secs_f64()
+    );
     Ok(())
 }
 

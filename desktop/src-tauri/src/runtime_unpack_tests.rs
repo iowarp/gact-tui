@@ -189,3 +189,47 @@ fn rejects_count_mismatch_and_truncated_archive() {
     fs::write(&archive, &bytes[..bytes.len() / 2]).unwrap();
     assert!(case.unpack(&archive, Some(1)).is_err());
 }
+
+#[test]
+fn shared_queue_extracts_exactly_with_different_worker_counts() {
+    for workers in [1, 4, 8, 16] {
+        let case = Case::new();
+        let archive = case.pack(&[("gact-runtime/runtime.json", tar::EntryType::Regular, b"{}")]);
+        let report = unpack_runtime_with_workers(
+            &archive,
+            &case.0.join("staging"),
+            Some(1),
+            &|_| {},
+            workers,
+        )
+        .unwrap();
+        assert_eq!(report, UnpackReport { files: 1, bytes: 2 });
+        assert_eq!(
+            fs::read(case.0.join("staging/gact-runtime/runtime.json")).unwrap(),
+            b"{}"
+        );
+    }
+}
+
+#[test]
+fn all_failed_writers_disconnect_the_bounded_queue_without_hanging() {
+    for workers in [1, 8] {
+        let case = Case::new();
+        // Every writer eventually gets an exclusive-create failure. More than
+        // the queue capacity ensures the producer must notice disconnection.
+        let entries = vec![
+            (
+                "gact-runtime/same.py",
+                tar::EntryType::Regular,
+                b"x".as_slice()
+            );
+            64
+        ];
+        let archive = case.pack(&entries);
+        let error =
+            unpack_runtime_with_workers(&archive, &case.0.join("staging"), None, &|_| {}, workers)
+                .unwrap_err();
+        assert!(error.contains("create runtime file"), "{error}");
+        fs::remove_dir_all(case.0.join("staging")).unwrap();
+    }
+}

@@ -708,9 +708,9 @@ FunctionEnd
       FileClose $3
     ${EndIf}
     ${If} $2 == ""
-      MessageBox MB_ICONSTOP|MB_OK "CLIO could not install its bundled runtime:$\r$\n$\r$\n$1$\r$\n$\r$\nThe installation will stop so the application is not left partially configured."
+      MessageBox MB_ICONSTOP|MB_OK "CLIO could not install its bundled runtime:$\r$\n$\r$\n$1$\r$\n$\r$\nThe installation will stop so the application is not left partially configured." /SD IDOK
     ${Else}
-      MessageBox MB_ICONSTOP|MB_YESNO "CLIO could not install its bundled runtime:$\r$\n$\r$\n$1$\r$\n$\r$\nThe installation will stop so the application is not left partially configured.$\r$\n$\r$\nPlease report this with the log file attached. Open the issue page and the log folder now?" IDNO clio_runtime_report_done
+      MessageBox MB_ICONSTOP|MB_YESNO "CLIO could not install its bundled runtime:$\r$\n$\r$\n$1$\r$\n$\r$\nThe installation will stop so the application is not left partially configured.$\r$\n$\r$\nPlease report this with the log file attached. Open the issue page and the log folder now?" /SD IDNO IDNO clio_runtime_report_done
       ExecShell "open" "$2"
       ExecShell "open" "$INSTDIR\data"
       clio_runtime_report_done:

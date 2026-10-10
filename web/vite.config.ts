@@ -11,6 +11,7 @@ import { offlineReviewPlugin } from './vite-plugin-offline-review.js';
 const brandConfig = resolveBrandConfig();
 const remoteDevelopmentTarget = process.env.CLIO_DEV_REMOTE_ENDPOINT;
 const galleryOnly = process.env.CLIO_GALLERY_STANDALONE === '1';
+const reviewFixtures = process.env.CLIO_REVIEW_FIXTURES === '1';
 const workspaceVersion = JSON.parse(
   readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'),
 ).version;
@@ -46,6 +47,13 @@ export default defineConfig({
         : {
             app: fileURLToPath(new URL('./index.html', import.meta.url)),
             gallery: fileURLToPath(new URL('./widget-preview.html', import.meta.url)),
+            ...(reviewFixtures
+              ? {
+                  transcriptReview: fileURLToPath(
+                    new URL('./tests/review/transcript-text-flow.html', import.meta.url),
+                  ),
+                }
+              : {}),
           },
     },
   },

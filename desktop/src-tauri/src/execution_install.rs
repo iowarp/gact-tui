@@ -2,7 +2,7 @@
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{
     io::{BufRead, BufReader},
@@ -12,13 +12,34 @@ use std::{
 
 use crate::supervisor_boot_log::boot_log_line;
 
-pub(crate) fn install_command(runtime: &Path, workspace: &Path, user: &Path) -> Command {
-    let python = if cfg!(windows) {
-        "python/python.exe"
-    } else {
-        "python/bin/python3.13"
-    };
-    let mut command = Command::new(runtime.join(python));
+fn bundled_python(runtime: &Path) -> Result<PathBuf, String> {
+    let manifest = std::fs::read(runtime.join("runtime.json"))
+        .map_err(|error| format!("read bundled runtime manifest: {error}"))?;
+    let manifest: serde_json::Value = serde_json::from_slice(&manifest)
+        .map_err(|error| format!("parse bundled runtime manifest: {error}"))?;
+    if manifest["schema"].as_u64() != Some(1) {
+        return Err("unsupported bundled runtime manifest schema".into());
+    }
+    let python = manifest["exec"][0]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .ok_or("bundled runtime manifest has no interpreter")?;
+    let relative = Path::new(python);
+    if !relative
+        .components()
+        .all(|part| matches!(part, Component::Normal(_)))
+    {
+        return Err("bundled runtime interpreter must stay inside its runtime".into());
+    }
+    Ok(runtime.join(relative))
+}
+
+pub(crate) fn install_command(
+    runtime: &Path,
+    workspace: &Path,
+    user: &Path,
+) -> Result<Command, String> {
+    let mut command = Command::new(bundled_python(runtime)?);
     command
         .args([
             "-I",
@@ -44,7 +65,7 @@ pub(crate) fn install_command(runtime: &Path, workspace: &Path, user: &Path) -> 
     }
     #[cfg(windows)]
     command.creation_flags(0x0800_0000);
-    command
+    Ok(command)
 }
 
 pub(crate) fn prepare_packages(
@@ -52,13 +73,13 @@ pub(crate) fn prepare_packages(
     workspace: &Path,
     user: &Path,
 ) -> Result<(), String> {
-    run_install(startup_command(runtime, workspace, user), &boot_log_line)
+    run_install(startup_command(runtime, workspace, user)?, &boot_log_line)
 }
 
-fn startup_command(runtime: &Path, workspace: &Path, user: &Path) -> Command {
-    let mut command = install_command(runtime, workspace, user);
+fn startup_command(runtime: &Path, workspace: &Path, user: &Path) -> Result<Command, String> {
+    let mut command = install_command(runtime, workspace, user)?;
     command.arg("--reuse-installed");
-    command
+    Ok(command)
 }
 
 #[cfg(windows)]
@@ -68,16 +89,20 @@ pub(crate) fn prepare_packages_for_install(
     user: &Path,
 ) -> Result<(), String> {
     run_install(
-        explicit_install_command(runtime, workspace, user),
+        explicit_install_command(runtime, workspace, user)?,
         &boot_log_line,
     )
 }
 
 #[cfg(windows)]
-fn explicit_install_command(runtime: &Path, workspace: &Path, user: &Path) -> Command {
-    let mut command = install_command(runtime, workspace, user);
+fn explicit_install_command(
+    runtime: &Path,
+    workspace: &Path,
+    user: &Path,
+) -> Result<Command, String> {
+    let mut command = install_command(runtime, workspace, user)?;
     command.arg("--setup-protected-execution");
-    command
+    Ok(command)
 }
 
 fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(), String> {
@@ -134,10 +159,52 @@ fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(),
 mod tests {
     use super::*;
 
+    struct RuntimeFixture(PathBuf);
+
+    impl RuntimeFixture {
+        fn new() -> Self {
+            static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let path = std::env::temp_dir()
+                .join(format!("clio-install-command-{}-{id}", std::process::id()));
+            std::fs::create_dir(&path).unwrap();
+            let fixture = Self(path);
+            fixture.manifest(r#"{"schema":1,"exec":["python/bin/python3.14","-I"]}"#);
+            fixture
+        }
+
+        fn manifest(&self, content: &str) {
+            std::fs::write(self.0.join("runtime.json"), content).unwrap();
+        }
+    }
+
+    impl Drop for RuntimeFixture {
+        fn drop(&mut self) {
+            std::fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    #[test]
+    fn validates_the_runtime_interpreter_before_launching() {
+        let fixture = RuntimeFixture::new();
+        for manifest in [
+            r#"{"schema":2,"exec":["python/bin/python3.14"]}"#,
+            r#"{"schema":1,"exec":[]}"#,
+            r#"{"schema":1,"exec":[""]}"#,
+            r#"{"schema":1,"exec":["../outside"]}"#,
+            r#"{"schema":1,"exec":["/outside"]}"#,
+            "invalid json",
+        ] {
+            fixture.manifest(manifest);
+            assert!(bundled_python(&fixture.0).is_err(), "{manifest}");
+        }
+    }
+
     #[test]
     fn routine_startup_requests_reuse_without_creating_sandbox_accounts() {
-        let path = Path::new("fixture");
-        let startup = startup_command(path, path, path);
+        let fixture = RuntimeFixture::new();
+        let path = fixture.0.as_path();
+        let startup = startup_command(path, path, path).unwrap();
         assert!(startup.get_args().any(|arg| arg == "--reuse-installed"));
         assert!(!startup
             .get_args()
@@ -147,9 +214,10 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn only_explicit_installation_requests_sandbox_creation() {
-        let path = Path::new("fixture");
-        let ordinary = startup_command(path, path, path);
-        let installation = explicit_install_command(path, path, path);
+        let fixture = RuntimeFixture::new();
+        let path = fixture.0.as_path();
+        let ordinary = startup_command(path, path, path).unwrap();
+        let installation = explicit_install_command(path, path, path).unwrap();
         assert!(!ordinary
             .get_args()
             .any(|arg| arg == "--setup-protected-execution"));
@@ -197,15 +265,11 @@ mod tests {
 
     #[test]
     fn installer_uses_bundled_python_and_managed_workspace() {
-        let runtime = Path::new("runtime with spaces");
+        let fixture = RuntimeFixture::new();
+        let runtime = fixture.0.as_path();
         let workspace = Path::new("managed workspace");
-        let command = install_command(runtime, workspace, Path::new("user"));
-        let python = if cfg!(windows) {
-            "python/python.exe"
-        } else {
-            "python/bin/python3.13"
-        };
-        assert_eq!(command.get_program(), runtime.join(python));
+        let command = install_command(runtime, workspace, Path::new("user")).unwrap();
+        assert_eq!(command.get_program(), runtime.join("python/bin/python3.14"));
         let args: Vec<_> = command.get_args().collect();
         assert_eq!(
             args,

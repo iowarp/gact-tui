@@ -30,6 +30,7 @@ pub(crate) fn boot_sidecar(
     // Fresh transcript for this boot attempt so a later failure's
     // "Open logs" shows only the relevant run.
     reset_boot_log("boot");
+    let started = std::time::Instant::now();
 
     // 1. Attach to an existing local server if reachable.
     state.set_status(BackendStatus::Starting(
@@ -45,6 +46,11 @@ pub(crate) fn boot_sidecar(
         state.set_handle(handle);
         return;
     }
+
+    boot_log_line(&format!(
+        "Startup checkpoint: existing backend check {:.3}s",
+        started.elapsed().as_secs_f64()
+    ));
 
     // 2. We're about to spawn our OWN backend: clean up a crashed-desktop
     // orphan first, so its connect-or-spawn attaches to a FRESH clio-core
@@ -75,6 +81,11 @@ pub(crate) fn boot_sidecar(
         _ => None,
     };
 
+    boot_log_line(&format!(
+        "Startup checkpoint: bundled runtime ready {:.3}s",
+        started.elapsed().as_secs_f64()
+    ));
+
     // 4. Spawn our own.
     // Installer packages are downloaded into managed storage. DMG/AppImage installs
     // have no post-install hook, so finish their setup here before starting the agent.
@@ -89,6 +100,10 @@ pub(crate) fn boot_sidecar(
             return;
         }
     }
+    boot_log_line(&format!(
+        "Startup checkpoint: managed packages ready {:.3}s",
+        started.elapsed().as_secs_f64()
+    ));
     state.set_status(BackendStatus::Starting(
         BackendStartupStage::StartingService,
     ));
@@ -106,6 +121,10 @@ pub(crate) fn boot_sidecar(
     );
     match outcome {
         Ok((handle, child)) => {
+            boot_log_line(&format!(
+                "Startup checkpoint: backend ready {:.3}s",
+                started.elapsed().as_secs_f64()
+            ));
             state.set_handle_and_child(handle, child);
         }
         // The launcher exited 2 (sidecar not found): this is a fresh install,

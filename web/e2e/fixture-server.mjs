@@ -2023,6 +2023,13 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (
+    request.method === 'GET' &&
+    new RegExp(`^/v1/sessions/${sessionId}/messages/[^/]+/feedback$`).test(url.pathname)
+  ) {
+    sendJson(response, { feedback: null });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/messages`) {
     sendJson(response, {
       messages: transcriptMessages(),

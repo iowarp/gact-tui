@@ -908,9 +908,14 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
       { steps: 8 },
     );
     await page.mouse.up();
-    const resizedBounds = await outline.boundingBox();
-    expect(resizedBounds?.width ?? 0).toBeGreaterThan(outlineBounds.width + 40);
-    expect(resizedBounds?.height ?? 0).toBeGreaterThan(outlineBounds.height + 20);
+    // The popover transitions its native CSS resize dimensions. Measure after
+    // they reach the requested size, rather than during the final pointer frame.
+    await expect
+      .poll(async () => (await outline.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(outlineBounds.width + 40);
+    await expect
+      .poll(async () => (await outline.boundingBox())?.height ?? 0)
+      .toBeGreaterThan(outlineBounds.height + 20);
   }
   await outline.locator('[data-slot="transcript-outline-list"]').evaluate((element) => {
     element.scrollTop = 0;

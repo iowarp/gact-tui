@@ -1,7 +1,7 @@
 //! Bounded extraction of Windows runtime packs into a new staging directory.
 //!
 //! Packs contain only ordinary files and directories. One reader decompresses
-//! the stream while at most four writers create files. Small entries use
+//! the stream while a bounded worker pool creates files. Small entries use
 //! bounded queues; large entries stream directly, never becoming a large Vec.
 //! Build timestamps and Unix modes have no runtime meaning on Windows: Python
 //! startup bytecode uses checked hashes, and executable extensions select apps.
@@ -13,13 +13,13 @@ use std::{
     path::{Component, Path, PathBuf},
     sync::{
         atomic::{AtomicU64, Ordering},
-        mpsc,
+        mpsc, Arc, Mutex,
     },
     thread,
     time::{Duration, Instant},
 };
 
-const WRITERS: usize = 4;
+const WRITERS: usize = 8;
 const BUFFER_LIMIT: u64 = 1024 * 1024;
 
 #[cfg(test)]
@@ -45,6 +45,19 @@ pub(crate) fn unpack_runtime(
     expected_files: Option<u64>,
     progress: &dyn Fn(&str),
 ) -> Result<UnpackReport, String> {
+    unpack_runtime_with_workers(archive_path, staging, expected_files, progress, WRITERS)
+}
+
+pub(crate) fn unpack_runtime_with_workers(
+    archive_path: &Path,
+    staging: &Path,
+    expected_files: Option<u64>,
+    progress: &dyn Fn(&str),
+    workers: usize,
+) -> Result<UnpackReport, String> {
+    if !(1..=32).contains(&workers) {
+        return Err("runtime extraction needs between 1 and 32 workers".into());
+    }
     if fs::read_dir(staging)
         .map_err(|error| format!("read runtime staging directory: {error}"))?
         .next()
@@ -59,18 +72,24 @@ pub(crate) fn unpack_runtime(
     let mut archive = tar::Archive::new(decoder);
     let completed = AtomicU64::new(0);
     thread::scope(|scope| {
-        let mut senders = Vec::new();
+        let (sender, receiver) = mpsc::sync_channel::<PendingFile>(workers * 2);
+        let receiver = Arc::new(Mutex::new(receiver));
         let mut writers = Vec::new();
-        for index in 0..WRITERS {
-            // One queued + one active file per writer, plus the reader's file:
-            // at most nine buffered entries of <= 1 MiB, regardless of pack size.
-            let (sender, receiver) = mpsc::sync_channel::<PendingFile>(1);
+        for index in 0..workers {
+            // Dynamic dispatch avoids waiting on one busy writer while others idle.
+            // Queued + active + reader buffers are bounded by (3 * workers + 1) MiB.
+            let receiver = Arc::clone(&receiver);
             let completed = &completed;
             writers.push(
                 thread::Builder::new()
                     .name(format!("runtime-writer-{index}"))
                     .spawn_scoped(scope, move || -> Result<(), String> {
-                        for pending in receiver {
+                        loop {
+                            let pending = receiver
+                                .lock()
+                                .map_err(|_| "runtime work queue lock poisoned".to_owned())?
+                                .recv();
+                            let Ok(pending) = pending else { break };
                             write_file(&pending.path, &pending.contents)?;
                             completed.fetch_add(1, Ordering::Relaxed);
                         }
@@ -78,8 +97,9 @@ pub(crate) fn unpack_runtime(
                     })
                     .map_err(|error| format!("start runtime file writer: {error}"))?,
             );
-            senders.push(sender);
         }
+        // Only workers retain the receiver, so failed writers disconnect the sender.
+        drop(receiver);
 
         let result = (|| {
             let mut directories = HashSet::from([staging.to_path_buf()]);
@@ -119,7 +139,7 @@ pub(crate) fn unpack_runtime(
                     if contents.len() as u64 != size {
                         return Err(format!("runtime file {relative:?} is truncated"));
                     }
-                    senders[files as usize % WRITERS]
+                    sender
                         .send(PendingFile {
                             path: destination,
                             contents,
@@ -158,7 +178,7 @@ pub(crate) fn unpack_runtime(
         })();
         // Always close and join ALL writers, including on a malformed archive
         // or I/O error, before the caller can remove the staging directory.
-        drop(senders);
+        drop(sender);
         let mut writer_error = None;
         for writer in writers {
             match writer.join() {
