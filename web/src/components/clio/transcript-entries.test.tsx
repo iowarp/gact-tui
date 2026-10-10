@@ -219,7 +219,7 @@ it('expands complete tool arguments and result inline from the keyboard', async 
   expect(
     await screen.findByRole('region', { name: 'Read one: Technical details' }),
   ).toHaveTextContent('one.md');
-  expect(await screen.findByText('Complete one result.')).toBeVisible();
+  await waitFor(() => expect(screen.getByText('Complete one result.')).toBeVisible());
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   await user.keyboard('{Enter}');
   expect(
