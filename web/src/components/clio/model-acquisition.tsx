@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
+import { InstallExpectation } from './install-expectation';
 
 const initial: ModelDownloadInput = { repository: '', revision: 'main', destination: '' };
 const size = (bytes: number) =>
@@ -91,6 +92,7 @@ export function ModelAcquisitions({
       repository.modelAcquisitionAction(targetId, id, action),
     onSuccess: refresh,
   });
+  const chosen = found.data?.models.find((model) => model.repository === draft.repository.trim());
   const error = inventory.error ?? acquire.error ?? action.error;
   const unavailable = inventory.data?.unavailable_reason;
   return (
@@ -292,6 +294,10 @@ export function ModelAcquisitions({
                 {acquire.error.message}
               </p>
             ) : null}
+            <InstallExpectation
+              downloadBytes={chosen?.size_bytes}
+              thing={draft.repository.trim() || 'the model files'}
+            />
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
@@ -332,11 +338,14 @@ function ModelRow({
   onAction: (action: 'retry' | 'cancel') => void;
 }) {
   const active = ['queued', 'running'].includes(model.state);
+  const shared = model.origin === 'hf_cache';
   return (
     <article className="space-y-3 p-4">
       <div className="flex flex-wrap items-center gap-3">
         <span className="min-w-0 break-all font-medium">{model.repository}</span>
-        <Badge variant="outline">{model.state === 'ready' ? 'Files verified' : model.state}</Badge>
+        <Badge variant="outline">
+          {model.state !== 'ready' ? model.state : shared ? 'Shared cache' : 'Files verified'}
+        </Badge>
         <div className="ml-auto flex gap-2">
           {active ? (
             <Button
@@ -348,14 +357,16 @@ function ModelRow({
               Cancel download
             </Button>
           ) : model.state !== 'ready' ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={disabled}
-              onClick={() => onAction('retry')}
-            >
-              Retry
-            </Button>
+            shared ? null : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={disabled}
+                onClick={() => onAction('retry')}
+              >
+                Retry
+              </Button>
+            )
           ) : (
             <Button asChild size="sm" variant="outline">
               <Link
@@ -385,10 +396,13 @@ function ModelRow({
             {size(model.bytes_done)}
             {model.bytes_total ? ` / ${size(model.bytes_total)}` : ' · size pending'}
           </p>
+          <InstallExpectation downloadBytes={model.bytes_total} thing={model.repository} />
         </div>
       ) : null}
       <details className="text-xs">
-        <summary className="cursor-pointer text-muted-foreground">Download receipt</summary>
+        <summary className="cursor-pointer text-muted-foreground">
+          {shared ? 'Cache details' : 'Download receipt'}
+        </summary>
         <dl className="mt-2 grid gap-2 rounded bg-muted p-3 sm:grid-cols-[auto_1fr]">
           <dt>Revision</dt>
           <dd className="break-all font-mono">{model.revision || 'Not resolved yet'}</dd>

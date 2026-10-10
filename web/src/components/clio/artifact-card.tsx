@@ -30,6 +30,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { formatBytes } from '@/lib/format';
 import { fileFormatLabel } from '@/lib/media-types';
+import { artifactDisplayName, isDashboardArtifact } from '@/lib/dashboard-presentation';
 import {
   IMMUTABLE_QUERY,
   INLINE_PREVIEW_MAX_BYTES,
@@ -111,6 +112,7 @@ function ArtifactCardContent({
   presentation,
 }: ClioArtifactCardProps) {
   const repository = useRepository();
+  const displayName = artifactDisplayName(artifact);
   const { settings } = useConnectionSettings();
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
@@ -220,22 +222,24 @@ function ArtifactCardContent({
             // controls and preview links sit above it as independent siblings,
             // so the whole card opens without nesting interactive controls.
             <button
-              aria-label={`Open ${artifact.name}`}
+              aria-label={`Open ${displayName}`}
               className="block w-full truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 after:z-10 after:cursor-pointer after:rounded-lg after:content-[''] group-hover/artifact:text-primary focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
               onClick={(event) => onOpen(artifact, event as unknown as MouseEvent<HTMLDivElement>)}
-              title={artifact.name}
+              title={displayName}
               type="button"
             >
-              {artifact.name}
+              {displayName}
             </button>
           ) : (
-            <ArtifactTitle className="truncate">{artifact.name}</ArtifactTitle>
+            <ArtifactTitle className="truncate">{displayName}</ArtifactTitle>
           )}
           <ArtifactDescription
             className="truncate text-xs"
             title={artifact.media_type || 'Media type unavailable'}
           >
-            {fileFormatLabel(artifact.name, artifact.media_type)}
+            {isDashboardArtifact(artifact)
+              ? 'Dashboard'
+              : fileFormatLabel(artifact.name, artifact.media_type)}
             {artifact.size === undefined ? '' : ` · ${formatBytes(artifact.size)}`}
             {artifact.version === undefined ? '' : ` · v${artifact.version}`}
           </ArtifactDescription>
@@ -253,7 +257,7 @@ function ArtifactCardContent({
           <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
         </div>
       </ArtifactHeader>
-      {preview ? (
+      {preview && !isDashboardArtifact(artifact) ? (
         <ArtifactContent className="p-0 [&_a]:relative [&_a]:z-20 [&_button]:relative [&_button]:z-20">
           {textPreview.data ? (
             <div className="relative max-h-44 overflow-hidden border-t bg-muted/15 px-4 py-3">

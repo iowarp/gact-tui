@@ -154,7 +154,17 @@ function Sidebar({
   collapsible?: 'offcanvas' | 'icon' | 'none';
   contained?: boolean;
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const context = useSidebar();
+  const { isMobile, state, openMobile, setOpenMobile } = context;
+  const [hovered, setHovered] = React.useState(false);
+  const [focused, setFocused] = React.useState(false);
+  React.useEffect(() => {
+    setHovered(false);
+    setFocused(false);
+  }, [state, isMobile]);
+  const preview =
+    contained && collapsible === 'icon' && state === 'collapsed' && (hovered || focused);
+  const displayState = preview ? 'expanded' : state;
 
   if (collapsible === 'none') {
     return (
@@ -200,12 +210,41 @@ function Sidebar({
   if (contained) {
     return (
       <div
-        className="group flex h-full min-w-0 w-full overflow-hidden text-sidebar-foreground"
-        data-state={state}
-        data-collapsible={state === 'collapsed' ? collapsible : ''}
+        className={cn(
+          'group relative flex h-full min-w-0 w-full text-sidebar-foreground',
+          preview && 'z-50',
+        )}
+        data-state={displayState}
+        data-collapsible={displayState === 'collapsed' ? collapsible : ''}
+        data-preview={preview || undefined}
         data-variant={variant}
         data-side={side}
         data-slot="sidebar"
+        tabIndex={-1}
+        onPointerEnter={(event) => {
+          if (state === 'collapsed' && event.pointerType !== 'touch') setHovered(true);
+        }}
+        onPointerLeave={() => setHovered(false)}
+        onFocusCapture={(event) => {
+          if (state === 'collapsed' && event.target !== event.currentTarget) setFocused(true);
+        }}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+        }}
+        onKeyDown={(event) => {
+          // Portaled menus/dialogs handle their own Escape. A tooltip on a
+          // navigation control must not prevent dismissing the whole preview.
+          if (
+            event.key !== 'Escape' ||
+            !preview ||
+            !event.currentTarget.contains(event.target as Node)
+          )
+            return;
+          event.preventDefault();
+          setHovered(false);
+          setFocused(false);
+          event.currentTarget.focus();
+        }}
       >
         <div
           data-sidebar="sidebar"
@@ -213,6 +252,9 @@ function Sidebar({
           data-side={side}
           className={cn(
             'relative flex size-full min-w-0 border-sidebar-border bg-sidebar',
+            preview &&
+              'absolute inset-y-0 w-(--sidebar-width) shadow-xl ring-1 ring-sidebar-border',
+            preview && (side === 'left' ? 'left-0' : 'right-0'),
             side === 'left' ? 'border-r' : 'border-l',
             variant === 'floating' || variant === 'inset' ? 'p-2' : null,
             className,
@@ -224,7 +266,9 @@ function Sidebar({
             data-slot="sidebar-inner"
             className="flex size-full min-w-0 flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=inset]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=inset]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=inset]:ring-1 group-data-[variant=floating]:ring-sidebar-border group-data-[variant=inset]:ring-sidebar-border"
           >
-            {children}
+            <SidebarContext.Provider value={{ ...context, state: displayState }}>
+              {children}
+            </SidebarContext.Provider>
           </div>
         </div>
       </div>
@@ -521,6 +565,11 @@ function SidebarMenuButton({
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot.Root : 'button';
   const { isMobile, state } = useSidebar();
+  const [tooltipOpen, setTooltipOpen] = React.useState(false);
+  const tooltipEnabled = !isMobile && state === 'collapsed';
+  React.useEffect(() => {
+    if (!tooltipEnabled) setTooltipOpen(false);
+  }, [tooltipEnabled]);
 
   const button = (
     <Comp
@@ -533,7 +582,7 @@ function SidebarMenuButton({
     />
   );
 
-  if (!tooltip || state !== 'collapsed' || isMobile) {
+  if (!tooltip || isMobile) {
     return button;
   }
 
@@ -544,7 +593,10 @@ function SidebarMenuButton({
   }
 
   return (
-    <Tooltip>
+    <Tooltip
+      open={tooltipEnabled && tooltipOpen}
+      onOpenChange={(open) => setTooltipOpen(tooltipEnabled && open)}
+    >
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent side="right" align="center" {...tooltip} />
     </Tooltip>

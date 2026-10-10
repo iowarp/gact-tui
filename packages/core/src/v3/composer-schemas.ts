@@ -4,6 +4,7 @@ import { modelFactsGeneratedSchema } from '../generated/clio-schemas/model-facts
 import { z } from 'zod';
 import { forwardCompatibleEnum, optionalWireString } from './schema-utils.js';
 import { providerClientFactSchema } from './provider-components.js';
+import { contextControlsSchema } from './context-sizing-contract.js';
 
 export const contextReferenceKindSchema = z.enum([
   'workspace_file',
@@ -391,6 +392,12 @@ export const providerCatalogSchema = z.object({
           output_limit: z
             .number()
             .nullish()
+            .transform((value) => value ?? undefined),
+          // The working-context control (number / Max) for this model.
+          // Optional: older services do not report it.
+          context_controls: contextControlsSchema
+            .nullish()
+            .catch(undefined)
             .transform((value) => value ?? undefined),
           availability: z.string(),
           evidence: z.object({

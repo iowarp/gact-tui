@@ -120,9 +120,11 @@ export class BrowserClioTransport implements ClioTransport {
     cursor?: string,
     signal?: AbortSignal,
   ): AsyncIterable<TransportFrame> {
-    const path = scope.session_id
-      ? `/v1/sessions/${encodeURIComponent(scope.session_id)}/events`
-      : '/v1/events';
+    const path =
+      scope.path ??
+      (scope.session_id
+        ? `/v1/sessions/${encodeURIComponent(scope.session_id)}/events`
+        : '/v1/events');
     const headers = this.headers('text/event-stream');
     if (cursor) headers.set('Last-Event-ID', cursor);
 

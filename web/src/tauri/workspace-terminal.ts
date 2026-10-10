@@ -11,7 +11,7 @@ export async function openWorkspaceTerminal(path: string): Promise<string> {
   return invoke<string>('open_workspace_terminal', { path });
 }
 
-const TERMINAL_FONT_FAMILY =
+export const TERMINAL_FONT_FAMILY =
   'ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace';
 
 interface TerminalDataPayload {
@@ -35,7 +35,7 @@ function generateTerminalId(): string {
   return `term-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-interface XtermModule {
+export interface XtermModule {
   Terminal: typeof Terminal;
   FitAddon: typeof FitAddon;
 }
@@ -43,8 +43,10 @@ interface XtermModule {
 // xterm.js is a ~330KB chunk that most sessions never touch — loaded only
 // the first time a terminal tab actually opens, and cached (a shared
 // promise, not re-imported per terminal) for every one after that.
+// Shared with the read-only operation log view (operation-log-terminal.tsx),
+// so both use one xterm chunk and one terminal look.
 let xtermModulePromise: Promise<XtermModule> | undefined;
-function loadXterm(): Promise<XtermModule> {
+export function loadXterm(): Promise<XtermModule> {
   if (!xtermModulePromise) {
     xtermModulePromise = Promise.all([
       import('@xterm/xterm'),

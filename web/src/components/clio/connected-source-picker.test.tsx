@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectionScope } from '@/lib/connection-scope';
 import { TransportError } from '@clio/core/v3';
-import { toMessagePart } from '@/lib/composer-reference-domain';
+import { assertFolderResourceAttachment } from './connected-source-picker.test-helpers';
 
 const fixtures = vi.hoisted(() => ({
   endpoint: 'https://clio-one',
@@ -106,6 +106,7 @@ beforeEach(() => {
     reason: 'File permissions are checked when publishing.',
   });
   fixtures.repository.beginSourceDraft.mockResolvedValue({ id: 'draft_test' });
+  fixtures.repository.linkConnectedSource.mockResolvedValue({ ...source, linked: true });
   fixtures.repository.finishSourceDraft.mockResolvedValue({ finished: true });
   fixtures.repository.attachSourceFolder.mockResolvedValue({
     id: 'res_folder',
@@ -224,36 +225,7 @@ describe('connected source picker', () => {
   });
 
   it('attaches folders as ordinary resource message parts with source identity', async () => {
-    const onSelect = vi.fn();
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={onSelect} />
-      </QueryClientProvider>,
-    );
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Your sources' }));
-    await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
-    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
-    await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
-    expect(fixtures.repository.attachSourceFolder).toHaveBeenCalledWith(
-      'w',
-      's1',
-      false,
-      '',
-      'draft_test',
-    );
-    const reference = onSelect.mock.calls[0][0];
-    expect(reference).toMatchObject({
-      label: 'OPAL inputs',
-      navigation: { source_id: 's1', source_kind: 'folder' },
-    });
-    expect(toMessagePart(reference)).toMatchObject({
-      type: 'resource_ref',
-      resource_id: 'res_folder',
-      resource_revision: '1',
-      name: 'OPAL inputs',
-    });
+    await assertFolderResourceAttachment(fixtures.repository.attachSourceFolder);
   });
 
   it('adds the folder to the message after this download completes, not from old history', async () => {
@@ -328,6 +300,7 @@ describe('connected source picker', () => {
           false,
           'draft_test',
           { access: 'read_only', confirm_remote: false },
+          undefined,
         ),
       );
       expect(fixtures.repository.transferConnectedSource).not.toHaveBeenCalled();
@@ -341,6 +314,7 @@ describe('connected source picker', () => {
             ['input.csv'],
             'draft_test',
             'editable',
+            undefined,
           ),
         );
       } else {
@@ -654,6 +628,7 @@ describe('connected source picker', () => {
         undefined,
         'draft_test',
         'editable',
+        undefined,
       ),
     );
     expect(screen.getByRole('heading', { name: 'OPAL inputs' })).toBeInTheDocument();

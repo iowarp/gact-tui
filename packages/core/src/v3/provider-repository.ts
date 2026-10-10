@@ -22,6 +22,11 @@ import {
 } from './provider-components.js';
 import { ContextRepository } from './context-repository.js';
 import {
+  contextControlsSchema,
+  type ContextControls,
+  type WorkingContextInput,
+} from './context-sizing-contract.js';
+import {
   savedServerListSchema,
   savedServerSchema,
   type SavedServer,
@@ -105,6 +110,41 @@ export class ProviderRepository extends ContextRepository {
       method: 'GET',
       path: '/v1/providers/lm',
       decode: (value) => languageModelConfigurationSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * The working-context control (number / Max) of a model CLIO binds but does
+   * not run: what the agent loop and compaction budget against.
+   */
+  public workingContext(
+    providerId: string,
+    model: string,
+    apiBase = '',
+    signal?: AbortSignal,
+  ): Promise<ContextControls> {
+    const query = new URLSearchParams({ model });
+    if (apiBase) query.set('api_base', apiBase);
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/working-context?${query.toString()}`,
+      decode: (value) => contextControlsSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Save Max or a number as a model's working context; applies from its next turn. */
+  public saveWorkingContext(
+    providerId: string,
+    input: WorkingContextInput,
+    signal?: AbortSignal,
+  ): Promise<ContextControls> {
+    return this.transport.request({
+      method: 'PUT',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/working-context`,
+      body: input,
+      decode: (value) => contextControlsSchema.parse(value),
       signal,
     });
   }

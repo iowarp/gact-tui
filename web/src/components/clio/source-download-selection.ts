@@ -3,4 +3,5 @@ export interface SourceDownloadSelection {
   draftId?: string;
   path: string;
   kind: 'file' | 'folder';
+  linked?: boolean;
 }

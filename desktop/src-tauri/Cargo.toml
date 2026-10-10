@@ -36,6 +36,7 @@ ureq = { version = "2.10", default-features = false, features = ["tls"] }
 hex = "0.4"
 libc = "0.2"
 base64 = "0.22"
+sha2 = "0.10"
 # Embedded workspace terminal (Wave B9): ConPTY on Windows, real ptys on
 # macOS/Linux, behind one cross-platform API.
 portable-pty = "0.8"
@@ -48,7 +49,6 @@ png = "0.18"
 winreg = "0.55"
 keyring = { version = "3.6.3", default-features = false, features = ["windows-native"] }
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp", "Win32_System_RestartManager", "Win32_System_SystemInformation", "Win32_System_Threading"] }
-sha2 = "0.10"
 tar = "0.4"
 zstd = "0.13"
 

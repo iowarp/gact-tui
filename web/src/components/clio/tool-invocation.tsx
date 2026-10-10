@@ -5,16 +5,18 @@ import { useContext, useEffect, useState } from 'react';
 import { ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { Collapsible } from '@/components/ui/collapsible';
 import { ActivityRow } from './activity-row';
 import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
-import { ResultDialogContent } from './result-dialog-content';
+import { ToolDetailsContent } from './tool-details-content';
 import { PresentationLink } from './presentation-link';
 import {
   getToolActionLabel,
   getToolSubject,
   getToolHeaderMetadata,
   getToolStatus,
+  getToolFailureDetail,
   isA2uiCatalogLookup,
 } from './tool-presentation';
 import { PagedBlock } from './tool-result-primitives';
@@ -45,6 +47,7 @@ export function ClioToolInvocation({
 }) {
   const navigation = useContext(PresentationNavigation);
   const [open, setOpen] = useState(defaultOpen ?? false);
+  const [resultOpen, setResultOpen] = useState(false);
   const duration = useToolDuration(tool);
   useEffect(() => {
     let frame = 0;
@@ -94,10 +97,27 @@ export function ClioToolInvocation({
         )
     : [];
   const status = getToolStatus(presentedTool);
+  const failure = getToolFailureDetail(presentedTool);
+  const declaredFailure = presentedTool.presentation?.blocks.some(
+    (block) => block.severity === 'error' && (block.text?.trim() || block.content_ref),
+  );
   const headerMetadata = getToolHeaderMetadata(presentedTool);
   const actionLabel = getToolActionLabel(presentedTool);
   const summaryInHeader =
     Boolean(headerMetadata) && headerMetadata === presentedTool.presentation?.summary?.trim();
+  const detailsTrigger = (
+    <DialogTrigger asChild>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="size-5 shrink-0"
+        aria-label={`Technical details for ${actionLabel}`}
+        title="View command, input, result, and timing"
+      >
+        <InfoIcon className="size-4" />
+      </Button>
+    </DialogTrigger>
+  );
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <div
@@ -107,15 +127,61 @@ export function ClioToolInvocation({
         tabIndex={-1}
       >
         {compact ? (
-          <ToolCompactRow
-            tool={presentedTool}
-            duration={duration}
-            attention={
-              attention ? (
-                <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
-              ) : null
-            }
-          />
+          <Collapsible open={resultOpen} onOpenChange={setResultOpen}>
+            <div className="flex min-w-0 items-center gap-1">
+              <ToolCompactRow
+                tool={presentedTool}
+                expanded={resultOpen}
+                duration={duration}
+                attention={
+                  attention ? (
+                    <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
+                  ) : null
+                }
+              />
+              {detailsTrigger}
+            </div>
+            {resultOpen ? (
+              <ToolDetailsContent inline title={`${actionLabel}: Result`}>
+                {failure && !declaredFailure ? (
+                  <p
+                    role="alert"
+                    className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]"
+                  >
+                    {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
+                  </p>
+                ) : null}
+                {subject ? (
+                  workflow && navigation?.onOpenWorkflow ? (
+                    <Button
+                      variant="link"
+                      className="h-auto justify-start p-0"
+                      onClick={() => navigation.onOpenWorkflow?.(tool)}
+                    >
+                      Open workflow {workflow.label}
+                    </Button>
+                  ) : (
+                    <PresentationLink block={subject} />
+                  )
+                ) : null}
+                {isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
+                  <p className="text-muted-foreground">
+                    Widget catalog loaded. Use technical details to inspect the full catalog.
+                  </p>
+                ) : (
+                  <ToolResultPresentation tool={presentedTool} subjectId={subject?.id} />
+                )}
+                {!presentedTool.presentation?.blocks.length &&
+                !presentedTool.presentation?.summary &&
+                !failure ? (
+                  <p className="text-muted-foreground">
+                    No formatted result was recorded. The original result is available in technical
+                    details.
+                  </p>
+                ) : null}
+              </ToolDetailsContent>
+            ) : null}
+          </Collapsible>
         ) : (
           <ActivityRow
             icon={
@@ -153,25 +219,14 @@ export function ClioToolInvocation({
             }
             metadata={headerMetadata}
             status={status}
+            statusDetail={failure}
             duration={duration}
             attention={
               attention ? (
                 <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
               ) : null
             }
-            action={
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-5"
-                  aria-label={`Technical details for ${actionLabel}`}
-                  title="View command, input, result, and timing"
-                >
-                  <InfoIcon className="size-4" />
-                </Button>
-              </DialogTrigger>
-            }
+            action={detailsTrigger}
           />
         )}
         {!compact ? (
@@ -194,10 +249,7 @@ export function ClioToolInvocation({
             {tool.error}
           </p>
         ) : null}
-        <ResultDialogContent
-          title={`${actionLabel}: Technical details`}
-          description="Original tool arguments, result, and diagnostics."
-        >
+        <ToolDetailsContent inline={false} title={`${actionLabel}: Technical details`}>
           {duration !== undefined ? (
             <p className="text-sm tabular-nums text-muted-foreground">
               {status === 'running' || status === 'pending' ? 'Elapsed time' : 'Execution time'}:{' '}
@@ -259,13 +311,22 @@ export function ClioToolInvocation({
                 />
               ))
           ) : (
-            <ToolOutput errorText={tool.error as never} output={tool.output as never} />
+            <ToolOutput
+              errorText={tool.error as never}
+              // Preserve explicit JSON scalars that ToolOutput would otherwise
+              // treat as an absent result (false, zero, null or an empty string).
+              output={
+                (tool.output !== undefined && !tool.output
+                  ? JSON.stringify(tool.output)
+                  : tool.output) as never
+              }
+            />
           )}
           {attentionFields?.some((entry) => entry.kind === 'tool_result') && tool.error ? (
             <p role="alert">{String(tool.error)}</p>
           ) : null}
           {tool.presentation?.diagnostic ? <p>{tool.presentation.diagnostic}</p> : null}
-        </ResultDialogContent>
+        </ToolDetailsContent>
       </div>
     </Dialog>
   );

@@ -3,7 +3,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import type { ConnectedSourceState, SourceReview, WorkspaceReference } from '@clio/core/v3';
 import { TransportError } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { queryKeys } from '@/lib/query-keys';
 import { ArrowLeftIcon, ArrowUpIcon, FileIcon, FolderIcon, UnplugIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,10 +26,13 @@ import { InfoTip } from './info-tip';
 import { useSourceFolderReference } from './use-source-folder-reference';
 import { useSourceFileReference } from './use-source-file-reference';
 import type { SourceDownloadSelection } from './source-download-selection';
+import { SourceOperationStatus } from './source-operation-status';
+import { useStorageAttachment } from './use-storage-attachment';
 
 /** Management of one source keeps refresh, reviewed writeback and disconnect explicit. */
 export function ConnectedSourceDetail({
   workspaceId,
+  sessionId,
   source,
   hostLabel,
   onBack,
@@ -41,6 +44,7 @@ export function ConnectedSourceDetail({
   initialDownloaded = false,
 }: {
   workspaceId: string;
+  sessionId?: string;
   source: ConnectedSourceState;
   hostLabel: string;
   onBack: () => void;
@@ -85,11 +89,6 @@ export function ConnectedSourceDetail({
   const [view, setView] = useState<'source' | 'downloads'>(
     initialDownloaded ? 'downloads' : 'source',
   );
-  const [attachAfterDownload, setAttachAfterDownload] = useState<{
-    id: string;
-    selection: SourceDownloadSelection;
-  }>();
-  const attachedDownload = useRef<string | undefined>(undefined);
   const folderReference = useSourceFolderReference(workspaceId, onSelect);
   const fileReference = useSourceFileReference(workspaceId, onSelect);
   const ready =
@@ -129,22 +128,13 @@ export function ConnectedSourceDetail({
   const latest = orderedOperations.find((row) => row.kind !== 'apply');
   const publication = orderedOperations.find((row) => row.kind === 'apply');
   const active = orderedOperations.find((row) => ['queued', 'running'].includes(row.state));
-  const attachFolder = folderReference.mutate;
-  const attachFile = fileReference.mutate;
-  useEffect(() => {
-    if (
-      attachAfterDownload?.id === latest?.id &&
-      latest?.state === 'completed' &&
-      ready &&
-      attachedDownload.current !== latest.id
-    ) {
-      attachedDownload.current = latest.id;
-      const selection = attachAfterDownload!.selection;
-      if (selection.kind === 'file')
-        attachFile({ source, path: selection.path, draftId: selection.draftId });
-      else attachFolder({ source, path: selection.path, draftId: selection.draftId });
-    }
-  }, [attachAfterDownload, latest?.id, latest?.state, ready, attachFolder, attachFile, source]);
+  const setAttachAfterDownload = useStorageAttachment(
+    source,
+    operations.data,
+    ready,
+    folderReference.mutate,
+    fileReference.mutate,
+  );
   useEffect(() => {
     if (latest?.state === 'completed') {
       void queryClient.invalidateQueries({
@@ -207,6 +197,7 @@ export function ConnectedSourceDetail({
             folder ? [folder] : undefined,
             draftId,
             downloadAccess,
+            sessionId,
           )
           .catch(async (error: unknown) => {
             if (draftId) await repository.finishSourceDraft(workspaceId, source.id, draftId, false);
@@ -223,21 +214,35 @@ export function ConnectedSourceDetail({
             ? (await repository.beginSourceDraft(workspaceId, source.id)).id
             : undefined;
         try {
+          let linked = source;
           if (
             kind === 'unlink' ||
             !source.linked ||
             manageOnly ||
             linkAccess !== source.link_access
           )
-            await repository.linkConnectedSource(
+            linked = await repository.linkConnectedSource(
               workspaceId,
               source.id,
               kind === 'unlink',
               draftId,
               kind === 'link' ? { access: linkAccess, confirm_remote: confirmed } : undefined,
+              sessionId,
             );
-          if (kind === 'link' && onSelect)
-            await folderReference.mutateAsync({ source, linked: true, path: folder, draftId });
+          if (kind === 'link' && onSelect) {
+            const operation = linked.indexing_operation;
+            if (operation && operation.state !== 'completed') {
+              const selection = { path: folder, kind: 'folder' as const, draftId, linked: true };
+              if (onDownloadStarted) onDownloadStarted(linked, operation.id, selection);
+              else setAttachAfterDownload({ id: operation.id, selection });
+            } else
+              await folderReference.mutateAsync({
+                source: linked,
+                linked: true,
+                path: folder,
+                draftId,
+              });
+          }
         } catch (error) {
           if (draftId) await repository.finishSourceDraft(workspaceId, source.id, draftId, false);
           throw error;
@@ -271,7 +276,7 @@ export function ConnectedSourceDetail({
         ? (await repository.beginSourceDraft(workspaceId, source.id)).id
         : undefined;
       const operation = await repository
-        .transferConnectedSource(workspaceId, source.id, [path], draftId, downloadAccess)
+        .transferConnectedSource(workspaceId, source.id, [path], draftId, downloadAccess, sessionId)
         .catch(async (error: unknown) => {
           if (draftId) await repository.finishSourceDraft(workspaceId, source.id, draftId, false);
           throw error;
@@ -460,45 +465,18 @@ export function ConnectedSourceDetail({
         browse.isError && (
           <ConnectedSourceAuth workspaceId={workspaceId} source={source} onComplete={refresh} />
         )}
-      {!ready && latest?.state === 'completed' && (
+      {!ready && latest?.kind !== 'indexing' && latest?.state === 'completed' && (
         <p role="status" className="rounded-md border p-3 text-sm">
           No downloaded copy in this workspace.
         </p>
       )}
-      {latest && (latest.state !== 'completed' || ready) && (
-        <div className="space-y-2 rounded-md border p-3" role="status">
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <span>
-              {latest.state === 'completed' ? 'Downloaded to workspace Files' : latest.state}:{' '}
-              {bytes(latest.bytes_done)}
-              {latest.bytes_total ? ` / ${bytes(latest.bytes_total)}` : ''}
-            </span>
-            {active && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={latest.cancel_requested || action.isPending}
-                onClick={() => action.mutate('cancel')}
-              >
-                {latest.cancel_requested ? 'Cancelling…' : 'Cancel transfer'}
-              </Button>
-            )}
-          </div>
-          {active && (
-            <progress
-              className="h-1.5 w-full accent-primary"
-              aria-label="Transfer progress"
-              value={latest.bytes_total ? latest.bytes_done : undefined}
-              max={latest.bytes_total || undefined}
-            />
-          )}
-          {latest.error && <p className="text-xs text-destructive">{latest.error}</p>}
-          {latest.native_job_id && (
-            <p className="break-all text-xs text-muted-foreground">
-              Globus task {latest.native_job_id}
-            </p>
-          )}
-        </div>
+      {latest && (latest.kind === 'indexing' || latest.state !== 'completed' || ready) && (
+        <SourceOperationStatus
+          operation={latest}
+          label={source.label}
+          pending={action.isPending && action.variables === 'cancel'}
+          onCancel={() => action.mutateAsync('cancel')}
+        />
       )}
       {publication && (
         <p role="status" className="rounded-md border p-3 text-sm">

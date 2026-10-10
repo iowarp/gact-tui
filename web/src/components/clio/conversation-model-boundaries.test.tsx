@@ -1,7 +1,7 @@
 import type { Message } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppearanceProvider } from '@/providers/appearance-provider';
+import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
 import { conversationModelBoundaries, modelBoundariesEqual } from './conversation-model-boundaries';
 
@@ -103,8 +103,12 @@ describe('recorded model segments', () => {
     );
     const checkpoints = document.querySelectorAll('[data-slot="model-checkpoint"]');
     expect(checkpoints).toHaveLength(2);
-    expect(checkpoints[0]).toHaveTextContent('Using OpenAI Codex · gpt-6-luna');
-    expect(checkpoints[1]).toHaveTextContent('Switched to Claude Code · claude-sonnet-5');
+    expect(checkpoints[0]).toHaveTextContent('Using OpenAI Codex gpt-6-luna');
+    expect(checkpoints[1]).toHaveTextContent('Switched to Claude Code claude-sonnet-5');
+    expect(checkpoints[1]).toHaveAccessibleName(
+      'Switched to Claude Code, claude-sonnet-5. Previous model: OpenAI Codex, gpt-6-luna',
+    );
+    expect(checkpoints[1]).not.toHaveTextContent('·');
     expect(document.querySelector('[data-message-id="first"]')?.contains(checkpoints[0]!)).toBe(
       true,
     );

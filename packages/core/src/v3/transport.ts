@@ -31,6 +31,12 @@ export interface StreamScope {
   workspace_id?: string;
   session_id?: string;
   run_id?: string;
+  /**
+   * An explicit event-stream path (e.g. an infrastructure operation's
+   * `/v1/infrastructure/operations/{id}/events`); overrides the session or
+   * global stream the other fields select.
+   */
+  path?: string;
 }
 
 export interface TransportFrame {

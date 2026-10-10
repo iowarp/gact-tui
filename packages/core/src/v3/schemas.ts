@@ -121,6 +121,11 @@ export const operationalRunStateSchema = z
   });
 
 export const operationalRunSchema = z.object({
+  progress: z.record(z.string(), z.unknown()).optional(),
+  task_kind: z.string().optional(),
+  description: z.string().optional(),
+  cancel_requested: z.boolean().optional(),
+  supported_actions: z.array(z.string()).optional(),
   handle_id: z.string(),
   task_id: z.string(),
   run_label: z.string(),

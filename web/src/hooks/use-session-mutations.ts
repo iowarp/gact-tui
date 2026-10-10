@@ -390,16 +390,7 @@ export function useSessionMutations({
 
   const cancel = useMutation({
     mutationFn: () => repository.cancelSession(sessionId),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
-        }),
-      ]);
-    },
+    onSuccess: invalidateComposerState,
   });
 
   const retry = useMutation({

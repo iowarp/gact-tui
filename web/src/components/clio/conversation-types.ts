@@ -32,6 +32,7 @@ export interface ClioConversationProps {
    * `workspace_file` block's path belongs to.
    */
   workspaceId?: string;
+  sessionId?: string;
   tools: Record<string, ToolInvocation>;
   tasks: Record<string, DomainTask>;
   subagents: Record<string, SubagentRun>;
@@ -86,6 +87,9 @@ export interface ClioConversationProps {
 }
 
 export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
+  /** Feedback consumed at recorded boundaries inside this response. */
+  feedbackMessages?: readonly DomainMessage[];
+  active?: boolean;
   displayMode: ConversationDisplayMode;
   message: DomainMessage;
   index: number;

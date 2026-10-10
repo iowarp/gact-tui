@@ -49,31 +49,7 @@ export function ClioTranscriptMinimap({
   maxMarkerWidth = 24,
 }: ClioTranscriptMinimapProps) {
   if (!visible) {
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            aria-label="Open transcript outline"
-            className="absolute top-2 -left-0.5 z-10 rounded-full"
-            size="icon-xs"
-            variant="outline"
-          >
-            <ListTreeIcon aria-hidden="true" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          aria-label="Transcript outline"
-          className="h-80 min-h-48 w-80 min-w-64 max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] resize overflow-hidden p-2"
-          side="right"
-        >
-          <p className="shrink-0 px-2 text-xs font-medium text-muted-foreground">
-            Transcript outline
-          </p>
-          <TranscriptOutlineList activeIndex={activeIndex} messages={messages} onJump={onJump} />
-        </PopoverContent>
-      </Popover>
-    );
+    return <TranscriptOutline activeIndex={activeIndex} messages={messages} onJump={onJump} />;
   }
   return (
     <MinimapRail
@@ -83,6 +59,46 @@ export function ClioTranscriptMinimap({
       onJump={onJump}
       maxMarkerWidth={maxMarkerWidth}
     />
+  );
+}
+
+function TranscriptOutline({
+  activeIndex,
+  messages,
+  onJump,
+}: Pick<ClioTranscriptMinimapProps, 'activeIndex' | 'messages' | 'onJump'>) {
+  const [outlineOpen, setOutlineOpen] = useState(false);
+  return (
+    <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          aria-label="Open transcript outline"
+          className="absolute top-2 -left-0.5 z-10 rounded-full"
+          size="icon-xs"
+          variant="outline"
+        >
+          <ListTreeIcon aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        aria-label="Transcript outline"
+        className="h-80 min-h-48 w-80 min-w-64 max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] resize overflow-hidden p-2"
+        side="right"
+      >
+        <p className="shrink-0 px-2 text-xs font-medium text-muted-foreground">
+          Transcript outline
+        </p>
+        <TranscriptOutlineList
+          activeIndex={activeIndex}
+          messages={messages}
+          onJump={(index) => {
+            setOutlineOpen(false);
+            onJump(index);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 

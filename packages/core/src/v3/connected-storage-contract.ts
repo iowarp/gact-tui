@@ -42,6 +42,7 @@ export const connectedSourceStateSchema = z
     download_access: z.enum(['read_only', 'editable']).optional(),
     pending_edits: z.number().optional(),
     download_available: z.boolean().optional(),
+    indexing_operation: z.lazy(() => sourceOperationSchema).optional(),
   })
   .passthrough()
   .transform(
@@ -62,6 +63,7 @@ export const connectedSourceStateSchema = z
       download_access,
       pending_edits,
       download_available,
+      indexing_operation,
       ...source
     }) => ({
       ...connectedSourceGeneratedSchema.parse(source),
@@ -81,6 +83,7 @@ export const connectedSourceStateSchema = z
       download_access,
       pending_edits,
       download_available,
+      indexing_operation,
     }),
   );
 export type ConnectedSourceState = z.infer<typeof connectedSourceStateSchema>;
@@ -130,6 +133,10 @@ export const sourceOperationSchema = z.object({
   state: z.enum(['queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted']),
   bytes_done: z.number(),
   bytes_total: z.number(),
+  entries_done: z.number().default(0),
+  task_handle: z.string().default(''),
+  owner_session_id: z.string().default(''),
+  invocation_id: z.string().default(''),
   native_job_id: z.string().nullable(),
   cancel_requested: z.boolean(),
   error: z.string().nullable(),

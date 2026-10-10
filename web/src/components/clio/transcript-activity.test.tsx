@@ -1,5 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { ConversationTurn } from './conversation-turn';
@@ -10,7 +10,7 @@ import { PresentationNavigation } from './presentation-navigation';
 
 afterEach(cleanup);
 it.each([true, false])(
-  'keeps the reasoning preview and disclosure without repeating its state label (streaming=%s)',
+  'keeps thinking-only updates collapsed until requested (streaming=%s)',
   async (streaming) => {
     const text = 'Creating inline SVG animation';
     const iteration: ConversationIteration = {
@@ -28,24 +28,20 @@ it.each([true, false])(
       summary: text,
     };
     render(<ConversationTurn iterations={[iteration]} mode="chain" subagents={{}} />);
-    const preview = screen.getByRole('button', {
-      name: `${streaming ? 'Thinking' : 'Reasoning'}: ${text}`,
-    });
-    expect(preview).toHaveTextContent(/^Creating inline SVG animation$/u);
-    expect(preview.querySelectorAll('svg.animate-spin')).toHaveLength(streaming ? 1 : 0);
-    expect(screen.queryAllByText('Thinking', { exact: true })).toHaveLength(streaming ? 1 : 0);
-    expect(preview).toHaveAttribute('aria-expanded', 'false');
-    await act(async () => {
-      fireEvent.click(preview);
-    });
-    expect(preview).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getAllByText(text)).toHaveLength(2);
-    fireEvent.click(preview);
-    expect(preview).toHaveAttribute('aria-expanded', 'false');
+    const trigger = screen.getByRole('button', { name: /^Thinking:/ });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Thinking details' })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(
+      await within(screen.getByRole('region', { name: 'Thinking details' })).findByText(text),
+    ).toBeVisible();
+    fireEvent.click(trigger);
+    expect(screen.queryByRole('region', { name: 'Thinking details' })).not.toBeInTheDocument();
   },
 );
 
-it('shows a flat timeline, renders repeated thought once and opens complete tool details', async () => {
+it('keeps updates visible, expands readable results and retains technical details', async () => {
   const tool: ToolInvocation = {
     id: 'read',
     session_id: 's',
@@ -60,6 +56,7 @@ it('shows a flat timeline, renders repeated thought once and opens complete tool
       subject: 'file',
       blocks: [
         { id: 'file', type: 'link', target: 'file', uri: 'D:/review/notes.md', label: 'notes.md' },
+        { id: 'content', type: 'text', text: 'Complete recorded file contents.' },
       ],
     },
   };
@@ -84,18 +81,34 @@ it('shows a flat timeline, renders repeated thought once and opens complete tool
       <ConversationTurn iterations={[iteration]} mode="chain" subagents={{}} />
     </PresentationNavigation.Provider>,
   );
-  expect(screen.getByRole('button', { name: /^Activity: 1 tool completed/ })).toBeVisible();
-  expect(screen.getAllByText(text)).toHaveLength(1);
-  expect(screen.getByRole('button', { name: /^Update: The notes are ready/ })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Activity: Read files' })).toBeVisible();
+  expect(await screen.findByText('The notes are ready for the report.')).toBeVisible();
+  expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+  const thinking = screen.getByRole('button', { name: /^Thinking:/ });
+  fireEvent.click(thinking);
+  expect(within(thinking).getByText(text)).toBeVisible();
+  expect(
+    await within(screen.getByRole('region', { name: 'Thinking details' })).findByText(text),
+  ).toBeVisible();
+  expect(screen.getAllByText(text)).toHaveLength(3);
   expect(view.container.querySelector('[data-slot="transcript-activity-timeline"]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: /Expand activity/ })).not.toBeInTheDocument();
-  const detail = screen.getByRole('button', { name: 'Technical details for Read' });
+  const detail = screen.getByRole('button', { name: 'Show result for Read' });
   expect(detail).toHaveTextContent('notes.md');
   expect(detail).toHaveTextContent('61 lines');
   fireEvent.click(detail);
-  expect(await screen.findByRole('dialog')).toHaveTextContent('Complete recorded file contents.');
+  expect(await screen.findByRole('region', { name: 'Read: Result' })).toHaveTextContent(
+    'Complete recorded file contents.',
+  );
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'notes.md' }));
   expect(openFile).toHaveBeenCalledWith('D:/review/notes.md');
+  fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read' }));
+  expect(
+    within(screen.getByRole('dialog')).getByRole('heading', { name: 'Arguments' }),
+  ).toBeVisible();
+  expect(screen.getByRole('dialog')).toHaveTextContent('Complete recorded file contents.');
   view.rerender(
     <TooltipProvider>
       <ClioToolInvocation compact tool={tool} attention={{ share: 0.25, bucket: 1 }} />

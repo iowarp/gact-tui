@@ -8,6 +8,7 @@ import { useAvailableSessionNavigation } from '@/hooks/use-available-session-nav
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { closeEmbeddedTerminalsForSession } from '@/tauri/workspace-terminal';
+import { useLiveStore } from '@/store/live-store';
 
 /**
  * The workspace/session CRUD surface for navigation-owning components (command
@@ -34,6 +35,33 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       ]);
     },
     [queryClient, settings.endpoint, workspaceId],
+  );
+
+  const updateSessionIdentity = useCallback(
+    async (id: string, patch: { title?: string; pinned?: boolean }) => {
+      const updated = await repository.updateSession(id, patch);
+      // A live session owns its streamed row, so a list refetch alone cannot
+      // update its name/pin. Apply only acknowledged identity fields; retain
+      // any newer work state and other fields delivered while the request ran.
+      useLiveStore.setState((state) => {
+        const current = state.entities.sessions[id];
+        if (!current) return state;
+        return {
+          entities: {
+            ...state.entities,
+            sessions: {
+              ...state.entities.sessions,
+              [id]: {
+                ...current,
+                ...(patch.title !== undefined ? { title: updated.title } : {}),
+                ...(patch.pinned !== undefined ? { pinned: updated.pinned } : {}),
+              },
+            },
+          },
+        };
+      });
+    },
+    [repository],
   );
 
   const navigationActions = useMemo<ResourceActions>(
@@ -76,7 +104,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await refreshNavigation(targetWorkspaceId);
       },
       renameSession: async (targetSessionId, title) => {
-        await repository.updateSession(targetSessionId, { title });
+        await updateSessionIdentity(targetSessionId, { title });
         await refreshNavigation();
       },
       setWorkspacePinned: async (targetWorkspaceId, pinned) => {
@@ -84,7 +112,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await refreshNavigation(targetWorkspaceId);
       },
       setSessionPinned: async (targetSessionId, pinned) => {
-        await repository.updateSession(targetSessionId, { pinned });
+        await updateSessionIdentity(targetSessionId, { pinned });
         await refreshNavigation();
       },
       archiveSession: async (targetSessionId) => {
@@ -129,7 +157,15 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         );
       },
     }),
-    [navigate, navigateToAvailableSession, refreshNavigation, repository, sessionId, workspaceId],
+    [
+      navigate,
+      navigateToAvailableSession,
+      refreshNavigation,
+      repository,
+      sessionId,
+      workspaceId,
+      updateSessionIdentity,
+    ],
   );
 
   return { navigationActions, refreshNavigation };

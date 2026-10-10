@@ -131,6 +131,18 @@ it('shows empty, failed, and pending association queries explicitly', async () =
   );
   expect(screen.getByRole('menuitem', { name: 'Finding apps…' })).toHaveAttribute('data-disabled');
 });
+it('keeps the folder fallback available with no apps, downloads, or PDF rendition', async () => {
+  const onReveal = vi.fn();
+  menu('binary', {
+    manifest: { ...manifest, profile: 'binary', native_open: false, rendition_formats: [] },
+    applications: [],
+    hideDownload: true,
+    onReveal,
+  });
+  await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Open in folder' }));
+  expect(onReveal).toHaveBeenCalledOnce();
+});
 it('keeps configured embedded editors specific to office formats', async () => {
   menu('ooxml-word', {
     manifest: { ...manifest, profile: 'ooxml-word', embedded_editors: ['onlyoffice', 'collabora'] },

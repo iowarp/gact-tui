@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/deployment',
+  // Live-CLIO specs run with playwright.live.config.ts, never against the preview.
+  testIgnore: ['live/**'],
   workers: 1,
   retries: 0,
   reporter: 'list',

@@ -52,21 +52,31 @@ export function SettingsLocalServerCard({
   const [draft, setDraft] = useState(address);
   const { save, check, remove } = useSavedServers();
   const localCheck = useServerCheck(preset.id);
-  const typed = normalizeServerAddress(draft);
+  const typed = normalizeServerAddress(draft, preset.provider === 'ollama' ? '/' : '/v1');
   const pending = save.isPending || check.isPending || localCheck.isPending || remove.isPending;
-  const latest = localCheck.data ?? (saved?.check ? { reachable: saved.check.reachable, models: saved.check.models } : undefined);
+  const latest =
+    localCheck.data ??
+    (saved?.check ? { reachable: saved.check.reachable, models: saved.check.models } : undefined);
   const status = serverStatus({ custom, group, latest });
   const error = save.error ?? check.error ?? localCheck.error ?? remove.error;
 
   async function saveAddress() {
     if (!typed) return;
     localCheck.reset();
-    await save.mutateAsync({ address: typed, presetId: custom ? undefined : preset.id, serverId: saved?.id });
+    await save.mutateAsync({
+      address: typed,
+      presetId: custom ? undefined : preset.id,
+      serverId: saved?.id,
+    });
     setEditing(false);
   }
 
   return (
-    <div className="flex items-start gap-3" data-provider-id={saved?.id ?? preset.id} data-slot="local-server-card">
+    <div
+      className="flex items-start gap-3"
+      data-provider-id={saved?.id ?? preset.id}
+      data-slot="local-server-card"
+    >
       <IconTile aria-hidden="true" size="lg" variant="frame">
         <ModelSelectorLogo className="size-6" provider={providerLogoId(preset.id)} />
       </IconTile>
@@ -140,7 +150,13 @@ export function SettingsLocalServerCard({
           Check
         </Button>
         {saved ? (
-          <Button disabled={pending} onClick={() => remove.mutate(saved.id)} size="sm" type="button" variant="ghost">
+          <Button
+            disabled={pending}
+            onClick={() => remove.mutate(saved.id)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
             {custom ? 'Remove' : 'Reset address'}
           </Button>
         ) : null}
@@ -164,7 +180,9 @@ function StatusChip({ label, status }: { label: string; status: ReturnType<typeo
   if (status.kind === 'running') {
     return (
       <Badge data-slot="server-status" radius="full" size="sm" variant="success-light">
-        {status.models ? `Running, ${status.models} ${status.models === 1 ? 'model' : 'models'}` : 'Running'}
+        {status.models
+          ? `Running, ${status.models} ${status.models === 1 ? 'model' : 'models'}`
+          : 'Running'}
       </Badge>
     );
   }
@@ -179,7 +197,13 @@ function StatusChip({ label, status }: { label: string; status: ReturnType<typeo
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge className="cursor-help" data-slot="server-status" radius="full" size="sm" variant="secondary">
+          <Badge
+            className="cursor-help"
+            data-slot="server-status"
+            radius="full"
+            size="sm"
+            variant="secondary"
+          >
             Not running
           </Badge>
         </TooltipTrigger>

@@ -52,8 +52,7 @@ export function CatalogToolset({
   const [selectedKey, setSelectedKey] = useState(() => toolKey(tools[0]));
   const activeBundle = bundles.find((bundle) => bundle.id === catalog);
   const visibleTools = activeBundle?.domains.flatMap((domain) => domain.tools) ?? [];
-  const selected =
-    visibleTools.find((tool) => toolKey(tool) === selectedKey) ?? visibleTools[0];
+  const selected = visibleTools.find((tool) => toolKey(tool) === selectedKey) ?? visibleTools[0];
   const selectTool = (tool: ToolCatalogItem) => {
     setSelectedKey(toolKey(tool));
     setBrowserOpen(false);
@@ -64,32 +63,37 @@ export function CatalogToolset({
   }
 
   return (
-    <div className="border-y bg-card xl:grid xl:min-h-[38rem] xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
-      <div className="flex items-center justify-between gap-3 border-b p-3 xl:hidden">
-        <Button onClick={() => setBrowserOpen(true)} size="sm" variant="outline">
-          <ListFilterIcon aria-hidden="true" /> Browse tools
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 xl:hidden">
+        <Button
+          className="bg-blue-600 text-white hover:bg-blue-500"
+          onClick={() => setBrowserOpen(true)}
+        >
+          <ListFilterIcon aria-hidden="true" /> View tool list
         </Button>
-        <span className="min-w-0 truncate text-sm text-muted-foreground">
-          {selected ? selected.title?.trim() || humanize(selected.name) : 'Choose a tool'}
-        </span>
+        <p className="text-sm text-muted-foreground">
+          Choose from {tools.length} available tool{tools.length === 1 ? '' : 's'}.
+        </p>
       </div>
-      <aside className="hidden border-r xl:block">
-        <ToolBrowser
-          bundles={bundles}
-          catalog={catalog}
-          onCatalog={setCatalog}
-          onQuery={setQuery}
-          onSelect={selectTool}
-          query={query}
-          selected={selected}
-        />
-      </aside>
-      <div className="min-w-0">
-        {selected ? (
-          <ToolContract tool={selected} />
-        ) : (
-          <p className="p-8 text-sm text-muted-foreground">No tools match “{query}”.</p>
-        )}
+      <div className="border-y bg-card xl:grid xl:min-h-[38rem] xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
+        <aside className="hidden border-r xl:block">
+          <ToolBrowser
+            bundles={bundles}
+            catalog={catalog}
+            onCatalog={setCatalog}
+            onQuery={setQuery}
+            onSelect={selectTool}
+            query={query}
+            selected={selected}
+          />
+        </aside>
+        <div className="min-w-0">
+          {selected ? (
+            <ToolContract tool={selected} />
+          ) : (
+            <p className="p-8 text-sm text-muted-foreground">No tools match “{query}”.</p>
+          )}
+        </div>
       </div>
       <Sheet onOpenChange={setBrowserOpen} open={browserOpen}>
         <SheetContent className="w-[min(92vw,25rem)] gap-0 p-0 sm:max-w-md" side="left">
@@ -200,7 +204,9 @@ function SourceButton({
     <button
       aria-pressed={active}
       className={`flex items-center justify-between rounded-md px-2.5 py-1.5 text-sm transition-colors ${
-        active ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'
+        active
+          ? 'bg-background font-medium shadow-sm'
+          : 'text-muted-foreground hover:text-foreground'
       }`}
       onClick={onClick}
       type="button"
@@ -275,7 +281,12 @@ function ToolDomainGroup({
 }
 
 function McpOriginBadge({ server }: { server: McpServerDefinition }) {
-  const label = server.agent_blueprint_id || server.session_id ? 'Session' : isBuiltinMcp(server) ? 'Built in' : 'Connected';
+  const label =
+    server.agent_blueprint_id || server.session_id
+      ? 'Session'
+      : isBuiltinMcp(server)
+        ? 'Built in'
+        : 'Connected';
   return <Badge variant="outline">{label}</Badge>;
 }
 
@@ -302,8 +313,8 @@ function McpProvenance({ server }: { server: McpServerDefinition }) {
 function ToolContract({ tool }: { tool: ToolCatalogItem }) {
   const title = tool.title?.trim() || humanize(tool.name);
   return (
-    <article className="p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-5">
+    <article className="p-5 sm:p-7 [&>section]:-mx-5 [&>section]:px-5 sm:[&>section]:-mx-7 sm:[&>section]:px-7">
+      <div className="-mx-5 flex flex-wrap items-start justify-between gap-3 border-b px-5 pb-5 sm:-mx-7 sm:px-7">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">Tool</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight">{title}</h2>
@@ -331,7 +342,7 @@ function ToolContract({ tool }: { tool: ToolCatalogItem }) {
       />
 
       <TechnicalDetails
-        className="border-t py-4 text-xs"
+        className="-mx-5 border-t px-5 py-4 text-xs sm:-mx-7 sm:px-7"
         summaryClassName="font-medium"
         title="Provider metadata and raw schemas"
       >
@@ -537,7 +548,8 @@ function isBuiltinMcp(server: McpServerDefinition): boolean {
 }
 
 function domainDescription(server: McpServerDefinition): string | undefined {
-  if (isBuiltinMcp(server)) return `Included with ${vocab.agent} and available in this ${vocab.workspace}.`;
+  if (isBuiltinMcp(server))
+    return `Included with ${vocab.agent} and available in this ${vocab.workspace}.`;
   return serverDescription(server);
 }
 

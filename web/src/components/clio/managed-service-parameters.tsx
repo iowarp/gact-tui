@@ -29,7 +29,9 @@ export function ServerParametersForm({
   variant: string;
   onChange: (key: string, value: string) => void;
 }) {
-  const rows = parametersForVariant(parameters, variant);
+  // The context parameter, when CLIO offers its sizing control, is rendered by
+  // ManagedServiceContextControl (number / Max / Fit to GPU) instead.
+  const rows = parametersForVariant(parameters, variant).filter((row) => !row.context_sizing);
   if (!rows.length) return null;
   return (
     <details className="group">

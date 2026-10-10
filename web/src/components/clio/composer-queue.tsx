@@ -42,11 +42,23 @@ import {
   ResourcePipelineSummaryIcon,
 } from './resource-pipeline-status';
 
+/** Queue state and actions passed through the shared composer. */
+export interface ComposerQueueControls {
+  queuedMessages?: QueuedMessage[];
+  queueBusy?: boolean;
+  queuePaused?: boolean;
+  onDeleteQueuedMessage?: (message: QueuedMessage) => Promise<void>;
+  onPromoteQueuedMessage?: (message: QueuedMessage, delivery: MessageDelivery) => Promise<void>;
+  onReorderQueuedMessages?: (messages: QueuedMessage[]) => Promise<void>;
+  onUpdateQueuedMessage?: (message: QueuedMessage, text: string) => Promise<void>;
+}
+
 interface ClioComposerQueueProps {
   messages: QueuedMessage[];
   resources?: readonly WorkspaceResource[];
   promoteDelivery: MessageDelivery;
   busy?: boolean;
+  paused?: boolean;
   onDelete: (message: QueuedMessage) => Promise<void>;
   onPromote: (message: QueuedMessage, delivery: MessageDelivery) => Promise<void>;
   onOpenResource?: (resource: WorkspaceResource) => void;
@@ -63,6 +75,7 @@ export function ClioComposerQueue({
   onPromote,
   onReorder,
   onUpdate,
+  paused = false,
   promoteDelivery,
   resources = [],
 }: ClioComposerQueueProps) {
@@ -132,7 +145,10 @@ export function ClioComposerQueue({
     >
       <QueueSection className="flex min-h-0 flex-col">
         <QueueSectionTrigger>
-          <QueueSectionLabel count={ordered.length} label="queued messages" />
+          <QueueSectionLabel
+            count={ordered.length}
+            label={paused ? 'queued messages (paused)' : 'queued messages'}
+          />
         </QueueSectionTrigger>
         <QueueSectionContent className="flex min-h-0 flex-col">
           <Sortable

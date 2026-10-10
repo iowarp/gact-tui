@@ -1,4 +1,8 @@
-import type { ProviderComponentUpdate, ProviderComponentUpdateStage } from '@clio/core/v3';
+import type {
+  LanguageModelPreset,
+  ProviderComponentUpdate,
+  ProviderComponentUpdateStage,
+} from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
@@ -23,6 +27,7 @@ const STAGE_TEXT: Record<ProviderComponentUpdateStage, string | undefined> = {
 
 interface UseProviderComponentUpdateInput {
   group: ProviderGroup | undefined;
+  preset?: LanguageModelPreset;
   /** Whether the panel is showing: the update check runs only then. */
   open: boolean;
   /** Called once when an update finished and took effect without a restart. */
@@ -31,13 +36,13 @@ interface UseProviderComponentUpdateInput {
 
 /**
  * The provider SDK update affordance's state: the service's update check
- * (`GET /v1/providers/{id}/components`, only for a provider whose catalog row
- * carries a `client` fact -- Claude Code), the running update's
+ * (`GET /v1/providers/{id}/components` for Claude Code and direct Codex), the running update's
  * stage (polled while it runs, also picked up when the panel reopens mid-update),
  * and the last finished job.
  */
 export function useProviderComponentUpdate({
   group,
+  preset,
   open,
   onUpdated,
 }: UseProviderComponentUpdateInput) {
@@ -49,8 +54,12 @@ export function useProviderComponentUpdate({
   const jobKey = queryKeys.key('provider-component-update', settings.endpoint, presetId);
   const components = useQuery({
     queryKey: componentsKey,
-    queryFn: ({ signal }) => repository.providerComponents(presetId, {}, signal),
-    enabled: open && Boolean(presetId && group?.client),
+    queryFn: ({ signal }) => repository.providerComponents(presetId, { refresh: true }, signal),
+    // Direct Codex has updatable components but runs no CLI and therefore
+    // carries no client fact. Do not make its update control depend on one.
+    enabled:
+      open &&
+      Boolean(presetId && (preset?.provider === 'claude_code' || preset?.provider === 'codex')),
     staleTime: COMPONENTS_STALE_MS,
   });
   const [tracking, setTracking] = useState(false);
@@ -106,6 +115,11 @@ export function useProviderComponentUpdate({
     stage,
     outcome: outcome?.running ? undefined : outcome,
     startError: start.error instanceof Error ? start.error.message : undefined,
+    checkError: components.error instanceof Error ? components.error.message : undefined,
+    checking: components.isFetching,
+    check: () => {
+      void components.refetch();
+    },
     update: () => start.mutate(),
   };
 }

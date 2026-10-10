@@ -119,6 +119,27 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
     : tool.state;
 }
 
+/** Explain an unsuccessful outcome using recorded diagnostics, never payload-status guesses. */
+export function getToolFailureDetail(tool: ToolInvocation): string | undefined {
+  if (!['failed', 'denied', 'cancelled', 'degraded'].includes(getToolStatus(tool)))
+    return undefined;
+  const blocks = tool.presentation?.blocks ?? [];
+  const errors = blocks
+    .filter((block) => block.severity === 'error')
+    .map((block) => block.text?.trim() || block.detail?.trim() || block.label?.trim())
+    .filter((text): text is string => Boolean(text));
+  if (errors.length) return [...new Set(errors)].join('\n');
+  if (tool.error?.trim()) return tool.error.trim();
+  if (tool.presentation?.diagnostic?.trim()) return tool.presentation.diagnostic.trim();
+  const terminal = blocks.find((block) => block.type === 'terminal');
+  if (terminal?.timed_out)
+    return ['Process timed out.', terminal.text?.trim()].filter(Boolean).join('\n');
+  if (terminal?.text?.trim()) return terminal.text.trim();
+  if (terminal?.exit_code !== undefined && terminal.exit_code !== null)
+    return `Process exited with code ${terminal.exit_code}. No diagnostic output was recorded.`;
+  return tool.presentation?.summary?.trim() || 'No failure diagnostic was recorded.';
+}
+
 /** Compact operation label with the same qualifying subject used by the transcript row. */
 export function getToolActivityTitle(tool: ToolInvocation): string {
   const action = getToolActionLabel(tool);

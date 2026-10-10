@@ -3,7 +3,6 @@ import type {
   ComposerMessagePart,
   MessageBehavior,
   MessageDelivery,
-  QueuedMessage,
   RunState,
   WorkspaceReference,
   WorkspaceResource,
@@ -42,7 +41,7 @@ import { Button } from '@/components/ui/button';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
-import { ClioComposerQueue } from './composer-queue';
+import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import {
   defaultReasoningLabel,
@@ -74,7 +73,7 @@ import {
   useComposerSourceAttachments,
 } from './use-composer-source-attachments';
 
-export interface ClioComposerProps {
+export interface ClioComposerProps extends ComposerQueueControls {
   state: RunState;
   attachments: boolean;
   provider?: string;
@@ -106,6 +105,7 @@ export interface ClioComposerProps {
   catalogPreparing?: boolean;
   contextReferences?: boolean;
   workspaceId?: string;
+  sessionId?: string;
   commands?: CommandDefinition[];
   onSubmit: (value: {
     text: string;
@@ -131,15 +131,9 @@ export interface ClioComposerProps {
   activityControl?: ReactNode;
   workSummary?: ReactNode;
   pendingInteractions?: ReactNode;
-  queuedMessages?: QueuedMessage[];
   resources?: readonly WorkspaceResource[];
-  queueBusy?: boolean;
-  onDeleteQueuedMessage?: (message: QueuedMessage) => Promise<void>;
-  onPromoteQueuedMessage?: (message: QueuedMessage, delivery: MessageDelivery) => Promise<void>;
   onOpenResource?: (resource: WorkspaceResource) => void;
   onOpenReference?: (reference: WorkspaceReference) => void;
-  onReorderQueuedMessages?: (messages: QueuedMessage[]) => Promise<void>;
-  onUpdateQueuedMessage?: (message: QueuedMessage, text: string) => Promise<void>;
   value?: string;
   onValueChange?: (value: string) => void;
   /**
@@ -179,6 +173,7 @@ export function ClioComposer({
   catalogPreparing = false,
   contextReferences = false,
   workspaceId = '',
+  sessionId,
   commands = [],
   onSubmit,
   onBehaviorChange,
@@ -194,6 +189,7 @@ export function ClioComposer({
   queuedMessages = [],
   resources = [],
   queueBusy,
+  queuePaused = false,
   onDeleteQueuedMessage,
   onPromoteQueuedMessage,
   onOpenResource,
@@ -300,7 +296,7 @@ export function ClioComposer({
   // The attachment in flight when a submit is rejected; the progress state is
   // cleared on the way out, so the name is kept separately.
   const uploadingFilenameRef = useRef<string>(undefined);
-  const nextDeliveryRef = useRef<MessageDelivery | 'queued'>('start');
+  const nextDeliveryRef = useRef<MessageDelivery>(state === 'running' ? 'steer' : 'start');
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
@@ -384,6 +380,7 @@ export function ClioComposer({
         ? sourceAttachments.add(reference)
         : composerReferences.select(reference),
     attachments ? () => setFileUploadOpen(true) : undefined,
+    sessionId,
   );
   const popoverOpen = showCommands || showReferences;
   // Send an explicit supported pick; the service applies configured defaults.
@@ -443,7 +440,7 @@ export function ClioComposer({
         'relative',
         variant === 'docked'
           ? cn(
-              'pointer-events-none flex max-h-full min-h-0 flex-col px-4 pb-3 [&>*]:pointer-events-auto lg:px-6',
+              'clio-composer-docked pointer-events-none flex max-h-full min-h-0 flex-col px-4 pb-3 [&>*]:pointer-events-auto lg:px-6',
               showCommands || showReferences ? 'overflow-visible' : 'overflow-hidden',
             )
           : 'w-full',
@@ -519,6 +516,7 @@ export function ClioComposer({
       onUpdateQueuedMessage ? (
         <ClioComposerQueue
           busy={queueBusy}
+          paused={queuePaused}
           messages={queuedMessages}
           onDelete={onDeleteQueuedMessage}
           onOpenResource={onOpenResource}
@@ -611,7 +609,7 @@ export function ClioComposer({
               setUploadProgress(undefined);
               restoreInputFocusWhenReady();
             }
-            nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
+            nextDeliveryRef.current = state === 'running' ? 'steer' : 'start';
             await sourceAttachments.keep();
             if (latestInputRef.current.trim() === trimmed) setInput('');
             setSelectedReferences([]);
@@ -671,8 +669,7 @@ export function ClioComposer({
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
             if (submit?.disabled) return;
-            nextDeliveryRef.current =
-              state === 'running' ? (event.ctrlKey || event.metaKey ? 'steer' : 'queued') : 'start';
+            nextDeliveryRef.current = state === 'running' ? 'steer' : 'start';
             form?.requestSubmit();
           }}
         />
@@ -773,7 +770,7 @@ export function ClioComposer({
                 onClick={() => {
                   nextDeliveryRef.current = 'steer';
                 }}
-                title="Join the active turn at the next safe boundary"
+                title="Send feedback before the next model iteration"
                 type="submit"
                 variant="outline"
               >

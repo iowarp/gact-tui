@@ -1712,6 +1712,9 @@ const server = createServer(async (request, response) => {
     };
     transcriptActivityMessages = [transcriptActivityMessages[0], assistantMessage];
     publish('message.upserted', assistantMessage);
+    session.state = phase === 'answer' ? 'completed' : 'running';
+    session.updated_at = new Date().toISOString();
+    publish('session.upserted', session);
     sendJson(response, { status: phase }, 202);
     return;
   }
@@ -1724,14 +1727,19 @@ const server = createServer(async (request, response) => {
     // build a model under a different key and getSurface(surface.id) never
     // finds it (renders silently as nothing, no error).
     const surfaceId = 'gallery-login-form';
+    const messages = loginFormExampleMessages();
     const surface = {
       id: surfaceId,
       session_id: sessionId,
+      // Match current backend lifecycle/stamp metadata. An unstamped fixture
+      // exercises legacy full rebuilds, which can erase an active form on refresh.
+      part_id: 'part_gallery_login_form',
       catalog_id: 'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json',
       protocol_version: '0.9.1',
-      revision: 1,
+      revision: messages.length,
       state: 'ready',
-      messages: loginFormExampleMessages(),
+      message_revisions: messages.map((_, index) => index + 1),
+      messages,
     };
     publish('a2ui.surface.upserted', surface);
     sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
@@ -2013,6 +2021,13 @@ const server = createServer(async (request, response) => {
       message: 'This fixture has no attention capture.',
       messages: {},
     });
+    return;
+  }
+  if (
+    request.method === 'GET' &&
+    new RegExp(`^/v1/sessions/${sessionId}/messages/[^/]+/feedback$`).test(url.pathname)
+  ) {
+    sendJson(response, { feedback: null });
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/messages`) {
@@ -2426,6 +2441,17 @@ const server = createServer(async (request, response) => {
           supports_vision: true,
         },
       ],
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/providers/codex/components') {
+    sendJson(response, {
+      provider_id: 'codex',
+      provider_kind: 'codex',
+      installed: true,
+      update_available: false,
+      checked_at: observedAt,
+      components: [],
     });
     return;
   }

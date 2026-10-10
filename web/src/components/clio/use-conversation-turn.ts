@@ -26,10 +26,11 @@ export function useConversationTurn(
   tools: Record<string, ToolInvocation>,
   tasks: Record<string, Task>,
   subagents: Record<string, SubagentRun>,
+  feedback?: readonly Message[],
 ): ConversationTurnView {
   const turn = useMemo(
-    () => conversationTurnPresentation(message, tools, tasks),
-    [message, tasks, tools],
+    () => conversationTurnPresentation(message, tools, tasks, feedback),
+    [message, tasks, tools, feedback],
   );
   const linkedSubagentIds = useMemo(
     () =>

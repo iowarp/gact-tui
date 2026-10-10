@@ -1,56 +1,49 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
-import { A2uiRegionCaptureProvider } from './a2ui-region-capture';
-import { SurfaceToolbar } from './surface-toolbar';
+import { describe, expect, it, vi } from 'vitest';
+import { captureRenderedSurfacePng } from './a2ui-region-capture';
 
-afterEach(cleanup);
+const { embedFonts, renderCanvas } = vi.hoisted(() => ({
+  embedFonts: vi.fn(),
+  renderCanvas: vi.fn(),
+}));
 
-describe('region capture mode', () => {
-  it('offers a keyboard region editor without enabling image submission to a text-only model', async () => {
-    const user = userEvent.setup();
-    render(<SurfaceAttentionContext.Provider value={{ image: vi.fn(), structured: vi.fn() }}>
-      <A2uiRegionCaptureProvider surface={{ id: 'surface', revision: 1, messages: [] }}>
-        <section className="group" data-slot="a2ui-image-viewport">
-          <SurfaceToolbar capabilities={{ captureComponentId: 'image', onCopy: () => true }} floating={false} />
-          <img alt="Recorded image" src="/fixture.png" />
-        </section>
-      </A2uiRegionCaptureProvider>
-    </SurfaceAttentionContext.Provider>);
-    await user.click(screen.getByRole('button', { name: 'Capture labelled regions' }));
-    await user.click(screen.getByRole('button', { name: 'Add region' }));
-    const left = screen.getByRole('spinbutton', { name: 'Region x percent' });
-    await user.clear(left);
-    await user.type(left, '10');
-    expect(left).toHaveValue(10);
-    await user.click(screen.getByRole('button', { name: 'Done' }));
-    expect(screen.getByRole('button', { name: 'Add to attention set' })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Add 1 region to message' })).toBeNull();
-  });
+vi.mock('html-to-image', () => ({ getFontEmbedCSS: embedFonts, toCanvas: renderCanvas }));
 
-  it('toggles with the camera and exits when another surface tool is used', async () => {
-    const user = userEvent.setup();
-    render(<A2uiRegionCaptureProvider allowDemoCapture surface={{ id: 'surface', revision: 1, messages: [] }}>
-      <section className="group" data-slot="a2ui-raster-viewport">
-        <button type="button">Box select</button>
-        <SurfaceToolbar capabilities={{ captureComponentId: 'raster', onCopy: () => true }} floating={false} />
-        <div data-slot="a2ui-raster-surface" />
-      </section>
-    </A2uiRegionCaptureProvider>);
+describe('rendered surface PNG', () => {
+  it('retains fonts and suppresses export-only table scrollbars without changing the live view', async () => {
+    const target = document.createElement('div');
+    target.innerHTML =
+      '<div data-slot="data-grid"><div role="region" style="overflow:auto"><div data-slot="clio-data-grid-viewport" style="overflow:auto">Last row</div></div></div>';
+    const original = target.innerHTML;
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 300, 200));
+    const canvas = document.createElement('canvas');
+    canvas.width = 300;
+    canvas.height = 200;
+    // getContext has WebGPU overloads as well; this capture uses only 2D.
+    vi.spyOn(canvas, 'getContext').mockImplementation(
+      (() => ({}) as CanvasRenderingContext2D) as unknown as typeof canvas.getContext,
+    );
+    vi.spyOn(canvas, 'toBlob').mockImplementation((callback) =>
+      callback(new Blob(['pixels'], { type: 'image/png' })),
+    );
+    embedFonts.mockResolvedValue(
+      '@font-face { font-family: Report; src: url(data:font/woff2;base64,AA); }',
+    );
+    renderCanvas.mockResolvedValue(canvas);
 
-    const camera = screen.getByRole('button', { name: 'Capture labelled regions' });
-    await user.click(camera);
-    expect(camera).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'true');
+    const result = await captureRenderedSurfacePng(target, 1);
 
-    await user.click(camera);
-    expect(camera).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'false');
-
-    await user.click(camera);
-    await user.click(screen.getByRole('button', { name: 'Box select' }));
-    expect(camera).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'false');
+    expect(result.type).toBe('image/png');
+    expect(embedFonts).toHaveBeenCalledWith(target);
+    const options = renderCanvas.mock.calls[0]?.[1];
+    // Blob-backed artifact images cannot be fetched with an appended query.
+    expect(options.cacheBust).toBe(false);
+    expect(options.includeQueryParams).toBe(true);
+    expect(options.fetchRequestInit).toEqual({ cache: 'no-store' });
+    expect(options.fontEmbedCSS).toContain('@font-face');
+    expect(options.fontEmbedCSS).toContain('[data-slot="data-grid"] [role="region"]');
+    expect(options.fontEmbedCSS).toContain(
+      '[data-slot="clio-data-grid-viewport"] { overflow: hidden !important; }',
+    );
+    expect(target.innerHTML).toBe(original);
   });
 });

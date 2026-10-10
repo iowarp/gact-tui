@@ -1,11 +1,12 @@
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { installerRequestedLlamaCpp } from '@/lib/installer-infrastructure';
-import type {
-  McpUserConfiguration,
-  RelayStatus,
-  ServiceActionInput,
-  ManagedServiceDefinition,
-  ProvenanceConnectionInput,
+import {
+  INSTALL_FROM_SCRATCH_KEY,
+  type McpUserConfiguration,
+  type RelayStatus,
+  type ServiceActionInput,
+  type ManagedServiceDefinition,
+  type ProvenanceConnectionInput,
 } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CpuIcon, LaptopIcon, ServerIcon } from 'lucide-react';
@@ -31,6 +32,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { AgentServicesOverview } from './agent-services-overview';
+import { Link } from 'react-router-dom';
 import {
   ManagedServiceCard,
   type ServiceAction,
@@ -58,7 +60,6 @@ import {
   targetMatchesHost,
   waitForOperation,
 } from './managed-service-target-utils';
-import { ManagedServiceHostFacts } from './managed-service-host-facts';
 import { ManagedServiceInventory } from './managed-service-inventory';
 
 type Target = ManagedTargetKind;
@@ -154,6 +155,8 @@ export function ManagedServices({
     `${targetId}:operations`,
     {},
   );
+  // The latest operation per service, kept past its end for the failure view.
+  const lastOperations = useRef<Record<string, string>>({});
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTarget = searchParams.get('target');
   const requestedModel = searchParams.get('model');
@@ -340,6 +343,7 @@ export function ManagedServices({
     mutationFn: async ({ service_id, ...body }: ServiceActionInput & { service_id: string }) => {
       // The service id is the URL path; CLIO's action contract forbids extra body keys.
       const operation = await repository.runManagedServiceAction(service_id, body);
+      lastOperations.current[service_id] = operation.id;
       setOperationIds((rows) => ({ ...rows, [service_id]: operation.id }));
       try {
         return await waitForOperation(repository, operation, undefined, (current) =>
@@ -362,6 +366,7 @@ export function ManagedServices({
         ...current,
         [result.service_id]: {
           action: result.action as ServiceAction,
+          operationId: result.id,
           text:
             result.action === 'status'
               ? 'Status refreshed.'
@@ -384,6 +389,7 @@ export function ManagedServices({
         ...current,
         [input.service_id]: {
           action: input.action as ServiceAction,
+          operationId: lastOperations.current[input.service_id],
           error: true,
           text: error instanceof Error ? error.message : String(error),
         },
@@ -424,7 +430,7 @@ export function ManagedServices({
           ) : undefined
         }
         key={service.id}
-        onAction={(requestedAction) => {
+        onAction={(requestedAction, options) => {
           const applying = requestedAction === 'install' || requestedAction === 'reinstall';
           const variant = applying
             ? (variants[service.id] ?? service.recommended_variant)
@@ -434,13 +440,17 @@ export function ManagedServices({
             target_id: targetId,
             action: requestedAction,
             variant_id: variant,
-            configuration: configurationForVariant(
-              applying
-                ? { ...service.configuration, ...configuration[service.id] }
-                : service.configuration,
-              service.parameters ?? [],
-              variant,
-            ),
+            configuration: {
+              ...configurationForVariant(
+                applying
+                  ? { ...service.configuration, ...configuration[service.id] }
+                  : service.configuration,
+                service.parameters ?? [],
+                variant,
+              ),
+              // One operation only: CLIO never persists it.
+              ...(applying && options?.fromScratch ? { [INSTALL_FROM_SCRATCH_KEY]: 'true' } : {}),
+            },
           });
         }}
         onCancel={
@@ -512,6 +522,14 @@ export function ManagedServices({
                     blockedReason: undefined,
                   }
                 : undefined
+        }
+        operation={
+          operationIds[service.id] || runningOperations[service.id]?.id
+            ? {
+                id: operationIds[service.id] || runningOperations[service.id].id,
+                initial: runningOperations[service.id],
+              }
+            : undefined
         }
         progress={progress[service.id] || runningOperations[service.id]?.progress}
         result={results[service.id]}
@@ -674,7 +692,11 @@ export function ManagedServices({
             </Field>
           ) : null}
 
-          {catalog.data ? <ManagedServiceHostFacts facts={catalog.data.facts} /> : null}
+          {catalog.data ? (
+            <Button asChild variant="link" className="h-auto px-0 py-2">
+              <Link to="/infrastructure/overview">View computer capabilities in Overview</Link>
+            </Button>
+          ) : null}
           <RefreshButton
             label="Inspect again"
             refreshing={catalog.isFetching}

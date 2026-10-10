@@ -61,20 +61,53 @@ export function FileViewerActions({
       ),
     onError: (error: Error) => toast.error(error.message),
   });
+  const exportDownload = useMutation({
+    mutationFn: async (action: FileViewerAction) => action.onSelect(),
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const downloadFormats = formatActions.filter((action) => action.kind === 'download');
+  const otherActions = formatActions.filter((action) => action.kind !== 'download');
+  const downloading = download.isPending || exportDownload.isPending;
+  const downloadButton = (
+    <ToolbarAction
+      label={downloading ? 'Downloading file…' : 'Download file'}
+      disabled={!identity.available || downloading}
+      aria-busy={downloading}
+      onClick={downloadFormats.length ? undefined : () => download.mutate()}
+    >
+      <DownloadIcon aria-hidden="true" />
+    </ToolbarAction>
+  );
   const canRemove =
     source.kind === 'resource' &&
     ['ready', 'failed', 'quarantined'].includes(source.resource.state);
   return (
     <>
       {!hasDocumentActions ? <NativeFileOpenMenu source={source} /> : null}
-      <ToolbarAction
-        label={download.isPending ? 'Downloading file…' : 'Download file'}
-        disabled={!identity.available || download.isPending}
-        aria-busy={download.isPending}
-        onClick={() => download.mutate()}
-      >
-        <DownloadIcon aria-hidden="true" />
-      </ToolbarAction>
+      {downloadFormats.length ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>{downloadButton}</DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
+            {downloadFormats.map((action) => (
+              <DropdownMenuItem
+                key={action.label}
+                disabled={action.disabled || downloading}
+                onSelect={() => exportDownload.mutate(action)}
+              >
+                <action.icon />
+                {action.label}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => download.mutate()} disabled={downloading}>
+              <DownloadIcon />
+              Original file
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        downloadButton
+      )}
       <ToolbarAction
         label="File information"
         className="@max-[480px]/viewer:hidden"
@@ -115,13 +148,13 @@ export function FileViewerActions({
           </ToolbarAction>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
-          {formatActions.map(({ label, icon: Icon, onSelect, disabled }) => (
+          {otherActions.map(({ label, icon: Icon, onSelect, disabled }) => (
             <DropdownMenuItem key={label} onSelect={onSelect} disabled={disabled}>
               <Icon />
               {label}
             </DropdownMenuItem>
           ))}
-          {formatActions.length ? <DropdownMenuSeparator /> : null}
+          {otherActions.length ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onSelect={() => setInformationOpen(true)}>
             <InfoIcon />
             File information

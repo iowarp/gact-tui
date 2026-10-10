@@ -236,7 +236,7 @@ describe('conversationTurnPresentation', () => {
     expect(view.residualBlocks.map((block) => block.id)).toEqual(['surface', 'answer']);
   });
 
-  it('keeps multiple tool calls from one model response in one iteration', () => {
+  it('keeps adjacent calls grouped and preserves causal surfaces between calls from one response', () => {
     const repeatedThought = 'I will create the map and time-series surfaces now.';
     const message: Message = {
       id: 'assistant_multi_tool',
@@ -283,13 +283,15 @@ describe('conversationTurnPresentation', () => {
 
     const view = conversationTurnPresentation(message, tools);
 
-    expect(view.iterations).toHaveLength(2);
+    expect(view.iterations).toHaveLength(3);
     expect(view.iterations[0]?.thinking.map((part) => part.text)).toEqual([
       'Both views use the same grounded evidence.',
     ]);
     expect(view.iterations[0]?.nextThoughts).toEqual([repeatedThought]);
-    expect(view.iterations[0]?.tools.map((tool) => tool.id)).toEqual(['call_read', 'call_render']);
-    expect(view.iterations[1]?.thinking.map((part) => part.text)).toEqual([
+    expect(view.iterations[0]?.tools.map((tool) => tool.id)).toEqual(['call_read']);
+    expect(view.iterations[1]?.tools.map((tool) => tool.id)).toEqual(['call_render']);
+    expect(view.iterations[1]?.nextThoughts).toEqual([]);
+    expect(view.iterations[2]?.thinking.map((part) => part.text)).toEqual([
       'Both surfaces are ready.',
     ]);
     expect(view.residualBlocks.map((block) => block.id)).toEqual([
@@ -297,6 +299,49 @@ describe('conversationTurnPresentation', () => {
       'surface_plot',
       'answer_multi',
     ]);
+    expect(
+      view.segments.flatMap((segment) =>
+        segment.kind === 'iterations'
+          ? segment.iterations.flatMap((entry) =>
+              entry.tools.length ? entry.tools.map((tool) => tool.id) : ['final_thinking'],
+            )
+          : [segment.kind === 'block' ? segment.block.id : segment.message.id],
+      ),
+    ).toEqual([
+      'call_read',
+      'surface_map',
+      'call_render',
+      'surface_plot',
+      'final_thinking',
+      'answer_multi',
+    ]);
+    expect(
+      view.iterations
+        .flatMap((entry) => entry.nextThoughts)
+        .filter((text) => text === repeatedThought),
+    ).toHaveLength(1);
+    const adjacent = conversationTurnPresentation(
+      { ...message, blocks: message.blocks.filter((block) => block.type !== 'a2ui') },
+      tools,
+    );
+    expect(adjacent.iterations).toHaveLength(2);
+    expect(adjacent.iterations[0]?.tools.map((tool) => tool.id)).toEqual([
+      'call_read',
+      'call_render',
+    ]);
+    expect(adjacent.iterations[0]?.nextThoughts).toEqual([repeatedThought]);
+    const resumed = conversationTurnPresentation(
+      {
+        ...message,
+        blocks: [...message.blocks.slice(0, 4), message.blocks[6]!, message.blocks[4]!],
+      },
+      tools,
+    );
+    expect(
+      resumed.iterations
+        .flatMap((entry) => entry.nextThoughts)
+        .filter((text) => text === repeatedThought),
+    ).toHaveLength(2);
   });
 
   it('keeps an MCP App at its causal tool-result position before later agent text', () => {

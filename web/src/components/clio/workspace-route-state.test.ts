@@ -4,11 +4,58 @@ import {
   canOpenSessionStream,
   canUploadWorkspaceResources,
   conversationUnavailableMessage,
+  countActiveWork,
   planRevisionFromComposer,
   responseTrayInteractions,
 } from './workspace-route-state';
 
 describe('workspace route state', () => {
+  it('keeps accepted task activity visible after its originating turn is interrupted', () => {
+    expect(
+      countActiveWork(
+        [{ state: 'interrupted' }],
+        [],
+        [],
+        [{ live_state: 'waiting_user', effective_status: 'input_required' }],
+      ),
+    ).toBe(1);
+  });
+
+  it('counts pending cancellation until effective owner settlement', () => {
+    expect(
+      countActiveWork(
+        [],
+        [],
+        [],
+        [
+          { live_state: 'running', effective_status: 'running' },
+          { live_state: 'running', effective_status: 'failed' },
+          { live_state: 'waiting_user', effective_status: 'cancelled' },
+        ],
+      ),
+    ).toBe(1);
+    expect(
+      countActiveWork([], [], [], [{ live_state: 'cancelled', effective_status: 'cancelled' }]),
+    ).toBe(0);
+  });
+
+  it('includes accepted work alongside foreground activity and supports legacy projections', () => {
+    expect(
+      countActiveWork(
+        [{ state: 'running' }],
+        [{ state: 'queued' }],
+        [{ state: 'pending' }],
+        [
+          { live_state: 'waiting_permission' },
+          { live_state: 'waiting_user' },
+          { live_state: 'queued' },
+          { live_state: 'completed' },
+        ],
+      ),
+    ).toBe(6);
+    expect(countActiveWork([], [], [])).toBe(0);
+  });
+
   it('opens the live stream even when the historical transcript is unavailable', () => {
     expect(canOpenSessionStream(['0.3', '0.2'], 'sess_1')).toBe(true);
     expect(canOpenSessionStream(['0.2'], 'sess_1')).toBe(false);

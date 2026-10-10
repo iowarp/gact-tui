@@ -22,6 +22,7 @@ import {
 import { Accordion } from '@/components/ui/accordion';
 import { formatBytes, formatDuration } from '@/lib/format';
 import { fileFormatLabel } from '@/lib/media-types';
+import { artifactDisplayName, isDashboardArtifact } from '@/lib/dashboard-presentation';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { EvidenceSection } from './observability-evidence-section';
 import type { ClioEvidenceViewProps } from './observability-evidence';
@@ -30,6 +31,7 @@ import { diffStatus, friendlyStatus, type EvidenceSource } from './observability
 import { SessionSummaryRow } from './session-summary-row';
 import { clioStatusLabel } from './status';
 import { ClioToolInvocation } from './tool-invocation';
+import { AsyncTaskList } from './async-task-list';
 
 /** Compact inventory of the same authoritative evidence used by the full view. */
 export function SessionEvidenceSummary({
@@ -53,6 +55,7 @@ export function SessionEvidenceSummary({
   | 'onOpenSubagent'
   | 'onOpenWork'
   | 'onOpenActivity'
+  | 'onCancelTask'
 > & {
   outputs: readonly Artifact[];
   files: readonly EvidenceFile[];
@@ -170,15 +173,7 @@ export function SessionEvidenceSummary({
           value="background"
           count={backgroundProcesses.length}
         >
-          {backgroundProcesses.map((process) => (
-            <SessionSummaryRow
-              key={process.id}
-              icon={<ServerIcon />}
-              label={process.title}
-              metadata={clioStatusLabel(process.live_state)}
-              onOpen={actions.onOpenActivity}
-            />
-          ))}
+          <AsyncTaskList processes={backgroundProcesses} onCancelTask={actions.onCancelTask} />
         </EvidenceSection>
       ) : null}
       {files.length ? (
@@ -232,9 +227,11 @@ export function SessionEvidenceSummary({
             <SessionSummaryRow
               key={artifact.id}
               icon={<ArtifactTypeIcon artifact={artifact} />}
-              label={artifact.name}
+              label={artifactDisplayName(artifact)}
               metadata={[
-                fileFormatLabel(artifact.name, artifact.media_type),
+                isDashboardArtifact(artifact)
+                  ? 'Dashboard'
+                  : fileFormatLabel(artifact.name, artifact.media_type),
                 artifact.size === undefined ? undefined : formatBytes(artifact.size),
               ]
                 .filter(Boolean)

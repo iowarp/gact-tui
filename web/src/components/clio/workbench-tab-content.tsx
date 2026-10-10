@@ -1,3 +1,4 @@
+import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import type {
   AgentBlueprint,
   Artifact as ArtifactEntity,
@@ -123,6 +124,7 @@ export function WorkbenchTabContent({
     case 'files':
       return (
         <FileBrowser
+          sessionId={sessionId}
           files={files}
           filesError={filesError}
           filesFetching={filesFetching}
@@ -148,7 +150,7 @@ export function WorkbenchTabContent({
             onReplaceTab(tab.id, {
               id: `artifact:${artifact.id}`,
               kind: 'artifact',
-              label: artifact.name,
+              label: artifactDisplayName(artifact),
               artifact,
               workspaceId: artifact.workspace_id ?? workspaceId,
             })
@@ -199,6 +201,7 @@ export function WorkbenchTabContent({
     case 'workspace-file':
       return (
         <FileBrowser
+          sessionId={sessionId}
           files={files}
           filesError={filesError}
           filesFetching={filesFetching}
@@ -255,7 +258,7 @@ export function WorkbenchTabContent({
               onOpenTab({
                 id: `artifact:${artifact.id}`,
                 kind: 'artifact',
-                label: artifact.name,
+                label: artifactDisplayName(artifact),
                 artifact,
                 workspaceId: artifact.workspace_id ?? tab.workspaceId,
               })
@@ -290,7 +293,7 @@ export function WorkbenchTabContent({
             onOpenTab({
               id: `artifact:${artifact.id}`,
               kind: 'artifact',
-              label: artifact.name,
+              label: artifactDisplayName(artifact),
               artifact,
               workspaceId: artifact.workspace_id ?? tab.workspaceId,
             })

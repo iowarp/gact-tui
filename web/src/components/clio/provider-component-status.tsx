@@ -27,20 +27,23 @@ function providerClientLabel(group: ProviderGroup): string | undefined {
 export function ProviderComponentStatus({
   group,
   state,
+  busy = false,
 }: {
   group: ProviderGroup;
   state: ProviderComponentUpdateState;
+  busy?: boolean;
 }) {
   const [restarting, setRestarting] = useState(false);
   const label = providerClientLabel(group);
   const { components, stage, outcome } = state;
-  if (!label && !components) return null;
+  if (!label && !components && !state.checkError) return null;
   const details = components?.components
     .map((item) => `${item.distribution} ${item.installed_version} → ${item.latest_version}`)
     .join('\n');
   const failure = outcome?.stage === 'failed' ? outcome : undefined;
   const kept = failure ? Object.values(failure.from_versions)[0] : undefined;
   const restart = outcome?.stage === 'done' && outcome.restart_required && !stage;
+  const noCompatibleRelease = components?.error?.code === 'component_no_installable_release';
 
   const restartNow = async () => {
     setRestarting(true);
@@ -68,6 +71,11 @@ export function ProviderComponentStatus({
           {label}
         </span>
       ) : null}
+      {!label && components?.components[0] ? (
+        <span>
+          {group.name} client {components.components[0].installed_version}
+        </span>
+      ) : null}
       {stage ? (
         <span
           className="flex items-center gap-1"
@@ -82,10 +90,26 @@ export function ProviderComponentStatus({
           <Badge data-slot="provider-update-available" title={details} variant="outline">
             Update available: {components.target_version}
           </Badge>
-          <Button onClick={state.update} size="xs" type="button" variant="outline">
+          <Button disabled={busy} onClick={state.update} size="xs" type="button" variant="outline">
             Update
           </Button>
         </>
+      ) : null}
+      <Button
+        disabled={busy || Boolean(stage) || state.checking}
+        onClick={state.check}
+        size="xs"
+        type="button"
+        variant="ghost"
+      >
+        {state.checking ? 'Checking updates…' : 'Check for updates'}
+      </Button>
+      {noCompatibleRelease ? (
+        <span role="status">No compatible client update is available yet.</span>
+      ) : state.checkError || components?.error?.message ? (
+        <span className="text-destructive" role="alert">
+          {state.checkError || components?.error?.message}
+        </span>
       ) : null}
       {restart ? (
         inTauri() ? (

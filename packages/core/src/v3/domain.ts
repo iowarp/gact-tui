@@ -202,6 +202,11 @@ export interface TurnAttempt {
 
 /** A reconnectable execution handle projected by the authoritative runs registry. */
 export interface OperationalRun {
+  progress?: Record<string, unknown>;
+  task_kind?: string;
+  description?: string;
+  cancel_requested?: boolean;
+  supported_actions?: string[];
   handle_id: string;
   task_id: string;
   run_label: string;
@@ -492,6 +497,17 @@ export interface ContextFrame {
 }
 
 export interface AsyncProcess {
+  handle?: string;
+  task_kind?: 'Subagent' | 'MCP' | 'Download' | 'Indexing' | 'Shell';
+  description?: string;
+  description_missing?: boolean;
+  effective_status?: string;
+  raw_status?: string;
+  cancel_requested?: boolean;
+  supported_actions?: string[];
+  connection_freshness?: string;
+  progress?: Record<string, unknown>;
+  owner?: { session_id: string; agent?: string };
   kind: 'agent' | 'mcp-task';
   id: string;
   title: string;

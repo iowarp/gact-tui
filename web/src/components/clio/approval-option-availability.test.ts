@@ -7,6 +7,7 @@ const unavailable = {
   reason: 'spotter_watcher_blueprint_not_installed',
   message: 'SPOTTER needs its watcher Agent Blueprint, which is not installed.',
   remedy: 'install the spotter-ai Agent Blueprint from the marketplace',
+  verified: '',
 };
 
 describe('approvalOptionViews', () => {
@@ -37,6 +38,19 @@ describe('approvalOptionViews', () => {
       expect(view?.disabled).toBe(false);
       expect(view?.description).toBe('Require the configured SPOTTER policy.');
     }
+  });
+
+  it('says a statically checked SPOTTER is not verified until first use', () => {
+    const view = approvalOptionViews(SESSION_APPROVAL_OPTIONS, {
+      ...unavailable,
+      available: true,
+      reason: '',
+      verified: 'static',
+    }).find((option) => option.value === 'spotter-ai');
+    expect(view?.disabled).toBe(false);
+    expect(view?.description).toBe(
+      'Require the configured SPOTTER policy. Setup checked; not verified until first use.',
+    );
   });
 });
 
