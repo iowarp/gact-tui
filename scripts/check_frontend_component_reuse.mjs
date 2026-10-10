@@ -29,9 +29,10 @@ const requiredImports = {
     './streaming-text',
   ],
   'web/src/components/clio/conversation-process-sequence.tsx': [
-    '@/components/ai-elements/reasoning',
     '@/components/ai-elements/task',
     './grounded-message-response',
+    './transcript-reasoning-passage',
+    './transcript-reasoning',
     './subagent-card',
     './tool-invocation',
   ],
@@ -42,14 +43,18 @@ const requiredImports = {
     './subagent-card',
     './tool-invocation',
   ],
-  // Both transcript modes share this text entry. Keep the sourced reasoning
-  // disclosure and grounded text, including the original selection bindings.
+  // Both modes and residual blocks share full reasoning passages. The October 10
+  // review deliberately replaces preview disclosures with grounded prose while
+  // retaining original selection bindings and the sourced MessageResponse chain.
   'web/src/components/clio/transcript-iteration-text.tsx': [
-    './transcript-reasoning-row',
+    './transcript-reasoning-passage',
     './transcript-reasoning',
     './grounded-message-response',
   ],
-  'web/src/components/clio/transcript-reasoning-row.tsx': ['@/components/ai-elements/reasoning'],
+  'web/src/components/clio/transcript-reasoning-passage.tsx': [
+    './transcript-reasoning',
+    './grounded-message-response',
+  ],
   'web/src/components/clio/tool-details-content.tsx': [
     '@/components/ui/collapsible',
     './result-dialog-content',
