@@ -566,6 +566,10 @@ function SidebarMenuButton({
   const Comp = asChild ? Slot.Root : 'button';
   const { isMobile, state } = useSidebar();
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
+  const tooltipEnabled = !isMobile && state === 'collapsed';
+  React.useEffect(() => {
+    if (!tooltipEnabled) setTooltipOpen(false);
+  }, [tooltipEnabled]);
 
   const button = (
     <Comp
@@ -589,7 +593,10 @@ function SidebarMenuButton({
   }
 
   return (
-    <Tooltip open={state === 'collapsed' && tooltipOpen} onOpenChange={setTooltipOpen}>
+    <Tooltip
+      open={tooltipEnabled && tooltipOpen}
+      onOpenChange={(open) => setTooltipOpen(tooltipEnabled && open)}
+    >
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent side="right" align="center" {...tooltip} />
     </Tooltip>

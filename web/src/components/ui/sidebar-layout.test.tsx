@@ -54,6 +54,11 @@ function SidebarMenuState() {
   return <SidebarMenuButton tooltip="Navigation">{state}</SidebarMenuButton>;
 }
 
+function SidebarToggle() {
+  const { toggleSidebar } = useSidebar();
+  return <button onClick={toggleSidebar}>Toggle navigation</button>;
+}
+
 describe('collapsed navigation preview', () => {
   it('expands on pointer hover without changing the pinned state', () => {
     const { container } = render(
@@ -110,6 +115,27 @@ describe('collapsed navigation preview', () => {
     escape.preventDefault(); // A tooltip can consume Escape before React receives it.
     fireEvent(button, escape);
     expect(button).toHaveTextContent('collapsed');
+    expect(button).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('keeps dismissed tooltips closed after expanded navigation collapses', () => {
+    render(
+      <TooltipProvider>
+        <SidebarProvider>
+          <Sidebar contained collapsible="icon">
+            <SidebarMenuState />
+          </Sidebar>
+          <SidebarToggle />
+        </SidebarProvider>
+      </TooltipProvider>,
+    );
+    const button = screen.getByRole('button', { name: 'expanded' });
+    act(() => button.focus());
+    act(() => button.blur());
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle navigation' }));
+    expect(button).toHaveTextContent('collapsed');
+    expect(button).not.toHaveAttribute('aria-describedby');
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
   it('lets a portaled menu consume Escape without closing the navigation preview', () => {
