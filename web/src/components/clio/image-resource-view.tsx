@@ -146,7 +146,7 @@ export function ImageResourceView({
             data-slot="image-viewport"
             className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/15"
           >
-            <div className="grid min-h-full min-w-full w-max place-items-center p-4">
+            <div className="grid min-h-full min-w-full w-max content-start justify-items-center p-4">
               <img
                 alt={name}
                 src={url}
