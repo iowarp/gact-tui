@@ -33,7 +33,7 @@ import {
 import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
 import { useDashboardReviewOpening } from '@/hooks/use-dashboard-review-opening';
 import { useA2uiCatalogRegistry } from '@/lib/a2ui/processor-store';
-import { A2uiSourceSignInHost } from '@/components/clio/a2ui-source-sign-in';
+import { WorkspaceSessionProviders } from '@/components/clio/workspace-session-providers';
 import { useRepository } from '@/hooks/use-repository';
 import { useAttentionMode } from '@/hooks/use-attention-mode';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
@@ -488,7 +488,7 @@ export function WorkspacePage() {
     </m.div>
   );
   return (
-    <A2uiSourceSignInHost key={`${settings.endpoint}:${sessionId}`} workspaceId={workspaceId}>
+    <WorkspaceSessionProviders workspaceId={workspaceId} sessionId={sessionId}>
       <QuestionAnswerContext.Provider value={questionAnswering.context}>
         <ClioCommandMenu onOpenResource={revealWorkbench} />
         <ClioMoreDetails
@@ -791,6 +791,6 @@ export function WorkspacePage() {
           </section>
         </ClioAppShell>
       </QuestionAnswerContext.Provider>
-    </A2uiSourceSignInHost>
+    </WorkspaceSessionProviders>
   );
 }

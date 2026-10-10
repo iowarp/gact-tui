@@ -1,8 +1,20 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { TranscriptDisclosureContext } from './transcript-disclosure-context';
 
-/** Keep reader choices above virtualized rows, for this conversation's lifetime. */
-export function TranscriptDisclosures({ children }: { children: ReactNode }) {
+type TranscriptDisclosuresProps = { children: ReactNode; sessionId?: string };
+
+/** Reuse session choices above responsive layouts and virtualized conversation rows. */
+export function TranscriptDisclosures({ children, sessionId }: TranscriptDisclosuresProps) {
+  const parent = useContext(TranscriptDisclosureContext);
+  if (parent && parent.sessionId === sessionId) return children;
+  return (
+    <SessionDisclosures key={sessionId ?? ''} sessionId={sessionId}>
+      {children}
+    </SessionDisclosures>
+  );
+}
+
+function SessionDisclosures({ children, sessionId }: TranscriptDisclosuresProps) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
   const setOpen = useCallback((id: string, open: boolean) => {
     setOpened((current) => {
@@ -12,7 +24,7 @@ export function TranscriptDisclosures({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-  const value = useMemo(() => ({ opened, setOpen }), [opened, setOpen]);
+  const value = useMemo(() => ({ sessionId, opened, setOpen }), [sessionId, opened, setOpen]);
   return (
     <TranscriptDisclosureContext.Provider value={value}>
       {children}

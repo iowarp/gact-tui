@@ -8,6 +8,7 @@ export function IterationReasoningText({ iteration }: { iteration: ConversationI
   return iteration.thinking.map((thinking) => (
     <TranscriptReasoningPassage
       key={thinking.id}
+      id={`${iteration.id}:${thinking.id}`}
       text={thinking.text}
       source={thinking.source}
       streaming={thinking.streaming}
