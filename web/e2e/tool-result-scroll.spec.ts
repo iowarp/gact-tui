@@ -229,6 +229,36 @@ for (const shortTranscript of [false, true]) {
     await expect
       .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
       .toBeCloseTo(middleTop, 0);
+
+    // Hold a real background refresh so both edges of the history-sync
+    // indicator are observable without depending on the network's timing.
+    const syncing = log.getByRole('status').filter({ hasText: 'Syncing history' });
+    await expect(syncing).toHaveCount(0);
+    let releaseRefresh!: () => void;
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    await page.route(
+      `**/v1/sessions/${session}/messages`,
+      async (route) => {
+        await refreshGate;
+        await route.fallback();
+      },
+      { times: 1 },
+    );
+    const beforeRefresh = await middleAnchor.evaluate((e) => e.getBoundingClientRect().top);
+    try {
+      await expect(syncing).toBeVisible({ timeout: 10_000 });
+      await expect
+        .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
+        .toBeCloseTo(beforeRefresh, 0);
+    } finally {
+      releaseRefresh();
+    }
+    await expect(syncing).toHaveCount(0);
+    await expect
+      .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
+      .toBeCloseTo(beforeRefresh, 0);
   });
 }
 
