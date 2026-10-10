@@ -12,7 +12,7 @@ use std::{
     fs::{self, File},
     io::{BufReader, Read},
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 #[cfg(windows)]
@@ -147,43 +147,13 @@ fn prepare_windows_runtime(
     let install_result = (|| -> Result<(), String> {
         progress("Unpacking the bundled CLIO runtime...");
         let started = Instant::now();
-        let mut last_progress = started;
-        let mut files = 0_u64;
-        let archive_file = File::open(&archive_path)
-            .map_err(|error| format!("open runtime archive {archive_path:?}: {error}"))?;
-        let decoder = zstd::stream::read::Decoder::new(BufReader::new(archive_file))
-            .map_err(|error| format!("open compressed runtime archive: {error}"))?;
-        let mut archive = tar::Archive::new(decoder);
-        let entries = archive
-            .entries()
-            .map_err(|error| format!("read runtime archive entries: {error}"))?;
-        for entry in entries {
-            let mut entry =
-                entry.map_err(|error| format!("read runtime archive entry: {error}"))?;
-            let path = entry
-                .path()
-                .map_err(|error| format!("read runtime archive path: {error}"))?
-                .into_owned();
-            let unpacked = entry
-                .unpack_in(&staging_root)
-                .map_err(|error| format!("extract runtime entry {path:?}: {error}"))?;
-            if !unpacked {
-                return Err(format!(
-                    "runtime archive entry {path:?} attempted to leave its staging directory"
-                ));
-            }
-            if entry.header().entry_type().is_file() {
-                files += 1;
-            }
-            if last_progress.elapsed() >= Duration::from_secs(3) {
-                let detail = match manifest.runtime_files {
-                    Some(total) => format!("Unpacking CLIO runtime: {files} of {total} files..."),
-                    None => format!("Unpacking CLIO runtime: {files} files..."),
-                };
-                progress(&detail);
-                last_progress = Instant::now();
-            }
-        }
+        let report = crate::runtime_unpack::unpack_runtime(
+            &archive_path,
+            &staging_root,
+            manifest.runtime_files,
+            progress,
+        )?;
+        let files = report.files;
 
         progress("Checking and activating the unpacked CLIO runtime...");
         let staged_runtime = staging_root.join("gact-runtime");

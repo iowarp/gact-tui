@@ -1,9 +1,13 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactElement } from 'react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
-import { AppearanceProvider } from '@/providers/appearance-provider';
+import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
+import {
+  renderConversation,
+  stubViewport,
+  plainMessages,
+} from './conversation-viewport-test-helpers';
 import type { Range, VirtualItem, Virtualizer } from '@tanstack/react-virtual';
 
 const virtualizerMocks = vi.hoisted(() => ({
@@ -87,64 +91,6 @@ afterEach(() => {
   window.history.replaceState(null, '', window.location.pathname);
 });
 
-function renderConversation(element: ReactElement) {
-  return render(
-    <AppearanceProvider>
-      <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
-    </AppearanceProvider>,
-  );
-}
-
-function stubViewport(width = 800) {
-  const observers: ResizeObserverCallback[] = [];
-  class ResizeObserverMock implements ResizeObserver {
-    private readonly callback: ResizeObserverCallback;
-
-    constructor(callback: ResizeObserverCallback) {
-      this.callback = callback;
-      observers.push(callback);
-    }
-
-    disconnect() {
-      observers.splice(observers.indexOf(this.callback), 1);
-    }
-    observe() {}
-    unobserve() {}
-  }
-  vi.stubGlobal('ResizeObserver', ResizeObserverMock);
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-    bottom: width,
-    height: width,
-    left: 0,
-    right: width,
-    top: 0,
-    width,
-    x: 0,
-    y: 0,
-    toJSON: () => ({}),
-  });
-  return {
-    resizeTo(next: number) {
-      act(() => {
-        for (const onResize of observers)
-          onResize([{ contentRect: { width: next } } as ResizeObserverEntry], {} as ResizeObserver);
-      });
-    },
-  };
-}
-
-function plainMessages(count: number, withText = true) {
-  return Array.from({ length: count }, (_, index) => ({
-    id: `message_${index}`,
-    session_id: 'session_1',
-    role: 'user' as const,
-    created_at: '2026-08-22T00:00:00Z',
-    blocks: withText
-      ? [{ id: `text_${index}`, type: 'text' as const, text: `Message ${index}` }]
-      : [],
-  }));
-}
-
 describe('ClioConversation transcript viewport', () => {
   it('keeps the explicitly expanded row mounted through a layout scroll and completion', () => {
     stubViewport();
@@ -200,7 +146,7 @@ describe('ClioConversation transcript viewport', () => {
     expect(
       virtualizerMocks.rangeExtractor?.({ startIndex: 0, endIndex: 0, overscan: 0, count: 100 }),
     ).toEqual([99]);
-    expect(screen.getByRole('button', { name: 'Reasoning: Selected evidence.' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Thinking: Selected evidence.' })).toHaveAttribute(
       'aria-expanded',
       'true',
     );
@@ -396,7 +342,7 @@ describe('ClioConversation transcript viewport', () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: HTMLElement,
     ) {
-      const top = this.id === 'message-message_0' ? -100 + displacement : 0;
+      const top = this.id === 'message-message_0' ? -100 + displacement - (log.scrollTop - 400) : 0;
       return {
         top,
         bottom: top + 600,
@@ -431,10 +377,11 @@ describe('ClioConversation transcript viewport', () => {
     const log = screen.getByRole('log', { name: 'Conversation' });
     let firstTop = -100;
     let secondTop = 500;
+    let scrollBaseline = 400;
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: HTMLElement,
     ) {
-      const top =
+      const rowTop =
         this.id === 'message-message_0'
           ? firstTop
           : this.id === 'message-message_1'
@@ -442,6 +389,9 @@ describe('ClioConversation transcript viewport', () => {
             : this.id === 'message-message_2'
               ? 1100
               : 0;
+      const top = this.id.startsWith('message-')
+        ? rowTop - (log.scrollTop - scrollBaseline)
+        : rowTop;
       return {
         top,
         bottom: top + 600,
@@ -462,6 +412,7 @@ describe('ClioConversation transcript viewport', () => {
     firstTop = -680;
     secondTop = -80;
     log.scrollTop = 700;
+    scrollBaseline = 700;
     fireEvent.scroll(log);
     firstTop = -820;
     secondTop = -10;
@@ -586,6 +537,58 @@ describe('ClioConversation transcript viewport', () => {
     expect(adjust(7)).toBe(false);
   });
 
+  it('waits for a remounted anchor and preserves later row measurements after resizing', () => {
+    const viewport = stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={plainMessages(80, false)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    frames.splice(0);
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 400 });
+    let displacement = 0;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const top = this.id === 'message-message_0' ? -100 + displacement - (log.scrollTop - 400) : 0;
+      return new DOMRect(0, top, 800, 600);
+    });
+    fireEvent.wheel(log, { deltaY: -100 });
+    fireEvent.scroll(log);
+    virtualizerMocks.measure.mockImplementationOnce(() => {
+      displacement = 40;
+    });
+    viewport.resizeTo(640);
+    const flushFrame = () => act(() => frames.splice(0).forEach((callback) => callback(0)));
+    const anchor = document.getElementById('message-message_0')!;
+    const container = anchor.parentElement!;
+    anchor.remove();
+    flushFrame();
+    expect(log.scrollTop).toBe(400);
+    container.append(anchor);
+    flushFrame();
+    expect(log.scrollTop).toBe(440);
+    displacement = 110;
+    flushFrame();
+    expect(log.scrollTop).toBe(510);
+    for (let index = 0; index < 4; index += 1) flushFrame();
+    expect(log.scrollTop).toBe(510);
+    expect(frames).toHaveLength(0);
+  });
+
   it('derives the active landmark from the virtualizer without reading rail anchors', () => {
     stubViewport(900);
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1_000);
@@ -634,7 +637,40 @@ describe('ClioConversation transcript viewport', () => {
 
     expect(screen.getByRole('log', { name: 'Conversation' })).toHaveStyle({
       paddingBottom: '176px',
+      scrollPaddingBottom: '176px',
     });
+  });
+
+  it('accounts for an underestimated final row even without detached surfaces', () => {
+    const viewport = stubViewport();
+    let finalHeight = 233;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const finalRow = this.getAttribute('data-index') === '79';
+      return DOMRect.fromRect({
+        x: 0,
+        y: finalRow ? 79 * 180 : 0,
+        width: 800,
+        height: finalRow ? finalHeight : 800,
+      });
+    });
+    const view = renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        bottomInset={420}
+        messages={plainMessages(80, false)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    const column = view.container.querySelector('[data-slot="transcript-column"]');
+    expect(column).toHaveStyle({ height: '14453px' });
+    finalHeight = 260;
+    viewport.resizeTo(800);
+    expect(column).toHaveStyle({ height: '14480px' });
   });
 
   it('keeps the last message above a composer that grows while following (rel18)', () => {
@@ -662,6 +698,7 @@ describe('ClioConversation transcript viewport', () => {
     );
 
     expect(log).toHaveStyle({ paddingBottom: '259px' });
+    expect(log).toHaveStyle({ scrollPaddingBottom: '259px' });
     expect(scrollTo).toHaveBeenCalledWith({ behavior: 'instant', top: 1400 });
   });
 

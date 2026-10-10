@@ -38,6 +38,7 @@ import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { MessageCompletionFooter } from './message-completion-footer';
+import { ResponseRating } from './response-rating';
 import { messageToolCallCounts } from './message-tool-call-counts';
 import { ConversationModelCheckpoint } from './conversation-model-boundary';
 import { modelBoundariesEqual } from './conversation-model-boundaries';
@@ -54,6 +55,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   mcpAppResponse,
   messageCompactions,
   modelBoundary,
+  feedbackMessages,
+  active = false,
   ...entities
 }: ConversationMessageRowProps) {
   useAttentionEvidenceTarget(
@@ -76,7 +79,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const cancellablePendingSteer =
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
-  const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
+  const turn = useConversationTurn(
+    message,
+    entities.tools,
+    entities.tasks,
+    entities.subagents,
+    feedbackMessages,
+  );
   const { linkedSubagentIds, residualBlocks } = turn;
   const visibleResidualBlocks = residualBlocks.filter(
     (block) => block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
@@ -149,6 +158,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
         </MessageAction>
       ) : null}
       <TranscriptContentPicker sessionId={message.session_id} messageId={message.id} />
+      <ResponseRating message={message} active={active} />
       <ClioMessageHistoryActions
         forking={entities.forkingMessageId === message.id}
         onFork={
@@ -264,7 +274,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   </AlertDescription>
                 ) : null}
               </Alert>
-            ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
+            ) : message.role === 'assistant' &&
+              (turn.iterations.length > 0 || Boolean(feedbackMessages?.length)) ? (
               <>
                 {turn.segments
                   .filter(
@@ -274,7 +285,17 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       !linkedSubagentIds.has(segment.block.subagent_id),
                   )
                   .map((segment) =>
-                    segment.kind === 'block' ? (
+                    segment.kind === 'feedback' ? (
+                      <ConversationMessageRow
+                        {...entities}
+                        key={segment.message.id}
+                        message={segment.message}
+                        index={-1}
+                        recent={false}
+                        displayMode={displayMode}
+                        onDisplayModeChange={onDisplayModeChange}
+                      />
+                    ) : segment.kind === 'block' ? (
                       <MessageBlockSequence
                         blocks={[segment.block]}
                         key={segment.block.id}
@@ -322,14 +343,33 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             {messageCompactions?.map((compaction) => (
               <ClioCompactionProgress compaction={compaction} key={compaction.compaction_id} />
             ))}
+            {message.role === 'assistant' &&
+            message.blocks.length > 0 &&
+            emptyResponseErrorMessage &&
+            !emptyResponseWasClientCancelled &&
+            !message.blocks.some((block) => block.type === 'error') ? (
+              <Alert variant="destructive" className="mt-3">
+                <AlertTriangleIcon aria-hidden="true" />
+                <AlertTitle>Work interrupted</AlertTitle>
+                <AlertDescription>{emptyResponseErrorMessage}</AlertDescription>
+              </Alert>
+            ) : null}
           </MessageContent>
           {message.role === 'assistant' ? (
             <MessageCompletionFooter
+              active={active}
               message={message}
               {...messageToolCallCounts(message, entities.tools)}
             >
               {actions}
             </MessageCompletionFooter>
+          ) : null}
+          {message.role === 'assistant' &&
+          canRetry &&
+          !active &&
+          !message.completed_at &&
+          !message.stop_reason ? (
+            <div className="mt-3">{actions}</div>
           ) : null}
         </Message>
       </m.div>
@@ -411,6 +451,8 @@ export function conversationMessageRowPropsEqual(
 ): boolean {
   if (
     left.message !== right.message ||
+    left.active !== right.active ||
+    left.feedbackMessages !== right.feedbackMessages ||
     left.displayMode !== right.displayMode ||
     left.index !== right.index ||
     left.start !== right.start ||

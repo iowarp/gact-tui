@@ -23,10 +23,12 @@ it.each(['succeeded', 'failed', 'cancelled'] as const)(
   (state) => {
     render(<ClioToolInvocation compact tool={{ ...call, state }} />);
     const row = screen.getByRole('button', {
-      name: 'Technical details for Get execution environment',
+      name: 'Show result for Get execution environment',
     });
     expect(row).toHaveTextContent('12.5 s');
-    fireEvent.click(row);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Technical details for Get execution environment' }),
+    );
     expect(screen.getByText('Execution time: 12.5 s')).toBeVisible();
   },
 );

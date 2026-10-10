@@ -305,7 +305,7 @@ describe('conversationTurnPresentation', () => {
           ? segment.iterations.flatMap((entry) =>
               entry.tools.length ? entry.tools.map((tool) => tool.id) : ['final_thinking'],
             )
-          : [segment.block.id],
+          : [segment.kind === 'block' ? segment.block.id : segment.message.id],
       ),
     ).toEqual([
       'call_read',

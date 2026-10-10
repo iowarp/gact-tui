@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { GACT_HTTP_TIMEOUT_MS } from '@/lib/runtime-limits';
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -21,6 +22,7 @@ import {
 } from './managed-backend';
 
 describe('managed Tauri backend', () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     mocks.invoke.mockReset();
     mocks.listeners.clear();
@@ -45,6 +47,17 @@ describe('managed Tauri backend', () => {
     });
     expect(mocks.invoke).toHaveBeenNthCalledWith(1, 'get_backend');
     expect(mocks.invoke).toHaveBeenNthCalledWith(2, 'get_backend');
+  });
+
+  it('surfaces an unresponsive native command instead of waiting forever', async () => {
+    vi.useFakeTimers();
+    mocks.invoke.mockImplementation(() => new Promise(() => {}));
+    const rejected = expect(waitForManagedBackend()).rejects.toThrow(
+      'did not respond to the local service request',
+    );
+    await vi.advanceTimersByTimeAsync(GACT_HTTP_TIMEOUT_MS);
+    await rejected;
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('runs first-use installation once before resuming supervisor polling', async () => {
@@ -73,6 +86,39 @@ describe('managed Tauri backend', () => {
       ['get_backend'],
       ['get_backend'],
     ]);
+  });
+
+  it('separates package preparation from the service-readiness deadline', async () => {
+    vi.useFakeTimers();
+    let preparing = true;
+    mocks.invoke.mockImplementation(async () =>
+      preparing
+        ? { url: '', bearer_token: '', status: { kind: 'starting', detail: 'installing_runtime' } }
+        : { url: 'http://127.0.0.1:17800', bearer_token: '', status: { kind: 'ready' } },
+    );
+    const ready = waitForManagedBackend({
+      pollIntervalMs: 10,
+      timeoutMs: 20,
+      prepareTimeoutMs: 100,
+    });
+    await vi.advanceTimersByTimeAsync(50);
+    preparing = false;
+    await vi.advanceTimersByTimeAsync(10);
+    await expect(ready).resolves.toMatchObject({ status: { kind: 'ready' } });
+  });
+
+  it('still fails a package-preparation stall within its own budget', async () => {
+    vi.useFakeTimers();
+    mocks.invoke.mockResolvedValue({
+      url: '',
+      bearer_token: '',
+      status: { kind: 'starting', detail: 'installing_runtime' },
+    });
+    const failed = expect(
+      waitForManagedBackend({ pollIntervalMs: 10, prepareTimeoutMs: 30 }),
+    ).rejects.toThrow('did not become ready in time');
+    await vi.advanceTimersByTimeAsync(40);
+    await failed;
   });
 
   it('surfaces a failed first-use install instead of waiting out the readiness window', async () => {

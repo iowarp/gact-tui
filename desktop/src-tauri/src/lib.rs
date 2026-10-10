@@ -13,8 +13,10 @@ mod clio_core_registry;
 mod commands;
 mod credentials;
 mod document_apps;
+mod document_path;
 mod downloads;
 mod execution_install;
+mod file_reveal;
 mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
@@ -34,6 +36,8 @@ mod remote_lifecycle;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod runtime_install_report;
 mod runtime_pack;
+#[cfg(windows)]
+mod runtime_unpack;
 mod sidecar_setup;
 mod sse_bridge;
 mod sse_message;
@@ -192,6 +196,7 @@ pub fn run() {
             commands::open_document_path,
             document_apps::document_applications,
             document_apps::open_file_bytes,
+            document_apps::reveal_file_bytes,
             ssh_transport::ssh_transport_open,
             remote_lifecycle::desktop_deployment_owner,
             ssh_transport::ssh_transport_status,
@@ -428,7 +433,7 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
         .map_err(|error| format!("prepare package workspace: {error}"))?;
     let user = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
         .map_err(|error| format!("prepare package storage: {error}"))?;
-    execution_install::prepare_packages(&runtime, &workspace, &user)?;
+    execution_install::prepare_packages_for_install(&runtime, &workspace, &user)?;
     Ok(())
 }
 

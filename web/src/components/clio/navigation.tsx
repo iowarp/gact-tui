@@ -27,7 +27,7 @@ import { NavigationInfrastructure } from './navigation-infrastructure';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
-import { downloadUrl } from './surface-export';
+import { downloadSessionExport } from './session-export-download';
 import type { SessionAttention } from '@/lib/session-attention';
 
 export interface ClioNavigationProps {
@@ -80,18 +80,7 @@ export function ClioNavigation({
     sessionId: string,
     title: string,
     mode: import('@clio/core/v3').SessionExportMode,
-  ) => {
-    const preparing = toast.loading(
-      `Preparing ${mode === 'transcript' ? 'HTML' : 'ZIP'} export for ${title}…`,
-    );
-    try {
-      const value = await actions.exportSession(sessionId, mode);
-      // Retain a service's base path (including the Desktop/dev remote proxy).
-      downloadUrl(`${settings.endpoint.replace(/\/$/u, '')}${value.download_path}`, value.filename);
-    } finally {
-      toast.dismiss(preparing);
-    }
-  };
+  ) => downloadSessionExport(actions, settings.endpoint, sessionId, title, mode);
   const runNavigationAction = (action: () => Promise<void>, success: string) => {
     void action()
       .then(() => toast.success(success))

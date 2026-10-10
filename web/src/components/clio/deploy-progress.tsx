@@ -7,7 +7,7 @@ import {
   TriangleAlertIcon,
   XIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useNow } from '@/hooks/use-now';
 import {
   Timeline,
   TimelineContent,
@@ -37,19 +37,6 @@ const STATE_LABELS: Record<DeployStageState, string> = {
   cancelled: 'Cancelled',
   skipped: 'Not needed',
 };
-
-/** Re-render once a second while something is running, for elapsed times. */
-function useNow(ticking: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!ticking) return;
-    const tick = () => setNow(Date.now());
-    tick();
-    const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
-  }, [ticking]);
-  return now;
-}
 
 function StageIcon({ state }: { state: DeployStageState }) {
   if (state === 'running') return <Spinner aria-hidden="true" className="size-3" />;

@@ -164,9 +164,20 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
 function assertReady(target: HTMLElement): void {
   if (!displayed(target) || document.visibilityState !== 'visible')
     throw new Error('The requested view is hidden or unmounted.');
+  if (
+    target.matches('[data-slot="a2ui-surface-root"]') &&
+    !target.querySelector('[data-a2ui-component-id]')
+  )
+    throw new Error('The surface components have not mounted yet.');
   const failed = [
-    ...(target.matches('[role="alert"], [data-visual-state="failed"]') ? [target] : []),
-    ...target.querySelectorAll<HTMLElement>('[role="alert"], [data-visual-state="failed"]'),
+    // Authored callouts can use alert accessibility semantics, including
+    // critical findings. Their content is not a renderer failure.
+    ...(target.matches('[role="alert"]:not([data-a2ui-callout]), [data-visual-state="failed"]')
+      ? [target]
+      : []),
+    ...target.querySelectorAll<HTMLElement>(
+      '[role="alert"]:not([data-a2ui-callout]), [data-visual-state="failed"]',
+    ),
   ].find(displayed);
   if (failed) throw new Error(failed.textContent || 'A required view failed to render.');
   if (
@@ -240,9 +251,8 @@ export async function captureVisualRequest(
   await nextFrame();
   if (!matches()) throw new Error('The definition or viewer state changed before capture.');
   const rect = target.getBoundingClientRect();
-  if (rect.width > 2048 || rect.height > 2048)
-    throw new Error('This view exceeds the capture dimensions; select a smaller component.');
-  const blob = await captureRenderedSurfacePng(target);
+  const ratio = visualCapturePixelRatio(rect.width, rect.height, window.devicePixelRatio || 1);
+  const blob = await captureRenderedSurfacePng(target, ratio);
   assertReady(target);
   if (!matches()) throw new Error('The definition or viewer state changed during capture.');
   if (blob.size > 5_000_000)
@@ -253,6 +263,13 @@ export async function captureVisualRequest(
     reader.onerror = () => reject(new Error('Could not read the rendered PNG.'));
     reader.readAsDataURL(blob);
   });
+}
+
+/** Fit a whole report within the server's 4096px PNG bound without shrinking CSS text. */
+export function visualCapturePixelRatio(width: number, height: number, density: number): number {
+  if (!(width > 0 && height > 0 && width <= 4096 && height <= 4096))
+    throw new Error('This view exceeds the capture dimensions; select a smaller component.');
+  return Math.min(Math.max(density, 1), 2, 4096 / width, 4096 / height);
 }
 
 /** One lease per mounted renderer; polling is serialized and stops on unmount. */

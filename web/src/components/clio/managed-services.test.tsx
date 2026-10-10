@@ -27,6 +27,8 @@ const repository = vi.hoisted(() => ({
   managedServiceCatalog: vi.fn(),
   runManagedServiceAction: vi.fn(),
   infrastructureOperation: vi.fn(),
+  // The live operation stream: these tests read the polled record only.
+  infrastructureOperationEvents: vi.fn(async function* () {}),
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => runtime.desktop }));

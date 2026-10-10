@@ -184,13 +184,10 @@ test('the chart still renders in full screen, and again after exiting (#1551/#51
   // layout can move the toolbar under the composer during the click.
   await page.getByRole('log', { name: 'Conversation' }).hover();
   await page.mouse.wheel(0, -200);
-  // Reader navigation can unmount a virtualized tail surface. Return through
-  // the actual transcript control before interacting with its chart; scrolling
-  // a locator cannot bring a DOM node back into the virtualizer's window.
-  const returnToBottom = page.getByRole('button', { name: 'Scroll to bottom', exact: true });
-  await expect(returnToBottom).toBeVisible();
-  await returnToBottom.click();
-  await expect(chartView.locator('canvas, svg')).toHaveCount(1);
+  // Loading older transcript rows after the wheel can unmount this detached
+  // end-of-transcript surface. Navigate back to it before using its toolbar;
+  // scrolling an absent virtualized node cannot bring that node into view.
+  await revealSurface(page);
   await chartFrame.scrollIntoViewIfNeeded();
   await chartFrame.hover();
   await chartFrame.getByRole('button', { name: 'Full screen' }).click();

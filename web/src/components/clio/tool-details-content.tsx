@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { CollapsibleContent } from '@/components/ui/collapsible';
 import { ResultDialogContent } from './result-dialog-content';
 
-/** Present the same original call details inline in a transcript or in its dialog. */
+/** Bound an inline readable result or the separate technical-details dialog. */
 export function ToolDetailsContent({
   inline,
   title,
@@ -17,7 +17,7 @@ export function ToolDetailsContent({
       <div
         role="region"
         aria-label={title}
-        className="my-1 max-h-80 min-w-0 space-y-3 overflow-auto overscroll-contain rounded-lg border bg-muted/20 p-3 text-sm [overflow-wrap:anywhere]"
+        className="my-1 max-h-80 min-w-0 space-y-3 overflow-auto overscroll-contain py-1 text-sm [overflow-wrap:anywhere]"
         data-slot="transcript-tool-details"
         tabIndex={0}
       >

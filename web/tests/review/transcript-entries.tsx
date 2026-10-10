@@ -13,6 +13,7 @@ import { ClioMotionProvider } from '../../src/components/clio/motion';
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const requestedProvider = new URLSearchParams(window.location.search).get('provider');
+const showFeedback = new URLSearchParams(window.location.search).has('feedback');
 const provider =
   requestedProvider === 'claude_code' || requestedProvider === 'vllm' ? requestedProvider : 'codex';
 const model = {
@@ -72,6 +73,7 @@ function Review() {
   for (const check of checks) tools[check.id] = check;
   const message: Message = {
     id: 'review-turn',
+    run_id: 'review-run',
     session_id: 'fixture',
     role: 'assistant',
     created_at: '2026-10-08T00:00:00Z',
@@ -147,6 +149,29 @@ function Review() {
               blocks: [{ id: 'prompt-text', type: 'text', text: 'Review the field measurements.' }],
             },
             message,
+            ...(showFeedback
+              ? [
+                  {
+                    id: 'review-feedback',
+                    session_id: 'fixture',
+                    role: 'user' as const,
+                    created_at: '2026-10-08T00:00:30Z',
+                    metadata: {
+                      steer_delivery: {
+                        assistant_message_id: message.id,
+                        after_part_id: 'tool-read',
+                      },
+                    },
+                    blocks: [
+                      {
+                        id: 'feedback-text',
+                        type: 'text' as const,
+                        text: 'Focus on calibration before comparing the sites.',
+                      },
+                    ],
+                  },
+                ]
+              : []),
             {
               id: 'next-prompt',
               session_id: 'fixture',
@@ -163,6 +188,7 @@ function Review() {
           artifacts={{}}
           subagents={{}}
           surfaces={{}}
+          preparation={{ sessionState: live ? 'running' : 'completed', activeTurnId: 'review-run' }}
         />
       </main>
     </div>
@@ -171,7 +197,13 @@ function Review() {
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <ArchiveConnectionProvider>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+      <ThemeProvider
+        attribute="class"
+        forcedTheme={
+          new URLSearchParams(window.location.search).get('theme') === 'dark' ? 'dark' : 'light'
+        }
+        enableSystem={false}
+      >
         <AppearanceProvider>
           <ClioMotionProvider>
             <ConversationDisplayProvider>

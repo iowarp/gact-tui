@@ -22,6 +22,9 @@ it('retains authored CSS, animation and local SVG references in an isolated disp
   expect(policy?.getAttribute('content')).toContain("script-src 'none'");
   expect(document.head.children[1]).toBe(policy);
   render(<HtmlFilePreview name="cat.html" content={content} />);
+  expect(
+    screen.getByText(/Static preview · Scripts and external resources are disabled/),
+  ).toBeVisible();
   expect(screen.getByTitle('HTML preview of cat.html')).toHaveAttribute('sandbox', '');
   expect(screen.getByTitle('HTML preview of cat.html')).toHaveAttribute(
     'referrerpolicy',

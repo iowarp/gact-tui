@@ -4,7 +4,8 @@
 //! status/install/repair (supervisor), SSH tunnels, and boot-log reveal.
 
 use crate::blocking_command::off_main;
-use std::path::{Component, Path, PathBuf};
+use crate::document_path::is_document_working_copy_path;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use crate::supervisor::Supervisor;
@@ -158,40 +159,4 @@ fn open_document_path_blocking(path: String, application: String) -> Result<Stri
     }
     crate::document_apps::open_in(&application, &canonical)?;
     Ok(canonical.display().to_string())
-}
-
-fn is_document_working_copy_path(path: &Path) -> bool {
-    let components: Vec<String> = path
-        .components()
-        .filter_map(|component| match component {
-            Component::Normal(value) => Some(value.to_string_lossy().to_string()),
-            _ => None,
-        })
-        .collect();
-    components.windows(5).any(|window| {
-        window[0].eq_ignore_ascii_case(".clio")
-            && window[1].eq_ignore_ascii_case("agent")
-            && window[2].eq_ignore_ascii_case("documents")
-            && window[3].eq_ignore_ascii_case("working-copies")
-            && window[4].starts_with("docwc_")
-    })
-}
-
-#[cfg(test)]
-mod document_path_tests {
-    use super::is_document_working_copy_path;
-    use std::path::Path;
-
-    #[test]
-    fn accepts_only_clio_document_working_copy_files() {
-        assert!(is_document_working_copy_path(Path::new(
-            "C:/workspace/.clio/agent/documents/working-copies/docwc_abc/brief.docx"
-        )));
-        assert!(!is_document_working_copy_path(Path::new(
-            "C:/workspace/brief.docx"
-        )));
-        assert!(!is_document_working_copy_path(Path::new(
-            "C:/workspace/.clio/agent/documents/working-copies/untrusted/brief.docx"
-        )));
-    }
 }

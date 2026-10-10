@@ -1,7 +1,7 @@
 import type { Message } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { AppearanceProvider } from '@/providers/appearance-provider';
+import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { ClioConversation } from './conversation';
 import { specialMessageExecutionMode } from './conversation-message-projection';

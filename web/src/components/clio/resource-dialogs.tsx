@@ -489,7 +489,7 @@ function BehaviorSelect({
   );
 }
 
-function RenameResourceDialog({
+export function RenameResourceDialog({
   actions,
   onClose,
   target,
@@ -550,7 +550,7 @@ function RenameResourceDialog({
   );
 }
 
-function DeleteResourceDialog({
+export function DeleteResourceDialog({
   actions,
   onClose,
   target,

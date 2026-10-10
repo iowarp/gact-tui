@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
-import { AppearanceProvider } from '@/providers/appearance-provider';
+import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ClioConversation } from './conversation';
 
@@ -146,14 +146,20 @@ describe('ClioConversation activity and interactive surfaces', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Activity: Read files' }));
     const activity = screen.getByRole('button', {
-      name: 'Technical details for Read evidence file',
+      name: 'Show result for Read evidence file',
     });
     expect(activity).toBeInTheDocument();
     expect(activity).toHaveTextContent('Read evidence.json');
     expect(screen.queryByRole('radio', { name: 'Full activity view' })).not.toBeInTheDocument();
     fireEvent.click(activity);
     expect(
-      await screen.findByRole('region', { name: /Read evidence file: Technical details/ }),
+      await screen.findByRole('region', { name: /Read evidence file: Result/ }),
+    ).toHaveTextContent('Read evidence.json');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Technical details for Read evidence file' }),
+    );
+    expect(
+      await screen.findByRole('dialog', { name: /Read evidence file: Technical details/ }),
     ).toHaveTextContent('large payload omitted from the collapsed summary');
   });
 
@@ -248,9 +254,7 @@ describe('ClioConversation activity and interactive surfaces', () => {
     expect(activity).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(activity);
     expect(activity).toHaveAttribute('aria-expanded', 'true');
-    expect(
-      screen.getByRole('button', { name: /^Reasoning: Inspecting the evidence/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Inspecting the evidence.')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Technical details for Read evidence file' }),
     ).toBeInTheDocument();

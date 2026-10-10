@@ -7,13 +7,16 @@ export function MessageCompletionFooter({
   toolCount,
   failedToolCount = 0,
   children,
+  active = false,
 }: {
   message: Message;
   toolCount: number;
   failedToolCount?: number;
   children: ReactNode;
+  active?: boolean;
 }) {
   const settled = Boolean(message.completed_at || message.stop_reason);
+  if (active || !settled) return null;
   const reason = message.stop_reason?.toLowerCase();
   const status =
     reason === 'cancelled'

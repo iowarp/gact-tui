@@ -66,3 +66,17 @@ pnpm --dir web dev
 Both commands resolve `brand.config.local.json` first when it exists. The desktop
 webview bundles the same branded web build. Native desktop packaging fields and
 managed-service configuration are documented in [`INTEGRATION.md`](./INTEGRATION.md).
+
+## Release notes for an embedding product
+
+If the native app uses the embedding product's release version, pass its
+`CHANGELOG.md` path as `CLIO_DESKTOP_CHANGELOG` when building the webview. Vite
+bundles those notes offline. The app's version selects that product's notes;
+the stamped workspace package version independently selects this repository's
+interface notes. An unreadable supplied path fails the build.
+
+Without a product changelog, the dialog uses interface notes and the UI build
+version. It never compares an unrelated native product version with UI releases.
+First installations remain quiet; updates show the newest changes and retain
+older skipped releases in expandable rows. These are notes for the shipped
+application, not a probe of a separately connected agent's installed version.

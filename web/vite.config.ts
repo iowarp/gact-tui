@@ -14,12 +14,17 @@ const galleryOnly = process.env.CLIO_GALLERY_STANDALONE === '1';
 const workspaceVersion = JSON.parse(
   readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'),
 ).version;
+// A branded installer can have a different release identity from this UI.
+// Bundle its own notes offline; never look up that version in the UI changelog.
+const desktopChangelogPath = process.env.CLIO_DESKTOP_CHANGELOG;
+const desktopChangelog = desktopChangelogPath ? readFileSync(desktopChangelogPath, 'utf8') : '';
 
 // https://vite.dev/config/
 export default defineConfig({
   base: galleryOnly ? '/widgets/' : '/',
   define: {
     'import.meta.env.VITE_CLIO_WORKSPACE_VERSION': JSON.stringify(workspaceVersion),
+    'import.meta.env.VITE_CLIO_DESKTOP_CHANGELOG': JSON.stringify(desktopChangelog),
   },
   plugins: [
     brandPlugin(brandConfig.brandingRoot, brandConfig.profile),

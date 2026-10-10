@@ -16,13 +16,19 @@ export function HtmlPreview({ name, content }: { name: string; content: string }
   if (preview.error)
     return <ResourceUnavailable label="HTML preview unavailable" detail={preview.error} />;
   return (
-    <iframe
-      className="h-full min-h-0 w-full border-0 bg-white"
-      title={`HTML preview of ${name}`}
-      sandbox=""
-      referrerPolicy="no-referrer"
-      srcDoc={preview.html}
-    />
+    <div className="flex h-full min-h-0 flex-col">
+      <p className="shrink-0 px-3 py-1.5 text-xs text-muted-foreground">
+        Static preview · Scripts and external resources are disabled. Open in a browser to run this
+        HTML.
+      </p>
+      <iframe
+        className="min-h-0 w-full flex-1 border-0 bg-white"
+        title={`HTML preview of ${name}`}
+        sandbox=""
+        referrerPolicy="no-referrer"
+        srcDoc={preview.html}
+      />
+    </div>
   );
 }
 

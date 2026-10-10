@@ -16,6 +16,12 @@ export interface SpotterAvailability {
   message: string;
   /** What to enable or fix, operator-facing. */
   remedy: string;
+  /**
+   * How far the service checked: `static` (declarations resolve; the watcher's
+   * server has not been started yet), `runtime` (from its last start), or empty
+   * for a service that predates the field.
+   */
+  verified: string;
 }
 
 export const spotterAvailabilitySchema = z
@@ -24,6 +30,7 @@ export const spotterAvailabilitySchema = z
     reason: z.string().default(''),
     message: z.string().default(''),
     remedy: z.string().default(''),
+    details: z.record(z.string(), z.unknown()).default({}),
   })
   .passthrough()
   .transform(
@@ -32,5 +39,6 @@ export const spotterAvailabilitySchema = z
       reason: value.reason,
       message: value.message,
       remedy: value.remedy,
+      verified: typeof value.details.verified === 'string' ? value.details.verified : '',
     }),
   );

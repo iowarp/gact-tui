@@ -2,6 +2,7 @@ import type { AttentionLookup, AttentionLookupResult } from '@clio/core/v3';
 import { Button } from '@/components/ui/button';
 import { formatSharePercent } from '@/lib/attention-text';
 import { InfoTip } from './info-tip';
+import { AttentionBreakdown } from './attention-mode-banner';
 import {
   attentionEvidenceHash,
   type AttentionEvidenceInspection,
@@ -19,6 +20,25 @@ function evidence(view: AttentionLookup['views'][number]): AttentionEvidenceInsp
     capture_sha256: view.capture_sha256,
     profile_revision: view.profile_revision,
   };
+}
+
+const GENERIC_SECTION_LABELS = new Set([
+  'tool',
+  'tool_result',
+  'tool_call_results',
+  'user',
+  'answer',
+]);
+
+/** A block's kind, plus the tool's name when its captured section is labelled with one. */
+function blockLabel(
+  view: AttentionLookup['views'][number],
+  block: { kind: string; section?: number },
+) {
+  const sections = (view as { sections?: readonly { label?: string }[] }).sections;
+  const label = block.section === undefined ? undefined : sections?.[block.section]?.label;
+  const kind = block.kind.replaceAll('_', ' ');
+  return label && !GENERIC_SECTION_LABELS.has(label) ? `${kind} (${label})` : kind;
 }
 
 /** Keep capture identity, profile and missingness inspectable alongside the numerical result. */
@@ -40,7 +60,7 @@ export function AttentionLookupResults({
           No compatible captured coordinates in the model calls checked.
         </p>
       ) : null}
-      {result.views.map((view) => (
+      {result.views.map((view, index) => (
         <details key={view.lm_call_id} className="rounded-md border bg-background p-2">
           <summary className="cursor-pointer text-sm">
             {view.kind === 'source' ? 'Later generation' : 'Generated selection'} ·{' '}
@@ -49,7 +69,10 @@ export function AttentionLookupResults({
               : `${view.selected_steps.length} captured token${view.selected_steps.length === 1 ? '' : 's'}`}
           </summary>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Capture {view.request_id.slice(-12)}</span>
+            <span>
+              Model call {index + 1}
+              {result.views.length > 1 ? ` of ${result.views.length}` : ''}
+            </span>
             {onShowHeat && (view.kind === 'generated' || view.heat?.blocks.length) ? (
               <Button
                 size="sm"
@@ -61,8 +84,9 @@ export function AttentionLookupResults({
               </Button>
             ) : null}
             <InfoTip label="About capture and profile identity">
-              Capture SHA-256: {view.capture_sha256}. Profile: {view.profile_revision}. These
-              identify the exact bytes and aggregation settings used for this view.
+              Request {view.request_id}. Capture SHA-256: {view.capture_sha256}. Profile:{' '}
+              {view.profile_revision}. These identify the exact bytes and aggregation settings used
+              for this view.
             </InfoTip>
             {view.kind === 'source' ? (
               view.generated_references.map((reference) => (
@@ -106,19 +130,27 @@ export function AttentionLookupResults({
               </div>
             </>
           ) : (
-            <ul className="mt-2 space-y-1 text-xs">
-              {view.blocks.map((block) => (
-                <li key={`${block.message_id}:${block.part_id}:${block.field}`}>
-                  <a
-                    href={attentionEvidenceHash(block, view.profile_revision, evidence(view))}
-                    className="text-primary underline underline-offset-4"
-                  >
-                    Inspect {block.kind.replaceAll('_', ' ')}
-                  </a>{' '}
-                  · {formatSharePercent(block.share)} retained mass
-                </li>
-              ))}
-            </ul>
+            <>
+              {view.sources?.length ? (
+                <div className="mt-2">
+                  <AttentionBreakdown data={view} />
+                </div>
+              ) : null}
+              <p className="mt-2 text-xs text-muted-foreground">Transcript content in this call</p>
+              <ul className="mt-1 space-y-1 text-xs">
+                {view.blocks.map((block) => (
+                  <li key={`${block.message_id}:${block.part_id}:${block.field}`}>
+                    <a
+                      href={attentionEvidenceHash(block, view.profile_revision, evidence(view))}
+                      className="text-primary underline underline-offset-4"
+                    >
+                      Inspect {blockLabel(view, block)}
+                    </a>{' '}
+                    · {formatSharePercent(block.share)} retained mass
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </details>
       ))}

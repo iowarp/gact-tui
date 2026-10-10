@@ -107,7 +107,8 @@ describe('native service lifecycle', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Delete retained data' }));
     await userEvent.click(screen.getAllByRole('button', { name: 'Delete retained data' }).at(-1)!);
     expect(onAction).toHaveBeenCalledTimes(1);
-    expect(onAction).toHaveBeenCalledWith('delete_data');
+    // Only a reinstall can carry options (from scratch); delete_data never does.
+    expect(onAction).toHaveBeenCalledWith('delete_data', undefined);
   });
 
   it('does not require container or attention configuration for plain native vLLM', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ResolvedAttentionBlock } from './attention-highlight-sources';
+import { bindTranscriptText } from './transcript-content-selection';
 import {
   buildAttentionHighlightRanges,
   buildSelectedRange,
@@ -134,6 +135,58 @@ describe('buildAttentionHighlightRanges', () => {
 });
 
 describe('buildSelectedRange', () => {
+  it('keeps source highlights aligned when a reasoning heading is displayed in the bar', () => {
+    const prefix = '**🧭 north**\n\n';
+    const source = `${prefix}**north** then north`;
+    const start = [...`${prefix}**north** then `].length;
+    const end = [...source].length;
+    document.body.innerHTML =
+      '<div data-message-id="m"><p data-part-id="p" data-field="text">north then north</p></div>';
+    const element = document.querySelector('p')!;
+    bindTranscriptText(element, {
+      source,
+      sourceStart: prefix.length,
+      partId: 'p',
+      revision: 'rev',
+      field: 'text',
+    });
+    const data = {
+      available: true as const,
+      message_id: 'm',
+      selection: { part_id: 'p', field: 'text', start, end, text: 'north' },
+      residual: 0,
+      sources: [],
+      flags: [],
+      blocks: [],
+    };
+    const selected = buildSelectedRange(document.body, data, source);
+    expect(selected?.toString()).toBe('north');
+    expect(selected?.startOffset).toBe(11);
+    const { heat } = buildAttentionHighlightRanges(
+      document.body,
+      [
+        {
+          sourceText: source,
+          block: {
+            message_id: 'm',
+            part_id: 'p',
+            field: 'text',
+            kind: 'assistant_text',
+            share: 1,
+            mean: 1,
+            runs: [
+              [3, 4, 1],
+              [start, end, 1],
+            ],
+          },
+        },
+      ],
+      1,
+    );
+    expect(heat.flat()).toHaveLength(1);
+    expect(heat[3]?.[0]?.startOffset).toBe(11);
+  });
+
   it('highlights the exact selected span using its resolved source text', () => {
     document.body.innerHTML = `
       <div data-message-id="msg_1">

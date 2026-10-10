@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { ScenegraphEvent, View } from 'vega';
 import type { ChartRow } from './chart-data';
 import { embedChart, prepareChartSpec, type ChartRenderer } from './chart-embed';
 import { withDefaultProjectionFit } from './chart-projection-fit';
 import { withSeriesLegend } from './chart-series-legend';
+import {
+  chartCategoryDomains,
+  withChartCategoryColors,
+  type ChartCategoryDomains,
+} from './chart-category-colors';
+import { chartSideLegendSpace } from './chart-presentation';
 import {
   bindChartSelection,
   translateChartSelectionValues,
@@ -24,6 +30,7 @@ import type { SelectionState, SelectionWriter } from './selection-state';
 interface ChartViewOptions {
   containerRef: RefObject<HTMLDivElement | null>;
   displayRows: ChartRow[] | undefined;
+  colorRows: ChartRow[] | undefined;
   selectionState: SelectionState | undefined;
   setSelection: SelectionWriter | undefined;
   embedSpec: Record<string, unknown> | undefined;
@@ -57,6 +64,7 @@ function isDarkTheme(): boolean {
 export function useChartView({
   containerRef,
   displayRows,
+  colorRows,
   selectionState,
   setSelection,
   embedSpec,
@@ -92,6 +100,19 @@ export function useChartView({
   const setSelectionRef = useRef(setSelection);
   const [embedError, setEmbedError] = useState('');
   const [darkTheme, setDarkTheme] = useState(isDarkTheme);
+  // Use the unfiltered source domain: hiding a category must not recolour the rest
+  // or rebuild the view and lose the person's zoom/selection. New categories can
+  // extend the domain, retaining the identities of those already present.
+  const categoryDomainKey = useMemo(
+    () => JSON.stringify(chartCategoryDomains(embedSpec ?? {}, colorRows ?? [])),
+    [embedSpec, colorRows],
+  );
+  const categoricalSpec = useMemo(
+    () =>
+      embedSpec &&
+      withChartCategoryColors(embedSpec, JSON.parse(categoryDomainKey) as ChartCategoryDomains),
+    [embedSpec, categoryDomainKey],
+  );
   useEffect(() => {
     const observer = new MutationObserver(() => setDarkTheme(isDarkTheme()));
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
@@ -123,7 +144,7 @@ export function useChartView({
   // One embedded view per chart definition; rows and the selection only update it.
   useEffect(() => {
     const node = containerRef.current;
-    if (!node || !embedSpec || !hasRows || measuredWidth <= 0) return;
+    if (!node || !categoricalSpec || !hasRows || measuredWidth <= 0) return;
     let cancelled = false;
     let finalize: (() => void) | undefined;
     // Snapshotted once, here — `rowsRef.current` can move on during the
@@ -139,7 +160,7 @@ export function useChartView({
     // draw, and the agent should never have to know that. See
     // chart-projection-fit.ts; an agent-authored fit always wins.
     const seriesLegend = withSeriesLegend(
-      embedSpec,
+      categoricalSpec,
       embeddedRows ?? [],
       preset,
       entityField,
@@ -149,9 +170,9 @@ export function useChartView({
       prepareChartSpec(seriesLegend.spec, {
         height: chartHeight,
         rows: cloneRows(embeddedRows ?? []),
-        // Vega lays legends outside the plot width. Leave room inside the
-        // surface so categorical and continuous legends remain readable.
-        width: Math.max(220, measuredWidth - (colorField || seriesLegend.visible ? 112 : 0)),
+        // Defaults put legends below the plot; only authored side legends
+        // consume horizontal space in a narrow docked viewer.
+        width: Math.max(220, measuredWidth - chartSideLegendSpace(seriesLegend.spec)),
       }),
       embeddedRows ?? [],
     );
@@ -382,7 +403,7 @@ export function useChartView({
     preset,
     componentId,
     darkTheme,
-    embedSpec,
+    categoricalSpec,
     entityField,
     fullscreen,
     hasRows,

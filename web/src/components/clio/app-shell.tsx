@@ -89,6 +89,7 @@ function DesktopNavigationLayout({
           minSize="216px"
           onResize={synchronizeCollapsedState}
           panelRef={panelRef}
+          style={{ overflow: 'visible' }}
         >
           {navigation}
         </ResizablePanel>

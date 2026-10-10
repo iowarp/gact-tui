@@ -42,6 +42,21 @@ it('shows recorded turn usage and zero cost while omitting unreported facts', ()
   expect(screen.getByRole('button', { name: 'Copy' })).toBeVisible();
 });
 
+it('withholds stale completion metadata while the owning turn is still active', () => {
+  const view = render(
+    <MessageCompletionFooter message={message} toolCount={1} active>
+      <button>Copy</button>
+    </MessageCompletionFooter>,
+  );
+  expect(view.container).toBeEmptyDOMElement();
+  view.rerender(
+    <MessageCompletionFooter message={message} toolCount={1}>
+      <button>Copy</button>
+    </MessageCompletionFooter>,
+  );
+  expect(screen.getByText('Done')).toBeVisible();
+});
+
 const message: Message = {
   id: 'failed-turn',
   session_id: 's',
@@ -127,5 +142,6 @@ it('does not present unfinished calls as final turn statistics', () => {
     </MessageCompletionFooter>,
   );
   expect(view.container).not.toHaveTextContent('tool calls');
-  expect(screen.getByRole('button', { name: 'Copy' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
+  expect(view.container).toBeEmptyDOMElement();
 });

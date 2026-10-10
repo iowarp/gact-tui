@@ -156,9 +156,11 @@ export class TauriClioTransport implements ClioTransport {
     signal?: AbortSignal,
   ): AsyncIterable<TransportFrame> {
     if (signal?.aborted) throw abortError();
-    const path = scope.session_id
-      ? `/v1/sessions/${encodeURIComponent(scope.session_id)}/events`
-      : '/v1/events';
+    const path =
+      scope.path ??
+      (scope.session_id
+        ? `/v1/sessions/${encodeURIComponent(scope.session_id)}/events`
+        : '/v1/events');
     const url = endpointUrl(this.endpoint, path);
     const clientId = this.clientId();
     const queued: TransportFrame[] = [];

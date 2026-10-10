@@ -309,6 +309,7 @@ export function ArtifactView({
     !canLoadInline ? (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
     ) : text.data ? (
+      artifact.producer?.['designation'] === 'dashboard-report' ||
       artifact.name.endsWith('.dashboard.json') ? (
         <DashboardResourceView content={text.data.content} artifactId={artifact.id} />
       ) : isHtmlFile(artifact.name, artifact.media_type) ? (
@@ -602,6 +603,7 @@ function LargeResourceNotice({ name, size }: { name: string; size?: number }) {
 
 function imageMediaType(path: string): string {
   const extension = path.split('.').at(-1)?.toLowerCase();
+  if (extension === 'svg') return 'image/svg+xml';
   if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
   if (extension === 'gif') return 'image/gif';
   if (extension === 'webp') return 'image/webp';

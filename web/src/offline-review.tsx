@@ -332,7 +332,9 @@ function OfflineDashboard({ report }: { report: DashboardReport }) {
     document.getElementById('root')!.hidden = false;
   }, []);
   return (
-    <main className="mx-auto max-w-7xl">
+    // The archive's document stylesheet has an unlayered prose-width rule.
+    // Keep this composed report wider than that rule without changing transcripts.
+    <main className="mx-auto max-w-7xl" style={{ maxWidth: '80rem' }}>
       <DashboardView report={report} offline />
     </main>
   );

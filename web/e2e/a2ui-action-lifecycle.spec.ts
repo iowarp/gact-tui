@@ -98,7 +98,9 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
     // Moving through the transcript must not suspend an active form and erase
     // the value before the person can complete its next field.
     await conversation.evaluate((element) => element.scrollTo({ top: 0 }));
-    await email.scrollIntoViewIfNeeded();
+    // Resolve and reveal the current input atomically. Waiting for a captured
+    // node's geometry can race the transcript's virtualized range update.
+    await email.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(email).toHaveValue('scientist@earthscope.example');
     await password.fill('correct-horse-battery');
     const submit = page.getByRole('button', { name: 'Sign in' });
@@ -109,7 +111,7 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
     expect(readingArea).not.toBeNull();
     await page.mouse.move(readingArea!.x + 80, readingArea!.y + 80);
     await page.mouse.wheel(0, -200);
-    await email.scrollIntoViewIfNeeded();
+    await email.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(email).toBeInViewport();
     await expect(password).toBeInViewport();
     await page.screenshot({ path: 'screenshots/a2ui-active-form.png' });

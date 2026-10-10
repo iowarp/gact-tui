@@ -15,10 +15,13 @@ export interface ThoughtSource {
 export function TranscriptReasoning({
   text,
   source,
+  sourceStart = 0,
   children,
 }: {
   text: string;
   source?: ThoughtSource;
+  /** UTF-16 offset of a visible body whose title is displayed separately. */
+  sourceStart?: number;
   children: ReactNode;
 }) {
   const revision = bytesToHex(sha256(new TextEncoder().encode(text)));
@@ -30,7 +33,10 @@ export function TranscriptReasoning({
       data-field={source?.field}
       data-content-revision={source ? revision : undefined}
       ref={(element) =>
-        bindTranscriptText(element, source ? { ...source, source: text, revision } : undefined)
+        bindTranscriptText(
+          element,
+          source ? { ...source, source: text, revision, sourceStart } : undefined,
+        )
       }
     >
       {children}

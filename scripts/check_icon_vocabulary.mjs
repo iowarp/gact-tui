@@ -45,6 +45,7 @@ const forbidden = new Set(vocabularyGlyphs.flatMap((name) => [name, `${name}Icon
 /** Glyphs used as a status mark rather than an action (path -> names). */
 const allowed = new Map([
   [`web${sep}src${sep}components${sep}clio${sep}deploy-progress.tsx`, new Set(['XIcon'])],
+  [`web${sep}src${sep}components${sep}clio${sep}operation-progress.tsx`, new Set(['XIcon'])],
 ]);
 
 function filesUnder(directory) {

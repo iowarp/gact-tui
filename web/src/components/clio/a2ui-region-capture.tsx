@@ -8,7 +8,7 @@ import {
   type Region,
 } from './a2ui-region-evidence';
 export type { CaptureSurface } from './a2ui-region-evidence';
-import { toCanvas } from 'html-to-image';
+import { getFontEmbedCSS, toCanvas } from 'html-to-image';
 import { CheckIcon, GripVerticalIcon, ListIcon, SendIcon } from 'lucide-react';
 import { CloseIcon, DeleteIcon } from '@/lib/icon-vocabulary';
 import {
@@ -55,7 +55,11 @@ function regionRect(region: Region, bounds: DOMRect): CSSProperties {
   };
 }
 
-async function labelledPng(target: HTMLElement, regions: readonly Region[]): Promise<Blob> {
+async function labelledPng(
+  target: HTMLElement,
+  regions: readonly Region[],
+  pixelRatio = Math.min(window.devicePixelRatio || 1, 2),
+): Promise<Blob> {
   let background: Element | null = target;
   let backgroundColor = 'white';
   while (background) {
@@ -66,16 +70,29 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
     }
     background = background.parentElement;
   }
+  // SVG foreignObject uses classic scrollbars even when the live browser uses
+  // overlay scrollbars. Their added height otherwise covers the last table
+  // row. Clip the same column viewport without drawing clone-only scrollbars;
+  // keep this styling in the export so the live table remains scrollable.
+  const fontEmbedCSS = `${await getFontEmbedCSS(target)}
+    [data-slot="data-grid"] [role="region"],
+    [data-slot="clio-data-grid-viewport"] { overflow: hidden !important; }
+  `;
   const canvas = await toCanvas(target, {
-    cacheBust: true,
+    // Reference images use immutable blob URLs. Appending a cache-busting query
+    // makes those URLs invalid, so capture must preserve their exact identity.
+    cacheBust: false,
+    includeQueryParams: true,
+    fetchRequestInit: { cache: 'no-store' },
     backgroundColor,
+    fontEmbedCSS,
     filter: (node) =>
       node.nodeType !== Node.ELEMENT_NODE ||
       !(
         (node as Element).getAttribute('data-slot') === 'surface-toolbar' ||
         (node as Element).getAttribute('data-capture-ui') === 'true'
       ),
-    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+    pixelRatio,
   });
   const context = canvas.getContext('2d');
   if (!context) throw new Error('The browser could not create an image drawing context.');
@@ -105,9 +122,11 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
     // Composite the actual DOM overlay above it, retaining marker colours,
     // icons, popups and labels instead of drawing approximate white dots.
     const overlay = await toCanvas(mapElement, {
-      cacheBust: true,
+      cacheBust: false,
+      includeQueryParams: true,
+      fetchRequestInit: { cache: 'no-store' },
       backgroundColor: 'transparent',
-      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      pixelRatio,
       filter: (node) => !(node instanceof HTMLCanvasElement),
     });
     const overlayRect = mapElement.getBoundingClientRect();
@@ -179,8 +198,11 @@ async function labelledPng(target: HTMLElement, regions: readonly Region[]): Pro
 /** A surface-level camera mode with persistent, labelled visual regions. */
 /** Capture the displayed artifact, including live mesh and map canvases. */
 // oxlint-disable-next-line react/only-export-components
-export async function captureRenderedSurfacePng(target: HTMLElement): Promise<Blob> {
-  return labelledPng(target, []);
+export async function captureRenderedSurfacePng(
+  target: HTMLElement,
+  pixelRatio?: number,
+): Promise<Blob> {
+  return labelledPng(target, [], pixelRatio);
 }
 
 export function A2uiRegionCaptureProvider({

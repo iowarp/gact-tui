@@ -16,6 +16,8 @@ export const modelAcquisitionSchema = z.object({
   updated_at: z.number(),
   observed_at: z.number().optional(),
   error: z.string().nullable(),
+  // hf_cache: found in a shared Hugging Face cache; no CLIO receipt, files not hashed.
+  origin: z.enum(['receipt', 'hf_cache']).optional(),
 });
 export const modelInventorySchema = z.object({
   target_id: z.string(),

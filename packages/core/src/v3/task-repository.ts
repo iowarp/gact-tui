@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SystemRepository } from './system-repository.js';
+import { ResponseFeedbackRepository } from './response-feedback-repository.js';
 
 const cancellationReply = z.object({
   results: z.array(
@@ -9,7 +9,7 @@ const cancellationReply = z.object({
 });
 
 /** Shared task controls use their original owner and report per-handle failures. */
-export class TaskRepository extends SystemRepository {
+export class TaskRepository extends ResponseFeedbackRepository {
   public async cancelTasks(
     sessionId: string,
     tasks: string[],

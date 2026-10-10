@@ -9,6 +9,7 @@ export function ActivityRow({
   detail,
   metadata,
   status,
+  statusDetail,
   duration,
   attention,
   action,
@@ -19,6 +20,7 @@ export function ActivityRow({
   detail?: string;
   metadata?: ReactNode;
   status?: ClioStatusValue;
+  statusDetail?: string;
   duration?: number;
   /** Attention-mode badge (share of attention traced to this activity), when active. */
   attention?: ReactNode;
@@ -59,7 +61,9 @@ export function ActivityRow({
           {formatDuration(duration)}
         </span>
       ) : null}
-      {status ? <ClioStatus compact value={status} className="shrink-0" /> : null}
+      {status ? (
+        <ClioStatus compact value={status} detail={statusDetail} className="shrink-0" />
+      ) : null}
       {attention ? <span className="shrink-0">{attention}</span> : null}
       {action ? (
         <span

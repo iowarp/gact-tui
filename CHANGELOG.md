@@ -6,6 +6,32 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Fixed
+
+- Windows installation explicitly requests backend protected execution setup,
+  allowing a visible one-time administrator approval when the backend needs the
+  legacy sandbox. Ordinary startup does not request account creation. Managed
+  package progress uses explicit UTF-8 and unbuffered Python flags in isolation.
+- Local deployment displays the startup stage, elapsed time and package output
+  with expandable details. Package setup has its own bounded wait before service
+  readiness; an unresponsive Desktop command surfaces a retryable error.
+- Managed package stdout and stderr both reach the persisted boot log while the
+  installer runs, including failures before the agent process can start.
+- Windows runtime installation overlaps decompression with four bounded file
+  writers and creates each directory once. Verified packs still stage before
+  activation; failed extraction keeps the previous runtime. Invalid paths,
+  links, duplicate files and mismatched file counts are rejected.
+- Tool-scoped harness feedback, including saved large results, path suggestions
+  and repeated-failure warnings, stays inside the recorded activity chain.
+  Exact agent-visible text remains available without duplicating the notice
+  in the response. Turn-wide context and compaction keep their own placement.
+- Evidence links can reveal Full activity without repeatedly reapplying the
+  same display mode and causing a render loop.
+- Release summaries use the embedding product's changelog and release version,
+  alongside separately versioned interface notes. CLIO installers no longer
+  select an unrelated old UI release. Clear source labels, readable Markdown,
+  and expandable older releases and technical notes make updates easier to scan.
+
 ## [0.11.3-beta.9] - 2026-10-08
 
 ### Fixed

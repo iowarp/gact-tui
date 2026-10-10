@@ -43,6 +43,43 @@ function mount() {
   );
 }
 describe('host model acquisition', () => {
+  it('labels shared Hugging Face cache models honestly and offers no retry', async () => {
+    const row = {
+      id: 'hub',
+      repository: 'org/shared',
+      requested_revision: 'main',
+      revision: 'f'.repeat(40),
+      destination: '/hub/models--org--shared/snapshots/' + 'f'.repeat(40),
+      phase: 'Model available (Hugging Face cache)',
+      bytes_done: 4,
+      bytes_total: 4,
+      created_at: 1,
+      updated_at: 1,
+      error: null,
+      origin: 'hf_cache',
+    };
+    fixtures.repository.modelInventory.mockResolvedValue({
+      models: [
+        { ...row, state: 'ready' },
+        {
+          ...row,
+          id: 'partial',
+          repository: 'org/partial',
+          state: 'interrupted',
+          error: 'Missing',
+        },
+      ],
+      errors: [],
+      unavailable_reason: null,
+    });
+    mount();
+    expect(await screen.findByText('Shared cache')).toBeInTheDocument();
+    expect(screen.queryByText('Files verified')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Cache details')).toHaveLength(2);
+    expect(screen.queryByText('Download receipt')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Set up runtime' })).toBeInTheDocument();
+  });
   it('downloads an explicitly selected revision on the named host without starting inference', async () => {
     const user = userEvent.setup();
     fixtures.repository.searchModels.mockResolvedValue({
@@ -68,6 +105,33 @@ describe('host model acquisition', () => {
       }),
     );
     expect(fixtures.repository.modelAcquisitionAction).not.toHaveBeenCalled();
+  });
+  it('sets the download expectation before it starts, with the size search reported', async () => {
+    const user = userEvent.setup();
+    fixtures.repository.searchModels.mockResolvedValue({
+      models: [
+        {
+          repository: 'org/large',
+          revision: 'abcdef',
+          task: 'text-generation',
+          gated: false,
+          downloads: 10,
+          size_bytes: 16e9,
+        },
+      ],
+    });
+    mount();
+    await screen.findByText('No downloaded models on this host yet.');
+    await user.click(screen.getByRole('button', { name: 'Download model' }));
+    expect(screen.getByText(/This can take several minutes/u)).toHaveTextContent(
+      'prepares the model files.',
+    );
+    await user.type(screen.getByLabelText('Find on Hugging Face'), 'large');
+    await user.click(screen.getByRole('button', { name: 'Search models' }));
+    await user.click(await screen.findByRole('button', { name: /org\/large/ }));
+    const expectation = screen.getByText(/This can take several minutes/u);
+    expect(expectation).toHaveTextContent('prepares org/large. About 16.0 GB to download.');
+    expect(expectation).toHaveTextContent('You can leave this page; progress continues.');
   });
   it('scopes cancellation to the recorded host and job', async () => {
     fixtures.repository.modelInventory.mockResolvedValue({

@@ -160,7 +160,7 @@ export const ClioChartCatalogComponent = createComponentImplementation(
         // oxlint-disable-next-line react/no-children-prop
         children: (resolvedQuery: ChartDataQuery | undefined) => createElement(
           Suspense,
-          { fallback: createElement('div', { className: 'h-80 animate-pulse rounded-lg bg-muted' }) },
+          { fallback: createElement('div', { 'aria-busy': true, className: 'h-80 animate-pulse rounded-lg bg-muted' }) },
           createElement(LazyChart, {
         accessibility: props.accessibility,
         colorField: props.colorField,
