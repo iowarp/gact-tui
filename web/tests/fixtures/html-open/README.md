@@ -1,0 +1,3 @@
+This browser review uses the production HTML preview and document menu with a recorded native Windows association inventory. Menu selections are recorded, not launched. Native launch and Explorer selection are verified separately with `desktop/src-tauri/examples/document_actions.rs`.
+
+Put the original HTML in `source.html` and the output of `document_actions inventory` in `native-apps.json` (both ignored). Start Vite and open `/tests/fixtures/html-open/index.html`. Review the static-preview explanation, HTML handler choices, and glTF folder fallback at desktop and narrow widths. The sanitizer, iframe sandbox, and preview CSP must remain active.

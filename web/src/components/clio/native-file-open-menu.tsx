@@ -1,15 +1,17 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, FolderOpenIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { documentApplications, openFileBytes } from '@/tauri/documents';
+import { documentApplications, openFileBytes, revealFileBytes } from '@/tauri/documents';
 import { AssociatedApplicationItems } from './associated-application-items';
 import {
   fileViewerIdentity,
@@ -38,6 +40,15 @@ export function NativeFileOpenMenu({ source }: { source: FileViewerSource }) {
     onSuccess: () => toast.success('Opened a desktop copy of the file.'),
     onError: (error: Error) => toast.error(error.message),
   });
+  const reveal = useMutation({
+    mutationFn: async () =>
+      revealFileBytes(
+        identity.name.split(/[\\/]/u).at(-1)!,
+        await readFileViewerBytes(repository, source),
+      ),
+    onSuccess: () => toast.success('Desktop copy shown in its folder.'),
+    onError: (error: Error) => toast.error(error.message),
+  });
   if (!native) return null;
   return (
     <DropdownMenu>
@@ -57,9 +68,17 @@ export function NativeFileOpenMenu({ source }: { source: FileViewerSource }) {
           applications={applications.data ?? []}
           pending={applications.isPending}
           error={applications.error?.message}
-          disabled={open.isPending}
+          disabled={open.isPending || reveal.isPending}
           onSelect={(app) => open.mutate(app.id)}
         />
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={open.isPending || reveal.isPending}
+          onSelect={() => reveal.mutate()}
+        >
+          <FolderOpenIcon aria-hidden="true" />
+          Open in folder
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

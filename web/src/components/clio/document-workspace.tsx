@@ -62,7 +62,7 @@ import {
 } from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { documentApplications, openDocumentWorkingCopy, openFileBytes } from '@/tauri/documents';
+import { documentApplications, revealFileBytes } from '@/tauri/documents';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { downloadBytes } from './surface-export';
 import { DocumentOpenMenu, type DocumentOpenTarget } from './document-open-menu';
@@ -75,6 +75,7 @@ import { HtmlPreview } from './html-file-preview';
 import { DocumentSourceView } from './document-source-view';
 import { isDocumentSourceProfile } from './document-open-policy';
 import { prepareDocumentPdf } from './document-pdf';
+import { editorLabel, openDocumentTarget } from './document-launch';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
 
@@ -191,68 +192,8 @@ export function ClioDocumentWorkspace({
     onSuccess: () => setStatus('PDF downloaded.'),
   });
   const createWorkingCopy = useMutation({
-    mutationFn: async (target: DocumentOpenTarget) => {
-      const provider = target.kind === 'embedded' ? target.provider : 'native';
-      const isPdf = target.kind === 'native' && target.format === 'pdf';
-      const source = isPdf ? await preparePdf() : manifest.data;
-      if (!source) throw new Error('The document is not available yet.');
-      if (provider !== 'native') {
-        const health = await repository.documentEditorHealth();
-        const available = health.editors.find((entry) => entry.provider === provider);
-        if (!available?.healthy) {
-          throw new Error(
-            `${editorLabel(provider)} is unavailable. Check its connection before opening it.`,
-          );
-        }
-      }
-      const readOnly = isPdf || ['pdf', 'html-static', 'binary'].includes(source.profile);
-      const copy = await repository.createDocumentWorkingCopy(source.artifact_id, {
-        session_id: artifact.session_id,
-        provider,
-        writable: !readOnly,
-        auto_checkpoint: !readOnly,
-      });
-      try {
-        if (target.kind === 'native') {
-          let desktopCopy = false;
-          try {
-            await openDocumentWorkingCopy(copy.path, target.application.id);
-          } catch (error) {
-            // A remote service's working-copy path is not on this desktop.
-            if (!String(error).includes('document path is unavailable')) throw error;
-            await openFileBytes(
-              source.name.split(/[\\/]/u).at(-1)!,
-              await repository.documentContent(source.artifact_id),
-              target.application.id,
-            );
-            await repository.closeDocumentWorkingCopy(copy.id);
-            desktopCopy = true;
-          }
-          return {
-            kind: 'native' as const,
-            copy,
-            appName: target.application.name,
-            isPdf,
-            desktopCopy,
-          };
-        }
-        const launched = await repository.createDocumentEditorSession(copy.id, target.provider);
-        if (launched.status !== 'ready' || !launched.editor_url) {
-          throw new Error(launched.error || `${editorLabel(provider)} could not start.`);
-        }
-        return { kind: 'embedded' as const, copy, launched };
-      } catch (error) {
-        // An editor that did not launch must not leave an apparently active copy.
-        try {
-          await repository.closeDocumentWorkingCopy(copy.id);
-        } catch (closeError) {
-          throw new Error(
-            `${error instanceof Error ? error.message : 'Editor could not start.'} Could not close its working copy: ${closeError instanceof Error ? closeError.message : 'unknown error'}`,
-          );
-        }
-        throw error;
-      }
-    },
+    mutationFn: (target: DocumentOpenTarget) =>
+      openDocumentTarget(repository, manifest.data, artifact.session_id, preparePdf, target),
     onSuccess: (result) => {
       setWorkingCopy(result.kind === 'native' && result.desktopCopy ? undefined : result.copy);
       if (result.kind === 'embedded') {
@@ -262,7 +203,7 @@ export function ClioDocumentWorkspace({
         const message = `${result.isPdf ? 'PDF' : artifact.name} opened in ${result.appName}.${
           result.desktopCopy
             ? ' Opened a desktop copy; edits are local to this copy.'
-            : result.copy.auto_checkpoint
+            : result.copy?.auto_checkpoint
               ? ' Stable saves become immutable revisions.'
               : ''
         }`;
@@ -284,6 +225,15 @@ export function ClioDocumentWorkspace({
       const bytes = await repository.readArtifactBytesFor(artifact);
       downloadBytes(bytes, artifact.media_type, artifact.name);
     },
+  });
+  const revealSource = useMutation({
+    mutationFn: async () =>
+      revealFileBytes(
+        artifact.name.split(/[\\/]/u).at(-1)!,
+        await repository.documentContent(artifact.id),
+      ),
+    onSuccess: () => toast.success('Desktop copy shown in its folder.'),
+    onError: (error: Error) => toast.error(error.message),
   });
   const resolveConflict = useMutation({
     mutationFn: (resolution: 'keep-current' | 'use-working-copy') =>
@@ -418,6 +368,8 @@ export function ClioDocumentWorkspace({
                 onOpen={(target) => createWorkingCopy.mutate(target)}
                 onPdfDownload={() => rendition.mutate()}
                 onDownload={() => downloadSource.mutate()}
+                onReveal={() => revealSource.mutate()}
+                revealPending={revealSource.isPending}
                 hideDownload={sharedFileActions}
               />
             ) : null}
@@ -776,12 +728,6 @@ function profileLabel(manifest?: DocumentManifest) {
     'odf-slides': 'OpenDocument presentation',
   };
   return labels[manifest.profile] ?? 'Document';
-}
-
-function editorLabel(provider: string) {
-  if (provider === 'onlyoffice') return 'ONLYOFFICE';
-  if (provider === 'collabora') return 'Collabora';
-  return 'desktop editor';
 }
 
 function reviewStatusValue(status: 'queued' | 'dispatched' | 'human-note' | 'failed' | 'stale') {

@@ -1,5 +1,5 @@
 import type { Artifact, DocumentEditorHealth, DocumentManifest } from '@clio/core/v3';
-import { ChevronDownIcon, DownloadIcon, ExternalLinkIcon } from 'lucide-react';
+import { ChevronDownIcon, DownloadIcon, ExternalLinkIcon, FolderOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -39,6 +39,8 @@ export function DocumentOpenMenu({
   onOpen,
   onPdfDownload,
   onDownload,
+  onReveal,
+  revealPending = false,
   hideDownload = false,
 }: {
   artifact: Artifact;
@@ -56,6 +58,8 @@ export function DocumentOpenMenu({
   onOpen: (target: DocumentOpenTarget) => void;
   onPdfDownload: () => void;
   onDownload: () => void;
+  onReveal?: () => void;
+  revealPending?: boolean;
   hideDownload?: boolean;
 }) {
   const native = inTauri();
@@ -67,8 +71,12 @@ export function DocumentOpenMenu({
     editorHealth?.editors.some((editor) => editor.provider === provider && editor.configured),
   );
   const label = native || configuredProviders.length ? 'Open in' : 'Export';
+  const canReveal = native && Boolean(onReveal);
   const hasOriginal =
-    (manifest.native_open && native) || configuredProviders.length > 0 || !hideDownload;
+    (manifest.native_open && native) ||
+    configuredProviders.length > 0 ||
+    !hideDownload ||
+    canReveal;
   const appItems = (
     apps: readonly DocumentApplication[],
     format: 'original' | 'pdf',
@@ -79,7 +87,7 @@ export function DocumentOpenMenu({
       applications={apps}
       pending={pending}
       error={error}
-      disabled={openPending || pdfPending}
+      disabled={openPending || pdfPending || revealPending}
       pdfCopy={format === 'pdf'}
       onSelect={(application) => onOpen({ kind: 'native', application, format })}
     />
@@ -131,6 +139,12 @@ export function DocumentOpenMenu({
               <DropdownMenuItem disabled={downloadPending} onSelect={onDownload}>
                 <DownloadIcon aria-hidden="true" />
                 Download original
+              </DropdownMenuItem>
+            ) : null}
+            {canReveal ? (
+              <DropdownMenuItem disabled={openPending || revealPending} onSelect={onReveal}>
+                <FolderOpenIcon aria-hidden="true" />
+                Open in folder
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuGroup>

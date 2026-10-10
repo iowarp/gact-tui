@@ -1,6 +1,7 @@
 //! Discover file handlers from the desktop's associations, never from an Office allowlist.
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::path::Path;
 use tauri::Manager;
 #[cfg(target_os = "windows")]
@@ -82,26 +83,78 @@ pub async fn open_file_bytes(
         .app_cache_dir()
         .map_err(|error| error.to_string())?;
     crate::blocking_command::off_main(move || {
-        let path = stage_file(&root, &name, &bytes)?;
-        if let Err(error) = open_in(&application, &path) {
-            let _ = std::fs::remove_file(&path);
-            if let Some(parent) = path.parent() {
-                let _ = std::fs::remove_dir(parent);
-            }
-            return Err(error);
-        }
-        Ok(path.display().to_string())
+        open_file_bytes_in(&root, &name, &bytes, &application)
     })
     .await
 }
 
-fn stage_file(root: &Path, name: &str, bytes: &[u8]) -> Result<std::path::PathBuf, String> {
+/// Reveal a confined desktop copy without requiring an associated application.
+#[tauri::command]
+pub async fn reveal_file_bytes(
+    app: tauri::AppHandle,
+    name: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    let root = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| error.to_string())?;
+    crate::blocking_command::off_main(move || reveal_file_bytes_in(&root, &name, &bytes)).await
+}
+
+pub(crate) fn open_file_bytes_in(
+    root: &Path,
+    name: &str,
+    bytes: &[u8],
+    application: &str,
+) -> Result<String, String> {
+    use_staged_file(root, name, bytes, |path| open_in(application, path))
+}
+
+pub(crate) fn reveal_file_bytes_in(
+    root: &Path,
+    name: &str,
+    bytes: &[u8],
+) -> Result<String, String> {
+    use_staged_file(root, name, bytes, crate::file_reveal::reveal_in_os)
+}
+
+fn use_staged_file(
+    root: &Path,
+    name: &str,
+    bytes: &[u8],
+    action: impl FnOnce(&Path) -> Result<(), String>,
+) -> Result<String, String> {
+    let (path, created) = stage_file(root, name, bytes)?;
+    if let Err(error) = action(&path) {
+        // Never remove a pre-existing copy (or a user's edits) when launching fails.
+        if created {
+            let _ = std::fs::remove_file(&path);
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::remove_dir(parent);
+            }
+        }
+        return Err(error);
+    }
+    Ok(path.display().to_string())
+}
+
+fn stage_file(root: &Path, name: &str, bytes: &[u8]) -> Result<(std::path::PathBuf, bool), String> {
     if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\', ':', '\0']) {
         return Err("Opening a file requires a plain filename.".into());
     }
-    let directory = root
-        .join("open-in")
-        .join(format!("{:016x}", rand::random::<u64>()));
+    let key = hex::encode(Sha256::digest(bytes));
+    let mut directory = root.join("open-in").join(key);
+    let existing = directory.join(name);
+    if existing.is_file() && std::fs::read(&existing).is_ok_and(|content| content == bytes) {
+        return Ok((existing, false));
+    }
+    // Opening again must not overwrite local edits. Unchanged files reuse their copy.
+    if directory.exists() {
+        directory = root
+            .join("open-in")
+            .join(format!("{:016x}", rand::random::<u64>()));
+    }
     std::fs::create_dir_all(root.join("open-in"))
         .and_then(|_| std::fs::create_dir(&directory))
         .map_err(|error| format!("Prepare the desktop copy: {error}"))?;
@@ -110,7 +163,7 @@ fn stage_file(root: &Path, name: &str, bytes: &[u8]) -> Result<std::path::PathBu
         let _ = std::fs::remove_dir(&directory);
         return Err(format!("Save the desktop copy: {error}"));
     }
-    Ok(file)
+    Ok((file, true))
 }
 
 fn extension(name: &str) -> Result<String, String> {
@@ -152,10 +205,36 @@ mod tests {
         for bad in ["../outside.txt", "C:\\outside.txt", "a/b.txt", "..", ""] {
             assert!(stage_file(&root, bad, b"content").is_err());
         }
-        let file = stage_file(&root, "plot.png", b"\0image bytes\xff").unwrap();
+        let (file, created) = stage_file(&root, "plot.png", b"\0image bytes\xff").unwrap();
+        assert!(created);
+        let (reused, created) = stage_file(&root, "plot.png", b"\0image bytes\xff").unwrap();
+        assert_eq!(file, reused);
+        assert!(!created);
         assert_eq!(std::fs::read(&file).unwrap(), b"\0image bytes\xff");
         std::fs::remove_file(&file).unwrap();
         std::fs::remove_dir(file.parent().unwrap()).unwrap();
+        std::fs::remove_dir(root.join("open-in")).unwrap();
+        std::fs::remove_dir(root).unwrap();
+    }
+    #[test]
+    fn staged_actions_preserve_user_edits_and_clean_failed_new_copies() {
+        let root =
+            std::env::temp_dir().join(format!("clio-staging-{:016x}", rand::random::<u64>()));
+        let (original, _) = stage_file(&root, "report.html", b"source").unwrap();
+        let failed = use_staged_file(&root, "report.html", b"source", |_| {
+            Err("launch failed".into())
+        });
+        assert!(failed.is_err());
+        assert_eq!(std::fs::read(&original).unwrap(), b"source");
+        std::fs::write(&original, b"user edits").unwrap();
+        let failed = use_staged_file(&root, "report.html", b"source", |_| {
+            Err("launch failed".into())
+        });
+        assert!(failed.is_err());
+        assert_eq!(std::fs::read(&original).unwrap(), b"user edits");
+        assert_eq!(std::fs::read_dir(root.join("open-in")).unwrap().count(), 1);
+        std::fs::remove_file(&original).unwrap();
+        std::fs::remove_dir(original.parent().unwrap()).unwrap();
         std::fs::remove_dir(root.join("open-in")).unwrap();
         std::fs::remove_dir(root).unwrap();
     }
