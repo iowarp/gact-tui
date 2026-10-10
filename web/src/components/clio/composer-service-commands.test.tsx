@@ -405,10 +405,15 @@ describe('ClioComposer service commands', () => {
 
   it('cleans up an ordinary prepared file when its attachment is removed', async () => {
     const user = userEvent.setup();
-    const onDiscardFiles = vi.fn<NonNullable<ClioComposerProps['onDiscardFiles']>>(async () => undefined);
+    const onDiscardFiles = vi.fn<NonNullable<ClioComposerProps['onDiscardFiles']>>(
+      async () => undefined,
+    );
     const onPrepareFiles = vi.fn(async () => ({ parts: [], resources: [] }));
     renderComposer({ attachments: true, onPrepareFiles, onDiscardFiles });
-    await user.upload(screen.getByLabelText('Upload files'), new File(['draft'], 'draft.txt', { type: 'text/plain' }));
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['draft'], 'draft.txt', { type: 'text/plain' }),
+    );
     await waitFor(() => expect(onPrepareFiles).toHaveBeenCalledOnce());
     await user.click(screen.getByRole('button', { name: 'Remove draft.txt' }));
     await waitFor(() => expect(onDiscardFiles).toHaveBeenCalledOnce());
@@ -531,7 +536,9 @@ describe('ClioComposer service commands', () => {
       provider: 'codex',
       state: 'completed' as const,
     };
-    const { rerender } = render(withTestQueryClient(<ClioComposer {...props} focusRequestKey={0} />));
+    const { rerender } = render(
+      withTestQueryClient(<ClioComposer {...props} focusRequestKey={0} />),
+    );
     const input = composerEditor();
 
     expect(input).not.toHaveFocus();
@@ -670,7 +677,7 @@ describe('ClioComposer service commands', () => {
     expect(onStop).not.toHaveBeenCalled();
   });
 
-  it('queues Enter and steers Ctrl+Enter while work is running', async () => {
+  it('delivers Enter and Ctrl+Enter at the next iteration while work is running', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderComposer({ state: 'running' });
     const input = composerEditor();
@@ -679,7 +686,7 @@ describe('ClioComposer service commands', () => {
     await waitFor(() =>
       expect(onSubmit).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          delivery: 'queued',
+          delivery: 'steer',
           text: 'Review the second station.',
         }),
       ),
@@ -716,7 +723,7 @@ describe('ClioComposer service commands', () => {
     );
   });
 
-  it('resets a queued running-turn intent when the session becomes idle', async () => {
+  it('resets a running-turn feedback intent when the session becomes idle', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => undefined);
     const renderState = (state: 'completed' | 'running') =>
@@ -735,10 +742,10 @@ describe('ClioComposer service commands', () => {
     const view = render(renderState('running'));
     const input = composerEditor();
 
-    await user.type(input, 'Queue this while running.{Enter}');
+    await user.type(input, 'Use this while running.{Enter}');
     await waitFor(() =>
       expect(onSubmit).toHaveBeenLastCalledWith(
-        expect.objectContaining({ delivery: 'queued', text: 'Queue this while running.' }),
+        expect.objectContaining({ delivery: 'steer', text: 'Use this while running.' }),
       ),
     );
 

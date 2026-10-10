@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioConversation } from './conversation';
+import { ConversationMessageRow } from './conversation-message-row';
 
 // Scroll, virtualization, and minimap behaviour live in
 // `conversation-viewport.test.tsx`; this file covers message content.
@@ -50,6 +51,82 @@ function renderConversation(element: ReactElement) {
     </AppearanceProvider>,
   );
 }
+
+it('shows delivered feedback inside the active response and withholds its completion footer', () => {
+  const answer: DomainMessage = {
+    id: 'answer-feedback',
+    session_id: 's',
+    run_id: 'turn-active',
+    role: 'assistant',
+    created_at: '2026-10-10T01:12:00Z',
+    completed_at: '2026-10-10T01:12:05Z',
+    blocks: [
+      { id: 'before-feedback', type: 'text', text: 'First iteration.' },
+      { id: 'after-feedback', type: 'text', text: 'Next iteration uses the new scope.' },
+    ],
+  };
+  const feedback: DomainMessage = {
+    id: 'user-feedback',
+    session_id: 's',
+    role: 'user',
+    created_at: '2026-10-10T01:13:00Z',
+    metadata: {
+      steer_delivery: {
+        assistant_message_id: answer.id,
+        after_part_id: 'before-feedback',
+      },
+    },
+    blocks: [{ id: 'feedback-text', type: 'text', text: 'Use another subject.' }],
+  };
+  const view = renderConversation(
+    <ClioConversation
+      messages={[answer, feedback]}
+      artifacts={{}}
+      subagents={{}}
+      surfaces={{}}
+      tasks={{}}
+      tools={{}}
+      preparation={{ sessionState: 'running', activeTurnId: 'turn-active' }}
+    />,
+  );
+  const first = screen.getByText('First iteration.');
+  const user = screen.getByText('Use another subject.');
+  const next = screen.getByText('Next iteration uses the new scope.');
+  expect(first.compareDocumentPosition(user) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(user.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getAllByText('Use another subject.')).toHaveLength(1);
+  expect(view.container.querySelector('[data-slot="message-completion-footer"]')).toBeNull();
+});
+
+it('shows the recorded interruption cause even when tools and partial output exist', async () => {
+  renderConversation(
+    <ConversationMessageRow
+      message={{
+        id: 'partial-error',
+        session_id: 's',
+        role: 'assistant',
+        created_at: '2026-10-10T01:12:00Z',
+        stop_reason: 'error',
+        error_info: { error: 'agent_error', message: 'The provider rejected the PDF input.' },
+        blocks: [{ id: 'partial', type: 'text', text: 'The PDF is created; reviewing pages.' }],
+      }}
+      index={0}
+      recent={false}
+      displayMode="chain"
+      onDisplayModeChange={vi.fn()}
+      artifacts={{}}
+      subagents={{}}
+      surfaces={{}}
+      tasks={{}}
+      tools={{}}
+    />,
+  );
+  expect(screen.getByRole('alert')).toHaveTextContent('The provider rejected the PDF input.');
+  await waitFor(() =>
+    expect(screen.getByText('The PDF is created; reviewing pages.')).toBeVisible(),
+  );
+  expect(screen.getByText('Interrupted')).toBeVisible();
+});
 
 describe('ClioConversation recovery actions', () => {
   it('keeps a structured context reference visible and clickable in the sent message', async () => {

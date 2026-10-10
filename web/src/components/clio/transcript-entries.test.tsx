@@ -233,7 +233,9 @@ it('preserves canonical text and artifact boundaries instead of moving them afte
     model.segments.map((part) =>
       part.kind === 'iterations'
         ? part.iterations.map((i) => i.tools[0]?.id).join(',')
-        : part.block.id,
+        : part.kind === 'block'
+          ? part.block.id
+          : part.message.id,
     ),
   ).toEqual(['one', 'a1', 'artifact', 'two', 'a2']);
 });
@@ -241,7 +243,9 @@ it('preserves canonical text and artifact boundaries instead of moving them afte
 it('keeps unavailable invocations at their recorded place', () => {
   const model = conversationTurnPresentation(message, { two: call('two') });
   expect(
-    model.segments.map((part) => (part.kind === 'iterations' ? 'text' : part.block.id)),
+    model.segments.map((part) =>
+      part.kind === 'iterations' ? 'text' : part.kind === 'block' ? part.block.id : part.message.id,
+    ),
   ).toEqual(['text', 't1', 'a1', 'artifact', 'text', 'a2']);
   expect(model.residualBlocks.some((block) => block.id === 't1')).toBe(true);
 });

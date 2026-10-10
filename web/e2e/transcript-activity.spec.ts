@@ -35,6 +35,7 @@ test('renders reader-controlled causal entries and a truthful completion footer 
       .filter({ hasText: /^Read the fixture notes before preparing the report\.$/u }),
   ).toHaveCount(1);
   await expect(message.getByRole('group', { name: 'Activity detail' })).toHaveCount(0);
+  await expect(message.locator('[data-slot="message-completion-footer"]')).toHaveCount(0);
   await activity.click();
   await expect(thinking).toBeVisible();
   await page.request.post(`${endpoint}/__test/transcript-activity`, { data: { phase: 'answer' } });

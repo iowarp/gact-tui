@@ -44,6 +44,7 @@ interface ActiveMcpApp {
 }
 
 import { ConversationMessageRow } from './conversation-message-row';
+import { placeDeliveredFeedback } from './conversation-feedback';
 
 export function ClioConversation(props: ClioConversationProps) {
   return (
@@ -68,7 +69,7 @@ function ConversationBody({
     () => mcpAppResponsesForMessages(sourceMessages),
     [sourceMessages],
   );
-  const messages = useMemo(
+  const projectedMessages = useMemo(
     () =>
       foldA2UIRevisionBlocks(
         projectA2UIActionMessages(
@@ -80,6 +81,10 @@ function ConversationBody({
         ),
       ),
     [entities.interactions, sourceMessages],
+  );
+  const { messages, feedback } = useMemo(
+    () => placeDeliveredFeedback(projectedMessages),
+    [projectedMessages],
   );
   const compactionPlacement = useMemo(
     () => placeCompactions(compactions ?? [], messages),
@@ -471,6 +476,15 @@ function ConversationBody({
               if (!message) return null;
               return (
                 <ConversationMessageRow
+                  feedbackMessages={feedback.get(message.id)}
+                  active={
+                    (preparation?.sessionState === 'running' ||
+                      preparation?.sessionState === 'queued' ||
+                      preparation?.sessionState === 'waiting_permission' ||
+                      preparation?.sessionState === 'waiting_user') &&
+                    (message.run_id ?? message.turn_id) === preparation?.activeTurnId &&
+                    Boolean(preparation?.activeTurnId)
+                  }
                   {...entities}
                   activeMcpAppId={activeMcpAppId}
                   displayMode={turnDisplayModes[message.id] ?? 'chain'}

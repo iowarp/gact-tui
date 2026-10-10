@@ -606,7 +606,7 @@ export function ClioComposer({
               setUploadProgress(undefined);
               restoreInputFocusWhenReady();
             }
-            nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
+            nextDeliveryRef.current = state === 'running' ? 'steer' : 'start';
             await sourceAttachments.keep();
             if (latestInputRef.current.trim() === trimmed) setInput('');
             setSelectedReferences([]);
@@ -666,8 +666,7 @@ export function ClioComposer({
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
             if (submit?.disabled) return;
-            nextDeliveryRef.current =
-              state === 'running' ? (event.ctrlKey || event.metaKey ? 'steer' : 'queued') : 'start';
+            nextDeliveryRef.current = state === 'running' ? 'steer' : 'start';
             form?.requestSubmit();
           }}
         />
