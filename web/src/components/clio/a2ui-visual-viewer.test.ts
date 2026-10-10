@@ -28,6 +28,21 @@ describe('real renderer readiness inspection', () => {
       markup: '<div data-a2ui-component-id="chart"><div aria-busy="true"></div></div>',
       reason: /still loading/u,
     },
+    {
+      markup:
+        '<div data-a2ui-component-id="chart"><p role="alert">Dataset failed to load</p></div>',
+      reason: /Dataset failed to load/u,
+    },
+    {
+      markup:
+        '<div data-a2ui-component-id="callout"><div role="alert" data-a2ui-callout="true" data-visual-state="failed">Rendering failed</div></div>',
+      reason: /Rendering failed/u,
+    },
+    {
+      markup:
+        '<div data-a2ui-component-id="callout"><div role="alert" data-a2ui-callout="true">Notes<p role="alert">Nested render failure</p></div></div>',
+      reason: /Nested render failure/u,
+    },
   ])(
     'refuses an empty surface or lazy renderer placeholder: $markup',
     async ({ markup, reason }) => {

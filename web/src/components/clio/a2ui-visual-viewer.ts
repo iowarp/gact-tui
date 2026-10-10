@@ -170,8 +170,14 @@ function assertReady(target: HTMLElement): void {
   )
     throw new Error('The surface components have not mounted yet.');
   const failed = [
-    ...(target.matches('[role="alert"], [data-visual-state="failed"]') ? [target] : []),
-    ...target.querySelectorAll<HTMLElement>('[role="alert"], [data-visual-state="failed"]'),
+    // Authored callouts can use alert accessibility semantics, including
+    // critical findings. Their content is not a renderer failure.
+    ...(target.matches('[role="alert"]:not([data-a2ui-callout]), [data-visual-state="failed"]')
+      ? [target]
+      : []),
+    ...target.querySelectorAll<HTMLElement>(
+      '[role="alert"]:not([data-a2ui-callout]), [data-visual-state="failed"]',
+    ),
   ].find(displayed);
   if (failed) throw new Error(failed.textContent || 'A required view failed to render.');
   if (
