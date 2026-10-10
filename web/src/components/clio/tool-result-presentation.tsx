@@ -27,7 +27,7 @@ import { isProvenanceBlock } from './tool-result-shared';
 import { WorkspaceFilePresentationBlock } from './tool-result-workspace-file';
 import { SavedTerminalOutput } from './tool-result-saved-output';
 import { belongsToTerminal, savedOutputsAfter } from './tool-result-saved-output-blocks';
-import { isA2uiCatalogLookup } from './tool-presentation';
+import { getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
@@ -65,7 +65,7 @@ export function ToolResultPresentation({
   const summary = summaryInHeader ? '' : (tool.presentation?.summary?.trim() ?? '');
   // The schema itself is useful to the agent, but it overwhelms the human
   // activity lane. The info button on the tool row retains the exact result.
-  if (isA2uiCatalogLookup(tool) && tool.state === 'succeeded') return null;
+  if (isA2uiCatalogLookup(tool) && getToolStatus(tool) === 'succeeded') return null;
   // An explicitly declared file subject owns one document preview, including
   // metadata. Do not give each constituent block another preview-line budget.
   // Provenance blocks are ignored for this decision (see isProvenanceBlock)

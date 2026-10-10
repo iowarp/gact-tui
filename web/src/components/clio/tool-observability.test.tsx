@@ -249,6 +249,40 @@ describe('readable compact tool results', () => {
 });
 
 describe('recorded failure detail selection', () => {
+  it.each(['failed', 'succeeded'] as const)(
+    'does not suppress a catalog failure with transport state %s',
+    async (state) => {
+      render(
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'catalog',
+            session_id: 's',
+            name: 'load_skill',
+            state,
+            input: { kwargs: { skill_id: 'a2ui-catalog-clio-workspace' } },
+            presentation: {
+              status: 'failed',
+              summary: '',
+              blocks: [
+                {
+                  id: 'error',
+                  type: 'text',
+                  severity: 'error',
+                  text: 'Catalog component was not found.',
+                },
+              ],
+            },
+          }}
+        />,
+      );
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: 'Show result for Inspect widget catalog' }));
+      expect(screen.getByRole('alert')).toHaveTextContent('Catalog component was not found.');
+      expect(screen.getByRole('region')).not.toHaveTextContent('Widget catalog loaded.');
+    },
+  );
   it.each([
     { tool: shell, expected: 'windows sandbox failed: CreateProcessWithLogonW failed: 2' },
     {

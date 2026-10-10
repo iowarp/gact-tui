@@ -164,7 +164,7 @@ export function ClioToolInvocation({
                     <PresentationLink block={subject} />
                   )
                 ) : null}
-                {isA2uiCatalogLookup(presentedTool) ? (
+                {isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
                   <p className="text-muted-foreground">
                     Widget catalog loaded. Use technical details to inspect the full catalog.
                   </p>
