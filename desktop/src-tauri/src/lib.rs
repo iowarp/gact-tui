@@ -34,6 +34,8 @@ mod remote_lifecycle;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod runtime_install_report;
 mod runtime_pack;
+#[cfg(windows)]
+mod runtime_unpack;
 mod sidecar_setup;
 mod sse_bridge;
 mod sse_message;
