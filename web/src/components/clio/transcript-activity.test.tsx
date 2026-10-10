@@ -85,8 +85,13 @@ it('keeps updates visible, expands readable results and retains technical detail
   expect(await screen.findByText('The notes are ready for the report.')).toBeVisible();
   expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-  fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
-  expect(await screen.findAllByText(text)).toHaveLength(2);
+  const thinking = screen.getByRole('button', { name: /^Thinking:/ });
+  fireEvent.click(thinking);
+  expect(within(thinking).getByText(text)).toBeVisible();
+  expect(
+    await within(screen.getByRole('region', { name: 'Thinking details' })).findByText(text),
+  ).toBeVisible();
+  expect(screen.getAllByText(text)).toHaveLength(3);
   expect(view.container.querySelector('[data-slot="transcript-activity-timeline"]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: /Expand activity/ })).not.toBeInTheDocument();
   const detail = screen.getByRole('button', { name: 'Show result for Read' });

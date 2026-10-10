@@ -24,6 +24,10 @@ export function TranscriptReasoningPassage({
       ? `thinking:${id}`
       : undefined;
   const [open, setOpen] = useTranscriptDisclosure(key);
+  const title = text.match(
+    /^\s*(?:#{1,6}[^\S\r\n]+[^\r\n]+|\*\*[^\r\n]+\*\*|__[^\r\n]+__)[^\S\r\n]*(?:\r?\n|$)/u,
+  );
+  const bodyStart = title?.[0].length ?? 0;
   const heading = text
     .trim()
     .split('\n', 1)[0]
@@ -52,7 +56,7 @@ export function TranscriptReasoningPassage({
             <MessageSquareTextIcon aria-hidden="true" className="size-3.5 shrink-0" />
           )}
           <span className="shrink-0 font-medium">Thinking</span>
-          <span className="min-w-0 flex-1 truncate text-left">{open ? null : heading}</span>
+          <span className="min-w-0 flex-1 truncate text-left">{heading}</span>
           <ChevronRightIcon
             aria-hidden="true"
             className={cn('size-3 shrink-0 transition-transform', open && 'rotate-90')}
@@ -67,9 +71,9 @@ export function TranscriptReasoningPassage({
           data-slot="transcript-reasoning-text"
           tabIndex={0}
         >
-          <TranscriptReasoning text={text} source={source}>
+          <TranscriptReasoning text={text} source={source} sourceStart={bodyStart}>
             <GroundedMessageResponse className="leading-6" isAnimating={streaming}>
-              {text}
+              {text.slice(bodyStart)}
             </GroundedMessageResponse>
           </TranscriptReasoning>
         </div>

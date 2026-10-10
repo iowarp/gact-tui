@@ -69,6 +69,7 @@ for (const theme of ['light', 'dark']) {
       await page.getByRole('button', { name: /^Activity:/ }).click();
       const row = page.getByRole('button', { name: 'Thinking: Diagnosing shell issues' });
       await expect(row).toHaveAttribute('aria-expanded', 'false');
+      await expect(row.getByText('Diagnosing shell issues', { exact: true })).toBeVisible();
       const details = page.getByRole('region', { name: 'Thinking details' });
       await expect(details).toHaveCount(0);
       await settleCapture(page);
@@ -84,6 +85,8 @@ for (const theme of ['light', 'dark']) {
       await row.focus();
       await row.press('Enter');
       await expect(details).toContainText('I need to check the environment settings');
+      await expect(row.getByText('Diagnosing shell issues', { exact: true })).toBeVisible();
+      await expect(details).not.toContainText('Diagnosing shell issues');
       await expect(details).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
       await expect(details).toHaveCSS('border-top-width', '0px');
       await expect(details.locator('[data-part-id="thinking"]')).toHaveAttribute(
