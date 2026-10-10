@@ -128,6 +128,33 @@ it('shows the recorded interruption cause even when tools and partial output exi
   expect(screen.getByText('Interrupted')).toBeVisible();
 });
 
+it('withholds recovery actions while an empty response is still active', () => {
+  renderConversation(
+    <ConversationMessageRow
+      message={{
+        id: 'empty-active',
+        session_id: 's',
+        role: 'assistant',
+        created_at: '2026-10-10T01:12:00Z',
+        blocks: [],
+      }}
+      active
+      index={0}
+      recent={false}
+      displayMode="chain"
+      onDisplayModeChange={vi.fn()}
+      onRetryMessage={vi.fn()}
+      artifacts={{}}
+      subagents={{}}
+      surfaces={{}}
+      tasks={{}}
+      tools={{}}
+    />,
+  );
+  expect(screen.queryByRole('button', { name: 'Retry response' })).not.toBeInTheDocument();
+  expect(document.querySelector('[data-slot="message-completion-footer"]')).toBeNull();
+});
+
 describe('ClioConversation recovery actions', () => {
   it('keeps a structured context reference visible and clickable in the sent message', async () => {
     const user = userEvent.setup();
@@ -516,6 +543,7 @@ describe('ClioConversation recovery actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry response' }));
 
     expect(onRetryMessage).toHaveBeenCalledWith('message_1');
+    expect(document.querySelector('[data-slot="message-completion-footer"]')).toBeNull();
   });
 
   it('does not imply retry support for non-recoverable failures', () => {
@@ -573,6 +601,7 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByText('Response unavailable')).toBeInTheDocument();
     expect(screen.getByText(/No response content was recorded/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
+    expect(document.querySelector('[data-slot="message-completion-footer"]')).toBeNull();
   });
 
   it('explains when a response was interrupted by a service restart', () => {

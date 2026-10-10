@@ -362,6 +362,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               {actions}
             </MessageCompletionFooter>
           ) : null}
+          {message.role === 'assistant' &&
+          canRetry &&
+          !active &&
+          !message.completed_at &&
+          !message.stop_reason ? (
+            <div className="mt-3">{actions}</div>
+          ) : null}
         </Message>
       </m.div>
     </div>
