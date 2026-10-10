@@ -296,7 +296,7 @@ export function ClioComposer({
   // The attachment in flight when a submit is rejected; the progress state is
   // cleared on the way out, so the name is kept separately.
   const uploadingFilenameRef = useRef<string>(undefined);
-  const nextDeliveryRef = useRef<MessageDelivery | 'queued'>('start');
+  const nextDeliveryRef = useRef<MessageDelivery>(state === 'running' ? 'steer' : 'start');
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
@@ -609,7 +609,7 @@ export function ClioComposer({
               setUploadProgress(undefined);
               restoreInputFocusWhenReady();
             }
-            nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
+            nextDeliveryRef.current = state === 'running' ? 'steer' : 'start';
             await sourceAttachments.keep();
             if (latestInputRef.current.trim() === trimmed) setInput('');
             setSelectedReferences([]);
@@ -669,8 +669,7 @@ export function ClioComposer({
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
             if (submit?.disabled) return;
-            nextDeliveryRef.current =
-              state === 'running' ? (event.ctrlKey || event.metaKey ? 'steer' : 'queued') : 'start';
+            nextDeliveryRef.current = state === 'running' ? 'steer' : 'start';
             form?.requestSubmit();
           }}
         />
@@ -771,7 +770,7 @@ export function ClioComposer({
                 onClick={() => {
                   nextDeliveryRef.current = 'steer';
                 }}
-                title="Join the active turn at the next safe boundary"
+                title="Send feedback before the next model iteration"
                 type="submit"
                 variant="outline"
               >
