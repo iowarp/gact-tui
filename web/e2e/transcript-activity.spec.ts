@@ -38,6 +38,10 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   await expect(message.locator('[data-slot="message-completion-footer"]')).toHaveCount(0);
   await activity.click();
   await expect(thinking).toBeVisible();
+  const reasoning = message.getByRole('complementary', { name: 'Reasoning' });
+  await expect(reasoning).toHaveCount(1);
+  await expect(reasoning).toHaveAttribute('aria-busy', 'true');
+  await expect(reasoning.locator('[data-slot="transcript-reasoning-text"]')).toHaveCount(1);
   await page.request.post(`${endpoint}/__test/transcript-activity`, { data: { phase: 'answer' } });
   const persisted = await (
     await page.request.get(`${endpoint}/v1/sessions/sess_flat_ndp/messages`)
@@ -121,6 +125,9 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     expect(Math.abs((await activity.boundingBox())!.y - before!.y)).toBeLessThanOrEqual(2);
     await expect(message.getByRole('button', { name: /^Reasoning:/ })).toHaveCount(0);
     await expect(thinking).toBeVisible();
+    await expect(reasoning).not.toHaveAttribute('aria-busy');
+    await expect(reasoning).toContainText('Read the fixture notes before preparing the report.');
+    expect(await reasoning.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     expect((await thinking.boundingBox())!.y).toBeLessThan(
       (await message.getByRole('button', { name: 'Technical details for Read' }).boundingBox())!.y,
     );

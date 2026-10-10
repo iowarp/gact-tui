@@ -1,20 +1,17 @@
 import type { ConversationIteration } from './conversation-turn-model';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { TranscriptReasoning } from './transcript-reasoning';
-import { TranscriptReasoningRow } from './transcript-reasoning-row';
+import { TranscriptReasoningPassage } from './transcript-reasoning-passage';
 
-/** Render recorded reasoning in place without an additional disclosure. */
+/** Keep the complete recorded reasoning distinct from public progress text. */
 export function IterationReasoningText({ iteration }: { iteration: ConversationIteration }) {
   return iteration.thinking.map((thinking) => (
-    <div
+    <TranscriptReasoningPassage
       key={thinking.id}
-      data-slot="transcript-reasoning-text"
-      className="text-sm text-muted-foreground"
-    >
-      <TranscriptReasoning text={thinking.text} source={thinking.source}>
-        <GroundedMessageResponse>{thinking.text}</GroundedMessageResponse>
-      </TranscriptReasoning>
-    </div>
+      text={thinking.text}
+      source={thinking.source}
+      streaming={thinking.streaming}
+    />
   ));
 }
 
@@ -29,15 +26,7 @@ export function TranscriptIterationText({
   if ((!showReasoning || !iteration.thinking.length) && !iteration.nextThoughts.length) return null;
   return (
     <div className="min-w-0 space-y-2" data-slot="transcript-text-entry">
-      {(showReasoning ? iteration.thinking : []).map((thinking) => (
-        <TranscriptReasoningRow
-          key={thinking.id}
-          id={thinking.id}
-          text={thinking.text}
-          streaming={thinking.streaming}
-          source={thinking.source}
-        />
-      ))}
+      {showReasoning ? <IterationReasoningText iteration={iteration} /> : null}
       {iteration.nextThoughts.map((thought, index) => (
         <TranscriptReasoning
           key={`${iteration.id}:response:${index}`}
