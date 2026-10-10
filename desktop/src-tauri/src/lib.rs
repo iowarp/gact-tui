@@ -14,9 +14,9 @@ mod commands;
 mod credentials;
 mod document_apps;
 mod document_path;
-mod file_reveal;
 mod downloads;
 mod execution_install;
+mod file_reveal;
 mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
