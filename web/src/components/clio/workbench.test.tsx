@@ -738,7 +738,7 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('Review file change')).toBeVisible();
   });
 
-  it('opens a recorded workflow as a durable canvas tab with its execution graph', () => {
+  it('opens a recorded workflow as a durable canvas tab with its execution graph', async () => {
     const workflow = {
       id: 'call_workflow',
       session_id: 'session_parent',
@@ -783,7 +783,8 @@ describe('ClioWorkbench canvas', () => {
       'aria-selected',
       'true',
     );
-    expect(screen.getByRole('heading', { name: 'inventory → verification' })).toBeVisible();
+    // The workflow canvas is its own chunk, so it arrives a tick later.
+    expect(await screen.findByRole('heading', { name: 'inventory → verification' })).toBeVisible();
     expect(
       screen.getByRole('img', { name: 'Workflow execution graph: inventory → verification' }),
     ).toBeVisible();

@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { TransportError } from '@clio/core/v3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ArtifactView, BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
+import { BlueprintFileEditor } from './blueprint-file-editor';
+import { ArtifactView, WorkspaceFileView } from './resource-viewers';
 import { connectionScope } from '@/lib/connection-scope';
 
 const { repository } = vi.hoisted(() => ({

@@ -72,7 +72,8 @@ describe('Gantt and Relationships switch', () => {
     const mounted = render(content);
     expect(screen.getByRole('region', { name: 'Conversation family Gantt' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Switch to Relationships' }));
-    expect(screen.getByRole('region', { name: 'Conversation relationships' })).toBeVisible();
+    // The relationships graph is its own chunk, so it arrives a tick later.
+    expect(await screen.findByRole('region', { name: 'Conversation relationships' })).toBeVisible();
     fireEvent.click(await screen.findByRole('button', { name: 'Select Offset comparison' }));
     const inspector = screen.getByRole('complementary', { name: 'Selected conversation' });
     expect(within(inspector).getByRole('link', { name: 'Open conversation' })).toHaveAttribute(

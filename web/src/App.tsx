@@ -8,7 +8,6 @@ import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
 import { WorkspacePage } from '@/routes/workspace-page';
 import { NewConversationPage } from '@/routes/new-conversation-page';
 import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
-import { WhatsNewDialog } from '@/components/clio/whats-new-dialog';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
@@ -20,6 +19,12 @@ import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
 
+// Desktop only, and it carries the bundled changelog and its markdown renderer.
+const WhatsNewDialog = lazy(() =>
+  import('@/components/clio/whats-new-dialog').then((module) => ({
+    default: module.WhatsNewDialog,
+  })),
+);
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
 );
@@ -133,7 +138,9 @@ export default function App() {
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
       <DesktopTitleBar />
       <div className="desktop-content min-h-0 flex-1 overflow-hidden">{appContent}</div>
-      <WhatsNewDialog />
+      <Suspense fallback={null}>
+        <WhatsNewDialog />
+      </Suspense>
     </div>
   );
 }
