@@ -1,6 +1,7 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas, componentId } from '@a2ui/web_core/v0_9';
-import { useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { SurfaceQuestionTabs } from '@/lib/a2ui/question-navigation';
 import { z } from 'zod';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isBoundToPath } from './selection-state';
@@ -22,7 +23,17 @@ export const ClioTabs = createComponentImplementation(
   },
   ({ props, context, buildChild }) => {
     const [local, setLocal] = useState<string>();
+    const navigation = useContext(SurfaceQuestionTabs);
+    const requestedChild = navigation?.tabs.get(context.componentModel.id);
+    const handledRequest = useRef<number | undefined>(undefined);
     const bound = isBoundToPath(context.componentModel.properties.activeTab);
+    const setActiveTab = props.setActiveTab as unknown as ((value: string) => void) | undefined;
+    useEffect(() => {
+      if (!requestedChild || !navigation || handledRequest.current === navigation.request) return;
+      handledRequest.current = navigation.request;
+      if (bound) setActiveTab?.(requestedChild);
+      else setLocal(requestedChild);
+    }, [bound, navigation, setActiveTab, requestedChild]);
     const selected = bound ? props.activeTab : (local ?? props.activeTab);
     const active = props.tabs.some((tab) => tab.child === selected)
       ? selected

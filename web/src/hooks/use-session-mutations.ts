@@ -503,6 +503,19 @@ export function useSessionMutations({
           repository.a2uiAction(ownerSessionId, message, correlation),
       });
     },
+    onSuccess: async (_result, { interaction, response }) => {
+      const folderWorkspace = interaction.payload?.access?.workspace_id;
+      if (!folderWorkspace || response.action !== 'allow_workspace') return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(settings.endpoint) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaceFiles(settings.endpoint, folderWorkspace),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['workspace-directory', settings.endpoint, folderWorkspace],
+        }),
+      ]);
+    },
     onSettled: async (_result, _error, { interaction }) => {
       await Promise.all([
         queryClient.invalidateQueries({

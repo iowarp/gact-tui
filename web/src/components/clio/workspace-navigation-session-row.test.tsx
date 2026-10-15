@@ -11,6 +11,7 @@ const actions: ResourceActions = {
   createWorkspace: vi.fn(),
   createSession: vi.fn(),
   renameWorkspace: vi.fn(),
+  updateWorkspace: vi.fn().mockResolvedValue(undefined),
   grantWorkspaceFolder: vi.fn(),
   revokeWorkspaceFolder: vi.fn(),
   renameSession: vi.fn(),

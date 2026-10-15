@@ -4,6 +4,8 @@ import type { ModelFactSummary } from './model-facts';
  * The picker's RANGE tokens -- what the filter panel's sliders write into the
  * search bar, so the query stays visible and editable:
  *
+ * - `context:>1M`, `context:<128K`, `context:922000-10M` -- context tokens,
+ *   inclusive. Unknown limits are excluded unless `context:any` is active.
  * - `size:>32B`, `size:<1B`, `size:6B-12B` -- total parameters (K/M/B/T),
  *   bounds inclusive. It means models KNOWN to be that size: a model whose size
  *   no source states is left out unless `size:any` is also active (the panel's
@@ -20,10 +22,10 @@ import type { ModelFactSummary } from './model-facts';
  * The modifiers filter nothing by themselves: they only widen their range,
  * and only mean something while it is active.
  */
-export type RangeKind = 'size' | 'cost' | 'released';
+export type RangeKind = 'size' | 'cost' | 'released' | 'context';
 
 export interface NumericRange {
-  kind: 'size' | 'cost';
+  kind: 'size' | 'cost' | 'context';
   min?: number;
   max?: number;
 }
@@ -37,6 +39,7 @@ export interface ReleasedRange {
 export type RangeToken = NumericRange | ReleasedRange;
 
 export const SIZE_ANY_TOKEN = 'size:any';
+export const CONTEXT_ANY_TOKEN = 'context:any';
 export const COST_VARIABLE_TOKEN = 'cost:variable';
 export const COST_SUBSCRIPTION_TOKEN = 'cost:subscription';
 export const COST_UNPRICED_TOKEN = 'cost:unpriced';
@@ -44,6 +47,7 @@ export const COST_UNPRICED_TOKEN = 'cost:unpriced';
 /** Each range kind's modifiers: the tokens that widen it. */
 export const RANGE_MODIFIERS: Record<RangeKind, readonly string[]> = {
   size: [SIZE_ANY_TOKEN],
+  context: [CONTEXT_ANY_TOKEN],
   cost: [COST_VARIABLE_TOKEN, COST_SUBSCRIPTION_TOKEN, COST_UNPRICED_TOKEN],
   released: [],
 };
@@ -68,8 +72,13 @@ function costValue(text: string): number | undefined {
   return Number(text);
 }
 
-function numeric(kind: 'size' | 'cost', body: string): NumericRange | undefined {
-  const value = kind === 'size' ? sizeValue : costValue;
+function tokenCount(text: string): number | undefined {
+  const value = sizeValue(text) ?? costValue(text);
+  return value !== undefined && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+function numeric(kind: 'size' | 'cost' | 'context', body: string): NumericRange | undefined {
+  const value = kind === 'size' ? sizeValue : kind === 'context' ? tokenCount : costValue;
   if (body.startsWith('<')) {
     const max = value(body.slice(1));
     return max === undefined ? undefined : { kind, max };
@@ -89,12 +98,14 @@ function numeric(kind: 'size' | 'cost', body: string): NumericRange | undefined 
 export function parseRangeToken(token: string): RangeToken | undefined {
   const [key, body, extra] = token.toLowerCase().split(':');
   if (!body || extra !== undefined) return undefined;
-  if (key === 'size' || key === 'cost') return numeric(key, body);
+  if (key === 'size' || key === 'cost' || key === 'context') return numeric(key, body);
   if (key === 'released') {
     const match = /^<(\d+)(d|mo|y)$/u.exec(body);
     if (!match) return undefined;
     const amount = Number(match[1]);
-    return amount > 0 ? { kind: 'released', amount, unit: match[2] as ReleasedRange['unit'] } : undefined;
+    return amount > 0
+      ? { kind: 'released', amount, unit: match[2] as ReleasedRange['unit'] }
+      : undefined;
   }
   return undefined;
 }
@@ -113,7 +124,10 @@ export function releasedCutoff(range: ReleasedRange, asOf: Date): Date {
 }
 
 function within(value: number, range: NumericRange): boolean {
-  return (range.min === undefined || value >= range.min) && (range.max === undefined || value <= range.max);
+  return (
+    (range.min === undefined || value >= range.min) &&
+    (range.max === undefined || value <= range.max)
+  );
 }
 
 /** The cost modifier that lets a model with no metered price through, if any. */
@@ -135,12 +149,19 @@ export function matchesRange(
   today: Date = new Date(),
 ): boolean {
   if (range.kind !== 'released') {
+    if (range.kind === 'context') {
+      return facts.contextWindow === undefined
+        ? modifiers.has(CONTEXT_ANY_TOKEN)
+        : within(facts.contextWindow, range);
+    }
     if (range.kind === 'size') {
       const total = facts.parameters?.total;
       return total === undefined ? modifiers.has(SIZE_ANY_TOKEN) : within(total, range);
     }
     const price = facts.inputPrice;
-    return price?.kind === 'usd' ? within(price.per1m, range) : modifiers.has(costModifierFor(facts));
+    return price?.kind === 'usd'
+      ? within(price.per1m, range)
+      : modifiers.has(costModifierFor(facts));
   }
   if (!facts.releasedOn) return false;
   return facts.releasedOn >= releasedCutoff(range, facts.asOf ?? today);

@@ -7,13 +7,23 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
   running: boolean;
 } {
   const running = iterations.some((item) => item.streaming);
+  const thinking = iterations.some((item) =>
+    item.thinking.some((thought) => thought.streaming && thought.text.trim().length > 0),
+  );
+  const activeOperation = iterations.some(
+    (item) =>
+      item.tools.some((tool) => ['pending', 'running'].includes(tool.state)) ||
+      item.tasks.some((task) => ['queued', 'running'].includes(task.state)),
+  );
+  if (thinking && !activeOperation) return { label: 'Thinking', running: true };
   const toolLabel = (tool: ToolInvocation) => {
+    const active = ['pending', 'running'].includes(tool.state);
     const category = activityCategory(tool);
-    if (category === 'search') return running ? 'running searches' : 'searched';
-    if (category === 'read') return running ? 'reading files' : 'read files';
-    if (category === 'edit') return running ? 'editing files' : 'edited files';
-    if (category === 'command') return running ? 'running commands' : 'ran commands';
-    return running ? 'using tools' : 'used tools';
+    if (category === 'search') return active ? 'running searches' : 'searched';
+    if (category === 'read') return active ? 'reading files' : 'read files';
+    if (category === 'edit') return active ? 'editing files' : 'edited files';
+    if (category === 'command') return active ? 'running commands' : 'ran commands';
+    return active ? 'using tools' : 'used tools';
   };
   const actions = [
     ...new Set(

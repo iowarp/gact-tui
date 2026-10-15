@@ -52,6 +52,7 @@ import { surfaceAwaitsPendingResponse } from './conversation-message-projection'
 import { SummarizationInjection, TranscriptNotice } from './conversation-summarization';
 import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
+import { useQuestionAnswer } from './question-answer-context';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -63,6 +64,8 @@ export function DeferredA2UISurface({
   surface: A2UISurface;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const target = useQuestionAnswer()?.surfaceTarget;
+  const targeted = target?.sessionId === surface.session_id && target.surfaceId === surface.id;
   // Mount once so the reserved geometry is measured before a completed surface
   // can be suspended. This prevents the transcript from jumping when an older
   // map or chart re-enters the viewport.
@@ -118,7 +121,7 @@ export function DeferredA2UISurface({
   // Suspending a surface destroys its processor and unsent client data.
   // Keep a surface mounted after the person starts interacting with it, even
   // if scrolling or a transcript resize temporarily moves it out of view.
-  const renderSurface = live || nearViewport || hasInteracted;
+  const renderSurface = live || nearViewport || hasInteracted || targeted;
   // The label belongs on this wrapper only while it IS the accessible
   // content — an empty reserved-height placeholder before the surface has
   // scrolled near. Once mounted, `ClioA2UISurface` renders its own labeled

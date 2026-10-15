@@ -5,7 +5,6 @@ import { ChevronDownIcon } from 'lucide-react';
 import { RetryIcon, SaveIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Frame, FrameFooter, FramePanel } from '@/components/clio/settings-frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -22,7 +21,6 @@ import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { providerLogoId } from '@/lib/provider-presentation';
 import { findSelectedModelOption, type ClioModelOption } from '@/lib/model-options';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { SettingsRow } from './settings-row';
@@ -30,7 +28,7 @@ import { ReasoningLevelField } from './reasoning-level-field';
 import { sessionDefaultsPatch } from './session-defaults-patch';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioModelPicker } from './model-picker';
-import { composerModelLabel } from './composer-model-label';
+import { ComposerModelButton } from './composer-model-label';
 import {
   SESSION_APPROVAL_OPTIONS,
   SESSION_MODE_OPTIONS,
@@ -177,23 +175,17 @@ export function SessionDefaultsSettings() {
                 provider={providerId}
                 title="Choose a model for new sessions"
                 trigger={
-                  <Button
+                  <ComposerModelButton
                     aria-label="Change default model"
                     className="min-w-0 max-w-full shrink"
                     id="session-default-model"
+                    option={selectedModel}
+                    placeholder={modelId || 'Choose model'}
                     type="button"
                     variant="outline"
                   >
-                    {providerId ? (
-                      <ModelSelectorLogo provider={providerLogoId(providerId)} />
-                    ) : null}
-                    <span className="truncate">
-                      {selectedModel
-                        ? composerModelLabel(selectedModel)
-                        : modelId || 'Choose model'}
-                    </span>
                     <ChevronDownIcon aria-hidden="true" />
-                  </Button>
+                  </ComposerModelButton>
                 }
               />
               {form.provider_id ? (
