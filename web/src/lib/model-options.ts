@@ -50,6 +50,8 @@ export interface ClioModelOption {
   toolCalling?: boolean;
   /** The model's context window in tokens, when the service reports one. */
   contextWindow?: number;
+  /** Maximum generated tokens reported by this deployment. */
+  outputLimit?: number;
   /** What `contextWindow` rests on (served now, configured for load, or native). */
   contextBasis?: 'served' | 'configured' | 'native';
   /** The model's own context ceiling. */
@@ -104,7 +106,11 @@ export function findSelectedModelOption<
     aliases?: readonly string[];
     available: boolean;
   },
->(options: readonly T[], providerId: string | undefined, modelId: string | undefined): T | undefined {
+>(
+  options: readonly T[],
+  providerId: string | undefined,
+  modelId: string | undefined,
+): T | undefined {
   return options.find(
     (option) =>
       option.providerId === providerId &&
@@ -131,9 +137,7 @@ export function findHeldModelOption(
     (option.health === PROVIDER_NEEDS_SETUP || option.health === 'checking');
   const modelRow = options.find(
     (option) =>
-      option.kind !== 'provider' &&
-      waiting(option) &&
-      matchesConfiguredModel(option, modelId),
+      option.kind !== 'provider' && waiting(option) && matchesConfiguredModel(option, modelId),
   );
   if (modelRow) return modelRow;
   const providerRow = options.find((option) => option.kind === 'provider' && waiting(option));
@@ -211,6 +215,7 @@ export function buildModelOptions({
         label: item.name ?? item.label ?? item.id,
         description: item.description,
         contextWindow: item.context_window,
+        outputLimit: item.output_limit,
         available: preset.is_authenticated,
         availabilityDetail: preset.is_authenticated
           ? undefined
@@ -351,6 +356,7 @@ function liveProviderOptions(
       reasoning: modelReasoningLevels(model.reasoning),
       toolCalling: model.native_tool_calling,
       contextWindow: model.loaded_context_window || model.context_window,
+      outputLimit: model.output_limit,
       contextBasis: model.context_basis,
       nativeContextWindow: model.native_context_window,
       chatSelectable: model.chat_selectable,

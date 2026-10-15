@@ -1,0 +1,173 @@
+{
+  "id": "llama_cpp",
+  "category": "model_runtime",
+  "label": "llama.cpp",
+  "description": "Lightweight GGUF model serving.",
+  "recommended_variant": "native-windows-cpu",
+  "variants": [
+    {
+      "id": "native-windows-cpu",
+      "label": "Windows CPU (native)",
+      "version": "b11206",
+      "install_type": "native_archive",
+      "artifact": "https://github.com/ggml-org/llama.cpp/releases/download/b11206/llama-b11206-bin-win-cpu-x64.zip",
+      "compatible": true,
+      "reason": "Requires the CLIO host to be 64-bit Windows."
+    },
+    {
+      "id": "cuda",
+      "label": "NVIDIA CUDA",
+      "version": "b11206",
+      "install_type": "container",
+      "artifact": "ghcr.io/ggml-org/llama.cpp@sha256:3e7673cce183a55f97a1bc3c80817f3c61452483c13bc088a6766388af4775fe",
+      "compatible": false,
+      "reason": "NVIDIA CUDA requires a Linux target."
+    },
+    {
+      "id": "vulkan",
+      "label": "Vulkan",
+      "version": "b11206",
+      "install_type": "container",
+      "artifact": "ghcr.io/ggml-org/llama.cpp@sha256:00810eb17c7b816f4e4b16ac9467ed177f125ff3d72abc61e4a8b717f4430bdc",
+      "compatible": false,
+      "reason": "Vulkan requires a Linux target."
+    },
+    {
+      "id": "cpu",
+      "label": "CPU",
+      "version": "b11206",
+      "install_type": "container",
+      "artifact": "ghcr.io/ggml-org/llama.cpp@sha256:00bd6c289c590e576948cb3639b8195e4d3e6dd6ba1d761f0e2b871fcd4df24f",
+      "compatible": false,
+      "reason": "No container runtime can run services here. Docker is not installed. Podman was not inspected on this target. Apptainer was not inspected on this target."
+    }
+  ],
+  "configuration_fields": [
+    {
+      "id": "model_path",
+      "label": "GGUF model path",
+      "placeholder": "/models/model.gguf",
+      "required": false,
+      "options": [],
+      "variants": []
+    },
+    {
+      "id": "hf_model",
+      "label": "Hugging Face GGUF model",
+      "placeholder": "Qwen/Qwen2.5-0.5B-Instruct-GGUF:Q4_K_M",
+      "required": false,
+      "options": [],
+      "variants": []
+    },
+    {
+      "id": "container_runtime",
+      "label": "Container runtime",
+      "placeholder": "No usable runtime",
+      "required": false,
+      "options": [],
+      "variants": ["cuda", "vulkan", "cpu"]
+    },
+    {
+      "id": "port",
+      "label": "Port",
+      "placeholder": "8088",
+      "required": false,
+      "options": [],
+      "variants": []
+    }
+  ],
+  "supports_stop": true,
+  "state": "unknown",
+  "connection_url": null,
+  "connection_strategy": null,
+  "parameters": [
+    {
+      "id": "parallel",
+      "label": "Parallel slots",
+      "description": "Requests served at once; the context is shared across slots.",
+      "kind": "integer",
+      "delivery": "flag",
+      "name": "--parallel",
+      "minimum": 1.0,
+      "maximum": 256.0,
+      "options": [],
+      "variants": [],
+      "default_behavior": "llama.cpp's automatic slot count",
+      "effective_key": "parallel",
+      "companion_flags": [],
+      "context_sizing": null
+    },
+    {
+      "id": "ctx_size",
+      "label": "Context size",
+      "description": "Total context in tokens across all slots (0 uses the model's own).",
+      "kind": "integer",
+      "delivery": "flag",
+      "name": "--ctx-size",
+      "minimum": 0.0,
+      "maximum": 10000000.0,
+      "options": [],
+      "variants": [],
+      "default_behavior": "Fit to GPU: the model's trained context, capped to fit the GPU",
+      "effective_key": "ctx_size",
+      "companion_flags": [],
+      "context_sizing": {
+        "choice_key": "context.choice",
+        "strategy_key": "context.strategy",
+        "share_key": "context.gpu_share",
+        "choices": ["number", "max", "fit_to_gpu"],
+        "default_choice": "fit_to_gpu",
+        "default_strategy": "fit_to_gpu",
+        "strategies": [
+          {
+            "id": "fit_to_gpu",
+            "label": "Fit to GPU",
+            "description": "The largest context up to the model's own maximum whose KV cache fits the deployment's GPU memory beside the weights, with headroom."
+          }
+        ],
+        "fit_to_gpu_available": false,
+        "fit_to_gpu_reason": "Fit to GPU reads the model and GPU on Linux hosts only",
+        "preview_path": "/v1/infrastructure/services/llama_cpp/context-sizing"
+      }
+    },
+    {
+      "id": "threads",
+      "label": "Threads",
+      "description": "CPU threads used for generation.",
+      "kind": "integer",
+      "delivery": "flag",
+      "name": "--threads",
+      "minimum": 1.0,
+      "maximum": 1024.0,
+      "options": [],
+      "variants": [],
+      "default_behavior": "llama.cpp picks from the available cores",
+      "effective_key": "threads",
+      "companion_flags": [],
+      "context_sizing": null
+    },
+    {
+      "id": "gpu_layers",
+      "label": "GPU layers",
+      "description": "Model layers offloaded to the GPU.",
+      "kind": "integer",
+      "delivery": "flag",
+      "name": "--n-gpu-layers",
+      "minimum": 0.0,
+      "maximum": 10000.0,
+      "options": [],
+      "variants": ["cuda", "vulkan"],
+      "default_behavior": "Every layer on the GPU",
+      "effective_key": "gpu_layers",
+      "companion_flags": [],
+      "context_sizing": null
+    }
+  ],
+  "effective_parameters": [],
+  "configuration": {},
+  "owned_resources": [],
+  "supports_api_key": true,
+  "access": null,
+  "definition_version": "1",
+  "observation": null
+}

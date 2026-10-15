@@ -405,7 +405,13 @@ export function parametersForVariant(
   parameters: ServerParameter[],
   variant: string,
 ): ServerParameter[] {
-  const effectiveVariant = variant.startsWith('native-cuda') ? 'cuda' : variant;
+  const effectiveVariant = variant.startsWith('native-cuda')
+    ? 'cuda'
+    : variant.startsWith('native-xpu')
+      ? 'xpu'
+      : variant === 'native-windows-cpu'
+        ? 'cpu'
+        : variant;
   return parameters.filter(
     (row) => !row.variants.length || row.variants.includes(effectiveVariant),
   );

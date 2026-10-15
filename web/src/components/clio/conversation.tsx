@@ -16,10 +16,12 @@ import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioCompactionProgress } from './conversation-summarization';
 import { ClioTurnPreparation } from './turn-preparation';
+import { ClioTurnWaitFeedback } from './turn-wait-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { OpenQuestionsTracker } from './open-questions-tracker';
+import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
@@ -365,6 +367,12 @@ function ConversationBody({
   );
 
   useAttentionHighlights(scrollRef, entities.attentionData, messages, entities.tools);
+  useSurfaceQuestionNavigation({
+    messages,
+    sessionId: entities.sessionId,
+    scrollRef,
+    jumpToMessage,
+  });
 
   const conversationViewportWidth = useTranscriptWidth({
     virtualized,
@@ -653,6 +661,13 @@ function ConversationBody({
             ref={autoscroll.observeContent}
           >
             <ClioTurnPreparation {...preparation} messages={sourceMessages} />
+            <ClioTurnWaitFeedback
+              {...preparation}
+              messages={sourceMessages}
+              tools={entities.tools}
+              tasks={entities.tasks}
+              subagents={entities.subagents}
+            />
           </div>
         ) : null}
         {compactionPlacement.trailing.length > 0 ? (

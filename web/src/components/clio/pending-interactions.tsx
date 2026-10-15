@@ -26,7 +26,9 @@ import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
+import { SurfaceQuestionNotice } from './surface-question-notice';
 import { PendingA2UIResponse } from './pending-a2ui-response';
+import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 import { QuestionResponse } from './pending-interaction-question-response';
 import {
   OwnerAttribution,
@@ -35,6 +37,7 @@ import {
 } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
 import { TechnicalDetails } from './technical-details';
+import { PermissionOperationDetails } from './permission-operation-details';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -59,6 +62,7 @@ export interface ClioPendingInteractionsProps {
     response: PendingInteractionResponse,
   ) => Promise<void>;
   onRefetchSurfaces?: () => void;
+  onOpenSurfaceQuestion?: (interaction: PendingInteraction) => void;
 }
 
 /** Renders pending interactions immediately above the composer. */
@@ -73,6 +77,7 @@ export function ClioPendingInteractions({
   capabilityError,
   onResponse,
   onRefetchSurfaces,
+  onOpenSurfaceQuestion,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
   const [respondingIds, setRespondingIds] = useState<ReadonlySet<string>>(new Set());
@@ -142,7 +147,9 @@ export function ClioPendingInteractions({
               'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
               // Reserve room for the composer rather than allowing a tall
               // visual to push its controls beyond the conversation viewport.
-              hasInteractiveSurface ? 'max-h-[calc(100dvh-12rem)]' : 'max-h-[min(22rem,40dvh)]',
+              hasInteractiveSurface || pending.some((item) => item.payload?.access)
+                ? 'max-h-[calc(100dvh-12rem)]'
+                : 'max-h-[min(22rem,40dvh)]',
             )}
             scrollHideDelay={500}
             type="hover"
@@ -190,18 +197,33 @@ export function ClioPendingInteractions({
                     ? (surfaces[`${interaction.owner_session_id}:${surfaceId}`] ??
                       surfaces[surfaceId])
                     : undefined;
+                  if (embedsQuestionSurface(interaction)) {
+                    return (
+                      <PendingA2UIResponse
+                        key={interaction.id}
+                        interaction={interaction}
+                        rawSurface={rawSurface}
+                        disabled={interactionDisabled}
+                        onResponse={handleResponse}
+                        onRefetchSurface={onRefetchSurfaces}
+                        ownerLabel={ownerLabel}
+                        showOwner={showOwner}
+                        responseError={responseError}
+                        actionLifecycle={rawSurface ? actionLifecycles[rawSurface.id] : undefined}
+                      />
+                    );
+                  }
                   return (
-                    <PendingA2UIResponse
-                      actionLifecycle={rawSurface ? actionLifecycles[rawSurface.id] : undefined}
+                    <SurfaceQuestionNotice
                       disabled={interactionDisabled}
                       interaction={interaction}
                       key={interaction.id}
-                      onRefetchSurface={onRefetchSurfaces}
+                      onRefetch={onRefetchSurfaces}
+                      onOpen={onOpenSurfaceQuestion}
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
-                      rawSurface={rawSurface}
-                      responseError={responseError}
                       showOwner={showOwner}
+                      rawSurface={rawSurface}
                     />
                   );
                 }
@@ -293,6 +315,7 @@ function PermissionResponse({
           <span className="block text-sm text-muted-foreground">{interaction.prompt}</span>
         ) : null}
         <ResponseErrorNotice error={responseError} />
+        <PermissionOperationDetails interaction={interaction} />
         {toolName || toolCall?.input !== undefined ? (
           <TechnicalDetails
             className="mt-2 text-xs text-muted-foreground"
@@ -312,7 +335,12 @@ function PermissionResponse({
         ) : null}
       </ConfirmationTitle>
       <ConfirmationRequest>
-        <ConfirmationActions className="col-span-2 mt-1 flex-wrap">
+        <ConfirmationActions
+          className={cn(
+            'col-span-2 mt-1 flex-wrap',
+            interaction.payload?.access && 'sticky bottom-0 border-t bg-background py-2',
+          )}
+        >
           {show('deny') ? (
             <ConfirmationAction
               disabled={disabled}

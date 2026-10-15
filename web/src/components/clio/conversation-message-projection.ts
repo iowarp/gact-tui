@@ -5,6 +5,7 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import type { McpAppResponseActivityData } from './mcp-app-surface';
+import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 
 type McpAppBlock = Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>;
 
@@ -262,10 +263,8 @@ export function mcpAppResponsesForMessages(
 }
 
 /**
- * Whether a pending A2UI response owns this surface. The pending-response tray
- * renders that surface (it is where the user answers it), so the transcript
- * never mounts a second copy -- neither from a message's `a2ui` block nor as a
- * detached surface.
+ * Only a producer's explicit inline-question choice transfers presentation.
+ * Linked questions and ordinary actions keep their original surface mounted.
  */
 export function surfaceAwaitsPendingResponse(
   interactions: readonly PendingInteraction[] | undefined,
@@ -274,8 +273,10 @@ export function surfaceAwaitsPendingResponse(
   return (
     interactions?.some(
       (interaction) =>
-        (interaction.kind === 'a2ui' || interaction.kind === 'question') &&
+        (interaction.kind === 'question' || interaction.kind === 'a2ui') &&
+        embedsQuestionSurface(interaction) &&
         interaction.status === 'pending' &&
+        interaction.requires_human_response !== false &&
         interaction.source.surface_id === surfaceId,
     ) ?? false
   );

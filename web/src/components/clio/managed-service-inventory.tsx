@@ -19,6 +19,7 @@ import {
   VerificationState,
 } from './managed-service-identity';
 import { InfoTip } from './info-tip';
+import { ServiceMethodAvailability } from './service-installation-method';
 
 const groups = [
   { id: 'model_runtime', label: 'Inference' },
@@ -318,6 +319,7 @@ export function ManagedServiceInventory({
                                 <span className="mt-1 block text-xs text-muted-foreground">
                                   {service.description}
                                 </span>
+                                <ServiceMethodAvailability service={service} />
                                 {model && modelRuntimeRequirement(service, model) ? (
                                   <span className="mt-1 block text-xs text-warning-foreground">
                                     {modelRuntimeRequirement(service, model)}

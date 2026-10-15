@@ -23,6 +23,7 @@ import { InstallExpectation } from './install-expectation';
 import { ServiceAccessLine } from './managed-service-access';
 import { EffectiveParameters, OwnedResources } from './managed-service-parameters';
 import { ManagedServiceForm } from './managed-service-form';
+import { ServiceInstallationMethod } from './service-installation-method';
 import { ManagedServiceReceipt } from './managed-service-receipt';
 import { OperationProgress } from './operation-progress';
 import {
@@ -105,8 +106,9 @@ export function ManagedServiceCard({
   };
   const installing = activeAction === 'install' || activeAction === 'reinstall';
   const expectation = { thing: service.label, lastSeconds: lastInstallSeconds };
-  const native = variant.startsWith('native-cuda');
+  const native = variant.startsWith('native-cuda') || variant.startsWith('native-xpu');
   const monitoring = service.category === 'monitoring';
+  const llama = service.id === 'llama_cpp' || service.id.startsWith('llama_cpp@');
   const retainsData = native || monitoring;
   const installed =
     Boolean(service.observation?.installed) ||
@@ -117,19 +119,26 @@ export function ManagedServiceCard({
   const fields = service.configuration_fields.filter(
     (field) => !field.variants?.length || field.variants.includes(variant),
   );
-  const modelProblem =
-    service.id === 'llama_cpp'
-      ? variant === 'native-windows-cpu'
-        ? !configuration.model_path?.trim()
-          ? 'Choose a GGUF model file on this computer.'
-          : undefined
-        : Boolean(configuration.model_path?.trim()) === Boolean(configuration.hf_model?.trim())
-          ? 'Choose either a GGUF file or a Hugging Face model.'
-          : undefined
-      : undefined;
+  const modelProblem = llama
+    ? variant === 'native-windows-cpu'
+      ? !configuration.model_path?.trim()
+        ? 'Choose a GGUF model file on this computer.'
+        : undefined
+      : Boolean(configuration.model_path?.trim()) === Boolean(configuration.hf_model?.trim())
+        ? 'Choose either a GGUF file or a Hugging Face model.'
+        : undefined
+    : undefined;
   const missing =
     fields.some((field) => field.required && !configuration[field.id]?.trim()) ||
     Boolean(modelProblem);
+  const missingInstallation = llama
+    ? fields.some(
+        (field) =>
+          field.required &&
+          !['model_path', 'hf_model'].includes(field.id) &&
+          !configuration[field.id]?.trim(),
+      )
+    : missing;
   const activeTab = tab ?? localTab;
   const editing = setup || (!installed && !recorded);
   const loadedLogs = useRef(false);
@@ -152,7 +161,7 @@ export function ManagedServiceCard({
     status: 'Check status',
     logs: 'View logs',
     stop: 'Stop',
-    reinstall: 'Apply configuration',
+    reinstall: llama ? 'Reinstall runtime' : 'Apply configuration',
     uninstall: retainsData ? 'Remove runtime' : 'Uninstall',
     delete_data: 'Delete retained data',
     verify: 'Verify setup',
@@ -176,8 +185,8 @@ export function ManagedServiceCard({
       disabled={
         Boolean(activeAction) ||
         (!compatible && ['install', 'reinstall', 'start'].includes(action)) ||
-        (missing &&
-          (['install', 'reinstall'].includes(action) || (action === 'start' && !installed)))
+        (missingInstallation && ['install', 'reinstall'].includes(action)) ||
+        (missing && action === 'start' && (llama || !installed))
       }
       onClick={() =>
         ['uninstall', 'delete_data', 'reinstall'].includes(action)
@@ -198,6 +207,9 @@ export function ManagedServiceCard({
       onConfiguration={onConfiguration}
       targetId={targetId}
       hostLabel={hostLabel}
+      installationOnly={llama && editing}
+      showIntroduction={!llama || editing}
+      showMethod={!editing}
     />
   );
   return (
@@ -211,6 +223,9 @@ export function ManagedServiceCard({
             <VerificationState service={service} />
             <InfoTip label={`About ${service.label}`}>
               {service.description}
+              {llama
+                ? ' Install prepares the runtime without loading a model. Start loads the selected model.'
+                : ''}
               {native
                 ? ' Install prepares the pinned environment. Start loads the model. Removal retains models and evidence.'
                 : ''}
@@ -221,15 +236,9 @@ export function ManagedServiceCard({
       </header>
       {editing ? (
         <>
-          {!compatible ? (
-            <p role="status" className="text-sm text-destructive">
-              Not available on this target.{' '}
-              {service.variants.find((row) => row.id === variant)?.reason ||
-                service.variants[0]?.reason}
-            </p>
-          ) : null}
+          <ServiceInstallationMethod service={service} variant={variant} onVariant={onVariant} />
           {compatible ? form : null}
-          {compatible && modelProblem ? (
+          {compatible && modelProblem && !llama ? (
             <p className="text-sm text-muted-foreground">{modelProblem}</p>
           ) : null}
           <div className="flex gap-2">{act('install')}</div>
@@ -246,6 +255,19 @@ export function ManagedServiceCard({
             <TabsTrigger value="storage">Storage</TabsTrigger>
           </TabsList>
           <TabsContent value="status" className="space-y-4 pt-3">
+            {llama && installed && service.state !== 'running' ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Runtime installed. Choose a model to serve.
+                </p>
+                {form}
+                {modelProblem ? (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    {modelProblem}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
             {connectionStatus}
             {service.connection_url && service.state === 'running' ? (
               <p className="break-all font-mono text-xs text-muted-foreground">
@@ -293,7 +315,7 @@ export function ManagedServiceCard({
               <div className="flex flex-wrap items-center gap-2">
                 {act('reinstall')}
                 <Button
-                  disabled={Boolean(activeAction) || !compatible || missing}
+                  disabled={Boolean(activeAction) || !compatible || missingInstallation}
                   onClick={() => confirm('reinstall', true)}
                   size="sm"
                   variant="outline"
