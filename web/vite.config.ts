@@ -55,6 +55,9 @@ export default defineConfig({
                   liveActivityReview: fileURLToPath(
                     new URL('./tests/review/live-activity.html', import.meta.url),
                   ),
+                  modelWaitReview: fileURLToPath(
+                    new URL('./tests/review/model-wait.html', import.meta.url),
+                  ),
                   standardMathReview: fileURLToPath(
                     new URL('./tests/review/standard-math.html', import.meta.url),
                   ),
