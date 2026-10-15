@@ -26,6 +26,7 @@ it('keeps workspace disclosure separate from the common action and overflow menu
     createWorkspace: vi.fn(),
     createSession: vi.fn(),
     renameWorkspace: vi.fn(),
+    updateWorkspace: vi.fn().mockResolvedValue(undefined),
     grantWorkspaceFolder: vi.fn(),
     revokeWorkspaceFolder: vi.fn(),
     renameSession: vi.fn(),

@@ -34,6 +34,7 @@ interface ClioPathPickerProps {
   knownFolders?: readonly PathChoice[];
   placeholder?: string;
   disabled?: boolean;
+  inputLabel?: string;
 }
 
 /** Selects a local native folder or a folder already exposed by a remote agent service. */
@@ -43,6 +44,7 @@ export function ClioPathPicker({
   knownFolders = [],
   placeholder = 'Choose a folder',
   disabled,
+  inputLabel = 'Folder path',
 }: ClioPathPickerProps) {
   const [browserOpen, setBrowserOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -65,7 +67,10 @@ export function ClioPathPicker({
       <div className="flex min-w-0 gap-2">
         <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border bg-muted/20 px-3">
           <FolderIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-          <span className={value ? 'truncate text-sm' : 'truncate text-sm text-muted-foreground'}>
+          <span
+            className={value ? 'truncate text-sm' : 'truncate text-sm text-muted-foreground'}
+            title={value || undefined}
+          >
             {value || placeholder}
           </span>
         </div>
@@ -80,14 +85,19 @@ export function ClioPathPicker({
       </div>
       <Collapsible onOpenChange={setManualOpen} open={manualOpen}>
         <CollapsibleTrigger asChild>
-          <Button className="h-7 w-fit px-1.5 text-xs" type="button" variant="ghost">
+          <Button
+            className="h-7 w-fit px-1.5 text-xs"
+            disabled={disabled}
+            type="button"
+            variant="ghost"
+          >
             <KeyboardIcon aria-hidden="true" className="size-3.5" />
             {manualOpen ? 'Hide path entry' : 'Enter a path instead'}
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <Input
-            aria-label="Folder path"
+            aria-label={inputLabel}
             className="mt-1 font-mono text-xs"
             disabled={disabled}
             onChange={(event) => onChange(event.target.value)}
@@ -120,10 +130,7 @@ export function ClioPathPicker({
                     </FileTreeIcon>
                     <FileTreeName>{folder.name}</FileTreeName>
                     {folder.qualifiers?.map((qualifier) => (
-                      <span
-                        className="shrink-0 text-xs text-muted-foreground"
-                        key={qualifier}
-                      >
+                      <span className="shrink-0 text-xs text-muted-foreground" key={qualifier}>
                         {qualifier}
                       </span>
                     ))}

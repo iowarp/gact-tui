@@ -115,7 +115,8 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     label: 'Execution & history',
     icon: AdjustIcon,
     group: 'Agent',
-    keywords: 'configuration timeout retries transcript reasoning compaction defaults',
+    keywords:
+      'configuration timeout retries transcript reasoning compaction defaults parallelism concurrency subagents nesting depth unlimited',
   },
   {
     id: 'blueprints',
