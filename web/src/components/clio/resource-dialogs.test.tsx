@@ -40,6 +40,7 @@ function actions(): ResourceActions {
     importSession: vi.fn().mockResolvedValue(undefined),
     renameSession: vi.fn().mockResolvedValue(undefined),
     renameWorkspace: vi.fn().mockResolvedValue(undefined),
+    updateWorkspace: vi.fn().mockResolvedValue(undefined),
     restoreSession: vi.fn().mockResolvedValue(undefined),
     setSessionPinned: vi.fn().mockResolvedValue(undefined),
     setWorkspacePinned: vi.fn().mockResolvedValue(undefined),

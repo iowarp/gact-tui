@@ -95,6 +95,19 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await repository.updateWorkspace(targetWorkspaceId, { name });
         await refreshNavigation(targetWorkspaceId);
       },
+      updateWorkspace: async (targetWorkspaceId, input) => {
+        await repository.updateWorkspace(targetWorkspaceId, input);
+        await Promise.all([
+          refreshNavigation(targetWorkspaceId),
+          queryClient.invalidateQueries({
+            predicate: ({ queryKey }) =>
+              queryKey.includes(settings.endpoint) &&
+              queryKey.includes(targetWorkspaceId) &&
+              typeof queryKey[0] === 'string' &&
+              queryKey[0].startsWith('workspace-'),
+          }),
+        ]);
+      },
       grantWorkspaceFolder: async (targetWorkspaceId, path) => {
         await repository.grantWorkspaceFolder(targetWorkspaceId, path);
         await refreshNavigation(targetWorkspaceId);
@@ -161,7 +174,9 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       navigate,
       navigateToAvailableSession,
       refreshNavigation,
+      queryClient,
       repository,
+      settings.endpoint,
       sessionId,
       workspaceId,
       updateSessionIdentity,
