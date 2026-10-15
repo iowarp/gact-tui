@@ -1062,7 +1062,8 @@ function earthScopeMapInteractions() {
       source: { protocol: 'native', surface_id: 'surface_earthscope_map' },
       created_at: observedAt,
       actions: ['form.submit', 'cancel'],
-      payload: { revision: 1 },
+      // This scenario explicitly exercises the retained inline form placement.
+      payload: { revision: 1, metadata: { a2ui_presentation: 'inline' } },
     },
   ].filter((interaction) => !resolvedInteractionIds.has(interaction.id));
 }

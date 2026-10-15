@@ -23,6 +23,7 @@ export const runtimeSettingsSchema = z.object({
       has_user_value: z.boolean(),
       editable: z.boolean(),
       reason: z.string().nullable(),
+      unlimited_value: z.literal(0).nullable().optional(),
     }),
   ),
 });

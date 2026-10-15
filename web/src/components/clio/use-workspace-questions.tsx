@@ -10,6 +10,11 @@ import { ClioPendingInteractions, type ClioPendingInteractionsProps } from './pe
 import { AgentQuestionDialog } from './agent-question-dialog';
 import { useQuestionAnswering } from './use-question-answering';
 import * as workspaceRouteState from './workspace-route-state';
+import {
+  embedsQuestionSurface,
+  questionSurfaceMetadata,
+  type SurfaceQuestionTarget,
+} from '@/lib/a2ui/question-navigation';
 
 type Respond = (
   interaction: PendingInteraction,
@@ -20,7 +25,6 @@ interface UseWorkspaceQuestionsInput {
   interactions: readonly PendingInteraction[];
   tools: readonly ToolInvocation[];
   messages: readonly Message[];
-  sessionId: string;
   focusComposer: () => void;
   /** Answer one interaction through its own response route. */
   respondInteraction: (input: {
@@ -28,6 +32,8 @@ interface UseWorkspaceQuestionsInput {
     response: PendingInteractionResponse;
   }) => Promise<unknown>;
   send: (value: SessionSendInput) => Promise<unknown>;
+  /** Reveal the owning child canvas without changing the central conversation. */
+  revealSurfaceOwner?: (ownerSessionId: string) => boolean | void;
   /** The response tray's remaining props (surfaces, owner labels, errors, ...). */
   tray: Omit<ClioPendingInteractionsProps, 'interactions' | 'onResponse'>;
 }
@@ -42,17 +48,39 @@ export function useWorkspaceQuestions({
   interactions,
   tools,
   messages,
-  sessionId,
   focusComposer,
   respondInteraction,
   send,
+  revealSurfaceOwner,
   tray,
 }: UseWorkspaceQuestionsInput): {
   handleInteractionResponse: Respond;
   questionAnswering: ReturnType<typeof useQuestionAnswering>;
   pendingInteractionsPanel: ReactNode;
 } {
+  const sessionId = tray.viewedSessionId;
   const [openedId, setOpenedId] = useState<string>();
+  const [surfaceTarget, setSurfaceTarget] = useState<SurfaceQuestionTarget>();
+  const openSurfaceQuestion = useCallback(
+    (interaction: PendingInteraction) => {
+      const surfaceId = interaction.source.surface_id;
+      if (!surfaceId) return;
+      if (
+        interaction.owner_session_id !== sessionId &&
+        revealSurfaceOwner?.(interaction.owner_session_id) === false
+      )
+        return;
+      setSurfaceTarget((previous) => ({
+        sessionId: interaction.owner_session_id,
+        surfaceId,
+        answerAction: String(
+          questionSurfaceMetadata(interaction)['a2ui_answer_action'] || 'question.submit',
+        ),
+        request: (previous?.request ?? 0) + 1,
+      }));
+    },
+    [revealSurfaceOwner, sessionId],
+  );
   const handleInteractionResponse = useCallback<Respond>(
     async (interaction, response) => {
       await respondInteraction({ interaction, response });
@@ -84,6 +112,7 @@ export function useWorkspaceQuestions({
         {...tray}
         interactions={trayInteractions}
         onResponse={handleInteractionResponse}
+        onOpenSurfaceQuestion={openSurfaceQuestion}
       />
     </>
   );
@@ -94,7 +123,13 @@ export function useWorkspaceQuestions({
       context: {
         ...questionAnswering.context,
         interactions,
-        openQuestion: (interaction: PendingInteraction) => setOpenedId(interaction.id),
+        openQuestion: (interaction: PendingInteraction) => {
+          if (interaction.source.surface_id && !embedsQuestionSurface(interaction))
+            openSurfaceQuestion(interaction);
+          else setOpenedId(interaction.id);
+        },
+        openSurfaceQuestion,
+        surfaceTarget,
         surfaces: tray.surfaces,
         refetchSurfaces: tray.onRefetchSurfaces,
       },

@@ -26,7 +26,9 @@ import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
+import { SurfaceQuestionNotice } from './surface-question-notice';
 import { PendingA2UIResponse } from './pending-a2ui-response';
+import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 import { QuestionResponse } from './pending-interaction-question-response';
 import {
   OwnerAttribution,
@@ -59,6 +61,7 @@ export interface ClioPendingInteractionsProps {
     response: PendingInteractionResponse,
   ) => Promise<void>;
   onRefetchSurfaces?: () => void;
+  onOpenSurfaceQuestion?: (interaction: PendingInteraction) => void;
 }
 
 /** Renders pending interactions immediately above the composer. */
@@ -73,6 +76,7 @@ export function ClioPendingInteractions({
   capabilityError,
   onResponse,
   onRefetchSurfaces,
+  onOpenSurfaceQuestion,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
   const [respondingIds, setRespondingIds] = useState<ReadonlySet<string>>(new Set());
@@ -190,18 +194,33 @@ export function ClioPendingInteractions({
                     ? (surfaces[`${interaction.owner_session_id}:${surfaceId}`] ??
                       surfaces[surfaceId])
                     : undefined;
+                  if (embedsQuestionSurface(interaction)) {
+                    return (
+                      <PendingA2UIResponse
+                        key={interaction.id}
+                        interaction={interaction}
+                        rawSurface={rawSurface}
+                        disabled={interactionDisabled}
+                        onResponse={handleResponse}
+                        onRefetchSurface={onRefetchSurfaces}
+                        ownerLabel={ownerLabel}
+                        showOwner={showOwner}
+                        responseError={responseError}
+                        actionLifecycle={rawSurface ? actionLifecycles[rawSurface.id] : undefined}
+                      />
+                    );
+                  }
                   return (
-                    <PendingA2UIResponse
-                      actionLifecycle={rawSurface ? actionLifecycles[rawSurface.id] : undefined}
+                    <SurfaceQuestionNotice
                       disabled={interactionDisabled}
                       interaction={interaction}
                       key={interaction.id}
-                      onRefetchSurface={onRefetchSurfaces}
+                      onRefetch={onRefetchSurfaces}
+                      onOpen={onOpenSurfaceQuestion}
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
-                      rawSurface={rawSurface}
-                      responseError={responseError}
                       showOwner={showOwner}
+                      rawSurface={rawSurface}
                     />
                   );
                 }

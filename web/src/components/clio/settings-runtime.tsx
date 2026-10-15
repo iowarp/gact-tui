@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioSettingsSection } from './settings-section';
 import { SettingsRow } from './settings-row';
+import { NumberLimitInput } from './number-limit-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -125,7 +126,9 @@ export function RuntimeSettingsPanel() {
           description={
             group === 'Execution'
               ? 'Choose request budgets and recovery behavior.'
-              : 'Choose how context and response history are saved.'
+              : group === 'Subagents'
+                ? `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`
+                : 'Choose how context and response history are saved.'
           }
         >
           {source.settings
@@ -170,6 +173,15 @@ export function RuntimeSettingsPanel() {
                         checked={Boolean(value)}
                         disabled={!setting.editable || resetting || save.isPending}
                         onCheckedChange={(next) => update(setting, next)}
+                      />
+                    ) : setting.unlimited_value === 0 ? (
+                      <NumberLimitInput
+                        id={id}
+                        label={setting.title}
+                        value={String(value)}
+                        defaultValue={Number(setting.default_value)}
+                        disabled={!setting.editable || resetting || save.isPending}
+                        onChange={(next) => update(setting, next)}
                       />
                     ) : (
                       <div className="relative flex w-full justify-center">

@@ -12,6 +12,7 @@ import {
   Component,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ErrorInfo,
@@ -35,6 +36,8 @@ import { A2uiRegionCaptureProvider } from './a2ui-region-capture';
 import { SurfaceAttentionProvider } from '@/lib/a2ui/attention-selection';
 import type { A2uiRegistrySnapshot } from '@/lib/a2ui/registry-store';
 import { useA2uiVisualViewer } from './a2ui-visual-viewer';
+import { useQuestionAnswer } from './question-answer-context';
+import { questionTabPath, SurfaceQuestionTabs } from '@/lib/a2ui/question-navigation';
 
 function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
@@ -462,19 +465,29 @@ export function ClioA2UISurface({
   captureArtifactId?: string;
   visualFeedback?: boolean;
 }) {
+  const target = useQuestionAnswer()?.surfaceTarget;
+  const navigation = useMemo(
+    () =>
+      target?.sessionId === surface.session_id && target.surfaceId === surface.id
+        ? { tabs: questionTabPath(surface, target.answerAction), request: target.request }
+        : undefined,
+    [surface, target],
+  );
   return (
     <SurfaceBoundary key={surface.id}>
-      <ClioA2UISurfaceContent
-        actionLifecycle={actionLifecycle}
-        onLocalAction={onLocalAction}
-        onRemoteAction={onRemoteAction}
-        surface={surface}
-        viewport={viewport}
-        readOnly={readOnly}
-        catalogRegistry={catalogRegistry}
-        captureArtifactId={captureArtifactId}
-        visualFeedback={visualFeedback}
-      />
+      <SurfaceQuestionTabs.Provider value={navigation}>
+        <ClioA2UISurfaceContent
+          actionLifecycle={actionLifecycle}
+          onLocalAction={onLocalAction}
+          onRemoteAction={onRemoteAction}
+          surface={surface}
+          viewport={viewport}
+          readOnly={readOnly}
+          catalogRegistry={catalogRegistry}
+          captureArtifactId={captureArtifactId}
+          visualFeedback={visualFeedback}
+        />
+      </SurfaceQuestionTabs.Provider>
     </SurfaceBoundary>
   );
 }

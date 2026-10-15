@@ -90,3 +90,29 @@ it('includes received results and reminders in the same ordered action summary',
     ]).label,
   ).toBe('Received results, ran commands, received reminder');
 });
+
+it('identifies streamed reasoning after a read has finished without claiming the read is running', () => {
+  const read = { id: 'read', session_id: 's', name: 'fs_read_file', state: 'succeeded' as const };
+  expect(
+    transcriptActivitySummary([
+      iteration([read], {
+        streaming: true,
+        thinking: [
+          {
+            id: 'reasoning',
+            text: 'Actual provider reasoning',
+            label: 'Thinking',
+            streaming: true,
+          },
+        ],
+      }),
+    ]),
+  ).toEqual({ label: 'Thinking', running: true });
+  expect(
+    transcriptActivitySummary([
+      iteration([read, { ...read, id: 'search', name: 'web_search', state: 'running' }], {
+        streaming: true,
+      }),
+    ]),
+  ).toEqual({ label: 'Read files, running searches', running: true });
+});
