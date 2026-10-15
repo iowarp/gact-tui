@@ -93,6 +93,35 @@ function renderComposer({
 }
 
 describe('ClioComposer model selection', () => {
+  it('shows both MAG names and reveals the full selection on hover and focus', async () => {
+    const user = userEvent.setup();
+    const providerName = 'AmSC Model Access Gateway';
+    const model = 'inkling-small-xhigh@cborg';
+    renderComposer({
+      modelOptions: [
+        { ...reasoningModel, providerId: 'amsc_mag', providerName, id: model, label: model },
+      ],
+      onSubmit: vi.fn(async () => undefined),
+      provider: 'amsc_mag',
+      model,
+    });
+    const pill = screen.getByRole('button', { name: 'Change model' });
+    expect(pill).toHaveAccessibleDescription(`${providerName} / ${model}`);
+    expect(pill.querySelector('[data-slot="model-choice-provider"]')).toHaveTextContent(
+      providerName,
+    );
+    expect(pill.querySelector('[data-slot="model-choice-model"]')).toHaveTextContent(model);
+    await user.hover(pill);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(`${providerName} / ${model}`);
+    await user.unhover(pill);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    await user.click(composerEditor());
+    await user.tab();
+    expect(pill).toHaveFocus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(`${providerName} / ${model}`);
+  });
+
   it('labels the model pill with the provider name the catalog reports', () => {
     renderComposer({
       modelOptions: [

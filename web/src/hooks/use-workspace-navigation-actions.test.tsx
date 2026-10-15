@@ -5,9 +5,16 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useLiveStore } from '@/store/live-store';
 
-const mocks = vi.hoisted(() => ({ updateSession: vi.fn(), navigate: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  updateSession: vi.fn(),
+  updateWorkspace: vi.fn(),
+  navigate: vi.fn(),
+}));
 vi.mock('./use-repository', () => ({
-  useRepository: () => ({ updateSession: mocks.updateSession }),
+  useRepository: () => ({
+    updateSession: mocks.updateSession,
+    updateWorkspace: mocks.updateWorkspace,
+  }),
 }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));
 vi.mock('./use-available-session-navigation', () => ({
@@ -63,11 +70,9 @@ it('applies acknowledged identity fields without rewinding work received during 
     pending = result.current.navigationActions.setSessionPinned('s1', true);
   });
   act(() => {
-    useLiveStore
-      .getState()
-      .replaceSnapshots({
-        sessions: { s1: { ...session, title: 'Live title', state: 'completed' } },
-      });
+    useLiveStore.getState().replaceSnapshots({
+      sessions: { s1: { ...session, title: 'Live title', state: 'completed' } },
+    });
   });
   await act(async () => {
     finish({ ...session, pinned: true });
@@ -105,4 +110,35 @@ it('leaves the current row intact when the service rejects the change', async ()
     'Offline',
   );
   expect(useLiveStore.getState().entities.sessions['s1']).toEqual(session);
+});
+
+it('refreshes folder, directory and warmup queries after the acknowledged primary change', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const endpoint = 'http://localhost:8100';
+  const keys = [
+    ['workspace-files', endpoint, 'w1'],
+    ['workspace-directory', endpoint, 'w1', 'scope', ''],
+    ['workspace-warmup', endpoint, 'w1', 'standard'],
+  ];
+  for (const key of keys) client.setQueryData(key, {});
+  const unrelated = ['workspace-files', endpoint, 'other'];
+  client.setQueryData(unrelated, {});
+  mocks.updateWorkspace.mockResolvedValue(undefined);
+  const { result } = renderHook(() => useWorkspaceNavigationActions('w1', 's1'), {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+  await act(async () => {
+    await result.current.navigationActions.updateWorkspace('w1', {
+      name: 'Research',
+      root_path: 'C:\\Research',
+    });
+  });
+  expect(mocks.updateWorkspace).toHaveBeenCalledWith('w1', {
+    name: 'Research',
+    root_path: 'C:\\Research',
+  });
+  for (const key of keys) expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  expect(client.getQueryState(unrelated)?.isInvalidated).toBe(false);
 });

@@ -1,4 +1,5 @@
 import type { InfrastructureDependency, Message, RunState } from '@clio/core/v3';
+import { currentTurnAssistantMessages } from '@/lib/current-turn-messages';
 import { ClioInfrastructurePreparation } from './infrastructure-preparation';
 
 export interface TurnPreparationProps {
@@ -18,27 +19,17 @@ export function ClioTurnPreparation({
   dependencies = [],
 }: TurnPreparationProps) {
   if (sessionState !== 'queued' && sessionState !== 'running') return null;
-  const latestUser = messages.findLast((message) => message.role === 'user');
-  const currentRunId = activeTurnId ?? latestUser?.run_id ?? latestUser?.turn_id;
-  const isCurrentAssistant = (message: Message): boolean => {
-    if (message.role !== 'assistant') return false;
-    const runId = message.run_id ?? message.turn_id;
-    if (runId && currentRunId) return runId === currentRunId;
-    // Tool content can precede its run association; keep the user-turn boundary.
-    return !latestUser || Date.parse(message.created_at) >= Date.parse(latestUser.created_at);
-  };
-  const hasContent = messages.some(
-    (message) =>
-      isCurrentAssistant(message) &&
-      message.blocks.some(
-        (block) =>
-          (block.type !== 'text' && block.type !== 'reasoning') ||
-          ((block.type === 'text' || block.type === 'reasoning') && block.text.trim().length > 0),
-      ),
+  const currentMessages = currentTurnAssistantMessages(messages, activeTurnId);
+  const hasContent = currentMessages.some((message) =>
+    message.blocks.some(
+      (block) =>
+        (block.type !== 'text' && block.type !== 'reasoning') ||
+        ((block.type === 'text' || block.type === 'reasoning') && block.text.trim().length > 0),
+    ),
   );
   if (activeTurnResponded || hasContent) return null;
   const followUp = messages.some(
-    (message) => message.role === 'assistant' && !isCurrentAssistant(message),
+    (message) => message.role === 'assistant' && !currentMessages.includes(message),
   );
   return (
     <div className="py-4 text-sm text-muted-foreground" data-slot="turn-preparation" role="status">

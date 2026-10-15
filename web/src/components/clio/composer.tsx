@@ -19,7 +19,6 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { brand } from '@brand';
-import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import {
   PromptInput,
   PromptInputCommand,
@@ -35,8 +34,6 @@ import { composerDelivery } from '@/hooks/use-composer-delivery';
 import { ClioModelPicker } from './model-picker';
 import { useComposerModelSelection } from './use-composer-model-selection';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
-import { Button } from '@/components/ui/button';
-import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
@@ -60,7 +57,7 @@ import { focusEditorAtOffset as focusComposerEditor } from './composer-editor-mo
 import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { messageTextWithAnnotations, type ComposerAnnotation } from '@/lib/composer-annotations';
-import { composerModelLabel } from './composer-model-label';
+import { ComposerModelButton } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useRegionCaptureAnnotation } from './use-region-capture-annotation';
 import { ComposerAddContextButton } from './composer-add-context-button';
@@ -707,21 +704,14 @@ export function ClioComposer({
                   options={modelOptions}
                   provider={selectedOption?.providerId}
                   trigger={
-                    <Button
+                    <ComposerModelButton
                       aria-label="Change model"
-                      className="max-w-32 text-foreground @min-[48rem]/composer:max-w-48"
+                      className="min-w-0 max-w-48 text-foreground @min-[48rem]/composer:max-w-64"
+                      option={selectedOption}
                       size="sm"
-                      title="Change model"
                       type="button"
                       variant="outline"
-                    >
-                      {selectedOption ? (
-                        <ModelSelectorLogo provider={providerLogoId(selectedOption.providerId)} />
-                      ) : null}
-                      <span className="truncate">
-                        {selectedOption ? composerModelLabel(selectedOption) : 'Choose model'}
-                      </span>
-                    </Button>
+                    />
                   }
                 />
               }

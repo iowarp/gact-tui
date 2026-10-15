@@ -67,6 +67,86 @@ function showSettings() {
   );
 }
 
+it('saves Unlimited explicitly and restores the last finite limit without a restart', async () => {
+  const user = userEvent.setup();
+  const limits: RuntimeSettings = {
+    ...initial,
+    settings: [
+      {
+        ...initial.settings[0]!,
+        key: 'agent_tasks.max_concurrent',
+        title: 'Concurrent subagents',
+        description: 'Tasks at each nesting level.',
+        group: 'Subagents',
+        kind: 'integer',
+        value: 3,
+        default_value: 3,
+        unit: null,
+        unlimited_value: 0,
+        effect: 'Applies immediately. Running tasks finish; queued tasks use the new limit.',
+      },
+    ],
+  };
+  repository.runtimeSettings.mockResolvedValue(limits);
+  repository.updateRuntimeSettings.mockImplementation(async (request) => ({
+    ...limits,
+    revision: 'saved',
+    settings: limits.settings.map((row) => ({
+      ...row,
+      value: request.changes[row.key],
+    })),
+  }));
+  showSettings();
+  const input = await screen.findByRole('spinbutton', { name: 'Concurrent subagents' });
+  await user.clear(input);
+  await user.type(input, '6');
+  await user.click(screen.getByRole('switch', { name: 'Unlimited concurrent subagents' }));
+  expect(input).toBeDisabled();
+  expect(input).toHaveAttribute('placeholder', 'Unlimited');
+  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await waitFor(() =>
+    expect(repository.updateRuntimeSettings).toHaveBeenCalledWith({
+      revision: 'first',
+      changes: { 'agent_tasks.max_concurrent': 0 },
+    }),
+  );
+  await user.click(screen.getByRole('switch', { name: 'Unlimited concurrent subagents' }));
+  expect(input).toBeEnabled();
+  expect(input).toHaveValue(6);
+  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await waitFor(() =>
+    expect(repository.updateRuntimeSettings).toHaveBeenLastCalledWith({
+      revision: 'saved',
+      changes: { 'agent_tasks.max_concurrent': 6 },
+    }),
+  );
+});
+
+it('keeps inherited limit controls locked and distinguishes reset from Unlimited', async () => {
+  const user = userEvent.setup();
+  repository.runtimeSettings.mockResolvedValue({
+    ...initial,
+    settings: [
+      {
+        ...initial.settings[0]!,
+        key: 'agent_tasks.max_depth',
+        title: 'Maximum nesting depth',
+        value: 8,
+        default_value: 8,
+        kind: 'integer',
+        unlimited_value: 0,
+        unit: null,
+      },
+    ],
+  });
+  showSettings();
+  const input = await screen.findByRole('spinbutton', { name: 'Maximum nesting depth' });
+  await user.click(screen.getByRole('button', { name: 'Use inherited maximum nesting depth' }));
+  expect(input).toBeDisabled();
+  expect(screen.getByRole('switch', { name: 'Unlimited maximum nesting depth' })).toBeDisabled();
+  expect(screen.getByRole('switch', { name: 'Unlimited maximum nesting depth' })).not.toBeChecked();
+});
+
 it('preserves an edited draft after a conflict and sends only owned changes', async () => {
   const user = userEvent.setup();
   repository.runtimeSettings.mockResolvedValue(initial);
