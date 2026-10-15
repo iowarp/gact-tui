@@ -118,6 +118,30 @@ function options(capabilityTags: Record<string, unknown>[]) {
 }
 
 describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
+  it('keeps MAG input context and output limits separate and provider-attributed', () => {
+    const tags = modelCapabilityTagsFromOption({
+      id: 'claude-opus-5-5-high@amazon',
+      label: 'Opus',
+      providerId: 'amsc_mag',
+      providerName: 'AMSC',
+      available: true,
+      contextWindow: 1_000_000,
+      outputLimit: 128_000,
+      contextBasis: 'served',
+      capabilityProvenance: {
+        context_window: { source: 'server_report', decided_by: 'deployment' },
+        output_limit: { source: 'server_report', decided_by: 'deployment' },
+      },
+    });
+    const context = tags.find((tag) => tag.axis === 'context')!;
+    const output = tags.find((tag) => tag.axis === 'output_limit')!;
+    expect(modelCapabilityTagLabel(context)).toBe('1M');
+    expect(modelCapabilityTagLabel(output)).toBe('128K max output');
+    expect(modelCapabilityTagMeaning(context)).toContain('1,000,000');
+    expect(modelCapabilityTagMeaning(output)).toContain('128,000');
+    expect(context.evidence).toEqual([{ source: 'server_report' }]);
+    expect(output.evidence).toEqual([{ source: 'server_report' }]);
+  });
   it('a classifier is a surrogate with its task, and filters by model type and Hub task', () => {
     const [jev] = options([JEV_TAGS]);
     const tags = modelCapabilityTagsFromOption(jev!);
@@ -129,6 +153,7 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
 
     const tokens = modelFilterTokens(tags, { chatSelectable: jev!.chatSelectable !== false });
     expect([...tokens].sort()).toEqual([
+      'context:>131072',
       'input:text',
       'output:scores',
       'role:surrogate',
@@ -193,6 +218,7 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
     const tags = modelCapabilityTagsFromOption(unknown!);
     expect(tags.map((tag) => tag.axis)).toEqual(['context']);
     expect([...modelFilterTokens(tags, { chatSelectable: true })].sort()).toEqual([
+      'context:>131072',
       'input:text',
       'output:text',
     ]);

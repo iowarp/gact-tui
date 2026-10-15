@@ -57,6 +57,19 @@ export interface PendingInteractionPayload {
   expires_at?: string;
   input_key?: string;
   permission_id?: string;
+  execution?: { computer: string; cwd: string };
+  access?: {
+    folders: string[];
+    computer: string;
+    workspace_id: string;
+    operation: string;
+    command: string;
+    paths: string[];
+    cwd: string;
+    reason: string;
+    access: 'read_write';
+    scope: 'workspace';
+  };
   tool_call?: { tool_name?: string; input?: unknown };
   revision?: number;
   server_id?: string;

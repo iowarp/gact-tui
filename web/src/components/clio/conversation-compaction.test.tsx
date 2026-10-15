@@ -431,14 +431,12 @@ describe('ClioConversation renders each block once', () => {
     expect(screen.getAllByText('Final answer text.')).toHaveLength(1);
   });
 
-  it('leaves a detached surface awaiting a pending response to the response tray', () => {
-    // The surface has no message block (it is detached) and a pending A2UI
-    // response owns it: the tray renders it, so the transcript must not.
+  it('keeps a detached actionable surface in the transcript while a response is pending', () => {
     conversation([userMessage, { ...assistantMessage, blocks: [summaryBlock] }], undefined, {
       interactions: [pendingSurfaceResponse('surface_map')],
       surfaces: { surface_map: mapSurface('surface_map') },
     });
-    expect(mountedSurfaces('surface_map')).toHaveLength(0);
+    expect(mountedSurfaces('surface_map')).toHaveLength(1);
     expect(document.querySelectorAll('[data-source="summarization"]')).toHaveLength(1);
   });
 

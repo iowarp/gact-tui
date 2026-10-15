@@ -1,4 +1,4 @@
-import { FolderIcon, FolderOpenIcon, KeyboardIcon } from 'lucide-react';
+import { FolderIcon, FolderOpenIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   FileTree,
@@ -7,7 +7,6 @@ import {
   FileTreeName,
 } from '@/components/ai-elements/file-tree';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -34,18 +33,19 @@ interface ClioPathPickerProps {
   knownFolders?: readonly PathChoice[];
   placeholder?: string;
   disabled?: boolean;
+  inputLabel?: string;
 }
 
-/** Selects a local native folder or a folder already exposed by a remote agent service. */
+/** Edit one folder path directly or choose it with the service/native picker. */
 export function ClioPathPicker({
   value,
   onChange,
   knownFolders = [],
-  placeholder = 'Choose a folder',
+  placeholder = 'Type, paste, or browse for a folder',
   disabled,
+  inputLabel = 'Folder path',
 }: ClioPathPickerProps) {
   const [browserOpen, setBrowserOpen] = useState(false);
-  const [manualOpen, setManualOpen] = useState(false);
   const [candidate, setCandidate] = useState(value);
   const folders = useMemo(() => uniqueFolders(knownFolders), [knownFolders]);
 
@@ -63,12 +63,19 @@ export function ClioPathPicker({
   return (
     <div className="grid min-w-0 gap-2">
       <div className="flex min-w-0 gap-2">
-        <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border bg-muted/20 px-3">
-          <FolderIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-          <span className={value ? 'truncate text-sm' : 'truncate text-sm text-muted-foreground'}>
-            {value || placeholder}
-          </span>
-        </div>
+        <InputGroup className="min-w-0 flex-1">
+          <InputGroupAddon>
+            <FolderIcon aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
+            aria-label={inputLabel}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={placeholder}
+            title={value || undefined}
+            value={value}
+          />
+        </InputGroup>
         <Button
           disabled={disabled}
           onClick={() => void chooseFolder()}
@@ -78,24 +85,6 @@ export function ClioPathPicker({
           <FolderOpenIcon aria-hidden="true" /> Browse
         </Button>
       </div>
-      <Collapsible onOpenChange={setManualOpen} open={manualOpen}>
-        <CollapsibleTrigger asChild>
-          <Button className="h-7 w-fit px-1.5 text-xs" type="button" variant="ghost">
-            <KeyboardIcon aria-hidden="true" className="size-3.5" />
-            {manualOpen ? 'Hide path entry' : 'Enter a path instead'}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <Input
-            aria-label="Folder path"
-            className="mt-1 font-mono text-xs"
-            disabled={disabled}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder="Enter a path on the agent service"
-            value={value}
-          />
-        </CollapsibleContent>
-      </Collapsible>
       <Dialog onOpenChange={setBrowserOpen} open={browserOpen}>
         <DialogContent className="grid max-h-[min(620px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-lg">
           <DialogHeader>
@@ -120,10 +109,7 @@ export function ClioPathPicker({
                     </FileTreeIcon>
                     <FileTreeName>{folder.name}</FileTreeName>
                     {folder.qualifiers?.map((qualifier) => (
-                      <span
-                        className="shrink-0 text-xs text-muted-foreground"
-                        key={qualifier}
-                      >
+                      <span className="shrink-0 text-xs text-muted-foreground" key={qualifier}>
                         {qualifier}
                       </span>
                     ))}

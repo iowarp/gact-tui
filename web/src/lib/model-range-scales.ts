@@ -1,4 +1,5 @@
 import { formatParameterCount } from './model-facts';
+import { formatContextSize } from './model-capability-tags';
 import { parseRangeToken, RANGE_MODIFIERS, type RangeKind } from './model-range-tokens';
 
 /**
@@ -22,6 +23,17 @@ export const SIZE_STOPS: readonly ScaleStop[] = [
   { value: 32e9, label: '32B', tick: true },
   { value: 128e9, label: '128B', tick: true },
   { value: 500e9, label: '>500B', tick: true },
+];
+
+/** Open-ended token scale: typing supports exact limits, including 922,000. */
+export const CONTEXT_STOPS: readonly ScaleStop[] = [
+  { value: 128, label: 'Min', tick: true },
+  ...[4_000, 32_000, 128_000, 256_000, 1_000_000, 10_000_000].map((value) => ({
+    value,
+    label: formatContextSize(value),
+    tick: true,
+  })),
+  { value: Number.POSITIVE_INFINITY, label: 'Max', tick: true },
 ];
 
 /** "$0.1", "$25", "$360K": a price stop's tick. */
@@ -73,12 +85,12 @@ function costText(value: number): string {
 
 /** The token a numeric slider at [low, high] (stop indexes) writes, or none at both ends. */
 export function numericRangeToken(
-  kind: 'size' | 'cost',
+  kind: 'size' | 'cost' | 'context',
   stops: readonly ScaleStop[],
   [low, high]: readonly [number, number],
 ): string | undefined {
   const last = stops.length - 1;
-  const text = kind === 'size' ? sizeText : costText;
+  const text = kind === 'size' ? sizeText : kind === 'context' ? formatContextSize : costText;
   if (low <= 0 && high >= last) return undefined;
   if (low <= 0) return `${kind}:<${text(stops[high]!.value)}`;
   if (high >= last) return `${kind}:>${text(stops[low]!.value)}`;
@@ -100,7 +112,7 @@ export function rangeTokenOf(kind: RangeKind, tokens: readonly string[]): string
 
 /** Where a numeric slider sits for the active tokens: both ends with no token. */
 export function numericSliderValue(
-  kind: 'size' | 'cost',
+  kind: 'size' | 'cost' | 'context',
   stops: readonly ScaleStop[],
   tokens: readonly string[],
 ): [number, number] {
@@ -139,7 +151,8 @@ export function replaceRangeToken(
   const modifiers = RANGE_MODIFIERS[kind];
   const kept = tokens.filter(
     (token) =>
-      parseRangeToken(token)?.kind !== kind && (next !== undefined || !modifiers.includes(token.toLowerCase())),
+      parseRangeToken(token)?.kind !== kind &&
+      (next !== undefined || !modifiers.includes(token.toLowerCase())),
   );
   return next ? [...kept, next] : kept;
 }

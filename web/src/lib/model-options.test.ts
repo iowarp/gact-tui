@@ -62,13 +62,47 @@ const lmStudioPreset: LanguageModelPreset = {
 };
 
 describe('buildModelOptions', () => {
+  it('retains MAG deployment input/output limits and their independent provenance', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'amsc_mag',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'amsc_mag',
+            name: 'AMSC',
+            models: [
+              {
+                ...catalogModel('claude-opus-5-5-high@amazon'),
+                provider_id: 'amsc_mag',
+                context_window: 1_000_000,
+                output_limit: 128_000,
+                context_basis: 'served',
+                capabilities_provenance: {
+                  context_window: { source: 'server_report', decided_by: 'deployment' },
+                  output_limit: { source: 'server_report', decided_by: 'deployment' },
+                },
+              },
+            ],
+          }),
+        ],
+      },
+    });
+    expect(option?.contextWindow).toBe(1_000_000);
+    expect(option?.outputLimit).toBe(128_000);
+    expect(option?.contextBasis).toBe('served');
+    expect(option?.capabilityProvenance?.context_window?.source).toBe('server_report');
+  });
   it('marks a provider the service is probing right now as checking, over its cached health', () => {
     const [option] = buildModelOptions({
       activeCatalogProvider: 'codex',
       presets: [],
       providerCatalog: {
         authoritative: 'live_handshake',
-        providers: [catalogProvider({ checking: true, health: 'unavailable', failure: 'unreachable' })],
+        providers: [
+          catalogProvider({ checking: true, health: 'unavailable', failure: 'unreachable' }),
+        ],
       },
     });
 
@@ -147,7 +181,9 @@ describe('buildModelOptions', () => {
             failure: 'argonne_reauthentication_required: Globus high-assurance timeout',
           }),
           catalogProvider({
-            models: [catalogModel('gpt-5.6-luna', 'unavailable', 'model_not_entitled: not on this plan')],
+            models: [
+              catalogModel('gpt-5.6-luna', 'unavailable', 'model_not_entitled: not on this plan'),
+            ],
           }),
         ],
       },
@@ -550,18 +586,18 @@ describe('matchesConfiguredModel', () => {
   });
 
   it('matches by a reported CLI alias', () => {
-    expect(
-      matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'sonnet'),
-    ).toBe(true);
-    expect(
-      matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'haiku'),
-    ).toBe(false);
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'sonnet')).toBe(
+      true,
+    );
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'haiku')).toBe(
+      false,
+    );
   });
 
   it('matches by the service-resolved id when neither id nor alias matches', () => {
-    expect(
-      matchesConfiguredModel({ id: 'claude-sonnet-5' }, 'sonnet', 'claude-sonnet-5'),
-    ).toBe(true);
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, 'sonnet', 'claude-sonnet-5')).toBe(
+      true,
+    );
   });
 
   it('never matches an empty/undefined configured model', () => {

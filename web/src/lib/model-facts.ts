@@ -9,6 +9,8 @@ import type { ClioModelOption } from './model-options';
  * guessed, and nothing is read off a model's name.
  */
 export interface ModelFactSummary {
+  /** Context tokens from the catalog's effective deployment limit. */
+  contextWindow?: number;
   description?: { plain: string; links: readonly { text: string; url: string }[] };
   /** The first day the stated release date can mean (`2026-02` -> Feb 1st). */
   releasedOn?: Date;
@@ -37,7 +39,7 @@ export function earliestDay(value: string): Date | undefined {
 }
 
 function positive(value: number | null | undefined): number | undefined {
-  return typeof value === 'number' && value > 0 ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 /** The normalized facts of one record (absent record: no facts). */
@@ -81,7 +83,7 @@ export function modelFactSummary(facts: ModelFacts | undefined): ModelFactSummar
 
 /** The facts of one model option. */
 export function modelFactsFromOption(option: ClioModelOption): ModelFactSummary {
-  return modelFactSummary(option.modelFacts);
+  return { ...modelFactSummary(option.modelFacts), contextWindow: positive(option.contextWindow) };
 }
 
 /** "70B", "7.6B", "1.2T", "350M": a parameter count as people say it. */

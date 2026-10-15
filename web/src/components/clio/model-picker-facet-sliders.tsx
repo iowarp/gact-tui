@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Badge } from '@/components/reui/badge';
 import {
   costStops,
+  CONTEXT_STOPS,
   numericRangeToken,
   numericSliderValue,
   rangeTokenOf,
@@ -16,6 +17,7 @@ import {
   COST_SUBSCRIPTION_TOKEN,
   COST_UNPRICED_TOKEN,
   COST_VARIABLE_TOKEN,
+  CONTEXT_ANY_TOKEN,
   SIZE_ANY_TOKEN,
 } from '@/lib/model-range-tokens';
 import type { ModelFilterToken } from '@/lib/model-filter-tokens';
@@ -29,14 +31,20 @@ interface FacetSlidersProps {
 }
 
 /**
- * The filter panel's three sliders -- Size (parameters), Cost (input $/1M
+ * The filter panel's sliders -- Context (input tokens), Size (parameters), Cost (input $/1M
  * tokens) and Released -- each writing ONE range token into the search bar
  * (`size:>32B`, `cost:<1`, `released:<6mo`) and reading its position back from
  * it, so typing a token moves the slider and dragging a slider edits the query.
  */
-export function ModelPickerFacetSliders({ tokens, onTokensChange, maxInputPrice }: FacetSlidersProps) {
+export function ModelPickerFacetSliders({
+  tokens,
+  onTokensChange,
+  maxInputPrice,
+}: FacetSlidersProps) {
   const prices = useMemo(() => costStops(maxInputPrice), [maxInputPrice]);
   const size = numericSliderValue('size', SIZE_STOPS, tokens);
+  const context = numericSliderValue('context', CONTEXT_STOPS, tokens);
+  const contextToken = rangeTokenOf('context', tokens);
   const cost = numericSliderValue('cost', prices, tokens);
   const released = releasedSliderValue(tokens);
   const sizeToken = rangeTokenOf('size', tokens);
@@ -65,12 +73,31 @@ export function ModelPickerFacetSliders({ tokens, onTokensChange, maxInputPrice 
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3" data-slot="facet-sliders">
+    <div className="grid gap-4 sm:grid-cols-2" data-slot="facet-sliders">
+      <ModelPickerRangeSlider
+        hint="Input context in tokens. Type context:>922K for an exact minimum."
+        label="Context"
+        onValueChange={([low, high]) =>
+          onTokensChange(
+            replaceRangeToken(
+              tokens,
+              'context',
+              numericRangeToken('context', CONTEXT_STOPS, [low!, high!]),
+            ),
+          )
+        }
+        stops={CONTEXT_STOPS}
+        options={[option('Include unknown context', 'switch', CONTEXT_ANY_TOKEN, contextToken)]}
+        token={contextToken}
+        value={context}
+      />
       <ModelPickerRangeSlider
         hint="Total parameters, as the model's sources state them"
         label="Size"
         onValueChange={([low, high]) =>
-          onTokensChange(replaceRangeToken(tokens, 'size', numericRangeToken('size', SIZE_STOPS, [low!, high!])))
+          onTokensChange(
+            replaceRangeToken(tokens, 'size', numericRangeToken('size', SIZE_STOPS, [low!, high!])),
+          )
         }
         stops={SIZE_STOPS}
         options={[option('Include unknown size', 'switch', SIZE_ANY_TOKEN, sizeToken)]}
@@ -81,7 +108,9 @@ export function ModelPickerFacetSliders({ tokens, onTokensChange, maxInputPrice 
         hint="Input price in USD per 1M tokens"
         label="Cost"
         onValueChange={([low, high]) =>
-          onTokensChange(replaceRangeToken(tokens, 'cost', numericRangeToken('cost', prices, [low!, high!])))
+          onTokensChange(
+            replaceRangeToken(tokens, 'cost', numericRangeToken('cost', prices, [low!, high!])),
+          )
         }
         stops={prices}
         options={[
@@ -99,7 +128,11 @@ export function ModelPickerFacetSliders({ tokens, onTokensChange, maxInputPrice 
               aria-pressed={recent}
               className="cursor-pointer gap-1 font-normal"
               data-slot="facet-recent"
-              onClick={() => onTokensChange(replaceRangeToken(tokens, 'released', recent ? undefined : RECENT_TOKEN))}
+              onClick={() =>
+                onTokensChange(
+                  replaceRangeToken(tokens, 'released', recent ? undefined : RECENT_TOKEN),
+                )
+              }
               title={RECENT_TOKEN}
               type="button"
             >
