@@ -22,6 +22,12 @@ pub fn get_backend(state: tauri::State<'_, Mutex<Supervisor>>) -> BackendHandle 
     lock_recover(&state).snapshot()
 }
 
+/// Whether this Desktop owns a writable bundled runtime that it can update.
+#[tauri::command]
+pub fn has_managed_runtime(state: tauri::State<'_, Mutex<Supervisor>>) -> bool {
+    lock_recover(&state).managed_runtime_dir().is_some()
+}
+
 /// Retry a failed managed-backend boot without restarting the desktop shell.
 ///
 /// A killed or stalled child leaves the supervisor in a typed Error state.

@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   managedBackendStatus: undefined as
     | { kind: 'starting'; detail: 'checking_existing' | 'starting_service' }
     | { kind: 'needs_install' }
+    | { kind: 'error'; detail: string }
     | { kind: 'auth_unavailable'; detail: string }
     | undefined,
   credentialError: undefined as string | undefined,
@@ -200,6 +201,24 @@ it('defers an in-flight startup navigation until global search closes', async ()
   await act(async () => useCommandMenuVisibility.getState().setOpen(false));
   expect(await screen.findByText('Workspace opened')).toBeVisible();
   expect(mocks.resolveConnection).toHaveBeenCalledOnce();
+});
+
+it('identifies a failed local startup without claiming the saved token was lost (#1777)', () => {
+  mocks.inTauri = true;
+  const detail = 'document_install.py: error: unrecognized arguments: --reuse-installed';
+  mocks.managedBackendStatus = { kind: 'error', detail };
+  mocks.credentialError = detail;
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ConnectionPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(screen.getByText(`Local ${vocab.agent} could not start`)).toBeVisible();
+  expect(screen.getByText(detail)).toBeVisible();
+  expect(screen.queryByText('Saved access token unavailable')).not.toBeInTheDocument();
 });
 
 it('says up front that the desktop cannot sign in to an already-running agent (#1478)', () => {

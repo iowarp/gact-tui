@@ -189,6 +189,13 @@ describe('managed Tauri backend', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('retry_backend');
   });
 
+  it('queries native ownership before pairing a runtime with a Desktop update', async () => {
+    const { hasManagedRuntime } = await import('./managed-backend');
+    mocks.invoke.mockResolvedValueOnce(true);
+    await expect(hasManagedRuntime()).resolves.toBe(true);
+    expect(mocks.invoke).toHaveBeenCalledWith('has_managed_runtime');
+  });
+
   it('waits for verified agent completion and passes the combined-restart policy', async () => {
     mocks.invoke.mockImplementationOnce(async () => {
       mocks.listeners.get('clio:install-done')?.({ payload: undefined });

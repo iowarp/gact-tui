@@ -32,6 +32,7 @@ mod menu;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu_spec;
 mod net_util;
+mod package_version;
 mod plugins;
 mod remote_lifecycle;
 #[cfg_attr(not(windows), allow(dead_code))]
@@ -188,6 +189,7 @@ pub fn run() {
             storage_oauth::storage_oauth_receive,
             storage_oauth::storage_oauth_cancel,
             commands::get_backend,
+            commands::has_managed_runtime,
             commands::retry_backend,
             commands::install_clio,
             commands::repair_clio,

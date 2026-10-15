@@ -187,6 +187,10 @@ describe('SystemVersionStatus', () => {
       }),
     );
     expect(desktop.install).toHaveBeenCalledOnce();
+    expect(desktop.install).toHaveBeenCalledWith(expect.any(Function), {
+      runtimeAlreadyUpdated: true,
+      flowAlreadyStarted: true,
+    });
   });
 
   it('disables both rows and the header action while any update is in flight', async () => {

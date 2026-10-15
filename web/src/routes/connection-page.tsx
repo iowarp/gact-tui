@@ -762,7 +762,7 @@ export function ConnectionPage() {
                   <AlertTitle>
                     {managedBackendStatus?.kind === 'auth_unavailable'
                       ? `Can't sign in to the running ${vocab.agent}`
-                      : 'Saved access token unavailable'}
+                      : `Local ${vocab.agent} could not start`}
                   </AlertTitle>
                   <AlertDescription>{credentialError}</AlertDescription>
                 </Alert>

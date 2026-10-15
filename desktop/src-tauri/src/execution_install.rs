@@ -73,7 +73,38 @@ pub(crate) fn prepare_packages(
     workspace: &Path,
     user: &Path,
 ) -> Result<(), String> {
-    run_install(startup_command(runtime, workspace, user)?, &boot_log_line)
+    let mut probe = install_command(runtime, workspace, user)?;
+    probe.arg("--help");
+    prepare_startup(
+        probe,
+        startup_command(runtime, workspace, user)?,
+        &boot_log_line,
+    )
+}
+
+fn prepare_startup(
+    mut probe: Command,
+    startup: Command,
+    log: &(impl Fn(&str) + Sync),
+) -> Result<(), String> {
+    let help = probe
+        .output()
+        .map_err(|error| format!("inspect managed package setup: {error}"))?;
+    if !help.status.success() {
+        return Err(format!(
+            "inspect managed package setup failed ({}): {}",
+            help.status,
+            String::from_utf8_lossy(&help.stderr)
+        ));
+    }
+    if !String::from_utf8_lossy(&help.stdout)
+        .split_whitespace()
+        .any(|arg| arg.trim_matches(|c: char| matches!(c, '[' | ']' | ',')) == "--reuse-installed")
+    {
+        log("This CLIO runtime predates package reuse. Keeping its installed packages; update CLIO from System version.");
+        return Ok(());
+    }
+    run_install(startup, log)
 }
 
 fn startup_command(runtime: &Path, workspace: &Path, user: &Path) -> Result<Command, String> {
@@ -209,6 +240,78 @@ mod tests {
         assert!(!startup
             .get_args()
             .any(|arg| arg == "--setup-protected-execution"));
+    }
+
+    #[test]
+    fn startup_help_fixture() {
+        match std::env::var("CLIO_SETUP_HELP_FIXTURE").as_deref() {
+            Ok("legacy") => {
+                println!("usage: document_install.py [-h] [--workspace WORKSPACE]");
+                std::process::exit(0);
+            }
+            Ok("modern") => {
+                println!("usage: document_install.py [--reuse-installed]");
+                std::process::exit(0);
+            }
+            Ok("failed") => {
+                eprintln!("ImportError: package setup could not load");
+                std::process::exit(2);
+            }
+            _ => {}
+        }
+    }
+
+    fn help_fixture(mode: &str) -> Command {
+        let mut command = Command::new(std::env::current_exe().unwrap());
+        command
+            .args([
+                "--exact",
+                "execution_install::tests::startup_help_fixture",
+                "--nocapture",
+            ])
+            .env("CLIO_SETUP_HELP_FIXTURE", mode);
+        command
+    }
+
+    #[test]
+    fn legacy_startup_keeps_existing_packages_without_running_unsupported_arguments() {
+        let lines = Mutex::new(Vec::new());
+        prepare_startup(
+            help_fixture("legacy"),
+            Command::new("must-not-run-old-installer"),
+            &|line| lines.lock().unwrap().push(line.to_string()),
+        )
+        .unwrap();
+        assert!(lines
+            .into_inner()
+            .unwrap()
+            .iter()
+            .any(|line| line.contains("Keeping its installed packages")));
+    }
+
+    #[test]
+    fn modern_startup_runs_setup_and_preserves_its_failure() {
+        let mut startup = Command::new(std::env::current_exe().unwrap());
+        startup
+            .args([
+                "--exact",
+                "execution_install::tests::installer_output_fixture",
+                "--nocapture",
+            ])
+            .env("CLIO_INSTALL_OUTPUT_FIXTURE", "1");
+        let error = prepare_startup(help_fixture("modern"), startup, &|_| {}).unwrap_err();
+        assert!(error.contains("permission preparation failed"));
+    }
+
+    #[test]
+    fn a_broken_help_probe_does_not_silently_skip_setup() {
+        let error = prepare_startup(
+            help_fixture("failed"),
+            Command::new("must-not-run-installer"),
+            &|_| {},
+        )
+        .unwrap_err();
+        assert!(error.contains("ImportError: package setup could not load"));
     }
 
     #[cfg(windows)]

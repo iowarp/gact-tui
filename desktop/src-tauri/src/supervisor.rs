@@ -176,6 +176,22 @@ mod tests {
     use crate::supervisor_spawn::spawn_and_probe;
     use std::time::Duration;
 
+    #[test]
+    fn runtime_update_ownership_requires_this_supervisors_prepared_runtime() {
+        let mut supervisor = Supervisor::new();
+        assert!(supervisor.managed_runtime_dir().is_none());
+        let root =
+            std::env::temp_dir().join(format!("clio-update-ownership-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        supervisor.set_bundled_runtime(root.join("resources"), root.clone());
+        assert!(supervisor.managed_runtime_dir().is_none());
+        let runtime = root.join("bundled-runtime/gact-runtime");
+        std::fs::create_dir_all(&runtime).unwrap();
+        std::fs::write(runtime.join("runtime.json"), "{}").unwrap();
+        assert_eq!(supervisor.managed_runtime_dir(), Some(runtime));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     /// W4 hardening: the SPAWN path + shutdown reaping, end-to-end.
     ///
     /// Spawns the real Go launcher (which resolves a real clio-agent-gact —

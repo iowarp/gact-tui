@@ -64,6 +64,11 @@ export async function getManagedBackend(): Promise<ManagedBackendHandle> {
   return invokeManagedBackend<ManagedBackendHandle>('get_backend');
 }
 
+/** Only a Desktop-owned runtime may be changed as part of a Desktop update. */
+export async function hasManagedRuntime(): Promise<boolean> {
+  return invokeManagedBackend<boolean>('has_managed_runtime');
+}
+
 /** Re-run the owned backend spawn pipeline after a typed startup failure. */
 export async function retryManagedBackend(): Promise<void> {
   await invokeManagedBackend<void>('retry_backend');

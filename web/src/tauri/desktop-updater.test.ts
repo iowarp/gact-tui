@@ -39,6 +39,17 @@ const channelMocks = vi.hoisted(() => ({
   })),
 }));
 
+const runtimeMocks = vi.hoisted(() => ({
+  has: vi.fn(async () => false),
+  update: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
+  restart: vi.fn(async () => undefined),
+}));
+vi.mock('./managed-backend', () => ({
+  hasManagedRuntime: runtimeMocks.has,
+  updateManagedClio: runtimeMocks.update,
+  restartClio: runtimeMocks.restart,
+}));
+
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => true }));
 vi.mock('@tauri-apps/plugin-updater', () => ({
   check: mocks.check,
@@ -68,12 +79,16 @@ import {
   isDesktopUpdateInstalling,
 } from './desktop-updater';
 import { setUpdateChannel } from '@/lib/update-channel';
+import { readPendingUpdateMarker, useUpdateFlowStore } from '@/store/update-flow-store';
 
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   setUpdateChannel('stable');
+  useUpdateFlowStore.getState().reset();
   channelMocks.getVersion.mockResolvedValue('0.7.2');
+  runtimeMocks.has.mockResolvedValue(false);
+  mocks.update.version = '0.8.0';
 });
 
 describe('desktop updater bridge', () => {
@@ -92,6 +107,7 @@ describe('desktop updater bridge', () => {
     await expect(checkForDesktopUpdate()).rejects.toThrow('already being installed');
     setUpdateChannel('beta');
     expect(mocks.update.close).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
     finish();
     await pending;
     expect(mocks.update.close).toHaveBeenCalledOnce();
@@ -164,6 +180,77 @@ describe('desktop updater bridge', () => {
     ]);
     expect(mocks.update.close).toHaveBeenCalled();
     expect(mocks.relaunch).toHaveBeenCalled();
+  });
+});
+
+describe('Desktop-owned runtime updates (#1777)', () => {
+  it('blocks a stale Desktop notification while an agent update owns the runtime', async () => {
+    await checkForDesktopUpdate();
+    useUpdateFlowStore.getState().start('agent', '0.9.5-beta.7.1');
+    await expect(installDesktopUpdate(() => undefined)).rejects.toThrow('already in progress');
+    expect(runtimeMocks.has).not.toHaveBeenCalled();
+    expect(runtimeMocks.update).not.toHaveBeenCalled();
+    expect(mocks.update.downloadAndInstall).not.toHaveBeenCalled();
+  });
+
+  it('awaits the matching backend update before installing and restarts only once', async () => {
+    runtimeMocks.has.mockResolvedValue(true);
+    mocks.update.version = '0.9.5-7+1';
+    await checkForDesktopUpdate();
+    let finish!: () => void;
+    runtimeMocks.update.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const pending = installDesktopUpdate(() => undefined);
+    await vi.waitFor(() =>
+      expect(runtimeMocks.update).toHaveBeenCalledWith('v0.9.5-beta.7.1', {
+        restartApp: false,
+        onProgress: expect.any(Function),
+      }),
+    );
+    expect(mocks.update.downloadAndInstall).not.toHaveBeenCalled();
+    expect(useUpdateFlowStore.getState()).toMatchObject({ action: 'both', step: 'installing' });
+    expect(readPendingUpdateMarker()).toMatchObject({ action: 'both', version: '0.9.5-beta.7.1' });
+    finish();
+    await pending;
+    expect(mocks.update.downloadAndInstall).toHaveBeenCalledOnce();
+    expect(mocks.relaunch).toHaveBeenCalledOnce();
+    expect(runtimeMocks.restart).not.toHaveBeenCalled();
+    expect(useUpdateFlowStore.getState().step).toBe('restarting');
+  });
+
+  it('keeps external and unowned runtimes outside the Desktop update', async () => {
+    await checkForDesktopUpdate();
+    await installDesktopUpdate(() => undefined);
+    expect(runtimeMocks.update).not.toHaveBeenCalled();
+    expect(mocks.update.downloadAndInstall).toHaveBeenCalledOnce();
+  });
+
+  it('does not update a runtime twice after Update all already prepared it', async () => {
+    runtimeMocks.has.mockResolvedValue(true);
+    await checkForDesktopUpdate();
+    await installDesktopUpdate(() => undefined, { runtimeAlreadyUpdated: true });
+    expect(runtimeMocks.has).not.toHaveBeenCalled();
+    expect(runtimeMocks.update).not.toHaveBeenCalled();
+    expect(mocks.update.downloadAndInstall).toHaveBeenCalledOnce();
+  });
+
+  it('halts the Desktop update on backend failure and restores the managed service', async () => {
+    runtimeMocks.has.mockResolvedValue(true);
+    runtimeMocks.update.mockRejectedValueOnce(new Error('Backend import verification failed'));
+    await checkForDesktopUpdate();
+    await expect(installDesktopUpdate(() => undefined)).rejects.toThrow(
+      'Backend import verification failed',
+    );
+    expect(mocks.update.downloadAndInstall).not.toHaveBeenCalled();
+    expect(mocks.relaunch).not.toHaveBeenCalled();
+    expect(runtimeMocks.restart).toHaveBeenCalledOnce();
+    expect(isDesktopUpdateInstalling()).toBe(false);
+    expect(useUpdateFlowStore.getState().step).toBe('failed');
+    expect(readPendingUpdateMarker()).toBeUndefined();
   });
 });
 

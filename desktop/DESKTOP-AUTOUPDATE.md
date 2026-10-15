@@ -53,8 +53,8 @@ This prints (and writes) two things:
 
 Replace the placeholder in all three config variants (they are kept consistent):
 
-- `src-tauri/tauri.conf.json`        (CLIO brand — the base config)
-- `src-tauri/tauri.gact.conf.json`   (neutral GACT brand overlay)
+- `src-tauri/tauri.conf.json` (CLIO brand — the base config)
+- `src-tauri/tauri.gact.conf.json` (neutral GACT brand overlay)
 - `src-tauri/tauri.bundled.conf.json` (thin overlay; inherits the base `plugins`
   block, so nothing to change there unless you want a different key)
 
@@ -105,8 +105,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: macos-latest,   args: '--target universal-apple-darwin' }
-          - { platform: ubuntu-22.04,   args: '' }
+          - { platform: macos-latest, args: '--target universal-apple-darwin' }
+          - { platform: ubuntu-22.04, args: '' }
           - { platform: windows-latest, args: '' }
     runs-on: ${{ matrix.platform }}
     steps:
@@ -146,9 +146,18 @@ A `latest.json` looks like:
   "notes": "Release notes shown in the update prompt.",
   "pub_date": "2026-06-23T00:00:00Z",
   "platforms": {
-    "darwin-aarch64": { "signature": "<minisign sig>", "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/CLIO.app.tar.gz" },
-    "linux-x86_64":   { "signature": "<minisign sig>", "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/clio_0.8.0_amd64.AppImage" },
-    "windows-x86_64": { "signature": "<minisign sig>", "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/CLIO_0.8.0_x64-setup.nsis.zip" }
+    "darwin-aarch64": {
+      "signature": "<minisign sig>",
+      "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/CLIO.app.tar.gz"
+    },
+    "linux-x86_64": {
+      "signature": "<minisign sig>",
+      "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/clio_0.8.0_amd64.AppImage"
+    },
+    "windows-x86_64": {
+      "signature": "<minisign sig>",
+      "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/CLIO_0.8.0_x64-setup.nsis.zip"
+    }
   }
 }
 ```
@@ -191,3 +200,24 @@ updates until replaced.
 
 [plugin]: https://v2.tauri.app/plugin/updater/
 [action]: https://github.com/tauri-apps/tauri-action
+
+## Managed backend updates and older installations
+
+On installations with a Desktop-owned writable bundled runtime, an in-app Desktop
+update first updates that runtime to the same release and verifies its imported
+version and full application entry point. Only then does the signed Desktop update
+install and restart once. The background update notification, Settings and System
+version use this path. An explicit Update all operation passes its completed runtime
+step through so the backend is not installed twice. External services are not updated
+by this pairing.
+
+GitHub beta tags and Python versions differ: `v0.9.5-beta.7.1` installs and verifies
+`clio-agent==0.9.5b7.post1`. Stable four-component releases retain their published
+Python spelling. The signature-verifying native Desktop updater remains unchanged.
+
+When a newer Desktop starts a retained older runtime, package setup checks the old
+installer's help before requesting `--reuse-installed`. A legacy installer without
+that flag keeps its already installed packages so CLIO can start and expose its
+backend update action. Failed capability probes and failed supported setup still
+surface their actual errors. Package/startup errors are labelled as local startup
+failures; an authentication failure keeps its separate sign-in message.
