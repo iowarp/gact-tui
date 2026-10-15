@@ -143,12 +143,13 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
   expect(frameRequests.filter((url) => !url.startsWith(`${origin}/hdf5-viewer/`))).toEqual([]);
 });
 
-test('the desktop CSP blocks the HDF5 viewer (known gap)', async ({ page }) => {
+test('on the app origin, the desktop CSP blocks the HDF5 viewer', async ({ page }) => {
   // h5web's ndarray and ndarray-ops build functions from strings at load,
-  // which the desktop CSP (no 'unsafe-eval') refuses, so the viewer never
-  // renders in the desktop app. Upstream: silx-kit/h5web#2047. This test pins
-  // that behavior; when it fails because the viewer renders, the gap is
-  // closed: turn it into a positive test.
+  // which the desktop CSP (no 'unsafe-eval') refuses. This is why the desktop
+  // app serves the viewer from its own origin with its own policy instead
+  // (hdf5-viewer-desktop-origin.spec.ts). If this starts failing because the
+  // viewer renders, h5web dropped the generated code upstream
+  // (silx-kit/h5web#2047) and the separate origin may no longer be needed.
   const csp = desktopCsp();
   // Deliver the CSP as a header on the app's and the viewer's documents, as
   // the desktop shell does. An init-script <meta>

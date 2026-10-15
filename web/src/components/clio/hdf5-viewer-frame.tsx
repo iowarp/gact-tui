@@ -5,11 +5,12 @@ import {
   type HostMessage,
 } from '@clio/hdf5-viewer/protocol';
 import { useTheme } from 'next-themes';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { currentViewerLocation, HDF5_VIEWER_PATH } from './hdf5-viewer-location';
 
 /** The h5web viewer page, built from packages/hdf5-viewer and served by the web app. */
-export const HDF5_VIEWER_URL = '/hdf5-viewer/index.html';
+export const HDF5_VIEWER_URL = `/${HDF5_VIEWER_PATH}`;
 
 /** Most files whose last selection is remembered. */
 const REMEMBERED_FILES = 50;
@@ -43,6 +44,10 @@ function rememberSelection(key: string, requested: string | undefined, selected:
  * here, and this component answers it through the repository's transport, so
  * the same authenticated path serves the browser and the desktop app. The
  * file is fixed by `path`; the iframe cannot name another one.
+ *
+ * In the packaged desktop app the page comes from its own origin, whose CSP
+ * allows what h5web needs and the app's does not (see hdf5-viewer-location).
+ * Messages go to, and are only accepted from, that exact origin.
  */
 export function Hdf5ViewerFrame({
   workspaceId,
@@ -61,6 +66,7 @@ export function Hdf5ViewerFrame({
 }) {
   const repository = useRepository();
   const { resolvedTheme } = useTheme();
+  const viewer = useMemo(() => currentViewerLocation(), []);
   const theme = resolvedTheme === 'dark' ? 'dark' : resolvedTheme === 'light' ? 'light' : undefined;
   const fileKey = `${workspaceId}\u0000${path}`;
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -78,7 +84,7 @@ export function Hdf5ViewerFrame({
   }, [onSelect]);
 
   useEffect(() => {
-    const origin = window.location.origin;
+    const origin = viewer.origin;
     const inFlight = new Map<number, AbortController>();
     // Read the frame's window on every use: moving the iframe in the page
     // (the canvas does, on maximize and restore) reloads it as a new window
@@ -146,24 +152,24 @@ export function Hdf5ViewerFrame({
       window.removeEventListener('message', onMessage);
       for (const controller of inFlight.values()) controller.abort();
     };
-  }, [repository, workspaceId]);
+  }, [repository, workspaceId, viewer.origin]);
 
   useEffect(() => {
     selectionRef.current = { fileKey, locator };
     initRef.current = { path, locator: startLocator(fileKey, locator), revision, theme };
     const target = iframeRef.current?.contentWindow;
     if (!target || !readyRef.current) return;
-    target.postMessage(initMessage(initRef.current), window.location.origin);
-  }, [fileKey, path, locator, revision, theme]);
+    target.postMessage(initMessage(initRef.current), viewer.origin);
+  }, [fileKey, path, locator, revision, theme, viewer.origin]);
 
   return (
-    // No sandbox: the page is first-party and same-origin, so sandbox flags
-    // would not isolate it, and h5web's exports need downloads.
+    // No sandbox: the page is first-party, and h5web's exports need
+    // downloads. Isolation comes from the separate origin on desktop.
     <iframe
       className="block size-full min-h-[32rem] border-0 bg-background"
       data-hdf5-viewer={path}
       ref={iframeRef}
-      src={HDF5_VIEWER_URL}
+      src={viewer.src}
       title={`HDF5 viewer: ${path}`}
     />
   );

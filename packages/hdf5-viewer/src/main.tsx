@@ -5,13 +5,14 @@ import { App, H5GroveProvider } from '@h5web/app';
 import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HostBridge, createExportURL, observeSelection } from './bridge';
+import { hostOriginFor } from './host-origin';
 import { applyTheme } from './theme';
 import { HDF5_VIEWER_PROTOCOL, VIEWER_SOURCE, type HostMessage } from './protocol';
 
 type Init = Extract<HostMessage, { type: 'init' }>;
 
-/** The host must be the page that framed this one, on the same origin. */
-const hostOrigin = window.location.origin;
+/** The only page whose messages this viewer accepts, and the one it answers. */
+const hostOrigin = hostOriginFor(window.location);
 
 function Viewer() {
   const bridge = useMemo(() => new HostBridge(window.parent, hostOrigin), []);

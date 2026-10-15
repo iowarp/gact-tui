@@ -79,6 +79,7 @@ mod terminal_reader;
 mod tray;
 mod update_channel;
 mod update_lease;
+mod viewer_origin;
 mod workspace_terminal;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -156,6 +157,9 @@ pub fn run() {
 
     let mut context = tauri::generate_context!();
     let startup_windows = downloads::defer_configured_windows(context.config_mut());
+    // Before `context` moves into the builder: the viewer pages are served from
+    // their own origin, with their own CSP (see viewer_origin.rs).
+    let viewer_assets = viewer_origin::ViewerAssets::capture(context.assets());
 
     let app = tauri::Builder::default()
         // A second launch restores the existing tray-resident process instead
@@ -177,6 +181,9 @@ pub fn run() {
         // Lets the frontend relaunch the app into the freshly installed binary
         // after the updater finishes (relaunch() in desktop-updater.ts).
         .plugin(tauri_plugin_process::init())
+        .register_uri_scheme_protocol(viewer_origin::SCHEME, move |_ctx, request| {
+            viewer_assets.respond(&request)
+        })
         .manage(state)
         .manage(ssh_transport::SshTransportRegistry::new())
         .manage(remote_lifecycle::DesktopDeploymentOwner(hex::encode(

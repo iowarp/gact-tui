@@ -6,12 +6,22 @@ import { HDF5_VIEWER_URL, Hdf5ViewerFrame } from './hdf5-viewer-frame';
 
 const repository = vi.hoisted(() => ({ readWorkspaceHdf5: vi.fn() }));
 const theme = vi.hoisted(() => ({ resolvedTheme: 'dark' as string | undefined }));
+/** The desktop viewer origin's base URL, or undefined for the web app. */
+const desktop = vi.hoisted(() => ({ base: undefined as string | undefined }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('next-themes', () => ({ useTheme: () => theme }));
+vi.mock('./hdf5-viewer-location', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./hdf5-viewer-location')>();
+  return {
+    ...actual,
+    currentViewerLocation: () => actual.viewerLocation(window.location.origin, desktop.base),
+  };
+});
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  desktop.base = undefined;
 });
 
 /** Render the frame and capture what it posts to the iframe window. */
@@ -229,5 +239,57 @@ describe('Hdf5ViewerFrame', () => {
     send({ source: VIEWER_SOURCE, type: 'fetch', id: 1, endpoint: 'files', params: {} });
     expect(onSelect).not.toHaveBeenCalled();
     expect(repository.readWorkspaceHdf5).not.toHaveBeenCalled();
+  });
+});
+
+describe('Hdf5ViewerFrame in the packaged desktop app', () => {
+  const viewerOrigin = 'http://gact-viewer.localhost';
+
+  function renderDesktop() {
+    desktop.base = `${viewerOrigin}/`;
+    return renderFrame();
+  }
+
+  it('loads the viewer from its own origin and names this page as the host', () => {
+    const { iframe } = renderDesktop();
+    expect(iframe.getAttribute('src')).toBe(
+      `${viewerOrigin}/hdf5-viewer/index.html?host=${encodeURIComponent(window.location.origin)}`,
+    );
+  });
+
+  it('talks only to the viewer origin', () => {
+    const { posted, send } = renderDesktop();
+    send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 });
+    expect(posted).not.toHaveBeenCalled();
+
+    send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 }, viewerOrigin);
+    expect(posted).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'init', filepath: 'runs/water.h5' }),
+      viewerOrigin,
+      [],
+    );
+  });
+
+  it('pins the file even when the viewer names another one', async () => {
+    repository.readWorkspaceHdf5.mockResolvedValue(new Uint8Array([1]));
+    const { send } = renderDesktop();
+    send({ source: VIEWER_SOURCE, type: 'ready', protocol: 1 }, viewerOrigin);
+    send(
+      {
+        source: VIEWER_SOURCE,
+        type: 'fetch',
+        id: 1,
+        endpoint: 'meta',
+        params: { file: 'secrets.h5', path: '/' },
+      },
+      viewerOrigin,
+    );
+    await act(async () => undefined);
+    expect(repository.readWorkspaceHdf5).toHaveBeenCalledWith(
+      'workspace_1',
+      'meta',
+      { file: 'runs/water.h5', path: '/' },
+      expect.any(AbortSignal),
+    );
   });
 });
