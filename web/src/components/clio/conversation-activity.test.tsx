@@ -309,7 +309,7 @@ describe('ClioConversation activity and interactive surfaces', () => {
     expect(screen.queryByText(`${PROTOCOL.a2ui} surface unavailable`)).not.toBeInTheDocument();
   });
 
-  it('leaves a pending interactive surface to the response stack and hides empty routing noise', () => {
+  it('keeps a pending interactive surface in its original message and hides empty routing noise', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -344,7 +344,7 @@ describe('ClioConversation activity and interactive surfaces', () => {
       />,
     );
 
-    expect(screen.queryByLabelText('Agent-created view')).not.toBeInTheDocument();
+    expect(screen.getByText(`${PROTOCOL.a2ui} surface unavailable`)).toBeInTheDocument();
     expect(screen.queryByText('Unknown')).not.toBeInTheDocument();
   });
 });

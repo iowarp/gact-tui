@@ -51,6 +51,8 @@ function pending(
     title: 'Response requested',
     source: { protocol: kind === 'mcp_task_input' ? 'mcp' : 'native' },
     created_at: '2026-09-02T00:00:00Z',
+    // These regression cases explicitly exercise retained inline presentation.
+    ...(kind === 'a2ui' ? { payload: { metadata: { a2ui_presentation: 'inline' } } } : {}),
     ...overrides,
   };
 }
@@ -135,7 +137,7 @@ function renderPending(
   return onResponse;
 }
 
-describe('ClioPendingInteractions A2UI kind', () => {
+describe('ClioPendingInteractions explicitly inline A2UI kind', () => {
   it('renders question, permission, task input, and child-owned A2UI as distinct kinds', async () => {
     const surface = actionSurface();
     renderPending(
