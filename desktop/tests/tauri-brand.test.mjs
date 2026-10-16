@@ -23,6 +23,7 @@ import {
   mergeConfig,
   mergeOverlayPaths,
   parseArgv,
+  tauriCommandArgs,
   resolveNativeBrandOverlay,
   resolveOverlayPaths,
 } from '../scripts/run-tauri-branded.mjs';
@@ -214,7 +215,7 @@ test('the element-wise merge is keyed on the exact app.windows path, not "any ar
 
 test('parseArgv folds a caller --config into the overlay list instead of forwarding it', () => {
   assert.deepEqual(parseArgv(['build', '--config', '/tmp/ci.conf.json', '--bundles', 'dmg']), {
-    tauriArgs: ['build', '--bundles', 'dmg', '--locked'],
+    tauriArgs: ['build', '--bundles', 'dmg'],
     extraOverlayPaths: ['/tmp/ci.conf.json'],
   });
 
@@ -222,7 +223,7 @@ test('parseArgv folds a caller --config into the overlay list instead of forward
   // composes with a leading `--config`.
   assert.deepEqual(
     parseArgv(['build', '--config', 'a.json', '--merge-config', 'b.json', 'c.json']),
-    { tauriArgs: ['build', '--locked'], extraOverlayPaths: ['a.json', 'b.json', 'c.json'] },
+    { tauriArgs: ['build'], extraOverlayPaths: ['a.json', 'b.json', 'c.json'] },
   );
 });
 
@@ -257,7 +258,7 @@ test('a caller --config folds into the overlay chain, and the macOS overlay alwa
       '--bundles',
       'dmg',
     ]);
-    assert.deepEqual(tauriArgs, ['build', '--bundles', 'dmg', '--locked']);
+    assert.deepEqual(tauriArgs, ['build', '--bundles', 'dmg']);
     assert.deepEqual(extraOverlayPaths, [extraConfigPath]);
 
     const darwinOverlays = resolveOverlayPaths({ extraOverlayPaths, platform: 'darwin' });
@@ -277,11 +278,29 @@ test('a caller --config folds into the overlay chain, and the macOS overlay alwa
   }
 });
 
-test('packaged builds keep an explicit lock flag and leave development commands alone', () => {
-  assert.deepEqual(parseArgv(['build', '--locked', '--debug']).tauriArgs, [
+test('packaged builds pass locked resolution to Cargo after the native CLI config', () => {
+  assert.deepEqual(tauriCommandArgs(['build', '--debug'], ['--config', 'brand.json']), [
     'build',
-    '--locked',
     '--debug',
+    '--config',
+    'brand.json',
+    '--',
+    '--locked',
   ]);
-  assert.deepEqual(parseArgv(['dev', '--no-watch']).tauriArgs, ['dev', '--no-watch']);
+  assert.deepEqual(
+    tauriCommandArgs(['build', '--', '--locked', '--offline'], ['--config', 'brand.json']),
+    ['build', '--config', 'brand.json', '--', '--locked', '--offline'],
+  );
+  assert.deepEqual(tauriCommandArgs(['build', '--', '--offline'], []), [
+    'build',
+    '--',
+    '--offline',
+    '--locked',
+  ]);
+  assert.deepEqual(tauriCommandArgs(['dev', '--no-watch'], ['--config', 'brand.json']), [
+    'dev',
+    '--no-watch',
+    '--config',
+    'brand.json',
+  ]);
 });

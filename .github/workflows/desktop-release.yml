@@ -78,4 +78,4 @@ jobs:
           releaseName: 'CLIO Desktop ${{ github.ref_name }}'
           releaseDraft: true
           prerelease: false
-          args: --locked ${{ matrix.args }}
+          args: ${{ matrix.args }} -- --locked
