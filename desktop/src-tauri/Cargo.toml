@@ -4,7 +4,7 @@ version = "0.7.3"
 description = "CLIO Desktop — Tauri shell"
 authors = ["IOWarp / gact-tui contributors"]
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.90"
 
 [lib]
 name = "clio_desktop_lib"
@@ -20,7 +20,9 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 # Auto-update: checks the GitHub-releases latest.json marker, verifies the
 # minisign signature against the configured pubkey, downloads + installs.
-tauri-plugin-updater = "2"
+# CLIO publishes Tauri v2 installers; the optional ZIP feature only reads v1 bundles.
+# Keep TLS and system proxies without resolving the withdrawn legacy ZIP releases.
+tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
 # Relaunch the app after an in-place update installs (the updater leaves the
 # running process in place on macOS/Linux; `relaunch()` boots the new binary).
 tauri-plugin-process = "2"

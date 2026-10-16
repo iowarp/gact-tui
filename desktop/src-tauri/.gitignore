@@ -1,5 +1,4 @@
 target/
-Cargo.lock
 gen/schemas/
 # Embedded backend runtime for the bundled installer variant.
 # Built on demand by the embedding brand's build script (e.g.

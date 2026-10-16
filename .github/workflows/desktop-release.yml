@@ -25,8 +25,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: macos-latest,   args: '--target universal-apple-darwin' }
-          - { platform: ubuntu-22.04,   args: '' }
+          - { platform: macos-latest, args: '--target universal-apple-darwin' }
+          - { platform: ubuntu-22.04, args: '' }
           - { platform: windows-latest, args: '' }
     runs-on: ${{ matrix.platform }}
     steps:
@@ -78,4 +78,4 @@ jobs:
           releaseName: 'CLIO Desktop ${{ github.ref_name }}'
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: --locked ${{ matrix.args }}

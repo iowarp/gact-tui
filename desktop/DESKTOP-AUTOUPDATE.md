@@ -53,8 +53,8 @@ This prints (and writes) two things:
 
 Replace the placeholder in all three config variants (they are kept consistent):
 
-- `src-tauri/tauri.conf.json`        (CLIO brand — the base config)
-- `src-tauri/tauri.gact.conf.json`   (neutral GACT brand overlay)
+- `src-tauri/tauri.conf.json` (CLIO brand — the base config)
+- `src-tauri/tauri.gact.conf.json` (neutral GACT brand overlay)
 - `src-tauri/tauri.bundled.conf.json` (thin overlay; inherits the base `plugins`
   block, so nothing to change there unless you want a different key)
 
@@ -105,8 +105,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: macos-latest,   args: '--target universal-apple-darwin' }
-          - { platform: ubuntu-22.04,   args: '' }
+          - { platform: macos-latest, args: '--target universal-apple-darwin' }
+          - { platform: ubuntu-22.04, args: '' }
           - { platform: windows-latest, args: '' }
     runs-on: ${{ matrix.platform }}
     steps:
@@ -146,9 +146,18 @@ A `latest.json` looks like:
   "notes": "Release notes shown in the update prompt.",
   "pub_date": "2026-06-23T00:00:00Z",
   "platforms": {
-    "darwin-aarch64": { "signature": "<minisign sig>", "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/CLIO.app.tar.gz" },
-    "linux-x86_64":   { "signature": "<minisign sig>", "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/clio_0.8.0_amd64.AppImage" },
-    "windows-x86_64": { "signature": "<minisign sig>", "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/CLIO_0.8.0_x64-setup.nsis.zip" }
+    "darwin-aarch64": {
+      "signature": "<minisign sig>",
+      "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/CLIO.app.tar.gz"
+    },
+    "linux-x86_64": {
+      "signature": "<minisign sig>",
+      "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/clio_0.8.0_amd64.AppImage"
+    },
+    "windows-x86_64": {
+      "signature": "<minisign sig>",
+      "url": "https://github.com/iowarp/gact-tui/releases/download/v0.8.0/CLIO_0.8.0_x64-setup.exe"
+    }
   }
 }
 ```
@@ -191,3 +200,20 @@ updates until replaced.
 
 [plugin]: https://v2.tauri.app/plugin/updater/
 [action]: https://github.com/tauri-apps/tauri-action
+
+## Reproducible native dependencies
+
+The desktop application commits `desktop/src-tauri/Cargo.lock`. Branded builds
+and the signed release job use `--locked`, and the native test jobs use the same
+graph. Change dependencies deliberately and regenerate the lock with
+`cargo generate-lockfile --manifest-path desktop/src-tauri/Cargo.toml`.
+The supported build toolchain is Rust 1.90 or later, matching the updater plugin.
+
+The updater enables Rustls TLS and system proxy support explicitly. Its optional
+`zip` feature reads legacy Tauri v1 Windows updater archives and is disabled: this
+application publishes Tauri v2 artifacts (`createUpdaterArtifacts: true`), with
+signed `.exe`/`.msi` installers on Windows, AppImage on Linux, and `.app.tar.gz`
+on macOS. Signature verification remains required. This avoids resolving the
+withdrawn legacy ZIP crate versions on a fresh checkout. See the
+[updater feature reference](https://docs.rs/tauri-plugin-updater/latest/tauri_plugin_updater/)
+and [Tauri artifact formats](https://tauri.app/plugin/updater/#building).

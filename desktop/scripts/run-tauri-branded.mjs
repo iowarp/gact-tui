@@ -104,11 +104,7 @@ export function mergeConfig(base, overlay, path = []) {
 
 export function resolveNativeBrandOverlay(configPath) {
   const { profile, brandingRoot } = resolveBrandConfig(configPath);
-  const productOverlay = resolve(
-    brandingRoot,
-    profile,
-    `tauri.${profile}.conf.json`,
-  );
+  const productOverlay = resolve(brandingRoot, profile, `tauri.${profile}.conf.json`);
   if (existsSync(productOverlay)) return productOverlay;
 
   const workspaceOverlay = resolve(tauriDir, `tauri.${profile}.conf.json`);
@@ -166,6 +162,10 @@ export function parseArgv(argv) {
 
   if (tauriArgs.length === 0) {
     throw new Error('Expected a Tauri command such as dev or build.');
+  }
+  // Every packaged build uses the reviewed dependency graph in Cargo.lock.
+  if (tauriArgs[0] === 'build' && !tauriArgs.includes('--locked')) {
+    tauriArgs.push('--locked');
   }
   return { tauriArgs, extraOverlayPaths };
 }
