@@ -99,3 +99,33 @@ it('removes the running timer when its row unmounts', () => {
   view.unmount();
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it('stops elapsed timing when a historical call has no recorded completion', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-10-15T12:00:03Z'));
+  const running = {
+    ...call,
+    state: 'running' as const,
+    duration_ms: undefined,
+    started_at: '2026-10-15T12:00:00Z',
+  };
+  const view = render(<ClioToolInvocation compact tool={running} />);
+  expect(screen.getByTitle('Elapsed time; updates while running')).toHaveTextContent('3 s');
+  view.rerender(
+    <ClioToolInvocation
+      compact
+      tool={{
+        ...running,
+        state: 'unknown',
+        presentation: { summary: '', status: 'succeeded', blocks: [] },
+        error: 'Completion was not recorded. Inspect the captured output before retrying.',
+      }}
+    />,
+  );
+  expect(screen.getByText('Unknown')).toBeVisible();
+  expect(view.container.querySelector('[data-slot="tool-duration"]')).toBeNull();
+  expect(vi.getTimerCount()).toBe(0);
+  act(() => vi.advanceTimersByTime(60_000));
+  expect(screen.getByText('Unknown')).toBeVisible();
+  expect(view.container.querySelector('[data-slot="tool-duration"]')).toBeNull();
+});

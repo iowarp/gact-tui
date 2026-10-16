@@ -378,3 +378,48 @@ for (const type of ['text', 'markdown', 'code', 'diff', 'terminal']) {
     await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
   });
 }
+
+test('missing historical completion stays unknown and preserves captured output', async ({
+  page,
+}) => {
+  const reason = 'Completion was not recorded. Inspect the captured output before retrying.';
+  await openCompactTool(page, {
+    id: 'historical-shell',
+    session_id: 's',
+    name: 'shell_bash',
+    state: 'unknown',
+    started_at: '2026-10-15T12:00:00Z',
+    error: reason,
+    input: { command: 'python analysis.py' },
+    output_stream: 'Reading observations...\n',
+    presentation: {
+      action: 'Run',
+      summary: '',
+      status: 'succeeded',
+      blocks: [
+        {
+          id: 'terminal',
+          type: 'terminal',
+          command: 'python analysis.py',
+          text: 'Reading observations...\n',
+        },
+      ],
+    },
+  });
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    const row = page.getByRole('button', { name: 'Show result for Run', exact: true });
+    await expect(row).toContainText('Unknown');
+    await expect(row.locator('.animate-spin')).toHaveCount(0);
+    await expect(row.locator('[data-slot="tool-duration"]')).toHaveCount(0);
+    await row.hover();
+    await expect(page.getByRole('tooltip')).toContainText(reason);
+    await row.click();
+    const result = page.getByRole('region', { name: 'Run: Result' });
+    await expect(result).toContainText(reason);
+    await expect(result).toContainText('Reading observations...');
+    await expect(result).not.toContainText('Process exited with code');
+    await page.screenshot({ path: test.info().outputPath(`unknown-history-${width}.png`) });
+    await row.click();
+  }
+});

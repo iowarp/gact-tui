@@ -121,6 +121,8 @@ const DECLARED_TOOL_STATUSES = new Set<ClioStatusValue>([
 
 /** Semantic outcome declared by the tool result, with transport state as fallback. */
 export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
+  // Saved presentation metadata cannot establish an unrecorded completion.
+  if (tool.state === 'unknown') return 'unknown';
   const declared = tool.presentation?.status;
   return declared && DECLARED_TOOL_STATUSES.has(declared as ClioStatusValue)
     ? (declared as ClioStatusValue)
@@ -129,6 +131,12 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
 
 /** Explain an unsuccessful outcome using recorded diagnostics, never payload-status guesses. */
 export function getToolFailureDetail(tool: ToolInvocation): string | undefined {
+  if (getToolStatus(tool) === 'unknown') {
+    return (
+      tool.error?.trim() ||
+      'No completion was recorded. Inspect the captured output before running this action again.'
+    );
+  }
   if (!['failed', 'denied', 'cancelled', 'degraded'].includes(getToolStatus(tool)))
     return undefined;
   const blocks = tool.presentation?.blocks ?? [];

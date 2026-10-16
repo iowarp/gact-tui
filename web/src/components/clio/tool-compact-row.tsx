@@ -36,6 +36,7 @@ export function ToolCompactRow({
   const status = getToolStatus(tool);
   const active = status === 'pending' || status === 'running';
   const success = status === 'succeeded';
+  const outcomeColor = status === 'unknown' ? 'text-warning' : 'text-destructive';
   const pendingSnapshot = tool.presentation?.blocks.some(
     (block) => block.result_kind === 'snapshot' && block.status === 'pending',
   );
@@ -66,7 +67,7 @@ export function ToolCompactRow({
         ) : success ? (
           <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-success" />
         ) : (
-          <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
+          <CircleAlertIcon aria-hidden="true" className={cn('size-3.5 shrink-0', outcomeColor)} />
         )}
         <span className="min-w-0 max-w-[48%] shrink truncate font-medium">{action}</span>
         {detail ? (
@@ -84,7 +85,11 @@ export function ToolCompactRow({
             {metadata}
           </span>
         ) : null}
-        {!active && !success ? <span className="shrink-0 text-destructive">{status}</span> : null}
+        {!active && !success ? (
+          <span className={cn('shrink-0', outcomeColor)}>
+            {status === 'unknown' ? 'Unknown' : status}
+          </span>
+        ) : null}
         {duration !== undefined ? (
           <span
             className="shrink-0 tabular-nums text-muted-foreground"

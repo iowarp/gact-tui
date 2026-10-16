@@ -159,7 +159,7 @@ export function ClioToolInvocation({
                 {failure && !declaredFailure ? (
                   <p
                     role="alert"
-                    className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]"
+                    className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${status === 'unknown' ? 'text-warning' : 'text-destructive'}`}
                   >
                     {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
                   </p>
