@@ -11,6 +11,7 @@ describe('ClioRepository unscoped question contracts', () => {
         questions: [
           {
             id: 'question_1',
+            task_handle: 'task_question_1',
             session_id: 'sess_background',
             prompt: 'Continue the sweep?',
             status: 'pending',
@@ -28,7 +29,11 @@ describe('ClioRepository unscoped question contracts', () => {
 
     expect(transport.requests[0]?.path).toBe('/v1/questions?status=pending');
     expect(questions).toEqual([
-      expect.objectContaining({ id: 'question_1', session_id: 'sess_background' }),
+      expect.objectContaining({
+        id: 'question_1',
+        task_handle: 'task_question_1',
+        session_id: 'sess_background',
+      }),
     ]);
   });
 

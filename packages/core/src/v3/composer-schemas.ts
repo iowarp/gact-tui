@@ -125,6 +125,8 @@ export const pendingSteerSchema = z.object({
  * wire, which is why one is positive and the other merely non-negative.
  */
 export const queuedMessageSchema = z.object({
+  promotion_error: z.object({status_code: z.number().int(), detail: z.unknown()}).nullable().optional(),
+  delivery: z.enum(['eligible', 'queued', 'held']).optional(),
   id: z.string(),
   session_id: z.string(),
   revision: z.number().int().positive().default(1),

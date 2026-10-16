@@ -79,9 +79,11 @@ function QuestionDialogBody({
   return (
     <div className="min-w-0">
       <p className="mb-3 text-xs text-muted-foreground">
-        {interaction.payload?.response_mode === 'async'
-          ? `Answer when ready. ${vocab.agent} can continue working; your answer enters the message queue.`
-          : `${vocab.agent} needs your answer to continue.`}
+        {interaction.payload?.task_handle
+          ? `Answer when ready. ${vocab.agent} can continue working and will receive your answer automatically.`
+          : interaction.payload?.response_mode === 'async'
+            ? `Answer when ready. ${vocab.agent} can continue working; your answer enters the message queue.`
+            : `${vocab.agent} needs your answer to continue.`}
       </p>
       <QuestionResponse
         interaction={interaction}

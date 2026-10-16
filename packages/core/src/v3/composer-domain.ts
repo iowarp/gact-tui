@@ -154,6 +154,8 @@ export interface QueuedMessagePromotion {
 }
 
 export interface QueuedMessage {
+  promotion_error?: { status_code: number; detail?: unknown } | null;
+  delivery?: 'eligible' | 'queued' | 'held';
   id: string;
   session_id: string;
   revision: number;

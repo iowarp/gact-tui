@@ -134,7 +134,7 @@ export const sourceOperationSchema = z.object({
   id: z.string(),
   source_id: z.string(),
   kind: z.string(),
-  state: z.enum(['queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted']),
+  state: z.enum(['queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted', 'cancellation_requested', 'task_state_uncertain']),
   bytes_done: z.number(),
   bytes_total: z.number(),
   entries_done: z.number().default(0),

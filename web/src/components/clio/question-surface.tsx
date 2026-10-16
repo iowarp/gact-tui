@@ -24,10 +24,21 @@ export function QuestionSurface({ interaction }: { interaction: PendingInteracti
         ) : null}
       </div>
     );
-  return <RenderedQuestionSurface surface={surface} />;
+  return (
+    <RenderedQuestionSurface
+      surface={surface}
+      questionId={String(interaction.payload?.question_id ?? '')}
+    />
+  );
 }
 
-function RenderedQuestionSurface({ surface }: { surface: A2UISurface }) {
+function RenderedQuestionSurface({
+  surface,
+  questionId,
+}: {
+  surface: A2UISurface;
+  questionId: string;
+}) {
   const viewport = useContext(ResponseViewportContext);
   const repository = useRepository();
   const queries = useQueryClient();
@@ -41,6 +52,7 @@ function RenderedQuestionSurface({ surface }: { surface: A2UISurface }) {
             run_id: surface.run_id,
             message_id: surface.message_id,
             part_id: surface.part_id,
+            question_id: questionId,
           });
           await queries.invalidateQueries({
             predicate: (query) =>

@@ -13,19 +13,14 @@ import {
 
 export function RunActions({
   onCancel,
-  onDetach,
-  onDismiss,
   pending,
   row,
 }: {
   onCancel: () => void;
-  onDetach: () => void;
-  onDismiss: () => void;
   pending: boolean;
   row: RunRow;
 }) {
-  const active = ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(row.state);
-  const cancellable = row.cancellable || (active && row.source === 'agent_task');
+  const cancellable = row.cancellable;
   return (
     <div className="flex items-center gap-1">
       {cancellable && (
@@ -70,9 +65,6 @@ export function RunActions({
               </Link>
             </DropdownMenuItem>
           ) : null}
-          {!row.workflow && active && !row.detached ? (
-            <DropdownMenuItem onSelect={onDetach}>Detach from active monitoring</DropdownMenuItem>
-          ) : null}
           {cancellable ? (
             <>
               <DropdownMenuSeparator />
@@ -82,14 +74,6 @@ export function RunActions({
                 variant="destructive"
               >
                 {row.cancelRequested ? 'Cancellation requested' : 'Cancel task…'}
-              </DropdownMenuItem>
-            </>
-          ) : null}
-          {!row.workflow && (!active || row.detached) ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onDismiss} variant="destructive">
-                Dismiss from explorer…
               </DropdownMenuItem>
             </>
           ) : null}

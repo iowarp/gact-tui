@@ -52,6 +52,7 @@ for (const theme of ['light', 'dark'] as const) {
         submittedAnswers.push(request.url());
     });
 
+    const draft = 'Use the documented category labels.';
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
       const tracker = page.getByRole('button', { name: '1 open question', exact: true });
@@ -77,8 +78,13 @@ for (const theme of ['light', 'dark'] as const) {
       const title = dialog.locator('[data-slot="pending-interaction-title"]');
       expect(await title.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`question-answer-${theme}-${width}.png`) });
-      await expect(dialog.getByRole('button', { name: 'Send response' })).toBeDisabled();
-      await dialog.getByRole('textbox').fill('Use the documented category labels.');
+      if (width === 1280) {
+        await expect(dialog.getByRole('textbox')).toHaveValue('');
+        await expect(dialog.getByRole('button', { name: 'Send response' })).toBeDisabled();
+        await dialog.getByRole('textbox').fill(draft);
+      } else {
+        await expect(dialog.getByRole('textbox')).toHaveValue(draft);
+      }
       await expect(dialog.getByRole('button', { name: 'Send response' })).toBeEnabled();
       // Inspecting or drafting an answer never resolves the question.
       await dialog.getByRole('button', { name: 'Close', exact: true }).click();

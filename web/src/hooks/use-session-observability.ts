@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useRepository } from './use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
@@ -28,11 +28,19 @@ export function useSessionObservability(sessionId: string) {
     queryFn: ({ signal }) => repository.contextFrames(sessionId, signal),
     enabled,
   });
-  const processes = useQuery({
+  const processes = useInfiniteQuery({
     queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'processes'),
-    queryFn: ({ signal }) => repository.asyncProcesses(sessionId, signal),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ signal, pageParam }) =>
+      repository.asyncProcessesPage(sessionId, { cursor: pageParam, activeOnly: true }, signal),
+    getNextPageParam: (page) => page.cursor ?? undefined,
     enabled,
   });
 
-  return { contextFiles, contextFrames, diffs, processes };
+  const workPages = {
+    hasMore: Boolean(processes.hasNextPage),
+    pending: processes.isFetchingNextPage,
+    loadMore: () => processes.fetchNextPage({ throwOnError: true }),
+  };
+  return { contextFiles, contextFrames, diffs, processes, workPages };
 }

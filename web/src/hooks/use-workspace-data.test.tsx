@@ -76,7 +76,16 @@ vi.mock('./use-session-context', () => ({
   useSessionContext: () => ({ state: { data: undefined } }),
 }));
 vi.mock('./use-session-observability', () => ({
-  useSessionObservability: () => ({ processes: { data: [] }, diffs: { data: [] } }),
+  useSessionObservability: () => ({
+    processes: {
+      data: { pages: [] },
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    },
+    workPages: { hasMore: false, pending: false, loadMore: vi.fn() },
+    diffs: { data: [] },
+  }),
 }));
 vi.mock('./use-execution-provenance', () => ({
   useExecutionProvenance: () => ({

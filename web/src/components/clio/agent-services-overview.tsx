@@ -1,28 +1,23 @@
-import type { McpUserConfiguration, RelayStatus } from '@clio/core/v3';
+import type { McpUserConfiguration } from '@clio/core/v3';
 import { Button } from '@/components/ui/button';
 import { ClioStatus } from '@/components/clio/status';
 import { vocab } from '@/lib/brand-vocabulary';
 import { remoteUrlFromSpec } from './web-search-configuration';
 import { InfoTip } from './info-tip';
-import { humanizeProtocolValue } from './presentation-labels';
 
 /** Compact topology for services attached to the currently connected agent. */
 export function AgentServicesOverview({
   agentLabel,
   agentLocation,
-  relay,
   webSearch,
   webSearchConnected,
   onManageWebSearch,
-  onManageRelay,
 }: {
   agentLabel?: string;
   agentLocation?: string;
-  relay?: RelayStatus;
   webSearch?: McpUserConfiguration;
   webSearchConnected: boolean;
   onManageWebSearch?: () => void;
-  onManageRelay?: () => void;
 }) {
   const webSearchUrl = remoteUrlFromSpec(webSearch?.spec);
   const agent = agentIdentity(agentLabel, agentLocation);
@@ -60,33 +55,6 @@ export function AgentServicesOverview({
             }
             statusValue={
               webSearchConnected ? 'healthy' : webSearch?.configured ? 'degraded' : 'unavailable'
-            }
-          />
-        ) : null}
-        {relay?.configured ? (
-          <ServiceConnectionRow
-            action={
-              onManageRelay
-                ? { label: 'Manage Relay connection', onSelect: onManageRelay }
-                : undefined
-            }
-            error={
-              !relay.reachable
-                ? relay.detail || (relay.reason ? humanizeProtocolValue(relay.reason) : undefined)
-                : undefined
-            }
-            detail={relay?.mcp_url ?? 'No service address configured'}
-            location={relay?.host ?? serviceLocation(relay?.mcp_url, agentLocation)}
-            name={`${vocab.agent} Relay`}
-            status={
-              relay?.reachable
-                ? 'Connected'
-                : relay?.configured
-                  ? 'Needs attention'
-                  : 'Not connected'
-            }
-            statusValue={
-              relay?.reachable ? 'healthy' : relay?.configured ? 'degraded' : 'unavailable'
             }
           />
         ) : null}

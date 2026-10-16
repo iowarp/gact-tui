@@ -8,7 +8,6 @@ import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
 import type {
   EffectiveAgentTool,
   McpServerDefinition,
-  RelayStatus,
   ServiceIntegrationHealth,
   ToolCatalogItem,
   ProvenanceConnectionInput,
@@ -26,8 +25,6 @@ import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
-import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
-import { RelayConnectionDialog } from '@/components/clio/relay-settings';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { ManagedServices } from '@/components/clio/managed-services';
@@ -85,18 +82,11 @@ export function InfrastructurePage() {
   }>();
   const openProvenance = (input: ProvenanceConnectionInput) =>
     setConnectProvenance({ scope: provenanceScope, input });
-  const [relayOpen, setRelayOpen] = useState(false);
   const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
     enabled: currentSection === 'agent',
     queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
-    refetchInterval: INFRASTRUCTURE_POLL_MS,
-  });
-  const relay = useQuery({
-    enabled: currentSection === 'services' || currentSection === 'overview',
-    queryKey: queryKeys.key('relay-status', settings.endpoint),
-    queryFn: ({ signal }) => repository.relayStatus(signal),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const servers = useQuery({
@@ -141,7 +131,7 @@ export function InfrastructurePage() {
       ? health.error
       : currentSection === 'tools'
         ? ((sessionToolScope ? effectiveToolset.error : undefined) ?? tools.error ?? servers.error)
-        : (relay.error ?? servers.error ?? webSearchConfiguration.error);
+        : (servers.error ?? webSearchConfiguration.error);
   const displayedTools = sessionToolScope
     ? effectiveToolset.data
       ? effectiveToolCatalog(effectiveToolset.data.tools, tools.data ?? [], servers.data ?? [])
@@ -215,24 +205,6 @@ export function InfrastructurePage() {
       toast.error('CLIO Web Search could not be disconnected', {
         description: connectionError.message,
       }),
-  });
-  const relayConnect = useMutation({
-    mutationFn: (input: Parameters<typeof repository.configureRelay>[0]) =>
-      repository.configureRelay(input),
-    onSuccess: async () => {
-      setRelayOpen(false);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('relay-status', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('service-health', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
-      ]);
-      toast.success('CLIO Relay connected');
-    },
-    onError: (connectionError) => toast.error(connectionError.message),
   });
 
   const sectionDefinition = INFRASTRUCTURE_SECTIONS.find((item) => item.id === currentSection)!;
@@ -327,10 +299,8 @@ export function InfrastructurePage() {
             <InfrastructureInventory
               section={currentSection}
               overview={{
-                relay: relay.data,
                 webSearch: webSearchConfiguration.data,
                 webSearchConnected: webSearchReady,
-                onManageRelay: () => setRelayOpen(true),
                 onManageWebSearch: () => setWebSearchOpen(true),
               }}
             />
@@ -364,17 +334,12 @@ export function InfrastructurePage() {
                   setReturnToConnectionChooser(false);
                   setWebSearchOpen(true);
                 }}
-                onManageRelay={() => {
-                  setReturnToConnectionChooser(false);
-                  setRelayOpen(true);
-                }}
                 onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
                 onDisconnectWebSearch={() => disconnectWebSearch.mutate()}
                 webSearchConnected={webSearchReady}
                 webSearchConnection={webSearchConfiguration.data}
                 webSearchConnecting={connectDetectedWebSearch.isPending}
                 webSearchDisconnecting={disconnectWebSearch.isPending}
-                relayStatus={relay.data}
               />
               <ProvenanceConnections
                 onBack={
@@ -451,30 +416,6 @@ export function InfrastructurePage() {
                       }
                       title="CLIO Web Search"
                     />
-                    <SetupCard
-                      action={relay.data?.configured ? 'Edit connection' : 'Connect'}
-                      description="Run and follow work on lab computers or clusters through CLIO Relay."
-                      detail={
-                        relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)
-                      }
-                      icon={NetworkIcon}
-                      onAction={() => (setConnectServiceOpen(false), setRelayOpen(true))}
-                      status={
-                        relay.data?.reachable
-                          ? 'healthy'
-                          : relay.data?.configured
-                            ? 'degraded'
-                            : 'unavailable'
-                      }
-                      statusLabel={
-                        relay.data?.reachable
-                          ? 'Connected'
-                          : relay.data?.configured
-                            ? 'Needs attention'
-                            : 'Not connected'
-                      }
-                      title="CLIO Relay"
-                    />
                   </section>
                   <Button asChild variant="outline">
                     <Link to="/settings/providers">Connect an inference provider</Link>
@@ -522,24 +463,6 @@ export function InfrastructurePage() {
                 : undefined
             }
           />
-          {relayOpen ? (
-            <RelayConnectionDialog
-              onBack={
-                returnToConnectionChooser
-                  ? () => {
-                      setRelayOpen(false);
-                      setConnectServiceOpen(true);
-                    }
-                  : undefined
-              }
-              error={relayConnect.error?.message}
-              onOpenChange={setRelayOpen}
-              onSubmit={(input) => relayConnect.mutate(input)}
-              open
-              pending={relayConnect.isPending}
-              value={relay.data}
-            />
-          ) : null}
         </section>
       </div>
     </main>
@@ -745,20 +668,6 @@ function foundationAction(
     label: 'System settings',
     to: '/settings/system',
   };
-}
-
-/**
- * Why the relay is not reachable, as the relay put it.
- *
- * Prose detail first, then the typed reason humanized. Both come from the
- * service; neither is inferred here. A configured relay that reports nothing at
- * all yields nothing rather than a manufactured explanation.
- */
-function relayDegradationDetail(status: RelayStatus | undefined): string | undefined {
-  if (!status?.configured) return undefined;
-  if (status.detail?.trim()) return status.detail;
-  if (!status.reason?.trim()) return undefined;
-  return humanizeProtocolValue(status.reason);
 }
 
 function isWebSearchServer(server: McpServerDefinition): boolean {

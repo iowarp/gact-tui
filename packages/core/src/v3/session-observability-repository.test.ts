@@ -68,6 +68,52 @@ describe('SessionObservabilityRepository diff mutations', () => {
 });
 
 describe('SessionObservabilityRepository agent tasks', () => {
+  it('decodes shared native and Question tasks without dropping their handles or answers', async () => {
+    const transport = new RecordingTransport([
+      {
+        processes: [
+          {
+            kind: 'question',
+            id: 'question_1',
+            handle: 'task_question',
+            task_kind: 'Question',
+            title: 'Which dataset?',
+            live_state: 'input_required',
+            status: 'pending',
+            result: null,
+          },
+          {
+            kind: 'question',
+            id: 'question_2',
+            handle: 'task_answer',
+            task_kind: 'Question',
+            title: 'Which model?',
+            live_state: 'completed',
+            status: 'answered',
+            result: { answer: 'Luna' },
+          },
+          {
+            kind: 'mcp',
+            id: 'native_1',
+            handle: 'task_native',
+            task_kind: 'Shell',
+            title: 'Check files',
+            live_state: 'working',
+            status: 'working',
+            result: null,
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+    const rows = await repository.asyncProcesses('sess');
+    expect(rows.map(({ handle, live_state }) => [handle, live_state])).toEqual([
+      ['task_question', 'waiting_user'],
+      ['task_answer', 'completed'],
+      ['task_native', 'running'],
+    ]);
+    expect(rows[1]?.result?.answer).toBe('Luna');
+  });
   it('reads every registry task of a session, standing watchers included', async () => {
     const transport = new RecordingTransport([
       {

@@ -24,6 +24,30 @@ function iteration(
   };
 }
 
+it('shows the active question wait above prior operations until it settles', () => {
+  const read: ToolInvocation = {
+    id: 'read',
+    session_id: 's',
+    name: 'fs_read_file',
+    state: 'succeeded',
+  };
+  const wait: ToolInvocation = {
+    id: 'wait',
+    session_id: 's',
+    name: 'wait_tasks',
+    state: 'running',
+    presentation: { summary: 'Waiting for your answer', blocks: [] },
+  };
+  expect(transcriptActivitySummary([iteration([read, wait], { streaming: true })])).toEqual({
+    label: 'Waiting for your answer',
+    running: true,
+  });
+  expect(transcriptActivitySummary([iteration([read, { ...wait, state: 'succeeded' }])])).toEqual({
+    label: 'Read files, used tools',
+    running: false,
+  });
+});
+
 it('labels recorded actions without repeating counts or outcomes above the answer', () => {
   const tools = [
     { id: 'read', session_id: 's', name: 'fs_read_file', state: 'succeeded' as const },

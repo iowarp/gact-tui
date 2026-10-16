@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
+  sessions: vi.fn(),
   connectedSources: vi.fn(),
   storageProviders: vi.fn(),
   hostStorageSettings: vi.fn(),
@@ -25,6 +26,7 @@ afterEach(cleanup);
 
 beforeEach(() => {
   vi.resetAllMocks();
+  repository.sessions.mockResolvedValue([{ id: 'session_sources', title: 'Source work' }]);
   repository.connectedSources.mockResolvedValue([
     {
       id: 's1',
@@ -92,6 +94,13 @@ it('relinks an existing unlinked source from Files without a composer draft', as
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
   await user.click(await screen.findByRole('button', { name: 'Link folder' }));
+  expect(await screen.findByText('Choose a conversation to track this work.')).toBeVisible();
+  expect(repository.linkConnectedSource).not.toHaveBeenCalled();
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Track work in' }),
+    await screen.findByRole('option', { name: 'Source work' }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Link folder' }));
   await waitFor(() =>
     expect(repository.linkConnectedSource).toHaveBeenCalledWith(
       'w',
@@ -99,7 +108,7 @@ it('relinks an existing unlinked source from Files without a composer draft', as
       false,
       undefined,
       { access: 'read_only', confirm_remote: false },
-      undefined,
+      'session_sources',
     ),
   );
   expect(repository.linkConnectedSource).toHaveBeenCalledTimes(1);

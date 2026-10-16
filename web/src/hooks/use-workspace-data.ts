@@ -33,7 +33,7 @@ import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 import { useRepository } from './use-repository';
 import { useRequestedSessionLookup } from './use-requested-session-lookup';
-import { useSessionAgentTasks } from './use-session-agent-tasks';
+import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
 import { conversationFamily } from '@/components/clio/conversation-relationships-model';
@@ -481,12 +481,25 @@ export function useWorkspaceData({
     () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
     [entities.subagents, sessionId],
   );
-  const sessionSubagents = useSessionAgentTasks(sessionId, liveSubagents);
+  const processes = useMemo(
+    () => [
+      ...new Map(
+        (sessionObservability.processes.data?.pages.flatMap((page) => page.items) ?? []).map(
+          (process) => [process.handle ?? process.handle_id ?? process.id, process],
+        ),
+      ).values(),
+    ],
+    [sessionObservability.processes.data],
+  );
+  const sessionSubagents = useMemo(
+    () => mergeSessionSubagents(liveSubagents, processes),
+    [liveSubagents, processes],
+  );
   const subagents = useMemo(
     () => withSubagentOrigins(sessionSubagents, allSessions.data ?? []),
     [allSessions.data, sessionSubagents],
   );
-  const processes = sessionObservability.processes.data ?? [];
+  const workPages = sessionObservability.workPages;
   const interactionSessionIds = useMemo(
     () =>
       computeInteractionSessionIds(
@@ -633,6 +646,7 @@ export function useWorkspaceData({
     providerCatalog,
     parentSession,
     processes,
+    workPages,
     questions,
     runs,
     session,

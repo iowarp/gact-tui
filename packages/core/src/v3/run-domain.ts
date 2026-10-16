@@ -1,0 +1,20 @@
+/** Shared execution states for foreground runs and task-backed agents. */
+export type RunState =
+  | 'queued'
+  | 'running'
+  | 'stopping'
+  | 'stopped'
+  | 'cancellation_requested'
+  | 'task_state_uncertain'
+  | 'pause_requested'
+  | 'paused'
+  | 'yielded'
+  | 'recovery_required'
+  | 'recovering'
+  | 'waiting_permission'
+  | 'waiting_user'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'interrupted'
+  | 'unknown';

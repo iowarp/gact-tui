@@ -1,6 +1,6 @@
 import type { PendingInteraction, Session } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { StrictMode, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
@@ -100,6 +100,28 @@ function renderDraft() {
 }
 
 describe('presentation-only conversation', () => {
+  it('answers task questions using uploaded parts without submitting or queuing a model turn', async () => {
+    mocks.repository.answerQuestion.mockResolvedValue({
+      id: 'q1',
+      task_handle: 'task_question',
+      status: 'answered',
+    });
+    const { result } = renderDraft();
+    await act(async () => {
+      await result.current.send.mutateAsync({
+        ...draft,
+        delivery: 'queued',
+        answersQuestionId: 'q1',
+        answersQuestionTask: true,
+      });
+    });
+    expect(mocks.repository.answerQuestion).toHaveBeenCalledWith('sess_created', 'q1', {
+      answer: draft.text,
+      parts: [expect.objectContaining({ type: 'text', text: draft.text })],
+    });
+    expect(mocks.repository.createQueuedMessage).not.toHaveBeenCalled();
+    expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
+  });
   it('preserves question ownership on the ordinary queued-message path', async () => {
     mocks.repository.createQueuedMessage.mockResolvedValue({ id: 'queued_answer' });
     const { result } = renderDraft();

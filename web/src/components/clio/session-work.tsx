@@ -35,6 +35,7 @@ import { useEvidenceDisclosure } from '@/hooks/use-evidence-disclosures';
 import { TodoList, TodoStatusIcon } from './todo-list';
 import { todoCurrentSummary } from './todo-list-summary';
 import { OpenQuestionsSection } from './open-question-list';
+import { SessionAccess } from './session-access';
 
 /** Keep parked goals and future monitoring visible in the bottom work finder. */
 export function SessionWorkStatus({
@@ -403,6 +404,7 @@ function SessionWorkInventory({ sessionId }: { sessionId: string }) {
       className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto px-4 text-sm leading-6 [overflow-wrap:anywhere]"
       aria-label="Session work"
     >
+      <SessionAccess sessionId={sessionId} />
       <WorkSection
         title="Todos"
         summary={

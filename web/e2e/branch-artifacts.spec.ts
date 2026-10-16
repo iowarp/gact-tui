@@ -24,13 +24,30 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
   const evidence = page.getByLabel('Activity and evidence', { exact: true });
   await expect(evidence).toHaveAttribute('data-showcase-mode', 'docked');
   const parentWidth = await evidence.evaluate((element) => element.clientWidth);
-  const child = evidence.getByRole('button', { name: 'Open Station analysis worker', exact: true });
+  const child = evidence.getByRole('button', {
+    name: 'Open child conversation Station analysis worker',
+    exact: true,
+  });
+  await expect(child).not.toBeVisible();
+  await evidence
+    .getByRole('button', { name: 'Task details: Station analysis worker', exact: true })
+    .click();
+  await expect(child).toBeVisible();
   await child.click();
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas.getByRole('textbox', { name: 'Message this agent' })).toBeVisible();
   await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(evidence).toBeVisible();
+  const reopenedDetails = evidence.getByRole('button', {
+    name: 'Task details: Station analysis worker',
+    exact: true,
+  });
+  if ((await reopenedDetails.getAttribute('aria-expanded')) !== 'true') {
+    await reopenedDetails.click();
+  }
+  await expect(reopenedDetails).toHaveAttribute('aria-expanded', 'true');
+  await expect(child).toBeVisible();
   await child.click({ modifiers: ['Shift'] });
   await expect(page).toHaveURL(new RegExp(`/sessions/${worker.id}$`));
   await expect(page.getByRole('textbox', { name: 'Message this agent' })).toBeVisible();

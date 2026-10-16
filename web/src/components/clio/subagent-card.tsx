@@ -244,9 +244,22 @@ function toTheoState(state: SubagentRun['state']): SubAgentState {
     case 'queued':
       return 'spawning';
     case 'running':
+    case 'stopping':
+    case 'stopped':
+    case 'cancellation_requested':
+    case 'task_state_uncertain':
+    case 'recovering':
     case 'waiting_permission':
     case 'waiting_user':
-      return 'running';
+      return state;
+    case 'paused':
+      return 'paused';
+    case 'yielded':
+      return 'yielded';
+    case 'recovery_required':
+      return 'recovery_required';
+    case 'pause_requested':
+      return 'pause_requested';
     case 'completed':
       return 'completed';
     case 'failed':

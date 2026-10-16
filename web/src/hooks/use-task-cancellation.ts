@@ -15,7 +15,7 @@ export function useTaskCancellation(sessionId: string) {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.sessionObservability(settings.endpoint, sessionId),
       });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.key('runs', settings.endpoint) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.key('tasks', settings.endpoint) });
     },
     [repository, sessionId, queryClient, settings.endpoint],
   );

@@ -263,14 +263,21 @@ function isPendingInteractionEvent(eventName: string): boolean {
     'mcp_task.',
     'agent.task.',
     'agent_task.',
+    'task.',
     'agent_elicitation_',
   ].some((prefix) => eventName.startsWith(prefix));
 }
 
 function isProcessEvent(eventName: string): boolean {
-  return ['agent.task.', 'agent_task.', 'mcp.task.', 'mcp_task.', 'run.', 'subagent.'].some(
-    (prefix) => eventName.startsWith(prefix),
-  );
+  return [
+    'task.',
+    'agent.task.',
+    'agent_task.',
+    'mcp.task.',
+    'mcp_task.',
+    'run.',
+    'subagent.',
+  ].some((prefix) => eventName.startsWith(prefix));
 }
 
 function isModelConfigurationEvent(eventName: string): boolean {

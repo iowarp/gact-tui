@@ -84,10 +84,10 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
   },
   {
     id: 'relays',
-    label: 'Remote computers',
+    label: 'Remote tools',
     icon: PlugZapIcon,
     group: 'Connections',
-    keywords: 'relay ssh remote host',
+    keywords: 'mcp remote tools relay',
   },
   {
     id: 'session-defaults',

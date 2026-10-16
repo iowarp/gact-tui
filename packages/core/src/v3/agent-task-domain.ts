@@ -1,13 +1,12 @@
 import { z } from 'zod';
 
 /**
- * One agent task the service's task registry holds for a session: a delegated
- * child agent, a spawned child session, or a standing watcher (SPOTTER).
+ * Shipped compatibility view of a Core task snapshot: a finite session/child
+ * assignment, including a standing watcher (SPOTTER).
  *
  * Served by `GET /v1/sessions/{sid}/agent-tasks`. Unlike the live
- * `subagent.upserted` projection, this read covers every task the registry
- * still knows, including ones armed before the client connected and ones no
- * transcript message mentions.
+ * `subagent.upserted` event, this read includes retained snapshots created
+ * before the client connected or without a transcript message.
  */
 export interface AgentTaskRecord {
   task_id: string;
@@ -18,7 +17,7 @@ export interface AgentTaskRecord {
   blueprint_id: string;
   run_index: number;
   run_label: string;
-  /** Registry lifecycle: queued | running | completed | failed | cancelled | interrupted. */
+  /** Effective status supplied by the conversation owner. */
   status: string;
   /** Finer live state while running (e.g. `waiting` for a standing watcher between checks). */
   live_state: string;

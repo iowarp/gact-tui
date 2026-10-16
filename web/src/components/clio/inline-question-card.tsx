@@ -11,7 +11,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { inlineQuestionDomId } from '@/lib/inline-question';
 import { respondFromControl } from './interaction-control';
 import { ResponseErrorNotice } from './pending-interaction-notices';
-import { useQuestionAnswer } from './question-answer-context';
+import { useQuestionAnswer, useQuestionDraftValue } from './question-answer-context';
 
 type Respond = (
   interaction: PendingInteraction,
@@ -34,11 +34,13 @@ export function InlineQuestionCard({
   const answerState = useQuestionAnswer();
   const [responding, setResponding] = useState(false);
   const [responseError, setResponseError] = useState<Error>();
-  const [picked, setPicked] = useState<string[]>([]);
+  const [picked, setPicked] = useQuestionDraftValue(interaction.id, 'multiSelection', []);
   const options = interaction.payload?.options ?? [];
   const multi = interaction.payload?.question_kind === 'multi_choice';
   const canAnswer = (interaction.actions ?? []).includes('answer');
-  const canCancel = (interaction.actions ?? []).includes('cancel');
+  // Task cancellation belongs to Work's identifying confirmation, not dismissal.
+  const canCancel =
+    !interaction.payload?.task_handle && (interaction.actions ?? []).includes('cancel');
   const allowsOther = options.length === 0 || interaction.payload?.allow_freeform === true;
   const answeringHere = answerState?.answeringId === interaction.id;
   const disabled = responding || !canAnswer;

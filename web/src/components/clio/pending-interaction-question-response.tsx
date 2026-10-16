@@ -15,6 +15,7 @@ import { ResponseErrorNotice } from './pending-interaction-notices';
 import { QuestionSurface } from './question-surface';
 import { QuestionMarkdown } from './question-markdown';
 import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
+import { useQuestionDraftValue } from './question-answer-context';
 
 /**
  * Split out of `pending-interactions.tsx` purely for file size (the 800-line
@@ -41,10 +42,18 @@ export function QuestionResponse({
   showOwner: boolean;
   showFullPrompt?: boolean;
 }) {
-  const [answer, setAnswer] = useState('');
-  const [selection, setSelection] = useState('');
-  const [multiSelection, setMultiSelection] = useState<string[]>([]);
-  const [optionComments, setOptionComments] = useState<Record<string, string>>({});
+  const [answer, setAnswer] = useQuestionDraftValue(interaction.id, 'answer', '');
+  const [selection, setSelection] = useQuestionDraftValue(interaction.id, 'selection', '');
+  const [multiSelection, setMultiSelection] = useQuestionDraftValue(
+    interaction.id,
+    'multiSelection',
+    [],
+  );
+  const [optionComments, setOptionComments] = useQuestionDraftValue(
+    interaction.id,
+    'optionComments',
+    {},
+  );
   if (interaction.payload?.mode === 'url') {
     return (
       <UrlConsentResponse

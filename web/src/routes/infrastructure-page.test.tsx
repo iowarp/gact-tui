@@ -314,21 +314,11 @@ describe('InfrastructurePage', () => {
     expect(screen.queryByRole('button', { name: /Create artifact/u })).not.toBeInTheDocument();
   });
 
-  it('says why the relay is degraded in the relay’s own words', async () => {
-    repository.relayStatus.mockResolvedValue({
-      configured: true,
-      reachable: false,
-      reason: 'credential_rejected',
-      detail: 'The relay rejected the stored credential (401).',
-      details: {},
-    });
-
+  it('uses MCP discovery without requesting the removed remote execution owner', async () => {
     renderPage(undefined, 'services');
-
-    expect(await screen.findByText('Needs attention')).toBeVisible();
-    // "Needs attention" is a severity, not an explanation. The service already
-    // said what is wrong; withholding it makes the card a dead end.
-    expect(screen.getByText('The relay rejected the stored credential (401).')).toBeVisible();
+    await waitFor(() => expect(repository.mcpServers).toHaveBeenCalled());
+    expect(repository.relayStatus).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Connect Relay' })).not.toBeInTheDocument();
   });
 
   it('keeps missing execution protection visible as a required problem, never "Optional"', async () => {
@@ -542,19 +532,6 @@ describe('InfrastructurePage', () => {
     expect(restartClioMock).toHaveBeenCalled();
   });
 
-  it('falls back to the relay’s typed reason when it sent no prose detail', async () => {
-    repository.relayStatus.mockResolvedValue({
-      configured: true,
-      reachable: false,
-      reason: 'credential_rejected',
-      details: {},
-    });
-
-    renderPage(undefined, 'services');
-
-    expect(await screen.findByText('Credential rejected')).toBeVisible();
-  });
-
   it('connects a running Web Search service as a structured MCP', async () => {
     repository.mcpServers.mockResolvedValue([
       {
@@ -648,7 +625,7 @@ describe('InfrastructurePage', () => {
     expect(screen.getByRole('button', { name: 'Disconnect' })).toBeVisible();
   });
 
-  it('keeps Web Search and Relay setup aligned at the same top position and width', async () => {
+  it('keeps MCP connection setup readable without restoring a separate relay dialog', async () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
@@ -657,8 +634,6 @@ describe('InfrastructurePage', () => {
     expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
-    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
-    await user.click(screen.getByRole('button', { name: 'Connect CLIO Relay' }));
-    expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
+    expect(screen.queryByRole('button', { name: 'Connect Relay' })).not.toBeInTheDocument();
   });
 });

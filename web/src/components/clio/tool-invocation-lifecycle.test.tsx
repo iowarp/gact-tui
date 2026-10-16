@@ -254,7 +254,8 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
 
     expect(screen.getByText('Run workflow')).toBeVisible();
     expect(screen.getByText('inventory → verification')).toBeVisible();
-    expect(screen.getByText('2 ordered steps · waited for completion')).toBeVisible();
+    expect(screen.getByText('2 ordered steps')).toBeVisible();
+    expect(screen.queryByText(/waited for completion/)).not.toBeInTheDocument();
     expect(
       screen.getByText('Inventory and verify the supplied Alpha and Beta facts.'),
     ).toBeVisible();

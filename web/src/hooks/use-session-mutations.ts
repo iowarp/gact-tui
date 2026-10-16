@@ -59,6 +59,8 @@ export interface SessionSendInput {
   onUploadProgress?: (progress: ResourceUploadProgress) => void;
   /** The pending agent question this message answers (its attachments included). */
   answersQuestionId?: string;
+  /** Task questions deliver their answer directly, including authorized resources. */
+  answersQuestionTask?: boolean;
 }
 
 function sessionModeForExecution(
@@ -268,6 +270,12 @@ export function useSessionMutations({
       }
       const targetId = sessionId || target?.id;
       if (!targetId) throw new Error('Open a conversation before sending.');
+      if (value.answersQuestionId && value.answersQuestionTask) {
+        return repository.answerQuestion(targetId, value.answersQuestionId, {
+          answer: value.text,
+          parts,
+        });
+      }
       if (value.delivery === 'queued') {
         const result = await repository.createQueuedMessage(targetId, {
           behavior: value.behavior,

@@ -62,6 +62,13 @@ export function ConnectedSourceDetail({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const [selectedSession, setSelectedSession] = useState('');
+  const trackingSession = sessionId || selectedSession;
+  const trackingSessions = useQuery({
+    queryKey: ['source-task-sessions', settings.endpoint, workspaceId],
+    enabled: !sessionId,
+    queryFn: ({signal}) => repository.sessions(workspaceId, signal),
+  });
   const queryClient = useQueryClient();
   const [folder, setFolder] = useState(initialFolder);
   const [search, setSearch] = useState('');
@@ -187,6 +194,9 @@ export function ConnectedSourceDetail({
         | 'unlink'
         | 'discard-edits',
     ) => {
+      if ((kind === 'transfer' || kind === 'link') && !trackingSession) {
+        throw new Error('Choose a conversation to track this work.');
+      }
       if (kind === 'transfer') {
         const draftId = onSelect
           ? (await repository.beginSourceDraft(workspaceId, source.id)).id
@@ -198,7 +208,7 @@ export function ConnectedSourceDetail({
             folder ? [folder] : undefined,
             draftId,
             downloadAccess,
-            sessionId,
+            trackingSession,
           )
           .catch(async (error: unknown) => {
             if (draftId) await repository.finishSourceDraft(workspaceId, source.id, draftId, false);
@@ -228,7 +238,7 @@ export function ConnectedSourceDetail({
               kind === 'unlink',
               draftId,
               kind === 'link' ? { access: linkAccess, confirm_remote: confirmed } : undefined,
-              sessionId,
+              trackingSession,
             );
           if (kind === 'link' && onSelect) {
             const operation = linked.indexing_operation;
@@ -273,11 +283,12 @@ export function ConnectedSourceDetail({
   });
   const download = useMutation({
     mutationFn: async (path: string) => {
+      if (!trackingSession) throw new Error('Choose a conversation to track this work.');
       const draftId = onSelect
         ? (await repository.beginSourceDraft(workspaceId, source.id)).id
         : undefined;
       const operation = await repository
-        .transferConnectedSource(workspaceId, source.id, [path], draftId, downloadAccess, sessionId)
+        .transferConnectedSource(workspaceId, source.id, [path], draftId, downloadAccess, trackingSession)
         .catch(async (error: unknown) => {
           if (draftId) await repository.finishSourceDraft(workspaceId, source.id, draftId, false);
           throw error;
@@ -298,6 +309,15 @@ export function ConnectedSourceDetail({
   };
   return (
     <div className="space-y-4">
+      {!sessionId && <label className="grid gap-1 text-sm">
+        <span>Track work in</span>
+        <select className="h-9 rounded-md border bg-background px-2" value={selectedSession}
+          onChange={(event) => setSelectedSession(event.target.value)}>
+          <option value="">Choose a conversation</option>
+          {trackingSessions.data?.map((session) => <option key={session.id} value={session.id}>{session.title}</option>)}
+        </select>
+        {trackingSessions.error && <span role="alert">{trackingSessions.error.message}</span>}
+      </label>}
       <Button variant="ghost" size="sm" onClick={onBack}>
         <ArrowLeftIcon aria-hidden="true" />
         Back

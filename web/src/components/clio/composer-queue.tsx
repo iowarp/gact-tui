@@ -219,6 +219,11 @@ export function ClioComposerQueue({
                             (contextReferences.length > 0 ? 'Context only' : 'Attachments only')}
                         </QueueItemContent>
                       )}
+                      {message.promotion_error && <details className="max-w-48 text-xs text-amber-700 dark:text-amber-400">
+                        <summary className="cursor-pointer">Needs attention</summary>
+                        <p className="break-words">{typeof message.promotion_error.detail === 'string'
+                          ? message.promotion_error.detail : JSON.stringify(message.promotion_error.detail)}</p>
+                      </details>}
                       {contextReferences.length > 0 ? (
                         <div className="flex min-w-0 max-w-48 shrink items-center gap-1">
                           {contextReferences.slice(0, 2).map((reference) => {

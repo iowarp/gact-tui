@@ -1,7 +1,7 @@
-import type { InfrastructureInventory, McpUserConfiguration, RelayStatus } from '@clio/core/v3';
+import type { InfrastructureInventory, McpUserConfiguration } from '@clio/core/v3';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRightIcon, BotIcon, CpuIcon, GlobeIcon, NetworkIcon } from 'lucide-react';
+import { ArrowRightIcon, BotIcon, CpuIcon, GlobeIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useRepository } from '@/hooks/use-repository';
 import { useSavedServers } from '@/hooks/use-saved-servers';
@@ -82,19 +82,15 @@ export function InfrastructureOverview({
   data,
   targetId,
   onTarget,
-  relay,
   webSearch,
   webSearchConnected = false,
-  onManageRelay,
   onManageWebSearch,
 }: {
   data: InfrastructureInventory;
   targetId: string;
   onTarget: (id: string) => void;
-  relay?: RelayStatus;
   webSearch?: McpUserConfiguration;
   webSearchConnected?: boolean;
-  onManageRelay?: () => void;
   onManageWebSearch?: () => void;
 }) {
   const { settings } = useConnectionSettings();
@@ -122,27 +118,6 @@ export function InfrastructureOverview({
       status: undefined,
       state: 'unavailable' as const,
       to: '/settings/providers',
-    },
-    {
-      label: 'Relay',
-      icon: NetworkIcon,
-      detail: relay?.configured
-        ? relay.host || relay.mcp_url || 'Saved connection'
-        : 'No Relay connected',
-      description: 'Execute work on another computer.',
-      action: relay?.configured ? 'Manage Relay' : 'Connect Relay',
-      status: relay?.reachable
-        ? 'Connected'
-        : relay?.configured
-          ? 'Needs attention'
-          : 'Not connected',
-      state: relay?.reachable
-        ? ('healthy' as const)
-        : relay?.configured
-          ? ('degraded' as const)
-          : ('unavailable' as const),
-      onClick: onManageRelay,
-      to: onManageRelay ? undefined : '/infrastructure/services',
     },
     {
       label: 'Web research',

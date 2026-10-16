@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
 import { ResponseErrorNotice } from './pending-interaction-notices';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
+import { useQuestionDraftValue } from './question-answer-context';
 
 interface QuestionSurfaceProps {
   interaction: PendingInteraction;
@@ -42,7 +43,9 @@ interface QuestionSurfaceProps {
 export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   const { interaction } = props;
   const fields = interaction.payload?.fields ?? [];
-  const [values, setValues] = useState<Record<string, unknown>>(() => initialValues(interaction));
+  const [values, setValues] = useQuestionDraftValue(interaction.id, 'fields', () =>
+    initialValues(interaction),
+  );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
   const serverErrors = fieldErrorsFromMessage(props.responseError?.message, fields);

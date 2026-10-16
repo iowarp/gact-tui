@@ -58,7 +58,7 @@ export type ClioQueryNamespace =
   | 'provenance-providers'
   | 'providers'
   | 'relay-status'
-  | 'runs'
+  | 'tasks'
   | 'runtime-metrics'
   | 'runtime-settings'
   | 'sandbox-setup'
@@ -131,7 +131,6 @@ export const queryKeys = {
   provenanceProviders: (endpoint: string) => ['provenance-providers', endpoint] as const,
   executionProvenance: (endpoint: string, sessionId: string, provider: string) =>
     ['execution-provenance', endpoint, sessionId, provider] as const,
-  runs: (endpoint: string) => ['runs', endpoint] as const,
   sessionArtifacts: (endpoint: string, sessionId: string) =>
     ['session-artifacts', endpoint, sessionId] as const,
   sessionContext: (endpoint: string, sessionId: string) =>

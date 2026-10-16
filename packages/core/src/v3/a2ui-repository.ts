@@ -118,7 +118,7 @@ export class A2uiRepository extends PresentationRepository {
   public a2uiAction(
     sessionId: string,
     message: unknown,
-    correlation?: { run_id?: string; message_id?: string; part_id?: string },
+    correlation?: { run_id?: string; message_id?: string; part_id?: string; question_id?: string },
     signal?: AbortSignal,
   ): Promise<{ status: string; destination?: string; state?: string; delivery?: string }> {
     return this.transport.request({

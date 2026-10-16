@@ -7,6 +7,7 @@ import { ClioProcessLanes } from './observability-processes';
 import { ConversationGantt } from './conversation-gantt';
 import { conversationFamily } from './conversation-relationships-model';
 import { useConversationWorkState } from './use-conversation-work-state';
+import { TaskPageContinuation } from './async-task-list';
 
 /** Swap ancestry and execution in the existing Observability work surface. */
 export function ObservabilityWork(
@@ -21,6 +22,7 @@ export function ObservabilityWork(
     | 'executionProvenance'
     | 'messages'
     | 'processes'
+    | 'workPages'
     | 'runs'
     | 'subagents'
     | 'tools'
@@ -93,6 +95,7 @@ export function ObservabilityWork(
           />
         </div>
       ) : null}
+      <TaskPageContinuation pagination={props.workPages} />
     </div>
   );
 }

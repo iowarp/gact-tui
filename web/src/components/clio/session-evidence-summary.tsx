@@ -1,4 +1,3 @@
-import { subagentOpenTarget } from './subagent-navigation';
 import type {
   Artifact,
   AsyncProcess,
@@ -10,13 +9,11 @@ import type {
 } from '@clio/core/v3';
 import {
   ActivityIcon,
-  BoxesIcon,
   BoxIcon,
   FileDiffIcon,
   FileTextIcon,
   ListChecksIcon,
   ListTreeIcon,
-  ServerIcon,
   WaypointsIcon,
   WrenchIcon,
 } from 'lucide-react';
@@ -34,6 +31,7 @@ import { SessionSummaryRow } from './session-summary-row';
 import { clioStatusLabel } from './status';
 import { ClioToolInvocation } from './tool-invocation';
 import { AsyncTaskList } from './async-task-list';
+import { taskActivity } from './task-activity';
 
 /** Compact inventory of the same authoritative evidence used by the full view. */
 export function SessionEvidenceSummary({
@@ -58,6 +56,8 @@ export function SessionEvidenceSummary({
   | 'onOpenWork'
   | 'onOpenActivity'
   | 'onCancelTask'
+  | 'onControlTask'
+  | 'workPages'
 > & {
   outputs: readonly Artifact[];
   files: readonly EvidenceFile[];
@@ -70,10 +70,10 @@ export function SessionEvidenceSummary({
   subagents: readonly SubagentRun[];
   backgroundProcesses: readonly AsyncProcess[];
 }) {
+  const activityCount = taskActivity(backgroundProcesses, subagents).length;
   const sections = useEvidenceSections('evidence-summary', [
     'runs',
     'tasks',
-    'child-agents',
     'background',
     'files',
     'changes',
@@ -127,29 +127,6 @@ export function SessionEvidenceSummary({
           ))}
         </EvidenceSection>
       ) : null}
-      {subagents.length ? (
-        <EvidenceSection
-          compact
-          icon={BoxesIcon}
-          label="Child agents"
-          value="child-agents"
-          count={subagents.length}
-        >
-          {subagents.map((agent) => (
-            <SessionSummaryRow
-              key={agent.id}
-              icon={<BoxesIcon />}
-              label={agent.title}
-              metadata={clioStatusLabel(agent.state)}
-              onOpen={
-                agent.child_session_id && actions.onOpenSubagent
-                  ? (event) => actions.onOpenSubagent?.(agent, subagentOpenTarget(event))
-                  : undefined
-              }
-            />
-          ))}
-        </EvidenceSection>
-      ) : null}
       {tools.length ? (
         <EvidenceSection
           compact
@@ -163,15 +140,22 @@ export function SessionEvidenceSummary({
           ))}
         </EvidenceSection>
       ) : null}
-      {backgroundProcesses.length ? (
+      {activityCount || actions.workPages?.hasMore ? (
         <EvidenceSection
           compact
-          icon={ServerIcon}
-          label="Background tasks"
+          icon={ActivityIcon}
+          label="Background work"
           value="background"
-          count={backgroundProcesses.length}
+          count={activityCount}
         >
-          <AsyncTaskList processes={backgroundProcesses} onCancelTask={actions.onCancelTask} />
+          <AsyncTaskList
+            processes={backgroundProcesses}
+            subagents={subagents}
+            onOpenSubagent={actions.onOpenSubagent}
+            onCancelTask={actions.onCancelTask}
+            onControlTask={actions.onControlTask}
+            pagination={actions.workPages}
+          />
         </EvidenceSection>
       ) : null}
       {files.length ? (

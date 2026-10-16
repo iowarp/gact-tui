@@ -34,7 +34,10 @@ function waitResult(output: unknown): Record<string, unknown> | undefined {
   }
   const outer = record(output);
   const result = record(outer?.structuredContent) ?? record(outer?.structured_content) ?? outer;
-  return Array.isArray(result?.pending) && Array.isArray(result.results) ? result : undefined;
+  return Array.isArray(result?.pending) &&
+    (Array.isArray(result.outcomes) || Array.isArray(result.results))
+    ? result
+    : undefined;
 }
 
 function resultText(value: unknown): string {
@@ -46,7 +49,7 @@ function resultText(value: unknown): string {
     : JSON.stringify(value, null, 2);
 }
 
-/** Explain older wait receipts without changing recorded inputs or result bodies. */
+/** Explain canonical and retained wait receipts without changing their recorded bodies. */
 export function withTaskWaitPresentation(tool: ToolInvocation): ToolInvocation {
   if (tool.name !== 'wait_tasks' || tool.presentation?.subject === 'wait-targets') return tool;
   const input = record(tool.input);
@@ -54,9 +57,18 @@ export function withTaskWaitPresentation(tool: ToolInvocation): ToolInvocation {
   const requested = strings(args?.tasks);
   if (!requested.length) return tool;
   const result = waitResult(tool.output);
-  const rows = records(result?.results);
-  const errors = records(result?.errors);
+  const canonical = Array.isArray(result?.outcomes);
+  const outcomes = records(canonical ? result?.outcomes : result?.results);
+  const rows = canonical ? outcomes.filter((row) => !row.error) : outcomes;
+  const errors = [
+    ...records(result?.errors),
+    ...(canonical ? outcomes.filter((row) => row.error) : []),
+  ];
   const pending = strings(result?.pending);
+  const uncollected = (row: Record<string, unknown>) =>
+    row.status === 'task_state_uncertain' ||
+    row.pending === true ||
+    pending.includes(String(row.handle));
   const handles = [
     ...new Set([
       ...requested,
@@ -67,7 +79,11 @@ export function withTaskWaitPresentation(tool: ToolInvocation): ToolInvocation {
   ];
   const mode = args?.return_when === 'any' ? 'any' : 'all';
   const poll = args?.timeout_s === 0;
-  const action = `${poll ? 'Check' : 'Wait for'} ${mode} ${mode === 'any' ? 'task' : 'tasks'}`;
+  const activeSummary = tool.state === 'running' ? tool.presentation?.summary : undefined;
+  const action =
+    !poll && activeSummary?.startsWith('Waiting for ')
+      ? activeSummary
+      : `${poll ? 'Check' : 'Wait for'} ${mode} ${mode === 'any' ? 'task' : 'tasks'}`;
   let policy =
     mode === 'any'
       ? 'Return when any requested task settles.'
@@ -94,16 +110,23 @@ export function withTaskWaitPresentation(tool: ToolInvocation): ToolInvocation {
       } else if (row) {
         const status = typeof row.status === 'string' ? row.status : '';
         const label =
-          row.kind === 'Subagent' && status === 'completed'
-            ? 'Turn ended'
-            : status
-              ? status[0].toUpperCase() + status.slice(1)
-              : 'Result collected';
+          status === 'task_state_uncertain'
+            ? 'Needs attention'
+            : !canonical && row.kind === 'Subagent' && status === 'completed'
+              ? 'Turn ended'
+              : status
+                ? status[0].toUpperCase() + status.slice(1)
+                : 'Result collected';
         block.label = `${handle}: ${label}`;
-        block.text = resultText(row.result);
-        block.result_kind = 'completion';
+        block.text = resultText(
+          status === 'task_state_uncertain'
+            ? row.reason || 'Execution state needs attention. Inspect this task before continuing.'
+            : row.result,
+        );
+        block.result_kind = uncollected(row) ? 'snapshot' : 'completion';
         block.status = status;
         if (unsuccessful.has(status)) block.severity = 'error';
+        else if (status === 'task_state_uncertain') block.severity = 'warning';
       } else if (pending.includes(handle)) {
         block.label = handle;
         block.text = 'Pending when this call returned.';
@@ -129,9 +152,13 @@ export function withTaskWaitPresentation(tool: ToolInvocation): ToolInvocation {
     blocks.push(...(tool.presentation?.blocks ?? []));
   }
   const failed = rows.filter((row) => unsuccessful.has(String(row.status))).length;
-  const counts = [`${rows.length} ${rows.length === 1 ? 'result' : 'results'} collected`];
+  const collected = rows.filter((row) => !uncollected(row)).length;
+  const attention = rows.filter((row) => row.status === 'task_state_uncertain').length;
+  const counts = [`${collected} ${collected === 1 ? 'result' : 'results'} collected`];
   if (pending.length) counts.unshift(`${pending.length} pending`);
   if (failed) counts.push(`${failed} unsuccessful`);
+  if (attention)
+    counts.push(`${attention} ${attention === 1 ? 'task needs' : 'tasks need'} attention`);
   if (errors.length) counts.push(`${errors.length} ${errors.length === 1 ? 'error' : 'errors'}`);
   return {
     ...tool,
@@ -139,7 +166,7 @@ export function withTaskWaitPresentation(tool: ToolInvocation): ToolInvocation {
       ...tool.presentation,
       action,
       subject: 'wait-targets',
-      status: failed || errors.length ? 'degraded' : tool.presentation?.status,
+      status: failed || errors.length || attention ? 'degraded' : tool.presentation?.status,
       summary: result ? counts.join(', ') : (tool.presentation?.summary ?? ''),
       blocks,
     },

@@ -14,6 +14,7 @@ const fixtures = vi.hoisted(() => ({
   openLogin: vi.fn(),
   cancelLogin: vi.fn(),
   repository: {
+    sessions: vi.fn(),
     connectedSources: vi.fn(),
     storageProviders: vi.fn(),
     signOutStorageAccount: vi.fn(),
@@ -71,6 +72,7 @@ const source = {
 };
 beforeEach(() => {
   vi.resetAllMocks();
+  fixtures.repository.sessions.mockResolvedValue([{ id: 'session_sources', title: 'Source work' }]);
   fixtures.endpoint = 'https://clio-one';
   fixtures.token = 'one';
   fixtures.location = '';
@@ -253,6 +255,10 @@ describe('connected source picker', () => {
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
     await screen.findByText(/Downloaded to workspace Files/);
     expect(onSelect).not.toHaveBeenCalled();
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Track work in' }),
+      await screen.findByRole('option', { name: 'Source work' }),
+    );
     await user.click(screen.getByRole('button', { name: 'Download all' }));
     await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
     expect(fixtures.repository.attachSourceFolder).toHaveBeenCalledWith(
@@ -292,6 +298,10 @@ describe('connected source picker', () => {
       if (downloads) expect(downloadFile).toBeEnabled();
       else expect(downloadFile).toBeDisabled();
       expect(screen.getByText(/Keep files at their source/)).toBeVisible();
+      await user.selectOptions(
+        screen.getByRole('combobox', { name: 'Track work in' }),
+        await screen.findByRole('option', { name: 'Source work' }),
+      );
       await user.click(screen.getByRole('button', { name: 'Link folder' }));
       await waitFor(() =>
         expect(fixtures.repository.linkConnectedSource).toHaveBeenCalledWith(
@@ -300,7 +310,7 @@ describe('connected source picker', () => {
           false,
           'draft_test',
           { access: 'read_only', confirm_remote: false },
-          undefined,
+          'session_sources',
         ),
       );
       expect(fixtures.repository.transferConnectedSource).not.toHaveBeenCalled();
@@ -314,7 +324,7 @@ describe('connected source picker', () => {
             ['input.csv'],
             'draft_test',
             'editable',
-            undefined,
+            'session_sources',
           ),
         );
       } else {
@@ -620,6 +630,10 @@ describe('connected source picker', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Your sources' }));
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Track work in' }),
+      await screen.findByRole('option', { name: 'Source work' }),
+    );
     await user.click(screen.getByRole('button', { name: 'Download all' }));
     await waitFor(() =>
       expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
@@ -628,7 +642,7 @@ describe('connected source picker', () => {
         undefined,
         'draft_test',
         'editable',
-        undefined,
+        'session_sources',
       ),
     );
     expect(screen.getByRole('heading', { name: 'OPAL inputs' })).toBeInTheDocument();

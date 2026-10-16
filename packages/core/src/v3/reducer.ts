@@ -357,9 +357,24 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
           `Message ${payload.message_id} is not resident for its completion`,
         );
       }
+      const interrupted = ['cancelled', 'interrupted', 'error'].includes(payload.stop_reason ?? '');
+      const tools = { ...base.tools };
+      if (interrupted) {
+        for (const block of message.blocks) {
+          if (block.type !== 'tool') continue;
+          const tool = tools[block.tool_id];
+          if (!tool || !['pending', 'running'].includes(tool.state)) continue;
+          tools[tool.id] = {
+            ...tool,
+            state: payload.stop_reason === 'cancelled' ? 'cancelled' : 'failed',
+            error: 'Turn interrupted before a result was recorded; accepted tasks may continue.',
+          };
+        }
+      }
       return {
         ...base,
         revisions,
+        tools,
         // payload.cost_usd is already null-collapsed-to-undefined by
         // messageCompletionSchema -- "unknown" and "not reported" both mean
         // "add nothing", never a fabricated $0 (see addUsage).

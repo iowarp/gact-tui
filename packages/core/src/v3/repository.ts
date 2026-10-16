@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ComposerMessagePart } from './composer-domain.js';
 import { sessionMetadataPatch, type SessionUpdateInput } from './session-metadata-patch.js';
 import { agentTaskRecordSchema } from './agent-task-domain.js';
 import type {
@@ -9,7 +10,6 @@ import type {
   CapabilityNegotiation,
   ApprovalRequest,
   PermissionLedgerItem,
-  OperationalRun,
   Session,
   SessionArtifactListing,
   SessionDefaults,
@@ -17,18 +17,14 @@ import type {
   TurnAttempt,
   Workspace,
   WorkspaceFileListing,
-  RelayStatus,
-  RelayConnectionInput,
   ToolCatalogItem,
   UserQuestion,
 } from './domain.js';
 import type { AgentDefinition } from './agent-domain.js';
 import {
-  operationalRunSchema,
   sessionSchema,
   turnAttemptSchema,
   workspaceSchema,
-  relayStatusSchema,
   sessionDefaultsSchema,
   userQuestionSchema,
 } from './schemas.js';
@@ -37,7 +33,6 @@ import {
   artifactDetailSchema,
   artifactLineageSchema,
   sessionArtifactListingSchema,
-  operationalRunListSchema,
   permissionListSchema,
   questionListSchema,
   sessionListSchema,
@@ -51,6 +46,12 @@ import {
   readTextPath,
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
+import {
+  cursorPageQuery,
+  readCursorPages,
+  type CursorPage,
+  type CursorPageOptions,
+} from './transport.js';
 import { mergeA2uiClientMetadata } from './a2ui/index.js';
 import { WorkRepository } from './work-repository.js';
 import { decodeCapabilities } from './capability-negotiation.js';
@@ -281,16 +282,6 @@ export class ClioRepository extends WorkRepository {
     return result.sessions;
   }
 
-  public async runs(signal?: AbortSignal): Promise<OperationalRun[]> {
-    const result = await this.transport.request({
-      method: 'GET',
-      path: '/v1/runs',
-      decode: (value) => operationalRunListSchema.parse(value),
-      signal,
-    });
-    return result.runs;
-  }
-
   public async workspaceFiles(
     workspaceId: string,
     signal?: AbortSignal,
@@ -346,34 +337,6 @@ export class ClioRepository extends WorkRepository {
       `/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?path=${encodeURIComponent(path)}`,
       signal,
     );
-  }
-
-  public relayStatus(signal?: AbortSignal): Promise<RelayStatus> {
-    return this.transport.request({
-      method: 'GET',
-      path: '/v1/relay/status',
-      decode: (value) => relayStatusSchema.parse(value),
-      signal,
-    });
-  }
-
-  public configureRelay(input: RelayConnectionInput, signal?: AbortSignal): Promise<RelayStatus> {
-    return this.transport.request({
-      method: 'PUT',
-      path: '/v1/relay/configuration',
-      body: input,
-      decode: (value) => relayStatusSchema.parse(value),
-      signal,
-    });
-  }
-
-  public disconnectRelay(signal?: AbortSignal): Promise<RelayStatus> {
-    return this.transport.request({
-      method: 'DELETE',
-      path: '/v1/relay/configuration',
-      decode: (value) => relayStatusSchema.parse(value),
-      signal,
-    });
   }
 
   public async tools(signal?: AbortSignal): Promise<ToolCatalogItem[]> {
@@ -540,33 +503,6 @@ export class ClioRepository extends WorkRepository {
     );
   }
 
-  public detachRun(handleId: string, signal?: AbortSignal): Promise<OperationalRun> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/runs/${encodeURIComponent(handleId)}/detach`,
-      decode: (value) => operationalRunSchema.parse(value),
-      signal,
-    });
-  }
-
-  public dismissRun(handleId: string, signal?: AbortSignal): Promise<void> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/runs/${encodeURIComponent(handleId)}/dismiss`,
-      decode: () => undefined,
-      signal,
-    });
-  }
-
-  public cancelAgentTask(taskId: string, signal?: AbortSignal): Promise<void> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/agent-tasks/${encodeURIComponent(taskId)}/cancel`,
-      decode: () => undefined,
-      signal,
-    });
-  }
-
   public async permissions(
     signal?: AbortSignal,
     filters?: { sessionId?: string; status?: string },
@@ -620,14 +556,29 @@ export class ClioRepository extends WorkRepository {
     signal?: AbortSignal,
     status?: UserQuestion['status'],
   ): Promise<UserQuestion[]> {
-    const suffix = status ? `?status=${encodeURIComponent(status)}` : '';
+    return readCursorPages((cursor) => this.questionsPage(sessionId, signal, status, { cursor }));
+  }
+
+  public async questionsPage(
+    sessionId: string,
+    signal?: AbortSignal,
+    status?: UserQuestion['status'],
+    page: CursorPageOptions = {},
+  ): Promise<CursorPage<UserQuestion>> {
+    const query = cursorPageQuery(page);
+    if (status) query.set('status', status);
     const result = await this.transport.request({
       method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/questions${suffix}`,
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/questions${query.size ? `?${query}` : ''}`,
       decode: (value) => questionListSchema.parse(value),
       signal,
     });
-    return result.questions;
+    return {
+      items: result.questions,
+      cursor: result.cursor,
+      total: result.total,
+      revision: result.revision,
+    };
   }
 
   /**
@@ -642,7 +593,15 @@ export class ClioRepository extends WorkRepository {
     signal?: AbortSignal,
     filters?: { sessionId?: string; status?: UserQuestion['status'] },
   ): Promise<UserQuestion[]> {
-    const query = new URLSearchParams();
+    return readCursorPages((cursor) => this.allQuestionsPage(signal, filters, { cursor }));
+  }
+
+  public async allQuestionsPage(
+    signal?: AbortSignal,
+    filters?: { sessionId?: string; status?: UserQuestion['status'] },
+    page: CursorPageOptions = {},
+  ): Promise<CursorPage<UserQuestion>> {
+    const query = cursorPageQuery(page);
     if (filters?.sessionId) query.set('session_id', filters.sessionId);
     if (filters?.status) query.set('status', filters.status);
     const result = await this.transport.request({
@@ -651,7 +610,12 @@ export class ClioRepository extends WorkRepository {
       decode: (value) => questionListSchema.parse(value),
       signal,
     });
-    return result.questions;
+    return {
+      items: result.questions,
+      cursor: result.cursor,
+      total: result.total,
+      revision: result.revision,
+    };
   }
 
   public async pendingQuestions(sessionId?: string, signal?: AbortSignal): Promise<UserQuestion[]> {
@@ -661,7 +625,7 @@ export class ClioRepository extends WorkRepository {
   public answerQuestion(
     sessionId: string,
     questionId: string,
-    answer: { answer?: string; selected_options?: string[] },
+    answer: { answer?: string; selected_options?: string[]; parts?: ComposerMessagePart[] },
     signal?: AbortSignal,
   ): Promise<UserQuestion> {
     return this.transport.request({

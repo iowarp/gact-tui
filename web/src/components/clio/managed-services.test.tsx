@@ -256,17 +256,10 @@ describe('ManagedServices', () => {
     expect(onConnectExistingService).toHaveBeenCalledOnce();
   });
 
-  it('summarizes services attached to the connected agent before deployment controls', async () => {
+  it('summarizes connected MCP services before deployment controls', async () => {
     renderServices({
       connectedAgentLabel: 'Ares Research',
       connectedAgentLocation: 'Ares',
-      relayStatus: {
-        configured: true,
-        host: 'relay.lab.example',
-        mcp_url: 'https://relay.lab.example/mcp',
-        reachable: true,
-        details: {},
-      },
       webSearchConnected: true,
       webSearchConnection: {
         name: 'web',
@@ -285,7 +278,6 @@ describe('ManagedServices', () => {
     expect(screen.getByRole('heading', { name: 'Ares › Research' })).toBeVisible();
     expect(screen.getByText('http://127.0.0.1:8089')).toBeVisible();
     expect(screen.getByText('Runs on Ares')).toBeVisible();
-    expect(screen.getByText('Runs on relay.lab.example')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Install service' })).toBeVisible();
   });
 

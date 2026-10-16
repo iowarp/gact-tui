@@ -9,6 +9,7 @@ import type { SessionSendInput } from '@/hooks/use-session-mutations';
 import { ClioPendingInteractions, type ClioPendingInteractionsProps } from './pending-interactions';
 import { AgentQuestionDialog } from './agent-question-dialog';
 import { useQuestionAnswering } from './use-question-answering';
+import { useQuestionDrafts } from './question-answer-context';
 import * as workspaceRouteState from './workspace-route-state';
 
 type Respond = (
@@ -21,6 +22,7 @@ interface UseWorkspaceQuestionsInput {
   tools: readonly ToolInvocation[];
   messages: readonly Message[];
   sessionId: string;
+  endpoint: string;
   focusComposer: () => void;
   /** Answer one interaction through its own response route. */
   respondInteraction: (input: {
@@ -43,6 +45,7 @@ export function useWorkspaceQuestions({
   tools,
   messages,
   sessionId,
+  endpoint,
   focusComposer,
   respondInteraction,
   send,
@@ -53,6 +56,7 @@ export function useWorkspaceQuestions({
   pendingInteractionsPanel: ReactNode;
 } {
   const [openedId, setOpenedId] = useState<string>();
+  const responseDrafts = useQuestionDrafts(endpoint, sessionId, interactions);
   const handleInteractionResponse = useCallback<Respond>(
     async (interaction, response) => {
       await respondInteraction({ interaction, response });
@@ -93,6 +97,7 @@ export function useWorkspaceQuestions({
       ...questionAnswering,
       context: {
         ...questionAnswering.context,
+        responseDrafts,
         interactions,
         openQuestion: (interaction: PendingInteraction) => setOpenedId(interaction.id),
         surfaces: tray.surfaces,

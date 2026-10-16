@@ -39,12 +39,15 @@ export const permissionLedgerItemSchema = z
   }));
 
 export const userQuestionSchema = z.object({
+  task_handle: z.string().optional(),
   response_mode: z.enum(['blocking', 'async']).optional(),
   id: z.string(),
   session_id: z.string(),
   prompt: z.string(),
   status: forwardCompatibleEnum(['pending', 'answered', 'cancelled', 'expired']),
-  kind: forwardCompatibleEnum(['freeform', 'choice', 'confirmation']).default('freeform'),
+  kind: forwardCompatibleEnum(['freeform', 'choice', 'confirmation', 'multi_choice']).default(
+    'freeform',
+  ),
   options: z
     .array(
       z.object({
@@ -103,6 +106,15 @@ export const workspaceSchema = z.object({
 export const runStateSchema = forwardCompatibleEnum([
   'queued',
   'running',
+  'stopping',
+  'stopped',
+  'cancellation_requested',
+  'task_state_uncertain',
+  'pause_requested',
+  'paused',
+  'yielded',
+  'recovery_required',
+  'recovering',
   'waiting_permission',
   'waiting_user',
   'completed',
@@ -115,8 +127,18 @@ export const runStateSchema = forwardCompatibleEnum([
 export const operationalRunStateSchema = z
   .string()
   .transform((value): z.infer<typeof runStateSchema> => {
-    if (value === 'working') return 'running';
-    if (value === 'input_required') return 'waiting_user';
+    if (
+      value === 'working' ||
+      value === 'executing' ||
+      value === 'active' ||
+      value === 'busy' ||
+      value === 'waiting'
+    )
+      return 'running';
+    if (value === 'accepted' || value === 'submitting') return 'queued';
+    if (value === 'idle') return 'yielded';
+    if (value === 'cancelling') return 'cancellation_requested';
+    if (value === 'input_required' || value === 'waiting_for_input') return 'waiting_user';
     return runStateSchema.parse(value);
   });
 

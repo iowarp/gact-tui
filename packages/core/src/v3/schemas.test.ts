@@ -13,6 +13,10 @@ import {
 } from './index.js';
 
 describe('forward-compatible wire enums', () => {
+  it('preserves yielded assignments and uncertain recovery as distinct active states', () => {
+    expect(runStateSchema.parse('yielded')).toBe('yielded');
+    expect(runStateSchema.parse('recovery_required')).toBe('recovery_required');
+  });
   it('retains child launch metadata used to identify skill tasks', () => {
     const parsed = sessionSchema.parse({
       id: 'sess_child',

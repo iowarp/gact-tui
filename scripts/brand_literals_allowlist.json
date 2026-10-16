@@ -1,10 +1,5 @@
 [
   {
-    "file": "web/src/components/clio/relay-settings.tsx",
-    "match": "CLIO Relay",
-    "reason": "Relay is a distinct, named companion service brand, not the agent identity itself; it has no vocab field yet."
-  },
-  {
     "file": "web/src/components/clio/web-search-setup.tsx",
     "match": "CLIO Web Search",
     "reason": "Web Search is a distinct, named companion service brand, not the agent identity itself; it has no vocab field yet."
@@ -23,10 +18,5 @@
     "file": "web/src/routes/infrastructure-page.tsx",
     "match": "CLIO Web Search",
     "reason": "Web Search is a distinct, named companion service brand, not the agent identity itself; it has no vocab field yet."
-  },
-  {
-    "file": "web/src/routes/infrastructure-page.tsx",
-    "match": "CLIO Relay",
-    "reason": "Relay is a distinct, named companion service brand, not the agent identity itself; it has no vocab field yet."
   }
 ]

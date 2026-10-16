@@ -7,7 +7,19 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
   running: boolean;
 } {
   const running = iterations.some((item) => item.streaming);
+  const activeWait = iterations
+    .flatMap((item) => item.tools)
+    .findLast(
+      (tool) =>
+        tool.name === 'wait_tasks' &&
+        tool.state === 'running' &&
+        tool.presentation?.summary?.startsWith('Waiting for '),
+    );
+  if (activeWait?.presentation?.summary)
+    return { label: activeWait.presentation.summary, running: true };
   const toolLabel = (tool: ToolInvocation) => {
+    if (tool.name === 'ask_user')
+      return tool.state === 'running' ? 'asking questions' : 'asked questions';
     const category = activityCategory(tool);
     if (category === 'search') return running ? 'running searches' : 'searched';
     if (category === 'read') return running ? 'reading files' : 'read files';

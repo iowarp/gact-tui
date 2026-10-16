@@ -189,7 +189,14 @@ export const artifactLineageSchema = z.object({
 export const permissionListSchema = z.object({
   permissions: z.array(permissionLedgerItemSchema).default([]),
 });
-export const questionListSchema = z.object({ questions: z.array(userQuestionSchema).default([]) });
+export const cursorPageMetadataSchema = z.object({
+  cursor: z.string().nullable().default(null),
+  total: z.number().int().nullable().default(null),
+  revision: z.number().int().default(0),
+});
+export const questionListSchema = cursorPageMetadataSchema.extend({
+  questions: z.array(userQuestionSchema).default([]),
+});
 export const pendingInteractionListSchema = z.object({
   interactions: z.array(pendingInteractionOrDegradedSchema).default([]),
   degradations: z.array(z.object({ reason: z.string(), detail: z.string() })).default([]),

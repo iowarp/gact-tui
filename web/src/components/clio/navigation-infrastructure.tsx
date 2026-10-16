@@ -54,11 +54,6 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
     queryFn: ({ signal }) => repository.serviceHealth(signal),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
-  const relay = useQuery({
-    queryKey: queryKeys.key('relay-status', settings.endpoint),
-    queryFn: ({ signal }) => repository.relayStatus(signal),
-    refetchInterval: INFRASTRUCTURE_POLL_MS,
-  });
   const servers = useQuery({
     queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'infrastructure'),
     queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal),
@@ -110,43 +105,6 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
                 stateLabel: 'Ready',
               };
 
-    const relayState: InfrastructureItem = relay.isPending
-      ? {
-          id: 'remote-work',
-          label: 'Remote computers',
-          state: 'checking',
-          stateLabel: 'Checking',
-        }
-      : relay.error
-        ? {
-            id: 'remote-work',
-            label: 'Remote computers',
-            state: 'failed',
-            stateLabel: 'Unavailable',
-            detail: relay.error.message,
-          }
-        : relay.data?.reachable
-          ? {
-              id: 'remote-work',
-              label: 'Remote computers',
-              state: 'healthy',
-              stateLabel: 'Ready',
-            }
-          : relay.data?.configured
-            ? {
-                id: 'remote-work',
-                label: 'Remote computers',
-                state: 'degraded',
-                stateLabel: 'Warning',
-                detail: relay.data.detail || relay.data.reason,
-              }
-            : {
-                id: 'remote-work',
-                label: 'Remote computers',
-                state: 'unavailable',
-                stateLabel: 'Not connected',
-              };
-
     const serviceItems = servers.isPending
       ? [
           {
@@ -168,18 +126,8 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
           ]
         : consolidateServiceItems((servers.data ?? []).map(serverItem));
 
-    return [agentState, relayState, ...serviceItems];
-  }, [
-    health.data,
-    health.error,
-    health.isPending,
-    relay.data,
-    relay.error,
-    relay.isPending,
-    servers.data,
-    servers.error,
-    servers.isPending,
-  ]);
+    return [agentState, ...serviceItems];
+  }, [health.data, health.error, health.isPending, servers.data, servers.error, servers.isPending]);
 
   const overall = aggregateInfrastructureState(items);
 

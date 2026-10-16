@@ -113,6 +113,7 @@ export function WorkspacePage() {
     parentSession,
     providerCatalog,
     processes,
+    workPages,
     runs,
     session,
     sessionLookupPending,
@@ -159,12 +160,8 @@ export function WorkspacePage() {
     [sessionId],
   );
   const attention = useAttentionMode(sessionId, transcript.data?.messages.length ?? 0);
-  // messageCount lags transcript.isFetching by a render tick (it only
-  // hydrates from transcript.data via use-workspace-data.ts's mergeSnapshots
-  // effect), which used to flash the welcome variant -- remounting the
-  // composer and dropping any in-progress attachment/draft -- for one render
-  // per existing-conversation navigation. Gating also on transcript.data's
-  // own count, which never disagrees with isFetching, closes the race.
+  // Hydration can lag messageCount by a render. Check both to avoid remounting
+  // the welcome composer and losing drafts or attachments during navigation.
   const showConversationWelcome =
     messageCount === 0 &&
     (transcript.data?.messages.length ?? 0) === 0 &&
@@ -275,6 +272,7 @@ export function WorkspacePage() {
       tools,
       messages: transcript.data?.messages ?? [],
       sessionId,
+      endpoint: settings.endpoint,
       focusComposer: focusComposerForAnswer,
       respondInteraction: respondInteraction.mutateAsync,
       send: send.mutateAsync,
@@ -522,6 +520,7 @@ export function WorkspacePage() {
               onOpenSubagent={openSubagent}
               onProvenanceProviderChange={executionProvenance.setProvider}
               processes={processes}
+              workPages={workPages}
               resources={workspaceResources.data ?? []}
               provenanceDegradation={executionProvenance.degradation}
               provenancePending={
@@ -668,6 +667,7 @@ export function WorkspacePage() {
                     sessionContext.preferences.mutateAsync(input)
                   }
                   processes={processes}
+                  workPages={workPages}
                   resources={workspaceResources.data ?? []}
                   provenanceDegradation={executionProvenance.degradation}
                   provenancePending={

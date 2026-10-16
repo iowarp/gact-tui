@@ -130,10 +130,10 @@ fn bundled_update_args(python: &Path, version: &str) -> Vec<String> {
         format!("clio-agent=={version}"),
         "clio-kit==2.10.6".to_string(),
         "globus-sdk>=3.0.0".to_string(),
-        "dspy==3.3.0b1".to_string(),
-        "fastmcp==4.0.0b5".to_string(),
-        "fastmcp-slim==4.0.0b5".to_string(),
-        "fastmcp-tasks==4.0.0b5".to_string(),
+        "dspy==3.4.0".to_string(),
+        "fastmcp==4.1.0".to_string(),
+        "fastmcp-slim==4.1.0".to_string(),
+        "fastmcp-tasks==4.1.0".to_string(),
     ]
 }
 

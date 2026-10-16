@@ -103,45 +103,6 @@ describe('ClioRepository session operation contracts', () => {
     ]);
   });
 
-  it('reads operational runs from the run registry and normalizes live states', async () => {
-    const transport = new RecordingTransport([
-      {
-        runs: [
-          {
-            handle_id: 'task_1',
-            task_id: 'task_1',
-            run_label: 'Data expert',
-            live_state: 'input_required',
-            status: 'input_required',
-            host: 'local',
-            placement: 'local',
-            parent_session_id: 'sess_parent',
-            child_session_id: 'sess_child',
-            created_at: '2026-08-22T00:00:00Z',
-            updated_at: '2026-08-22T00:01:00Z',
-            detached: false,
-            source: 'agent_task',
-            ticker: {
-              state: 'input_required',
-              updated_at: '2026-08-22T00:01:00Z',
-              path: '/v1/agent-tasks/task_1/live',
-            },
-          },
-        ],
-      },
-    ]);
-    const repository = new ClioRepository(transport);
-
-    const runs = await repository.runs();
-
-    expect(transport.requests[0]?.path).toBe('/v1/runs');
-    expect(runs[0]).toMatchObject({
-      handle_id: 'task_1',
-      live_state: 'waiting_user',
-      ticker: { state: 'waiting_user' },
-    });
-  });
-
   it('requests a directory page and preserves its continuation offset', async () => {
     const transport = new RecordingTransport([{ entries: [], truncated: true, next_offset: 400 }]);
     const repository = new ClioRepository(transport);
@@ -337,7 +298,7 @@ describe('ClioRepository session operation contracts', () => {
             kind: 'agent',
             id: 'task_watcher',
             title: 'Spotter watcher',
-            live_state: 'waiting',
+            live_state: 'future_backend_state',
             status: 'running',
           },
         ],
@@ -347,7 +308,11 @@ describe('ClioRepository session operation contracts', () => {
 
     const processes = await repository.asyncProcesses('sess 1');
 
-    expect(processes[0]).toMatchObject({ id: 'task_watcher', live_state: 'unknown' });
+    expect(processes[0]).toMatchObject({
+      id: 'task_watcher',
+      live_state: 'unknown',
+      metadata: { live_state: 'future_backend_state' },
+    });
   });
 
   it('reads the newest recorded effective agent toolset without reconstructing it', async () => {

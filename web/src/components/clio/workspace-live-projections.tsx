@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useLiveStore } from '@/store/live-store';
 import { useTaskCancellation } from '@/hooks/use-task-cancellation';
+import { useSubagentControl } from '@/hooks/use-subagent-control';
 import { useMessageMarks } from '@/hooks/use-message-marks';
 import { conversationForkOrigin } from './conversation-fork-origin';
 import { ClioConversation, type ClioConversationProps } from './conversation';
@@ -131,11 +132,13 @@ export function WorkspaceLiveObservabilityDock({
   ...props
 }: LiveObservabilityDockProps) {
   const onCancelTask = useTaskCancellation(sessionId);
+  const onControlTask = useSubagentControl(sessionId);
   return (
     <ClioObservabilityDock
       {...props}
       sessionId={sessionId}
       onCancelTask={onCancelTask}
+      onControlTask={onControlTask}
       messages={useSessionMessages(sessionId)}
     />
   );
@@ -150,10 +153,12 @@ export function WorkspaceLiveObservabilityView({
   ...props
 }: LiveObservabilityViewProps) {
   const onCancelTask = useTaskCancellation(sessionId);
+  const onControlTask = useSubagentControl(sessionId);
   return (
     <ClioObservabilityView
       {...props}
       onCancelTask={onCancelTask}
+      onControlTask={onControlTask}
       messages={useSessionMessages(sessionId)}
       sessionId={sessionId}
     />

@@ -114,8 +114,11 @@ export function useQuestionAnswering({
       else if (answer)
         await send({
           ...value,
-          ...(answering?.payload?.response_mode === 'async' ? { delivery: 'queued' as const } : {}),
+          ...(answering?.payload?.response_mode === 'async' && !answering.payload.task_handle
+            ? { delivery: 'queued' as const }
+            : {}),
           answersQuestionId: answer.questionId,
+          ...(answering?.payload?.task_handle ? { answersQuestionTask: true } : {}),
         });
       else {
         const revision = planRevisionFromComposer(interactions, value);

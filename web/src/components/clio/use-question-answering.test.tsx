@@ -24,13 +24,16 @@ const base = {
   delivery: 'start' as const,
 };
 
-function setup(toolName = 'ask_user', mode?: 'async') {
+function setup(toolName = 'ask_user', mode?: 'async', taskHandle?: string) {
   const respond = vi.fn().mockResolvedValue(undefined);
   const send = vi.fn().mockResolvedValue(undefined);
   const hook = renderHook(() =>
     useQuestionAnswering({
       interactions: [
-        { ...question(toolName), payload: { question_id: 'q1', response_mode: mode } },
+        {
+          ...question(toolName),
+          payload: { question_id: 'q1', response_mode: mode, task_handle: taskHandle },
+        },
       ],
       tools: mode
         ? []
@@ -46,6 +49,23 @@ function setup(toolName = 'ask_user', mode?: 'async') {
 }
 
 describe('useQuestionAnswering.submit (#1448)', () => {
+  it('sends task question attachments through the question owner without queuing a future message', async () => {
+    const { result, respond, send } = setup('ask_user', 'async', 'task_question');
+    act(() => result.current.context.startAnswer('question:q1'));
+    const files = [{ filename: 'stations.csv' }] as never;
+    await act(() =>
+      result.current.submit({ ...base, delivery: 'queued', text: 'attached', files }),
+    );
+    expect(send).toHaveBeenCalledWith({
+      ...base,
+      delivery: 'queued',
+      text: 'attached',
+      files,
+      answersQuestionId: 'q1',
+      answersQuestionTask: true,
+    });
+    expect(respond).not.toHaveBeenCalled();
+  });
   it('queues an async attachment answer even before its tool anchor is loaded', async () => {
     const { result, respond, send } = setup('ask_user', 'async');
     act(() => result.current.context.startAnswer('question:q1'));

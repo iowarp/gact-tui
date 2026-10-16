@@ -89,6 +89,27 @@ describe('retained task wait receipts', () => {
     expect(shown.presentation?.blocks.some((block) => block.result_kind)).toBe(false);
   });
 
+  it('uses the authorized active wait label without changing handles or inventing answers', () => {
+    const waiting = {
+      ...tool,
+      state: 'running' as const,
+      output: undefined,
+      input: { tasks: 'question_handle' },
+      presentation: { summary: 'Waiting for your answer', blocks: [] },
+    };
+    const shown = withTaskWaitPresentation(waiting);
+    expect(shown.presentation?.action).toBe('Waiting for your answer');
+    expect(shown.presentation?.summary).toBe('Waiting for your answer');
+    expect(shown.presentation?.blocks[0].text).toBe('question_handle');
+    expect(shown.presentation?.blocks.some((block) => block.result_kind)).toBe(false);
+    expect(shown.input).toBe(waiting.input);
+    expect(shown.output).toBeUndefined();
+    expect(
+      withTaskWaitPresentation({ ...waiting, input: { tasks: 'question_handle', timeout_s: 0 } })
+        .presentation?.action,
+    ).toBe('Check all tasks');
+  });
+
   it('exposes failed work and handle errors', () => {
     const shown = withTaskWaitPresentation({
       ...tool,
@@ -103,6 +124,60 @@ describe('retained task wait receipts', () => {
     expect(shown.presentation?.blocks.at(-1)).toMatchObject({
       severity: 'error',
       text: 'Unknown task handle',
+    });
+  });
+
+  const canonical = {
+    pending: ['uncertain', 'running'],
+    outcomes: [
+      {
+        handle: 'ready',
+        kind: 'Subagent',
+        status: 'completed',
+        pending: false,
+        result: 'Finished',
+      },
+      { handle: 'uncertain', status: 'task_state_uncertain', reason: 'Cleanup is unconfirmed' },
+      { handle: 'missing', error: 'Task unavailable' },
+    ],
+    timed_out: false,
+  };
+
+  it.each([
+    canonical,
+    [{ type: 'text', text: JSON.stringify(canonical) }],
+    { structuredContent: canonical },
+  ])('distinguishes canonical collection, attention, member errors and pending work', (output) => {
+    const shown = withTaskWaitPresentation({
+      ...tool,
+      input: { tasks: ['ready', 'uncertain', 'missing', 'running'], return_when: 'any' },
+      output,
+    });
+    expect(shown.output).toBe(output);
+    expect(shown.presentation?.summary).toBe(
+      '2 pending, 1 result collected, 1 task needs attention, 1 error',
+    );
+    expect(shown.presentation?.status).toBe('degraded');
+    expect(shown.presentation?.blocks[2]).toMatchObject({
+      label: 'ready: Completed',
+      result_kind: 'completion',
+      text: 'Finished',
+    });
+    expect(shown.presentation?.blocks[3]).toMatchObject({
+      label: 'uncertain: Needs attention',
+      result_kind: 'snapshot',
+      severity: 'warning',
+      text: 'Cleanup is unconfirmed',
+      status: 'task_state_uncertain',
+    });
+    expect(shown.presentation?.blocks[4]).toMatchObject({
+      label: 'missing: Could not collect',
+      severity: 'error',
+      text: 'Task unavailable',
+    });
+    expect(shown.presentation?.blocks[5]).toMatchObject({
+      result_kind: 'snapshot',
+      status: 'pending',
     });
   });
 });

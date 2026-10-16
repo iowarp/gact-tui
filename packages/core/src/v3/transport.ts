@@ -51,6 +51,47 @@ export interface ClioTransport {
   stream(scope: StreamScope, cursor?: string, signal?: AbortSignal): AsyncIterable<TransportFrame>;
 }
 
+/** A bounded HTTP projection page, separate from execution ownership. */
+export interface CursorPage<T> {
+  items: T[];
+  cursor: string | null;
+  total: number | null;
+  revision: number;
+}
+
+export interface CursorPageOptions {
+  cursor?: string;
+  limit?: number;
+  activeOnly?: boolean;
+}
+
+/** Encode only requested paging options, retaining first-page compatibility. */
+export function cursorPageQuery(options: CursorPageOptions): URLSearchParams {
+  const query = new URLSearchParams();
+  if (options.cursor) query.set('cursor', options.cursor);
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  if (options.activeOnly !== undefined) query.set('active_only', String(options.activeOnly));
+  return query;
+}
+
+/** Explicit array reads follow every page; interactive views request individual pages. */
+export async function readCursorPages<T>(
+  read: (cursor?: string) => Promise<CursorPage<T>>,
+): Promise<T[]> {
+  const items: T[] = [];
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await read(cursor);
+    items.push(...page.items);
+    cursor = page.cursor ?? undefined;
+    if (cursor && seen.has(cursor))
+      throw new Error('The response pagination cursor did not advance');
+    if (cursor) seen.add(cursor);
+  } while (cursor);
+  return items;
+}
+
 export class TransportError extends Error {
   public constructor(
     message: string,

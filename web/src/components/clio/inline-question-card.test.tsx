@@ -56,6 +56,18 @@ function renderCard(
 }
 
 describe('InlineQuestionCard', () => {
+  it('leaves task cancellation to Work while keeping the question answerable', async () => {
+    const user = userEvent.setup();
+    const row = question();
+    row.payload = { ...row.payload, task_handle: 'question_task' };
+    const { onResponse } = renderCard(row);
+    expect(screen.queryByRole('button', { name: 'Dismiss question' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Preempt' }));
+    expect(onResponse).toHaveBeenCalledWith(row, {
+      action: 'answer',
+      selected_options: ['preempt'],
+    });
+  });
   it('shows the whole question, never clamped, inside a bounded scroll area', () => {
     renderCard(question());
 
