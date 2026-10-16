@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { maxViewportHeight } from './a2ui-response-viewport-resize';
 import { CLIO_A2UI_CATALOG_ID } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
-import { ClioPendingInteractions } from './pending-interactions';
+import { PendingA2UIResponse } from './pending-a2ui-response';
 
 // Exercise the pending card's resize and portal behavior independently of the
 // catalog renderer, whose conformance has its own tests.
@@ -135,12 +135,12 @@ function renderPendingA2UI(surface: A2UISurface = actionSurface()): void {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ClioPendingInteractions
-        interactions={[pendingA2UI()]}
+      <PendingA2UIResponse
+        interaction={pendingA2UI()}
         onResponse={vi.fn(async () => undefined)}
-        ownerLabels={{ sess_child: 'Evidence specialist' }}
-        surfaces={{ surface_1: surface }}
-        viewedSessionId="sess_root"
+        ownerLabel="Evidence specialist"
+        rawSurface={surface}
+        showOwner
       />
     </QueryClientProvider>,
   );
@@ -241,11 +241,11 @@ describe('PendingA2UIResponse', () => {
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}
       >
-        <ClioPendingInteractions
-          interactions={[pendingA2UI()]}
+        <PendingA2UIResponse
+          interaction={pendingA2UI()}
           onResponse={vi.fn(async () => undefined)}
-          surfaces={{ surface_1: actionSurface() }}
-          viewedSessionId="sess_root"
+          rawSurface={actionSurface()}
+          showOwner={false}
         />
       </QueryClientProvider>,
     );

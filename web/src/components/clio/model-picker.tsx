@@ -34,6 +34,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { modelTypeOf } from '@/lib/model-capability-tags';
 import {
   DEFAULT_FILTER_TOKENS,
+  addModelFilterToken,
   freeSearchText,
   surrogateChatReason,
   type ModelFilterToken,
@@ -349,9 +350,7 @@ export function ClioModelPicker({
                       }
                     : undefined
                 }
-                onTagToken={(token) =>
-                  setTokens((current) => (current.includes(token) ? current : [...current, token]))
-                }
+                onTagToken={(token) => setTokens((current) => addModelFilterToken(current, token))}
                 hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
                 managingVisibility={managingVisibility}
                 node={node}

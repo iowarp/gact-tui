@@ -67,13 +67,13 @@ afterEach(() => {
   for (const mock of Object.values(repository)) mock.mockReset();
 });
 
-async function openPicker() {
+async function openPicker(options: ClioModelOption[] = catalog) {
   const user = userEvent.setup();
   renderPicker(
     <ClioModelPicker
       onChange={vi.fn()}
-      options={catalog}
-      provider="openrouter"
+      options={options}
+      provider={options[0]?.providerId}
       trigger={<Button>Change model</Button>}
     />,
   );
@@ -97,6 +97,35 @@ const modelNames = () =>
   ].map((name) => name.textContent);
 
 describe('ClioModelPicker model facts', () => {
+  it('filters MAG by context through typing, clicking a context tag and moving its slider', async () => {
+    const options = [
+      ['opus', 1_000_000],
+      ['luna', 922_000],
+      ['scout', 10_000_000],
+      ['unknown', undefined],
+    ].map(([id, contextWindow]) => ({
+      ...capabilityRow(String(id), {}, { providerId: 'amsc_mag', providerName: 'AMSC' }),
+      contextWindow: contextWindow as number | undefined,
+      contextBasis: 'served' as const,
+    }));
+    const user = await openPicker(options);
+    await user.type(field(), 'context:>1M ');
+    await waitFor(() => expect(modelNames()).toEqual(['opus', 'scout']));
+    expect(barCount()).toBe('2 / 4');
+    await user.click(field());
+    expect(slider('Context from')[0]).toHaveAttribute('aria-valuenow', '5');
+    await user.click(within(panel()).getByRole('switch', { name: 'Include unknown context' }));
+    await waitFor(() => expect(modelNames()).toEqual(['opus', 'scout', 'unknown']));
+    fireEvent.keyDown(slider('Context from')[0]!, { key: 'ArrowLeft' });
+    expect(tokens()).toContain('context:>256K');
+    await waitFor(() => expect(modelNames()).toEqual(['opus', 'luna', 'scout', 'unknown']));
+    // A context chip adds a minimum-size range, not an exact-label membership filter.
+    await user.keyboard('{Escape}');
+    await user.click(document.querySelector<HTMLElement>('[data-tag="context:1000000"]')!);
+    expect(tokens()).toContain('context:>1000000');
+    expect(tokens()).not.toContain('context:>256K');
+    await waitFor(() => expect(modelNames()).toEqual(['opus', 'scout', 'unknown']));
+  }, 20_000);
   it('the demo query: recent, over 32B, image and text in, text out', async () => {
     const user = await openPicker();
     await user.type(field(), 'released:<6mo size:>32B input:image ');

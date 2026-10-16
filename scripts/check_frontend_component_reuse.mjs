@@ -64,8 +64,15 @@ const requiredImports = {
     '@/components/ai-elements/sources',
   ],
   'web/src/components/clio/composer.tsx': [
-    '@/components/ai-elements/model-selector',
+    './composer-model-label',
     '@/components/ai-elements/prompt-input',
+  ],
+  // The composer and session defaults share the provider/model trigger so both
+  // names retain space and the sourced logo, button and tooltip stay composed.
+  'web/src/components/clio/composer-model-label.tsx': [
+    '@/components/ai-elements/model-selector',
+    '@/components/ui/button',
+    '@/components/ui/tooltip',
   ],
   'web/src/components/clio/tool-invocation.tsx': ['@/components/ai-elements/tool'],
   'web/src/components/clio/artifact-card.tsx': [
@@ -123,7 +130,10 @@ const requiredImports = {
     '@/components/clio/data-grid-table',
     '@/components/reui/data-grid/data-grid',
   ],
-  'web/src/components/clio/settings-session-defaults.tsx': ['@/components/ui/select'],
+  'web/src/components/clio/settings-session-defaults.tsx': [
+    '@/components/ui/select',
+    './composer-model-label',
+  ],
   // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
   'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
   'web/src/components/clio/settings-models.tsx': ['@/components/clio/settings-frame'],

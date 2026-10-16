@@ -3,8 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import type { ClioModelOption } from '@/lib/model-options';
-import { capabilityRow, openrouterConfiguration } from '@/test-fixtures/model-picker/capability-rows';
-import { renderPicker, repository, setWideViewport } from '@/test-fixtures/model-picker/provider-actions';
+import {
+  capabilityRow,
+  openrouterConfiguration,
+} from '@/test-fixtures/model-picker/capability-rows';
+import {
+  renderPicker,
+  repository,
+  setWideViewport,
+} from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
 
 vi.mock('@/hooks/use-repository', async () => {
@@ -19,10 +26,17 @@ const claude = { providerId: 'claude_code', providerName: 'Claude Code' };
 const mistral = { providerId: 'mistral', providerName: 'Mistral' };
 
 const catalog: ClioModelOption[] = [
-  capabilityRow('anthropic/claude-sonnet-5', { inputs: ['text', 'image'], capabilities: ['tool_calling'] }),
+  capabilityRow('anthropic/claude-sonnet-5', {
+    inputs: ['text', 'image'],
+    capabilities: ['tool_calling'],
+  }),
   capabilityRow('perplexity/sonar', { free: true }),
   capabilityRow('meta/llama-4', { inputs: ['text', 'image', 'pdf'], free: true }),
-  capabilityRow('stability/sdxl', { outputs: ['image'], modelType: 'image_generation', tasks: ['text-to-image'] }),
+  capabilityRow('stability/sdxl', {
+    outputs: ['image'],
+    modelType: 'image_generation',
+    tasks: ['text-to-image'],
+  }),
   capabilityRow('claude-sonnet-5', { inputs: ['text', 'image'] }, claude),
   capabilityRow('mistral/large', {}, mistral),
 ];
@@ -42,7 +56,13 @@ afterEach(() => {
 
 async function openPicker(options: ClioModelOption[] = catalog) {
   const user = userEvent.setup();
-  renderPicker(<ClioModelPicker onChange={vi.fn()} options={options} trigger={<Button>Change model</Button>} />);
+  renderPicker(
+    <ClioModelPicker
+      onChange={vi.fn()}
+      options={options}
+      trigger={<Button>Change model</Button>}
+    />,
+  );
   await user.click(screen.getByRole('button', { name: 'Change model' }));
   return user;
 }
@@ -84,8 +104,12 @@ describe('ClioModelPicker search counts', () => {
 
     expect(barCount()).toBe('3 / 6');
     const openrouter = providerRow('OpenRouter')!;
-    expect(openrouter.querySelector('[data-slot="provider-filter-count"]')).toHaveTextContent('2 / 4');
-    expect(providerRow('Claude Code')?.querySelector('[data-slot="provider-filter-count"]')).toHaveTextContent('1 / 1');
+    expect(openrouter.querySelector('[data-slot="provider-filter-count"]')).toHaveTextContent(
+      '2 / 4',
+    );
+    expect(
+      providerRow('Claude Code')?.querySelector('[data-slot="provider-filter-count"]'),
+    ).toHaveTextContent('1 / 1');
     // The provider row's own trailing count and drill chevron give way to the group's.
     expect(openrouter.querySelector('[data-slot="provider-group-chevron"]')).not.toBeNull();
   });
@@ -166,17 +190,27 @@ describe('ClioModelPicker filter panel', () => {
     await user.click(searchField());
 
     const facets = panel()!;
-    expect(within(facets).getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-      'Main',
+    expect(
+      within(facets)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['Main', 'Tasks', 'Input', 'Output', 'Capabilities', 'Providers', 'Other']);
+    const headings = within(facets)
+      .getAllByRole('heading')
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual([
       'Tasks',
+      'Context',
+      'Size',
+      'Cost',
+      'Released',
       'Input',
       'Output',
       'Capabilities',
       'Providers',
-      'Other',
+      'Offer',
+      'Role',
     ]);
-    const headings = within(facets).getAllByRole('heading').map((heading) => heading.textContent);
-    expect(headings).toEqual(['Tasks', 'Size', 'Cost', 'Released', 'Input', 'Output', 'Capabilities', 'Providers', 'Offer', 'Role']);
     const free = within(facets).getByRole('button', { name: /^Free: / });
     expect(free).toHaveAttribute('aria-pressed', 'false');
     expect(free.querySelector('[data-slot="facet-chip-count"]')).toHaveTextContent('2');
@@ -190,7 +224,10 @@ describe('ClioModelPicker filter panel', () => {
 
     expect(tokens()).toEqual(['input:text', 'output:text', 'free']);
     expect(barCount()).toBe('2 / 6');
-    expect(within(panel()!).getByRole('button', { name: /^Free: / })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(panel()!).getByRole('button', { name: /^Free: / })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     // Focus never left the search field: typing still searches.
     expect(searchField()).toHaveFocus();
 
@@ -203,7 +240,9 @@ describe('ClioModelPicker filter panel', () => {
     await user.click(searchField());
     await user.click(within(panel()!).getByRole('tab', { name: 'Tasks' }));
 
-    const image = within(panel()!).getByRole('button', { name: /^Text-to-Image: 1 model \(replaces output:text\)$/u });
+    const image = within(panel()!).getByRole('button', {
+      name: /^Text-to-Image: 1 model \(replaces output:text\)$/u,
+    });
     expect(image).toBeEnabled();
     await user.click(image);
 
@@ -231,7 +270,9 @@ describe('ClioModelPicker filter panel', () => {
     expect(barCount()).toBe('250 / 250');
     // 250 model rows plus their provider's header -- never cut at 200.
     await waitFor(() =>
-      expect(document.querySelector('[data-slot="cascader-status"]')).toHaveTextContent('251 results'),
+      expect(document.querySelector('[data-slot="cascader-status"]')).toHaveTextContent(
+        '251 results',
+      ),
     );
   });
 
@@ -249,10 +290,19 @@ describe('ClioModelPicker filter panel', () => {
   });
 
   it('"+N" opens the group tab; a tab with many chips has a name filter', async () => {
-    const tasks = ['text-to-speech', 'automatic-speech-recognition', 'text-to-video', 'feature-extraction', 'text-ranking', 'text-classification'];
+    const tasks = [
+      'text-to-speech',
+      'automatic-speech-recognition',
+      'text-to-video',
+      'feature-extraction',
+      'text-ranking',
+      'text-classification',
+    ];
     const many = [
       ...catalog,
-      ...tasks.map((task) => capabilityRow(`acme/${task}`, { modelType: 'other', tasks: [task], outputs: [] })),
+      ...tasks.map((task) =>
+        capabilityRow(`acme/${task}`, { modelType: 'other', tasks: [task], outputs: [] }),
+      ),
     ];
     const user = await openPicker(many);
     await user.click(searchField());
@@ -260,12 +310,21 @@ describe('ClioModelPicker filter panel', () => {
     const more = within(panel()!).getByRole('button', { name: /more Tasks$/u });
     await user.click(more);
 
-    expect(within(panel()!).getByRole('tab', { name: 'Tasks' })).toHaveAttribute('aria-selected', 'true');
-    const sections = within(panel()!).getAllByRole('heading').map((heading) => heading.textContent);
+    expect(within(panel()!).getByRole('tab', { name: 'Tasks' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const sections = within(panel()!)
+      .getAllByRole('heading')
+      .map((heading) => heading.textContent);
     expect(sections).toEqual(['Vision', 'Language', 'Audio']);
     const filter = within(panel()!).getByRole('textbox', { name: 'Filter Tasks by name' });
     await user.type(filter, 'speech');
-    expect(within(panel()!).getAllByRole('heading').map((heading) => heading.textContent)).toEqual(['Audio']);
+    expect(
+      within(panel()!)
+        .getAllByRole('heading')
+        .map((heading) => heading.textContent),
+    ).toEqual(['Audio']);
     expect(within(panel()!).getByRole('button', { name: /^Text-to-Speech: / })).toBeVisible();
     expect(within(panel()!).queryByRole('button', { name: /^Text Generation: / })).toBeNull();
   });

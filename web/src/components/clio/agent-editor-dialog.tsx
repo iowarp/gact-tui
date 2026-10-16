@@ -41,6 +41,8 @@ import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioModelPicker } from './model-picker';
 import { humanizeToolName } from './tool-presentation';
+import { NumberLimitInput } from './number-limit-input';
+import { vocab } from '@/lib/brand-vocabulary';
 
 interface AgentDraft {
   id: string;
@@ -55,6 +57,7 @@ interface AgentDraft {
   skills: string;
   commands: string;
   tools: string[];
+  parallelism: string;
 }
 
 interface AgentEditorDialogProps {
@@ -147,7 +150,12 @@ export function AgentEditorDialog({
   );
 
   const valid = Boolean(
-    draft.id.trim() && draft.title.trim() && (agent || draft.systemPrompt.trim()),
+    draft.id.trim() &&
+      draft.title.trim() &&
+      (agent || draft.systemPrompt.trim()) &&
+      draft.parallelism.trim() !== '' &&
+      Number.isSafeInteger(Number(draft.parallelism)) &&
+      Number(draft.parallelism) >= 0,
   );
 
   return (
@@ -285,6 +293,22 @@ export function AgentEditorDialog({
               onChange={(value) => update('specialization', value)}
               value={draft.specialization}
             />
+            <Field>
+              <FieldLabel htmlFor="agent-parallelism">Per-agent parallelism</FieldLabel>
+              <NumberLimitInput
+                id="agent-parallelism"
+                label="Per-agent parallelism"
+                value={draft.parallelism}
+                defaultValue={Number(draftFrom(agent).parallelism)}
+                disabled={pending}
+                onChange={(value) => update('parallelism', value)}
+              />
+              <FieldDescription>
+                Maximum concurrent children in this agent’s parallel batches. Unlimited removes this
+                extra limit; the service concurrency limit still applies. Saved changes apply to new
+                turns without restarting {vocab.agent}.
+              </FieldDescription>
+            </Field>
             <TextField
               description="Separate multiple entries with commas."
               label="Keywords"
@@ -421,6 +445,11 @@ function TextField({
 }
 
 function draftFrom(agent: AgentDefinition | null): AgentDraft {
+  const enabled = agent?.fanout.enabled;
+  const fanoutDisabled =
+    enabled === false ||
+    (typeof enabled === 'string' &&
+      ['false', '0', 'no', 'off', 'disabled'].includes(enabled.trim().toLowerCase()));
   return {
     id: agent?.id ?? '',
     title: agent?.title ?? '',
@@ -434,6 +463,7 @@ function draftFrom(agent: AgentDefinition | null): AgentDraft {
     skills: (agent?.skills ?? []).join(', '),
     commands: (agent?.commands ?? []).join(', '),
     tools: [...(agent?.tools ?? [])],
+    parallelism: String(fanoutDisabled ? 0 : (agent?.fanout.max_workers ?? 0)),
   };
 }
 
@@ -454,6 +484,10 @@ function agentFromDraft(previous: AgentDefinition | null, draft: AgentDraft): Ag
     skills: list(draft.skills),
     commands: list(draft.commands),
     tools: draft.tools,
+    fanout:
+      draft.parallelism === draftFrom(previous).parallelism
+        ? base.fanout
+        : { ...base.fanout, enabled: true, max_workers: Number(draft.parallelism) },
   };
 }
 

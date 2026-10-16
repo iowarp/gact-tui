@@ -15,6 +15,8 @@ import { ResponseErrorNotice } from './pending-interaction-notices';
 import { QuestionSurface } from './question-surface';
 import { QuestionMarkdown } from './question-markdown';
 import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
+import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
+import { SurfaceQuestionNotice } from './surface-question-notice';
 
 /**
  * Split out of `pending-interactions.tsx` purely for file size (the 800-line
@@ -45,6 +47,17 @@ export function QuestionResponse({
   const [selection, setSelection] = useState('');
   const [multiSelection, setMultiSelection] = useState<string[]>([]);
   const [optionComments, setOptionComments] = useState<Record<string, string>>({});
+  if (interaction.source.surface_id && !embedsQuestionSurface(interaction)) {
+    return (
+      <SurfaceQuestionNotice
+        interaction={interaction}
+        disabled={disabled}
+        onResponse={onResponse}
+        ownerLabel={ownerLabel}
+        showOwner={showOwner}
+      />
+    );
+  }
   if (interaction.payload?.mode === 'url') {
     return (
       <UrlConsentResponse

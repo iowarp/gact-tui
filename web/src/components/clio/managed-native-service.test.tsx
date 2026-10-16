@@ -7,17 +7,17 @@ import { ManagedServiceCard } from './managed-service-card';
 
 afterEach(cleanup);
 
-function service(phase: 'stopped' | 'not_installed') {
+function service(phase: 'stopped' | 'not_installed', variant = 'native-cuda') {
   return managedServiceDefinitionSchema.parse({
     id: 'vllm',
     category: 'model_runtime',
     label: 'vLLM',
     description: 'Model serving.',
-    recommended_variant: 'native-cuda',
+    recommended_variant: variant,
     supports_stop: true,
     variants: [
       {
-        id: 'native-cuda',
+        id: variant,
         label: 'Native CUDA',
         version: '0.28.0',
         artifact: 'vllm==0.28.0',
@@ -65,13 +65,13 @@ function service(phase: 'stopped' | 'not_installed') {
   });
 }
 
-function mount(phase: 'stopped' | 'not_installed') {
+function mount(phase: 'stopped' | 'not_installed', variant = 'native-cuda') {
   const onAction = vi.fn();
   render(
     <MemoryRouter>
       <ManagedServiceCard
-        service={service(phase)}
-        variant="native-cuda"
+        service={service(phase, variant)}
+        variant={variant}
         configuration={{ model: '/data/models/qualified' }}
         onAction={onAction}
         onVariant={vi.fn()}
@@ -96,20 +96,25 @@ describe('native service lifecycle', () => {
     ).toBeInTheDocument();
   });
 
-  it('requires a separate explicit confirmation to delete retained data', async () => {
-    const onAction = mount('not_installed');
-    await userEvent.click(screen.getByRole('tab', { name: 'Storage' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Delete retained data' }));
-    expect(onAction).not.toHaveBeenCalled();
-    expect(screen.getByRole('alertdialog', { name: 'Delete retained vLLM data?' })).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Keep data' }));
-    expect(onAction).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button', { name: 'Delete retained data' }));
-    await userEvent.click(screen.getAllByRole('button', { name: 'Delete retained data' }).at(-1)!);
-    expect(onAction).toHaveBeenCalledTimes(1);
-    // Only a reinstall can carry options (from scratch); delete_data never does.
-    expect(onAction).toHaveBeenCalledWith('delete_data', undefined);
-  });
+  it.each(['native-cuda', 'native-xpu'])(
+    'requires separate confirmation to delete retained %s data',
+    async (variant) => {
+      const onAction = mount('not_installed', variant);
+      await userEvent.click(screen.getByRole('tab', { name: 'Storage' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Delete retained data' }));
+      expect(onAction).not.toHaveBeenCalled();
+      expect(screen.getByRole('alertdialog', { name: 'Delete retained vLLM data?' })).toBeVisible();
+      await userEvent.click(screen.getByRole('button', { name: 'Keep data' }));
+      expect(onAction).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole('button', { name: 'Delete retained data' }));
+      await userEvent.click(
+        screen.getAllByRole('button', { name: 'Delete retained data' }).at(-1)!,
+      );
+      expect(onAction).toHaveBeenCalledTimes(1);
+      // Only a reinstall can carry options (from scratch); delete_data never does.
+      expect(onAction).toHaveBeenCalledWith('delete_data', undefined);
+    },
+  );
 
   it('does not require container or attention configuration for plain native vLLM', () => {
     mount('not_installed');

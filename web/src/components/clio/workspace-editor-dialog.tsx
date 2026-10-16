@@ -13,10 +13,14 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { vocab } from '@/lib/brand-vocabulary';
 import { ClioPathPicker } from './path-picker';
 
 export interface WorkspaceEditorActions {
-  renameWorkspace: (workspaceId: string, name: string) => Promise<void>;
+  updateWorkspace: (
+    workspaceId: string,
+    input: { name: string; root_path: string },
+  ) => Promise<void>;
   grantWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
   revokeWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
 }
@@ -38,21 +42,26 @@ export function WorkspaceEditorDialog({
     [workspace],
   );
   const [name, setName] = useState(workspace.display_name);
-  const [additional, setAdditional] = useState(
-    initialFolders.filter((folder) => !folder.primary).map((folder) => folder.path),
-  );
+  const [primaryPath, setPrimaryPath] = useState(workspace.path);
+  const [added, setAdded] = useState<string[]>([]);
+  const [removed, setRemoved] = useState<string[]>([]);
   const [newFolder, setNewFolder] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
-  const primary = initialFolders.find((folder) => folder.primary) ?? initialFolders[0];
   const originalAdditional = initialFolders
     .filter((folder) => !folder.primary)
     .map((folder) => folder.path);
+  // Merge live approvals/revocations with explicit draft changes. A newly
+  // approved folder must never become an implicit removal on an unrelated Save.
+  const additional = [...new Set([...originalAdditional, ...added])].filter(
+    (path) => !removed.includes(path),
+  );
 
   const addFolder = () => {
     const path = newFolder.trim();
-    if (!path || path === primary?.path || additional.includes(path)) return;
-    setAdditional((current) => [...current, path]);
+    if (!path || path === primaryPath.trim() || additional.includes(path)) return;
+    setAdded((current) => [...current, path]);
+    setRemoved((current) => current.filter((candidate) => candidate !== path));
     setNewFolder('');
   };
 
@@ -60,13 +69,20 @@ export function WorkspaceEditorDialog({
     setPending(true);
     setError(undefined);
     try {
-      if (name.trim() !== workspace.display_name) {
-        await actions.renameWorkspace(workspace.id, name.trim());
+      if (name.trim() !== workspace.display_name || primaryPath.trim() !== workspace.path) {
+        await actions.updateWorkspace(workspace.id, {
+          name: name.trim(),
+          root_path: primaryPath.trim(),
+        });
       }
-      for (const path of additional.filter((path) => !originalAdditional.includes(path))) {
+      // Save includes a picked/typed folder even when Add was not clicked.
+      const folders = [...new Set([...additional, newFolder.trim()])].filter(
+        (path) => path && path !== primaryPath.trim(),
+      );
+      for (const path of folders.filter((path) => !originalAdditional.includes(path))) {
         await actions.grantWorkspaceFolder(workspace.id, path);
       }
-      for (const path of originalAdditional.filter((path) => !additional.includes(path))) {
+      for (const path of originalAdditional.filter((path) => !folders.includes(path))) {
         await actions.revokeWorkspaceFolder(workspace.id, path);
       }
       onClose();
@@ -78,7 +94,7 @@ export function WorkspaceEditorDialog({
   };
 
   return (
-    <Dialog onOpenChange={(open) => !open && onClose()} open>
+    <Dialog onOpenChange={(open) => !open && !pending && onClose()} open>
       <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Edit workspace</DialogTitle>
@@ -91,32 +107,52 @@ export function WorkspaceEditorDialog({
             <FieldLabel htmlFor="workspace-editor-name">Workspace name</FieldLabel>
             <Input
               autoFocus
+              disabled={pending}
               id="workspace-editor-name"
               onChange={(event) => setName(event.target.value)}
               value={name}
             />
           </Field>
           <Field className="min-w-0">
+            <FieldLabel>Primary folder</FieldLabel>
+            <ClioPathPicker
+              disabled={pending}
+              inputLabel="Primary folder path"
+              knownFolders={initialFolders}
+              onChange={setPrimaryPath}
+              value={primaryPath}
+            />
+            <FieldDescription>
+              Choose the new location if you moved this folder. Your conversations stay in this
+              workspace. {vocab.product} does not move your files. Finish running conversations
+              before changing it.
+            </FieldDescription>
+          </Field>
+          <Field className="min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <FieldLabel>Folders</FieldLabel>
-              <span className="text-xs text-muted-foreground">
-                {1 + additional.length} permitted
-              </span>
+              <FieldLabel>Additional permitted folders</FieldLabel>
+              <span className="text-xs text-muted-foreground">{additional.length} added</span>
             </div>
             <div className="min-w-0 overflow-hidden rounded-xl border bg-muted/15">
-              {primary ? <FolderRow name={primary.name} path={primary.path} primary /> : null}
               {additional.map((path) => (
                 <FolderRow
                   key={path}
                   name={folderName(path)}
-                  onRemove={() =>
-                    setAdditional((current) => current.filter((candidate) => candidate !== path))
+                  onRemove={
+                    pending
+                      ? undefined
+                      : () => {
+                          setAdded((current) => current.filter((candidate) => candidate !== path));
+                          setRemoved((current) => [...new Set([...current, path])]);
+                        }
                   }
                   path={path}
                 />
               ))}
               <div className="grid gap-2 border-t p-2">
                 <ClioPathPicker
+                  disabled={pending}
+                  inputLabel="Additional folder path"
                   knownFolders={initialFolders.map((folder) => ({
                     name: folder.name,
                     path: folder.path,
@@ -128,7 +164,7 @@ export function WorkspaceEditorDialog({
                 />
                 <Button
                   className="w-fit"
-                  disabled={!newFolder.trim()}
+                  disabled={pending || !newFolder.trim()}
                   onClick={addFolder}
                   size="sm"
                   type="button"
@@ -139,8 +175,9 @@ export function WorkspaceEditorDialog({
               </div>
             </div>
             <FieldDescription>
-              The primary folder anchors the workspace. Additional folders are explicit access
-              grants and can be removed here.
+              {vocab.product} can read and write in these folders too. Save includes the folder
+              entered above. Removing a folder withdraws its additional access grant; it does not
+              delete files. Running tools pick up access changes after they finish.
             </FieldDescription>
           </Field>
           {error ? (
@@ -153,7 +190,11 @@ export function WorkspaceEditorDialog({
           <Button disabled={pending} onClick={onClose} type="button" variant="ghost">
             Cancel
           </Button>
-          <Button disabled={pending || !name.trim()} onClick={() => void save()} type="button">
+          <Button
+            disabled={pending || !name.trim() || !primaryPath.trim()}
+            onClick={() => void save()}
+            type="button"
+          >
             {pending ? 'Saving…' : 'Save workspace'}
           </Button>
         </DialogFooter>
@@ -166,12 +207,10 @@ function FolderRow({
   name,
   onRemove,
   path,
-  primary = false,
 }: {
   name: string;
   onRemove?: () => void;
   path: string;
-  primary?: boolean;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-3 border-b px-3 py-2.5 last:border-b-0">
@@ -182,21 +221,16 @@ function FolderRow({
           {path}
         </p>
       </div>
-      {primary ? (
-        <span className="rounded-md border px-2 py-0.5 text-[0.625rem] text-muted-foreground">
-          Primary
-        </span>
-      ) : (
-        <Button
-          aria-label={`Remove folder ${name}`}
-          onClick={onRemove}
-          size="icon-xs"
-          type="button"
-          variant="ghost"
-        >
-          <DeleteIcon aria-hidden="true" />
-        </Button>
-      )}
+      <Button
+        aria-label={`Remove folder ${name}`}
+        disabled={!onRemove}
+        onClick={onRemove}
+        size="icon-xs"
+        type="button"
+        variant="ghost"
+      >
+        <DeleteIcon aria-hidden="true" />
+      </Button>
     </div>
   );
 }

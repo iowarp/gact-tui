@@ -1,4 +1,5 @@
 import type { ManagedServiceDefinition } from '@clio/core/v3';
+import { vocab } from '@/lib/brand-vocabulary';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,6 +16,7 @@ import { ManagedServiceContextControl } from './managed-service-context';
 import { ServerParametersForm } from './managed-service-parameters';
 import { MonitoringImageStorage } from './monitoring-image-storage';
 import { SearchEnginePicker } from './search-engine-picker';
+import { ServiceInstallationMethod } from './service-installation-method';
 
 /** Shared definition-driven setup and reconfiguration form. Paths belong to the named host. */
 export function ManagedServiceForm({
@@ -26,6 +28,9 @@ export function ManagedServiceForm({
   targetId,
   hostLabel,
   storageOnly = false,
+  installationOnly = false,
+  showIntroduction = true,
+  showMethod = true,
 }: {
   service: ManagedServiceDefinition;
   configuration: Record<string, string>;
@@ -35,11 +40,22 @@ export function ManagedServiceForm({
   targetId?: string;
   hostLabel: string;
   storageOnly?: boolean;
+  /** Package/image preparation does not need a model, listening port or server flags. */
+  installationOnly?: boolean;
+  showIntroduction?: boolean;
+  showMethod?: boolean;
 }) {
   const fields = service.configuration_fields.filter(
     (field) =>
       (!field.variants?.length || field.variants.includes(variant)) &&
-      !(variant === 'native-windows-cpu' && field.id === 'hf_model'),
+      (field.id !== 'database_settings_path' || configuration.database_mode === 'site') &&
+      (field.id !== 'grobid_url' || configuration.documents?.startsWith('on')) &&
+      (!installationOnly || (field.id === 'container_runtime' && !variant.startsWith('native'))) &&
+      !(
+        variant === 'native-windows-cpu' &&
+        !service.variants.some((row) => row.id === variant && row.install_type === 'native_uv') &&
+        field.id === 'hf_model'
+      ),
   );
   const path = configuration['storage.service_directory'] || '';
   const storageOwned = Boolean(
@@ -47,7 +63,9 @@ export function ManagedServiceForm({
   );
   const basic = fields.filter(
     (field) =>
-      ['model', 'model_path', 'hf_model'].includes(field.id) ||
+      ['model', 'model_path', 'hf_model', 'database_mode', 'database_settings_path'].includes(
+        field.id,
+      ) ||
       (field.required && !['container_runtime', 'port'].includes(field.id)),
   );
   const advanced = fields.filter(
@@ -60,7 +78,7 @@ export function ManagedServiceForm({
         <FieldLabel>{field.label}</FieldLabel>
         <InfoTip label={`About ${field.label}`}>
           {field.id === 'model_path'
-            ? 'The path to an existing GGUF model file on this computer. It is required before installation or start.'
+            ? 'The path to an existing GGUF model file on this computer. Choose a model before starting the server. Installing the runtime does not need one.'
             : field.id === 'hf_model'
               ? 'A Hugging Face GGUF repository and optional quantization. Use this instead of a local model path.'
               : field.id === 'model'
@@ -94,7 +112,10 @@ export function ManagedServiceForm({
               >
                 {field.id === 'safe_search'
                   ? { '0': 'Off', '1': 'Moderate', '2': 'Strict' }[option] || option
-                  : option}
+                  : field.id === 'database_mode'
+                    ? { managed: `Managed by ${vocab.product}`, site: 'Site-provided' }[option] ||
+                      option
+                    : option}
               </SelectItem>
             ))}
           </SelectContent>
@@ -103,7 +124,11 @@ export function ManagedServiceForm({
         <Input
           aria-label={`${service.label} ${field.label}`}
           onChange={(event) => onConfiguration(field.id, event.target.value)}
-          placeholder={field.placeholder}
+          placeholder={
+            field.id === 'model_path' && variant === 'native-windows-cpu'
+              ? 'C:\\models\\model.gguf'
+              : field.placeholder
+          }
           required={field.required}
           value={configuration[field.id] ?? ''}
         />
@@ -111,7 +136,8 @@ export function ManagedServiceForm({
     </Field>
   );
   const storage =
-    service.category === 'monitoring' || variant.startsWith('native-cuda') ? (
+    service.category === 'monitoring' ||
+    service.variants.some((row) => row.id === variant && row.install_type === 'native_uv') ? (
       <Field>
         <div className="flex items-center gap-2">
           <FieldLabel>Service data</FieldLabel>
@@ -148,19 +174,26 @@ export function ManagedServiceForm({
     <div className="space-y-5">
       {!storageOnly ? (
         <>
-          <p className="text-sm text-muted-foreground">{service.description}</p>
-          {service.category === 'model_runtime' ? (
+          {showIntroduction ? (
+            <p className="text-sm text-muted-foreground">{service.description}</p>
+          ) : null}
+          {showMethod ? (
+            <ServiceInstallationMethod service={service} variant={variant} onVariant={onVariant} />
+          ) : null}
+          {showIntroduction && service.category === 'model_runtime' ? (
             <p className="text-xs text-muted-foreground">
-              Choose the model to load. Ports and runtime settings are under Advanced settings.
+              {installationOnly
+                ? 'Install the runtime without a model file. Choose a model when you are ready to start.'
+                : 'Choose the model to load. Ports and runtime settings are under Advanced settings.'}
             </p>
           ) : null}
           {basic.length ? (
             <div className="grid gap-4">{basic.map(renderField)}</div>
-          ) : (
+          ) : !installationOnly ? (
             <p className="text-sm">
               Ports and storage use this computer’s defaults. Open Advanced settings to change them.
             </p>
-          )}
+          ) : null}
           <ServiceAccessChoice
             configuration={configuration}
             onConfiguration={onConfiguration}
@@ -169,34 +202,7 @@ export function ManagedServiceForm({
           <details className="border-t pt-4">
             <summary className="cursor-pointer text-sm font-medium">Advanced settings</summary>
             <div className="mt-4 space-y-5">
-              <Field>
-                <FieldLabel>Installation method</FieldLabel>
-                <Select
-                  onValueChange={onVariant}
-                  value={variant}
-                  disabled={service.state === 'running' || service.state === 'stopped'}
-                >
-                  <SelectTrigger aria-label={`${service.label} version`}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {service.variants.map((item) => (
-                      <SelectItem key={item.id} value={item.id} disabled={!item.compatible}>
-                        {item.label} · {item.version}
-                        {item.compatible ? '' : ' (unavailable)'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {service.variants
-                  .filter((item) => !item.compatible)
-                  .map((item) => (
-                    <p key={item.id} className="text-xs text-muted-foreground">
-                      {item.label}: {item.reason}
-                    </p>
-                  ))}
-              </Field>
-              {service.id === 'searxng' ? (
+              {fields.some((field) => field.id === 'engines') ? (
                 <SearchEnginePicker
                   value={configuration.engines || ''}
                   defaults={fields.find((field) => field.id === 'engines')?.placeholder || ''}
@@ -221,20 +227,24 @@ export function ManagedServiceForm({
                   />
                 ) : null}
               </div>
-              <ManagedServiceContextControl
-                configuration={configuration}
-                onConfiguration={onConfiguration}
-                service={service}
-                targetId={targetId}
-                variant={variant}
-              />
-              <ServerParametersForm
-                onChange={onConfiguration}
-                parameters={service.parameters ?? []}
-                serviceLabel={service.label}
-                values={configuration}
-                variant={variant}
-              />
+              {!installationOnly ? (
+                <ManagedServiceContextControl
+                  configuration={configuration}
+                  onConfiguration={onConfiguration}
+                  service={service}
+                  targetId={targetId}
+                  variant={variant}
+                />
+              ) : null}
+              {!installationOnly ? (
+                <ServerParametersForm
+                  onChange={onConfiguration}
+                  parameters={service.parameters ?? []}
+                  serviceLabel={service.label}
+                  values={configuration}
+                  variant={variant}
+                />
+              ) : null}
               {storage}
             </div>
           </details>
