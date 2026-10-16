@@ -9,12 +9,40 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
-export function ResourceLoading({ label, className }: { label: string; className?: string }) {
+/**
+ * The loading state: skeleton rows that assistive technology announces as
+ * `label`. Use it wherever a region waits on data, instead of bare "Loading…"
+ * text (gact-tui#366). Worded status inside a control, such as a select
+ * placeholder or a busy button, stays text.
+ *
+ * `line` is one short bar for inline spots: a tree row, a section header.
+ */
+export function ResourceLoading({
+  label,
+  className,
+  variant = 'block',
+}: {
+  label: string;
+  className?: string;
+  variant?: 'block' | 'line';
+}) {
   return (
-    <div aria-label={label} className={cn('grid gap-2', className)}>
-      <Skeleton className="h-8 w-full" />
-      <Skeleton className="h-8 w-4/5" />
-      <Skeleton className="h-8 w-11/12" />
+    <div
+      aria-busy="true"
+      aria-label={label}
+      className={cn(variant === 'line' ? 'inline-flex items-center' : 'grid gap-2', className)}
+      data-slot="resource-loading"
+      role="status"
+    >
+      {variant === 'line' ? (
+        <Skeleton aria-hidden="true" className="h-3 w-16" />
+      ) : (
+        <>
+          <Skeleton aria-hidden="true" className="h-8 w-full" />
+          <Skeleton aria-hidden="true" className="h-8 w-4/5" />
+          <Skeleton aria-hidden="true" className="h-8 w-11/12" />
+        </>
+      )}
     </div>
   );
 }
