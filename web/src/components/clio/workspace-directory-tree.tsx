@@ -7,6 +7,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { FileTypeIcon } from './file-type-icon';
+import { ResourceLoading } from './resource-states';
 
 interface TreeProps {
   workspaceId: string;
@@ -112,7 +113,7 @@ function DirectoryChildren({
           ),
         )}
       {listing.isPending ? (
-        <p className="px-2 py-1 text-xs text-muted-foreground">Loading folder…</p>
+        <ResourceLoading className="px-2 py-1" label="Loading folder" variant="line" />
       ) : null}
       {listing.error ? (
         <p className="px-2 py-1 text-xs text-destructive" role="alert">

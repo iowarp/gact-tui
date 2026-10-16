@@ -29,6 +29,7 @@ const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
 );
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
+import { ResourceLoading } from './resource-states';
 
 const ArtifactView = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.ArtifactView })),
@@ -43,9 +44,7 @@ const WorkspaceResourceCarousel = lazy(() =>
 );
 
 function CanvasLoading({ label }: { label: string }) {
-  return (
-    <div className="grid h-full place-items-center p-6 text-sm text-muted-foreground">{label}…</div>
-  );
+  return <ResourceLoading className="p-6" label={label} />;
 }
 
 export interface WorkbenchTabContentProps {
