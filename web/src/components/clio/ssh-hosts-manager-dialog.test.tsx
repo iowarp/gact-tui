@@ -26,17 +26,22 @@ import { SshHostsManagerDialog } from './ssh-hosts-manager-dialog';
 
 function renderManager(open = true) {
   const onOpenChange = vi.fn();
+  const onRemoved = vi.fn();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return {
     onOpenChange,
+    onRemoved,
+    queryClient,
     ...render(
-      <QueryClientProvider client={new QueryClient()}>
-        <SshHostsManagerDialog onOpenChange={onOpenChange} open={open} />
+      <QueryClientProvider client={queryClient}>
+        <SshHostsManagerDialog onOpenChange={onOpenChange} onRemoved={onRemoved} open={open} />
       </QueryClientProvider>,
     ),
   };
 }
 
 beforeEach(() => {
+  profiles.deleteSshProfile.mockReset().mockResolvedValue(undefined);
   profiles.listAllSshProfiles.mockResolvedValue([
     { name: 'ares', label: 'Ares', hostname: 'ares.example.edu', managed: true, hidden: false },
     {
@@ -56,15 +61,24 @@ afterEach(() => {
 });
 
 describe('SshHostsManagerDialog', () => {
-  it('deletes a managed computer, and offers no delete for an imported one', async () => {
+  it('removes a managed computer only after confirming and also offers removal for imported hosts', async () => {
     profiles.deleteSshProfile.mockResolvedValue(undefined);
-    renderManager();
+    const { onRemoved } = renderManager();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Delete Ares' }));
+    await user.click(await screen.findByRole('button', { name: 'Remove Ares' }));
+    expect(profiles.deleteSshProfile).not.toHaveBeenCalled();
+    expect(screen.getByRole('alertdialog')).toBeVisible();
+    expect(screen.getByText(/pasted key used only by this profile/)).toBeVisible();
+    profiles.listAllSshProfiles.mockResolvedValue([
+      { name: 'gateway', hostname: 'gw.example.edu', managed: false, hidden: true },
+    ]);
+    await user.click(screen.getByRole('button', { name: 'Remove host' }));
     expect(profiles.deleteSshProfile).toHaveBeenCalledWith('ares');
     await waitFor(() => expect(profiles.listAllSshProfiles).toHaveBeenCalledTimes(2));
-    expect(screen.queryByRole('button', { name: 'Delete gateway' })).not.toBeInTheDocument();
+    expect(onRemoved).toHaveBeenCalledWith('ares');
+    expect(screen.queryByRole('button', { name: 'Remove Ares' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove gateway' })).toBeVisible();
   });
 
   it('shows why a delete failed', async () => {
@@ -72,8 +86,45 @@ describe('SshHostsManagerDialog', () => {
     renderManager();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Delete Ares' }));
+    await user.click(await screen.findByRole('button', { name: 'Remove Ares' }));
+    await user.click(screen.getByRole('button', { name: 'Remove host' }));
     expect(await screen.findByText('profile is in use')).toBeVisible();
+    expect(screen.getByRole('alertdialog')).toBeVisible();
+    profiles.deleteSshProfile.mockResolvedValue(undefined);
+    await user.click(screen.getByRole('button', { name: 'Remove host' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  });
+
+  it('can cancel imported-host removal without hiding or deleting anything', async () => {
+    const { onRemoved } = renderManager();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Remove gateway' }));
+    expect(screen.getByText(/Your OpenSSH configuration and SSH keys remain/)).toBeVisible();
+    expect(screen.getByText('gw.example.edu:22')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Keep host' }));
+    expect(profiles.deleteSshProfile).not.toHaveBeenCalled();
+    expect(profiles.setSshProfileHidden).not.toHaveBeenCalled();
+    expect(onRemoved).not.toHaveBeenCalled();
+  });
+
+  it('confirms imported-host removal and prevents duplicate submits while pending', async () => {
+    let finish!: () => void;
+    profiles.deleteSshProfile.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { onRemoved } = renderManager();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Remove gateway' }));
+    await user.click(screen.getByRole('button', { name: 'Remove host' }));
+    expect(screen.getByRole('button', { name: 'Removing…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Keep host' })).toBeDisabled();
+    expect(profiles.deleteSshProfile).toHaveBeenCalledOnce();
+    expect(profiles.deleteSshProfile).toHaveBeenCalledWith('gateway');
+    await act(async () => finish());
+    expect(onRemoved).toHaveBeenCalledWith('gateway');
   });
 
   it('lists both managed and imported hosts, hidden ones included', async () => {
@@ -106,6 +157,31 @@ describe('SshHostsManagerDialog', () => {
     await waitFor(() =>
       expect(profiles.setSshProfileHidden).toHaveBeenCalledWith('gateway', false),
     );
+  });
+
+  it('persists rapid Hide/Show changes in order and ignores an obsolete failure', async () => {
+    let rejectFirst!: (error: Error) => void;
+    profiles.setSshProfileHidden
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectFirst = reject;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    renderManager();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Hide Ares' }));
+    await user.click(screen.getByRole('button', { name: 'Show Ares' }));
+    expect(profiles.setSshProfileHidden).toHaveBeenCalledOnce();
+    await act(async () => rejectFirst(new Error('obsolete hide error')));
+    await waitFor(() => expect(profiles.setSshProfileHidden).toHaveBeenCalledTimes(2));
+    expect(profiles.setSshProfileHidden.mock.calls).toEqual([
+      ['ares', true],
+      ['ares', false],
+    ]);
+    expect(screen.getByRole('button', { name: 'Hide Ares' })).toBeVisible();
+    expect(screen.queryByText('obsolete hide error')).toBeNull();
   });
 
   it('flips visibility at once, stays open, and never re-lists every host', async () => {
@@ -141,6 +217,31 @@ describe('SshHostsManagerDialog', () => {
 
     expect(await screen.findByText('Could not write preferences')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Hide Ares' })).toBeVisible();
+  });
+
+  it('does not resurrect a removed host when another hide operation fails', async () => {
+    let rejectHide!: (error: Error) => void;
+    profiles.setSshProfileHidden.mockImplementation(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectHide = reject;
+        }),
+    );
+    const { queryClient } = renderManager();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Hide Ares' }));
+    await user.click(screen.getByRole('button', { name: 'Remove gateway' }));
+    profiles.listAllSshProfiles.mockResolvedValue([
+      { name: 'ares', label: 'Ares', managed: true, hidden: true },
+    ]);
+    await user.click(screen.getByRole('button', { name: 'Remove host' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await act(async () => rejectHide(new Error('Could not save visibility')));
+    expect(await screen.findByRole('button', { name: 'Hide Ares' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Remove gateway' })).toBeNull();
+    expect(queryClient.getQueryData(['managed-service-ssh-profiles', 'all'])).toEqual([
+      expect.objectContaining({ name: 'ares', hidden: false }),
+    ]);
   });
 
   it('configures a managed host but offers no configure action for an imported one', async () => {

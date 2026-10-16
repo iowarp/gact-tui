@@ -2,7 +2,7 @@
 //!
 //! Authentication remains entirely inside system OpenSSH. Desktop writes only
 //! ordinary host metadata to an included OpenSSH file and keeps imported-host
-//! visibility preferences in its app configuration directory.
+//! visibility and forgotten-host preferences in its app configuration directory.
 
 use crate::blocking_command::off_main;
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
 use tauri::Manager;
 
 use crate::ssh_profile_blocks::{
@@ -20,6 +21,13 @@ use crate::ssh_profile_resolve::{fingerprint, resolve_hosts, ResolvedHost};
 use crate::supervisor_boot_log::boot_log_line;
 
 const INCLUDE_MARKER: &str = "Include clio/config";
+static PROFILE_WRITE_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock_profile_changes() -> Result<MutexGuard<'static, ()>, String> {
+    PROFILE_WRITE_LOCK
+        .lock()
+        .map_err(|error| format!("Could not lock SSH profile changes: {error}"))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SshProfile {
@@ -67,9 +75,13 @@ pub struct SaveSshProfileRequest {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-struct ProfilePreferences {
+pub(crate) struct ProfilePreferences {
     #[serde(default)]
     hidden: BTreeSet<String>,
+    /// Forgotten aliases stay out of both pickers and the manager even when
+    /// they remain in an external OpenSSH configuration.
+    #[serde(default)]
+    removed: BTreeSet<String>,
     #[serde(default)]
     metadata: BTreeMap<String, ProfileMetadata>,
 }
@@ -119,16 +131,15 @@ fn ssh_profiles_list_blocking(app: tauri::AppHandle) -> Result<Vec<SshProfile>, 
 }
 
 /// Every alias CLIO or the user's own OpenSSH configuration declares, managed
-/// and imported alike, with each one's hidden preference attached — the truth
-/// the hosts manager needs, and what `ssh_profiles_list` filters hidden ones
-/// out of for every other picker.
+/// and imported alike, excluding forgotten aliases, with each one's hidden
+/// preference attached. `ssh_profiles_list` also excludes hidden aliases.
 fn ssh_profiles_list_all_blocking(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
     let paths = profile_paths(&app)?;
     let preferences = read_preferences(&paths.preferences)?;
     resolve_all_profiles(&paths, &preferences)
 }
 
-fn resolve_all_profiles(
+pub(crate) fn resolve_all_profiles(
     paths: &ProfilePaths,
     preferences: &ProfilePreferences,
 ) -> Result<Vec<SshProfile>, String> {
@@ -138,6 +149,7 @@ fn resolve_all_profiles(
     names.extend(managed_names.iter().cloned());
     names.sort_by_key(|value| value.to_ascii_lowercase());
     names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    names.retain(|name| !preferences.removed.contains(&name.to_ascii_lowercase()));
     let managed_blocks = read_managed_blocks(&paths.managed_include)?;
     // Only imported aliases need OpenSSH's view; CLIO-saved ones are read
     // straight from their block. The defaults probe is a name no `Host`
@@ -183,6 +195,7 @@ fn ssh_profile_set_route_blocking(
     name: String,
     jump_hosts: Vec<String>,
 ) -> Result<SshProfile, String> {
+    let _guard = lock_profile_changes()?;
     validate_alias(&name)?;
     for jump in &jump_hosts {
         validate_jump_host(jump)?;
@@ -215,8 +228,16 @@ fn ssh_profile_save_blocking(
     app: tauri::AppHandle,
     request: SaveSshProfileRequest,
 ) -> Result<SshProfile, String> {
-    validate_profile(&request)?;
     let paths = profile_paths(&app)?;
+    save_profile(&paths, request)
+}
+
+fn save_profile(
+    paths: &ProfilePaths,
+    request: SaveSshProfileRequest,
+) -> Result<SshProfile, String> {
+    let _guard = lock_profile_changes()?;
+    validate_profile(&request)?;
     ensure_include(&paths.user_config, &paths.managed_include)?;
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
     let mut request = request;
@@ -265,6 +286,9 @@ fn ssh_profile_save_blocking(
     preferences
         .hidden
         .remove(&request.name.to_ascii_lowercase());
+    preferences
+        .removed
+        .remove(&request.name.to_ascii_lowercase());
     preferences.metadata.insert(
         request.name.to_ascii_lowercase(),
         ProfileMetadata {
@@ -293,8 +317,17 @@ fn ssh_profile_set_hidden_blocking(
     name: String,
     hidden: bool,
 ) -> Result<(), String> {
-    validate_alias(&name)?;
     let paths = profile_paths(&app)?;
+    set_profile_hidden(&paths, &name, hidden)
+}
+
+pub(crate) fn set_profile_hidden(
+    paths: &ProfilePaths,
+    name: &str,
+    hidden: bool,
+) -> Result<(), String> {
+    let _guard = lock_profile_changes()?;
+    validate_alias(name)?;
     let mut preferences = read_preferences(&paths.preferences)?;
     if hidden {
         preferences.hidden.insert(name.to_ascii_lowercase());
@@ -305,34 +338,53 @@ fn ssh_profile_set_hidden_blocking(
 }
 
 fn ssh_profile_delete_blocking(app: tauri::AppHandle, name: String) -> Result<(), String> {
-    validate_alias(&name)?;
     let paths = profile_paths(&app)?;
+    remove_profile(&paths, &name)
+}
+
+/// Forget any host in CLIO; edit only CLIO's own include and owned key files.
+pub(crate) fn remove_profile(paths: &ProfilePaths, name: &str) -> Result<(), String> {
+    let _guard = lock_profile_changes()?;
+    validate_alias(name)?;
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
-    let owned_identity = read_preferences(&paths.preferences)?
+    let mut preferences = read_preferences(&paths.preferences)?;
+    let owned_identity = preferences
         .metadata
         .get(&name.to_ascii_lowercase())
-        .and_then(|metadata| metadata.owned_identity(managed_block(&blocks, &name)));
+        .and_then(|metadata| {
+            managed_block(&blocks, name).and_then(|block| metadata.owned_identity(Some(block)))
+        });
     let before = blocks.len();
-    blocks
-        .retain(|block| !block_name(block).is_some_and(|value| value.eq_ignore_ascii_case(&name)));
-    if blocks.len() == before {
-        return Err("Imported OpenSSH profiles can be hidden but not deleted by CLIO.".into());
+    blocks.retain(|block| !block_name(block).is_some_and(|value| value.eq_ignore_ascii_case(name)));
+    if blocks.len() == before
+        && !preferences.removed.contains(&name.to_ascii_lowercase())
+        && !read_aliases(&paths.user_config)?
+            .iter()
+            .any(|alias| alias.eq_ignore_ascii_case(name))
+    {
+        return Err(format!("SSH host {name} was not found."));
     }
     let contents = if blocks.is_empty() {
         String::new()
     } else {
         format!("{}\n", blocks.join("\n\n"))
     };
-    write_atomic(&paths.managed_include, &contents)?;
-    let mut preferences = read_preferences(&paths.preferences)?;
+    if blocks.len() != before {
+        write_atomic(&paths.managed_include, &contents)?;
+    }
     preferences.metadata.remove(&name.to_ascii_lowercase());
     preferences.hidden.remove(&name.to_ascii_lowercase());
+    preferences.removed.insert(name.to_ascii_lowercase());
     write_preferences(&paths.preferences, &preferences)?;
     if let Some(identity) = owned_identity {
         remove_unreferenced_identity(&identity, &blocks, &paths.identity_directory)?;
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "ssh_profile_removal_tests.rs"]
+mod removal_tests;
 
 /// Delete a stored key only when no remaining CLIO computer still declares it
 /// (another profile may have been pointed at the same stored file).
@@ -371,11 +423,11 @@ fn remove_owned_identity(identity: &str, identity_directory: &Path) -> Result<()
     }
 }
 
-struct ProfilePaths {
-    user_config: PathBuf,
-    managed_include: PathBuf,
-    preferences: PathBuf,
-    identity_directory: PathBuf,
+pub(crate) struct ProfilePaths {
+    pub(crate) user_config: PathBuf,
+    pub(crate) managed_include: PathBuf,
+    pub(crate) preferences: PathBuf,
+    pub(crate) identity_directory: PathBuf,
 }
 
 fn profile_paths(app: &tauri::AppHandle) -> Result<ProfilePaths, String> {
@@ -648,7 +700,7 @@ fn block_name(block: &str) -> Option<&str> {
     key.eq_ignore_ascii_case("host").then(|| value.trim())
 }
 
-fn read_preferences(path: &Path) -> Result<ProfilePreferences, String> {
+pub(crate) fn read_preferences(path: &Path) -> Result<ProfilePreferences, String> {
     match fs::read(path) {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map_err(|error| format!("Could not parse {}: {error}", path.display())),

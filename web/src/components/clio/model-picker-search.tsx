@@ -3,7 +3,11 @@ import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
 import { Badge } from '@/components/reui/badge';
 import type { FacetChip, FacetTab } from '@/lib/model-facets';
-import { filterTokenSuggestions, type ModelFilterToken } from '@/lib/model-filter-tokens';
+import {
+  addModelFilterToken,
+  filterTokenSuggestions,
+  type ModelFilterToken,
+} from '@/lib/model-filter-tokens';
 import { isRangeModifier, isRangeToken } from '@/lib/model-range-tokens';
 import { ModelPickerFacetPanel } from './model-picker-facet-panel';
 import { ModelPickerFacetSliders } from './model-picker-facet-sliders';
@@ -67,7 +71,7 @@ export function ModelPickerSearch({
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
 
   function addToken(token: ModelFilterToken) {
-    if (!tokens.includes(token)) onTokensChange([...tokens, token]);
+    onTokensChange(addModelFilterToken(tokens, token));
     const words = query.split(/\s+/u);
     words.pop();
     onQueryChange(words.join(' '));
@@ -140,9 +144,12 @@ export function ModelPickerSearch({
       data-slot="model-picker-search"
       ref={rootRef}
     >
-      <div className="flex w-full min-w-0 items-center gap-1">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
         {tokens.length ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-1" data-slot="filter-tokens">
+          <div
+            className="flex max-w-full basis-full flex-wrap items-center gap-1 sm:max-w-[70%] sm:basis-auto"
+            data-slot="filter-tokens"
+          >
             {tokens.map((token) => (
               <Badge
                 className="gap-0.5 pe-0.5 font-mono font-normal"
@@ -165,7 +172,7 @@ export function ModelPickerSearch({
             ))}
           </div>
         ) : null}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-32 flex-1">
           {onSearch ? (
             <Input
               id={inputId}

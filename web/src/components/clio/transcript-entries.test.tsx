@@ -73,6 +73,19 @@ const message: Message = {
   ],
 };
 
+it('keeps reasoning before its public update when a reconnect has no tool activity', () => {
+  const recovered = iteration('reconnected', 0);
+  recovered.activity = [];
+  recovered.tools = [];
+  recovered.thinking[0].text = 'Continuing after reconnect.';
+  recovered.nextThoughts = ['The results are saved.'];
+  render(<ConversationTurn iterations={[recovered]} mode="chain" subagents={{}} />);
+  const thinking = screen.getByText('Continuing after reconnect.');
+  const update = screen.getByText('The results are saved.');
+  expect(thinking.compareDocumentPosition(update) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getAllByText('Continuing after reconnect.')).toHaveLength(1);
+});
+
 it('alternates visible text entries and independently collapsed tool groups', async () => {
   const view = render(
     <ConversationTurn
@@ -117,9 +130,7 @@ it.each(['codex', 'claude_code', 'vllm'])(
     fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
     expect(screen.queryByRole('button', { name: /^Thinking:/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Update:/ })).not.toBeInTheDocument();
-    expect(
-      await screen.findByText('Recorded reasoning.', { exact: true }),
-    ).toBeVisible();
+    expect(await screen.findByText('Recorded reasoning.', { exact: true })).toBeVisible();
     expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
       'aria-expanded',
       'true',

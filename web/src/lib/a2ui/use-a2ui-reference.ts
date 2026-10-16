@@ -17,6 +17,8 @@ export interface A2uiReferenceState {
   resolution?: A2uiReferenceResolution;
   /** A `blob:` URL for the bytes, revoked on unmount or when the bytes change. */
   objectUrl?: string;
+  /** Original immutable bytes for a presentation-only image display copy. */
+  bytes?: Uint8Array;
   /** Still resolving or reading. */
   pending: boolean;
   /** The typed reason it cannot be shown, when it cannot. */
@@ -77,5 +79,5 @@ export function useA2uiReference(
   if (error)
     return { resolution: resolved, pending: false, failure: describeReferenceError(error) };
   const pending = resolution.isPending || (readBytes && (bytes.isPending || !objectUrl));
-  return { resolution: resolved, objectUrl, pending };
+  return { resolution: resolved, objectUrl, bytes: bytes.data, pending };
 }

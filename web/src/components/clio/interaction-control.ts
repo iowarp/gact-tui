@@ -10,6 +10,19 @@ export function pendingInteractionDomId(interactionId: string): string {
   return `pending-interaction-${encodeURIComponent(interactionId)}`;
 }
 
+export const ATTENTION_REVEAL_EVENT = 'clio:reveal-attention';
+
+/** Select and expand a pending request before scrolling to its controls. */
+export function revealPendingInteraction(interactionId: string): void {
+  window.dispatchEvent(new CustomEvent(ATTENTION_REVEAL_EVENT, { detail: interactionId }));
+  requestAnimationFrame(() => {
+    const target = document.getElementById(pendingInteractionDomId(interactionId));
+    if (!target || target.closest('[hidden]')) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    focusFirstFocusable(target);
+  });
+}
+
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), ' +
   'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';

@@ -1,10 +1,23 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { PresentationNavigation } from './presentation-navigation';
 import { MarkdownFilePreview } from './markdown-file-preview';
 
 afterEach(cleanup);
+it('renders inline dollar math in a saved file and retains the exact source', async () => {
+  const content = String.raw`# Collatz ($1 \le n \le 1{,}000{,}000$)
+
+The stopping time is $\sigma_{\infty}(n)$.`;
+  const { container } = render(<MarkdownFilePreview name="REPORT.md" content={content} />);
+  await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(2));
+  expect(container.querySelector('h1 .katex')).not.toBeNull();
+  await userEvent.setup().click(screen.getByRole('tab', { name: /^Source$/ }));
+  expect(screen.getByRole('tabpanel', { name: 'Source' })).toHaveTextContent(
+    String.raw`$\sigma_{\infty}(n)$`,
+  );
+});
+
 it('retains clickable source navigation inside a saved Markdown file', async () => {
   const openFile = vi.fn();
   render(

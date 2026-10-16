@@ -69,3 +69,7 @@ keyring = { version = "3.6.3", default-features = false, features = ["async-secr
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[[example]]
+name = "ssh-hosts-acceptance"
+path = "../tests/native-ssh-hosts.rs"

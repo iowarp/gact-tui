@@ -9,7 +9,7 @@ import {
   CircleStopIcon,
   ListChecksIcon,
 } from 'lucide-react';
-import { DeleteIcon } from '@/lib/icon-vocabulary';
+import { DeleteIcon, GoalIcon, LoopIcon, ScheduleIcon } from '@/lib/icon-vocabulary';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
@@ -48,8 +48,8 @@ export function SessionWorkStatus({
 }) {
   const { data } = useSessionWork(sessionId);
   return data && (data.goal || data.loop || data.schedules.length) ? (
-    <div className="min-w-0 max-w-96 [&_button]:h-5 [&_button]:text-[0.625rem]">
-      <SessionWorkSummary sessionId={sessionId} onOpen={onOpen} />
+    <div className="flex h-6 min-w-0 max-w-96 items-center">
+      <SessionWorkSummary sessionId={sessionId} onOpen={onOpen} compact />
     </div>
   ) : (
     <span>{fallback}</span>
@@ -61,10 +61,12 @@ export function SessionWorkSummary({
   sessionId,
   onOpen,
   includeTodos = true,
+  compact = false,
 }: {
   sessionId: string;
   onOpen: () => void;
   includeTodos?: boolean;
+  compact?: boolean;
 }) {
   const { data } = useSessionWork(sessionId);
   if (!data || (!data.goal && !data.loop && !data.todos.length && !data.schedules.length))
@@ -74,26 +76,50 @@ export function SessionWorkSummary({
       ? data.goal
       : data.loop?.state === 'active' || data.loop?.state === 'paused'
         ? data.loop
-        : undefined;
+        : (data.goal ?? data.loop ?? undefined);
   const scheduledCount = data.schedules.filter((schedule) => schedule.enabled).length;
   const otherLoop = current === data.goal && data.loop?.state === 'active';
+  const kind =
+    current === data.goal ? 'goal' : current ? 'loop' : scheduledCount ? 'schedule' : 'todo';
+  const Icon =
+    kind === 'goal'
+      ? GoalIcon
+      : kind === 'loop'
+        ? LoopIcon
+        : kind === 'schedule'
+          ? ScheduleIcon
+          : ListChecksIcon;
+  const state =
+    current?.state === 'active'
+      ? current.phase === 'waiting'
+        ? 'waiting'
+        : current.phase === 'judging'
+          ? 'checking completion'
+          : current.phase === 'needs_input'
+            ? 'needs input'
+            : 'active'
+      : current?.state;
   if (!includeTodos && !current && !scheduledCount) return null;
   return (
     <Button
       type="button"
       variant="ghost"
       onClick={onOpen}
-      className="h-7 max-w-full min-w-0 justify-start gap-1.5 px-1.5 text-left text-xs"
+      className={cn(
+        'max-w-full min-w-0 justify-start gap-2 px-0 text-left',
+        compact ? 'h-6 text-[0.625rem]' : 'h-7 text-xs',
+      )}
       aria-label="Open session Work"
       title={current?.title}
+      data-work-kind={kind}
     >
-      <ListChecksIcon data-icon="inline-start" />
+      <Icon aria-hidden="true" className={compact ? 'size-3.5 shrink-0' : 'size-4 shrink-0'} />
       <span className="min-w-0 flex-1 truncate">
         {current
-          ? `${current.phase === 'waiting' ? 'Waiting' : current.phase === 'needs_input' ? 'Needs input' : current.state === 'paused' ? 'Paused' : 'Active'}: ${current.title}`
+          ? `${kind === 'goal' ? 'Goal' : 'Loop'} ${state}: ${current.title}`
           : data.schedules.some((schedule) => schedule.enabled)
             ? 'Scheduled work'
-            : 'Session work'}
+            : 'Todos'}
       </span>
       {otherLoop ? <span className="shrink-0">Loop</span> : null}
       {scheduledCount ? (
@@ -102,7 +128,10 @@ export function SessionWorkSummary({
         </span>
       ) : null}
       {includeTodos && data.todos.length ? (
-        <span className="shrink-0">{todoCurrentSummary(data.todos, (todo) => todo.status)}</span>
+        <span className={cn('shrink-0 text-muted-foreground', compact && 'hidden sm:inline')}>
+          {current || scheduledCount ? 'Todos: ' : ''}
+          {todoCurrentSummary(data.todos, (todo) => todo.status)}
+        </span>
       ) : null}
     </Button>
   );
@@ -140,7 +169,10 @@ function WorkRecordRow({
           ? CirclePauseIcon
           : CircleDotIcon;
   const phase = record.state === 'active' && record.phase ? record.phase : record.state;
-  const state = phase.charAt(0).toUpperCase() + phase.slice(1).replaceAll('_', ' ');
+  const state =
+    phase === 'judging'
+      ? 'Checking goal completion'
+      : phase.charAt(0).toUpperCase() + phase.slice(1).replaceAll('_', ' ');
   return (
     <li className="flex min-w-0 flex-col gap-0.5 py-1.5">
       <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground">

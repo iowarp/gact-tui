@@ -64,8 +64,15 @@ const requiredImports = {
     '@/components/ai-elements/sources',
   ],
   'web/src/components/clio/composer.tsx': [
-    '@/components/ai-elements/model-selector',
+    './composer-model-label',
     '@/components/ai-elements/prompt-input',
+  ],
+  // The composer and session defaults share the provider/model trigger so both
+  // names retain space and the sourced logo, button and tooltip stay composed.
+  'web/src/components/clio/composer-model-label.tsx': [
+    '@/components/ai-elements/model-selector',
+    '@/components/ui/button',
+    '@/components/ui/tooltip',
   ],
   'web/src/components/clio/tool-invocation.tsx': ['@/components/ai-elements/tool'],
   'web/src/components/clio/artifact-card.tsx': [
@@ -74,7 +81,18 @@ const requiredImports = {
   ],
   'web/src/components/clio/resource-viewers.tsx': ['@/components/ai-elements/code-block'],
   'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
-  'web/src/components/clio/pending-interactions.tsx': ['@/components/ai-elements/confirmation'],
+  // October 16 attention redesign: Queue owns the shared pager boundary. The
+  // extracted permission decision composes the existing Button/Select rather
+  // than another nested Alert. Reviewed in light/dark and narrow browser cases;
+  // see docs/design/attention-panel.md. Preserve the complete sourced chain.
+  'web/src/components/clio/pending-interactions.tsx': [
+    '@/components/ai-elements/queue',
+    './permission-response',
+  ],
+  'web/src/components/clio/permission-response.tsx': [
+    '@/components/ui/button',
+    '@/components/ui/select',
+  ],
   'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-resource-browser'],
   'web/src/components/clio/workbench-resource-browser.tsx': [
     '@/components/ai-elements/file-tree',
@@ -123,7 +141,10 @@ const requiredImports = {
     '@/components/clio/data-grid-table',
     '@/components/reui/data-grid/data-grid',
   ],
-  'web/src/components/clio/settings-session-defaults.tsx': ['@/components/ui/select'],
+  'web/src/components/clio/settings-session-defaults.tsx': [
+    '@/components/ui/select',
+    './composer-model-label',
+  ],
   // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
   'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
   'web/src/components/clio/settings-models.tsx': ['@/components/clio/settings-frame'],

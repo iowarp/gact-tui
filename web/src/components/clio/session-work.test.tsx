@@ -105,7 +105,11 @@ it.each(['goal', 'loop', 'schedule'])(
     mount(<SessionWorkStatus sessionId="s" onOpen={open} fallback="No active work" />);
     const entry = await screen.findByRole('button', { name: 'Open session Work' });
     expect(entry).toHaveTextContent(
-      kind === 'goal' ? 'Waiting' : kind === 'loop' ? 'Monitor simulation' : 'Scheduled work',
+      kind === 'goal'
+        ? 'Goal waiting'
+        : kind === 'loop'
+          ? 'Loop active: Monitor simulation'
+          : 'Scheduled work',
     );
     expect(screen.queryByText('No active work')).toBeNull();
     await userEvent.click(entry);
@@ -145,8 +149,26 @@ it('omits a todos-only summary when the adjacent inventory owns the count', asyn
 
 it('keeps active work visible without repeating the adjacent todo count', async () => {
   mount(<SessionWorkSummary sessionId="s" onOpen={vi.fn()} includeTodos={false} />);
-  expect(await screen.findByText('Active: Verify readable output')).toBeVisible();
+  expect(await screen.findByText('Goal active: Verify readable output')).toBeVisible();
   expect(screen.queryByText('1/2 current')).not.toBeInTheDocument();
+});
+
+it('distinguishes goal and todo semantics and sizes the footer control consistently', async () => {
+  mount(<SessionWorkStatus sessionId="s" onOpen={vi.fn()} fallback="No active work" />);
+  const entry = await screen.findByRole('button', { name: 'Open session Work' });
+  expect(entry).toHaveAttribute('data-work-kind', 'goal');
+  expect(entry).toHaveClass('h-6');
+  expect(entry.querySelector('svg')).toHaveClass('size-3.5');
+  expect(entry).toHaveTextContent('Goal active: Verify readable output');
+  expect(entry).toHaveTextContent('Todos: 1/2 current');
+});
+
+it('does not call a completed goal active in the footer', async () => {
+  repository.sessionWork.mockResolvedValue({ ...snapshot, goal: { ...goal, state: 'completed' } });
+  mount(<SessionWorkStatus sessionId="s" onOpen={vi.fn()} fallback="No active work" />);
+  expect(await screen.findByRole('button', { name: 'Open session Work' })).toHaveTextContent(
+    'Goal completed: Verify readable output',
+  );
 });
 
 it('makes every Work category independently collapsible and scrollable', async () => {

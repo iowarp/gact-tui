@@ -396,6 +396,7 @@ export function queryInvalidationKeysForEvent({
   }
   if (eventName === 'semantic.event') {
     keys.push(queryKeys.sessionObservabilityDetail(endpoint, sessionId, 'agent-iterations'));
+    keys.push(['session-work', endpoint, sessionId]);
   }
   if (isModelConfigurationEvent(eventName)) {
     keys.push(

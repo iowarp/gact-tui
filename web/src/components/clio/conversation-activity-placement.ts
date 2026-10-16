@@ -123,6 +123,8 @@ export function placeContinuedActivity(
     if (
       previous &&
       continuations.has(message.id) &&
+      !feedback.has(previous.id) &&
+      !feedback.has(message.id) &&
       !boundaries.has(previous.id) &&
       !boundaries.has(message.id)
     ) {

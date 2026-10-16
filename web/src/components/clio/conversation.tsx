@@ -16,10 +16,13 @@ import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioCompactionProgress } from './conversation-summarization';
 import { ClioTurnPreparation } from './turn-preparation';
+import { ClioTurnWaitFeedback } from './turn-wait-feedback';
+import { SessionResponseFeedback } from './goal-check-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { OpenQuestionsTracker } from './open-questions-tracker';
+import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
@@ -51,6 +54,7 @@ interface ActiveMcpApp {
 
 import { ConversationMessageRow } from './conversation-message-row';
 import { placeDeliveredFeedback } from './conversation-feedback';
+import { canGroupUserMessages } from './conversation-user-group';
 import { placeHarnessInjections } from './conversation-injection-placement';
 import {
   foldSubagentReturns,
@@ -365,6 +369,12 @@ function ConversationBody({
   );
 
   useAttentionHighlights(scrollRef, entities.attentionData, messages, entities.tools);
+  useSurfaceQuestionNavigation({
+    messages,
+    sessionId: entities.sessionId,
+    scrollRef,
+    jumpToMessage,
+  });
 
   const conversationViewportWidth = useTranscriptWidth({
     virtualized,
@@ -619,6 +629,15 @@ function ConversationBody({
                   injectionsGrouped={injectionPlacement.grouped.has(message.id)}
                   responseContinued={responseContinuity.continued.has(message.id)}
                   responseContinuation={responseContinuity.continuations.has(message.id)}
+                  userContinuation={
+                    canGroupUserMessages(messages[index - 1], message) &&
+                    !modelBoundaries.has(message.id)
+                  }
+                  userContinued={Boolean(
+                    messages[index + 1] &&
+                      canGroupUserMessages(message, messages[index + 1]) &&
+                      !modelBoundaries.has(messages[index + 1].id),
+                  )}
                   turnPresentation={activityPlacement.get(message.id)}
                   active={
                     (preparation?.sessionState === 'running' ||
@@ -653,6 +672,15 @@ function ConversationBody({
             ref={autoscroll.observeContent}
           >
             <ClioTurnPreparation {...preparation} messages={sourceMessages} />
+            <SessionResponseFeedback sessionId={entities.sessionId}>
+              <ClioTurnWaitFeedback
+                {...preparation}
+                messages={sourceMessages}
+                tools={entities.tools}
+                tasks={entities.tasks}
+                subagents={entities.subagents}
+              />
+            </SessionResponseFeedback>
           </div>
         ) : null}
         {compactionPlacement.trailing.length > 0 ? (

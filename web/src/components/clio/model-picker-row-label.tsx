@@ -1,8 +1,8 @@
 import { ChevronDownIcon } from 'lucide-react';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
-import { displayedTags, modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
-import { modelFactsFromOption } from '@/lib/model-facts';
+import { displayedTags } from '@/lib/model-capability-tags';
+import { cachedModelFacts } from './model-picker-fact-cache';
 import { tagFilterToken, type ModelFilterToken } from '@/lib/model-filter-tokens';
 import { cn } from '@/lib/utils';
 import { ModelCapabilityTags } from './model-capability-tags';
@@ -100,11 +100,12 @@ export function PickerRowLabel({
     );
   }
   const choice = node.data?.kind === 'model' ? node.data.choice : undefined;
-  const allTags = choice ? modelCapabilityTagsFromOption(choice) : [];
+  const facts = choice ? cachedModelFacts(choice) : undefined;
+  const allTags = facts?.tags ?? [];
   const tags = displayedTags(allTags);
   // A router's name does not say what it routes to: its description does.
   const router = allTags.some((tag) => tag.axis === 'kind' && tag.value === 'router');
-  const description = router && choice ? modelFactsFromOption(choice).description : undefined;
+  const description = router ? facts?.facts.description : undefined;
   return (
     <span className="flex min-w-0 flex-1 flex-col items-start gap-1 py-0.5">
       <span className="flex w-full min-w-0 items-center gap-1">

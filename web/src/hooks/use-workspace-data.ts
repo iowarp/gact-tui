@@ -6,6 +6,7 @@ import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
+import { cachedModelFacts } from '@/components/clio/model-picker-fact-cache';
 import {
   ACTIVE_SESSION_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_CAP,
@@ -552,14 +553,30 @@ export function useWorkspaceData({
     enabled: Boolean(activeCatalogProvider),
   });
   const providerCatalog = useProviderCatalog();
-  const modelOptions = buildModelOptions({
-    activeCatalogProvider,
-    activeModel,
-    activeProvider,
-    catalogModels: modelCatalog.data?.models,
-    providerCatalog: providerCatalog.data,
-    presets: modelConfiguration.data?.presets ?? [],
-  });
+  const modelOptions = useMemo(
+    () =>
+      buildModelOptions({
+        activeCatalogProvider,
+        activeModel,
+        activeProvider,
+        catalogModels: modelCatalog.data?.models,
+        providerCatalog: providerCatalog.data,
+        presets: modelConfiguration.data?.presets ?? [],
+      }),
+    [
+      activeCatalogProvider,
+      activeModel,
+      activeProvider,
+      modelCatalog.data?.models,
+      providerCatalog.data,
+      modelConfiguration.data?.presets,
+    ],
+  );
+  useEffect(() => {
+    const selected = modelOptions.filter((option) => option.providerId === activeProvider);
+    const timer = window.setTimeout(() => selected.forEach(cachedModelFacts), 0);
+    return () => clearTimeout(timer);
+  }, [modelOptions, activeProvider]);
   const modelCatalogStatus: 'error' | 'loading' | 'ready' =
     providerCatalog.isPending && !providerCatalog.data
       ? 'loading'

@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { createSavedSshHost, profileSshHosts, sshHostDestination } from './ssh-hosts';
+import {
+  createSavedSshHost,
+  profileSshHosts,
+  sshHostDestination,
+  sshHostUsesProfile,
+} from './ssh-hosts';
 
 describe('SSH hosts', () => {
+  it('invalidates only routes that use the removed saved alias', () => {
+    const [host] = profileSshHosts([{ name: 'ares', jump_hosts: ['alice@Gateway:2222'] }]);
+    expect(sshHostUsesProfile(host, 'ARES')).toBe(true);
+    expect(sshHostUsesProfile(host, 'gateway')).toBe(true);
+    expect(sshHostUsesProfile(host, 'other')).toBe(false);
+    expect(sshHostUsesProfile(undefined, 'ares')).toBe(false);
+  });
   it('keeps OpenSSH profiles and manual hosts in one target shape', () => {
     const [profile] = profileSshHosts([
       { name: 'homelab', hostname: '10.0.0.102', user: 'jcernuda' },

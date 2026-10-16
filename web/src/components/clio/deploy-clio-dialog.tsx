@@ -19,7 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { ConnectionSettings } from '@/lib/connection';
 import { vocab } from '@/lib/brand-vocabulary';
-import { type SshHost } from '@/lib/ssh-hosts';
+import { sshHostUsesProfile, type SshHost } from '@/lib/ssh-hosts';
 import {
   getManagedBackend,
   retryManagedBackend,
@@ -318,7 +318,16 @@ export function DeployClioDialog({
         </DialogContent>
       </Dialog>
 
-      <SshHostsManagerDialog onOpenChange={setManagingHosts} open={managingHosts} />
+      <SshHostsManagerDialog
+        onOpenChange={setManagingHosts}
+        open={managingHosts}
+        onRemoved={(profile) => {
+          if (!sshHostUsesProfile(host, profile)) return;
+          setHost(undefined);
+          setRoute({ emptyRows: [0] });
+          setRouteError('This host was removed. Choose another computer.');
+        }}
+      />
     </>
   );
 }

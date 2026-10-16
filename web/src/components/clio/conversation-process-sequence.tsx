@@ -92,6 +92,8 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
       <TranscriptReasoningPassage
         text={block.text}
         streaming={block.streaming}
+        startedAt={block.started_at}
+        durationMs={block.duration_ms}
         source={
           entities.messageId && entities.messageSessionId
             ? {

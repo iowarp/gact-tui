@@ -41,6 +41,8 @@ export interface ConversationIteration {
     label: string;
     streaming: boolean;
     source?: ThoughtSource;
+    startedAt?: string;
+    durationMs?: number;
   }>;
   nextThoughts: string[];
   nextThoughtSources?: ThoughtSource[];
@@ -211,6 +213,8 @@ function fallbackIterations(
         label: reasoningLabel(block.provider_source),
         text: block.text,
         streaming: Boolean(block.streaming),
+        startedAt: block.started_at,
+        durationMs: block.duration_ms,
         source: {
           messageId: message.id,
           sessionId: message.session_id,

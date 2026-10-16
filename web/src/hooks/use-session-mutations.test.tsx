@@ -577,6 +577,54 @@ describe('useSessionMutations pending-question invalidation', () => {
   });
 
   // respondInteraction is the mutation the pending-interactions surface actually
+  it.each(['allow_workspace', 'deny'] as const)(
+    'refreshes Files only after a successful folder grant: %s',
+    async (action) => {
+      const client = clientWithReadPopulated();
+      const endpoint = 'http://127.0.0.1:8790';
+      const keys = [
+        queryKeys.workspaces(endpoint),
+        queryKeys.workspaceFiles(endpoint, 'ws_folder'),
+        ['workspace-directory', endpoint, 'ws_folder', 'scope', ''],
+      ];
+      for (const key of keys) client.setQueryData(key, []);
+      const { result } = renderMutationsWithClient(client);
+      await result.current.respondInteraction.mutateAsync({
+        interaction: {
+          id: 'permission:folder',
+          kind: 'permission',
+          owner_session_id: 'sess_child',
+          attended_session_id: 'sess_1',
+          status: 'pending',
+          title: 'Allow folder access?',
+          source: { protocol: 'native' },
+          created_at: '2026-10-15T00:00:00Z',
+          payload: {
+            permission_id: 'folder',
+            access: {
+              workspace_id: 'ws_folder',
+              folders: ['/shared'],
+              computer: 'Host',
+              operation: 'fs_read_file',
+              command: '',
+              paths: ['/shared/file'],
+              cwd: '/workspace',
+              reason: 'Read a reference',
+              access: 'read_write',
+              scope: 'workspace',
+            },
+          },
+        },
+        response: { action },
+      });
+      for (const key of keys)
+        expect(client.getQueryCache().find({ queryKey: key })?.state.isInvalidated).toBe(
+          action === 'allow_workspace',
+        );
+    },
+  );
+
+  // respondInteraction is the mutation the pending-interactions surface actually
   // calls (ClioPendingInteractions -> workspace-page's onResponse), unlike the
   // answerQuestion/cancelQuestion mutations above which nothing in the app wires
   // up. Its own onSettled invalidation drifted the same way theirs once did.

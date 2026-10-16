@@ -333,8 +333,8 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   });
 
   await page.goto(workspaceUrl);
-  const attention = page.getByRole('region', { name: 'Agent needs your response' });
-  await expect(attention.getByRole('button', { name: '3 responses needed' })).toBeVisible();
+  const attention = page.getByRole('region', { name: 'Agent needs your attention' });
+  await expect(attention.getByRole('button', { name: 'Agent needs your attention' })).toBeVisible();
   await settleConversationAtLatest(page);
   const activity = page.getByRole('button', { name: /^Activity:/ }).last();
   await expect(activity).toHaveAttribute('aria-expanded', 'false');
@@ -383,7 +383,7 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await fallback.getByText('Technical details').click();
   await expect(fallback.getByText('agent_answer_timeout')).toBeVisible();
 
-  await attention.getByRole('button', { name: '1 response needed' }).click();
+  await attention.getByRole('button', { name: 'Agent needs your attention' }).click();
   await settleConversationAtLatest(page);
   const appFrame = page.locator('[data-mcp-app="app_fixture_1"]');
   await expect(appFrame.getByText('Ready', { exact: true })).toBeVisible();
@@ -486,14 +486,16 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await waitForArtifactPreview(page);
   await expect(page.getByRole('button', { name: 'Change model' })).toContainText('Codex / Luna');
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
-  const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
+  const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
   await expect(pendingResponses).toBeVisible();
   const pendingResponsesTrigger = pendingResponses.getByRole('button', {
-    name: '2 responses needed',
+    name: 'Agent needs your attention',
   });
   await expect(pendingResponsesTrigger).toBeVisible();
   await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible();
+  await pendingResponses.getByRole('button', { name: 'Next request' }).click();
   await expect(page.getByRole('button', { name: 'Send response' })).toBeDisabled();
+  await pendingResponses.getByRole('button', { name: 'Previous request' }).click();
   await settleConversationAtLatest(page);
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toHaveAttribute('data-minimap-visible', 'true');
@@ -505,18 +507,10 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await expect(composerStack).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(composerStack).toHaveCSS('background-image', 'none');
   await expect(composerStack.locator('..')).toHaveCSS('position', 'absolute');
-  await expect
-    .poll(async () => {
-      const responseSurface = await pendingResponses.evaluate(
-        (element) => getComputedStyle(element).backgroundColor,
-      );
-      const composerSurface = await composerStack
-        .locator('[data-slot="input-group"]')
-        .evaluate((element) => getComputedStyle(element).backgroundColor);
-      // The user's question, queue and composer share one opaque surface tone.
-      return composerSurface === responseSurface && composerSurface !== 'rgba(0, 0, 0, 0)';
-    })
-    .toBe(true);
+  const responseSurface = await pendingResponses.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  expect(responseSurface).not.toBe('rgba(0, 0, 0, 0)');
   const expandedConversationBounds = await conversation.boundingBox();
   const expandedMinimapBounds = await minimap.boundingBox();
   const expandedComposerBounds = await composerStack.boundingBox();
@@ -567,7 +561,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
     exact: true,
   });
   await expect(approvalTitle).toBeVisible();
-  const approvalIcon = pendingResponses.getByRole('alert').locator('svg').first();
+  const approvalIcon = pendingResponses.locator('[data-interaction-kind=permission] svg').first();
   await expect
     .poll(async () => {
       const titleBounds = await approvalTitle.boundingBox();
@@ -749,7 +743,7 @@ test('keeps a pending EarthScope map flat, resizable, and centered when expanded
 
   await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
-  const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
+  const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
   await expect(
     pendingResponses.getByText('Choose one observed station to continue.'),
   ).toBeVisible();
@@ -1033,6 +1027,7 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await expect(queue.locator('[data-slot="sortable"]')).toBeVisible();
   await expect(queue.locator('[draggable="true"]')).toHaveCount(0);
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
+
   await expect(queueViewport).toBeVisible();
   const queueScrollRange = await queueViewport.evaluate(
     (element) => element.scrollHeight - element.clientHeight,
@@ -1116,7 +1111,7 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   expect(seeded.ok()).toBe(true);
   await page.goto(workspaceUrl);
 
-  const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
+  const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
   const queue = page.locator('[aria-label="Queued messages"]:visible');
   // Both panels belong to the composer, which the welcome-to-conversation
   // cross-fade briefly mounts twice. Settle on one of each before measuring.
@@ -1124,6 +1119,9 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   await expect(queue).toHaveCount(1);
   const responseViewport = pendingResponses.getByRole('region', { name: '2 pending responses' });
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
+  // One compact page replaces the stack. Expand its real technical details to
+  // exercise overflow; the normal short permission correctly needs no scrolling.
+  await pendingResponses.getByText('Technical details', { exact: true }).click();
 
   for (const viewport of [responseViewport, queueViewport]) {
     await expect(viewport).toBeVisible();

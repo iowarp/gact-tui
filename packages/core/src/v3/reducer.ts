@@ -157,6 +157,17 @@ function markRespondedTurn(
     : state.responded_turns;
 }
 
+function upsertCompletedReasoning(message: Message, blockId: string, value: unknown): Message {
+  const block = messageBlockSchema.parse(value);
+  if (
+    block.id !== blockId ||
+    block.type !== 'reasoning' ||
+    !message.blocks.some((part) => part.id === blockId && part.type === 'reasoning')
+  )
+    throw new Error('Invalid completed reasoning identity');
+  return upsertBlock(message, block);
+}
+
 function completeBlock(message: Message, blockId: string, text: string): Message {
   const blocks = message.blocks.map((block): MessageBlock => {
     if (block.id !== blockId || (block.type !== 'text' && block.type !== 'reasoning')) return block;
@@ -320,6 +331,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         message_id?: unknown;
         block_id?: unknown;
         text?: unknown;
+        block?: unknown;
       };
       if (
         typeof payload.message_id !== 'string' ||
@@ -342,7 +354,13 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         revisions,
         messages: {
           ...base.messages,
-          [message.id]: completeBlock(message, payload.block_id, payload.text),
+          [message.id]: completeBlock(
+            payload.block === undefined
+              ? message
+              : upsertCompletedReasoning(message, payload.block_id, payload.block),
+            payload.block_id,
+            payload.text,
+          ),
         },
       };
     }

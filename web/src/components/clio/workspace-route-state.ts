@@ -1,4 +1,3 @@
-import { isToolAnchoredQuestion } from '@/lib/inline-question';
 import { isVariantPickInteraction } from '@/lib/variant-runs';
 import {
   PROTOCOL_VERSION,
@@ -92,23 +91,15 @@ export function conversationUnavailableMessage(error: unknown): string | undefin
   return error instanceof Error ? error.message : undefined;
 }
 
-/**
- * Keeps Plan reviews and the agent's own questions inline, in the log at their
- * tool call, whenever that tool call is present in the recovered transcript. A
- * pick between drafts always stays in the log, in its run's tabs block.
- */
+/** Keep human requests together; draft picks and anchored plans retain their dedicated views. */
 export function responseTrayInteractions(
   interactions: readonly PendingInteraction[],
   anchoredInvocationIds: ReadonlySet<string>,
 ): PendingInteraction[] {
   return interactions.filter(
     (interaction) =>
-      // A draft pick lives in its tabs block in the log, wherever it was asked.
       !isVariantPickInteraction(interaction) &&
-      interaction.payload?.response_mode !== 'async' &&
-      ((interaction.source.tool_name !== 'plan_exit' &&
-        interaction.payload?.response_mode === 'blocking') ||
-        (interaction.source.tool_name !== 'plan_exit' && !isToolAnchoredQuestion(interaction)) ||
+      (interaction.source.tool_name !== 'plan_exit' ||
         !interaction.source.invocation_id ||
         !anchoredInvocationIds.has(interaction.source.invocation_id)),
   );

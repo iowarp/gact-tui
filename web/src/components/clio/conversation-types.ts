@@ -109,6 +109,9 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   responseContinued?: boolean;
   /** A resumed segment of the same response, without a repeated sender header. */
   responseContinuation?: boolean;
+  /** Adjacent human bubbles share their sender header, retaining separate identities. */
+  userContinuation?: boolean;
+  userContinued?: boolean;
   /** Ordered activity joined across adjacent internal continuation turns. */
   turnPresentation?: ConversationTurnPresentation;
   displayMode: ConversationDisplayMode;

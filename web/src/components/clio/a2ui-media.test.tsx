@@ -72,6 +72,47 @@ function renderMedia(ui: ReactNode, { withSession = true } = {}) {
 }
 
 describe('A2uiMedia', () => {
+  it('themes an inline SVG while keeping fullscreen state and the original download', async () => {
+    const user = userEvent.setup();
+    const svg = new TextEncoder().encode(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><text fill="currentColor">Theme</text></svg>',
+    );
+    fake.resolveA2uiReference.mockResolvedValue(
+      resolution('artifact_svg', { name: 'diagram.svg', media_type: 'image/svg+xml' }),
+    );
+    fake.readA2uiReferenceBytes.mockResolvedValue(svg);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      expect(this.href).toBe('blob:a2ui-media-1');
+      expect(this.download).toBe('diagram.svg');
+    });
+    try {
+      renderMedia(<A2uiMedia componentId="svg" kind="image" label="Diagram" url="artifact_svg" />);
+      const image = await screen.findByRole('img', { name: 'Diagram' });
+      await waitFor(() => expect(image).toHaveAttribute('src', 'blob:a2ui-media-2'));
+      await user.click(screen.getByRole('button', { name: 'Full screen' }));
+      document.documentElement.classList.add('dark');
+      await waitFor(() =>
+        expect(screen.getByRole('dialog').querySelector('img')).toHaveAttribute(
+          'src',
+          'blob:a2ui-media-3',
+        ),
+      );
+      await user.click(screen.getByRole('button', { name: 'Exit full screen' }));
+      await user.click(screen.getByRole('button', { name: 'More' }));
+      await user.click(screen.getByRole('menuitem', { name: /Download/ }));
+      const item = await screen.findByRole('menuitem', { name: 'Original image' });
+      fireEvent.pointerMove(item);
+      fireEvent.click(item);
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(fake.readA2uiReferenceBytes).toHaveBeenCalledTimes(1);
+    } finally {
+      document.documentElement.classList.remove('dark');
+      clickSpy.mockRestore();
+    }
+  });
+
   it.each([
     'artifact://artifact_abc',
     'artifact:artifact_abc',

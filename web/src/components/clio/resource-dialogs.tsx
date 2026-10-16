@@ -62,6 +62,10 @@ export interface ResourceActions {
     approvalMode: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
   }) => Promise<void>;
   renameWorkspace: (workspaceId: string, name: string) => Promise<void>;
+  updateWorkspace: (
+    workspaceId: string,
+    input: { name: string; root_path: string },
+  ) => Promise<void>;
   grantWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
   revokeWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
   renameSession: (sessionId: string, title: string) => Promise<void>;

@@ -58,7 +58,7 @@ export async function setSshProfileHidden(name: string, hidden: boolean): Promis
   await invoke('ssh_profile_set_hidden', { name, hidden });
 }
 
-/** Delete a profile only when it was created in CLIO's managed include file. */
+/** Forget a host in CLIO; imported OpenSSH definitions and keys are preserved. */
 export async function deleteSshProfile(name: string): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('ssh_profile_delete', { name });

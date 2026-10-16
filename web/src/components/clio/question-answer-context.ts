@@ -1,5 +1,6 @@
 import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
 import { createContext, useContext } from 'react';
+import type { SurfaceQuestionTarget } from '@/lib/a2ui/question-navigation';
 
 /**
  * "This question is being answered in the main composer": the inline question
@@ -12,6 +13,8 @@ export interface QuestionAnswerState {
   /** The interaction id of the question the composer's next message answers. */
   answeringId?: string;
   openQuestion?: (interaction: PendingInteraction) => void;
+  openSurfaceQuestion?: (interaction: PendingInteraction) => void;
+  surfaceTarget?: SurfaceQuestionTarget;
   /** The loaded transcript location of a question, when its source is available. */
   questionLink?: (interaction: PendingInteraction) => string | undefined;
   surfaces?: Readonly<Record<string, A2UISurface>>;

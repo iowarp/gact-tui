@@ -22,6 +22,7 @@ export type ModelCapabilityAxis =
   | 'price'
   | 'kind'
   | 'context'
+  | 'output_limit'
   | 'recent'
   | 'size';
 
@@ -160,6 +161,13 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
       nativeContext: option.nativeContextWindow,
     });
   }
+  if (option.outputLimit && Number.isFinite(option.outputLimit) && option.outputLimit > 0) {
+    tags.push({
+      axis: 'output_limit',
+      value: String(option.outputLimit),
+      evidence: [{ source: option.capabilityProvenance?.output_limit?.source || 'catalog' }],
+    });
+  }
   return tags;
 }
 
@@ -247,6 +255,8 @@ export function modelCapabilityTagLabel(tag: ModelCapabilityTag): string {
       return tag.contextBasis === 'configured' || tag.contextBasis === 'native'
         ? `${formatContextSize(Number(tag.value))} ${tag.contextBasis}`
         : formatContextSize(Number(tag.value));
+    case 'output_limit':
+      return `${formatContextSize(Number(tag.value))} max output`;
     case 'recent':
       return 'Recent';
     case 'size':
@@ -269,6 +279,8 @@ export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
   switch (tag.axis) {
     case 'context':
       return contextMeaning(tag);
+    case 'output_limit':
+      return `Generates up to ${Number(tag.value).toLocaleString()} tokens per response. This is separate from the input context limit.`;
     case 'recent':
       return `Released in the last ${tag.value} months.`;
     case 'size':

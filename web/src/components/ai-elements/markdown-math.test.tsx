@@ -6,6 +6,63 @@ import { MarkdownText } from './markdown';
 afterEach(cleanup);
 
 describe('real Markdown math renderer', () => {
+  it.each([
+    'Cost: $20 and $30. Then $x_1 < x_2$.',
+    'Budget: $20. Then $x_1 < x_2$.',
+    'Range: $20–$30. Then $x_1 < x_2$.',
+  ])('does not swallow a later formula after currency: %s', async (source) => {
+    const { container } = render(<MarkdownText>{source}</MarkdownText>);
+    await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(1));
+    expect(container.querySelector('annotation')?.textContent).toBe('x_1 < x_2');
+  });
+
+  it('retains unfinished single-dollar math until the closing delimiter arrives', async () => {
+    const { container, rerender } = render(
+      <MarkdownText isAnimating>{String.raw`Stopping time $\sigma_{\infty}(n)`}</MarkdownText>,
+    );
+    expect(container.querySelector('.katex')).toBeNull();
+    rerender(<MarkdownText>{String.raw`Stopping time $\sigma_{\infty}(n)$.`}</MarkdownText>);
+    await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(1));
+  });
+
+  it('keeps currency and literal dollars while still finding later inline formulas', async () => {
+    const { container } = render(
+      <MarkdownText mode="static">
+        {String.raw`Prices: $20 and $30. Range: $20–$30. Budget: $50.
+
+Then $x^2$ and $\text{price}=\$5$ are formulas. Escaped \$7 and code ` +
+          '`$literal$` stay literal.'}
+      </MarkdownText>,
+    );
+    await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(2));
+    expect(container.textContent).toContain('Prices: $20 and $30. Range: $20–$30. Budget: $50.');
+    expect(container.textContent).toContain('Escaped $7');
+    expect(container.querySelector('code')?.textContent).toBe('$literal$');
+    expect(container.querySelector('.katex-error')).toBeNull();
+  });
+
+  for (const mode of ['static', 'streaming'] as const) {
+    it(`renders single-dollar Collatz formulas in ${mode} headings and prose`, async () => {
+      const { container } = render(
+        <MarkdownText mode={mode}>
+          {String.raw`# Collatz Total Stopping-Time Analysis ($1 \le n \le 1{,}000{,}000$)
+
+The total stopping time $\sigma_{\infty}(n)$ reaches $1$, with $\sigma_{\infty}(1) = 0$.
+
+The longest chain starts at $n = 837{,}799$ and requires $524$ steps.
+
+$$
+T(n)=\begin{cases}n/2 & n\equiv 0\pmod 2\\3n+1 & n\equiv 1\pmod 2\end{cases}
+$$`}
+        </MarkdownText>,
+      );
+      await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(7));
+      expect(container.querySelector('h1 .katex')).not.toBeNull();
+      expect(container.querySelectorAll('.katex-display')).toHaveLength(1);
+      expect(container.querySelector('.katex-error')).toBeNull();
+    });
+  }
+
   for (const mode of ['static', 'streaming'] as const) {
     it(`renders standard delimiters and existing dollar math in ${mode} messages`, async () => {
       const { container } = render(

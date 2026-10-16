@@ -7,6 +7,7 @@ import type {} from 'mdast-util-math';
 import type { Construct, Extension, State, Tokenizer } from 'micromark-util-types';
 import { parseMarkdownIntoBlocks } from 'streamdown';
 import type { Processor } from 'unified';
+import { inlineDollarMath } from './micromark-inline-dollar-math';
 
 declare module 'unified' {
   interface Data {
@@ -116,13 +117,14 @@ function mathConstruct(block: boolean): Construct {
 }
 
 const syntax: Extension = {
-  text: { 92: mathConstruct(false) },
+  text: { 36: inlineDollarMath(), 92: mathConstruct(false) },
   flow: { 92: mathConstruct(true) },
 };
 
 const enterMath: Handle = function (token) {
-  const value = this.sliceSerialize(token).slice(2, -2).trim();
-  const display = token.type !== 'clioInlineMath';
+  const width = token.type === 'clioDollarMath' ? 1 : 2;
+  const value = this.sliceSerialize(token).slice(width, -width).trim();
+  const display = token.type !== 'clioInlineMath' && token.type !== 'clioDollarMath';
   const code = {
     type: 'element' as const,
     tagName: 'code',
@@ -152,8 +154,18 @@ const exitMath: Handle = function (token) {
   this.exit(token);
 };
 const ast: MdastExtension = {
-  enter: { clioInlineMath: enterMath, clioDisplayMath: enterMath, clioMathBlock: enterMath },
-  exit: { clioInlineMath: exitMath, clioDisplayMath: exitMath, clioMathBlock: exitMath },
+  enter: {
+    clioDollarMath: enterMath,
+    clioInlineMath: enterMath,
+    clioDisplayMath: enterMath,
+    clioMathBlock: enterMath,
+  },
+  exit: {
+    clioDollarMath: exitMath,
+    clioInlineMath: exitMath,
+    clioDisplayMath: exitMath,
+    clioMathBlock: exitMath,
+  },
 };
 
 /** Add standard LaTeX delimiters without rewriting saved messages or literal code. */
@@ -166,7 +178,7 @@ export function remarkStandardMath(this: Processor): void {
 /** Keep equations together when Streamdown's preliminary Markdown lexer splits them. */
 export function parseMathMarkdownBlocks(markdown: string): string[] {
   const blocks = parseMarkdownIntoBlocks(markdown);
-  if (blocks.length < 2 || !/\\[([]/u.test(markdown)) return blocks;
+  if (blocks.length < 2 || !/\$|\\[([]/u.test(markdown)) return blocks;
   const tree = fromMarkdown(markdown, { extensions: [syntax], mdastExtensions: [ast] });
   const ranges: { start: number; end: number }[] = [];
   interface MathNode {

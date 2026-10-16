@@ -101,8 +101,8 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
     const frame = await screen.findByTitle('HTML preview of report.txt');
-    expect(frame).toHaveAttribute('sandbox', '');
-    expect(frame.getAttribute('srcdoc')).not.toContain('originalSource');
+    expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
+    expect(frame.getAttribute('srcdoc')).toContain('originalSource');
     expect(container.querySelectorAll('[data-slot="viewer-toolbar"]')).toHaveLength(1);
     const toolbar = screen
       .getByRole('tab', { name: 'Preview' })

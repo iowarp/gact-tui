@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { IconTile } from '@/components/reui/icon-tile';
-import { modelCapabilityTagsFromOption, type ModelCapabilityTag } from '@/lib/model-capability-tags';
-import { modelFactsFromOption, type ModelFactSummary } from '@/lib/model-facts';
-import { modelFilterTokens, providerFilterToken, type ModelFilterToken } from '@/lib/model-filter-tokens';
+import { type ModelCapabilityTag } from '@/lib/model-capability-tags';
+import { type ModelFactSummary } from '@/lib/model-facts';
+import { type ModelFilterToken } from '@/lib/model-filter-tokens';
+import { cachedModelFacts } from './model-picker-fact-cache';
 import { matchesActiveTokens } from '@/lib/model-range-tokens';
 import type { ClioModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
@@ -40,7 +41,9 @@ export interface PickerModelEntry {
 /** OpenRouter's free router leads its list; everything else keeps its order. */
 function pinFreeRouter(models: readonly ClioModelOption[]): ClioModelOption[] {
   const pinned = models.filter((model) => model.id === 'openrouter/free');
-  return pinned.length ? [...pinned, ...models.filter((model) => model.id !== 'openrouter/free')] : [...models];
+  return pinned.length
+    ? [...pinned, ...models.filter((model) => model.id !== 'openrouter/free')]
+    : [...models];
 }
 
 /**
@@ -54,6 +57,7 @@ function pinFreeRouter(models: readonly ClioModelOption[]): ClioModelOption[] {
 export function useModelPickerTree(
   providers: readonly ProviderGroup[],
   tokens: readonly ModelFilterToken[],
+  prepared?: ReadonlySet<string>,
 ) {
   const tokensByOption = useMemo(() => {
     const map = new Map<
@@ -61,16 +65,13 @@ export function useModelPickerTree(
       { tags: ModelCapabilityTag[]; tokens: Set<ModelFilterToken>; facts: ModelFactSummary }
     >();
     for (const group of providers) {
+      if (prepared && !prepared.has(group.id)) continue;
       for (const choice of group.choices) {
-        const tags = modelCapabilityTagsFromOption(choice);
-        const carried = modelFilterTokens(tags, { chatSelectable: choice.chatSelectable !== false });
-        carried.add(providerFilterToken(choice.providerId));
-        const facts = modelFactsFromOption(choice);
-        map.set(choice, { tags, tokens: carried, facts });
+        map.set(choice, cachedModelFacts(choice));
       }
     }
     return map;
-  }, [providers]);
+  }, [providers, prepared]);
 
   return useMemo(() => {
     const counts = new Map<string, ProviderFilterCount>();
@@ -79,7 +80,7 @@ export function useModelPickerTree(
     const nodes: CascaderNode<PickerNodeData>[] = providers.map((group) => {
       const models = pinFreeRouter(providerColumnModels(group));
       const children: CascaderNode<PickerNodeData>[] = [];
-      for (const choice of models) {
+      for (const choice of prepared && !prepared.has(group.id) ? [] : models) {
         const carried = tokensByOption.get(choice) ?? {
           tags: [],
           tokens: new Set<ModelFilterToken>(),
@@ -95,7 +96,15 @@ export function useModelPickerTree(
         };
         const kept = matchesActiveTokens(carried.tokens, carried.facts, tokens);
         if (kept) children.push(node);
-        entries.push({ group, choice, node, tags: carried.tags, tokens: carried.tokens, facts: carried.facts, kept });
+        entries.push({
+          group,
+          choice,
+          node,
+          tags: carried.tags,
+          tokens: carried.tokens,
+          facts: carried.facts,
+          kept,
+        });
       }
       counts.set(group.id, { shown: children.length, total: models.length });
       return {
@@ -126,5 +135,5 @@ export function useModelPickerTree(
     const shown = all.reduce((sum, count) => sum + count.shown, 0);
     const total = all.reduce((sum, count) => sum + count.total, 0);
     return { nodes, counts, availableTokens, entries, shown, total };
-  }, [providers, tokens, tokensByOption]);
+  }, [providers, tokens, tokensByOption, prepared]);
 }

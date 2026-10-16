@@ -1,10 +1,37 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it } from 'vitest';
 import { HtmlFilePreview } from './html-file-preview';
 import { htmlPreviewDocument } from './html-preview-policy';
+import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { FileViewerInformationHost } from './file-viewer-context';
 
 afterEach(cleanup);
+
+it('contributes Stop and Restart to the shared viewer toolbar', async () => {
+  function SharedViewer() {
+    const [host, setHost] = useState<HTMLDivElement | null>(null);
+    return (
+      <FileViewerInformationHost.Provider value={null}>
+        <ViewerToolbarHost.Provider value={host}>
+          <div aria-label="Shared toolbar" ref={setHost} />
+          <HtmlFilePreview
+            name="interactive.html"
+            content="<script>window.ready=true;</script>"
+            view="preview"
+          />
+        </ViewerToolbarHost.Provider>
+      </FileViewerInformationHost.Provider>
+    );
+  }
+  render(<SharedViewer />);
+  await waitFor(() => expect(screen.getByTitle('HTML preview of interactive.html')).toBeVisible());
+  const toolbar = screen.getByLabelText('Shared toolbar');
+  expect(within(toolbar).getByRole('button', { name: 'Stop' })).toBeVisible();
+  expect(within(toolbar).getByRole('button', { name: 'Restart' })).toBeVisible();
+  expect(screen.getAllByRole('button', { name: 'Stop' })).toHaveLength(1);
+});
 
 it('retains authored CSS, animation and local SVG references in an isolated display copy', () => {
   const content = `<!doctype html><html><head><title>Cat</title><style>
@@ -23,7 +50,8 @@ it('retains authored CSS, animation and local SVG references in an isolated disp
   expect(document.head.children[1]).toBe(policy);
   render(<HtmlFilePreview name="cat.html" content={content} />);
   expect(screen.queryByText(/Static preview ·/)).not.toBeInTheDocument();
-  expect(screen.getByTitle('HTML preview of cat.html')).toHaveAttribute('sandbox', '');
+  // Authored static content is sanitized; only the nonce-authorized sizing/theme bridge runs.
+  expect(screen.getByTitle('HTML preview of cat.html')).toHaveAttribute('sandbox', 'allow-scripts');
   expect(screen.getByTitle('HTML preview of cat.html')).toHaveAttribute(
     'referrerpolicy',
     'no-referrer',
@@ -63,7 +91,13 @@ it('removes active content, navigation and external media while retaining embedd
 it('opens HTML source without sanitizing the original bytes shown or copied', async () => {
   const content = '<h1>Original</h1>\n<script>window.original = true;</script>\n';
   const { container } = render(<HtmlFilePreview name="report.htm" content={content} />);
-  expect(screen.getByTitle('HTML preview of report.htm').getAttribute('srcdoc')).not.toContain(
+  await waitFor(() =>
+    expect(screen.getByTitle('HTML preview of report.htm')).toHaveAttribute(
+      'sandbox',
+      'allow-scripts',
+    ),
+  );
+  expect(screen.getByTitle('HTML preview of report.htm').getAttribute('srcdoc')).toContain(
     'window.original',
   );
   await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
@@ -73,4 +107,17 @@ it('opens HTML source without sanitizing the original bytes shown or copied', as
   expect(screen.getByRole('button', { name: 'Copy report.htm' })).toBeVisible();
   await userEvent.click(screen.getByRole('tab', { name: 'Preview' }));
   expect(screen.getByTitle('HTML preview of report.htm')).toBeVisible();
+});
+
+it('stops a scripted frame and creates a fresh execution on restart', async () => {
+  render(
+    <HtmlFilePreview name="simulation.html" content="<script>window.simulation = 1;</script>" />,
+  );
+  await waitFor(() => expect(screen.getByTitle('HTML preview of simulation.html')).toBeVisible());
+  const original = screen.getByTitle('HTML preview of simulation.html');
+  await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
+  expect(screen.queryByTitle('HTML preview of simulation.html')).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Preview stopped');
+  await userEvent.click(screen.getByRole('button', { name: 'Restart' }));
+  expect(screen.getByTitle('HTML preview of simulation.html')).not.toBe(original);
 });

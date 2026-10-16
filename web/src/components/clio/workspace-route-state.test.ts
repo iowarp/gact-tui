@@ -131,7 +131,7 @@ describe('workspace route state', () => {
     expect(responseTrayInteractions([plan, mcp], new Set(['inv_1']))).toEqual([mcp]);
   });
 
-  it("keeps the agent's own anchored question in the log, not the tray (#1448)", () => {
+  it('includes anchored questions in the attention pager', () => {
     const asked = {
       id: 'question:ask',
       kind: 'question' as const,
@@ -148,7 +148,10 @@ describe('workspace route state', () => {
       source: { ...asked.source, invocation_id: 'inv_gone' },
     };
 
-    expect(responseTrayInteractions([asked, unanchored], new Set(['inv_2']))).toEqual([unanchored]);
+    expect(responseTrayInteractions([asked, unanchored], new Set(['inv_2']))).toEqual([
+      asked,
+      unanchored,
+    ]);
   });
 
   it('recovers a pending Plan review into the tray when its tool transcript is unavailable', () => {

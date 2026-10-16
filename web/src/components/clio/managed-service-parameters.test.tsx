@@ -23,6 +23,25 @@ const parameter = (
     ...row,
   }) as ServerParameter;
 
+it('keeps native Intel XPU controls and removes CUDA-only controls from its request', () => {
+  const parameters = [
+    parameter({ id: 'xpu_memory', label: 'XPU memory', name: '--xpu-memory', variants: ['xpu'] }),
+    parameter({
+      id: 'cuda_memory',
+      label: 'CUDA memory',
+      name: '--cuda-memory',
+      variants: ['cuda'],
+    }),
+  ];
+  expect(
+    configurationForVariant(
+      { 'param.xpu_memory': '8', 'param.cuda_memory': '16' },
+      parameters,
+      'native-xpu',
+    ),
+  ).toEqual({ 'param.xpu_memory': '8' });
+});
+
 // Parsed through the real wire schema, the way the repository hands it to the UI.
 const vllm = (overrides: Record<string, unknown> = {}): ManagedServiceDefinition =>
   managedServiceDefinitionSchema.parse({

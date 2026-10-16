@@ -57,8 +57,29 @@ for (const width of [1280, 1600]) {
     await expect(viewer.getByText(/Static preview ·/)).toHaveCount(0);
     const frame = viewer.getByTitle(`HTML preview of ${name}`);
     await expect(frame).toBeVisible();
-    await expect(frame).toHaveAttribute('sandbox', '');
-    expect(await frame.getAttribute('srcdoc')).not.toContain('__htmlPreviewRan');
+    await expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
+    expect(await frame.getAttribute('srcdoc')).toContain('__htmlPreviewRan');
+    await expect
+      .poll(() =>
+        page
+          .frameLocator(`iframe[title="HTML preview of ${name}"]`)
+          .locator('body')
+          .evaluate(() => Reflect.get(window, '__htmlPreviewRan')),
+      )
+      .toBe(true);
+    await expect(toolbar.getByRole('button', { name: 'Stop', exact: true })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Restart', exact: true })).toBeVisible();
+    await expect
+      .poll(() =>
+        frame.evaluate((element) => {
+          try {
+            return (element as HTMLIFrameElement).contentDocument === null;
+          } catch {
+            return true;
+          }
+        }),
+      )
+      .toBe(true);
     await expect
       .poll(async () => {
         const frameBounds = await frame.boundingBox();

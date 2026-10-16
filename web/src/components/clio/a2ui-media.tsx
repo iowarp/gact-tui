@@ -1,6 +1,7 @@
 import { isClioReference } from '@clio/core/v3';
 import { ExternalLinkIcon, ImageOffIcon } from 'lucide-react';
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
+import { useObjectUrl } from '@/hooks/use-object-url';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Spinner } from '@/components/ui/spinner';
@@ -11,6 +12,7 @@ import { buildZoneReference, type DataZoneReference } from './data-zone-referenc
 import { downloadUrl, filenameStemFromTitle } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
+import { themedSvgBytes, useHtmlPreviewTheme } from './html-preview-theme';
 
 export type A2uiMediaKind = 'image' | 'video' | 'audio' | 'file';
 
@@ -131,6 +133,15 @@ function ReferenceImage({
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
   const name = state.resolution?.name || label || 'image';
   const objectUrl = state.objectUrl;
+  const theme = useHtmlPreviewTheme();
+  const svgBytes = useMemo(
+    () =>
+      state.bytes && state.resolution?.media_type?.split(';', 1)[0]?.trim() === 'image/svg+xml'
+        ? themedSvgBytes(state.bytes, theme)
+        : undefined,
+    [state.bytes, state.resolution?.media_type, theme],
+  );
+  const svgUrl = useObjectUrl(svgBytes, 'image/svg+xml');
 
   const buildReference = (): DataZoneReference =>
     buildZoneReference({
@@ -169,7 +180,7 @@ function ReferenceImage({
       draggable={false}
       onDragStart={(event) => event.preventDefault()}
       onError={onError}
-      src={state.objectUrl}
+      src={svgUrl ?? state.objectUrl}
       style={fullscreen ? { objectFit: 'contain' } : { ...imageVariantStyle(variant), objectFit }}
     />
   );

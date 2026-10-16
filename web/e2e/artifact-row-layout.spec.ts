@@ -31,9 +31,19 @@ test('centers artifact row actions without covering the relation badge', async (
       const header = element.firstElementChild!;
       const badge = header.querySelector('[data-slot="badge"]')!;
       const action = header.querySelector('button[aria-label="More"]')!;
+      const origin = header.getBoundingClientRect();
       const bounds = (node: Element) => {
         const { x, y, width, height } = node.getBoundingClientRect();
-        return { x, y, width, height, right: x + width, centerY: y + height / 2 };
+        // Hover/focus can scroll the entire virtualized row into view. Assert
+        // its internal geometry so scrolling is not mistaken for a layout shift.
+        return {
+          x: x - origin.x,
+          y: y - origin.y,
+          width,
+          height,
+          right: x + width - origin.x,
+          centerY: y + height / 2 - origin.y,
+        };
       };
       return {
         header: bounds(header),

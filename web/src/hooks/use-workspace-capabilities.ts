@@ -2,12 +2,14 @@ import { queryKeys } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { useProviderCatalog } from './use-provider-catalog';
 
 /**
  * The service's capabilities and model configuration. `pollMs` re-reads the
  * capabilities on an interval, for a caller that uses them as a reachability probe.
  */
 export function useWorkspaceCapabilities({ pollMs = false }: { pollMs?: number | false } = {}) {
+  useProviderCatalog();
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const capabilities = useQuery({

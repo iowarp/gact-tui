@@ -8,12 +8,36 @@ import { SettingsSectionHeading } from './settings-section-heading';
 
 /** App preferences shared by both hosts, with native controls gated by runtime. */
 export function GeneralSettings() {
-  const { collapseThreshold, setCollapseThreshold, hideDotFiles, setHideDotFiles } =
-    useAppearancePreferences();
+  const {
+    collapseThreshold,
+    setCollapseThreshold,
+    hideDotFiles,
+    setHideDotFiles,
+    pasteSourceThreshold,
+    setPasteSourceThreshold,
+  } = useAppearancePreferences();
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading title="General" description="App preferences for this device." />
       <div>
+        <SettingsRow
+          title="Paste as source after"
+          htmlFor="paste-source-threshold"
+          description="Text pastes at or above this many characters become clickable .txt attachments under Sources. Use 0 to keep all pastes inline."
+        >
+          <div className="flex items-center gap-2">
+            <Input
+              className="w-24"
+              id="paste-source-threshold"
+              type="number"
+              min={0}
+              step={1}
+              value={pasteSourceThreshold}
+              onChange={(event) => setPasteSourceThreshold(Number(event.target.value))}
+            />
+            <span className="text-xs text-muted-foreground">characters</span>
+          </div>
+        </SettingsRow>
         <SettingsRow
           title="Transcript preview lines"
           htmlFor="transcript-preview-lines"

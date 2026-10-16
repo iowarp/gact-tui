@@ -1,5 +1,5 @@
 import { DownloadIcon, Maximize2Icon, Minimize2Icon, ImageIcon } from 'lucide-react';
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { OverlayContainer } from '@/components/ui/overlay-container';
@@ -9,6 +9,7 @@ import { downloadBytes } from './surface-export';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { ViewerZoomControls } from './viewer-zoom-controls';
+import { themedSvgBytes, useHtmlPreviewTheme } from './html-preview-theme';
 
 /** A fitted image with explicit zoom and ordinary scrolling. Images never pan or drag. */
 export function ImageResourceView({
@@ -22,7 +23,15 @@ export function ImageResourceView({
   mediaType: string;
   name: string;
 }) {
-  const url = useObjectUrl(bytes, mediaType);
+  const theme = useHtmlPreviewTheme();
+  const displayBytes = useMemo(
+    () =>
+      bytes && mediaType.split(';', 1)[0]?.trim() === 'image/svg+xml'
+        ? themedSvgBytes(bytes, theme)
+        : bytes,
+    [bytes, mediaType, theme],
+  );
+  const url = useObjectUrl(displayBytes, mediaType);
   const toolbarHost = useContext(ViewerToolbarHost);
   const [localToolbarHost, setLocalToolbarHost] = useState<HTMLDivElement | null>(null);
   const shared = useContext(FileViewerInformationHost) !== undefined;
@@ -33,8 +42,11 @@ export function ImageResourceView({
   const fullscreen = Boolean(fullscreenHost);
   const [failedImageUrl, setFailedImageUrl] = useState<string>();
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
-  const [image, setImage] = useState({ url: '', width: 0, height: 0 });
-  const [zoom, setZoom] = useState<{ url: string; scale: number }>();
+  const [image, setImage] = useState<{ bytes?: Uint8Array; width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
+  const [zoom, setZoom] = useState<{ bytes: Uint8Array; scale: number }>();
   useEffect(() => {
     const host = viewportRef.current;
     if (!host) return;
@@ -52,7 +64,7 @@ export function ImageResourceView({
     document.addEventListener('fullscreenchange', update);
     return () => document.removeEventListener('fullscreenchange', update);
   }, []);
-  const loaded = Boolean(url && image.url === url && image.width && image.height);
+  const loaded = Boolean(url && bytes && image.bytes === bytes && image.width && image.height);
   const fit = loaded
     ? Math.min(
         Math.max(1, viewport.width - 32) / image.width,
@@ -60,12 +72,12 @@ export function ImageResourceView({
         1,
       )
     : 1;
-  const scale = zoom && zoom.url === url ? zoom.scale : fit;
+  const scale = zoom && zoom.bytes === bytes ? zoom.scale : fit;
   const changeZoom = useCallback(
     (factor: number) => {
-      if (url) setZoom({ url, scale: Math.min(8, Math.max(0.05, scale * factor)) });
+      if (bytes) setZoom({ bytes, scale: Math.min(8, Math.max(0.05, scale * factor)) });
     },
-    [url, scale],
+    [bytes, scale],
   );
   const zoomIn = useCallback(() => changeZoom(1.2), [changeZoom]);
   const zoomOut = useCallback(() => changeZoom(1 / 1.2), [changeZoom]);
@@ -155,7 +167,7 @@ export function ImageResourceView({
                 onDragStart={(event) => event.preventDefault()}
                 onLoad={(event) =>
                   setImage({
-                    url,
+                    bytes,
                     width: event.currentTarget.naturalWidth,
                     height: event.currentTarget.naturalHeight,
                   })

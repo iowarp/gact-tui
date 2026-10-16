@@ -15,6 +15,8 @@ const fixture = vi.hoisted(() => ({
     listSshProfiles: vi.fn(),
     listAllSshProfiles: vi.fn(),
     saveSshProfile: vi.fn(),
+    deleteSshProfile: vi.fn(),
+    setSshProfileHidden: vi.fn(),
     setSshProfileRoute: vi.fn(),
   },
   attachInfrastructureSshTransport: vi.fn(),
@@ -168,4 +170,27 @@ it('retains Desktop hop editing and disables connection for an incomplete route'
   await user.click(screen.getByRole('button', { name: 'Manage SSH hosts' }));
   expect(await screen.findByRole('dialog', { name: 'Manage SSH hosts' })).toBeVisible();
   expect(fixture.profiles.listAllSshProfiles).toHaveBeenCalled();
+});
+
+it('clears a selected host after confirmed removal so it cannot remain in the route', async () => {
+  fixture.profiles.listAllSshProfiles.mockResolvedValue([
+    { name: 'delta', label: 'Delta node', hostname: 'delta.example', user: 'alice', port: 22 },
+  ]);
+  fixture.profiles.deleteSshProfile.mockImplementation(async () => {
+    fixture.profiles.listSshProfiles.mockResolvedValue([]);
+    fixture.profiles.listAllSshProfiles.mockResolvedValue([]);
+  });
+  const { onChange } = setup();
+  const user = await chooseHost();
+  expect(screen.getByRole('button', { name: 'Connect host' })).toBeEnabled();
+  await user.click(screen.getByRole('button', { name: 'Manage SSH hosts' }));
+  await user.click(await screen.findByRole('button', { name: 'Remove Delta node' }));
+  await user.click(screen.getByRole('button', { name: 'Remove host' }));
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  await user.click(screen.getByRole('button', { name: 'Close' }));
+  expect(screen.getByRole('button', { name: 'Connect host' })).toBeDisabled();
+  expect(onChange).toHaveBeenLastCalledWith(undefined);
+  expect(screen.getByRole('combobox', { name: 'Saved SSH host' })).not.toHaveTextContent(
+    'Delta node',
+  );
 });

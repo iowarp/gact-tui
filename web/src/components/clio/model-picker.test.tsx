@@ -155,11 +155,12 @@ describe('ClioModelPicker', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ providerId: 'local-vllm' }));
   });
 
-  it('shows stable skeleton columns instead of provisional options while discovery runs', async () => {
+  it('keeps known provider and model rows usable while discovery refreshes', async () => {
     const user = userEvent.setup();
     renderPicker(
       <ClioModelPicker
         catalogStatus="loading"
+        provider="codex"
         onChange={vi.fn()}
         options={options}
         trigger={<Button>Change model</Button>}
@@ -167,10 +168,10 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    expect(screen.getByRole('status', { name: 'Loading available models' })).toBeVisible();
-    expect(screen.queryByText('Luna')).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Search providers and models')).not.toBeInTheDocument();
-    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(10);
+    expect(screen.getByText('Codex', { exact: true })).toBeVisible();
+    expect(screen.getByText('Luna')).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Search providers and models' })).toBeVisible();
+    expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0);
   });
 
   it('retries live discovery from the catalog error surface', async () => {

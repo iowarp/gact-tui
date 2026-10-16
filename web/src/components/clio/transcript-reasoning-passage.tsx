@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { TranscriptReasoning, type ThoughtSource } from './transcript-reasoning';
+import { useReasoningDuration } from './use-reasoning-duration';
+import { formatDuration } from '@/lib/format';
 
 /** Show recorded reasoning plainly; disclose only passages with additional content. */
 export function TranscriptReasoningPassage({
@@ -12,12 +14,27 @@ export function TranscriptReasoningPassage({
   text,
   streaming = false,
   source,
+  startedAt,
+  durationMs,
 }: {
   id?: string;
   text: string;
   streaming?: boolean;
   source?: ThoughtSource;
+  startedAt?: string;
+  durationMs?: number;
 }) {
+  const duration = useReasoningDuration(startedAt, durationMs, streaming);
+  const timing =
+    duration !== undefined ? (
+      <span
+        className="shrink-0 text-muted-foreground"
+        title="Time this thinking passage was open in the conversation. Tool execution has its own timer."
+        aria-label={`Reasoning phase: ${formatDuration(duration, 'tenths')}`}
+      >
+        {formatDuration(duration, 'tenths')}
+      </span>
+    ) : null;
   const key = source
     ? `thinking:${source.sessionId}:${source.messageId}:${source.partId}:${source.field}`
     : id
@@ -53,6 +70,8 @@ export function TranscriptReasoningPassage({
         className="flex min-h-7 w-full min-w-0 items-center gap-2 px-1 py-1 pr-7 text-xs font-normal text-foreground"
       >
         {icon}
+        <span className="shrink-0 text-muted-foreground">Thinking</span>
+        {timing}
         <div className="min-w-0 flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
           <TranscriptReasoning text={text} source={source}>
             {heading}
@@ -76,6 +95,8 @@ export function TranscriptReasoningPassage({
           className="h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-sm px-1 py-1 pr-7 text-xs font-normal text-foreground aria-expanded:bg-transparent"
         >
           {icon}
+          <span className="shrink-0 text-muted-foreground">Thinking</span>
+          {timing}
           <span className="min-w-0 flex-1 truncate text-left font-normal">{heading}</span>
           <ChevronRightIcon
             aria-hidden="true"

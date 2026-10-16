@@ -9,7 +9,7 @@ import { FieldLabel } from '@/components/ui/field';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { ConfigureIcon } from '@/lib/icon-vocabulary';
-import type { SshHost } from '@/lib/ssh-hosts';
+import { sshHostUsesProfile, type SshHost } from '@/lib/ssh-hosts';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { SshTransportStatus } from '@/tauri/ssh-infrastructure-transport';
 import { SshAuthentication } from './managed-service-target';
@@ -114,7 +114,20 @@ function DesktopSourceSshTarget({
           onChange(undefined);
         }}
       />
-      <SshHostsManagerDialog open={managing} onOpenChange={setManaging} />
+      <SshHostsManagerDialog
+        open={managing}
+        onOpenChange={setManaging}
+        onRemoved={(profile) => {
+          if (!sshHostUsesProfile(host, profile)) return;
+          setEdited(true);
+          active.current?.abort();
+          setHost(undefined);
+          setIncomplete(true);
+          setStatus(undefined);
+          setError(undefined);
+          onChange(undefined);
+        }}
+      />
       {status?.prompt && <SshAuthentication prompt={status.prompt} sessionId={status.session_id} />}
       <Button
         type="button"

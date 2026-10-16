@@ -14,6 +14,27 @@ afterEach(() => {
 });
 
 describe('appearance preferences', () => {
+  it('persists the paste threshold, including off, and validates restored values', () => {
+    const first = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(first.result.current.pasteSourceThreshold).toBe(4000);
+    act(() => first.result.current.setPasteSourceThreshold(1200));
+    first.unmount();
+    const restored = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(restored.result.current.pasteSourceThreshold).toBe(1200);
+    act(() => restored.result.current.setPasteSourceThreshold(0));
+    restored.unmount();
+    const disabled = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(disabled.result.current.pasteSourceThreshold).toBe(0);
+    act(() =>
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'clio.appearance.v1',
+          newValue: JSON.stringify({ pasteSourceThreshold: -10 }),
+        }),
+      ),
+    );
+    expect(disabled.result.current.pasteSourceThreshold).toBe(4000);
+  });
   it('restores the display-line preference and enforces its supported range', () => {
     const first = renderHook(() => useAppearancePreferences(), { wrapper });
     expect(first.result.current.collapseThreshold).toBe(5);
@@ -43,6 +64,7 @@ describe('appearance preferences', () => {
       collapseThreshold: 5,
       hideDotFiles: false,
       interfaceSize: 100,
+      pasteSourceThreshold: 4000,
     });
 
     unmount();

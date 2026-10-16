@@ -360,11 +360,23 @@ export type Text = string;
 export type Type = 'text';
 export type AgentId1 = string | null;
 export type Channel1 = string | null;
+/**
+ * CLIO-observed closure of this reasoning passage.
+ */
+export type CompletedAt = string | null;
 export type DefaultCollapsed = boolean | null;
+/**
+ * Monotonic elapsed time for this reasoning passage; excludes tool execution.
+ */
+export type DurationMs = number | null;
 export type Id2 = string;
 export type ProviderSource = string | null;
 export type Sequence1 = number | null;
 export type Source3 = string | null;
+/**
+ * CLIO-observed first reasoning delta, not provider scheduling time.
+ */
+export type StartedAt = string | null;
 export type StreamSource1 = string | null;
 export type Streaming1 = boolean | null;
 export type Text1 = string;
@@ -755,7 +767,7 @@ export type Notes2 = {
 export type ReplayContract = 'reproducible' | 're-runnable';
 export type ReplayReason = string;
 export type SessionId1 = string;
-export type StartedAt = string;
+export type StartedAt1 = string;
 /**
  * Whether the producing call succeeded.
  */
@@ -1374,11 +1386,14 @@ export interface TextMessageBlock {
 export interface ReasoningMessageBlock {
   agent_id?: AgentId1;
   channel?: Channel1;
+  completed_at?: CompletedAt;
   default_collapsed?: DefaultCollapsed;
+  duration_ms?: DurationMs;
   id: Id2;
   provider_source?: ProviderSource;
   sequence?: Sequence1;
   source?: Source3;
+  started_at?: StartedAt;
   stream_source?: StreamSource1;
   streaming?: Streaming1;
   text: Text1;
@@ -1828,7 +1843,7 @@ export interface TransformRecord {
   replay?: ReplayContract;
   replay_reason?: ReplayReason;
   session_id?: SessionId1;
-  started_at?: StartedAt;
+  started_at?: StartedAt1;
   status?: TransformStatus;
   turn_id?: TurnId;
   used?: Used;

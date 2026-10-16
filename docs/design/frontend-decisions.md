@@ -1569,3 +1569,16 @@ data`, and `Ndp stage resource`, while the same operations used clearer names el
   directly after the effort selector at the bottom of the composer. Both menus remain actionable;
   its header contains only Session details, while the footer groups v0.11.0 and Up to date as
   adjacent product/synchronization state.
+
+# Workspace editing exposes fields and access, with details on demand
+
+- Old failure: an additional-folder card wrapped the existing rows, another bordered picker and
+  an outlined Add action. Two paragraphs of routine instructions overwhelmed the editable fields.
+- New representation: retain shadcn Dialog/Field and the shared editable path picker, use a plain
+  folder list and ghost Add/Remove actions, and keep read/write access visible in the section label.
+  The existing keyboard-accessible InfoTip owns folder-move and permission explanations. Removing
+  a grant uses the Remove icon rather than the Delete icon because it does not delete files.
+- Acceptance evidence: production-component browser review in light/dark at 1280px and 390px,
+  keyboard help and WCAG checks, empty state and twelve long folder paths at 390 × 640. Direct
+  typing, Browse and Save without Add still work; the footer remains reachable while the list
+  scrolls. Permission mutation behavior is covered by the existing editor and picker regressions.

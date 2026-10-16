@@ -31,7 +31,7 @@ describe('pending interaction routing', () => {
     );
 
     expect(
-      screen.queryByRole('region', { name: 'Agent needs your response' }),
+      screen.queryByRole('region', { name: 'Agent needs your attention' }),
     ).not.toBeInTheDocument();
   });
 });

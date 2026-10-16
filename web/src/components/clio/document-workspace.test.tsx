@@ -12,6 +12,8 @@ import {
 } from '@/tauri/documents';
 import { downloadBytes } from './surface-export';
 import { vocab } from '@/lib/brand-vocabulary';
+// Load the real lazy renderer during collection, outside the rendering test's timer.
+import '../ai-elements/markdown';
 
 const host = vi.hoisted(() => ({ native: true }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => host.native }));
@@ -102,6 +104,22 @@ function renderWorkspace(
 }
 
 describe('ClioDocumentWorkspace', () => {
+  it('renders inline dollar math in a Markdown artifact without converting it to PDF', async () => {
+    repository.documentManifest.mockResolvedValue(manifest);
+    repository.documentContent.mockResolvedValue(
+      new TextEncoder().encode(
+        String.raw`# Collatz ($1 \le n \le 1{,}000{,}000$)
+
+The stopping time is $\sigma_{\infty}(n)$.`,
+      ),
+    );
+    repository.artifactReviews.mockResolvedValue([]);
+    const { container } = renderWorkspace();
+    await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(2));
+    expect(container.querySelector('h1 .katex')).not.toBeNull();
+    expect(repository.createDocumentRendition).not.toHaveBeenCalled();
+  });
+
   it.each(['ooxml-word', 'ooxml-slides', 'ooxml-sheet'] as const)(
     'automatically renders a missing PDF preview for %s',
     async (profile) => {
@@ -174,13 +192,9 @@ describe('ClioDocumentWorkspace', () => {
     renderWorkspace();
     expect(await screen.findByText('PDF preview')).toBeVisible();
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Refresh document revision' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh document revision' }));
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Refresh document revision' }),
-      ).toBeEnabled(),
+      expect(screen.getByRole('button', { name: 'Refresh document revision' })).toBeEnabled(),
     );
     expect(repository.documentContent).toHaveBeenCalledTimes(2);
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
@@ -373,8 +387,8 @@ describe('ClioDocumentWorkspace', () => {
     repository.artifactReviews.mockResolvedValue([]);
     const { container } = renderWorkspace({ name: 'cat.html', media_type: 'text/html' });
     const frame = await screen.findByTitle('HTML preview of cat.html');
-    expect(frame).toHaveAttribute('sandbox', '');
-    expect(frame.getAttribute('srcdoc')).not.toContain('window.original');
+    expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
+    expect(frame).toHaveAttribute('src', 'http://127.0.0.1:8790/v1/html-renderer');
     const user = userEvent.setup();
     await user.click(screen.getByRole('tab', { name: 'HTML source' }));
     expect(container.querySelector('[data-language="html"]')).toHaveTextContent(

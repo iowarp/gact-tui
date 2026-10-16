@@ -71,17 +71,23 @@ for (const theme of ['light', 'dark'] as const) {
       await questions
         .getByRole('button', { name: 'Read and answer question 1', exact: true })
         .click();
-      const dialog = page.getByRole('dialog', { name: /^.+ asked a question$/u });
+      const dialog = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
       await expect(dialog).toContainText(prompt);
       await expect(dialog.getByRole('textbox')).toBeVisible();
       const title = dialog.locator('[data-slot="pending-interaction-title"]');
-      expect(await title.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+      expect(await title.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`question-answer-${theme}-${width}.png`) });
-      await expect(dialog.getByRole('button', { name: 'Send response' })).toBeDisabled();
+      if (width === 1280) {
+        await expect(dialog.getByRole('button', { name: 'Send response' })).toBeDisabled();
+      } else {
+        await expect(dialog.getByRole('textbox')).toHaveValue(
+          'Use the documented category labels.',
+        );
+      }
       await dialog.getByRole('textbox').fill('Use the documented category labels.');
       await expect(dialog.getByRole('button', { name: 'Send response' })).toBeEnabled();
       // Inspecting or drafting an answer never resolves the question.
-      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Agent needs your attention', exact: true }).click();
       await tracker.click();
       await questions.getByRole('button', { name: 'Go to question 1', exact: true }).click();
       await expect(page).toHaveURL(/#message-msg_stream\/activity-tool_fixture_question$/);
@@ -105,7 +111,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.screenshot({ path: testInfo.outputPath(`question-${theme}-${width}.png`) });
       await summary.click();
       await expect(dialog).toBeVisible();
-      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Agent needs your attention', exact: true }).click();
       await expect(tracker).toBeVisible();
     }
     expect(submittedAnswers).toEqual([]);

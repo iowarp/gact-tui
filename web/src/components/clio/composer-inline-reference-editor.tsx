@@ -12,6 +12,8 @@ import {
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import { REFERENCE_TOKEN_MAX_WIDTH } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
+import { COMPOSER_ATTACHMENT_MAX_BYTES, pastedTextFile } from '@/lib/composer-paste';
+import { usePasteSourceThreshold } from '@/providers/appearance-provider';
 import {
   referenceKindLabel,
   workspaceReferenceIdentity,
@@ -28,6 +30,7 @@ interface ComposerInlineReferenceEditorProps {
   activeOptionId?: string;
   className?: string;
   disabled?: boolean;
+  attachmentsEnabled?: boolean;
   /** Whether a suggestion popover this editor controls is showing. */
   expanded: boolean;
   /**
@@ -148,6 +151,7 @@ export const ComposerInlineReferenceEditor = forwardRef<
     activeOptionId,
     className,
     disabled = false,
+    attachmentsEnabled = false,
     expanded,
     onCaretChange,
     onChange,
@@ -162,6 +166,7 @@ export const ComposerInlineReferenceEditor = forwardRef<
   forwardedRef,
 ) {
   const attachments = usePromptInputAttachments();
+  const pasteSourceThreshold = usePasteSourceThreshold();
   const localRef = useRef<HTMLDivElement | null>(null);
   const renderedSignature = useRef('');
 
@@ -239,6 +244,7 @@ export const ComposerInlineReferenceEditor = forwardRef<
   };
 
   const handlePaste = (event: ClipboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
     const files = Array.from(event.clipboardData?.items ?? [])
       .filter((item) => item.kind === 'file')
       .map((item) => item.getAsFile())
@@ -251,6 +257,16 @@ export const ComposerInlineReferenceEditor = forwardRef<
     }
 
     const text = event.clipboardData.getData('text/plain');
+    if (attachmentsEnabled && pasteSourceThreshold > 0 && text.length >= pasteSourceThreshold) {
+      const file = pastedTextFile(text);
+      // Validation must never swallow a paste: text beyond the attachment limit
+      // follows the ordinary editor path instead of becoming a rejected file.
+      if (file.size <= COMPOSER_ATTACHMENT_MAX_BYTES) {
+        event.preventDefault();
+        attachments.add([file]);
+        return;
+      }
+    }
     const selection = window.getSelection();
     if (!text || !selection?.rangeCount) return;
     const range = selection.getRangeAt(0);

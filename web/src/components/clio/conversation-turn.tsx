@@ -237,10 +237,11 @@ export function ConversationTurn({
       {groups.map((group, index) => {
         const iteration = group[0];
         const summary = transcriptActivitySummary(group);
+        const hasActivity = group.some((item) => item.activity.length || item.interrupted);
         return (
           <Fragment key={iteration.id}>
-            <TranscriptIterationText iteration={iteration} showReasoning={false} />
-            {group.some((item) => item.activity.length || item.interrupted) ? (
+            <TranscriptIterationText iteration={iteration} showReasoning={!hasActivity} />
+            {hasActivity ? (
               <ActivityChain
                 id={iteration.id}
                 defaultOpen={followLiveActivity && index === groups.length - 1}
@@ -286,7 +287,9 @@ export function ConversationTurn({
                 </ChainOfThoughtContent>
               </ActivityChain>
             ) : (
-              group.map((item) => <IterationReasoningText key={item.id} iteration={item} />)
+              group
+                .slice(1)
+                .map((item) => <IterationReasoningText key={item.id} iteration={item} />)
             )}
           </Fragment>
         );

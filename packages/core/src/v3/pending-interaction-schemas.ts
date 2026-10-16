@@ -123,6 +123,21 @@ export const pendingInteractionSchema = z.object({
       expires_at: z.string().optional(),
       input_key: z.string().optional(),
       permission_id: z.string().optional(),
+      execution: z.object({ computer: z.string(), cwd: z.string() }).optional(),
+      access: z
+        .object({
+          folders: z.array(z.string()),
+          computer: z.string(),
+          workspace_id: z.string(),
+          operation: z.string(),
+          command: z.string(),
+          paths: z.array(z.string()),
+          cwd: z.string(),
+          reason: z.string(),
+          access: z.literal('read_write'),
+          scope: z.literal('workspace'),
+        })
+        .optional(),
       tool_call: z
         .object({
           tool_name: z.string().optional(),

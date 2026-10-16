@@ -27,9 +27,9 @@ function question(mode: 'async' | 'blocking'): PendingInteraction {
   };
 }
 describe('explicit agent question modes', () => {
-  it('puts blocking questions in the tray even with a transcript anchor, and keeps async out', () => {
+  it('keeps both blocking and async questions reachable in the attention pager', () => {
     const rows = [question('async'), question('blocking')];
-    expect(responseTrayInteractions(rows, new Set(['tool1']))).toEqual([rows[1]]);
+    expect(responseTrayInteractions(rows, new Set(['tool1']))).toEqual(rows);
   });
   it('opens an async question from a compact transcript entry without answering it', async () => {
     const openQuestion = vi.fn();

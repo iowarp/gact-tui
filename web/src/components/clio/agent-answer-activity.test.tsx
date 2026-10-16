@@ -1,5 +1,5 @@
 import type { PendingInteraction } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AgentAnswerActivity } from './agent-answer-activity';
@@ -52,7 +52,9 @@ describe('AgentAnswerActivity: transcript link to the pending tray card', () => 
       }),
     );
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' });
+    await waitFor(() =>
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' }),
+    );
     expect(screen.getByRole('button', { name: 'Send response' })).toHaveFocus();
   });
 

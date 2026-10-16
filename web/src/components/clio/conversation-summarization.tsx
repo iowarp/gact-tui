@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { vocab } from '@/lib/brand-vocabulary';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { humanizeProtocolValue } from './presentation-labels';
+import { GoalNotice } from './goal-notice';
 
 type SummarizationBlock = Extract<MessageBlock, { type: 'injection' }>;
 type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
@@ -99,6 +100,7 @@ function CompactionFailure({
  * durable record and looks exactly like the live failure row it replaces.
  */
 export function TranscriptNotice({ block }: { block: NoticeBlock }) {
+  if (block.source === 'goal') return <GoalNotice block={block} />;
   if (block.source === 'compaction_failed') {
     return <CompactionFailure code={block.code} message={block.text} trigger={block.trigger} />;
   }

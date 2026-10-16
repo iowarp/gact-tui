@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { DEFAULT_PASTE_SOURCE_THRESHOLD } from '@/lib/composer-paste';
 
 const STORAGE_KEY = 'clio.appearance.v1';
 
@@ -20,6 +21,7 @@ interface AppearancePreferences {
   collapseThreshold: number;
   hideDotFiles: boolean;
   interfaceSize: InterfaceSize;
+  pasteSourceThreshold: number;
 }
 
 interface AppearanceContextValue extends AppearancePreferences {
@@ -28,6 +30,7 @@ interface AppearanceContextValue extends AppearancePreferences {
   setCollapseThreshold: (lines: number) => void;
   setHideDotFiles: (hideDotFiles: boolean) => void;
   setInterfaceSize: (size: InterfaceSize) => void;
+  setPasteSourceThreshold: (characters: number) => void;
 }
 
 const defaults: AppearancePreferences = {
@@ -39,6 +42,7 @@ const defaults: AppearancePreferences = {
   // This toggle is opt-in.
   hideDotFiles: false,
   interfaceSize: 100,
+  pasteSourceThreshold: DEFAULT_PASTE_SOURCE_THRESHOLD,
 };
 
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
@@ -83,6 +87,12 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
         update({ collapseThreshold: Math.max(1, Math.min(50, Math.round(lines) || 5)) }),
       setHideDotFiles: (hideDotFiles) => update({ hideDotFiles }),
       setInterfaceSize: (interfaceSize) => update({ interfaceSize }),
+      setPasteSourceThreshold: (characters) =>
+        update({
+          pasteSourceThreshold: Number.isFinite(characters)
+            ? Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.round(characters)))
+            : DEFAULT_PASTE_SOURCE_THRESHOLD,
+        }),
     }),
     [preferences, update],
   );
@@ -117,6 +127,12 @@ export function useTranscriptPreviewLines(): number {
   return useContext(AppearanceContext)?.collapseThreshold ?? 5;
 }
 
+/** A zero threshold keeps every text paste inline. */
+// oxlint-disable-next-line react/only-export-components
+export function usePasteSourceThreshold(): number {
+  return useContext(AppearanceContext)?.pasteSourceThreshold ?? defaults.pasteSourceThreshold;
+}
+
 function parsePreferences(raw: string | null): AppearancePreferences {
   const value = JSON.parse(raw ?? '{}') as Record<string, unknown>;
   return {
@@ -132,5 +148,11 @@ function parsePreferences(raw: string | null): AppearancePreferences {
     hideDotFiles: value.hideDotFiles === true,
     interfaceSize:
       value.interfaceSize === 125 || value.interfaceSize === 150 ? value.interfaceSize : 100,
+    pasteSourceThreshold:
+      typeof value.pasteSourceThreshold === 'number' &&
+      Number.isSafeInteger(value.pasteSourceThreshold) &&
+      value.pasteSourceThreshold >= 0
+        ? value.pasteSourceThreshold
+        : DEFAULT_PASTE_SOURCE_THRESHOLD,
   };
 }

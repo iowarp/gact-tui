@@ -46,6 +46,21 @@ export function sshHostDestination(host: SshHost): string {
   return `${host.user ? `${host.user}@` : ''}${host.host ?? ''}`;
 }
 
+/** Whether removing a saved alias invalidates this draft's destination or a jump hop. */
+export function sshHostUsesProfile(host: SshHost | undefined, profile: string): boolean {
+  const name = profile.toLowerCase();
+  return Boolean(
+    host &&
+      [host.profile, ...(host.jumpHosts ?? [])].some(
+        (reference) =>
+          reference
+            ?.replace(/^[^@]+@/u, '')
+            .replace(/:\d+$/u, '')
+            .toLowerCase() === name,
+      ),
+  );
+}
+
 export function createSavedSshHost(input: {
   host: string;
   identityFile?: string;

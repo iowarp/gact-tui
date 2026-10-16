@@ -12,6 +12,8 @@ export function IterationReasoningText({ iteration }: { iteration: ConversationI
       text={thinking.text}
       source={thinking.source}
       streaming={thinking.streaming}
+      startedAt={thinking.startedAt}
+      durationMs={thinking.durationMs}
     />
   ));
 }

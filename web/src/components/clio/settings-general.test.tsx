@@ -69,6 +69,20 @@ it('shows shared preferences in the browser and preserves their existing saved v
   });
 });
 
+it('lets the user configure large pastes and disable conversion across restarts', () => {
+  const view = renderSettings();
+  const threshold = screen.getByRole('spinbutton', { name: 'Paste as source after' });
+  expect(threshold).toHaveValue(4000);
+  fireEvent.change(threshold, { target: { value: '8000' } });
+  expect(JSON.parse(localStorage.getItem('clio.appearance.v1')!)).toMatchObject({
+    pasteSourceThreshold: 8000,
+  });
+  fireEvent.change(threshold, { target: { value: '0' } });
+  view.unmount();
+  renderSettings();
+  expect(screen.getByRole('spinbutton', { name: 'Paste as source after' })).toHaveValue(0);
+});
+
 it('offers native updates in General and preserves opt-in and opt-out across remounts', async () => {
   native.active = true;
   const view = renderSettings();

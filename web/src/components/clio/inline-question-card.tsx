@@ -12,6 +12,8 @@ import { inlineQuestionDomId } from '@/lib/inline-question';
 import { respondFromControl } from './interaction-control';
 import { ResponseErrorNotice } from './pending-interaction-notices';
 import { useQuestionAnswer } from './question-answer-context';
+import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
+import { SurfaceQuestionNotice } from './surface-question-notice';
 
 type Respond = (
   interaction: PendingInteraction,
@@ -58,6 +60,14 @@ export function InlineQuestionCard({
     }
   };
 
+  if (interaction.source.surface_id && !embedsQuestionSurface(interaction)) {
+    return (
+      <SurfaceQuestionNotice
+        interaction={interaction}
+        onResponse={(_row, response) => respond(response)}
+      />
+    );
+  }
   if (interaction.payload?.response_mode && answerState?.openQuestion) {
     return (
       <Button

@@ -115,6 +115,32 @@ describe('following live activity', () => {
 });
 
 describe('continued operation placement', () => {
+  it('keeps resumed activity in its own row across a delivered human steer', () => {
+    const human: Message = {
+      id: 'human',
+      session_id: 's',
+      role: 'user',
+      created_at: first.created_at,
+      blocks: [{ id: 'human-text', type: 'text', text: 'Use the new scope.' }],
+      metadata: { steer_delivery: { assistant_message_id: 'before', after_part_id: 'ask-part' } },
+    };
+    for (const owner of ['before', 'after']) {
+      const feedback = new Map([[owner, [human]]]);
+      const placed = placeContinuedActivity(
+        [first, next],
+        new Set(['after']),
+        tools,
+        {},
+        feedback,
+        new Map(),
+      );
+      expect(placed.size).toBe(0);
+      expect(
+        conversationTurnPresentation(next, tools, {}).iterations[0]?.tools.map((tool) => tool.id),
+      ).toEqual(['run']);
+    }
+  });
+
   it('keeps the question, reminder and resumed tools in one disclosure before the answer', () => {
     const placed = placeContinuedActivity(
       [first, next],

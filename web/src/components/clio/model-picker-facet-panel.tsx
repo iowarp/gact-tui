@@ -18,7 +18,7 @@ const NAME_FILTER_THRESHOLD = 6;
 interface ModelPickerFacetPanelProps {
   tabs: readonly FacetTab[];
   onToggleChip: (chip: FacetChip) => void;
-  /** The Size / Cost / Released sliders, shown on Main after the Tasks cluster. */
+  /** The Context / Size / Cost / Released sliders, shown after the first cluster. */
   sliders?: ReactNode;
 }
 

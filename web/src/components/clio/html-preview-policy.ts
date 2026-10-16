@@ -61,7 +61,8 @@ export function htmlPreviewDocument(content: string): string {
   policy.setAttribute('http-equiv', 'Content-Security-Policy');
   policy.setAttribute('content', PREVIEW_CSP);
   const defaults = html.ownerDocument.createElement('style');
-  defaults.textContent = 'html { color-scheme: light; } body { background: white; color: black; }';
+  defaults.textContent =
+    'body { background: var(--background, white); color: var(--foreground, black); }';
   // Only fixed host-owned metadata is added after sanitization. The policy is
   // first, before any author CSS; author styles can still choose their own theme.
   head.prepend(charset, policy, defaults);

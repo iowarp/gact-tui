@@ -98,7 +98,7 @@ async function openFixture(page: Page, type?: string, content?: string, shortTra
   await expect(page.getByRole('region', { name: /conversation welcome$/i })).toHaveCount(0);
   const responses = page
     .getByRole('region', { name: 'Conversation workspace', exact: true })
-    .getByRole('button', { name: '2 responses needed', exact: true });
+    .getByRole('button', { name: 'Agent needs your attention', exact: true });
   await expect(responses).toHaveCount(1);
   await responses.click();
   const activity = page.getByRole('button', { name: /^Activity:/ }).last();

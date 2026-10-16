@@ -1,4 +1,6 @@
 import { TASK_LABELS, type ModelCapabilityTag } from './model-capability-tags';
+import { parseRangeToken } from './model-range-tokens';
+import { replaceRangeToken } from './model-range-scales';
 
 /**
  * The model picker's filter tokens: `key:value` strings (`input:image`,
@@ -11,6 +13,13 @@ import { TASK_LABELS, type ModelCapabilityTag } from './model-capability-tags';
  * matched separately (model name and provider).
  */
 export type ModelFilterToken = string;
+
+/** Add one filter, replacing an existing range of the same kind so its slider agrees. */
+export function addModelFilterToken(tokens: readonly string[], token: string): string[] {
+  const range = parseRangeToken(token);
+  if (range) return replaceRangeToken(tokens, range.kind, token);
+  return tokens.includes(token) ? [...tokens] : [...tokens, token];
+}
 
 /** On by default: a person who changes nothing sees the models they can chat with. */
 export const DEFAULT_FILTER_TOKENS: readonly ModelFilterToken[] = ['input:text', 'output:text'];
@@ -53,6 +62,8 @@ function singleToken(tag: ModelCapabilityTag): ModelFilterToken | undefined {
       return tag.value === 'router' ? 'router' : undefined;
     case 'recent':
       return `released:<${tag.value}mo`;
+    case 'context':
+      return `context:>${tag.value}`;
     default:
       return undefined;
   }
@@ -114,16 +125,15 @@ export function filterTokenSuggestions(
     const keys = new Set([...available].map((token) => token.split(':')[0] ?? token));
     if (![...keys].some((key) => key.startsWith(text))) return [];
   }
-  return [...available]
-    .filter((token) => token.startsWith(text) && !active.includes(token))
-    .sort();
+  return [...available].filter((token) => token.startsWith(text) && !active.includes(token)).sort();
 }
 
 /** Why a model that is not a chat model cannot be picked as one, in one sentence. */
 export function surrogateChatReason(modelType: string | undefined): string {
   const label = modelType ? TASK_LABELS[modelType] : undefined;
   if (!label) return "This model can't hold a conversation.";
-  const plural = label === 'Embeddings' ? 'Embedding models' : label.endsWith('s') ? label : `${label}s`;
+  const plural =
+    label === 'Embeddings' ? 'Embedding models' : label.endsWith('s') ? label : `${label}s`;
   return `${plural} can't hold a conversation.`;
 }
 
@@ -136,6 +146,7 @@ const TOKEN_KEYS = [
   'domain',
   'provider',
   'size',
+  'context',
   'cost',
   'released',
   'free',

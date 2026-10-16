@@ -36,4 +36,7 @@ export {
   PlusIcon as AddIcon,
   SlidersHorizontalIcon as AdjustIcon,
   SaveIcon,
+  TargetIcon as GoalIcon,
+  Repeat2Icon as LoopIcon,
+  CalendarClockIcon as ScheduleIcon,
 } from 'lucide-react';

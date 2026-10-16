@@ -1,19 +1,14 @@
+import { useAttentionDraft } from './attention-drafts';
 import type {
   A2UIActionLifecycle,
   A2UISurface,
   PendingInteraction,
   PendingInteractionResponse,
 } from '@clio/core/v3';
-import { MessageCircleQuestionIcon, ShieldQuestionIcon } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
-import {
-  Confirmation,
-  ConfirmationAction,
-  ConfirmationActions,
-  ConfirmationRequest,
-  ConfirmationTitle,
-} from '@/components/ai-elements/confirmation';
-import { CodeBlock, CodeBlockCopyButton } from '@/components/ai-elements/code-block';
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { PermissionResponse } from './permission-response';
 import {
   Queue,
   QueueSection,
@@ -22,19 +17,15 @@ import {
   QueueSectionTrigger,
 } from '@/components/ai-elements/queue';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
-import { pendingInteractionDomId, respondFromControl } from './interaction-control';
+import { ATTENTION_REVEAL_EVENT } from './interaction-control';
+import { SurfaceQuestionNotice } from './surface-question-notice';
 import { PendingA2UIResponse } from './pending-a2ui-response';
+import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 import { QuestionResponse } from './pending-interaction-question-response';
-import {
-  OwnerAttribution,
-  PendingSurfaceNotices,
-  ResponseErrorNotice,
-} from './pending-interaction-notices';
+import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
-import { TechnicalDetails } from './technical-details';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -59,6 +50,7 @@ export interface ClioPendingInteractionsProps {
     response: PendingInteractionResponse,
   ) => Promise<void>;
   onRefetchSurfaces?: () => void;
+  onOpenSurfaceQuestion?: (interaction: PendingInteraction) => void;
 }
 
 /** Renders pending interactions immediately above the composer. */
@@ -73,21 +65,61 @@ export function ClioPendingInteractions({
   capabilityError,
   onResponse,
   onRefetchSurfaces,
+  onOpenSurfaceQuestion,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
-  const [respondingIds, setRespondingIds] = useState<ReadonlySet<string>>(new Set());
+  const [respondingIds, setRespondingIds] = useAttentionDraft<ReadonlySet<string>>(
+    '$panel:responding',
+    () => new Set(),
+  );
   // Keyed per interaction, never a single shared field: a card that failed to
   // answer must not have its error read as belonging to whichever card the
   // reader tries next, and a failure on one card must never disable or blank
   // out every other card's own error.
-  const [responseErrors, setResponseErrors] = useState<ReadonlyMap<string, Error>>(new Map());
+  const [responseErrors, setResponseErrors] = useAttentionDraft<ReadonlyMap<string, Error>>(
+    '$panel:errors',
+    () => new Map(),
+  );
   const pending = interactions.filter(
     (interaction) =>
       interaction.status === 'pending' && interaction.requires_human_response !== false,
   );
-  const hasInteractiveSurface = pending.some(
-    (interaction) => interaction.kind === 'a2ui' || Boolean(interaction.source.surface_id),
-  );
+  const [selection, setSelection] = useAttentionDraft('$panel:selection', () => ({
+    id: '',
+    index: 0,
+  }));
+  const [open, setOpen] = useAttentionDraft('$panel:open', true);
+  const foundIndex = pending.findIndex((row) => row.id === selection.id);
+  const index =
+    foundIndex < 0 ? Math.min(selection.index, Math.max(0, pending.length - 1)) : foundIndex;
+  const selected = pending[index];
+  const selectedId = selected?.id;
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Synchronize the conversation-owned draft store with server removals.
+    if (selectedId && (selection.id !== selectedId || selection.index !== index)) {
+      setSelection({ id: selectedId, index });
+    }
+    if (viewportRef.current) viewportRef.current.scrollTop = 0;
+  }, [selectedId, index, selection.id, selection.index, setSelection]);
+  useEffect(() => {
+    const reveal = (event: Event) => {
+      const id: unknown = (event as CustomEvent).detail;
+      const next = pending.findIndex((row) => row.id === id);
+      if (next >= 0) {
+        setSelection({ id: pending[next]!.id, index: next });
+        setOpen(true);
+      }
+    };
+    window.addEventListener(ATTENTION_REVEAL_EVENT, reveal);
+    return () => window.removeEventListener(ATTENTION_REVEAL_EVENT, reveal);
+  }, [pending, setOpen, setSelection]);
+  const navigate = (next: number) => {
+    if (!pending[next]) return;
+    setSelection({ id: pending[next]!.id, index: next });
+    setOpen(true);
+  };
+  const hasInteractiveSurface = selected?.kind === 'a2ui' || Boolean(selected?.source.surface_id);
   const handleResponse = useCallback(
     async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
       if (responseInFlight.current.has(interaction.id)) return;
@@ -105,7 +137,7 @@ export function ClioPendingInteractions({
         setRespondingIds(new Set(responseInFlight.current));
       }
     },
-    [onResponse],
+    [onResponse, setResponseErrors, setRespondingIds],
   );
   // A failed read still owns this surface: the reader is told which responses
   // could not be listed instead of being shown an empty, silently-degraded stack.
@@ -113,40 +145,71 @@ export function ClioPendingInteractions({
 
   return (
     <Queue
-      aria-label="Agent needs your response"
+      aria-label="Agent needs your attention"
       aria-live="polite"
       // Match the queue and composer, including the rounded outer boundary.
-      className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink overflow-hidden rounded-b-none border-b-0 border-composer-border bg-composer py-0.5 shadow-none backdrop-blur-none dark:bg-composer dark:shadow-none"
+      className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink overflow-hidden rounded-b-none border-b-0 border-composer-border bg-background py-1 shadow-none backdrop-blur-none dark:bg-background dark:shadow-none"
       role="region"
     >
       {/* Open by default: the agent is blocked until one of these controls is used,
           so they must be mounted and reachable without a preceding expand. The
           trigger still collapses the stack when the reader wants the room back. */}
-      <QueueSection className="flex min-h-0 flex-col">
-        <QueueSectionTrigger data-slot="pending-interactions-trigger">
-          <QueueSectionLabel
-            count={pending.length || undefined}
-            icon={<MessageCircleQuestionIcon aria-hidden="true" className="size-3.5" />}
-            label={
-              pending.length === 0
-                ? 'Response status'
-                : pending.length === 1
-                  ? 'response needed'
-                  : 'responses needed'
-            }
-          />
-        </QueueSectionTrigger>
-        <QueueSectionContent className="flex min-h-0 flex-col">
+      <QueueSection className="flex min-h-0 flex-col" open={open} onOpenChange={setOpen}>
+        <div className="flex items-center gap-2 px-2 py-1">
+          <QueueSectionTrigger
+            className="h-7 min-w-0 flex-1"
+            data-slot="pending-interactions-trigger"
+          >
+            <QueueSectionLabel label="Agent needs your attention" />
+          </QueueSectionTrigger>
+          {pending.length > 0 ? (
+            <nav aria-label="Pending requests" className="flex shrink-0 items-center gap-0.5">
+              <Button
+                aria-label="Previous request"
+                disabled={index === 0}
+                onClick={() => navigate(index - 1)}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <ChevronLeftIcon aria-hidden="true" className="size-4" />
+              </Button>
+              <span
+                className="min-w-10 text-center text-xs tabular-nums text-muted-foreground"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {index + 1} / {pending.length}
+              </span>
+              <Button
+                aria-label="Next request"
+                disabled={index === pending.length - 1}
+                onClick={() => navigate(index + 1)}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <ChevronRightIcon aria-hidden="true" className="size-4" />
+              </Button>
+            </nav>
+          ) : null}
+        </div>
+        <QueueSectionContent
+          hidden={!open}
+          forceMount
+          className="flex min-h-0 flex-col data-[state=closed]:hidden"
+        >
           <ScrollArea
             className={cn(
               'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
               // Reserve room for the composer rather than allowing a tall
               // visual to push its controls beyond the conversation viewport.
-              hasInteractiveSurface ? 'max-h-[calc(100dvh-12rem)]' : 'max-h-[min(22rem,40dvh)]',
+              hasInteractiveSurface || selected?.payload?.access
+                ? 'max-h-[calc(100dvh-12rem)]'
+                : 'max-h-[min(22rem,40dvh)]',
             )}
             scrollHideDelay={500}
             type="hover"
             viewportProps={{
+              ref: viewportRef,
               'aria-label': `${pending.length} pending responses`,
               className: 'pending-interactions-viewport overscroll-contain pr-1',
               onKeyDown: handleScrollableRegionKeys,
@@ -156,80 +219,105 @@ export function ClioPendingInteractions({
           >
             <div className="flex min-w-0 flex-col gap-2 px-1 pb-1">
               <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
-              {pending.map((interaction) => {
-                // Undefined (never 'Specialist') means the workspace has not listed
-                // this owner session yet, or listed it without a usable title — the
-                // typed unavailable presentation says so instead of inventing a role.
-                const ownerLabel = ownerLabels[interaction.owner_session_id];
-                const showOwner = interaction.owner_session_id !== viewedSessionId;
-                // The card that is actually in flight is the only one that disables —
-                // a caller-supplied `disabled` is for a genuinely surface-wide reason,
-                // never a stand-in for "some other card's response is in flight."
-                const interactionDisabled = disabled || respondingIds.has(interaction.id);
-                const responseError = responseErrors.get(interaction.id);
-                if (interaction.kind === 'permission') {
-                  return (
-                    <PermissionResponse
-                      disabled={interactionDisabled}
-                      interaction={interaction}
-                      key={interaction.id}
-                      onResponse={handleResponse}
-                      ownerLabel={ownerLabel}
-                      responseError={responseError}
-                      showOwner={showOwner}
-                    />
-                  );
-                }
-                if (interaction.kind === 'a2ui') {
-                  const surfaceId = interaction.source.surface_id;
-                  // Looked up by id alone, WITHOUT the owner-session filter: the
-                  // component below distinguishes "not found yet" from "found, but
-                  // it belongs to a different session" instead of collapsing both
-                  // into the same "loading" message.
-                  const rawSurface = surfaceId
-                    ? (surfaces[`${interaction.owner_session_id}:${surfaceId}`] ??
-                      surfaces[surfaceId])
-                    : undefined;
-                  return (
-                    <PendingA2UIResponse
-                      actionLifecycle={rawSurface ? actionLifecycles[rawSurface.id] : undefined}
-                      disabled={interactionDisabled}
-                      interaction={interaction}
-                      key={interaction.id}
-                      onRefetchSurface={onRefetchSurfaces}
-                      onResponse={handleResponse}
-                      ownerLabel={ownerLabel}
-                      rawSurface={rawSurface}
-                      responseError={responseError}
-                      showOwner={showOwner}
-                    />
-                  );
-                }
-                if (interaction.source.tool_name === 'plan_exit') {
-                  return (
-                    <PlanExitResponse
-                      disabled={interactionDisabled}
-                      interaction={interaction}
-                      key={interaction.id}
-                      onResponse={handleResponse}
-                      ownerLabel={ownerLabel}
-                      responseError={responseError}
-                      showOwner={showOwner}
-                    />
-                  );
-                }
-                return (
-                  <QuestionResponse
-                    disabled={interactionDisabled}
-                    interaction={interaction}
-                    key={interaction.id}
-                    onResponse={handleResponse}
-                    ownerLabel={ownerLabel}
-                    responseError={responseError}
-                    showOwner={showOwner}
-                  />
-                );
-              })}
+              {pending.map((interaction) => (
+                <div
+                  key={interaction.id}
+                  hidden={interaction.id !== selected?.id}
+                  data-attention-item={interaction.id}
+                >
+                  {(() => {
+                    // Undefined (never 'Specialist') means the workspace has not listed
+                    // this owner session yet, or listed it without a usable title — the
+                    // typed unavailable presentation says so instead of inventing a role.
+                    const ownerLabel = ownerLabels[interaction.owner_session_id];
+                    const showOwner = interaction.owner_session_id !== viewedSessionId;
+                    // The card that is actually in flight is the only one that disables —
+                    // a caller-supplied `disabled` is for a genuinely surface-wide reason,
+                    // never a stand-in for "some other card's response is in flight."
+                    const interactionDisabled = disabled || respondingIds.has(interaction.id);
+                    const responseError = responseErrors.get(interaction.id);
+                    if (interaction.kind === 'permission') {
+                      return (
+                        <PermissionResponse
+                          disabled={interactionDisabled}
+                          interaction={interaction}
+                          key={interaction.id}
+                          onResponse={handleResponse}
+                          ownerLabel={ownerLabel}
+                          responseError={responseError}
+                          showOwner={showOwner}
+                        />
+                      );
+                    }
+                    if (interaction.kind === 'a2ui') {
+                      const surfaceId = interaction.source.surface_id;
+                      // Looked up by id alone, WITHOUT the owner-session filter: the
+                      // component below distinguishes "not found yet" from "found, but
+                      // it belongs to a different session" instead of collapsing both
+                      // into the same "loading" message.
+                      const rawSurface = surfaceId
+                        ? (surfaces[`${interaction.owner_session_id}:${surfaceId}`] ??
+                          surfaces[surfaceId])
+                        : undefined;
+                      if (embedsQuestionSurface(interaction)) {
+                        return (
+                          <PendingA2UIResponse
+                            key={interaction.id}
+                            interaction={interaction}
+                            rawSurface={rawSurface}
+                            disabled={interactionDisabled}
+                            onResponse={handleResponse}
+                            onRefetchSurface={onRefetchSurfaces}
+                            ownerLabel={ownerLabel}
+                            showOwner={showOwner}
+                            responseError={responseError}
+                            actionLifecycle={
+                              rawSurface ? actionLifecycles[rawSurface.id] : undefined
+                            }
+                          />
+                        );
+                      }
+                      return (
+                        <SurfaceQuestionNotice
+                          disabled={interactionDisabled}
+                          interaction={interaction}
+                          key={interaction.id}
+                          onRefetch={onRefetchSurfaces}
+                          onOpen={onOpenSurfaceQuestion}
+                          onResponse={handleResponse}
+                          ownerLabel={ownerLabel}
+                          showOwner={showOwner}
+                          rawSurface={rawSurface}
+                        />
+                      );
+                    }
+                    if (interaction.source.tool_name === 'plan_exit') {
+                      return (
+                        <PlanExitResponse
+                          disabled={interactionDisabled}
+                          interaction={interaction}
+                          key={interaction.id}
+                          onResponse={handleResponse}
+                          ownerLabel={ownerLabel}
+                          responseError={responseError}
+                          showOwner={showOwner}
+                        />
+                      );
+                    }
+                    return (
+                      <QuestionResponse
+                        disabled={interactionDisabled}
+                        interaction={interaction}
+                        key={interaction.id}
+                        onResponse={handleResponse}
+                        ownerLabel={ownerLabel}
+                        responseError={responseError}
+                        showOwner={showOwner}
+                      />
+                    );
+                  })()}
+                </div>
+              ))}
             </div>
           </ScrollArea>
         </QueueSectionContent>
@@ -244,136 +332,3 @@ function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {
   next.delete(key);
   return next;
 }
-
-function PermissionResponse({
-  disabled,
-  interaction,
-  onResponse,
-  ownerLabel,
-  responseError,
-  showOwner,
-}: {
-  disabled?: boolean;
-  interaction: PendingInteraction;
-  onResponse: ClioPendingInteractionsProps['onResponse'];
-  ownerLabel?: string;
-  responseError?: Error;
-  showOwner: boolean;
-}) {
-  const toolCall = interaction.payload?.tool_call;
-  const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
-  const allowed = interaction.actions ? new Set(interaction.actions) : undefined;
-  const show = (action: string) => !allowed || allowed.has(action);
-  // A future server can offer an action this client does not yet render a
-  // control for. It is shown, disabled, with its own label — never silently
-  // dropped, which would leave the reader unable to tell it was ever offered.
-  const unrecognizedActions = (interaction.actions ?? []).filter(
-    (action) => !KNOWN_PERMISSION_ACTIONS.has(action),
-  );
-  return (
-    <Confirmation
-      approval={{ id: interaction.id }}
-      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 border-action/20 bg-background/70"
-      data-interaction-kind={interaction.kind}
-      id={pendingInteractionDomId(interaction.id)}
-      state="approval-requested"
-      tabIndex={-1}
-    >
-      <ShieldQuestionIcon aria-hidden="true" className="mt-0.5 size-4 text-action" />
-      <ConfirmationTitle className="min-w-0">
-        <span
-          className="block line-clamp-3 font-medium"
-          data-slot="pending-interaction-title"
-          title={interaction.title}
-        >
-          {interaction.title}
-        </span>
-        <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
-        {interaction.prompt ? (
-          <span className="block text-sm text-muted-foreground">{interaction.prompt}</span>
-        ) : null}
-        <ResponseErrorNotice error={responseError} />
-        {toolName || toolCall?.input !== undefined ? (
-          <TechnicalDetails
-            className="mt-2 text-xs text-muted-foreground"
-            title="Technical details"
-          >
-            {toolName ? <p className="mt-1 font-mono">{toolName}</p> : null}
-            {toolCall?.input === undefined ? null : (
-              <CodeBlock
-                className="mt-2 max-h-40"
-                code={JSON.stringify(toolCall.input, null, 2)}
-                language="json"
-              >
-                <CodeBlockCopyButton aria-label="Copy protected action details" />
-              </CodeBlock>
-            )}
-          </TechnicalDetails>
-        ) : null}
-      </ConfirmationTitle>
-      <ConfirmationRequest>
-        <ConfirmationActions className="col-span-2 mt-1 flex-wrap">
-          {show('deny') ? (
-            <ConfirmationAction
-              disabled={disabled}
-              onClick={() => respondFromControl(onResponse(interaction, { action: 'deny' }))}
-              variant="destructive"
-            >
-              Deny
-            </ConfirmationAction>
-          ) : null}
-          {show('allow_workspace') ? (
-            <ConfirmationAction
-              disabled={disabled}
-              onClick={() =>
-                respondFromControl(onResponse(interaction, { action: 'allow_workspace' }))
-              }
-              variant="outline"
-            >
-              Allow for workspace
-            </ConfirmationAction>
-          ) : null}
-          {show('allow_session') ? (
-            <ConfirmationAction
-              disabled={disabled}
-              onClick={() =>
-                respondFromControl(onResponse(interaction, { action: 'allow_session' }))
-              }
-              variant="outline"
-            >
-              Allow for session
-            </ConfirmationAction>
-          ) : null}
-          {show('allow') ? (
-            <ConfirmationAction
-              disabled={disabled}
-              onClick={() => respondFromControl(onResponse(interaction, { action: 'allow' }))}
-            >
-              Allow once
-            </ConfirmationAction>
-          ) : null}
-          {unrecognizedActions.map((action) => (
-            <ConfirmationAction
-              disabled
-              key={action}
-              title={`This client cannot offer "${action}" yet.`}
-              variant="outline"
-            >
-              {action}
-            </ConfirmationAction>
-          ))}
-        </ConfirmationActions>
-      </ConfirmationRequest>
-    </Confirmation>
-  );
-}
-
-// Kept as literal values of PermissionAction (not the type itself): membership
-// is checked against arbitrary server-offered strings, which may legitimately
-// be outside that union — that is exactly the "unrecognized" case this guards.
-const KNOWN_PERMISSION_ACTIONS: ReadonlySet<string> = new Set<PermissionAction>([
-  'deny',
-  'allow_workspace',
-  'allow_session',
-  'allow',
-]);

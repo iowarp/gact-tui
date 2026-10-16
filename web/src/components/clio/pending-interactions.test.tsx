@@ -153,7 +153,7 @@ describe('ClioPendingInteractions', () => {
       }),
     ]);
 
-    expect(screen.getByRole('region', { name: 'Agent needs your response' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Agent needs your attention' })).toBeVisible();
     expect(
       screen.getByText('The specialist could not answer this, so it needs you.'),
     ).toBeVisible();
@@ -268,8 +268,8 @@ describe('ClioPendingInteractions', () => {
     });
     const onResponse = renderPending([interaction]);
 
-    const region = screen.getByRole('region', { name: 'Agent needs your response' });
-    const trigger = screen.getByRole('button', { name: '1 response needed' });
+    const region = screen.getByRole('region', { name: 'Agent needs your attention' });
+    const trigger = screen.getByRole('button', { name: 'Agent needs your attention' });
     expect(region).toBeVisible();
     const title = screen.getByText('Run the analysis command');
     expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
@@ -280,9 +280,11 @@ describe('ClioPendingInteractions', () => {
     expect(screen.queryByText('Approval')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Allow once' })).toBeVisible();
     await user.click(trigger);
-    expect(screen.queryByText('Run the analysis command')).not.toBeInTheDocument();
+    expect(screen.getByText('Run the analysis command')).not.toBeVisible();
     await user.click(trigger);
     expect(screen.getByText('Run the analysis command')).toBeVisible();
+    await user.click(screen.getByRole('combobox', { name: 'Permission duration' }));
+    await user.click(screen.getByRole('option', { name: 'This session' }));
     await user.click(screen.getByRole('button', { name: 'Allow for session' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'allow_session' });
   });
@@ -597,8 +599,10 @@ describe('ClioPendingInteractions', () => {
 
     // The card actually in flight disables; the untouched sibling never does —
     // a shared `disabled` fed by the mutation's own isPending would freeze both.
-    expect(screen.getAllByRole('button', { name: 'Allow once' })[0]).toBeDisabled();
-    expect(screen.getAllByRole('button', { name: 'Allow once' })[1]).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Next request' }));
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Previous request' }));
     releaseResponse?.();
     await waitFor(() =>
       expect(screen.getAllByRole('button', { name: 'Allow once' })[0]).toBeEnabled(),
@@ -634,20 +638,18 @@ describe('ClioPendingInteractions', () => {
     );
     // The list-level read failure is still reported, unmasked and undisturbed.
     expect(screen.getByText('capabilities unavailable')).toBeVisible();
-    // The sibling card carries no error of its own.
-    expect(
-      screen
-        .getByText('Run the other command')
-        .closest('[role="alert"]')
-        ?.textContent?.includes('Response unavailable'),
-    ).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Next request' }));
+    expect(screen.getByText('Run the other command')).toBeVisible();
+    expect(screen.getByText('The workspace rejected the response.')).not.toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Previous request' }));
+    expect(screen.getByText('The workspace rejected the response.')).toBeVisible();
   });
 
   // The `a2ui` pending-interaction kind's own cases live in
   // pending-interactions-a2ui.test.tsx (split by behavior, CLIO-owned
   // TypeScript file-size ratchet).
 
-  it('exposes a bounded independently keyboard-scrollable response viewport', () => {
+  it('exposes a bounded independently keyboard-scrollable response viewport', async () => {
     renderPending([
       pending('permission', { id: 'permission:p1' }),
       pending('question', {
@@ -657,12 +659,11 @@ describe('ClioPendingInteractions', () => {
       }),
     ]);
 
-    const responses = screen.getByRole('region', { name: 'Agent needs your response' });
+    const responses = screen.getByRole('region', { name: 'Agent needs your attention' });
     const viewport = screen.getByRole('region', { name: '2 pending responses' });
     expect(responses).toHaveClass('min-h-0', 'shrink');
-    // All response kinds share the actual composer tone, with no white layer
-    // extending across the pill's rounded boundary.
-    expect(responses).toHaveClass('bg-composer', 'dark:bg-composer', 'overflow-hidden');
+    // One quiet surface frames the selected request without a nested approval box.
+    expect(responses).toHaveClass('bg-background', 'dark:bg-background', 'overflow-hidden');
     expect(viewport).toHaveAttribute('tabindex', '0');
     expect(viewport).toHaveClass('pending-interactions-viewport', 'overscroll-contain');
 
@@ -682,6 +683,7 @@ describe('ClioPendingInteractions', () => {
     fireEvent.keyDown(viewport, { key: 'End' });
     expect(viewport.scrollTop).toBe(480);
 
+    await userEvent.click(screen.getByRole('button', { name: 'Next request' }));
     const answer = screen.getAllByRole('textbox')[0]!;
     answer.focus();
     viewport.scrollTop = 240;

@@ -31,6 +31,9 @@ export type MessageBlock = MessageBlockContext &
         source?: string;
         provider_source?: string;
         default_collapsed?: boolean;
+        started_at?: string;
+        completed_at?: string;
+        duration_ms?: number;
       }
     | { id: string; type: 'tool'; tool_id: string; thought?: string }
     | { id: string; type: 'plan'; title: string; detail?: string }
