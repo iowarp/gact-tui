@@ -17,7 +17,6 @@ import { DiffCanvasView } from './diff-canvas-view';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
-import { ClioWorkflowCanvasView } from './workflow-canvas-view';
 import {
   ArtifactBrowser,
   BlueprintBrowser,
@@ -30,11 +29,16 @@ const KnowledgeSourceView = lazy(() =>
 );
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 
+// The graph layout libraries (React Flow, dagre) load with the first workflow tab.
+const ClioWorkflowCanvasView = lazy(() =>
+  import('./workflow-canvas-view').then((module) => ({ default: module.ClioWorkflowCanvasView })),
+);
 const ArtifactView = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.ArtifactView })),
 );
+// Its own chunk: the Ace editor is ~1 MB and only a blueprint file needs it.
 const BlueprintFileEditor = lazy(() =>
-  loadResourceViewers().then((module) => ({ default: module.BlueprintFileEditor })),
+  import('./blueprint-file-editor').then((module) => ({ default: module.BlueprintFileEditor })),
 );
 const WorkspaceResourceCarousel = lazy(() =>
   import('./workspace-resource-view').then((module) => ({
@@ -340,11 +344,13 @@ export function WorkbenchTabContent({
       );
     case 'workflow':
       return (
-        <ClioWorkflowCanvasView
-          onOpenSubagent={onOpenSubagent}
-          subagents={subagents}
-          tool={tab.tool}
-        />
+        <Suspense fallback={<CanvasLoading label="Loading workflow" />}>
+          <ClioWorkflowCanvasView
+            onOpenSubagent={onOpenSubagent}
+            subagents={subagents}
+            tool={tab.tool}
+          />
+        </Suspense>
       );
     case 'terminal':
       return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;

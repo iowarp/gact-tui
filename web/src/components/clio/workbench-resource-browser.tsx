@@ -61,7 +61,7 @@ const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
 );
 const BlueprintFileEditor = lazy(() =>
-  import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
+  import('./blueprint-file-editor').then((module) => ({ default: module.BlueprintFileEditor })),
 );
 export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
