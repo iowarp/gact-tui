@@ -1,3 +1,4 @@
+import { NDPDeviceAuth } from './ndp-device-auth';
 import { SftpSourceLogin } from './sftp-source-login';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { ClioRepository, ConnectedSourceState } from '@clio/core/v3';
@@ -60,6 +61,8 @@ export function ConnectedAccountSignIn({
       appUrl={appUrl}
       onComplete={onComplete}
       repository={{
+        cancelSourceSignIn: (_workspace, _source, flow) =>
+          repository.cancelStorageAccountSignIn(provider, flow),
         startSourceSignIn: (_workspace, _source, redirect) =>
           repository.startStorageAccountSignIn(provider, redirect),
         completeSourceSignIn: async (_workspace, _source, flow, callback) => ({
@@ -80,7 +83,8 @@ function BrowserStorageAuth({
   onComplete,
   collectionConsent = false,
 }: {
-  repository: Pick<ClioRepository, 'startSourceSignIn' | 'completeSourceSignIn'>;
+  repository: Pick<ClioRepository, 'startSourceSignIn' | 'completeSourceSignIn'> &
+    Partial<Pick<ClioRepository, 'cancelSourceSignIn'>>;
   workspaceId?: string;
   sourceId?: string;
   provider: string;
@@ -136,6 +140,15 @@ function BrowserStorageAuth({
       onComplete();
     },
   });
+  if (provider === 'ndp')
+    return (
+      <NDPDeviceAuth
+        repository={repository}
+        workspaceId={workspaceId}
+        sourceId={sourceId}
+        onComplete={onComplete}
+      />
+    );
   if (provider === 'github')
     return (
       <GitHubSourceAuth

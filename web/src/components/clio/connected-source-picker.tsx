@@ -1,3 +1,4 @@
+import { NDPSourcePicker } from './ndp-source-picker';
 import { vocab } from '@/lib/brand-vocabulary';
 import { connectionScope } from '@/lib/connection-scope';
 import { openKnowledge } from '@/lib/knowledge-navigation';
@@ -260,7 +261,7 @@ export function ConnectedSourceContents({
         id: row.provider,
         name: row.label,
         logo: row.provider,
-        authentication: ['google_drive', 'globus', 'github'].includes(row.provider)
+        authentication: ['google_drive', 'globus', 'github', 'ndp'].includes(row.provider)
           ? 'browser'
           : 'none',
         configured: true,
@@ -343,7 +344,25 @@ export function ConnectedSourceContents({
       />
     );
   const activeProvider =
-    provider ?? providers.data?.providers.find((row) => row.id === providerIntent);
+    provider?.id === 'ndp'
+      ? (providers.data?.providers.find((row) => row.id === 'ndp') ?? provider)
+      : (provider ?? providers.data?.providers.find((row) => row.id === providerIntent));
+  if (activeProvider?.id === 'ndp' && !editing)
+    return (
+      <NDPSourcePicker
+        workspaceId={workspaceId}
+        provider={activeProvider}
+        onSelect={onSelect}
+        onChanged={() => {
+          void sources.refetch();
+          onChanged?.();
+        }}
+        onBack={() => {
+          setProvider(undefined);
+          setProviderIntent(undefined);
+        }}
+      />
+    );
   if (activeProvider)
     return (
       <>

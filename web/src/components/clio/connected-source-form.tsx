@@ -208,7 +208,9 @@ export function ConnectedSourceForm({
                   ? 'Google Drive folder link'
                   : provider.id === 'github'
                     ? 'Repository or folder link'
-                    : 'Source folder'}
+                    : provider.id === 'ndp'
+                      ? 'Dataset'
+                      : 'Source folder'}
               </FieldLabel>
               {provider.id === 'google_drive' && (
                 <InfoTip label="How to choose a Google Drive folder">

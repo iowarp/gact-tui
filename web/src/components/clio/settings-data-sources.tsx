@@ -104,7 +104,7 @@ export function DataSourceSettings() {
                     ) : row.authenticated ? (
                       <span className="inline-flex items-center gap-1">
                         <CheckIcon aria-hidden="true" className="size-3.5" />
-                        Signed in
+                        Signed in{row.account_name ? ` as ${row.account_name}` : ''}
                       </span>
                     ) : row.configured ? (
                       'Signed out'

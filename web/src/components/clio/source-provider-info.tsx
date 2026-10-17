@@ -8,6 +8,7 @@ export function SourceProviderInfo({ provider }: { provider: SourceProvider }) {
     obsidian: `Build a knowledge graph from Markdown notes, links, tags and aliases. Create a new vault in ${vocab.agent} or connect an existing notes folder; no Obsidian installation or account is required. Obsidian is a popular knowledge app you can use to open and review the same vault and graph. Its optional paid cross-device Sync service can also be managed by ${vocab.agent}.`,
     google_drive:
       'Connect files and folders from Google Drive. Sign in to access your account, then choose the data to connect to a workspace.',
+    ndp: 'Search National Data Platform catalogs and attach selected resources read-only. Sign in with your NDP account to access protected Endpoint data.',
     globus:
       'Browse collections and transfer data through Globus. Sign in to your account, then connect a collection or folder to a workspace.',
     github:

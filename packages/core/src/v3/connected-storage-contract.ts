@@ -22,6 +22,7 @@ export const sourceConfigurationSchema = z.object({
   destination_collection_id: z.string().default(''),
   destination_collection_root: z.string().default(''),
   destination_local_root: z.string().default(''),
+  ndp_selection_id: z.string().default(''),
   github_ref: z.string().default(''),
   obsidian_connection: z.enum(['local_vault', 'headless_sync']).default('local_vault'),
   obsidian_excluded_folders: z.array(z.string()).default([]),
@@ -107,13 +108,14 @@ export interface CreateSourceInput {
   sftp_credentials?: SftpCredentials;
 }
 export const sourceProviderSchema = z.object({
-  id: z.enum(['local', 'sftp', 'google_drive', 'globus', 'github', 'obsidian']),
+  id: z.enum(['local', 'sftp', 'google_drive', 'globus', 'github', 'obsidian', 'ndp']),
   name: z.string(),
   logo: z.string(),
   authentication: z.enum(['none', 'ssh_profile', 'browser']),
   configured: z.boolean(),
   authenticated: z.boolean().optional(),
   account_url: z.string().url().optional(),
+  account_name: z.string().optional(),
   capabilities: z
     .object({
       supported_modes: z.array(z.enum(['read_only', 'working_copy', 'write_enabled'])),

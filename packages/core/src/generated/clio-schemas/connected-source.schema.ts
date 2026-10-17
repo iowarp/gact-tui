@@ -36,7 +36,7 @@ export const connectedSourceGeneratedSchema: z.ZodType<ConnectedSource> = z
     mode: z.enum(['read_only', 'working_copy', 'write_enabled']).default('read_only'),
     operation_id: z.union([z.string(), z.null()]).default(null),
     owner: z.object({ clio_id: z.string().min(1), host_id: z.string().min(1) }).strict(),
-    provider: z.enum(['local', 'sftp', 'google_drive', 'globus', 'github', 'obsidian']),
+    provider: z.enum(['local', 'sftp', 'google_drive', 'globus', 'github', 'obsidian', 'ndp']),
     revision: z.union([z.string(), z.null()]).default(null),
     root: z.string().min(1),
     schema_version: z.literal(1).default(1),

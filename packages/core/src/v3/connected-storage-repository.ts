@@ -1,3 +1,4 @@
+import { ndpSearchSchema } from './ndp-contract.js';
 import type { SshRoute } from './infrastructure-contract.js';
 import { z } from 'zod';
 import { A2uiRepository } from './a2ui-repository.js';
@@ -235,6 +236,45 @@ export class ConnectedStorageRepository extends A2uiRepository {
       body: { label, files, draft: true },
       signal,
       decode: (value) => connectedSourceStateSchema.parse(value),
+    });
+  }
+  public searchNdp(
+    input: { query: string; only_groups?: boolean; endpoint_id?: string },
+    signal?: AbortSignal,
+  ) {
+    return this.transport.request({
+      method: 'POST',
+      path: '/v1/storage/ndp/search',
+      body: input,
+      signal,
+      decode: (value) => ndpSearchSchema.parse(value),
+    });
+  }
+  public attachNdp(
+    workspaceId: string,
+    input: { endpoint_id: string; dataset_id: string; resource_ids: string[] },
+  ) {
+    return this.transport.request({
+      method: 'POST',
+      path: `${root(workspaceId)}/ndp`,
+      body: input,
+      decode: (value) => connectedSourceStateSchema.parse(value),
+    });
+  }
+  public cancelStorageAccountSignIn(provider: string, flowId: string) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/storage/accounts/${encodeURIComponent(provider)}/auth/cancel`,
+      body: { flow_id: flowId },
+      decode: (value) => z.object({ cancelled: z.boolean() }).parse(value),
+    });
+  }
+  public cancelSourceSignIn(workspaceId: string, sourceId: string, flowId: string) {
+    return this.transport.request({
+      method: 'POST',
+      path: `${sourcePath(workspaceId, sourceId)}/auth/cancel`,
+      body: { flow_id: flowId },
+      decode: (value) => z.object({ cancelled: z.boolean() }).parse(value),
     });
   }
   public storageProviders(signal?: AbortSignal) {

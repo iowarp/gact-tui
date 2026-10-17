@@ -5,7 +5,7 @@ import githubBlack from '../../../../branding/provider-logos/github-black.svg';
 import githubWhite from '../../../../branding/provider-logos/github-white.svg';
 import obsidianLogo from '../../../../branding/provider-logos/obsidian.svg';
 import type { SourceProviderId } from '@clio/core/v3';
-import { FolderIcon, TerminalIcon } from 'lucide-react';
+import { DatabaseIcon, FolderIcon, TerminalIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** Original provider artwork; protocol-based sources use the shared system glyphs. */
@@ -62,6 +62,8 @@ export function SourceProviderLogo({
           src={obsidianLogo}
           className={cn('object-contain', detail ? 'size-14' : 'size-7')}
         />
+      ) : provider === 'ndp' ? (
+        <DatabaseIcon aria-hidden="true" className={detail ? 'size-10' : 'size-5'} />
       ) : provider === 'sftp' ? (
         <TerminalIcon aria-hidden="true" className={detail ? 'size-10' : 'size-5'} />
       ) : (

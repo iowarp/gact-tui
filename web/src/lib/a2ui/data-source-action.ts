@@ -1,7 +1,7 @@
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 
 export interface DataSourceIntent {
-  provider: 'github' | 'google_drive' | 'globus';
+  provider: 'github' | 'google_drive' | 'globus' | 'ndp';
   clioId: string;
   workspaceId: string;
 }
@@ -12,7 +12,7 @@ export function dataSourceIntent(action: A2uiClientAction): DataSourceIntent | u
   const provider = action.name.slice('data_source/login/'.length);
   if (
     !action.name.startsWith('data_source/login/') ||
-    !['github', 'google_drive', 'globus'].includes(provider)
+    !['github', 'google_drive', 'globus', 'ndp'].includes(provider)
   ) {
     throw new Error('This data-source action is not supported.');
   }
