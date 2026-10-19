@@ -46,6 +46,21 @@ export function PermissionResponse({
   const scope = scopes.find((scope) => scope.action === scopeAction) ?? scopes[0];
   const toolCall = interaction.payload?.tool_call;
   const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
+  const input =
+    toolCall?.input && typeof toolCall.input === 'object'
+      ? (toolCall.input as Record<string, unknown>)
+      : {};
+  const legacyTitle =
+    interaction.title === `destructive tool call: ${toolName}` ||
+    interaction.title === `tool call: ${toolName}`;
+  const title =
+    legacyTitle && toolName === 'connected_data_connect'
+      ? typeof input.label === 'string' && input.label.trim()
+        ? `Connect ${input.label}`
+        : 'Connect source'
+      : legacyTitle && toolName === 'connected_data_download'
+        ? 'Download source'
+        : interaction.title;
   return (
     <section
       className="min-w-0 px-3 pb-3"
@@ -62,9 +77,9 @@ export function PermissionResponse({
           <p
             className="line-clamp-3 text-sm font-medium"
             data-slot="pending-interaction-title"
-            title={interaction.title}
+            title={title}
           >
-            {interaction.title}
+            {title}
           </p>
           <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
         </div>

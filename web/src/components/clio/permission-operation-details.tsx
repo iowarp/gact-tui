@@ -10,6 +10,8 @@ const OPERATIONS: Record<string, string> = {
   'workspace.read': 'Read file',
   'workspace.write': 'Write file',
   'workspace.move': 'Move file',
+  connected_data_connect: 'Connect source',
+  connected_data_download: 'Download source',
 };
 
 /** Show the human decision before the optional protocol payload. */
@@ -23,6 +25,15 @@ export function PermissionOperationDetails({ interaction }: { interaction: Pendi
   const command = access?.command || text('command');
   const path = text('filepath') || text('path') || text('output_path');
   const cwd = access?.cwd || interaction.payload?.execution?.cwd || text('cwd');
+  const isSourceConnection = name === 'connected_data_connect';
+  const sourceAccess: Record<string, string> = {
+    read_only: 'Read only',
+    working_copy: 'Editable copy, publish changes after review',
+    write_enabled: 'Read and write originals',
+  };
+  const resources = Array.isArray(input.resources)
+    ? input.resources.filter((value): value is string => typeof value === 'string')
+    : [];
   const facts = [
     [
       'Why',
@@ -32,6 +43,15 @@ export function PermissionOperationDetails({ interaction }: { interaction: Pendi
         (interaction.prompt !== interaction.title ? interaction.prompt : ''),
     ],
     ['Action', OPERATIONS[name] ?? name],
+    ...(isSourceConnection
+      ? [
+          ['Source', text('label')],
+          ['Provider', text('provider') === 'ndp' ? 'National Data Platform' : text('provider')],
+          ['Endpoint', text('endpoint')],
+          ['Access', sourceAccess[text('mode')] ?? text('mode')],
+          ['Resources', resources.join(', ')],
+        ]
+      : []),
     ['Computer', access?.computer || interaction.payload?.execution?.computer],
     ['Working folder', cwd],
     ['File', path],
