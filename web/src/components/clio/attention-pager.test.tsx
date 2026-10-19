@@ -144,8 +144,8 @@ it('shows one request, preserves drafts on navigation/collapse, and moves to the
   expect(screen.getByText('1 / 2')).toBeVisible();
   expect(screen.getByRole('textbox')).toHaveValue('Second draft');
   rerender(<ClioPendingInteractions {...props} interactions={[second]} />);
-  expect(screen.getByText('1 / 1')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Next request' })).toBeDisabled();
+  expect(screen.queryByRole('navigation', { name: 'Pending requests' })).not.toBeInTheDocument();
+  expect(screen.getByRole('textbox')).toHaveValue('Second draft');
 });
 
 it('reveals the requested hidden page and expands the tray without losing other drafts', async () => {

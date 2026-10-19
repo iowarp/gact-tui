@@ -162,7 +162,7 @@ export function ClioPendingInteractions({
           >
             <QueueSectionLabel label="Agent needs your attention" />
           </QueueSectionTrigger>
-          {pending.length > 0 ? (
+          {pending.length > 1 ? (
             <nav aria-label="Pending requests" className="flex shrink-0 items-center gap-0.5">
               <Button
                 aria-label="Previous request"
