@@ -28,7 +28,8 @@ export function TranscriptReasoningPassage({
   const timing =
     duration !== undefined ? (
       <span
-        className="shrink-0 text-muted-foreground"
+        className="shrink-0 tabular-nums text-muted-foreground"
+        data-slot="reasoning-duration"
         title="Time this thinking passage was open in the conversation. Tool execution has its own timer."
         aria-label={`Reasoning phase: ${formatDuration(duration, 'tenths')}`}
       >
@@ -70,13 +71,17 @@ export function TranscriptReasoningPassage({
         className="flex min-h-7 w-full min-w-0 items-center gap-2 px-1 py-1 pr-7 text-xs font-normal text-foreground"
       >
         {icon}
-        <span className="shrink-0 text-muted-foreground">Thinking</span>
-        {timing}
-        <div className="min-w-0 flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+        <span className="shrink-0 font-medium">Thinking</span>
+        <div
+          className="min-w-0 flex-1 whitespace-pre-wrap break-words text-left [overflow-wrap:anywhere]"
+          data-slot="reasoning-summary"
+        >
           <TranscriptReasoning text={text} source={source}>
             {heading}
           </TranscriptReasoning>
         </div>
+        {timing}
+        <span aria-hidden="true" className="size-3 shrink-0" />
       </div>
     );
   }
@@ -95,12 +100,21 @@ export function TranscriptReasoningPassage({
           className="h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-sm px-1 py-1 pr-7 text-xs font-normal text-foreground aria-expanded:bg-transparent"
         >
           {icon}
-          <span className="shrink-0 text-muted-foreground">Thinking</span>
+          <span className="shrink-0 font-medium">Thinking</span>
+          <span
+            className="min-w-0 flex-1 truncate text-left font-normal"
+            data-slot="reasoning-summary"
+            title={heading}
+          >
+            {heading}
+          </span>
           {timing}
-          <span className="min-w-0 flex-1 truncate text-left font-normal">{heading}</span>
           <ChevronRightIcon
             aria-hidden="true"
-            className={cn('size-3 shrink-0 transition-transform', open && 'rotate-90')}
+            className={cn(
+              'size-3 shrink-0 text-muted-foreground transition-transform',
+              open && 'rotate-90',
+            )}
           />
         </Button>
       </CollapsibleTrigger>

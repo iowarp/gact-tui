@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { TranscriptReasoningPassage } from './transcript-reasoning-passage';
 
 afterEach(() => {
@@ -78,4 +79,38 @@ it('preserves literal underscores and the source identity in a complete thought'
   expect(screen.getByText('Review input_values before the next step.')).toBeVisible();
   expect(view.container.querySelector('[data-part-id="r"]')).toHaveAttribute('data-field', 'text');
   expect(view.container.querySelector('[data-content-revision]')).not.toBeNull();
+});
+
+it.each([
+  'Expanding catalog search',
+  '**Expanding catalog search**\n\nTry a broader dataset query before concluding that no data exists.',
+])('keeps the activity label and summary before the right-hand duration: %s', (text) => {
+  render(<TranscriptReasoningPassage text={text} durationMs={332} />);
+  const label = screen.getByText('Thinking', { exact: true });
+  const summary = screen.getByText('Expanding catalog search', { exact: true });
+  const timing = screen.getByLabelText('Reasoning phase: 332 ms');
+  expect(label.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(summary.compareDocumentPosition(timing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it('keeps multi-line reasoning reachable with the keyboard after the header change', async () => {
+  const user = userEvent.setup();
+  render(
+    <TranscriptReasoningPassage
+      text={
+        '**Preparing TRPA GeoJSON**\n\nInspect the selected resource and retain the source identity.'
+      }
+      durationMs={550}
+    />,
+  );
+  const trigger = screen.getByRole('button', { name: 'Thinking: Preparing TRPA GeoJSON' });
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await user.tab();
+  expect(trigger).toHaveFocus();
+  await user.keyboard('{Enter}');
+  expect(await screen.findByRole('region', { name: 'Thinking details' })).toHaveTextContent(
+    'Inspect the selected resource and retain the source identity.',
+  );
+  await user.keyboard('{Enter}');
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
