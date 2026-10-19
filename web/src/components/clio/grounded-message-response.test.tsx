@@ -108,6 +108,7 @@ describe('GroundedMessageResponse', () => {
         </GroundedMessageResponse>
       </PresentationNavigation.Provider>,
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Sources 2' }));
     fireEvent.click(await screen.findByRole('link', { name: 'Uploaded protocol' }));
     expect(openResource).toHaveBeenCalledTimes(1);
     expect(openResource).toHaveBeenCalledWith(resource);
@@ -161,11 +162,15 @@ describe('GroundedMessageResponse', () => {
         </GroundedMessageResponse>
       </PresentationNavigation.Provider>,
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Sources 3' }));
     fireEvent.click(await screen.findByRole('link', { name: 'Recorded result' }));
     expect(openArtifact).toHaveBeenCalledTimes(1);
     expect(openArtifact).toHaveBeenCalledWith(artifact);
     expect(screen.queryByRole('link', { name: 'Missing result' })).not.toBeInTheDocument();
-    expect(screen.getByText('Missing result')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Missing result').closest('[aria-disabled]')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(screen.queryByRole('link', { name: 'Traversal' })).not.toBeInTheDocument();
   });
 
