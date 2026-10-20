@@ -6,6 +6,31 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.11] - 2026-10-20
+
+### Changed
+
+- Group adjacent citations under a Sources count with a clickable list available
+  by hover, touch or keyboard. Align thinking rows with other recorded activity.
+- Show tool purpose, requested files and readable results before technical details.
+  Distinguish a skill's instructions from supporting reference files, and show
+  its recorded description in previews and full document views.
+- Browse NDP datasets as expandable entries with bounded descriptions and file
+  lists. Reuse cached catalogs while refreshing and use the shared SSH selector.
+
+### Fixed
+
+- Size authored charts to their available space, including composed charts and
+  fullscreen views. Preserve native selection and brush interactions.
+- Render saved map geometry in standalone HTML conversations, including local
+  files and restricted browser origins.
+- Keep source permissions readable, show one request at a time and hide redundant
+  navigation for a single request. Preserve approved source access in previews.
+- Retain native NDP stream checkpoints and saved captures, including reader state
+  after a bounded response. Open captured data with the shared map and table views.
+- Remove internal widget revision/state hover text and keep recorded failures
+  attached to the invocation that produced them.
+
 ## [0.11.3-beta.10] - 2026-10-18
 
 ### Added
