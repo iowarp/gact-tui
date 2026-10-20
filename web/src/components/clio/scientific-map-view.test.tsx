@@ -3,7 +3,9 @@ import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const archiveMode = vi.hoisted(() => ({ current: false }));
-vi.mock('@/providers/connection-provider', () => ({ useOfflineArchive: () => archiveMode.current }));
+vi.mock('@/providers/connection-provider', () => ({
+  useOfflineArchive: () => archiveMode.current,
+}));
 
 /**
  * `react-map-gl/maplibre`'s `<Map>` needs a real WebGL canvas maplibre-gl
@@ -25,7 +27,10 @@ vi.mock('@/providers/connection-provider', () => ({ useOfflineArchive: () => arc
  * (re-)creates a layer on a `reuseMaps`-recycled instance).
  */
 const fakeMap = vi.hoisted(() => {
-  const sources = new Map<string, { type: string; data?: unknown; setData: (data: unknown) => void }>();
+  const sources = new Map<
+    string,
+    { type: string; data?: unknown; setData: (data: unknown) => void }
+  >();
   const layers = new Map<string, { id: string; type: string; source: string; paint?: unknown }>();
   const canvas = {
     style: { cursor: '' },
@@ -51,7 +56,7 @@ const fakeMap = vi.hoisted(() => {
       sources.set(id, record);
     }),
     removeSource: vi.fn((id: string) => sources.delete(id)),
-    getLayer: vi.fn((id: string) => id === 'clio-map-background' ? { id } : layers.get(id)),
+    getLayer: vi.fn((id: string) => (id === 'clio-map-background' ? { id } : layers.get(id))),
     addLayer: vi.fn((spec: { id: string; type: string; source: string; paint?: unknown }) => {
       layers.set(spec.id, spec);
     }),
@@ -64,7 +69,9 @@ const fakeMap = vi.hoisted(() => {
   };
   return { ...map, mapRef: { getMap: () => map } };
 });
-const capturedMapProps = vi.hoisted(() => ({ current: undefined as Record<string, unknown> | undefined }));
+const capturedMapProps = vi.hoisted(() => ({
+  current: undefined as Record<string, unknown> | undefined,
+}));
 
 vi.mock('react-map-gl/maplibre', async () => {
   const react = await import('react');
@@ -122,34 +129,79 @@ afterEach(() => {
 describe('ClioScientificMapView zone selection', () => {
   it('keeps geometry layers in offline archives without requesting background tiles', () => {
     archiveMode.current = true;
-    const geometry = { type: 'FeatureCollection' as const, features: [{
-      type: 'Feature' as const, id: 'lake', properties: {},
-      geometry: { type: 'Polygon' as const, coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
-    }] };
-    const view = render(<ClioScientificMapView points={POINTS} geometry={geometry} onSelect={vi.fn()} />);
-    const style = capturedMapProps.current?.mapStyle as { sources: Record<string, unknown>; layers: unknown[] };
-    expect(style.sources).toEqual({});
+    const geometry = {
+      type: 'FeatureCollection' as const,
+      features: [
+        {
+          type: 'Feature' as const,
+          id: 'lake',
+          properties: {},
+          geometry: {
+            type: 'Polygon' as const,
+            coordinates: [
+              [
+                [0, 0],
+                [1, 0],
+                [1, 1],
+                [0, 0],
+              ],
+            ],
+          },
+        },
+      ],
+    };
+    const view = render(
+      <ClioScientificMapView points={POINTS} geometry={geometry} onSelect={vi.fn()} />,
+    );
+    const style = capturedMapProps.current?.mapStyle as {
+      sources: Record<string, unknown>;
+      layers: unknown[];
+    };
+    expect(style.sources).toMatchObject({
+      'offline-land': { type: 'geojson', data: { type: 'FeatureCollection' } },
+    });
     expect(JSON.stringify(style)).not.toContain('https://');
-    expect(fakeMap.__sources.get('clio-map-geometry')?.data).toMatchObject({ features: [{ id: 'lake' }] });
-    expect(view.getByText('Offline map: saved geometry; background tiles are not included.')).toBeVisible();
+    expect(fakeMap.__sources.get('clio-map-geometry')?.data).toMatchObject({
+      features: [{ id: 'lake' }],
+    });
+    expect(
+      view.getByText('Offline map · Natural Earth land outline · saved scientific data'),
+    ).toBeVisible();
   });
 
   it('uses the normal reference basemap for live sessions', () => {
     render(<ClioScientificMapView points={POINTS} onSelect={vi.fn()} />);
-    expect(JSON.stringify(capturedMapProps.current?.mapStyle)).toContain('https://tile.openstreetmap.org');
+    expect(JSON.stringify(capturedMapProps.current?.mapStyle)).toContain(
+      'https://tile.openstreetmap.org',
+    );
   });
   it('can hit a rendered trajectory dot or segment when the map hit index is stale', () => {
-    const geometry = { type: 'FeatureCollection' as const, features: [
-      { type: 'Feature' as const, id: 'inside-1', properties: {}, geometry: {
-        type: 'LineString' as const, coordinates: [[3, 2], [6, 4]],
-      } },
-    ] };
-    expect(nearestProjectedGeometryId(fakeMap as never, { x: 30, y: 20 }, POINTS, geometry))
-      .toBe('inside-1');
-    expect(nearestProjectedGeometryId(fakeMap as never, { x: 45, y: 30 }, [], geometry))
-      .toBe('inside-1');
-    expect(nearestProjectedGeometryId(fakeMap as never, { x: 150, y: 150 }, POINTS, geometry))
-      .toBeUndefined();
+    const geometry = {
+      type: 'FeatureCollection' as const,
+      features: [
+        {
+          type: 'Feature' as const,
+          id: 'inside-1',
+          properties: {},
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: [
+              [3, 2],
+              [6, 4],
+            ],
+          },
+        },
+      ],
+    };
+    expect(nearestProjectedGeometryId(fakeMap as never, { x: 30, y: 20 }, POINTS, geometry)).toBe(
+      'inside-1',
+    );
+    expect(nearestProjectedGeometryId(fakeMap as never, { x: 45, y: 30 }, [], geometry)).toBe(
+      'inside-1',
+    );
+    expect(
+      nearestProjectedGeometryId(fakeMap as never, { x: 150, y: 150 }, POINTS, geometry),
+    ).toBeUndefined();
   });
   it('disables the default shift+drag box-zoom for a provider-supplied map', () => {
     render(<ClioScientificMapView onSelect={vi.fn()} points={POINTS} />);
@@ -173,7 +225,11 @@ describe('ClioScientificMapView zone selection', () => {
     expect(fakeMap.unproject).toHaveBeenCalledWith([0, 0]);
     expect(fakeMap.unproject).toHaveBeenCalledWith([100, 100]);
     expect(onZoneSelect).toHaveBeenCalledTimes(1);
-    expect(onZoneSelect).toHaveBeenCalledWith(expect.arrayContaining(['inside-1', 'inside-2']), false, true);
+    expect(onZoneSelect).toHaveBeenCalledWith(
+      expect.arrayContaining(['inside-1', 'inside-2']),
+      false,
+      true,
+    );
     expect(onZoneSelect.mock.calls[0]![0]).not.toContain('outside');
   });
 
@@ -202,7 +258,13 @@ describe('ClioScientificMapView zone selection', () => {
     const capture = vi.spyOn(surface, 'setPointerCapture');
     vi.spyOn(surface, 'hasPointerCapture').mockReturnValue(true);
     const release = vi.spyOn(surface, 'releasePointerCapture');
-    fireEvent.pointerDown(surface, { button: 0, pointerId: 1, clientX: 0, clientY: 0, shiftKey: true });
+    fireEvent.pointerDown(surface, {
+      button: 0,
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+      shiftKey: true,
+    });
     fireEvent.pointerMove(surface, { pointerId: 1, clientX: 100, clientY: 350, shiftKey: true });
     fireEvent.pointerUp(surface, { pointerId: 1, clientX: 100, clientY: 350, shiftKey: true });
     expect(capture).toHaveBeenCalledWith(1);
@@ -217,7 +279,13 @@ describe('ClioScientificMapView zone selection', () => {
       <ClioScientificMapView onSelect={vi.fn()} onZoneSelect={onZoneSelect} points={POINTS} />,
     );
     const surface = container.querySelector('[data-slot="a2ui-map-surface"]')!;
-    fireEvent.pointerDown(surface, { button: 0, pointerId: 1, clientX: 0, clientY: 0, shiftKey: true });
+    fireEvent.pointerDown(surface, {
+      button: 0,
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+      shiftKey: true,
+    });
     fireEvent.pointerMove(surface, { pointerId: 1, clientX: 100, clientY: 100, shiftKey: true });
     fireEvent.pointerCancel(surface, { pointerId: 1 });
     expect(onZoneSelect).not.toHaveBeenCalled();
@@ -312,10 +380,16 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
       expect.objectContaining({ type: 'geojson' }),
     );
     const layer = fakeMap.__layers.get('clio-map-points-circles');
-    expect(layer).toMatchObject({ id: 'clio-map-points-circles', source: 'clio-map-points', type: 'circle' });
+    expect(layer).toMatchObject({
+      id: 'clio-map-points-circles',
+      source: 'clio-map-points',
+      type: 'circle',
+    });
     expect(capturedMapProps.current?.interactiveLayerIds).toEqual(['clio-map-points-circles']);
     expect(capturedMapProps.current?.onLoad).toBeUndefined();
-    expect(onMapInstance).toHaveBeenCalledWith(expect.objectContaining({ getLayer: expect.any(Function) }));
+    expect(onMapInstance).toHaveBeenCalledWith(
+      expect.objectContaining({ getLayer: expect.any(Function) }),
+    );
   });
 
   it('still renders one marker per point below the threshold', () => {
@@ -336,7 +410,9 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     expect(fakeMap.on).toHaveBeenCalledWith('style.load', expect.any(Function));
 
     // What a real 'style.load' does once the style actually finishes.
-    const retry = fakeMap.on.mock.calls.find(([event]) => event === 'style.load')?.[1] as () => void;
+    const retry = fakeMap.on.mock.calls.find(
+      ([event]) => event === 'style.load',
+    )?.[1] as () => void;
     retry();
 
     expect(fakeMap.__layers.has('clio-map-points-circles')).toBe(true);
@@ -347,7 +423,10 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     render(<ClioScientificMapView onSelect={onSelect} points={manyPoints(151)} />);
 
     const onClick = capturedMapProps.current?.onClick as
-      | ((event: { originalEvent: { shiftKey: boolean }; features?: Array<{ properties?: { id?: string } }> }) => void)
+      | ((event: {
+          originalEvent: { shiftKey: boolean };
+          features?: Array<{ properties?: { id?: string } }>;
+        }) => void)
       | undefined;
     onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: false } });
 
@@ -365,9 +444,11 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     mouseMove?.({ point: { x: 10, y: 20 } });
     expect(fakeMap.getCanvas().style.cursor).toBe('pointer');
 
-    const mouseLeave = fakeMap.getCanvas().addEventListener.mock.calls.find(
-      ([type]) => type === 'mouseleave',
-    )?.[1] as (() => void) | undefined;
+    const mouseLeave = fakeMap
+      .getCanvas()
+      .addEventListener.mock.calls.find(([type]) => type === 'mouseleave')?.[1] as
+      | (() => void)
+      | undefined;
     mouseLeave?.();
     expect(fakeMap.getCanvas().style.cursor).toBe('');
   });
@@ -377,7 +458,10 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     render(<ClioScientificMapView onSelect={onSelect} points={manyPoints(151)} />);
 
     const onClick = capturedMapProps.current?.onClick as
-      | ((event: { originalEvent: { shiftKey: boolean }; features?: Array<{ properties?: { id?: string } }> }) => void)
+      | ((event: {
+          originalEvent: { shiftKey: boolean };
+          features?: Array<{ properties?: { id?: string } }>;
+        }) => void)
       | undefined;
     onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: true } });
 
@@ -388,9 +472,15 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     const onSelect = vi.fn();
     render(<ClioScientificMapView onSelect={onSelect} points={manyPoints(151)} />);
     const onClick = capturedMapProps.current?.onClick as
-      | ((event: { originalEvent: { shiftKey: boolean; ctrlKey: boolean }; features?: Array<{ properties?: { id?: string } }> }) => void)
+      | ((event: {
+          originalEvent: { shiftKey: boolean; ctrlKey: boolean };
+          features?: Array<{ properties?: { id?: string } }>;
+        }) => void)
       | undefined;
-    onClick?.({ features: [{ properties: { id: 'p42' } }], originalEvent: { shiftKey: true, ctrlKey: true } });
+    onClick?.({
+      features: [{ properties: { id: 'p42' } }],
+      originalEvent: { shiftKey: true, ctrlKey: true },
+    });
     expect(onSelect).toHaveBeenCalledWith('p42', true, true);
   });
 
@@ -426,9 +516,13 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     // The layer/source are never removed and re-added for a plain data swap.
     expect(fakeMap.addSource).not.toHaveBeenCalled();
     expect(source?.setData).toHaveBeenCalled();
-    const latestData = source?.data as { features: Array<{ properties: { highlighted: boolean; id: string } }> };
+    const latestData = source?.data as {
+      features: Array<{ properties: { highlighted: boolean; id: string } }>;
+    };
     expect(
-      latestData.features.filter((feature) => feature.properties.highlighted).map((feature) => feature.properties.id),
+      latestData.features
+        .filter((feature) => feature.properties.highlighted)
+        .map((feature) => feature.properties.id),
     ).toEqual(['p2']);
   });
 });

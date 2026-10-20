@@ -72,6 +72,7 @@ export const ndpCaptureSchema = z.object({
   id: z.string(),
   endpoint_id: z.string(),
   operation_id: z.string(),
+  operation_summary: z.string().optional(),
   method: z.string(),
   started_at: z.string(),
   completed_at: z.string(),
@@ -84,6 +85,14 @@ export const ndpCaptureSchema = z.object({
   events: z.number(),
   preview: z.string().optional(),
   preview_truncated: z.boolean().optional(),
+  continuation: z
+    .object({
+      stream_id: z.string(),
+      next_cursor: z.string(),
+      count: z.number().int().nonnegative(),
+      next_positions: z.record(z.string(), z.number().int()),
+    })
+    .nullish(),
   workspace_path: z.string().optional(),
   source_artifact_id: z.string().optional(),
   materialization: z.object({ state: z.string(), reason: z.string() }).optional(),

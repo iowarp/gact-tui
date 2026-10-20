@@ -59,11 +59,13 @@ export function endpointSections(endpoint: NDPEndpointConnection): NDPSection[] 
       ? [{ name: 'Stations', operation: 'GET /bridge/stations/catalog' }]
       : []),
     ...(has('GET /data/csv-files') ? [{ name: 'Files', operation: 'GET /data/csv-files' }] : []),
-    ...(has('GET /bridge/sessions')
-      ? [{ name: 'Streams', operation: 'GET /bridge/sessions' }]
-      : has('GET /active-streams')
-        ? [{ name: 'Streams', operation: 'GET /active-streams' }]
-        : []),
+    ...(has('GET /streams')
+      ? [{ name: 'Streams', operation: 'GET /streams' }]
+      : has('GET /bridge/sessions')
+        ? [{ name: 'Streams', operation: 'GET /bridge/sessions' }]
+        : has('GET /active-streams')
+          ? [{ name: 'Streams', operation: 'GET /active-streams' }]
+          : []),
   ];
 }
 export function listingParameters(section: NDPSection, query: string, server: string): NDPRecord {
