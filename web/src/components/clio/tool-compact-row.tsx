@@ -71,7 +71,14 @@ export function ToolCompactRow({
         )}
         <span className="min-w-0 max-w-[48%] shrink truncate font-medium">{action}</span>
         {detail ? (
-          <span className="min-w-0 flex-1 truncate text-left font-mono">{detail}</span>
+          <span
+            className={cn(
+              'min-w-0 flex-1 truncate text-left',
+              (subject?.target === 'file' || terminal?.command) && 'font-mono',
+            )}
+          >
+            {detail}
+          </span>
         ) : (
           <span className="min-w-0 flex-1" />
         )}

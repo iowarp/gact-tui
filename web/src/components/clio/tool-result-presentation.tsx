@@ -66,6 +66,30 @@ export function ToolResultPresentation({
   // The schema itself is useful to the agent, but it overwhelms the human
   // activity lane. The info button on the tool row retains the exact result.
   if (isA2uiCatalogLookup(tool) && getToolStatus(tool) === 'succeeded') return null;
+  if (tool.name === 'load_skill' && blocks.some((block) => block.type === 'markdown')) {
+    return (
+      <div className="ml-7 min-w-0 space-y-2" data-slot="tool-human-result">
+        {summary ? <p className="text-sm text-muted-foreground">{summary}</p> : null}
+        {blocks.map((block) =>
+          block.type === 'link' ? (
+            <PresentationLink key={block.id} block={block} />
+          ) : block.type === 'markdown' ? (
+            <DefaultBlockPanel
+              key={block.id}
+              block={{ ...block, label: 'Loaded content' }}
+              lines={lines}
+              running={false}
+            />
+          ) : (
+            <div key={block.id} className="text-sm">
+              <span className="text-muted-foreground">{block.label ? `${block.label}: ` : ''}</span>
+              {block.text}
+            </div>
+          ),
+        )}
+      </div>
+    );
+  }
   // An explicitly declared file subject owns one document preview, including
   // metadata. Do not give each constituent block another preview-line budget.
   // Provenance blocks are ignored for this decision (see isProvenanceBlock)

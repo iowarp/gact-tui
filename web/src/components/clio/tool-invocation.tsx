@@ -31,6 +31,7 @@ import { formatDuration } from '@/lib/format';
 import { withTaskWaitPresentation } from './task-wait-presentation';
 import { withTodoPresentation } from './todo-tool-presentation';
 import { withStorageToolPresentation } from './storage-tool-presentation';
+import { withSkillPresentation } from './skill-tool-presentation';
 
 export function ClioToolInvocation({
   attention,
@@ -82,7 +83,7 @@ export function ClioToolInvocation({
   const presentedTool = withMemoryPresentation(
     withResourcePresentation(
       withWorkflowPresentation(
-        withSkillFileSubject(
+        withSkillPresentation(
           withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
         ),
       ),
@@ -95,6 +96,8 @@ export function ClioToolInvocation({
         .filter(
           (block) =>
             block.id !== presentedTool.presentation?.subject &&
+            !['skill-identity', 'skill-description'].includes(block.id) &&
+            !block.id.startsWith('skill-file-') &&
             ['markdown', 'text', 'code'].includes(block.type) &&
             (block.text || block.content_ref),
         )
@@ -446,35 +449,6 @@ function withResourcePresentation(
             : tool.presentation.blocks,
         }
       : tool.presentation,
-  };
-}
-
-function withSkillFileSubject(tool: ToolInvocation): ToolInvocation {
-  const presentation = tool.presentation;
-  if (tool.name !== 'load_skill' || !presentation?.subject) return tool;
-  const subject = presentation.blocks.find((block) => block.id === presentation.subject);
-  if (!subject || subject.target === 'file' || (subject.type !== 'text' && subject.type !== 'link'))
-    return tool;
-  const result = toolResultRecord(tool.output);
-  const path = typeof result?.path === 'string' ? result.path : '';
-  if (!/^(?:[a-z]:[\\/]|\/)/iu.test(path)) return tool;
-  const skillId = typeof result?.skill_id === 'string' ? result.skill_id : undefined;
-  return {
-    ...tool,
-    presentation: {
-      ...presentation,
-      blocks: presentation.blocks.map((block) =>
-        block.id === presentation.subject
-          ? {
-              ...block,
-              type: 'link',
-              target: 'file',
-              uri: path,
-              label: block.label || skillId || block.text || 'SKILL.md',
-            }
-          : block,
-      ),
-    },
   };
 }
 

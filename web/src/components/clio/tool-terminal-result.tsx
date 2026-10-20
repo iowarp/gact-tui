@@ -44,6 +44,7 @@ export function ToolTerminalResult({
           <BoundedResult lines={Math.min(lines, 3)} title="Command">
             <TerminalCommand command={block.command} className="border-b-0 px-3" />
           </BoundedResult>
+          {block.detail ? <p className="px-3 pb-2 text-xs text-zinc-400">{block.detail}</p> : null}
         </section>
       ) : null}
       <section
@@ -63,6 +64,9 @@ export function ToolTerminalResult({
           />
         ) : (
           <BoundedResult lines={lines} running={running} title="Output">
+            {!running && !outputBlocks.some((item) => item.text) ? (
+              <p className="px-3 py-2 text-xs text-zinc-400">No stdout or stderr was recorded.</p>
+            ) : null}
             {outputBlocks.map((item) => (
               <div key={item.id}>{renderOutput(item, item.text ?? '')}</div>
             ))}
