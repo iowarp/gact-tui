@@ -16,6 +16,12 @@ for (const width of [1100, 1600]) {
   }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+    // The opening placeholder has its own shell; exercise the restored session.
+    await expect(
+      page.getByText('Review the EarthScope station evidence and keep provenance visible.', {
+        exact: true,
+      }),
+    ).toBeVisible();
     await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
     if (width === 1600) await page.locator('[data-slot="sidebar-trigger"]').click();
     const sidebar = page
@@ -103,6 +109,11 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
   }, longTitle);
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  await expect(
+    page.getByText('Review the EarthScope station evidence and keep provenance visible.', {
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas', exact: true });
   for (const name of [
