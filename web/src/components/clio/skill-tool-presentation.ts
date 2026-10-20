@@ -39,10 +39,22 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
   const skillId = String(
     input?.skill_id ?? result?.skill_id ?? original?.text ?? original?.label ?? '',
   );
-  const content =
+  const recordedContent =
     presentation.blocks.find(
       (block) => block.id !== presentation.subject && block.type === 'markdown',
     )?.text ?? '';
+  const content = recordedContent
+    .replace(/^# Skill: [^\r\n]+\r?\n/u, '')
+    .replace(/^Skill directory(?: \(use as SKILL_ROOT\))?:[^\r\n]*\r?\n/u, '');
+  const carrierDirectory = recordedContent.match(
+    /^(?:# Skill: [^\r\n]+\r?\n)?Skill directory(?: \(use as SKILL_ROOT\))?:\s*([^\r\n]+)/u,
+  )?.[1];
+  const description = typeof result?.skill_description === 'string' ? result.skill_description : '';
+  const mainPath = typeof result?.path === 'string' ? result.path : '';
+  const directory =
+    result?.skill_directory ||
+    carrierDirectory ||
+    (/^(?:[a-z]:[\\/]|\/)/iu.test(mainPath) ? mainPath.replace(/[\\/][^\\/]+$/u, '') : '');
   const heading = content
     .split('\n')
     .find((line) => /^#\s+(?!Skill:)/u.test(line))
@@ -75,9 +87,35 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
       summary: files.length ? heading || '' : 'Main procedure',
       blocks: [
         subject,
+        ...(description
+          ? [
+              {
+                id: 'skill-description',
+                type: 'text' as const,
+                label: 'When to use',
+                text: description,
+              },
+            ]
+          : []),
         { id: 'skill-identity', type: 'text', label: 'Skill', text: skillId },
+        ...(typeof directory === 'string' && directory
+          ? [
+              {
+                id: 'skill-directory',
+                type: 'text' as const,
+                label: 'Skill directory',
+                text: directory,
+              },
+            ]
+          : []),
         ...fileBlocks,
-        ...presentation.blocks.filter((block) => block.id !== presentation.subject),
+        ...presentation.blocks
+          .filter((block) => block.id !== presentation.subject)
+          .map((block) =>
+            block.type === 'markdown' && block.text === recordedContent
+              ? { ...block, text: content }
+              : block,
+          ),
       ],
     },
   };

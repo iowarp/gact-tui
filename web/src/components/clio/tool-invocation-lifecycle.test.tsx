@@ -218,9 +218,11 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       </PresentationNavigation.Provider>,
     );
 
-    expect(screen.getAllByText('Main procedure')[0]).toBeVisible();
+    expect(container).toHaveTextContent('Skill: ai-elements');
+    expect(await screen.findByRole('heading', { name: 'Loaded skill body' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Result' })).not.toBeInTheDocument();
     expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeVisible();
+    await userEvent.setup().click(screen.getByText('Source', { exact: true }));
     const skill = screen.getByRole('button', { name: 'SKILL.md' });
     await userEvent.setup().click(skill);
     expect(openFile).toHaveBeenCalledWith(path);

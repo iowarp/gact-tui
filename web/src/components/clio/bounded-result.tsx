@@ -156,7 +156,6 @@ export function BoundedResult({
           </DialogTrigger>
           <ResultDialogContent
             title={title}
-            description="Full output, kept separate from the conversation preview."
             footer={
               <>
                 {loading ? <p role="status">Loading complete result…</p> : null}

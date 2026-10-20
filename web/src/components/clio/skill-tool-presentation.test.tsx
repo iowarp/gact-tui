@@ -1,12 +1,15 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import { render, screen, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioToolInvocation } from './tool-invocation';
 import { withSkillPresentation } from './skill-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function recordedSkill(file = ''): ToolInvocation {
   return {
@@ -145,5 +148,43 @@ describe('skill observations at three levels', () => {
     expect(screen.getByText('Working directory: D:/workspace')).toBeVisible();
     expect(screen.getByText('No stdout or stderr was recorded.')).toBeVisible();
     expect(screen.getByText('Process exited with code 0.')).toBeVisible();
+  });
+
+  it('keeps the recorded discovery description in the full skill viewer and removes loader instructions', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(Range.prototype, 'getClientRects').mockReturnValue(
+      Array.from({ length: 45 }, (_, i) => ({
+        top: i * 24,
+        bottom: (i + 1) * 24,
+        width: 100,
+        height: 24,
+      })) as unknown as DOMRectList,
+    );
+    const tool = recordedSkill();
+    tool.output = {
+      ...(tool.output as Record<string, unknown>),
+      skill_description: 'Use when the user asks to find and analyze scientific observations.',
+    };
+    tool.presentation!.blocks[1].text =
+      'Skill directory (use as SKILL_ROOT): D:/skills/work-with-ndp\n# Work with NDP\n\nOriginal scientific procedure.';
+    const original = JSON.stringify(tool);
+    render(<ClioToolInvocation compact tool={tool} />);
+    await user.click(screen.getByRole('button', { name: 'Show result for Load skill' }));
+    const result = screen.getByRole('region', { name: 'Load skill: Result' });
+    expect(result).toHaveTextContent(
+      'When to use: Use when the user asks to find and analyze scientific observations.',
+    );
+    expect(result).not.toHaveTextContent('SKILL_ROOT');
+    await user.click(within(result).getByRole('button', { name: 'Show more' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent(
+      'When to use: Use when the user asks to find and analyze scientific observations.',
+    );
+    expect(dialog).toHaveTextContent('Original scientific procedure.');
+    expect(dialog).not.toHaveTextContent('Full output, kept separate');
+    expect(dialog).not.toHaveTextContent('SKILL_ROOT');
+    await user.click(within(dialog).getByText('Source', { exact: true }));
+    expect(within(dialog).getByText('D:/skills/work-with-ndp', { exact: true })).toBeVisible();
+    expect(JSON.stringify(tool)).toBe(original);
   });
 });
