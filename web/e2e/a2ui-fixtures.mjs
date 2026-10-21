@@ -42,7 +42,7 @@ const manifest = readJson('manifest.json');
 //   print(json.dumps(sidecars, indent=2, sort_keys=True))
 //   " > web/src/test-fixtures/a2ui/v0_9_1/server-snapshot.catalog-sidecars.json
 //
-// (the temp-dir env override isolates from whatever Agent Blueprint packs
+// (the temp-dir env override isolates from whatever plugin marketplaces
 // happen to be installed on the generating machine, so the snapshot always
 // contains exactly the two builtin catalogs).
 const serverSidecarSnapshot = readJson('server-snapshot.catalog-sidecars.json');

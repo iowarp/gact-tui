@@ -80,7 +80,6 @@ function Review() {
             sessionId=""
             files={[]}
             artifacts={[]}
-            blueprints={[]}
             diffs={[]}
             onApplyDiff={() => undefined}
             onRejectDiff={() => undefined}

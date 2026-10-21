@@ -4,9 +4,9 @@ import { SESSION_APPROVAL_OPTIONS } from './session-behavior-options';
 
 const unavailable = {
   available: false,
-  reason: 'spotter_watcher_blueprint_not_installed',
-  message: 'SPOTTER needs its watcher Agent Blueprint, which is not installed.',
-  remedy: 'install the spotter-ai Agent Blueprint from the marketplace',
+  reason: 'spotter_watcher_agent_not_installed',
+  message: 'SPOTTER needs its watcher agent, which is not installed.',
+  remedy: 'install the marketplace that provides the clio/spotter-ai agent',
   verified: '',
 };
 
@@ -18,7 +18,7 @@ describe('approvalOptionViews', () => {
     expect(spotter).toMatchObject({
       disabled: true,
       description:
-        'Unavailable. To enable: Install the spotter-ai Agent Blueprint from the marketplace.',
+        'Unavailable. To enable: Install the marketplace that provides the clio/spotter-ai agent.',
       unavailableDetail: unavailable.message,
     });
   });
@@ -59,7 +59,7 @@ describe('unavailableApprovalNotice', () => {
     expect(
       unavailableApprovalNotice(approvalOptionViews(SESSION_APPROVAL_OPTIONS, unavailable)),
     ).toBe(
-      'SPOTTER review: Unavailable. To enable: Install the spotter-ai Agent Blueprint from the marketplace.',
+      'SPOTTER review: Unavailable. To enable: Install the marketplace that provides the clio/spotter-ai agent.',
     );
     expect(
       unavailableApprovalNotice(approvalOptionViews(SESSION_APPROVAL_OPTIONS, undefined)),

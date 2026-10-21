@@ -49,8 +49,8 @@ export async function installSearchFixture(page, endpoint, theme = 'light') {
     title: 'CLIO Search',
     session_kind: 'lookup',
     model_id: 'Fleet search model',
-    active_blueprint_id: 'clio-search',
     metadata: {
+      agent_ref: 'clio/clio-search',
       search_session: { ephemeral: true },
       side_session: { read_only: true, ephemeral: true },
     },

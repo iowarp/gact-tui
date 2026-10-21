@@ -2792,7 +2792,7 @@ const server = createServer(async (request, response) => {
       reason: '',
       message: '',
       remedy: '',
-      agent_blueprint_id: 'spotter-ai',
+      agent_ref: 'clio/spotter-ai',
       details: {},
     });
     return;
@@ -2807,12 +2807,39 @@ const server = createServer(async (request, response) => {
       edit_mode: 'diff',
       routing_mode: 'auto',
       approval_mode: 'ask',
-      blueprint_id: '',
+      agent_ref: '',
     });
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/agent-blueprints') {
-    sendJson(response, { agent_blueprints: [] });
+  if (request.method === 'GET' && url.pathname === '/v1/agents') {
+    sendJson(response, {
+      agents: [{ ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' }],
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/plugins') {
+    sendJson(response, { plugins: [], default_marketplace_error: null });
+    return;
+  }
+  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/agent$/u.test(url.pathname)) {
+    sendJson(response, {
+      session_id: url.pathname.split('/')[3],
+      delta: { add: [], remove: [] },
+      subagent: false,
+      resolution: {
+        agent: { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent' },
+        plugins: [
+          {
+            id: 'core',
+            kind: 'plugin',
+            marketplace: 'clio-builtin',
+            provenance: { source: 'core', via: 'core', label: 'core' },
+            removable: false,
+          },
+        ],
+        prompt: { sections: [] },
+      },
+    });
     return;
   }
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/cancel`) {

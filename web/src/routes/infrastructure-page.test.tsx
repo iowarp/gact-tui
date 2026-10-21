@@ -82,9 +82,9 @@ beforeEach(() => {
       transport: 'stdio',
       tools_count: 0,
       tools: [],
-      source: 'agent_blueprint',
-      agent_blueprint_id: 'earthscope-single-agent',
-      agent_blueprint_name: 'EarthScope Skills',
+      source: 'plugin',
+      plugin: 'ndp',
+      agent_ref: 'clio/earthscope-single-agent',
       session_id: 'sess_demo',
       spec: {},
     },
@@ -287,12 +287,8 @@ describe('InfrastructurePage', () => {
     expect(screen.getByText('artifact_id')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'MCP 1' }));
     expect(screen.getByRole('button', { name: /Search NDP/u })).toBeVisible();
-    expect(screen.getAllByText('EarthScope Skills')).toHaveLength(2);
     expect(screen.getByText('Session')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'EarthScope Skills' })).toHaveAttribute(
-      'href',
-      '/settings/blueprints?blueprint=earthscope-single-agent',
-    );
+    expect(screen.getByRole('link', { name: 'ndp' })).toHaveAttribute('href', '/settings/plugins');
     expect(repository.tools).toHaveBeenCalled();
     expect(repository.catalogTools).toHaveBeenCalled();
     expect(repository.effectiveAgentToolset).toHaveBeenCalledWith(

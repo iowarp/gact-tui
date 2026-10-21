@@ -111,7 +111,7 @@ it.each([
               activeWorkspaceId={workspace.id}
               activeSessionId={session.id}
               actions={actions}
-              blueprints={[]}
+              agents={[]}
               attentions={{}}
             />
           </SidebarProvider>

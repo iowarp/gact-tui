@@ -64,7 +64,7 @@ it('offers the managed local service from Aurora even though only Aurora is reme
             activeWorkspaceId=""
             activeSessionId=""
             actions={{} as ResourceActions}
-            blueprints={[]}
+            agents={[]}
             attentions={{}}
           />
         </SidebarProvider>

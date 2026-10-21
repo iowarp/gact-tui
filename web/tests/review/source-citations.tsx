@@ -76,7 +76,6 @@ function Review() {
               size: content.length,
             }))}
             artifacts={[]}
-            blueprints={[]}
             diffs={[]}
             sessionView={<p className="p-5">Open a cited source to inspect it here.</p>}
             requestedOpen={request}

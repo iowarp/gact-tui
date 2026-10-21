@@ -161,10 +161,10 @@ it('retires a late-created search if the person closed it before creation return
   expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
 });
 it('shows the actual connection failure and retains the question for retry', async () => {
-  mocks.repository.openSearchSession.mockRejectedValue(new Error('Search blueprint unavailable'));
+  mocks.repository.openSearchSession.mockRejectedValue(new Error('Search agent unavailable'));
   show();
   await userEvent.setup().click(screen.getByRole('button', { name: `Search with ${vocab.agent}` }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Search blueprint unavailable');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Search agent unavailable');
   expect(screen.getByRole('textbox')).toHaveValue('Where did we discuss the plant?');
 });
 
