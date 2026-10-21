@@ -1,6 +1,11 @@
 import type { AgentEntry } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { agentDisplayName, provenanceLabel, userAgentId } from './plugin-presentation';
+import {
+  agentDisplayName,
+  provenanceLabel,
+  unwrapFragmentText,
+  userAgentId,
+} from './plugin-presentation';
 
 const agents = [
   { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent', plugins: [] },
@@ -30,5 +35,38 @@ describe('plugin presentation', () => {
 
   it('suggests a user agent id from its name', () => {
     expect(userAgentId('HDF5 analyst')).toBe('hdf5-analyst');
+  });
+
+  it('joins wrapped prompt lines into paragraphs and keeps Markdown blocks', () => {
+    const text = [
+      'Use `prepare_execution_runtime` when managed executable',
+      'paths are needed.',
+      '',
+      '- one item',
+      '- another item',
+      '```',
+      'code line',
+      'second code line',
+      '```',
+      'Last paragraph',
+      'continues here.',
+      '## Heading',
+      'Body under it.',
+    ].join('\n');
+    expect(unwrapFragmentText(text)).toBe(
+      [
+        'Use `prepare_execution_runtime` when managed executable paths are needed.',
+        '',
+        '- one item',
+        '- another item',
+        '```',
+        'code line',
+        'second code line',
+        '```',
+        'Last paragraph continues here.',
+        '## Heading',
+        'Body under it.',
+      ].join('\n'),
+    );
   });
 });

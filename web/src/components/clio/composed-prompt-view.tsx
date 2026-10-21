@@ -1,6 +1,10 @@
 import type { AgentResolution } from '@clio/core/v3';
 import { Badge } from '@/components/ui/badge';
-import { fragmentOwnerLabel, promptSectionLabel } from '@/lib/plugin-presentation';
+import {
+  fragmentOwnerLabel,
+  promptSectionLabel,
+  unwrapFragmentText,
+} from '@/lib/plugin-presentation';
 
 /**
  * The main prompt as the agent receives it: five fixed sections, each made of
@@ -61,7 +65,7 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
                 ) : null}
               </header>
               <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words px-3 py-2 font-sans text-sm leading-6">
-                {fragment.text}
+                {unwrapFragmentText(fragment.text)}
               </pre>
             </article>
           ))}

@@ -65,6 +65,35 @@ export function fragmentOwnerLabel(owner: string): string {
   return owner || 'Owner not reported';
 }
 
+/** A line that starts its own Markdown block: list item, heading, quote, fence or table row. */
+const BLOCK_LINE = /^\s*(?:[-*+]\s|\d+[.)]\s|#|>|```|~~~|\|)/u;
+
+/**
+ * Fragment text without its source wrapping. Prompt files are Markdown wrapped
+ * at a fixed width; a wrapped line continues its paragraph, so it joins the
+ * line before. Blank lines, block starts and fenced code keep their breaks, and
+ * nothing else in the text changes.
+ */
+export function unwrapFragmentText(text: string): string {
+  const out: string[] = [];
+  let fenced = false;
+  for (const line of text.split('\n')) {
+    const fence = /^\s*(?:```|~~~)/u.test(line);
+    const previous = out.length ? out[out.length - 1] : '';
+    const joins =
+      !fenced &&
+      !fence &&
+      line.trim() !== '' &&
+      previous.trim() !== '' &&
+      !BLOCK_LINE.test(line) &&
+      !/^\s*(?:```|~~~|#|\|)/u.test(previous);
+    if (joins) out[out.length - 1] = `${previous.trimEnd()} ${line.trimStart()}`;
+    else out.push(line);
+    if (fence) fenced = !fenced;
+  }
+  return out.join('\n');
+}
+
 /** The pack each active plugin arrived through, so a member can name its pack. */
 export function packOf(plugin: ResolvedPlugin): string | undefined {
   return plugin.provenance.source === 'pack' && plugin.provenance.via
