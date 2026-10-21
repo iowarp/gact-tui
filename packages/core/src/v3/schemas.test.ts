@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   A2UI_VERSION,
   a2uiSurfaceSchema,
-  agentBlueprintSourceUpdateSchema,
   capabilitiesSchema,
   messageBlockSchema,
   messageSchema,
@@ -355,7 +354,7 @@ describe('forward-compatible wire enums', () => {
         python: '3.12.6',
         gact_contract: '0.3',
         marketplace: {
-          source: 'https://github.com/iowarp/clio-blueprints',
+          source: 'https://github.com/iowarp/clio-agent-marketplace',
           ref: 'main',
           pinned_commit: 'ea49ed17aa',
           installed_commit: 'ea49ed17aa',
@@ -370,7 +369,7 @@ describe('forward-compatible wire enums', () => {
       python: '3.12.6',
       gact_contract: '0.3',
       marketplace: {
-        source: 'https://github.com/iowarp/clio-blueprints',
+        source: 'https://github.com/iowarp/clio-agent-marketplace',
         ref: 'main',
         pinned_commit: 'ea49ed17aa',
         installed_commit: 'ea49ed17aa',
@@ -396,27 +395,6 @@ describe('forward-compatible wire enums', () => {
       versions: { clio_agent: '0.9.4.1', marketplace: null },
     });
     expect(withoutMarketplace.versions?.marketplace).toBeNull();
-  });
-
-  it('carries a marketplace source update row, defaulting an unrecognized reason to unknown', () => {
-    const upToDate = agentBlueprintSourceUpdateSchema.parse({
-      source_id: 'src_1',
-      source: 'https://github.com/iowarp/clio-blueprints',
-      ref: 'main',
-      installed_commit: 'ea49ed17aa',
-      remote_commit: 'ea49ed17aa',
-      update_available: false,
-      reason: 'up_to_date',
-    });
-    expect(upToDate).toMatchObject({ update_available: false, reason: 'up_to_date' });
-
-    const unknownAnswer = agentBlueprintSourceUpdateSchema.parse({
-      source_id: 'src_2',
-      source: '/local/blueprints',
-      update_available: null,
-      reason: 'a_future_reason_this_client_has_not_learned_yet',
-    });
-    expect(unknownAnswer).toMatchObject({ update_available: null, reason: 'unknown' });
   });
 
   it('carries a resource materialization failure so the client can distinguish it from Ready', () => {

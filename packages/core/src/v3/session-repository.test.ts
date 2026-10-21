@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ClioRepository } from './repository.js';
+import { sessionAgentRef } from './plugin-domain.js';
 import { RecordingTransport } from './recording-transport.test-helper.js';
 
 describe('ClioRepository session contract', () => {
@@ -52,7 +53,7 @@ describe('ClioRepository session contract', () => {
     });
     expect(transport.requests[0]?.path).toBe('/v1/sessions/child?workspace_id=ws');
   });
-  it('preserves the authoritative active blueprint identity on session rows', async () => {
+  it('keeps the pinned agent reference a session row carries in its metadata', async () => {
     const transport = new RecordingTransport([
       {
         sessions: [
@@ -63,23 +64,18 @@ describe('ClioRepository session contract', () => {
             state: 'completed',
             created_at: '2026-08-24T00:00:00Z',
             updated_at: '2026-08-24T00:00:00Z',
-            active_blueprint_id: 'earthscope-flat',
-            active_blueprint_name: 'EarthScope (Flat / Haiku)',
-            active_blueprint_version: '0.1.0',
-            active_blueprint_scope: 'global',
+            metadata: {
+              agent_ref: 'clio/earthscope-flat',
+              agent_delta: { add: ['hdf5'], remove: [] },
+            },
           },
         ],
       },
     ]);
     const repository = new ClioRepository(transport);
 
-    await expect(repository.sessions('ws_demo')).resolves.toMatchObject([
-      {
-        active_blueprint_id: 'earthscope-flat',
-        active_blueprint_name: 'EarthScope (Flat / Haiku)',
-        active_blueprint_version: '0.1.0',
-        active_blueprint_scope: 'global',
-      },
-    ]);
+    const [session] = await repository.sessions('ws_demo');
+    expect(sessionAgentRef(session)).toBe('clio/earthscope-flat');
+    expect(sessionAgentRef({ metadata: {} })).toBe('');
   });
 });

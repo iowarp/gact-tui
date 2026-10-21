@@ -1,4 +1,3 @@
-export type { AgentBlueprintSource } from './blueprint-domain.js';
 import type { A2UIActionLifecycle } from './a2ui/lifecycle.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
@@ -104,10 +103,6 @@ export interface Session {
   /** Conversation ownership is distinct from provenance parentage. */
   session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup'>;
   agent_id?: string;
-  active_blueprint_id?: string;
-  active_blueprint_name?: string;
-  active_blueprint_version?: string;
-  active_blueprint_scope?: string;
   metadata?: Record<string, unknown>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
@@ -126,7 +121,8 @@ export interface SessionDefaults {
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
   routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;
   approval_mode: WireValue<'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai'>;
-  blueprint_id: string;
+  /** The agent new sessions run (`<marketplace>/<id>`); empty means the service default. */
+  agent_ref: string;
 }
 
 /** A server-owned instruction that will be submitted to one session at a future time. */
@@ -533,24 +529,6 @@ export interface AsyncProcess {
   metadata: Record<string, unknown>;
 }
 
-export interface AgentBlueprint {
-  materialized?: boolean;
-  registry_id?: string;
-  id: string;
-  identity?: string;
-  source_id?: string;
-  blueprint_id?: string;
-  version: string;
-  title: string;
-  display_name: string;
-  description?: string;
-  scope: string;
-  enabled: boolean;
-  validation_errors: string[];
-  kind: WireValue<'blueprint' | 'pack'>;
-  metadata: Record<string, unknown>;
-}
-
 export interface RelayStatus {
   configured: boolean;
   host?: string;
@@ -605,8 +583,9 @@ export interface McpServerDefinition {
   error?: string;
   source?: string;
   enabled?: boolean;
-  agent_blueprint_id?: string;
-  agent_blueprint_name?: string;
+  /** The plugin that declares this server, for servers the session's agent brings. */
+  plugin?: string;
+  agent_ref?: string;
   session_id?: string;
   spec: Record<string, unknown>;
 }
@@ -623,24 +602,6 @@ export interface McpUserConfiguration {
   error?: string;
   retryable: boolean;
   removed?: boolean;
-}
-
-export interface ExpertPackDefinition {
-  id: string;
-  version: string;
-  title: string;
-  display_name?: string;
-  description: string;
-  scope: string;
-  enabled: boolean;
-  validation_errors: string[];
-  kind: 'pack';
-  root?: string;
-  root_path?: string;
-  manifest_path?: string;
-  definition_path?: string;
-  defaults: Record<string, unknown>;
-  metadata: Record<string, unknown>;
 }
 
 export interface PermissionPolicy {

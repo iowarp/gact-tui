@@ -2,7 +2,7 @@ import type { WireValue } from './domain.js';
 
 /**
  * A BestOfN / Refine run (Phase 9): the agent drafting alternatives, or a
- * blueprint/subagent module run as variants. One run, keyed by its stable
+ * plugin agent or subagent module run as variants. One run, keyed by its stable
  * `variants_id`, holds one try per `try_index` -- the tabs of its block.
  */
 export type VariantOrigin = WireValue<'draft_alternatives' | 'module_variant'>;

@@ -1,10 +1,6 @@
 import { z } from 'zod';
 import {
   a2uiSurfaceSchema,
-  agentBlueprintSchema,
-  agentBlueprintSourceSchema,
-  agentBlueprintSourceUpdateSchema,
-  agentDefinitionSchema,
   artifactSchema,
   commandDefinitionSchema,
   mcpServerDefinitionSchema,
@@ -210,26 +206,10 @@ export const workspaceFileListSchema = z.object({
   truncated: z.boolean().default(false),
   next_offset: z.number().int().nonnegative().nullable().optional(),
 });
-export const agentBlueprintListSchema = z.object({
-  agent_blueprints: z.array(agentBlueprintSchema).default([]),
-});
-export const agentBlueprintSourceListSchema = z.object({
-  sources: z.array(agentBlueprintSourceSchema).default([]),
-});
-export const agentBlueprintSourceUpdateListSchema = z.object({
-  sources: z.array(agentBlueprintSourceUpdateSchema).default([]),
-  checked_at: z.string().optional(),
-});
-/** `GET /v1/agent-blueprints/sources/{id}/updates` wraps its one row under `source`, mirroring the list route's envelope. */
-export const agentBlueprintSourceUpdateSingleSchema = z.object({
-  source: agentBlueprintSourceUpdateSchema,
-  checked_at: z.string().optional(),
-});
 export const toolCatalogSchema = z.object({ tools: z.array(toolCatalogItemSchema).default([]) });
 export const mcpServerListSchema = z.object({
   servers: z.array(mcpServerDefinitionSchema).default([]),
 });
-export const agentListSchema = z.object({ agents: z.array(agentDefinitionSchema).default([]) });
 export const promptListSchema = z.object({ prompts: z.array(promptDefinitionSchema).default([]) });
 export const commandListSchema = z.object({
   commands: z.array(commandDefinitionSchema).default([]),

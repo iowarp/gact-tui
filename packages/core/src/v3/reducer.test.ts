@@ -58,11 +58,11 @@ describe('GACT 0.3 reducer', () => {
         session_id: 'sess_1',
         title: 'Researcher',
         state: 'failed',
-        summary: 'blueprint_not_found',
+        summary: 'agent_not_installed',
       },
     };
     state = reduceTransportFrame(state, frame('2', 'message.block.upserted', payload));
-    expect(state.subagents.child?.summary).toBe('blueprint_not_found');
+    expect(state.subagents.child?.summary).toBe('agent_not_installed');
     expect(state.messages.m?.blocks).toHaveLength(1);
     expect(() =>
       reduceTransportFrame(

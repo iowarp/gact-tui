@@ -47,7 +47,7 @@ export interface A2uiCatalogSidecar {
 export interface A2uiCatalogRow {
   catalogId: string;
   protocolVersion: string;
-  source: 'builtin' | 'blueprint';
+  source: 'builtin' | 'plugin';
   checksum: string;
   componentNames: string[];
   functionNames: string[];
@@ -239,7 +239,7 @@ const a2uiCatalogFileSchema = z.object({
 export const a2uiCatalogRowSchema: z.ZodType<A2uiCatalogRow> = z.object({
   catalogId: z.string(),
   protocolVersion: z.string(),
-  source: z.enum(['builtin', 'blueprint']),
+  source: z.enum(['builtin', 'plugin']),
   checksum: z.string(),
   componentNames: z.array(z.string()),
   functionNames: z.array(z.string()),
@@ -432,7 +432,7 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
    * The ids a client should advertise in `a2uiClientCapabilities` —
    * `supportedCatalogIds()` per `docs/gact/a2ui-binding.md`: every catalog
    * whose components and functions all resolve, preference-ordered by the
-   * caller's row order (session blueprint packs, then `clio-workspace`, then
+   * caller's row order (the session agent's plugin catalogs, then `clio-workspace`, then
    * `basic` — the server route already orders installed catalogs this way).
    */
   public supportedCatalogIds(): string[] {

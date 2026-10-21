@@ -14,7 +14,6 @@ export interface AgentTaskRecord {
   child_session_id: string;
   parent_turn_id: string;
   expert_id: string;
-  blueprint_id: string;
   run_index: number;
   run_label: string;
   /** Effective status supplied by the conversation owner. */
@@ -51,8 +50,6 @@ export const agentTaskRecordSchema = z
       child_session_id: task.child_session_id,
       parent_turn_id: task.parent_turn_id ?? '',
       expert_id: typeof task.agent_ref?.expert_id === 'string' ? task.agent_ref.expert_id : '',
-      blueprint_id:
-        typeof task.agent_ref?.blueprint_id === 'string' ? task.agent_ref.blueprint_id : '',
       run_index: task.run_index ?? 0,
       run_label: task.run_label ?? '',
       status: task.status ?? '',

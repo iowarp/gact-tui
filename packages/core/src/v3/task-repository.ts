@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { flowRunSchema, type FlowRun } from './flow-run-domain.js';
 import { ResponseFeedbackRepository } from './response-feedback-repository.js';
+import { TransportError } from './transport.js';
 
 const coreReferenceSchema = z.object({
   session_id: z.string(),
@@ -175,6 +177,29 @@ export class TaskRepository extends ResponseFeedbackRepository {
         z.object({ handle: z.string(), session_id: z.string(), status: z.string() }).parse(value),
       signal,
     });
+  }
+
+  /**
+   * The flow run checkpointed under a task, or `null` when that task runs no
+   * flow. A plan run carries its live nodes, proposals awaiting approval and
+   * any typed stall.
+   */
+  public async taskFlow(
+    sessionId: string,
+    handle: string,
+    signal?: AbortSignal,
+  ): Promise<FlowRun | null> {
+    try {
+      return await this.transport.request({
+        method: 'GET',
+        path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/${encodeURIComponent(handle)}/flow`,
+        decode: (value) => flowRunSchema.parse(value),
+        signal,
+      });
+    } catch (error) {
+      if (error instanceof TransportError && error.status === 404) return null;
+      throw error;
+    }
   }
 
   public async cancelTasks(
