@@ -281,7 +281,7 @@ func TestCapabilityGatedCommandsHiddenWhenUnsupported(t *testing.T) {
 		{"/prompts", func(c *gact.CapabilityFlags) { c.XClioPromptRegistry = true }},
 		{"/doctor", func(c *gact.CapabilityFlags) { c.IntegrationHealth = true }},
 		{"/memory", func(c *gact.CapabilityFlags) { c.Memory = true }},
-		{"/skills", func(c *gact.CapabilityFlags) { c.SkillsExtraction = true }},
+		{"/skills", func(c *gact.CapabilityFlags) { c.XClioAgentPlugins = true }},
 	}
 
 	inPalette := func(a *App, id string) bool {

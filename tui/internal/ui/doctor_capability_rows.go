@@ -68,7 +68,7 @@ func doctorCapabilityRows(caps gact.Capabilities) []capRow {
 		{"hooks", caps.Capabilities.Hooks, capVendor, capUIGated, "CLI support exists; TUI management not primary"},
 		{"session_sharing", caps.Capabilities.SessionSharing, capVendor, capUINotSurfaced, "not surfaced in current TUI"},
 		{"agent_write", caps.Capabilities.AgentWrite, capVendor, capUINotSurfaced, "agents are saved and deleted in the web app"},
-		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor, capUIFull, "current-session extraction surfaced from agents catalog"},
+		{"skills_extraction", caps.Capabilities.SkillsExtraction, capVendor, capUINotSurfaced, "not surfaced; skills come from the agent's plugins"},
 		{"x_clio_cancellation", caps.Capabilities.XClioCancellation != "" && caps.Capabilities.XClioCancellation != "none", capVendor, capUIPartial, "capability visible; Ctrl+X and /cancel post POST /v1/sessions/{id}/cancel when a session is active; #104 release proof remains required"},
 		{"x_clio_executor_cancellation", caps.Capabilities.XClioExecutorCancellation, capVendor, capUIPartial, "capability visible; executor cancel is backend/runtime behavior surfaced through Ctrl+X, /cancel, truthful request state, and errors; #104 release proof remains required"},
 		{"x_clio_text_streaming", caps.Capabilities.XClioTextStreaming != "" && caps.Capabilities.XClioTextStreaming != "none", capVendor, capUIFull, "streaming state and fallback rendering"},

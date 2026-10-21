@@ -226,8 +226,8 @@ consumers have an authority for the values.
     "edit_modes": true,               // Aider-style multi-mode (Session.edit_mode: diff/whole/patch)
     "plan_mode": true,                // read-only plan mode (Session.mode: chat/plan/edit/architect)
     "search_messages": true,          // §6.3 — full-text search across messages
-    "agent_write": true,              // §6.5 — POST/PUT/DELETE on /v1/agents
-    "skills_extraction": true,        // §6.5 — POST /v1/agents/extract
+    "agent_write": false,             // §6.5 — POST/PUT/DELETE on /v1/agents (clio: false; user agents via §6.21)
+    "skills_extraction": false,       // §6.5 — POST /v1/agents/extract (clio: false)
 
     // --- v0.2 generic additions ---
     "agent_routing": true,            // §4.3.1 — multi-tier agents + routing decisions
@@ -1136,6 +1136,14 @@ A backend that does NOT support subagents reports `capabilities.subagents = fals
 
 Lists the agent personas / recipes the backend can spawn. Reads always work; writes are gated by `capabilities.agent_write`.
 
+> **clio.** A backend advertising `x_clio_agent_plugins` (§6.21) reports
+> `agent_write = false` and `skills_extraction = false`: it serves none of the
+> write or extraction routes below, and `GET /v1/agents` returns the plugin agent
+> catalog of §6.21 instead of `AgentDef` rows. User agents (a parent agent plus a
+> plugin delta) are saved with `POST /v1/agents/user` and removed with
+> `DELETE /v1/agents/user/{id}`; clients gate that UI on `x_clio_agent_plugins`,
+> not on `agent_write`.
+
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/v1/agents` | query: `workspace_id?, source?, tier?` | `{agents: AgentDef[]}` |
@@ -1193,7 +1201,7 @@ Lists the agent personas / recipes the backend can spawn. Reads always work; wri
 > `skills`/`commands`/`capability_refs`, `enabled`, and
 > `validation_errors`. `?tier=N` filters by tier.
 
-The extraction endpoint analyzes a completed session and synthesizes a reusable agent definition. Backends that don't implement this report `capabilities.skills_extraction = false` and return `501`.
+The extraction endpoint analyzes a completed session and synthesizes a reusable agent definition. Backends that don't implement this report `capabilities.skills_extraction = false` and return `501` (clio does not implement it; its skills come from plugins, §6.21).
 
 ### §6.6 Tools
 
@@ -2999,9 +3007,9 @@ The 10 questions raised during design review are decided here. Several are expli
 
 7. **WebSocket events: out of v0.1.** Bidirectional WS gives no advantage over our REST-POST + SSE pairing for the TUI use case. *Trigger to revisit:* features needing client-pushed real-time events upstream (e.g. mouse-share for pair programming).
 
-8. **Agent write API: yes** (§6.5). `POST/PUT/DELETE /v1/agents/{id}` gated by `capabilities.agent_write`. Goose-style recipes are a primary user-extension surface; without a write API the contract can't expose them.
+8. **Agent write API: yes** (§6.5). `POST/PUT/DELETE /v1/agents/{id}` gated by `capabilities.agent_write`. Goose-style recipes are a primary user-extension surface; without a write API the contract can't expose them. clio advertises `agent_write = false` and saves user agents through the plugin routes instead (§6.21).
 
-9. **Skills are agents** with `source: "skill"` (§6.5). Backends doing automated extraction from past sessions (Gemini-style) expose `POST /v1/agents/extract?session_id=...`, gated by `capabilities.skills_extraction`. No dedicated namespace — that would fragment the agent picker UI.
+9. **Skills are agents** with `source: "skill"` (§6.5). Backends doing automated extraction from past sessions (Gemini-style) expose `POST /v1/agents/extract?session_id=...`, gated by `capabilities.skills_extraction`. No dedicated namespace — that would fragment the agent picker UI. clio advertises `skills_extraction = false`; its skills come from plugins (§6.21).
 
 10. **Telemetry: yes, `GET /v1/metrics`** (§6.16). Standard counters (sessions, messages, tokens, cost, by-provider), gated by `capabilities.metrics`. Vendor-specific counters go under `x_<vendor>_<key>`.
 

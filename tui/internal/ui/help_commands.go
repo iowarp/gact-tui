@@ -67,7 +67,7 @@ func (m *helpModal) commandSupported(id string) bool {
 	case "/memory":
 		return a.session.caps.Capabilities.Memory
 	case "/skills":
-		return a.session.caps.Capabilities.SkillsExtraction
+		return a.session.caps.Capabilities.XClioAgentPlugins
 	default:
 		return true
 	}

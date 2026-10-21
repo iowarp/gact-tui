@@ -64,7 +64,7 @@ func TestDoctorCapabilityRowsExposeTUISupportStatus(t *testing.T) {
 		"attachments_upload":                 capUIFull,
 		"multimodal_image_parts":             capUIGated,
 		"agent_write":                        capUINotSurfaced,
-		"skills_extraction":                  capUIFull,
+		"skills_extraction":                  capUINotSurfaced,
 		"x_clio_prompt_registry":             capUIFull,
 		"x_clio_agent_plugins":               capUIPartial,
 		"x_clio_user_questions":              capUIFull,
