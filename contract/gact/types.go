@@ -197,8 +197,7 @@ type CapabilityFlags struct {
 	XClioStreamFallbackReasons     map[string]any `json:"x_clio_stream_fallback_reasons,omitempty"`
 	XClioDirectDeletePermissions   bool           `json:"x_clio_direct_delete_permissions,omitempty"`
 	XClioPromptRegistry            bool           `json:"x_clio_prompt_registry"`
-	XClioExpertPacks               bool           `json:"x_clio_expert_packs,omitempty"`
-	XClioAgentBlueprints           bool           `json:"x_clio_agent_blueprints,omitempty"`
+	XClioAgentPlugins              bool           `json:"x_clio_agent_plugins,omitempty"`
 	XClioUserQuestions             bool           `json:"x_clio_user_questions,omitempty"`
 	XClioRetryAttempts             bool           `json:"x_clio_retry_attempts,omitempty"`
 	XClioContextFrames             bool           `json:"x_clio_context_frames,omitempty"`
