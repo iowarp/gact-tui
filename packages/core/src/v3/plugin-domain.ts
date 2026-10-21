@@ -249,12 +249,83 @@ export const agentResolutionSchema = z.object({
 
 export type AgentResolution = z.infer<typeof agentResolutionSchema>;
 
+/**
+ * How a plugin change reaches the model (`PATCH /v1/sessions/{sid}/agent`
+ * `apply`). The system prompt and tool list lead the provider's prompt cache,
+ * so any change invalidates it:
+ *
+ * - `now`: the next call carries the new prompt and tools and rebuilds the cache.
+ * - `compact`: the session is compacted now and the change goes in with it.
+ * - `note`: the prompt keeps what the model already has; each turn carries a
+ *   `plugin_change` injection until the next compaction settles it.
+ */
+export const pluginChangeApplyModes = ['now', 'compact', 'note'] as const;
+
+export type PluginChangeApply = (typeof pluginChangeApplyModes)[number];
+
+/** The injection source of the note that tells the model about a plugin change. */
+export const PLUGIN_CHANGE_INJECTION_SOURCE = 'plugin_change';
+
+/**
+ * What the model's cached prompt is built from, next to the pinned resolution.
+ * `pending` while a change applied as a note has not joined the prompt.
+ */
+export const promptBasisSchema = z.object({
+  digest: z.string().default(''),
+  pending: z.boolean().default(false),
+  /** Plugins the resolution has and the prompt does not (announced by the note). */
+  added: strings,
+  /** Plugins the prompt still carries that the resolution dropped. */
+  removed: strings,
+  skills_now: strings,
+  tools_unlisted: strings,
+  tools_still_listed: strings,
+});
+
+export type PromptBasis = z.infer<typeof promptBasisSchema>;
+
+/** The error envelope a route returns: `{error: {error, message, ...}}`. */
+const errorEnvelopeSchema = z
+  .object({
+    error: z
+      .object({ error: z.string().default(''), message: z.string().default('') })
+      .passthrough(),
+  })
+  .passthrough();
+
+/** `apply: "compact"`: the compaction that ran with the change, or why it did not. */
+export const pluginChangeCompactionSchema = z
+  .object({
+    compacted: z.boolean().default(false),
+    /** A typed skip (nothing to compact): the change applied at once. */
+    reason: z.string().optional(),
+    /** One entry per compacted scope. */
+    compactions: z.array(z.unknown()).optional(),
+    /** The compaction failed: the change stays held as a note. */
+    error: errorEnvelopeSchema.optional(),
+  })
+  .passthrough();
+
+export type PluginChangeCompaction = z.infer<typeof pluginChangeCompactionSchema>;
+
+/** The readable reason a change's compaction failed, from its error envelope. */
+export function pluginChangeCompactionError(
+  compaction: PluginChangeCompaction | undefined,
+): string | undefined {
+  const error = compaction?.error?.error;
+  if (!error) return undefined;
+  return error.message || error.error || 'The service did not report a reason.';
+}
+
 /** `GET|PATCH /v1/sessions/{sid}/agent`: the session's pinned resolution and live delta. */
 export const sessionAgentSchema = z.object({
   session_id: z.string(),
   delta: agentDeltaSchema.default(emptyAgentDelta),
   subagent: z.boolean().default(false),
   resolution: agentResolutionSchema,
+  prompt_basis: promptBasisSchema.default({}),
+  /** Only on a `PATCH` with `apply: "compact"`. */
+  compaction: pluginChangeCompactionSchema.optional(),
 });
 
 export type SessionAgent = z.infer<typeof sessionAgentSchema>;

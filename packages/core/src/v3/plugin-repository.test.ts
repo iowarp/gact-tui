@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { RecordingTransport } from './recording-transport.test-helper.js';
 import { ClioRepository } from './repository.js';
-import { deltaWith, emptyAgentDelta, pluginReferenceId } from './plugin-domain.js';
+import {
+  deltaWith,
+  emptyAgentDelta,
+  pluginChangeCompactionError,
+  pluginReferenceId,
+} from './plugin-domain.js';
 
 const resolution = {
   agent: { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent' },
@@ -84,7 +89,16 @@ describe('PluginRepository contracts', () => {
         removes: [{ id: 'xlsx', reason: { reason: 'cascade', because: 'document-runtime' } }],
         tools_removed: ['prepare_document'],
       },
-      { session_id: 'sess 1', delta: { add: ['hdf5'], remove: [] }, resolution },
+      {
+        session_id: 'sess 1',
+        delta: { add: ['hdf5'], remove: [] },
+        resolution,
+        prompt_basis: { digest: 'b', pending: true, added: ['hdf5'] },
+        compaction: {
+          compacted: false,
+          error: { error: { error: 'compaction_failed', message: 'model timed out' } },
+        },
+      },
       { ref: 'user/mine', id: 'mine', kind: 'user', extends: 'clio/standard' },
       { deleted: 'user/mine' },
     ]);
@@ -109,8 +123,11 @@ describe('PluginRepository contracts', () => {
     expect(removal.removes[0]?.reason.reason).toBe('cascade');
     const pinned = await repository.updateSessionAgent('sess 1', {
       delta: { add: ['hdf5'], remove: [] },
+      apply: 'compact',
     });
     expect(pinned.delta.add).toEqual(['hdf5']);
+    expect(pinned.prompt_basis).toMatchObject({ pending: true, added: ['hdf5'], removed: [] });
+    expect(pluginChangeCompactionError(pinned.compaction)).toBe('model timed out');
     await repository.saveUserAgent({
       id: 'mine',
       extends: 'clio/standard',
@@ -134,7 +151,7 @@ describe('PluginRepository contracts', () => {
       {
         method: 'PATCH',
         path: '/v1/sessions/sess%201/agent',
-        body: { add: ['hdf5'], remove: [] },
+        body: { add: ['hdf5'], remove: [], apply: 'compact' },
       },
       {
         method: 'POST',

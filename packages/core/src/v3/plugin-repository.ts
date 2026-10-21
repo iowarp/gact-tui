@@ -16,6 +16,7 @@ import {
   type PluginCheckReport,
   type PluginMarketplace,
   type RemovalPreview,
+  type PluginChangeApply,
   type SessionAgent,
 } from './plugin-domain.js';
 import { SessionObservabilityRepository } from './session-observability-repository.js';
@@ -188,11 +189,12 @@ export class PluginRepository extends SessionObservabilityRepository {
 
   /**
    * Change the session's agent or its delta and pin the new resolution. The
-   * delta replaces the session's whole delta; it is not merged.
+   * delta replaces the session's whole delta; it is not merged. `apply` says
+   * how the change reaches the model; the service defaults to `now`.
    */
   public updateSessionAgent(
     sessionId: string,
-    input: { ref?: string; delta?: AgentDelta },
+    input: { ref?: string; delta?: AgentDelta; apply?: PluginChangeApply },
     signal?: AbortSignal,
   ): Promise<SessionAgent> {
     return this.transport.request({
@@ -201,6 +203,7 @@ export class PluginRepository extends SessionObservabilityRepository {
       body: {
         ...(input.ref ? { ref: input.ref } : {}),
         ...(input.delta ? { add: input.delta.add, remove: input.delta.remove } : {}),
+        ...(input.apply ? { apply: input.apply } : {}),
       },
       decode: (value) => sessionAgentSchema.parse(value),
       signal,
