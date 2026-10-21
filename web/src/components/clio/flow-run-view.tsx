@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFlowRun, useOpenTaskHandle } from '@/hooks/use-flow-run';
+import { ContentMarkdown } from './content-markdown';
 import { FlowPlanGraph } from './flow-plan-graph';
 import { flowCallStatus, flowRunStatus, planNodeStatus } from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
@@ -325,9 +326,10 @@ function FlowResult({ result }: { result: unknown }) {
     <section aria-label="Flow result" className="grid gap-2">
       <h3 className="text-sm font-semibold">Result</h3>
       {typeof answer === 'string' ? (
-        <p className="whitespace-pre-wrap rounded-lg border bg-card p-3 text-sm leading-6">
+        // The answer is the model's Markdown, rendered as the conversation renders it.
+        <ContentMarkdown className="rounded-lg border bg-card p-3 text-sm leading-6">
           {answer}
-        </p>
+        </ContentMarkdown>
       ) : (
         <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border bg-card p-3 font-mono text-xs">
           {JSON.stringify(answer, null, 2)}
