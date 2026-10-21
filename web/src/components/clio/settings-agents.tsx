@@ -88,38 +88,42 @@ export function AgentSettings() {
           Loading agents…
         </p>
       ) : null}
-      <section aria-label="Your agents" className="grid gap-2">
-        <h2 className="text-sm font-semibold">Your agents</h2>
-        {!agents.isPending && !mine.length ? (
-          <p className="text-sm text-muted-foreground">
-            None yet. Change a conversation&apos;s plugins, then choose Save as agent.
-          </p>
-        ) : null}
-        <ul className="grid gap-2">
-          {mine.map((agent) => (
-            <AgentRow
-              agent={agent}
-              agents={agents.data ?? []}
-              key={agent.ref}
-              onDelete={() => setDeleting(agent)}
-              onPreview={() => setPreviewing(agent)}
-            />
-          ))}
-        </ul>
-      </section>
-      <section aria-label="Installed agents" className="grid gap-2">
-        <h2 className="text-sm font-semibold">Installed agents</h2>
-        <ul className="grid gap-2">
-          {installed.map((agent) => (
-            <AgentRow
-              agent={agent}
-              agents={agents.data ?? []}
-              key={agent.ref}
-              onPreview={() => setPreviewing(agent)}
-            />
-          ))}
-        </ul>
-      </section>
+      {agents.data ? (
+        <>
+          <section aria-label="Your agents" className="grid gap-2">
+            <h2 className="text-sm font-semibold">Your agents</h2>
+            {!mine.length ? (
+              <p className="text-sm text-muted-foreground">
+                None yet. Change a conversation&apos;s plugins, then choose Save as agent.
+              </p>
+            ) : null}
+            <ul className="grid gap-2">
+              {mine.map((agent) => (
+                <AgentRow
+                  agent={agent}
+                  agents={agents.data ?? []}
+                  key={agent.ref}
+                  onDelete={() => setDeleting(agent)}
+                  onPreview={() => setPreviewing(agent)}
+                />
+              ))}
+            </ul>
+          </section>
+          <section aria-label="Installed agents" className="grid gap-2">
+            <h2 className="text-sm font-semibold">Installed agents</h2>
+            <ul className="grid gap-2">
+              {installed.map((agent) => (
+                <AgentRow
+                  agent={agent}
+                  agents={agents.data ?? []}
+                  key={agent.ref}
+                  onPreview={() => setPreviewing(agent)}
+                />
+              ))}
+            </ul>
+          </section>
+        </>
+      ) : null}
       <AlertDialog
         open={Boolean(deleting)}
         onOpenChange={(open) => (open ? undefined : setDeleting(undefined))}

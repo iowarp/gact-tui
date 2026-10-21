@@ -91,9 +91,14 @@ export function removalSet(preview: RemovalPreview): string[] {
 
 /** A short name for an agent reference when the installed list does not carry it. */
 export function agentDisplayName(ref: string, agents: readonly AgentEntry[] | undefined): string {
-  const agent = agents?.find((row) => row.ref === ref);
+  // A parent reference may carry a version range (`standard@^1`) or omit the marketplace.
+  const name = ref.split('@', 1)[0]!;
+  const id = name.split('/').at(-1) ?? name;
+  const byId = agents?.filter((row) => row.id === id) ?? [];
+  const agent =
+    agents?.find((row) => row.ref === name) ?? (byId.length === 1 ? byId[0] : undefined);
   if (agent?.name) return agent.name;
-  return ref.split('/').at(-1) || ref || 'Agent';
+  return id || ref || 'Agent';
 }
 
 /** Suggest a user-agent id from a name: lowercase words joined by dashes. */
