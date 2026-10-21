@@ -100,7 +100,7 @@ export function AgentPluginTree({
           onCompact={readOnly ? undefined : onCompact}
         />
       ) : null}
-      <div className="grid gap-1">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">Select a plugin to see what it adds.</p>
           <Button
@@ -115,14 +115,17 @@ export function AgentPluginTree({
             {allExpanded ? 'Collapse all' : 'Expand all'}
           </Button>
         </div>
-        <ul aria-label="Active plugins" className="grid gap-0.5">
+        <ul aria-label="Active plugins" className="grid grid-cols-[minmax(0,1fr)] gap-0.5">
           {resolution.plugins
             .filter((plugin) => !nested(plugin))
             .map((plugin) => (
               <li key={plugin.id}>
                 {node(plugin)}
                 {plugin.kind === 'pack' ? (
-                  <ul aria-label={`Members of ${plugin.id}`} className="ml-[0.9rem] grid">
+                  <ul
+                    aria-label={`Members of ${plugin.id}`}
+                    className="ml-[0.9rem] grid grid-cols-[minmax(0,1fr)]"
+                  >
                     {plugin.members.map((member) => {
                       const row = byId.get(member);
                       return (
