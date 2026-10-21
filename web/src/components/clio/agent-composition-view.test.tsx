@@ -75,14 +75,17 @@ const resolution: AgentResolution = {
     plugin('document-runtime', { source: 'required', via: 'pdf', label: 'required by pdf' }),
   ],
   removed: [],
-  tools: [{ name: 'shell_run', plugin: 'shell', description: '' }],
-  skills: [],
+  tools: [
+    { name: 'shell_run', plugin: 'shell', description: '' },
+    { name: 'prepare_document', plugin: 'document-runtime', description: '' },
+  ],
+  skills: [{ id: 'gh-releases', plugin: 'shell', description: 'Cut a release with gh.' }],
   subagents: [],
   flows: [],
   hooks: [],
   commands: [],
   catalogs: [],
-  mcp_servers: {},
+  mcp_servers: { 'pdf-reader': { plugin: 'pdf', spec: { type: 'stdio' } } },
   prompt: {
     sections: [
       {
@@ -196,6 +199,82 @@ describe('AgentCompositionView', () => {
     expect(screen.getByText('Removed by you')).toBeVisible();
   });
 
+  it('summarizes what each plugin adds on its line', async () => {
+    renderView();
+    const active = await screen.findByRole('list', { name: 'Active plugins' });
+    expect(within(active).getByText('1 tool · 1 skill · 1 prompt part')).toBeVisible();
+    expect(within(active).getByText('1 MCP server')).toBeVisible();
+    expect(within(active).getByText('1 tool')).toBeVisible();
+    expect(within(active).getAllByText('Nothing of its own')).toHaveLength(1);
+  });
+
+  it('expands a plugin to the details the resolution reports and collapses it again', async () => {
+    const user = userEvent.setup();
+    renderView();
+    const toggle = await screen.findByRole('button', { name: 'shell' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('group', { name: 'shell details' })).toBeNull();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const details = screen.getByRole('group', { name: 'shell details' });
+    expect(within(details).getByText('shell plugin')).toBeVisible();
+    expect(within(details).getByText('shell_run')).toBeVisible();
+    expect(within(details).getByText('gh-releases')).toBeVisible();
+    expect(within(details).getByText('Cut a release with gh.')).toBeVisible();
+    expect(within(details).getByText('shell.prefer-gh')).toBeVisible();
+    expect(within(details).getByText('Capabilities · about 12 tokens')).toBeVisible();
+    expect(within(details).getByText('Version 1.0.0 · from clio')).toBeVisible();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('group', { name: 'shell details' })).toBeNull();
+  });
+
+  it('expands pack members by keyboard and names requirements both ways', async () => {
+    const user = userEvent.setup();
+    renderView();
+    const members = await screen.findByRole('list', { name: 'Members of documents' });
+    within(members).getByRole('button', { name: 'pdf' }).focus();
+    await user.keyboard('{Enter}');
+    const pdf = screen.getByRole('group', { name: 'pdf details' });
+    expect(within(pdf).getByText('Requires')).toBeVisible();
+    expect(within(pdf).getByText('document-runtime')).toBeVisible();
+    expect(within(pdf).getByText('pdf-reader')).toBeVisible();
+    expect(within(pdf).getByText('stdio')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'document-runtime' }));
+    const runtime = screen.getByRole('group', { name: 'document-runtime details' });
+    expect(within(runtime).getByText('Required by')).toBeVisible();
+    expect(within(runtime).getByText('pdf')).toBeVisible();
+    expect(within(runtime).getByText('prepare_document')).toBeVisible();
+  });
+
+  it('expands and collapses every plugin at once', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(await screen.findByRole('button', { name: 'Expand all' }));
+    expect(screen.getAllByRole('group', { name: / details$/u })).toHaveLength(5);
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }));
+    expect(screen.queryAllByRole('group', { name: / details$/u })).toHaveLength(0);
+  });
+
+  it('says a pack left because none of its members remain', async () => {
+    repository.sessionAgent.mockResolvedValue({
+      ...sessionAgent,
+      resolution: {
+        ...resolution,
+        removed: [
+          { id: 'docx', reason: 'cascade', because: 'document-runtime' },
+          { id: 'slides', reason: 'pack_empty', because: '' },
+        ],
+      },
+    });
+    renderView();
+    const removed = await screen.findByRole('region', { name: 'Removed plugins' });
+    expect(within(removed).getByText('Left because none of its members remain')).toBeVisible();
+    expect(
+      within(removed).getByText('Left with document-runtime, which it requires'),
+    ).toBeVisible();
+  });
+
   it('previews the cascade before a removal and applies the whole delta only on confirm', async () => {
     const user = userEvent.setup();
     repository.previewPluginRemoval.mockResolvedValue({
@@ -203,6 +282,7 @@ describe('AgentCompositionView', () => {
       removes: [
         { id: 'pdf', reason: { reason: 'cascade', because: 'document-runtime' } },
         { id: 'document-runtime', reason: { reason: 'removed', because: '' } },
+        { id: 'documents', reason: { reason: 'pack_empty', because: '' } },
       ],
       tools_removed: ['prepare_document'],
     });
@@ -211,6 +291,7 @@ describe('AgentCompositionView', () => {
     const dialog = await screen.findByRole('alertdialog');
     expect(await within(dialog).findByText('pdf')).toBeVisible();
     expect(within(dialog).getByText('requires document-runtime')).toBeVisible();
+    expect(within(dialog).getByText('none of its members remain')).toBeVisible();
     expect(within(dialog).getByText('prepare_document')).toBeVisible();
     expect(repository.previewPluginRemoval).toHaveBeenCalledWith({
       ref: 'clio/standard',
@@ -218,7 +299,7 @@ describe('AgentCompositionView', () => {
       delta: { add: [], remove: ['xlsx'] },
     });
     expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: 'Remove 2 plugins' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Remove 3 plugins' }));
     await waitFor(() =>
       expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
         delta: { add: [], remove: ['xlsx', 'document-runtime'] },

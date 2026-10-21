@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   agentDisplayName,
   provenanceLabel,
+  removalPreviewReason,
+  removedPluginReason,
   unwrapFragmentText,
   userAgentId,
 } from './plugin-presentation';
@@ -68,5 +70,22 @@ describe('plugin presentation', () => {
         'Body under it.',
       ].join('\n'),
     );
+  });
+
+  it('says why a plugin left: a requirement, its pack, or an empty pack', () => {
+    expect(removedPluginReason({ id: 'pdf', reason: 'cascade', because: 'document-runtime' })).toBe(
+      'Left with document-runtime, which it requires',
+    );
+    expect(removedPluginReason({ id: 'pdf', reason: 'removed', because: 'documents' })).toBe(
+      'Left with its pack documents',
+    );
+    expect(removedPluginReason({ id: 'documents', reason: 'pack_empty', because: '' })).toBe(
+      'Left because none of its members remain',
+    );
+    expect(removalPreviewReason({ reason: 'pack_empty', because: '' })).toBe(
+      'none of its members remain',
+    );
+    expect(removalPreviewReason({ reason: 'cascade', because: 'shell' })).toBe('requires shell');
+    expect(removalPreviewReason({ reason: 'removed', because: '' })).toBe('leaves with it');
   });
 });

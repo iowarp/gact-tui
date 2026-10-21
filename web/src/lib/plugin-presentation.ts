@@ -2,8 +2,12 @@ import {
   sessionAgentRef,
   type AgentEntry,
   type AgentResolution,
+  pluginReferenceId,
+  type PluginDiagnostic,
   type PluginProvenance,
+  type PromptFragment,
   type RemovalPreview,
+  type RemovedPlugin,
   type ResolvedPlugin,
 } from '@clio/core/v3';
 
@@ -148,4 +152,111 @@ export function sessionAgentLabel(
   const ref = sessionAgentRef(session);
   if (ref) return agentDisplayName(ref, agents);
   return session?.agent_id || undefined;
+}
+
+type Contribution = AgentResolution['skills'][number];
+
+/** An MCP server a plugin starts, with its transport type when the service reports one. */
+export interface PluginMcpServer {
+  name: string;
+  type: string;
+}
+
+/** Everything the resolution attributes to one plugin, plus the plugins that require it. */
+export interface PluginContributions {
+  tools: string[];
+  skills: Contribution[];
+  fragments: PromptFragment[];
+  mcpServers: PluginMcpServer[];
+  flows: Contribution[];
+  subagents: Contribution[];
+  commands: Contribution[];
+  hooks: Contribution[];
+  catalogs: Contribution[];
+  diagnostics: PluginDiagnostic[];
+  requiredBy: string[];
+}
+
+/** What the resolution reports for `pluginId`: its rows from every contribution list. */
+export function pluginContributions(
+  resolution: AgentResolution,
+  pluginId: string,
+): PluginContributions {
+  const own = <T extends { plugin?: string | null }>(rows: readonly T[]) =>
+    rows.filter((row) => row.plugin === pluginId);
+  return {
+    tools: own(resolution.tools).map((tool) => tool.name),
+    skills: own(resolution.skills),
+    fragments: resolution.prompt.sections.flatMap((section) => own(section.fragments)),
+    mcpServers: Object.entries(resolution.mcp_servers)
+      .filter(([, server]) => server.plugin === pluginId)
+      .map(([name, server]) => {
+        const spec = (server as { spec?: { type?: unknown } }).spec;
+        return { name, type: typeof spec?.type === 'string' ? spec.type : '' };
+      }),
+    flows: own(resolution.flows),
+    subagents: own(resolution.subagents),
+    commands: own(resolution.commands),
+    hooks: own(resolution.hooks),
+    catalogs: own(resolution.catalogs),
+    diagnostics: own(resolution.diagnostics),
+    requiredBy: resolution.plugins
+      .filter((plugin) => plugin.requires.some((ref) => pluginReferenceId(ref) === pluginId))
+      .map((plugin) => plugin.id),
+  };
+}
+
+function counted(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+/** A one-line count of what a plugin adds, such as "6 tools · 2 skills · 3 prompt parts". */
+export function capabilitySummary(contributions: PluginContributions): string {
+  const parts = [
+    [contributions.tools.length, 'tool'],
+    [contributions.skills.length, 'skill'],
+    [contributions.fragments.length, 'prompt part'],
+    [contributions.mcpServers.length, 'MCP server'],
+    [contributions.flows.length, 'flow'],
+    [contributions.subagents.length, 'subagent'],
+    [contributions.commands.length, 'command'],
+    [contributions.hooks.length, 'hook'],
+    [contributions.catalogs.length, 'catalog'],
+  ] as const;
+  const named = parts.filter(([count]) => count > 0).map(([count, noun]) => counted(count, noun));
+  return named.length ? named.join(' · ') : 'Nothing of its own';
+}
+
+/** A pack's member count, naming how many are active when some have left. */
+export function packMembersLabel(total: number, active: number): string {
+  const noun = total === 1 ? 'member' : 'members';
+  return active === total
+    ? `${total} ${noun}`
+    : `${active} of ${total} ${noun} in this conversation`;
+}
+
+/** Why a plugin the person did not remove left the conversation. */
+export function removedPluginReason(row: RemovedPlugin): string {
+  switch (row.reason) {
+    case 'pack_empty':
+      return 'Left because none of its members remain';
+    case 'removed':
+      return row.because ? `Left with its pack ${row.because}` : 'Removed';
+    default:
+      return row.because
+        ? `Left with ${row.because}, which it requires`
+        : 'Left with a removed requirement';
+  }
+}
+
+/** Why a plugin leaves with a removal, as the removal preview lists it. */
+export function removalPreviewReason(reason: { reason: string; because: string }): string {
+  switch (reason.reason) {
+    case 'pack_empty':
+      return 'none of its members remain';
+    case 'removed':
+      return reason.because ? `in pack ${reason.because}` : 'leaves with it';
+    default:
+      return reason.because ? `requires ${reason.because}` : 'leaves with it';
+  }
 }

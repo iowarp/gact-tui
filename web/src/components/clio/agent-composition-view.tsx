@@ -1,27 +1,19 @@
-import {
-  deltaWith,
-  pluginReferenceId,
-  emptyAgentDelta,
-  type AgentDelta,
-  type AgentResolution,
-  type ResolvedPlugin,
-} from '@clio/core/v3';
+import { deltaWith, pluginReferenceId, emptyAgentDelta, type AgentDelta } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BotIcon, BoxesIcon, PackageIcon } from 'lucide-react';
+import { BotIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { useInstalledAgents, usePluginCatalog, useSessionAgent } from '@/hooks/use-session-agent';
-import { AddIcon, RemoveIcon, SaveIcon } from '@/lib/icon-vocabulary';
-import { agentDisplayName, provenanceDetail, provenanceLabel } from '@/lib/plugin-presentation';
+import { AddIcon, SaveIcon } from '@/lib/icon-vocabulary';
+import { agentDisplayName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { AgentPluginMenu } from './agent-plugin-menu';
+import { AgentPluginTree } from './agent-plugin-tree';
 import { AgentRemovalDialog } from './agent-removal-dialog';
 import { ComposedPromptView } from './composed-prompt-view';
 import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-dialog';
@@ -185,7 +177,7 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
           <TabsTrigger value="prompt">Prompt</TabsTrigger>
         </TabsList>
         <TabsContent value="plugins" className="mt-2">
-          <PluginList
+          <AgentPluginTree
             delta={delta}
             onAddBack={(plugin) => apply(deltaWith(delta, { add: plugin }), `Added ${plugin} back`)}
             onRemove={(plugin) => {
@@ -239,191 +231,5 @@ function DeltaSummary({ delta, parentName }: { delta: AgentDelta; parentName: st
       {delta.add.length && delta.remove.length ? ';' : delta.remove.length ? ':' : ''}
       {delta.remove.length ? ` removes ${delta.remove.join(', ')}` : ''}.
     </p>
-  );
-}
-
-function PluginList({
-  resolution,
-  delta,
-  readOnly,
-  pending,
-  onRemove,
-  onAddBack,
-}: {
-  resolution: AgentResolution;
-  delta: AgentDelta;
-  readOnly: boolean;
-  pending: boolean;
-  onRemove: (plugin: string) => void;
-  onAddBack: (plugin: string) => void;
-}) {
-  const active = new Set(resolution.plugins.map((plugin) => plugin.id));
-  const packIds = new Set(
-    resolution.plugins.filter((plugin) => plugin.kind === 'pack').map((plugin) => plugin.id),
-  );
-  const nested = (plugin: ResolvedPlugin) =>
-    plugin.provenance.source === 'pack' && packIds.has(plugin.provenance.via);
-  const toolCount = (pluginId: string) =>
-    resolution.tools.filter((tool) => tool.plugin === pluginId).length;
-  const removedIds = new Set(delta.remove.map(pluginReferenceId));
-  const removedByPerson = delta.remove.filter(
-    (reference) => !active.has(pluginReferenceId(reference)),
-  );
-  const cascaded = resolution.removed.filter((row) => !removedIds.has(row.id));
-  return (
-    <div className="grid gap-4">
-      <ul aria-label="Active plugins" className="grid gap-1.5">
-        {resolution.plugins
-          .filter((plugin) => !nested(plugin))
-          .map((plugin) => (
-            <li key={plugin.id}>
-              <PluginRow
-                activeMembers={
-                  plugin.members.filter((member) =>
-                    resolution.plugins.some((candidate) => candidate.id === member),
-                  ).length
-                }
-                onRemove={readOnly ? undefined : onRemove}
-                pending={pending}
-                plugin={plugin}
-                tools={toolCount(plugin.id)}
-              />
-              {plugin.kind === 'pack' ? (
-                <ul
-                  aria-label={`Members of ${plugin.id}`}
-                  className="ml-6 mt-1.5 grid gap-1.5 border-l pl-3"
-                >
-                  {plugin.members.map((member) => {
-                    const row = resolution.plugins.find((candidate) => candidate.id === member);
-                    return (
-                      <li key={member}>
-                        {row ? (
-                          <PluginRow
-                            onRemove={readOnly ? undefined : onRemove}
-                            pending={pending}
-                            plugin={row}
-                            tools={toolCount(row.id)}
-                          />
-                        ) : (
-                          <p className="px-3 py-1.5 text-sm text-muted-foreground">
-                            {member} · not in this conversation
-                          </p>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-            </li>
-          ))}
-      </ul>
-      {removedByPerson.length || cascaded.length ? (
-        <section aria-label="Removed plugins" className="grid gap-2">
-          <h3 className="text-sm font-semibold">Removed in this conversation</h3>
-          <ul className="grid gap-1.5">
-            {removedByPerson.map((id) => (
-              <li className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" key={id}>
-                <span className="font-medium">{id}</span>
-                <span className="text-muted-foreground">Removed by you</span>
-                {readOnly ? null : (
-                  <Button
-                    className="ml-auto"
-                    disabled={pending}
-                    onClick={() => onAddBack(id)}
-                    size="xs"
-                    variant="ghost"
-                  >
-                    Add back
-                  </Button>
-                )}
-              </li>
-            ))}
-            {cascaded.map((row) => (
-              <li
-                className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
-                key={row.id}
-              >
-                <span className="font-medium">{row.id}</span>
-                <span className="text-muted-foreground">
-                  {row.because
-                    ? `Left with ${row.because}, which it requires`
-                    : 'Left with a removed requirement'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-    </div>
-  );
-}
-
-/** A pack's member count, naming how many are active when some have left. */
-function packMembersLabel(total: number, active: number): string {
-  const noun = total === 1 ? 'member' : 'members';
-  return active === total
-    ? `${total} ${noun}`
-    : `${active} of ${total} ${noun} in this conversation`;
-}
-
-function PluginRow({
-  plugin,
-  tools,
-  activeMembers,
-  pending,
-  onRemove,
-}: {
-  plugin: ResolvedPlugin;
-  tools: number;
-  /** For a pack: how many of its members are active in this conversation. */
-  activeMembers?: number;
-  pending: boolean;
-  onRemove?: (plugin: string) => void;
-}) {
-  const Icon = plugin.kind === 'pack' ? BoxesIcon : PackageIcon;
-  return (
-    <div className="flex min-w-0 items-start gap-3 rounded-lg border px-3 py-2">
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-medium">{plugin.id}</span>
-          {plugin.kind === 'pack' ? <Badge variant="secondary">Pack</Badge> : null}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge tabIndex={0} variant="outline">
-                {provenanceLabel(plugin.provenance)}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>{provenanceDetail(plugin.provenance)}</TooltipContent>
-          </Tooltip>
-          {plugin.version ? (
-            <span className="text-xs text-muted-foreground">{plugin.version}</span>
-          ) : null}
-        </div>
-        {plugin.description ? (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{plugin.description}</p>
-        ) : null}
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {plugin.kind === 'pack'
-            ? packMembersLabel(plugin.members.length, activeMembers ?? plugin.members.length)
-            : tools
-              ? `${tools} ${tools === 1 ? 'tool' : 'tools'}`
-              : 'No tools'}
-          {plugin.requires.length ? ` · needs ${plugin.requires.join(', ')}` : ''}
-        </p>
-      </div>
-      {onRemove && plugin.removable ? (
-        <Button
-          aria-label={`Remove ${plugin.id}`}
-          disabled={pending}
-          onClick={() => onRemove(plugin.id)}
-          size="icon-sm"
-          title={`Remove ${plugin.id}`}
-          variant="ghost"
-        >
-          <RemoveIcon aria-hidden="true" />
-        </Button>
-      ) : null}
-    </div>
   );
 }

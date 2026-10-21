@@ -10,6 +10,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { removalPreviewReason } from '@/lib/plugin-presentation';
 
 export interface AgentRemovalDialogProps {
   /** The plugin the person asked to remove; `undefined` closes the dialog. */
@@ -23,9 +24,10 @@ export interface AgentRemovalDialogProps {
 }
 
 /**
- * Removing a plugin removes every plugin that requires it. The dialog shows
- * the cascade the service computed before anything changes, and applies the
- * removal only when the person confirms it.
+ * Removing a plugin removes every plugin that requires it, and a pack once
+ * none of its members remain. The dialog shows the cascade the service
+ * computed before anything changes, and applies the removal only when the
+ * person confirms it.
  */
 export function AgentRemovalDialog({
   plugin,
@@ -60,14 +62,14 @@ export function AgentRemovalDialog({
                 {dependents.length === 1
                   ? 'One more plugin leaves'
                   : `${dependents.length} more plugins leave`}{' '}
-                because {dependents.length === 1 ? 'it requires' : 'they require'} {plugin}:
+                with {plugin}:
               </p>
               <ul className="grid gap-1.5">
                 {dependents.map((row) => (
                   <li className="flex flex-wrap items-center gap-2" key={row.id}>
                     <span className="font-medium">{row.id}</span>
                     <span className="text-xs text-muted-foreground">
-                      {row.reason.because ? `requires ${row.reason.because}` : 'leaves with it'}
+                      {removalPreviewReason(row.reason)}
                     </span>
                   </li>
                 ))}
