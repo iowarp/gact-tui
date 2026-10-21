@@ -48,7 +48,7 @@ it('keeps workspace disclosure separate from the common action and overflow menu
             activeSessionId=""
             activeWorkspaceId={workspace.id}
             attentions={{}}
-            blueprints={[]}
+            agents={[]}
             onAction={vi.fn()}
             onCreateSession={onCreateSession}
             onDelete={vi.fn()}

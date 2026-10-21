@@ -1,11 +1,4 @@
-import type {
-  Artifact,
-  Session,
-  SessionDiff,
-  SubagentRun,
-  ToolInvocation,
-  WorkspaceResource,
-} from '@clio/core/v3';
+import type { Artifact, Session, SessionDiff, SubagentRun, WorkspaceResource } from '@clio/core/v3';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { connectionScope } from '@/lib/connection-scope';
 import { KNOWLEDGE_OPEN_EVENT, type KnowledgeOpenRequest } from '@/lib/knowledge-navigation';
@@ -141,8 +134,8 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     (diff: SessionDiff) => revealWorkbench({ kind: 'diff', diff }),
     [revealWorkbench],
   );
-  const openWorkflow = useCallback(
-    (tool: ToolInvocation) => revealWorkbench({ kind: 'workflow', tool }),
+  const openFlow = useCallback(
+    (handle: string, label?: string) => revealWorkbench({ kind: 'flow', handle, label }),
     [revealWorkbench],
   );
 
@@ -178,7 +171,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     openDiff,
     openParentSession,
     openSubagent,
-    openWorkflow,
+    openFlow,
     openWorkspaceFile,
     openWorkspaceFolder,
     openWorkspaceResource,

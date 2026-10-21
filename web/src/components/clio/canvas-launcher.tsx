@@ -2,7 +2,6 @@ import type { SubagentRun } from '@clio/core/v3';
 import {
   ActivityIcon,
   BotIcon,
-  BoxesIcon,
   BoxIcon,
   FolderIcon,
   PaperclipIcon,
@@ -23,13 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ClioStatus } from './status';
 
-export type CanvasResourceKind =
-  | 'session'
-  | 'work'
-  | 'files'
-  | 'resources'
-  | 'artifacts'
-  | 'blueprints';
+export type CanvasResourceKind = 'session' | 'work' | 'files' | 'resources' | 'artifacts' | 'agent';
 
 /** Opens one peer canvas tab instead of nesting unrelated resource types. */
 export function CanvasLauncher({
@@ -76,8 +69,8 @@ export function CanvasLauncher({
         <DropdownMenuItem onSelect={() => onOpen('artifacts')}>
           <BoxIcon aria-hidden="true" /> Session artifacts
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('blueprints')}>
-          <BoxesIcon aria-hidden="true" /> Agent blueprints
+        <DropdownMenuItem onSelect={() => onOpen('agent')}>
+          <BotIcon aria-hidden="true" /> Conversation agent
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {openableSubagents.length && onOpenSubagent ? (

@@ -1,23 +1,7 @@
-import { queryKeys } from '@/lib/query-keys';
 import { ConnectedSourcePicker } from './connected-source-picker';
-import { BlueprintInstallView } from './blueprint-install-view';
-import { BlueprintOwnership } from './blueprint-ownership';
-import { connectionScope } from '@/lib/connection-scope';
-import type {
-  AgentBlueprint,
-  AgentBlueprintReference,
-  Artifact,
-  WorkspaceFileEntry,
-} from '@clio/core/v3';
-import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  BoxIcon,
-  BoxesIcon,
-  FileTextIcon,
-  FolderIcon,
-  SearchIcon,
-  TriangleAlertIcon,
-} from 'lucide-react';
+import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
+import { useQueryClient } from '@tanstack/react-query';
+import { BoxIcon, FileTextIcon, FolderIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
 import { RefreshAction } from './refresh-button';
 import {
   lazy,
@@ -31,7 +15,6 @@ import {
 } from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Empty,
@@ -44,24 +27,17 @@ import { Input } from '@/components/ui/input';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRepository } from '@/hooks/use-repository';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
-import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import { ClioArtifactCard } from './artifact-card';
 import { ArtifactFilters } from './artifact-filters';
-import { ClioInteractiveRow } from './interactive-row';
 import { WorkspaceFileView } from './resource-viewers';
 import { FileSearchPassage } from './file-search-passage';
 import type { FileSearchLocation } from '@/lib/search-matches';
-import { ClioStatus } from './status';
 import { WorkspaceDirectoryTree } from './workspace-directory-tree';
 
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
-);
-const BlueprintFileEditor = lazy(() =>
-  import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
 );
 export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
@@ -91,16 +67,6 @@ interface ArtifactBrowserProps {
   artifactsTruncated?: 'page_cap_reached' | 'cursor_cycle_detected';
   defaultSplit?: boolean;
   onReplaceArtifact: (artifact: Artifact) => void;
-}
-
-interface BlueprintBrowserProps {
-  blueprints: readonly AgentBlueprint[];
-  blueprintsPending?: boolean;
-  blueprintsError?: string;
-  onOpenBlueprint: (
-    blueprint: AgentBlueprint,
-    event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
-  ) => void;
 }
 
 /** Keeps the workspace tree and the selected rendered file in one navigable canvas. */
@@ -427,223 +393,6 @@ export function ArtifactBrowser({
         artifactList
       )}
     </section>
-  );
-}
-
-/** Browses installed blueprints using replace-by-default canvas navigation. */
-export function BlueprintBrowser({
-  blueprints,
-  blueprintsPending,
-  blueprintsError,
-  onOpenBlueprint,
-}: BlueprintBrowserProps) {
-  return (
-    <ScrollArea className="h-full p-3">
-      <div className="grid gap-2">
-        {blueprintsPending ? <LoadingRows label="Loading blueprints" /> : null}
-        {blueprints.map((blueprint) => (
-          <ClioInteractiveRow
-            className="cursor-pointer"
-            key={blueprint.id}
-            onClick={(event) => onOpenBlueprint(blueprint, event)}
-            onKeyDown={(event) => {
-              if (!event.shiftKey || (event.key !== 'Enter' && event.key !== ' ')) return;
-              event.preventDefault();
-              onOpenBlueprint(blueprint, event);
-            }}
-            role="button"
-            tabIndex={0}
-          >
-            <div className="flex items-start gap-3">
-              <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{blueprint.display_name}</p>
-                <BlueprintOwnership blueprint={blueprint} />
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                  {blueprint.description || 'No description provided.'}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {blueprint.materialized === false ? (
-                    <Badge variant="outline">Available</Badge>
-                  ) : (
-                    <ClioStatus value={blueprint.enabled ? 'healthy' : 'degraded'} />
-                  )}
-                  <Badge variant="outline">
-                    {blueprint.scope === 'global' ? 'All workspaces' : 'This workspace'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          </ClioInteractiveRow>
-        ))}
-        {!blueprintsPending && !blueprints.length ? (
-          <Unavailable
-            detail={blueprintsError}
-            icon={BoxesIcon}
-            label={blueprintsError ? 'Blueprints unavailable' : 'No blueprints installed'}
-          />
-        ) : null}
-      </div>
-    </ScrollArea>
-  );
-}
-
-interface BlueprintViewProps {
-  blueprint: AgentBlueprintReference;
-  workspaceId: string;
-  sessionId: string;
-}
-
-/** Renders an installed blueprint and its real server-owned files in the canvas. */
-export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintViewProps) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const owner = connectionScope(settings);
-  const queryClient = useQueryClient();
-  const catalog = useQuery({
-    queryKey: [...queryKeys.agentBlueprints(settings.endpoint, workspaceId), owner],
-    queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
-  });
-  const currentBlueprint = catalog.data?.find((row) => row.id === blueprint.id) ?? blueprint;
-  const hostRef = useRef<HTMLDivElement>(null);
-  const [stacked, setStacked] = useState(false);
-  const selectionKey = [
-    'blueprint-selected-file',
-    settings.endpoint,
-    owner,
-    blueprint.id,
-    workspaceId,
-    sessionId,
-  ];
-  const { data: selectedPath } = useQuery<string | null>({
-    queryKey: selectionKey,
-    queryFn: skipToken,
-    initialData: null,
-    enabled: false,
-    gcTime: Infinity,
-  });
-  const setSelectedPath = (path: string) => queryClient.setQueryData(selectionKey, path);
-  const files = useQuery({
-    enabled: currentBlueprint.materialized !== false,
-    queryKey: queryKeys.key(
-      'blueprint-files',
-      settings.endpoint,
-      blueprint.id,
-      workspaceId,
-      sessionId,
-      owner,
-    ),
-    queryFn: ({ signal }) =>
-      repository.agentBlueprintFiles(blueprint.id, { workspaceId, sessionId }, signal),
-  });
-  const tree = useMemo(() => buildFileTree(files.data ?? []), [files.data]);
-  const resolvedSelectedPath = useMemo(() => {
-    const entries = files.data ?? [];
-    if (selectedPath && entries.some((entry) => entry.path === selectedPath)) return selectedPath;
-    const initial =
-      entries.find((entry) => entry.type === 'file' && entry.path.toLowerCase() === 'agent.md') ??
-      entries.find((entry) => entry.type === 'file');
-    return initial?.path;
-  }, [files.data, selectedPath]);
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const update = () => setStacked(host.clientWidth < 480);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(host);
-    return () => observer.disconnect();
-  }, [currentBlueprint.materialized]);
-
-  if (currentBlueprint.materialized === false) {
-    return <BlueprintInstallView blueprint={currentBlueprint} workspaceId={workspaceId} />;
-  }
-
-  return (
-    <div className="h-full min-h-0" ref={hostRef}>
-      <ResizablePanelGroup
-        key={stacked ? 'stacked' : 'beside'}
-        orientation={stacked ? 'vertical' : 'horizontal'}
-      >
-        <ResizablePanel
-          defaultSize={stacked ? '24%' : '28%'}
-          id={`blueprint-${blueprint.id}-tree`}
-          minSize={stacked ? '110px' : '210px'}
-        >
-          <section
-            aria-label={`${currentBlueprint.display_name} files`}
-            className="flex h-full flex-col"
-          >
-            <div className="shrink-0 border-b p-3">
-              <div className="flex items-start gap-2">
-                <BoxesIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{currentBlueprint.display_name}</p>
-                  <BlueprintOwnership blueprint={currentBlueprint} />
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {currentBlueprint.enabled === undefined ? null : (
-                      <ClioStatus value={currentBlueprint.enabled ? 'healthy' : 'degraded'} />
-                    )}
-                    {currentBlueprint.version ? (
-                      <Badge variant="outline">Version {currentBlueprint.version}</Badge>
-                    ) : null}
-                    {currentBlueprint.scope ? (
-                      <Badge variant="outline">
-                        {currentBlueprint.scope === 'global'
-                          ? 'All workspaces'
-                          : currentBlueprint.scope}
-                      </Badge>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <ScrollArea className="min-h-0 flex-1 p-2">
-              {files.isPending ? (
-                <LoadingRows label="Loading blueprint files" />
-              ) : files.data?.length ? (
-                <FileTree
-                  className="rounded-none border-0 bg-transparent"
-                  onSelect={setSelectedPath}
-                  selectedPath={resolvedSelectedPath}
-                >
-                  <FileNodes nodes={tree} />
-                </FileTree>
-              ) : (
-                <Unavailable
-                  detail={files.error?.message}
-                  icon={FolderIcon}
-                  label={
-                    files.error ? 'Blueprint files unavailable' : 'Blueprint has no visible files'
-                  }
-                />
-              )}
-            </ScrollArea>
-          </section>
-        </ResizablePanel>
-        <ResizableHandle aria-label="Resize blueprint file tree" withHandle />
-        <ResizablePanel minSize={stacked ? '220px' : '320px'}>
-          {resolvedSelectedPath ? (
-            <Suspense fallback={<ResourceLoading label="Loading blueprint file" />}>
-              <BlueprintFileEditor
-                blueprintId={blueprint.id}
-                path={resolvedSelectedPath}
-                sessionId={sessionId}
-                workspaceId={workspaceId}
-              />
-            </Suspense>
-          ) : (
-            <div className="grid h-full place-items-center p-4">
-              <Unavailable
-                detail="Choose a blueprint file to inspect and edit it here."
-                icon={FileTextIcon}
-                label="Select a blueprint file"
-              />
-            </div>
-          )}
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </div>
   );
 }
 

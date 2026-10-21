@@ -37,7 +37,6 @@ describe('knowledge canvas tabs', () => {
       <ClioWorkbench
         ref={handle}
         artifacts={[]}
-        blueprints={[]}
         diffs={[]}
         files={[]}
         onApplyDiff={vi.fn()}

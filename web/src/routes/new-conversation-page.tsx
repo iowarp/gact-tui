@@ -78,12 +78,14 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     data.capabilities.data?.active_model?.provider_id;
   const model =
     defaults.data?.model_id || data.activeModel || data.capabilities.data?.active_model?.model_id;
+  const [agentChoice, setAgentChoice] = useState<string>();
   const { send, prepareFiles, discardFiles } = useSessionMutations({
     activeProvider: provider,
     activeModel: model,
     sessionId: '',
     workspaceId,
     createOnSend: true,
+    draftAgentRef: agentChoice || undefined,
   });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
   const sessions = data.allSessions.data ?? data.sessions.data ?? [];
@@ -140,7 +142,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         defaults.isSuccess &&
         data.capabilities.data?.capabilities.x_clio_workspace_warmup,
     ),
-    defaults.data?.blueprint_id,
+    defaults.data?.agent_ref,
   );
   useDesktopTitleSync({ workspace: workspace?.display_name, session: 'New conversation' });
   const error = data.workspaces.error ?? data.capabilities.error ?? defaults.error;
@@ -164,7 +166,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           activeWorkspaceId={workspaceId}
           actions={navigationActions}
           attentions={buildSessionAttentionMap(sessions, data.attentionInteractions)}
-          blueprints={data.agentBlueprints.data ?? []}
+          agents={data.installedAgents.data ?? []}
           endpoint={settings.endpoint}
           onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
           sessions={sessions}
@@ -187,6 +189,24 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               {(data.workspaces.data ?? []).map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.display_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-w-0 items-center gap-2 text-sm">
+            <span>with</span>
+            <select
+              aria-label="Conversation agent"
+              className="min-w-0 max-w-48 rounded-md border border-border bg-background px-2 py-1"
+              disabled={send.isPending}
+              onChange={(event) => setAgentChoice(event.target.value)}
+              value={agentChoice ?? defaults.data?.agent_ref ?? ''}
+            >
+              <option value="">Default agent</option>
+              {(data.installedAgents.data ?? []).map((agent) => (
+                <option key={agent.ref} value={agent.ref}>
+                  {agent.name || agent.id}
+                  {agent.kind === 'user' ? ' (yours)' : ''}
                 </option>
               ))}
             </select>
@@ -216,9 +236,6 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           resources={data.workspaceResources.data ?? []}
           resourcesError={data.workspaceResources.error?.message}
           resourcesPending={data.workspaceResources.isPending}
-          blueprints={data.agentBlueprints.data ?? []}
-          blueprintsError={data.agentBlueprints.error?.message}
-          blueprintsPending={data.agentBlueprints.isPending}
           artifacts={[]}
           diffs={[]}
           sessionView={

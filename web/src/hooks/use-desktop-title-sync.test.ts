@@ -8,31 +8,30 @@ beforeEach(() => {
 });
 
 describe('useDesktopTitleSync', () => {
-  it('writes the resolved workspace/session/blueprint into the shared store', () => {
+  it('writes the resolved workspace/session/agent into the shared store', () => {
     renderHook(() =>
-      useDesktopTitleSync({ blueprint: 'EarthScope', session: 'NDP demo', workspace: 'flat-ndp' }),
+      useDesktopTitleSync({ agent: 'EarthScope', session: 'NDP demo', workspace: 'flat-ndp' }),
     );
 
     expect(useDesktopTitleStore.getState().context).toEqual({
-      blueprint: 'EarthScope',
+      agent: 'EarthScope',
       session: 'NDP demo',
       workspace: 'flat-ndp',
     });
   });
 
-  it('also writes showsBaseAgent and the blueprint opener through, for the title bar badge', () => {
-    const onOpenBlueprint = () => undefined;
+  it('also writes the agent opener through, for the title bar badge', () => {
+    const onOpenAgent = () => undefined;
     renderHook(() =>
       useDesktopTitleSync({
-        onOpenBlueprint,
+        agent: 'CLIO',
+        onOpenAgent,
         session: 'NDP demo',
-        showsBaseAgent: true,
         workspace: 'flat-ndp',
       }),
     );
 
-    expect(useDesktopTitleStore.getState().context.showsBaseAgent).toBe(true);
-    expect(useDesktopTitleStore.getState().context.onOpenBlueprint).toBe(onOpenBlueprint);
+    expect(useDesktopTitleStore.getState().context.onOpenAgent).toBe(onOpenAgent);
   });
 
   it('re-syncs when the input changes across renders', () => {

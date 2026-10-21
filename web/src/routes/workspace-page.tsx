@@ -47,14 +47,14 @@ import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-sele
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useKnowledgeAttachment } from '@/hooks/use-knowledge-attachment';
 import { useWorkspaceResourceMap } from '@/hooks/use-workspace-resource-map';
-import { useRequestedWorkflow } from '@/hooks/use-requested-workflow';
+import { useRequestedFlow } from '@/hooks/use-requested-flow';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
 import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReferenceOrToast } from '@/lib/composer-reference-navigation';
-import { canForkSession, isManagedChildSession, showsBaseAgent } from '@/lib/session-state';
+import { canForkSession, isManagedChildSession } from '@/lib/session-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
@@ -84,13 +84,13 @@ export function WorkspacePage() {
   const diffActions = useSessionDiffActions();
   const { commands, isPending, run } = useSessionCommands(sessionId, workspaceId);
   const {
-    activeBlueprint,
+    agentLabel,
     activeEffort,
     configuredEffort,
     activeModel,
     activeProvider,
     attentionInteractions,
-    agentBlueprints,
+    installedAgents,
     allSessions,
     artifacts,
     artifactEvidence,
@@ -175,7 +175,7 @@ export function WorkspacePage() {
     openDiff,
     openParentSession,
     openSubagent,
-    openWorkflow,
+    openFlow,
     openWorkspaceFile,
     conversationNavigation,
     openWorkspaceResource,
@@ -186,15 +186,17 @@ export function WorkspacePage() {
     revealWorkbench({ kind: 'session' }),
   );
   const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
+  const openAgent = useCallback(
+    () => revealWorkbench({ kind: 'resources', section: 'agent' }),
+    [revealWorkbench],
+  );
   useDesktopTitleSync({
-    blueprint: activeBlueprint?.display_name,
-    onOpenBlueprint: () =>
-      activeBlueprint && revealWorkbench({ kind: 'blueprint', blueprint: activeBlueprint }),
+    agent: agentLabel,
+    onOpenAgent: openAgent,
     session: session?.title,
-    showsBaseAgent: showsBaseAgent(session, activeBlueprint),
     workspace: activeWorkspace?.display_name,
   });
-  useRequestedWorkflow(searchParams.get('workflow'), tools, openWorkflow);
+  useRequestedFlow(searchParams.get('flow'), openFlow);
   const workspaceResourceEntities = useWorkspaceResourceMap(workspaceResources.data);
   const openComposerReference = useCallback(
     async (reference: WorkspaceReference) => {
@@ -310,7 +312,7 @@ export function WorkspacePage() {
               activeWorkspaceId={workspaceId}
               actions={navigationActions}
               attentions={sessionAttentions}
-              blueprints={agentBlueprints.data ?? []}
+              agents={installedAgents.data ?? []}
               endpoint={settings.endpoint}
               onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
               sessions={navigationSessions}
@@ -545,7 +547,7 @@ export function WorkspacePage() {
               activeWorkspaceId={workspaceId}
               actions={navigationActions}
               attentions={sessionAttentions}
-              blueprints={agentBlueprints.data ?? []}
+              agents={installedAgents.data ?? []}
               endpoint={settings.endpoint}
               onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
               sessions={navigationSessions}
@@ -554,7 +556,7 @@ export function WorkspacePage() {
           }
           contextBar={
             <ClioSessionContextBar
-              activeBlueprint={activeBlueprint}
+              agentLabel={agentLabel}
               management={
                 session
                   ? { session, actions: navigationActions, endpoint: settings.endpoint }
@@ -573,7 +575,7 @@ export function WorkspacePage() {
               onFork={async () => {
                 await sessionHistory.fork.mutateAsync(undefined);
               }}
-              onOpenBlueprint={(blueprint) => revealWorkbench({ kind: 'blueprint', blueprint })}
+              onOpenAgent={openAgent}
               onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
               onReturnToParent={(parent) =>
                 navigate(
@@ -596,9 +598,6 @@ export function WorkspacePage() {
               artifactsError={sessionArtifacts.error?.message}
               artifactsPending={sessionArtifacts.isPending}
               artifactsTruncated={sessionArtifacts.data?.truncated}
-              blueprints={agentBlueprints.data ?? []}
-              blueprintsError={agentBlueprints.error?.message}
-              blueprintsPending={agentBlueprints.isPending}
               diffActionError={(diffActions.apply.error ?? diffActions.reject.error)?.message}
               diffActionPending={diffActions.apply.isPending || diffActions.reject.isPending}
               diffs={sessionObservability.diffs.data ?? []}
@@ -756,7 +755,7 @@ export function WorkspacePage() {
                         canForkSession(session) ? sessionHistory.fork.mutateAsync : undefined
                       }
                       onOpenSubagent={openSubagent}
-                      onOpenWorkflow={openWorkflow}
+                      onOpenFlow={openFlow}
                       onRewindToMessage={sessionHistory.rewind.mutateAsync}
                       onRetryMessage={retry.mutateAsync}
                       cancellablePendingMessageIds={cancellablePendingMessageIds}

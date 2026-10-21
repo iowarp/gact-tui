@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   // visible by default; "Hide dot files and folders" is opt-in).
   useAppearancePreferences: vi.fn(() => ({ hideDotFiles: false })),
   repository: {
-    agentBlueprints: vi.fn(async () => []),
+    agents: vi.fn(async () => []),
     allSessions: vi.fn(async () => [] as unknown[]),
     capabilities: vi.fn(async () => ({}) as unknown),
     languageModelConfiguration: vi.fn(

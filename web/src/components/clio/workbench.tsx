@@ -1,15 +1,13 @@
 import type {
-  AgentBlueprint,
-  AgentBlueprintReference,
   Artifact as ArtifactEntity,
   SessionDiff,
   SubagentRun,
-  ToolInvocation,
   WorkspaceFileEntry,
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
   ActivityIcon,
+  BotIcon,
   BoxesIcon,
   BoxIcon,
   FileCode2Icon,
@@ -52,7 +50,6 @@ import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import type { SubagentOpenTarget } from './subagent-card';
 import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
-import { workflowDescriptor } from './workflow-tool-presentation';
 import { CanvasLauncher, type CanvasResourceKind } from './workbench-resource-browser';
 import { WorkbenchTabContent } from './workbench-tab-content';
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
@@ -79,9 +76,6 @@ export interface ClioWorkbenchProps {
   resources?: readonly WorkspaceResource[];
   resourcesPending?: boolean;
   resourcesError?: string;
-  blueprints: readonly AgentBlueprint[];
-  blueprintsPending?: boolean;
-  blueprintsError?: string;
   diffs: readonly SessionDiff[];
   diffActionError?: string;
   diffActionPending?: boolean;
@@ -105,9 +99,9 @@ export type ClioWorkbenchOpenRequest =
       resource: WorkspaceResource;
       relatedResources?: readonly WorkspaceResource[];
     }
-  | { kind: 'blueprint'; blueprint: AgentBlueprintReference }
   | { kind: 'subagent'; subagent: SubagentRun }
-  | { kind: 'workflow'; tool: ToolInvocation }
+  /** A flow run (a plan, a council, ...) recorded under the task `handle`. */
+  | { kind: 'flow'; handle: string; label?: string }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
   | { kind: 'session' }
   | { kind: 'terminal'; cwd: string };
@@ -127,7 +121,10 @@ function isWorkbenchTab(value: unknown): value is WorkbenchTab {
   if (!value || typeof value !== 'object') return false;
   const row = value as Record<string, unknown>;
   return (
-    typeof row.id === 'string' && typeof row.kind === 'string' && typeof row.label === 'string'
+    typeof row.id === 'string' &&
+    typeof row.kind === 'string' &&
+    row.kind in workbenchTabIcons &&
+    typeof row.label === 'string'
   );
 }
 
@@ -174,11 +171,7 @@ const artifactBrowserTab: WorkbenchTab = {
   kind: 'artifacts',
   label: 'Artifacts',
 };
-const blueprintBrowserTab: WorkbenchTab = {
-  id: 'blueprints',
-  kind: 'blueprints',
-  label: 'Blueprints',
-};
+const agentTab: WorkbenchTab = { id: 'agent', kind: 'agent', label: 'Agent' };
 const resourceBrowserTab: WorkbenchTab = {
   id: 'resources',
   kind: 'resources',
@@ -190,7 +183,7 @@ const canvasResourceTabs = {
   session: sessionTab,
   files: fileBrowserTab,
   artifacts: artifactBrowserTab,
-  blueprints: blueprintBrowserTab,
+  agent: agentTab,
   resources: resourceBrowserTab,
 } satisfies Record<CanvasResourceKind, WorkbenchTab>;
 
@@ -200,16 +193,14 @@ const workbenchTabIcons = {
   session: ActivityIcon,
   files: FolderIcon,
   artifacts: BoxIcon,
-  blueprints: BoxesIcon,
+  agent: BotIcon,
   resources: PaperclipIcon,
   'workspace-file': FileCode2Icon,
   diff: FileDiffIcon,
-  'blueprint-file': FileCode2Icon,
   artifact: BoxIcon,
   resource: PaperclipIcon,
-  blueprint: BoxesIcon,
   subagent: BoxesIcon,
-  workflow: WorkflowIcon,
+  flow: WorkflowIcon,
   terminal: TerminalSquareIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
@@ -236,9 +227,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       resources = [],
       resourcesPending,
       resourcesError,
-      blueprints,
-      blueprintsPending,
-      blueprintsError,
       diffs,
       diffActionError,
       diffActionPending,
@@ -415,30 +403,19 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               workspaceId: request.resource.workspace_id || workspaceId,
             });
             return;
-          case 'blueprint':
+          case 'subagent':
+            openSubagentTab(request.subagent);
+            return;
+          case 'flow':
             openTab({
-              id: `blueprint:${request.blueprint.id}`,
-              kind: 'blueprint',
-              label: request.blueprint.display_name,
-              blueprint: request.blueprint,
+              id: `flow:${request.handle}`,
+              kind: 'flow',
+              label: request.label ?? 'Flow run',
+              handle: request.handle,
               sessionId,
               workspaceId,
             });
             return;
-          case 'subagent':
-            openSubagentTab(request.subagent);
-            return;
-          case 'workflow': {
-            const descriptor = workflowDescriptor(request.tool);
-            openTab({
-              id: `workflow:${request.tool.id}`,
-              kind: 'workflow',
-              label: descriptor?.label ?? request.tool.title ?? 'Workflow',
-              tool: request.tool,
-              workspaceId,
-            });
-            return;
-          }
           case 'resources':
             openCanvasResource(request.section ?? 'files');
             return;
@@ -678,9 +655,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       artifactsError={artifactsError}
                       artifactsPending={artifactsPending}
                       artifactsTruncated={artifactsTruncated}
-                      blueprints={blueprints}
-                      blueprintsError={blueprintsError}
-                      blueprintsPending={blueprintsPending}
                       diffActionError={diffActionError}
                       diffActionPending={diffActionPending}
                       diffs={diffs}
@@ -704,7 +678,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       resourcesPending={resourcesPending}
                       sessionId={sessionId}
                       sessionView={sessionView}
-                      subagents={subagents}
                       tab={tab}
                       workspaceId={workspaceId}
                     />
@@ -721,8 +694,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 </EmptyMedia>
                 <EmptyTitle>Canvas is empty</EmptyTitle>
                 <EmptyDescription>
-                  Use the add button to open observability, files, resources, artifacts, or
-                  blueprints.
+                  Use the add button to open observability, files, resources, artifacts, or the
+                  conversation&apos;s agent.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

@@ -13,7 +13,7 @@ const repository = vi.hoisted(() => ({
     edit_mode: 'diff',
     routing_mode: 'auto',
     approval_mode: 'ask',
-    blueprint_id: '',
+    agent_ref: '',
   }),
 }));
 
@@ -48,7 +48,7 @@ function actions(): ResourceActions {
 }
 
 describe('ClioResourceDialogs session creation', () => {
-  it('creates a session with an explicit blueprint and advanced behavior', async () => {
+  it('creates a session with an explicit agent and advanced behavior', async () => {
     const user = userEvent.setup();
     const resourceActions = actions();
     const queryClient = new QueryClient({
@@ -62,25 +62,25 @@ describe('ClioResourceDialogs session creation', () => {
       edit_mode: 'diff',
       routing_mode: 'auto',
       approval_mode: 'ask',
-      blueprint_id: '',
+      agent_ref: '',
     });
     render(
       <QueryClientProvider client={queryClient}>
         <ClioResourceDialogs
           actions={resourceActions}
           activeWorkspaceId="ws_ndp"
-          blueprints={[
+          agents={[
             {
+              ref: 'clio/spotter-ai',
               id: 'spotter-ai',
-              version: '0.1.0',
-              title: 'SPOTTER AI',
-              display_name: 'SPOTTER AI',
+              name: 'SPOTTER AI',
               description: 'Forensic watcher',
-              scope: 'global',
-              enabled: true,
-              validation_errors: [],
-              kind: 'blueprint',
-              metadata: {},
+              role: '',
+              version: '0.4.0',
+              marketplace: 'clio',
+              plugins: [],
+              spec_checksum: '',
+              kind: 'agent',
             },
           ]}
           createKind="session"
@@ -104,12 +104,10 @@ describe('ClioResourceDialogs session creation', () => {
     );
 
     await user.type(screen.getByRole('textbox', { name: 'Session name' }), 'Review anomaly');
-    fireEvent.click(screen.getByRole('combobox', { name: 'Agent blueprint' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Agent' }));
     fireEvent.click(screen.getByRole('option', { name: 'SPOTTER AI' }));
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Agent blueprint' })).toHaveTextContent(
-        'SPOTTER AI',
-      ),
+      expect(screen.getByRole('combobox', { name: 'Agent' })).toHaveTextContent('SPOTTER AI'),
     );
     await user.click(screen.getByRole('button', { name: 'Advanced session behavior' }));
     expect(screen.queryByRole('combobox', { name: 'Work routing' })).not.toBeInTheDocument();
@@ -133,7 +131,7 @@ describe('ClioResourceDialogs session creation', () => {
       expect(resourceActions.createSession).toHaveBeenCalledWith({
         title: 'Review anomaly',
         workspaceId: 'ws_ndp',
-        blueprintId: 'spotter-ai',
+        agentRef: 'clio/spotter-ai',
         mode: 'architect',
         routingMode: 'experts',
         approvalMode: 'spotter-ai',

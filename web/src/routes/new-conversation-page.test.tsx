@@ -70,7 +70,7 @@ vi.mock('@/hooks/use-workspace-data', () => ({
     attentionInteractions: [],
     workspaceFiles: {},
     workspaceResources: { data: [] },
-    agentBlueprints: {},
+    installedAgents: {},
     providerCatalog: {},
   }),
 }));

@@ -1,10 +1,23 @@
-import type { AgentBlueprintReference, Session } from '@clio/core/v3';
+import type { Session } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSessionContextBar } from './session-context-bar';
 const downloads = vi.hoisted(() => ({ open: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/tauri/downloads', () => ({ openDownloads: downloads.open }));
+vi.mock('./session-agent-control', () => ({
+  SessionAgentControl: ({
+    fallbackLabel,
+    onOpenAgent,
+  }: {
+    fallbackLabel?: string;
+    onOpenAgent: () => void;
+  }) => (
+    <button onClick={onOpenAgent} type="button">
+      {fallbackLabel}
+    </button>
+  ),
+}));
 
 const session: Session = {
   id: 'sess_ndp',
@@ -21,11 +34,6 @@ const session: Session = {
   archived: false,
 };
 
-const blueprint: AgentBlueprintReference = {
-  id: 'earthscope-flat',
-  display_name: 'EarthScope (Flat / Haiku)',
-};
-
 afterEach(cleanup);
 
 describe('ClioSessionContextBar', () => {
@@ -37,7 +45,7 @@ describe('ClioSessionContextBar', () => {
         actionsPending={false}
         onCompact={vi.fn()}
         onFork={onFork}
-        onOpenBlueprint={vi.fn()}
+        onOpenAgent={vi.fn()}
         onReturnToParent={vi.fn()}
         onShare={vi.fn()}
         onUndo={vi.fn()}
@@ -50,16 +58,16 @@ describe('ClioSessionContextBar', () => {
     expect(onFork).not.toHaveBeenCalled();
   });
 
-  it('opens the authoritative session blueprint from its displayed name', async () => {
+  it('opens the conversation agent from its displayed name', async () => {
     const user = userEvent.setup();
-    const onOpenBlueprint = vi.fn();
+    const onOpenAgent = vi.fn();
     render(
       <ClioSessionContextBar
         actionsPending={false}
-        activeBlueprint={blueprint}
+        agentLabel="EarthScope (Flat / Haiku)"
         onCompact={vi.fn()}
         onFork={vi.fn()}
-        onOpenBlueprint={onOpenBlueprint}
+        onOpenAgent={onOpenAgent}
         onReturnToParent={vi.fn()}
         onShare={vi.fn()}
         onUndo={vi.fn()}
@@ -69,43 +77,25 @@ describe('ClioSessionContextBar', () => {
 
     await user.click(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' }));
 
-    expect(onOpenBlueprint).toHaveBeenCalledWith(blueprint);
-    expect(screen.queryByText('Default agent')).not.toBeInTheDocument();
+    expect(onOpenAgent).toHaveBeenCalledOnce();
   });
 
-  it('identifies an unconfigured root conversation as the base agent', () => {
+  it('shows no agent control while the session is unavailable', () => {
     render(
       <ClioSessionContextBar
         actionsPending={false}
+        agentLabel="CLIO"
         onCompact={vi.fn()}
         onFork={vi.fn()}
-        onOpenBlueprint={vi.fn()}
+        onOpenAgent={vi.fn()}
         onReturnToParent={vi.fn()}
         onShare={vi.fn()}
         onUndo={vi.fn()}
-        session={session}
       />,
     );
 
-    expect(screen.getByText('Base agent')).toBeVisible();
-    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
-  });
-
-  it('does not mislabel a child agent as the base agent', () => {
-    render(
-      <ClioSessionContextBar
-        actionsPending={false}
-        onCompact={vi.fn()}
-        onFork={vi.fn()}
-        onOpenBlueprint={vi.fn()}
-        onReturnToParent={vi.fn()}
-        onShare={vi.fn()}
-        onUndo={vi.fn()}
-        session={{ ...session, agent_id: 'researcher', parent_session_id: 'sess_parent' }}
-      />,
-    );
-
-    expect(screen.queryByText('Base agent')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Session unavailable' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'CLIO' })).toBeNull();
   });
 
   it('opens native Downloads from the desktop toolbar', async () => {
@@ -117,7 +107,7 @@ describe('ClioSessionContextBar', () => {
           actionsPending={false}
           onCompact={vi.fn()}
           onFork={vi.fn()}
-          onOpenBlueprint={vi.fn()}
+          onOpenAgent={vi.fn()}
           onReturnToParent={vi.fn()}
           onShare={vi.fn()}
           onUndo={vi.fn()}
@@ -138,7 +128,7 @@ describe('ClioSessionContextBar', () => {
         actionsPending={false}
         onCompact={vi.fn()}
         onFork={vi.fn()}
-        onOpenBlueprint={vi.fn()}
+        onOpenAgent={vi.fn()}
         onReturnToParent={vi.fn()}
         onShare={vi.fn()}
         onUndo={vi.fn()}
@@ -155,10 +145,10 @@ describe('ClioSessionContextBar', () => {
       render(
         <ClioSessionContextBar
           actionsPending={false}
-          activeBlueprint={blueprint}
+          agentLabel="EarthScope (Flat / Haiku)"
           onCompact={vi.fn()}
           onFork={vi.fn()}
-          onOpenBlueprint={vi.fn()}
+          onOpenAgent={vi.fn()}
           onReturnToParent={vi.fn()}
           onShare={vi.fn()}
           onUndo={vi.fn()}

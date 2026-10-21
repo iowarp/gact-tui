@@ -89,7 +89,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       createSession: async ({
         title,
         workspaceId: targetWorkspaceId,
-        blueprintId,
+        agentRef,
         mode,
         routingMode,
         approvalMode,
@@ -100,7 +100,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
           mode,
           routing_mode: routingMode,
           approval_mode: approvalMode,
-          blueprint_id: blueprintId,
+          agent_ref: agentRef,
         });
         await refreshNavigation(targetWorkspaceId);
         await navigate(

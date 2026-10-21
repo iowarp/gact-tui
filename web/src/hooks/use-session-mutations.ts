@@ -44,6 +44,8 @@ interface UseSessionMutationsInput {
   workspaceId: string;
   /** A presentation-only entry composer materializes a session on first send. */
   createOnSend?: boolean;
+  /** The agent a session created on first send runs; omitted uses the service default. */
+  draftAgentRef?: string;
   interactionRootSessionId?: string;
   supportsUnifiedInteractions?: boolean;
 }
@@ -80,6 +82,7 @@ export function useSessionMutations({
   sessionId,
   workspaceId,
   createOnSend = false,
+  draftAgentRef,
   interactionRootSessionId = sessionId,
   supportsUnifiedInteractions = false,
 }: UseSessionMutationsInput) {
@@ -261,6 +264,7 @@ export function useSessionMutations({
             mode: sessionModeForExecution(value.behavior.execution_mode),
             routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
             approval_mode: value.behavior.confirmation_policy,
+            ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),
           })
           .catch((error: unknown) => {
             draftSession.current = null;

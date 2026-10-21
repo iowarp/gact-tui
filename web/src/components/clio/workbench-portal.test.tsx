@@ -34,7 +34,6 @@ it.each(['desktop', 'sheet'] as const)(
       <div data-slot={host === 'sheet' ? 'sheet-content' : undefined} data-testid="canvas-host">
         <ClioWorkbench
           artifacts={[]}
-          blueprints={[]}
           diffs={[]}
           files={[]}
           onApplyDiff={vi.fn()}
@@ -123,7 +122,6 @@ it.each(['desktop', 'sheet'] as const)(
     const canvas = (
       <ClioWorkbench
         artifacts={[]}
-        blueprints={[]}
         diffs={[]}
         files={[]}
         onApplyDiff={vi.fn()}
