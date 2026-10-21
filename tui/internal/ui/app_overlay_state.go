@@ -66,15 +66,6 @@ type appOverlayState struct {
 	mcpInstall mcpInstallModal
 	mcpRemove  mcpRemoveModal
 
-	// Agent blueprint install / validate overlay. Opened from the
-	// /agent-blueprints catalog action rows and shared by both workflows:
-	// install accepts a path/URL/source, validate accepts a path.
-	agentBlueprintManage agentBlueprintManageModal
-
-	// Expert-pack install overlay. Opened from /expert-packs with i so
-	// install/update/delete live in the same operator surface.
-	expertPackInstall expertPackInstallModal
-
 	// Cached MCP server list, populated each time /mcp opens. The remove
 	// modal reads from this so it doesn't need an extra round-trip.
 	mcpServers []gact.McpServer
@@ -118,9 +109,6 @@ type appOverlayState struct {
 	contextFiles contextFilesComponent
 
 	promptEdit promptEditModal
-
-	agentWrite agentWriteModal
-	agentEdit  agentEditModal
 
 	// Floating detail view (L3) - shows a bulky tool_result's full
 	// content in a scrollable modal. Opens on Ctrl+E from body focus

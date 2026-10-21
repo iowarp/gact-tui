@@ -49,10 +49,6 @@ func toolPermissionLabel(permission string) string {
 
 func operatorSourceValueLabel(source string) string {
 	switch strings.ToLower(strings.TrimSpace(source)) {
-	case "agent_blueprint":
-		return "agent blueprint"
-	case "expert_pack":
-		return "workflow pack"
 	case "builtin":
 		return "built-in"
 	default:

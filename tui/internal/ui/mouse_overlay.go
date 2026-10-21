@@ -42,9 +42,6 @@ func (c *interactionComponent) mouseOverlays() []mouseOverlay {
 		{open: a.quitConfirm.open, view: a.quitConfirm.view, closeOutside: func(app *App) { app.quitConfirm.open = false }},
 		{open: a.mcpRemove.open, view: a.mcpRemove.view, closeOutside: func(app *App) { app.mcpRemove.close() }},
 		{open: a.mcpInstall.open, view: a.mcpInstall.view, closeOutside: func(app *App) { app.mcpInstall.close() }},
-		{open: a.agentEdit.open, view: a.agentEdit.view, closeOutside: func(app *App) { app.agentEdit.close() }},
-		{open: a.expertPackInstall.open, view: a.expertPackInstall.view, closeOutside: func(app *App) { app.expertPackInstall.close() }},
-		{open: a.agentBlueprintManage.open, view: a.agentBlueprintManage.view, closeOutside: func(app *App) { app.agentBlueprintManage.close() }},
 		{
 			open:         a.filePicker.open,
 			view:         a.filePicker.view,

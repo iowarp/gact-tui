@@ -187,3 +187,20 @@ func toolsForAgent(agent gact.AgentDef, tools []gact.Tool) []gact.Tool {
 	})
 	return out
 }
+
+// pluginSkillCatalogItems lists the session agent's skills with the plugin
+// that brings each.
+func pluginSkillCatalogItems(skills []gact.PluginSkill) []catalogItem {
+	items := make([]catalogItem, 0, len(skills))
+	for _, skill := range skills {
+		desc := valuefmt.CompactCatalogText(skill.Description)
+		items = append(items, catalogItem{
+			id:         skill.ID,
+			title:      skill.ID,
+			desc:       valuefmt.FirstNonEmpty(desc, "from plugin "+skill.Plugin),
+			inlineDesc: "from plugin " + skill.Plugin,
+			statusTag:  "skill",
+		})
+	}
+	return items
+}

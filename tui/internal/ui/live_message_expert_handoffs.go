@@ -123,7 +123,7 @@ func isNoisyExpertHandoff(row map[string]any) bool {
 		valuefmt.StringValue(row["event_type"]),
 	)))
 	switch stage {
-	case "parent.resumed", "parent_resumed", "blueprint.delegation.parent_resumed":
+	case "parent.resumed", "parent_resumed", "delegation.parent_resumed":
 		return true
 	}
 	summary := strings.ToLower(strings.TrimSpace(valuefmt.FirstNonEmpty(

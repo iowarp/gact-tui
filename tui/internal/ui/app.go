@@ -24,7 +24,7 @@ type App struct {
 	session sessionComponent
 
 	// agent owns the agents domain: the right-sidebar hierarchy tree, the
-	// next-turn agent selection, blueprint/detail actions, and the agent
+	// next-turn agent selection, detail actions, and the agent
 	// message-handlers. It embeds the former appAgentHierarchyState.
 	agent agentComponent
 

@@ -47,48 +47,6 @@ func (c *catalogComponent) leadRows(listW int) catalogBrowserLeadRows {
 		out.rows = append(out.rows, t.HintLabel.Render("Expert hierarchy"))
 	case catalogKindMcpDetail:
 		out.rows = append(out.rows, t.HintLabel.Render("Connection capabilities"))
-	case catalogKindAgentDetail:
-		out.actionButtons = c.app.agent.agentDetailActionButtons()
-		if len(out.actionButtons) > 0 {
-			out.actionRow = len(out.rows) + 1
-			out.rows = append(out.rows,
-				t.HintLabel.Render("Expert actions"),
-				renderActionButtons(out.actionButtons),
-				"",
-				t.HintLabel.Render("Expert structure"),
-			)
-		}
-	case catalogKindAgentBlueprints:
-		out.rows = append(out.rows, t.HintLabel.Render("Blueprint library"))
-	case catalogKindAgentBlueprintDetail:
-		out.actionButtons = c.app.agent.agentBlueprintDetailActionButtons()
-		if len(out.actionButtons) > 0 {
-			out.actionRow = len(out.rows) + 1
-			out.rows = append(out.rows,
-				t.HintLabel.Render("Blueprint actions"),
-				renderActionButtons(out.actionButtons),
-			)
-		}
-		if status := activeAgentBlueprintDetailStatus(c.current.items); status != "" {
-			out.rows = append(out.rows,
-				t.HintLabel.Render("Blueprint status: ")+status,
-			)
-		}
-		out.rows = append(out.rows,
-			"",
-			t.HintLabel.Render("Workflow"),
-		)
-	case catalogKindAgentBlueprintSources:
-		out.actionButtons = c.app.agent.agentBlueprintSourceActionButtons()
-		if len(out.actionButtons) > 0 {
-			out.actionRow = len(out.rows) + 1
-			out.rows = append(out.rows,
-				t.HintLabel.Render(agentBlueprintSourceActionSectionTitle(c.current)),
-				renderActionButtons(out.actionButtons),
-				"",
-				t.HintLabel.Render("Sources"),
-			)
-		}
 	case catalogKindPromptDetail:
 		out.actionButtons = c.app.catalog.promptDetailActionButtons()
 		out.actionRow = len(out.rows) + 1
@@ -98,17 +56,6 @@ func (c *catalogComponent) leadRows(listW int) catalogBrowserLeadRows {
 			"",
 			t.HintLabel.Render("Prompt and profiles"),
 		)
-	case catalogKindExpertPackDetail:
-		out.actionButtons = c.app.catalog.expertPackDetailActionButtons()
-		if len(out.actionButtons) > 0 {
-			out.actionRow = len(out.rows) + 1
-			out.rows = append(out.rows,
-				t.HintLabel.Render("Pack actions"),
-				renderActionButtons(out.actionButtons),
-				"",
-				t.HintLabel.Render("Workflow"),
-			)
-		}
 	}
 	return out
 }

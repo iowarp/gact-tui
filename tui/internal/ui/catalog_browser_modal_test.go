@@ -131,12 +131,11 @@ func TestCatalogBrowser_SlashClosesCatalogAndStartsCommandInput(t *testing.T) {
 // TestCatalogBrowserTitle_AgentsAndDetail: new kinds get titles.
 func TestCatalogBrowserTitle_AgentsAndDetail(t *testing.T) {
 	cases := map[catalogBrowserKind]string{
-		catalogKindMcp:         "MCP Connections",
-		catalogKindTools:       "Tools & MCP",
-		catalogKindSkills:      "Skills",
-		catalogKindMcpDetail:   "MCP detail",
-		catalogKindAgentDetail: "Agent detail",
-		catalogKindAgents:      "Experts",
+		catalogKindMcp:       "MCP Connections",
+		catalogKindTools:     "Tools & MCP",
+		catalogKindSkills:    "Skills",
+		catalogKindMcpDetail: "MCP detail",
+		catalogKindAgents:    "Experts",
 	}
 	for k, want := range cases {
 		if got := catalogBrowserTitle(k); got != want {

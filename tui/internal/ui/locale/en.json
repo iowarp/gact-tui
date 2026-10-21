@@ -279,8 +279,6 @@
   "help.commands.skills": "list available skills",
   "help.commands.agents": "browse expert hierarchy",
   "help.commands.prompts": "browse prompt profiles",
-  "help.commands.expert_packs": "browse expert packs",
-  "help.commands.agent_blueprints": "manage blueprints",
   "help.commands.sessions": "open sessions view",
   "help.commands.theme": "open theme picker",
   "help.commands.agent": "choose session expert",

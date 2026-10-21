@@ -279,8 +279,6 @@
   "help.commands.skills": "λίστα διαθέσιμων δεξιοτήτων",
   "help.commands.agents": "περιήγηση ιεραρχίας ειδικών",
   "help.commands.prompts": "περιήγηση προφίλ prompt",
-  "help.commands.expert_packs": "περιήγηση πακέτων expert",
-  "help.commands.agent_blueprints": "διαχείριση blueprints",
   "help.commands.sessions": "άνοιγμα προβολής συνεδριών",
   "help.commands.theme": "άνοιγμα επιλογής θέματος",
   "help.commands.agent": "επιλογή ειδικού συνεδρίας",

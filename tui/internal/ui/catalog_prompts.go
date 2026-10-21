@@ -15,37 +15,37 @@ import (
 
 func promptCatalogItems(prompts []gact.PromptDefinition, scope client.RuntimeScope) []catalogItem {
 	if len(prompts) == 0 {
-		desc := "No prompt definitions are visible for this workspace/session. Open /agent-blueprints, activate the intended workflow, then reopen /prompts."
+		desc := "No prompt definitions are visible for this workspace/session. Add a plugin that ships prompts to the conversation agent, then reopen /prompts."
 		items := []catalogItem{{
 			id:         "none",
 			title:      "No prompts available",
 			desc:       desc,
-			inlineDesc: "workflow prompt library is empty",
+			inlineDesc: "prompt library is empty",
 			statusTag:  "empty",
 		}}
 		if strings.TrimSpace(scope.SessionID) == "" {
-			desc = "No session is selected, so session and workflow prompts cannot be resolved yet. Start or select a session, activate the intended workflow from /agent-blueprints, then reopen /prompts."
+			desc = "No session is selected, so session prompts cannot be resolved yet. Start or select a session, add a plugin that ships prompts to its agent, then reopen /prompts."
 			items[0].desc = desc
 			items[0].inlineDesc = "start/select a session first"
 			items = append(items, catalogItem{
 				id:         "none",
-				title:      "Then activate workflow",
-				desc:       "Open /agent-blueprints and activate the intended workflow blueprint for the selected session.",
-				inlineDesc: "open /agent-blueprints after selecting a session",
+				title:      "Then add a plugin",
+				desc:       "Add a plugin that ships prompts to the selected session's agent (in the web app's agent + menu).",
+				inlineDesc: "add a plugin after selecting a session",
 			})
 		} else {
 			items = append(items, catalogItem{
 				id:         "none",
-				title:      "Activate workflow",
-				desc:       "Open /agent-blueprints and activate the intended workflow blueprint for this session.",
-				inlineDesc: "open /agent-blueprints and activate workflow",
+				title:      "Add a plugin",
+				desc:       "Add a plugin that ships prompts to this session's agent (in the web app's agent + menu).",
+				inlineDesc: "add a plugin that ships prompts",
 			})
 		}
 		items = append(items, catalogItem{
 			id:         "none",
 			title:      "Reload prompt library",
-			desc:       "Reopen /prompts after activation so packaged workflow prompts are visible.",
-			inlineDesc: "reopen /prompts after activation",
+			desc:       "Reopen /prompts after adding the plugin so its prompts are visible.",
+			inlineDesc: "reopen /prompts after adding a plugin",
 		})
 		return items
 	}
@@ -60,8 +60,8 @@ func promptCatalogItems(prompts []gact.PromptDefinition, scope client.RuntimeSco
 		keys = append(keys, key)
 	}
 	sort.SliceStable(keys, func(i, j int) bool {
-		left := agentBlueprintProviderGroupRank(keys[i])
-		right := agentBlueprintProviderGroupRank(keys[j])
+		left := providerGroupRank(keys[i])
+		right := providerGroupRank(keys[j])
 		if left != right {
 			return left < right
 		}
@@ -123,7 +123,7 @@ func promptProviderGroupKey(p gact.PromptDefinition) string {
 }
 
 func promptProviderGroupLabel(key string) string {
-	return agentBlueprintProviderGroupLabel(key)
+	return providerGroupLabel(key)
 }
 
 func promptProviderScopeLabel(scope string) string {

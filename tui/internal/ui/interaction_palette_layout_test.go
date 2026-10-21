@@ -162,8 +162,6 @@ func TestPaletteCategoryViewUsesCommandGridInsteadOfRepeatedGroupList(t *testing
 	a.width = 150
 	a.height = 50
 	a.stage = StageReady
-	a.session.caps.Capabilities.XClioAgentBlueprints = true
-	a.session.caps.Capabilities.XClioExpertPacks = true
 	a.cmdPalette.paletteOpen = true
 	a.cmdPalette.paletteGroup = "Experts"
 
@@ -171,7 +169,7 @@ func TestPaletteCategoryViewUsesCommandGridInsteadOfRepeatedGroupList(t *testing
 	if strings.Contains(out, "Agents (") {
 		t.Fatalf("category drill-in should not repeat a flat group header:\n%s", out)
 	}
-	for _, want := range []string{"/agent-blueprints", "/experts", "/expert-packs", "Manage agent blueprints"} {
+	for _, want := range []string{"/experts"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("category command grid missing %q:\n%s", want, out)
 		}

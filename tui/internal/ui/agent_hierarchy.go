@@ -71,7 +71,7 @@ func (c *agentComponent) openSelectedAgentHierarchyDetail() tea.Cmd {
 func (c *agentComponent) renderAgentHierarchyModuleRows(width int, startRow int, rowBudget int) []string {
 	t := c.app.Theme
 	rowsData := c.visibleAgentHierarchyRows()
-	title := agentHierarchyModuleTitle(rowsData, c.app.sidebar.moduleTitle(sidebarModuleAgents))
+	title := c.app.sidebar.moduleTitle(sidebarModuleAgents)
 	disclosure := "▾ "
 	if c.sidebarAgentsCollapsed {
 		disclosure = "▸ "
@@ -87,12 +87,6 @@ func (c *agentComponent) renderAgentHierarchyModuleRows(width int, startRow int,
 	c.app.sidebar.registerSectionHeaderHit(startRow, width, sidebarSectionAgents)
 	if c.sidebarAgentsCollapsed {
 		return rows
-	}
-	if owner := c.agentHierarchyActiveBlueprintSummary(rowsData, width); owner != "" {
-		rows = append(rows, owner)
-		if rowBudget > 1 {
-			rowBudget--
-		}
 	}
 	if c.hierarchyErr != "" {
 		rows = append(rows, lipgloss.NewStyle().Foreground(t.Danger).Render(textutil.Truncate("error: "+c.hierarchyErr, width-6)))
@@ -180,7 +174,7 @@ type appAgentHierarchyState struct {
 // (embedded appAgentHierarchyState, so callers keep reading c.hierarchy*
 // directly), the "next turn agent" selection, and a back-reference to the root
 // App for shared services (client, theme, session, catalog, conversation). It
-// gathers the former *App agent methods so the agent-hierarchy, blueprint /
+// gathers the former *App agent methods so the agent-hierarchy,
 // detail actions, agent message-handlers, and catalog-agent openers all hang
 // off one component.
 type agentComponent struct {

@@ -279,8 +279,6 @@
   "help.commands.skills": "利用可能なスキルを一覧表示",
   "help.commands.agents": "専門家階層を閲覧",
   "help.commands.prompts": "プロンプトプロファイルを閲覧",
-  "help.commands.expert_packs": "エキスパートパックを閲覧",
-  "help.commands.agent_blueprints": "blueprint を管理",
   "help.commands.sessions": "セッション表示を開く",
   "help.commands.theme": "テーマ選択を開く",
   "help.commands.agent": "セッション専門家を選択",

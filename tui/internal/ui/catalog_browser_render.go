@@ -57,8 +57,7 @@ func (c *catalogComponent) view() string {
 			description := valuefmt.CompactCatalogText(valuefmt.FirstNonEmpty(item.inlineDesc, item.desc))
 			inlineMeta := ""
 			if c.current.kind == catalogKindTools ||
-				c.current.kind == catalogKindPrompts ||
-				c.current.kind == catalogKindExpertPacks {
+				c.current.kind == catalogKindPrompts {
 				inlineMeta = description
 				description = ""
 			}
@@ -79,7 +78,6 @@ func (c *catalogComponent) view() string {
 					}
 					app.catalog.current.sel = idx
 					app.catalog.current.offset = catalogBrowserClampOffsetForKind(app.catalog.current.kind, idx, app.catalog.current.offset, len(app.catalog.current.items))
-					app.catalog.cancelPendingDeletesOutsideSelection()
 					_, cmd := app.catalog.handleKey(keyMsg("enter"))
 					return cmd
 				}
@@ -89,12 +87,7 @@ func (c *catalogComponent) view() string {
 	descriptionLines := 2
 	if c.current.kind == catalogKindTools ||
 		c.current.kind == catalogKindPrompts ||
-		c.current.kind == catalogKindExpertPacks ||
-		c.current.kind == catalogKindAgents ||
-		c.current.kind == catalogKindAgentDetail ||
-		c.current.kind == catalogKindAgentBlueprintDetail ||
-		c.current.kind == catalogKindAgentBlueprintSources ||
-		c.current.kind == catalogKindExpertPackDetail {
+		c.current.kind == catalogKindAgents {
 		descriptionLines = 1
 	}
 	list := c.app.modals.renderModalList(listItems, modalListOptions{
@@ -140,7 +133,6 @@ func (c *catalogComponent) view() string {
 					app.catalog.current.sel = indexes[index]
 				}
 				app.catalog.current.offset = catalogBrowserClampOffsetForKind(app.catalog.current.kind, index, app.catalog.current.offset, len(indexes))
-				app.catalog.cancelPendingDeletesOutsideSelection()
 			}
 			return nil
 		},

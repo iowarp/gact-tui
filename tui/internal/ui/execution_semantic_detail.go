@@ -80,7 +80,7 @@ func executionSemanticEventLine(event executionTimelineEvent) string {
 		if tool := valuefmt.StringValue(payload["tool_name"]); tool != "" {
 			parts = append(parts, tool)
 		}
-	case "blueprint.delegation.started", "blueprint.delegation.completed":
+	case "delegation.started", "delegation.completed":
 		payload := valuefmt.MapValue(event.Payload["payload"])
 		if child := valuefmt.FirstNonEmpty(valuefmt.StringValue(payload["delegate_to"]), valuefmt.StringValue(payload["agent_id"])); child != "" {
 			parts = append(parts, "→ "+child)

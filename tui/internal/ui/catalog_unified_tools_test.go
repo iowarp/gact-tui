@@ -275,7 +275,7 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 	if item.disabled || item.statusTag != "empty" {
 		t.Fatalf("empty tools row should be a neutral empty state without disabled chrome: %#v", item)
 	}
-	for _, want := range []string{"No callable actions available", "Add an MCP connection", "enable a workflow blueprint", "add connection or blueprint"} {
+	for _, want := range []string{"No callable actions available", "Add an MCP connection", "add a plugin to the conversation agent", "add connection or plugin"} {
 		if !strings.Contains(item.title+" "+item.desc+" "+item.inlineDesc, want) {
 			t.Fatalf("empty tools row missing %q: %#v", want, item)
 		}
@@ -287,7 +287,7 @@ func TestCatalogUnifiedTools_EmptyStateIsOperatorFacing(t *testing.T) {
 	}
 
 	hint := catalogBrowserHintText(&catalogBrowserState{kind: catalogKindTools, items: msg.items, sel: 0})
-	for _, want := range []string{"no callable actions yet", "i add connection", "open /agent-blueprints", "activate workflow"} {
+	for _, want := range []string{"no callable actions yet", "i add connection", "add plugins to the agent"} {
 		if !strings.Contains(hint, want) {
 			t.Fatalf("empty tools hint missing %q: %q", want, hint)
 		}

@@ -14,16 +14,6 @@ import (
 
 func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/agents" {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{
-				"agents": [
-					{"id":"utility","title":"Utility Expert","source":"builtin","tier":2,"specialization":"utility","tools":["shell_bash"]},
-					{"id":"planner","title":"Planner","source":"builtin","tier":1}
-				]
-			}`))
-			return
-		}
 		if r.URL.Path != "/v1/tools/shell_bash" {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -54,8 +44,6 @@ func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 	for _, want := range []string{
 		"workflow area: utility",
 		"available to: chat, utility",
-		"used by:",
-		"Utility Expert · utility",
 		"Inputs",
 		"command",
 	} {
@@ -66,7 +54,7 @@ func TestLoadToolDetailCmdFetchesSchemaAndMetadata(t *testing.T) {
 }
 
 func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
-	out := formatToolDetailWithAgents(gact.Tool{
+	out := formatToolDetail(gact.Tool{
 		ID:                "shell_bash",
 		Name:              "shell_bash",
 		Source:            "mcp",
@@ -79,8 +67,6 @@ func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
 		InputSchema: map[string]any{
 			"type": "object",
 		},
-	}, []gact.AgentDef{
-		{ID: "utility", Title: "Utility Expert", Specialization: "utility", Tools: []string{"shell_bash"}},
 	})
 
 	for _, want := range []string{
@@ -89,8 +75,6 @@ func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
 		"connection: mcp_shell",
 		"workflow area: utility",
 		"available to: chat, planner, utility",
-		"used by:",
-		"Utility Expert · utility",
 		"tagged: shell, diagnostic",
 		"approval needed: ask",
 		"Inputs",
@@ -107,7 +91,7 @@ func TestFormatToolDetailIncludesInspectorMetadata(t *testing.T) {
 }
 
 func TestFormatToolDetailSummarizesSchemaFields(t *testing.T) {
-	out := formatToolDetailWithAgents(gact.Tool{
+	out := formatToolDetail(gact.Tool{
 		ID:          "adios_inspect_file",
 		Name:        "adios_inspect_file",
 		Source:      "mcp",
@@ -127,7 +111,7 @@ func TestFormatToolDetailSummarizesSchemaFields(t *testing.T) {
 				},
 			},
 		},
-	}, nil)
+	})
 
 	for _, want := range []string{
 		"Inputs",
@@ -153,7 +137,7 @@ func TestFormatToolDetailSummarizesSchemaFields(t *testing.T) {
 }
 
 func TestFormatToolDetailSummarizesAnnotationsWithoutRawJSON(t *testing.T) {
-	out := formatToolDetailWithAgents(gact.Tool{
+	out := formatToolDetail(gact.Tool{
 		ID:                "shell_bash",
 		Name:              "shell_bash",
 		Source:            "builtin",
@@ -163,7 +147,7 @@ func TestFormatToolDetailSummarizesAnnotationsWithoutRawJSON(t *testing.T) {
 			DestructiveHint: true,
 			OpenWorldHint:   true,
 		},
-	}, nil)
+	})
 
 	for _, want := range []string{
 		"Safety",

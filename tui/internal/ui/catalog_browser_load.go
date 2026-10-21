@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
@@ -49,35 +50,48 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 				items = append(items, catalogItem{
 					id:         "none",
 					title:      "No callable actions available",
-					desc:       "Add an MCP connection, enable a workflow blueprint, or check integration health if actions were expected.",
-					inlineDesc: "add connection or blueprint",
+					desc:       "Add an MCP connection, add a plugin to the conversation agent, or check integration health if actions were expected.",
+					inlineDesc: "add connection or plugin",
 					statusTag:  "empty",
 				})
 			}
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
-		case catalogKindAgents, catalogKindSkills:
-			// Skills are represented by skill-backed agents in the backend,
-			// but the catalog copy below keeps that implementation detail out
-			// of the operator-facing empty state.
+		case catalogKindAgents:
 			agents, err := c.ListAgentsScoped(ctx, scope)
 			if err != nil {
 				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
 			}
 			items := agentCatalogItems(agents, kind)
-			if len(items) == 0 && kind == catalogKindAgents {
+			if len(items) == 0 {
 				items = append(items, catalogItem{
 					id:        "none",
 					title:     "(no agents on this server)",
-					desc:      "press c to create one when agent_write is available",
+					desc:      "install a marketplace with agents, or save one from the web app's agent view",
 					statusTag: "empty",
 					disabled:  true,
 				})
 			}
-			if len(items) == 0 && kind == catalogKindSkills {
+			return catalogBrowserLoadedMsg{kind: kind, items: items}
+		case catalogKindSkills:
+			// Skills come from the plugins of the selected session's agent.
+			var skills []gact.PluginSkill
+			if scope.SessionID != "" {
+				var err error
+				skills, err = c.SessionAgentSkills(ctx, scope.SessionID)
+				if err != nil {
+					return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
+				}
+			}
+			items := pluginSkillCatalogItems(skills)
+			if len(items) == 0 {
+				desc := "Add a plugin that brings skills to the agent, then reopen this view."
+				if scope.SessionID == "" {
+					desc = "Select a session: skills come from its agent. Add a plugin that brings skills to the agent, then reopen this view."
+				}
 				items = append(items, catalogItem{
 					id:        "none",
 					title:     "No skills available",
-					desc:      "Install or activate an agent blueprint that includes skills, then reopen this view.",
+					desc:      desc,
 					statusTag: "empty",
 				})
 			}
@@ -89,24 +103,6 @@ func loadCatalogBrowserCmd(c *client.Client, kind catalogBrowserKind, scope clie
 			}
 			items := promptCatalogItems(prompts, scope)
 			return catalogBrowserLoadedMsg{kind: kind, items: items}
-		case catalogKindExpertPacks:
-			packs, err := c.ListExpertPacks(ctx, scope)
-			if err != nil {
-				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
-			}
-			return catalogBrowserLoadedMsg{kind: kind, items: expertPackCatalogItems(packs)}
-		case catalogKindAgentBlueprints:
-			blueprints, err := c.ListAgentBlueprints(ctx, scope)
-			if err != nil {
-				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
-			}
-			return catalogBrowserLoadedMsg{kind: kind, items: agentBlueprintCatalogItems(blueprints)}
-		case catalogKindAgentBlueprintSources:
-			sources, err := c.ListAgentBlueprintSources(ctx)
-			if err != nil {
-				return catalogBrowserLoadedMsg{kind: kind, errText: err.Error()}
-			}
-			return catalogBrowserLoadedMsg{kind: kind, items: agentBlueprintSourceRegistryItems(sources)}
 		}
 		return catalogBrowserLoadedMsg{kind: kind, errText: "unknown catalog kind"}
 	}

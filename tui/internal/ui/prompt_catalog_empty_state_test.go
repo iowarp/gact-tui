@@ -107,7 +107,7 @@ func TestPromptCatalogEmptyStateExplainsScope(t *testing.T) {
 		t.Fatalf("empty prompt row should be visible empty state without disabled chrome: %#v", row)
 	}
 	combined := catalogItemTestText(items)
-	for _, want := range []string{"No prompts available", "workflow prompt library is empty", "Activate workflow", "open /agent-blueprints and activate workflow", "Reload prompt library", "reopen /prompts after activation"} {
+	for _, want := range []string{"No prompts available", "prompt library is empty", "Add a plugin", "add a plugin that ships prompts", "Reload prompt library", "reopen /prompts after adding a plugin"} {
 		if !strings.Contains(combined, want) {
 			t.Fatalf("empty prompt checklist missing %q:\n%s", want, combined)
 		}
@@ -124,13 +124,13 @@ func TestPromptCatalogEmptyStateExplainsScope(t *testing.T) {
 		items: items,
 	}
 	hint := catalogBrowserHintText(a.catalog.current)
-	for _, want := range []string{"open /agent-blueprints", "activate workflow", "reopen /prompts"} {
+	for _, want := range []string{"add plugins with prompts to the agent", "reopen /prompts"} {
 		if !strings.Contains(hint, want) {
 			t.Fatalf("empty prompt hint missing %q, got %q", want, hint)
 		}
 	}
-	if strings.Contains(hint, "/agent-blueprints activate workflow") || strings.Contains(hint, "Enter prompt profiles") {
-		t.Fatalf("empty prompt hint should route operators to activation path, got %q", hint)
+	if strings.Contains(hint, "Enter prompt profiles") {
+		t.Fatalf("empty prompt hint should route operators to adding a plugin, got %q", hint)
 	}
 	_, cmd := a.catalog.handleKey(keyMsg("enter"))
 	if cmd != nil {
@@ -154,7 +154,7 @@ func TestCatalogEmptyStatesRenderAsGuidanceBlocks(t *testing.T) {
 			name: "prompts",
 			kind: catalogKindPrompts,
 			rows: promptCatalogItems(nil, client.RuntimeScope{WorkspaceID: "ws1", SessionID: "s1"}),
-			want: "Activate workflow",
+			want: "Add a plugin",
 		},
 		{
 			name: "skills",
@@ -162,17 +162,11 @@ func TestCatalogEmptyStatesRenderAsGuidanceBlocks(t *testing.T) {
 			rows: []catalogItem{{
 				id:         "none",
 				title:      "No skills available",
-				desc:       "Install or activate an agent blueprint that includes skills, then reopen this view.",
-				inlineDesc: "install or activate workflow skills",
+				desc:       "Add a plugin that brings skills to the agent, then reopen this view.",
+				inlineDesc: "add a plugin with skills",
 				statusTag:  "empty",
 			}},
 			want: "No skills available",
-		},
-		{
-			name: "expert packs",
-			kind: catalogKindExpertPacks,
-			rows: expertPackCatalogItems(nil),
-			want: "Next: Install workflow pack",
 		},
 	}
 	for _, tc := range tests {
@@ -206,12 +200,9 @@ func TestCatalogBrowserContextLineShowsPromptScope(t *testing.T) {
 	a.session.wsID = "ws_demo"
 	a.session.workspaces = []gact.Workspace{{ID: "ws_demo", Name: "DemoBench"}}
 	a.session.sessions = []gact.Session{{
-		ID:    "s1",
-		Title: "San Diego review",
-		Metadata: map[string]any{
-			"active_agent_blueprint_id":    "seismic-waveform-review",
-			"active_agent_blueprint_scope": "session",
-		},
+		ID:       "s1",
+		Title:    "San Diego review",
+		Metadata: map[string]any{"agent_ref": "user/seismic-review"},
 	}}
 	a.session.selected = 0
 	a.catalog.open = true
@@ -219,7 +210,7 @@ func TestCatalogBrowserContextLineShowsPromptScope(t *testing.T) {
 		kind:  catalogKindPrompts,
 		title: "Prompts",
 		items: promptCatalogItems([]gact.PromptDefinition{{
-			ID: "clio.main.planner", Title: "Main planner", Scope: "agent_blueprint",
+			ID: "clio.main.planner", Title: "Main planner", Scope: "plugin",
 		}}, a.session.runtimeScope()),
 	}
 
@@ -228,8 +219,7 @@ func TestCatalogBrowserContextLineShowsPromptScope(t *testing.T) {
 		"Context:",
 		"workspace DemoBench",
 		"session San Diego review",
-		"workflow seismic-waveform-review",
-		"(session)",
+		"agent user/seismic-review",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("prompt catalog context missing %q:\n%s", want, out)
@@ -244,9 +234,9 @@ func TestCatalogBrowserContextLineExplainsMissingSessionAndWorkflow(t *testing.T
 	a.session.selected = -1
 	a.catalog.open = true
 	a.catalog.current = &catalogBrowserState{
-		kind:  catalogKindExpertPacks,
-		title: "Expert Packs",
-		items: expertPackCatalogItems(nil),
+		kind:  catalogKindPrompts,
+		title: "Prompts",
+		items: promptCatalogItems(nil, client.RuntimeScope{WorkspaceID: "ws_demo"}),
 	}
 
 	out := ansi.Strip(a.catalog.view())
@@ -254,11 +244,10 @@ func TestCatalogBrowserContextLineExplainsMissingSessionAndWorkflow(t *testing.T
 		"Context:",
 		"workspace DemoBench",
 		"session no session selected",
-		"workflow no active workflow",
-		"blueprint",
+		"agent backend default agent",
 	} {
 		if !strings.Contains(out, want) {
-			t.Fatalf("expert-pack catalog context missing %q:\n%s", want, out)
+			t.Fatalf("prompt catalog context missing %q:\n%s", want, out)
 		}
 	}
 }
@@ -270,7 +259,7 @@ func TestPromptCatalogEmptyStateExplainsMissingSession(t *testing.T) {
 	}
 	row := items[0]
 	combined := catalogItemTestText(items)
-	for _, want := range []string{"No prompts available", "No session is selected", "Start or select a session", "start/select a session first", "Then activate workflow", "open /agent-blueprints after selecting a session", "reopen /prompts after activation"} {
+	for _, want := range []string{"No prompts available", "No session is selected", "Start or select a session", "start/select a session first", "Then add a plugin", "add a plugin after selecting a session", "reopen /prompts after adding a plugin"} {
 		if !strings.Contains(combined, want) {
 			t.Fatalf("empty prompt checklist without session missing %q:\n%s", want, combined)
 		}
@@ -295,4 +284,12 @@ func TestPromptCatalogHintUsesProviderWording(t *testing.T) {
 	if hint := catalogBrowserHintText(cb); !strings.Contains(hint, "Enter prompt profiles") {
 		t.Fatalf("prompt row hint should open profiles, got %q", hint)
 	}
+}
+
+func catalogItemTestText(items []catalogItem) string {
+	parts := make([]string, 0, len(items)*4)
+	for _, item := range items {
+		parts = append(parts, item.title, item.desc, item.inlineDesc, item.statusTag)
+	}
+	return strings.Join(parts, "\n")
 }

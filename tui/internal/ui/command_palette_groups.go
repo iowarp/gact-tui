@@ -113,8 +113,8 @@ func paletteCommandGroup(c gact.Command) string {
 	if c.Source == "plugin" {
 		return "Plugins"
 	}
-	if c.CommandSource == "agent_blueprint" || c.AgentBlueprintID != "" {
-		return "Workflow Commands"
+	if c.CommandSource == "plugin" || c.Plugin != "" {
+		return "Plugin Commands"
 	}
 	if paletteCommandAliasTarget(id) != "" {
 		return "Shortcuts"
@@ -126,7 +126,7 @@ func paletteCommandGroup(c gact.Command) string {
 		return "Workspace"
 	case "/mcp", "/tools", "/prompts":
 		return "Runtime"
-	case "/skills", "/experts", "/agents-list", "/expert-packs", "/agent-blueprints", "/scenarios":
+	case "/skills", "/experts", "/agents-list", "/scenarios":
 		return "Experts"
 	case "/agent", "/agents", "/model", "/theme", "/theme-export", "/theme-next", "/theme-prev", "/mouse":
 		return "Settings"

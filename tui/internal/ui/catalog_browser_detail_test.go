@@ -9,32 +9,6 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
-func TestCatalogBrowser_EnterOnSkillDrillsIntoDetail(t *testing.T) {
-	a := newReadyApp(nil, nil)
-	parent := &catalogBrowserState{
-		kind:  catalogKindSkills,
-		title: "Skills",
-		items: []catalogItem{{id: "tui-test", title: "TUI Test", statusTag: "skill"}},
-	}
-	a.catalog.open = true
-	a.catalog.current = parent
-
-	_, cmd := a.catalog.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-
-	if a.catalog.current == parent {
-		t.Fatal("enter on skill row did not replace browser with agent detail state")
-	}
-	if a.catalog.current.kind != catalogKindAgentDetail {
-		t.Fatalf("browser kind = %v, want catalogKindAgentDetail", a.catalog.current.kind)
-	}
-	if a.catalog.current.agentID != "tui-test" {
-		t.Fatalf("agentID = %q, want tui-test", a.catalog.current.agentID)
-	}
-	if cmd == nil {
-		t.Fatal("expected skill detail load command")
-	}
-}
-
 func TestCatalogBrowser_EnterOnToolRowLoadsToolDetail(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.catalog.open = true
@@ -144,7 +118,7 @@ func TestSanitizeCatalogDetailTextHumanizesBackendLabels(t *testing.T) {
 }
 
 func TestCatalogBrowserDetailKindsAdvertiseEnterDetails(t *testing.T) {
-	for _, kind := range []catalogBrowserKind{catalogKindTools, catalogKindMcpDetail, catalogKindAgentDetail} {
+	for _, kind := range []catalogBrowserKind{catalogKindTools, catalogKindMcpDetail, catalogKindSkills} {
 		a := newReadyApp(nil, nil)
 		a.catalog.open = true
 		a.catalog.current = &catalogBrowserState{
@@ -159,5 +133,22 @@ func TestCatalogBrowserDetailKindsAdvertiseEnterDetails(t *testing.T) {
 		if !strings.Contains(out, "Enter details") {
 			t.Fatalf("detail catalog kind %v should advertise Enter details:\n%s", kind, out)
 		}
+	}
+}
+
+func TestCatalogBrowser_EnterOnSkillDrillsIntoDetail(t *testing.T) {
+	a := newReadyApp(nil, nil)
+	parent := &catalogBrowserState{
+		kind:  catalogKindSkills,
+		title: "Skills",
+		items: []catalogItem{{id: "tui-test", title: "TUI Test", statusTag: "skill"}},
+	}
+	a.catalog.open = true
+	a.catalog.current = parent
+
+	_, _ = a.catalog.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if !a.detail.visible || a.detail.ref == nil || a.detail.ref.title != "TUI Test" {
+		t.Fatalf("enter on skill row should open its detail, got visible=%v ref=%+v", a.detail.visible, a.detail.ref)
 	}
 }

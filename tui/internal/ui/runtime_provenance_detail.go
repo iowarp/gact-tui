@@ -15,7 +15,7 @@ func runtimeProvenanceDetailText(rp map[string]any) string {
 	rows = appendRuntimeMapSection(rows, "Turn", runtimeProvenanceTurnMap(rp), "trace_id", "turn_id", "status")
 	rows = appendRuntimeMapSection(rows, "Workspace", valuefmt.MapValue(rp["workspace"]), "workspace_id", "root_path", "scope")
 	rows = appendRuntimeMapSection(rows, "Agent", valuefmt.MapValue(rp["agent"]), "selected_agent_id", "active_agent_id", "active_expert_id", "route_source", "route_reason", "source", "tier", "parent_id")
-	rows = appendRuntimeMapSection(rows, "Workflow", valuefmt.MapValue(rp["blueprint"]), "id", "version", "scope")
+	rows = appendRuntimeMapSection(rows, "Agent plugins", valuefmt.MapValue(rp["agent_resolution"]), "ref", "kind", "digest")
 	rows = appendRuntimeMapSection(rows, "Provider", valuefmt.MapValue(rp["provider"]), "provider_id", "model_id", "model", "source")
 	rows = appendRuntimeMapSection(rows, "Prompt", valuefmt.MapValue(rp["prompt"]), "prompt_id", "profile", "source", "source_path", "checksum")
 	rows = appendRuntimeToolsSection(rows, valuefmt.MapValue(rp["tools"]))
@@ -58,7 +58,7 @@ func appendRuntimeToolsSection(rows []string, tools map[string]any) []string {
 	if rowsText := runtimeRowsText(tools["calls"], "tool_name", "name", "status", "duration_ms", "server_id", "descriptor_id"); rowsText != "" {
 		fields = append(fields, detailField{"calls", rowsText})
 	}
-	if rowsText := runtimeRowsText(tools["mcp"], "server_id", "descriptor_id", "agent_blueprint_id", "status", "trust"); rowsText != "" {
+	if rowsText := runtimeRowsText(tools["mcp"], "server_id", "descriptor_id", "plugin", "status", "trust"); rowsText != "" {
 		fields = append(fields, detailField{"mcp", rowsText})
 	}
 	if len(fields) == 0 {

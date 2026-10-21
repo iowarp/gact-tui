@@ -28,7 +28,7 @@ func (p *commandPaletteComponent) renderCommandList(matches []gact.Command, win 
 			lastGroup = group
 		}
 		startRow := len(rows)
-		if c.CommandSource == "agent_blueprint" || c.AgentBlueprintID != "" {
+		if c.CommandSource == "plugin" || c.Plugin != "" {
 			rows = append(rows, p.renderCommandTile(c, width, i == p.paletteSel)...)
 		} else {
 			item := modalListItem{
@@ -117,8 +117,8 @@ func paletteCommandEnterAction(c gact.Command) string {
 	if c.CommandSource == "mcp_prompt" || c.Source == "mcp_prompt" || c.Invocation == "mcp_prompt" {
 		return "run prompt"
 	}
-	if strings.TrimSpace(c.CommandSource) == "agent_blueprint" || strings.TrimSpace(c.AgentBlueprintID) != "" {
-		return "run workflow command"
+	if strings.TrimSpace(c.CommandSource) == "plugin" || strings.TrimSpace(c.Plugin) != "" {
+		return "run plugin command"
 	}
 	if target := paletteCommandSecondaryTarget(id); target != "" {
 		return "open " + target

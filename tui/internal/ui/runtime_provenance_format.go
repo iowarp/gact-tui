@@ -12,8 +12,6 @@ import (
 
 func runtimeProvenanceLabel(key string) string {
 	switch key {
-	case "agent_blueprint_id":
-		return "workflow"
 	case "agent_id":
 		return "agent"
 	case "assistant_message_id":

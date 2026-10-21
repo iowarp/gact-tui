@@ -272,6 +272,20 @@ func TestRightSidebarFileWheelMovesFileSelectionWithoutSessionLeak(t *testing.T)
 	}
 }
 
+func thirdRuneIndexForTest(s string, want rune) int {
+	seen := 0
+	for i, r := range []rune(s) {
+		if r != want {
+			continue
+		}
+		seen++
+		if seen == 3 {
+			return i
+		}
+	}
+	return -1
+}
+
 func TestRightSidebarAgentRowDoesNotLeakIntoConversationHits(t *testing.T) {
 	a := NewWithTheme("http://unused", ThemeForMode(ModeDark))
 	a.width = 150
@@ -311,24 +325,10 @@ func TestRightSidebarAgentRowDoesNotLeakIntoConversationHits(t *testing.T) {
 	if a.focus != FocusRightSidebar || a.sidebar.sectionFocus != sidebarSectionAgents {
 		t.Fatalf("agent click focus = %v section=%v, want right agents", a.focus, a.sidebar.sectionFocus)
 	}
-	if !a.catalog.open || a.catalog.current == nil || a.catalog.current.agentID != "data" {
-		t.Fatalf("right sidebar agent click should open agent detail, open=%v browser=%+v", a.catalog.open, a.catalog.current)
+	if !a.detail.visible || a.detail.ref == nil || a.detail.ref.title != "Data expert" {
+		t.Fatalf("right sidebar agent click should open agent detail, visible=%v ref=%+v", a.detail.visible, a.detail.ref)
 	}
 	if a.conversation.bodySelMsgIdx != 0 || a.conversation.bodySelPartIdx != 0 || a.conversation.actions.open {
 		t.Fatalf("right sidebar agent click leaked into conversation: msg=%d part=%d actions=%v", a.conversation.bodySelMsgIdx, a.conversation.bodySelPartIdx, a.conversation.actions.open)
 	}
-}
-
-func thirdRuneIndexForTest(s string, want rune) int {
-	seen := 0
-	for i, r := range []rune(s) {
-		if r != want {
-			continue
-		}
-		seen++
-		if seen == 3 {
-			return i
-		}
-	}
-	return -1
 }

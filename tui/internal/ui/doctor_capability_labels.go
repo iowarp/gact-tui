@@ -101,10 +101,8 @@ func capabilityDisplayName(name string) string {
 		return "Direct permission delete"
 	case "x_clio_prompt_registry":
 		return "Prompt registry"
-	case "x_clio_expert_packs":
-		return "Expert packs"
-	case "x_clio_agent_blueprints":
-		return "Agent blueprints"
+	case "x_clio_agent_plugins":
+		return "Agent plugins"
 	case "x_clio_user_questions":
 		return "User questions"
 	case "x_clio_retry_attempts":

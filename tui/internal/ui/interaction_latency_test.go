@@ -163,7 +163,6 @@ func TestTUILatencyTargetClassificationUsesOperatorSurfaces(t *testing.T) {
 		"catalog:item:0":                   "catalog",
 		"workspace-switch:item:ws_a":       "workspace switcher",
 		"lm-config:provider:0":             "provider setup",
-		"agent-blueprints:sources:source":  "agent blueprints",
 	}
 	for id, want := range cases {
 		if got := tuiLatencySurfaceForTarget(id); got != want {

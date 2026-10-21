@@ -13,14 +13,10 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
-func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
+func TestLoadMcpDetailListsConnectionAndTools(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/v1/agents":
-			_, _ = w.Write([]byte(`{"agents":[
-					{"id":"data","source":"builtin","title":"Data expert","specialization":"data_analysis","tools":["adios_inspect_file"]}
-				]}`))
 		case "/v1/mcp/servers":
 			_, _ = w.Write([]byte(`{"servers":[
 					{"id":"mcp_adios","name":"ADIOS","status":"connected","transport":"stdio","capabilities":{"tools":["adios_inspect_file"]}}
@@ -68,7 +64,7 @@ func TestLoadMcpDetailIncludesOwningAgentContext(t *testing.T) {
 	if loaded.items[1].title != "Tool · adios_inspect_file" || loaded.items[1].statusTag != "tool" {
 		t.Fatalf("MCP tool row presentation = %#v, want operator tool label and status", loaded.items[1])
 	}
-	for _, want := range []string{"Inspect ADIOS containers", "agents: Data expert · data_analysis"} {
+	for _, want := range []string{"Inspect ADIOS containers"} {
 		if !strings.Contains(loaded.items[1].desc, want) {
 			t.Fatalf("MCP tool row missing %q:\n%#v", want, loaded.items[1])
 		}

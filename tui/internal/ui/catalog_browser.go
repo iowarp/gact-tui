@@ -23,18 +23,12 @@ const (
 	// catalogKindMcpDetail shows one MCP server's tools+resources+prompts
 	// in a single list. Pushed on Enter from the MCP server list (LLL2).
 	catalogKindMcpDetail
-	catalogKindAgentDetail
 	// catalogKindAgents lists all agents from /v1/agents. Distinct from
 	// the Settings > Agent picker which is for selecting; this one is
 	// for browsing. LLL3.
 	catalogKindAgents
 	catalogKindPrompts
 	catalogKindPromptDetail
-	catalogKindExpertPacks
-	catalogKindExpertPackDetail
-	catalogKindAgentBlueprints
-	catalogKindAgentBlueprintDetail
-	catalogKindAgentBlueprintSources
 )
 
 // catalogBrowserState holds the runtime for the list modal.
@@ -50,18 +44,10 @@ type catalogBrowserState struct {
 	// which server's catalog we're viewing. parent is preserved so
 	// Esc/Backspace can pop back to the server list rather than
 	// closing the whole modal.
-	mcpServerID               string
-	agentID                   string
-	promptID                  string
-	promptProfile             string
-	expertPackID              string
-	pendingDeleteExpertPackID string
-	blueprintID               string
-	sourceID                  string
-	pendingDeleteAgentID      string
-	pendingDeleteBlueprintID  string
-	pendingDeleteSourceID     string
-	parent                    *catalogBrowserState
+	mcpServerID   string
+	promptID      string
+	promptProfile string
+	parent        *catalogBrowserState
 }
 
 // catalogItem is the common shape we flatten each backend response into
@@ -87,23 +73,6 @@ type catalogBrowserLoadedMsg struct {
 	mcpServerID   string
 	promptID      string
 	promptProfile string
-	expertPackID  string
-	blueprintID   string
-	sourceID      string
-}
-
-func (c *catalogComponent) applyCapabilityGates(kind catalogBrowserKind, items []catalogItem) []catalogItem {
-	out := append([]catalogItem(nil), items...)
-	for i := range out {
-		switch {
-		case kind == catalogKindAgentDetail && strings.HasPrefix(out[i].id, "agent-action/"):
-			out[i].disabled = !c.app.session.caps.Capabilities.AgentWrite
-			if out[i].disabled {
-				out[i].desc = "backend does not advertise agent_write"
-			}
-		}
-	}
-	return out
 }
 
 func (c *catalogComponent) handleLoaded(m catalogBrowserLoadedMsg) (tea.Model, tea.Cmd) {
@@ -116,27 +85,11 @@ func (c *catalogComponent) handleLoaded(m catalogBrowserLoadedMsg) (tea.Model, t
 	if m.kind == catalogKindMcpDetail && m.mcpServerID != c.current.mcpServerID {
 		return c.app, nil
 	}
-	if m.kind == catalogKindAgentDetail && m.mcpServerID != c.current.agentID {
-		return c.app, nil
-	}
 	if m.kind == catalogKindPromptDetail && m.promptID != c.current.promptID {
 		return c.app, nil
 	}
-	if m.kind == catalogKindExpertPackDetail && m.expertPackID != c.current.expertPackID {
-		return c.app, nil
-	}
-	if m.kind == catalogKindAgentBlueprintDetail && m.blueprintID != c.current.blueprintID {
-		return c.app, nil
-	}
-	items := c.applyCapabilityGates(m.kind, m.items)
-	switch m.kind {
-	case catalogKindAgentBlueprints:
-		items = markActiveAgentBlueprintCatalogItems(items, c.app.agent.activeAgentBlueprintID(), c.app.agent.activeAgentBlueprintScope())
-	case catalogKindAgentBlueprintDetail:
-		items = markActiveAgentBlueprintDetailItems(items, c.current.blueprintID, c.app.agent.activeAgentBlueprintID(), c.app.agent.activeAgentBlueprintScope())
-	}
 	c.current.loading = false
-	c.current.items = items
+	c.current.items = m.items
 	c.current.errText = m.errText
 	if m.kind == catalogKindPromptDetail && m.promptProfile != "" {
 		c.current.promptProfile = m.promptProfile
@@ -160,30 +113,6 @@ func plural(n int) string {
 	return "s"
 }
 
-func (c *agentComponent) openAgentCreateFromCatalog() tea.Cmd {
-	if !c.app.session.caps.Capabilities.AgentWrite {
-		c.app.setHint("create agent unavailable: backend does not advertise agent_write")
-		return scheduleHintExpire(c.app.transientHint)
-	}
-	c.app.agentWrite.openModal(agentWriteModeCreate, "", "new-agent")
-	return nil
-}
-
-func (c *agentComponent) openAgentExtractFromCatalog() tea.Cmd {
-	if !c.app.session.caps.Capabilities.SkillsExtraction {
-		c.app.setHint("extract agent unavailable: backend does not advertise skills_extraction")
-		return scheduleHintExpire(c.app.transientHint)
-	}
-	sessionID := c.app.session.currentID()
-	if sessionID == "" {
-		c.app.setHint("select a session before extracting an agent")
-		return scheduleHintExpire(c.app.transientHint)
-	}
-	seed := "extracted-" + strings.TrimPrefix(sessionID, "sess_")
-	c.app.agentWrite.openModal(agentWriteModeExtract, "", seed)
-	return nil
-}
-
 // catalogCommandForID maps a slash-command ID into a browser kind.
 // Returns (_, false) for commands that don't open a browser so the
 // caller can fall through to the normal RunCommand dispatch.
@@ -202,10 +131,6 @@ func catalogCommandForID(id string) (catalogBrowserKind, bool) {
 		return catalogKindAgents, true
 	case "/prompts":
 		return catalogKindPrompts, true
-	case "/expert-packs", "/expertpacks":
-		return catalogKindExpertPacks, true
-	case "/agent-blueprints", "/blueprints":
-		return catalogKindAgentBlueprints, true
 	}
 	return 0, false
 }

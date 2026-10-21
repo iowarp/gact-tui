@@ -8,41 +8,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
-	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.catalog.open = true
-	a.catalog.current = &catalogBrowserState{
-		kind:  catalogKindAgentDetail,
-		title: "Agent detail",
-		items: []catalogItem{
-			{id: "summary", title: "Summary", desc: "long summary row consumes an extra visual line"},
-			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
-		},
-	}
-
-	_ = a.View()
-	target, ok := findHitTargetForTest(a, "catalog:item:1")
-	if !ok {
-		t.Fatal("missing semantic catalog item target")
-	}
-	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
-		Y:      target.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-
-	if !a.detail.visible || a.detail.ref == nil {
-		t.Fatal("catalog row click should open detail view")
-	}
-	if a.detail.ref.title != "Handoffs" {
-		t.Fatalf("detail title = %q, want Handoffs", a.detail.ref.title)
-	}
-}
-
 func TestCatalogRowTargetsAlignWithSharedFrameBody(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -70,57 +35,6 @@ func TestCatalogRowTargetsAlignWithSharedFrameBody(t *testing.T) {
 	}
 	if wantY := rect.y + 2 + 2 + introRows; target.rect.y != wantY {
 		t.Fatalf("first catalog row y = %d, want shared frame body row %d", target.rect.y, wantY)
-	}
-}
-
-func TestCatalogModalRegistersOpaqueSurface(t *testing.T) {
-	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.catalog.open = true
-	a.catalog.current = &catalogBrowserState{
-		kind:  catalogKindAgentBlueprints,
-		title: "Agent Blueprints",
-		items: []catalogItem{
-			{id: "seismic-waveform-review", title: "Seismic Waveform Review", desc: "workspace blueprint"},
-			{id: "ndp-environmental-hazards", title: "NDP Environmental Hazards", desc: "marketplace blueprint"},
-		},
-	}
-
-	view := a.View().Content
-	headerLine := ""
-	for _, line := range strings.Split(view, "\n") {
-		if strings.Contains(line, "Agent Blueprints") {
-			headerLine = line
-			break
-		}
-	}
-	if headerLine == "" {
-		t.Fatalf("catalog header not found in view:\n%s", stripANSI(view))
-	}
-	if bg := "48;2;25;25;35"; strings.Count(headerLine, bg) < 2 {
-		t.Fatalf("catalog header gaps should carry modal background escapes, got %d in %q", strings.Count(headerLine, bg), headerLine)
-	}
-	surface, ok := findHitTargetForTest(a, "catalog:surface")
-	if !ok {
-		t.Fatal("catalog browser should register an opaque modal surface target")
-	}
-	rect := overlayMouseRect(a.catalog.view(), a.width, a.height)
-	if surface.rect.x != rect.x || surface.rect.y != rect.y || surface.rect.w != rect.w || surface.rect.h != rect.h {
-		t.Fatalf("catalog surface rect = %+v, want modal rect %+v", surface.rect, rect)
-	}
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 1,
-		Y:      rect.y + 1,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-	if cmd != nil {
-		t.Fatal("opaque catalog surface should absorb non-control clicks without dispatching commands")
-	}
-	if !a.catalog.open {
-		t.Fatal("opaque catalog surface click should not close the catalog browser")
 	}
 }
 
@@ -168,41 +82,6 @@ func TestCatalogShortListsUseCompactSharedBodyHeight(t *testing.T) {
 	}
 }
 
-func TestCatalogNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
-	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.catalog.open = true
-	a.catalog.current = &catalogBrowserState{
-		kind:  catalogKindAgentDetail,
-		title: "Agent detail",
-		items: []catalogItem{
-			{id: "summary", title: "Summary", desc: "long summary row consumes an extra visual line"},
-			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
-		},
-	}
-
-	_ = a.View()
-	rect := overlayMouseRect(a.catalog.view(), a.width, a.height)
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      rect.x + 5,
-		Y:      rect.y + 2 + 10,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-
-	if cmd != nil {
-		t.Fatal("non-row click inside catalog should not dispatch")
-	}
-	if !a.catalog.open {
-		t.Fatal("non-row click inside catalog should keep browser open")
-	}
-	if a.detail.visible {
-		t.Fatal("non-row click inside catalog should not open detail")
-	}
-}
-
 func TestCatalogMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 120
@@ -247,66 +126,6 @@ func TestCatalogMouseWheelMovesSelectionOnlyOverList(t *testing.T) {
 	a = model.(*App)
 	if a.catalog.current.sel != 1 {
 		t.Fatalf("wheel outside list should not move catalog selection, got %d", a.catalog.current.sel)
-	}
-}
-
-func TestAgentBlueprintCatalogMouseWheelWorksAcrossBody(t *testing.T) {
-	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.catalog.open = true
-	items := make([]catalogItem, 0, 18)
-	for i := 0; i < 18; i++ {
-		items = append(items, catalogItem{
-			id:    "blueprint-" + itoa2(i),
-			title: "Blueprint " + itoa2(i),
-			desc:  "workspace markdown agent blueprint",
-		})
-	}
-	a.catalog.current = &catalogBrowserState{
-		kind:  catalogKindAgentBlueprints,
-		title: "Agent Blueprints",
-		items: items,
-	}
-
-	_ = a.View()
-	target, ok := findHitTargetForTest(a, "catalog:list:wheel:body:wheel")
-	if !ok {
-		t.Fatal("missing full-body blueprint catalog wheel target")
-	}
-	model, _ := a.Update(tea.MouseWheelMsg(tea.Mouse{
-		X:      target.rect.x + target.rect.w - 2,
-		Y:      target.rect.y + target.rect.h - 1,
-		Button: tea.MouseWheelDown,
-	}))
-	a = model.(*App)
-	if a.catalog.current.sel != 1 {
-		t.Fatalf("wheel over blueprint catalog body should move selection, got %d", a.catalog.current.sel)
-	}
-}
-
-func TestAgentBlueprintCatalogInstallShortcutOpensInstallFlow(t *testing.T) {
-	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.catalog.open = true
-	a.catalog.current = &catalogBrowserState{
-		kind:  catalogKindAgentBlueprints,
-		title: "Agent Blueprints",
-		items: []catalogItem{{id: "seismic", title: "Seismic Marketplace"}},
-	}
-
-	_ = a.View()
-	if _, ok := findHitTargetForTest(a, "button:agent-blueprints:install"); ok {
-		t.Fatal("top-level blueprint catalog should not render management action buttons in the list body")
-	}
-
-	model, _ := a.Update(keyMsg("i"))
-	a = model.(*App)
-	if !a.agentBlueprintManage.open || a.agentBlueprintManage.mode != agentBlueprintManageInstall {
-		t.Fatalf("pressing i should open install flow, open=%v mode=%q", a.agentBlueprintManage.open, a.agentBlueprintManage.mode)
 	}
 }
 
@@ -380,5 +199,126 @@ func TestCatalogBackButtonUsesSemanticHitTarget(t *testing.T) {
 	}
 	if a.catalog.current != parent {
 		t.Fatalf("catalog back button should restore parent browser, got %#v", a.catalog.current)
+	}
+}
+
+func TestCatalogRowsUseSemanticHitTargets(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalog.open = true
+	a.catalog.current = &catalogBrowserState{
+		kind:  catalogKindMcpDetail,
+		title: "MCP detail",
+		items: []catalogItem{
+			{id: "summary", title: "Summary", desc: "long summary row consumes an extra visual line"},
+			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
+		},
+	}
+
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "catalog:item:1")
+	if !ok {
+		t.Fatal("missing semantic catalog item target")
+	}
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if !a.detail.visible || a.detail.ref == nil {
+		t.Fatal("catalog row click should open detail view")
+	}
+	if a.detail.ref.title != "Handoffs" {
+		t.Fatalf("detail title = %q, want Handoffs", a.detail.ref.title)
+	}
+}
+
+func TestCatalogNonRowClickDoesNotChooseByCoordinates(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalog.open = true
+	a.catalog.current = &catalogBrowserState{
+		kind:  catalogKindMcpDetail,
+		title: "MCP detail",
+		items: []catalogItem{
+			{id: "summary", title: "Summary", desc: "long summary row consumes an extra visual line"},
+			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
+		},
+	}
+
+	_ = a.View()
+	rect := overlayMouseRect(a.catalog.view(), a.width, a.height)
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 5,
+		Y:      rect.y + 2 + 10,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if cmd != nil {
+		t.Fatal("non-row click inside catalog should not dispatch")
+	}
+	if !a.catalog.open {
+		t.Fatal("non-row click inside catalog should keep browser open")
+	}
+	if a.detail.visible {
+		t.Fatal("non-row click inside catalog should not open detail")
+	}
+}
+
+func TestCatalogModalRegistersOpaqueSurface(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalog.open = true
+	a.catalog.current = &catalogBrowserState{
+		kind:  catalogKindMcp,
+		title: "MCP Connections",
+		items: []catalogItem{
+			{id: "files", title: "Files", desc: "workspace connection"},
+			{id: "ndp", title: "NDP", desc: "plugin connection"},
+		},
+	}
+
+	view := a.View().Content
+	headerLine := ""
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "MCP Connections") {
+			headerLine = line
+			break
+		}
+	}
+	if headerLine == "" {
+		t.Fatalf("catalog header not found in view:\n%s", stripANSI(view))
+	}
+	if bg := "48;2;25;25;35"; strings.Count(headerLine, bg) < 2 {
+		t.Fatalf("catalog header gaps should carry modal background escapes, got %d in %q", strings.Count(headerLine, bg), headerLine)
+	}
+	surface, ok := findHitTargetForTest(a, "catalog:surface")
+	if !ok {
+		t.Fatal("catalog browser should register an opaque modal surface target")
+	}
+	rect := overlayMouseRect(a.catalog.view(), a.width, a.height)
+	if surface.rect.x != rect.x || surface.rect.y != rect.y || surface.rect.w != rect.w || surface.rect.h != rect.h {
+		t.Fatalf("catalog surface rect = %+v, want modal rect %+v", surface.rect, rect)
+	}
+	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      rect.x + 1,
+		Y:      rect.y + 1,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+	if cmd != nil {
+		t.Fatal("opaque catalog surface should absorb non-control clicks without dispatching commands")
+	}
+	if !a.catalog.open {
+		t.Fatal("opaque catalog surface click should not close the catalog browser")
 	}
 }
