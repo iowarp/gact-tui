@@ -37,13 +37,13 @@ export function inlineDollarMath(): Construct {
         effects.consume(code);
         return escaped;
       }
+      // Inline $math$ stays on one line, so text like "$task ...\n... $draft" is
+      // prose. (A nested line-ending token would also leave no open token for the
+      // next consume, which micromark rejects.)
+      if (lineEnding(code)) return nok(code);
       lastWhitespace = whitespace(code);
       if (!lastWhitespace) hasContent = true;
-      if (lineEnding(code)) {
-        effects.enter('lineEnding');
-        effects.consume(code);
-        effects.exit('lineEnding');
-      } else effects.consume(code);
+      effects.consume(code);
       return content;
     };
     const escaped: State = (code) => {
