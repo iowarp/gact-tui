@@ -11,7 +11,7 @@ import {
   FileIcon,
   FileCode2Icon,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -38,10 +38,8 @@ import { formatBytes } from '@/lib/format';
 import { languageForPath } from '@/lib/code-language';
 import { isTextMediaType } from '@/lib/media-types';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
-import { ClioCsvView } from './csv-view';
 import { ArtifactProvenance } from './artifact-provenance';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
-import { ClioJsonResourceView } from './json-resource-view';
 import { ClioDocumentWorkspace } from './document-workspace';
 import { MarkdownFilePreview } from './markdown-file-preview';
 import { HtmlFilePreview } from './html-file-preview';
@@ -51,6 +49,14 @@ import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { FileViewerShell } from './file-viewer-shell';
 import { ImageResourceView } from './image-resource-view';
 import { DashboardResourceView } from './dashboard-view';
+
+// The table library is only needed once a CSV or JSON file is open.
+const ClioCsvView = lazy(() =>
+  import('./csv-view').then((module) => ({ default: module.ClioCsvView })),
+);
+const ClioJsonResourceView = lazy(() =>
+  import('./json-resource-view').then((module) => ({ default: module.ClioJsonResourceView })),
+);
 export { ImageResourceView } from './image-resource-view';
 
 export function WorkspaceFileView({
@@ -264,8 +270,6 @@ function WorkspaceBinaryView({
   );
 }
 
-export { BlueprintFileEditor } from './blueprint-file-editor';
-
 export function ArtifactView({
   artifact,
   workspaceId,
@@ -355,9 +359,13 @@ export function ArtifactView({
           </ContentMarkdown>
         </article>
       ) : isCsvPath(artifact.name) || artifact.media_type === 'text/csv' ? (
-        <ClioCsvView content={text.data.content} title={artifact.name} />
+        <Suspense fallback={<ResourceLoading label={`Loading ${artifact.name}`} />}>
+          <ClioCsvView content={text.data.content} title={artifact.name} />
+        </Suspense>
       ) : isJsonPath(artifact.name) || artifact.media_type === 'application/json' ? (
-        <ClioJsonResourceView content={text.data.content} title={artifact.name} />
+        <Suspense fallback={<ResourceLoading label={`Loading ${artifact.name}`} />}>
+          <ClioJsonResourceView content={text.data.content} title={artifact.name} />
+        </Suspense>
       ) : (
         <CodeBlock
           code={text.data.content}
@@ -492,9 +500,13 @@ export function TextResourceView({
     return (
       <ScrollArea className="h-full p-3">
         {isCsvPath(path) ? (
-          <ClioCsvView content={content ?? ''} title={fileName(path)} />
+          <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
+            <ClioCsvView content={content ?? ''} title={fileName(path)} />
+          </Suspense>
         ) : (
-          <ClioJsonResourceView content={content ?? ''} title={fileName(path)} />
+          <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
+            <ClioJsonResourceView content={content ?? ''} title={fileName(path)} />
+          </Suspense>
         )}
       </ScrollArea>
     );

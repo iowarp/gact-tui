@@ -1,13 +1,20 @@
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { ArrowLeftRightIcon, GitForkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConversationRelationships } from './conversation-relationships';
+import { ResourceLoading } from './resource-states';
 import { ClioProcessLanes } from './observability-processes';
 import { ConversationGantt } from './conversation-gantt';
 import { conversationFamily } from './conversation-relationships-model';
 import { useConversationWorkState } from './use-conversation-work-state';
 import { TaskPageContinuation } from './async-task-list';
+
+// React Flow and its layout code load when the relationships view first opens.
+const ConversationRelationships = lazy(() =>
+  import('./conversation-relationships').then((module) => ({
+    default: module.ConversationRelationships,
+  })),
+);
 
 /** Swap ancestry and execution in the existing Observability work surface. */
 export function ObservabilityWork(
@@ -85,14 +92,16 @@ export function ObservabilityWork(
       </div>
       {relationshipsOpened ? (
         <div hidden={!relationships}>
-          <ConversationRelationships
-            sessions={props.sessions ?? []}
-            sessionId={props.sessionId ?? ''}
-            header={header}
-            onOpenArtifact={props.onOpenArtifact}
-            selectedId={selectedId}
-            onSelect={(selectedId) => update({ selectedId })}
-          />
+          <Suspense fallback={<ResourceLoading label="Loading relationships" />}>
+            <ConversationRelationships
+              sessions={props.sessions ?? []}
+              sessionId={props.sessionId ?? ''}
+              header={header}
+              onOpenArtifact={props.onOpenArtifact}
+              selectedId={selectedId}
+              onSelect={(selectedId) => update({ selectedId })}
+            />
+          </Suspense>
         </div>
       ) : null}
       <TaskPageContinuation pagination={props.workPages} />
