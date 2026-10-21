@@ -7,10 +7,12 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 const repository = vi.hoisted(() => ({
   sessionAgent: vi.fn(),
-  capabilities: vi.fn(async () => ({
-    capabilities: { x_clio_agent_plugins: true },
-    gact_versions: [],
-  })),
+  capabilities: vi.fn(
+    async (): Promise<{ capabilities: Record<string, unknown>; gact_versions: string[] }> => ({
+      capabilities: { x_clio_agent_plugins: true },
+      gact_versions: [],
+    }),
+  ),
   updateSessionAgent: vi.fn(),
   plugins: vi.fn(),
   agents: vi.fn(),
