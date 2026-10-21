@@ -21,7 +21,7 @@ import {
   isA2uiCatalogLookup,
 } from './tool-presentation';
 import { PagedBlock } from './tool-result-primitives';
-import { withWorkflowPresentation, workflowDescriptor } from './workflow-tool-presentation';
+import { flowToolDescriptor } from './flow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 import { ToolAttentionField } from './tool-attention-fields';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
@@ -78,13 +78,15 @@ export function ClioToolInvocation({
     };
   }, [attentionFields]);
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
-  const workflow = workflowDescriptor(tool);
+  const flow = flowToolDescriptor(tool);
+  const openFlow =
+    flow?.handle && navigation?.onOpenFlow
+      ? () => navigation.onOpenFlow?.(flow.handle!, `${flow.label} run`)
+      : undefined;
   const presentedTool = withMemoryPresentation(
     withResourcePresentation(
-      withWorkflowPresentation(
-        withSkillFileSubject(
-          withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
-        ),
+      withSkillFileSubject(
+        withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
       ),
       navigation?.resources,
     ),
@@ -171,18 +173,13 @@ export function ClioToolInvocation({
                     {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
                   </p>
                 ) : null}
+                {openFlow ? (
+                  <Button variant="link" className="h-auto justify-start p-0" onClick={openFlow}>
+                    Open {flow!.label.toLowerCase()} run
+                  </Button>
+                ) : null}
                 {subject && presentedTool.presentation?.subject !== 'wait-targets' ? (
-                  workflow && navigation?.onOpenWorkflow ? (
-                    <Button
-                      variant="link"
-                      className="h-auto justify-start p-0"
-                      onClick={() => navigation.onOpenWorkflow?.(tool)}
-                    >
-                      Open workflow {workflow.label}
-                    </Button>
-                  ) : (
-                    <PresentationLink block={subject} />
-                  )
+                  <PresentationLink block={subject} />
                 ) : null}
                 {isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
                   <p className="text-muted-foreground">
@@ -208,34 +205,34 @@ export function ClioToolInvocation({
           </Collapsible>
         ) : (
           <ActivityRow
-            icon={
-              workflow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />
-            }
+            icon={flow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />}
             title={
               <span
                 className="flex w-full min-w-0 items-center gap-1"
                 data-slot="tool-action-label"
               >
                 <span className="mr-1 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {workflow ? 'Workflow' : 'Tool'}
+                  {flow ? 'Flow' : 'Tool'}
                 </span>
                 <span className="min-w-0 [overflow-wrap:anywhere]">{actionLabel}</span>
-                {subject ? (
+                {openFlow ? (
                   <>
                     <span aria-hidden="true">(</span>
-                    {workflow && navigation?.onOpenWorkflow ? (
-                      <Button
-                        aria-label={`Open workflow ${workflow.label}`}
-                        className="h-auto min-w-0 max-w-[42ch] shrink justify-start truncate p-0 text-left text-sm"
-                        onClick={() => navigation.onOpenWorkflow?.(tool)}
-                        title={workflow.label}
-                        variant="link"
-                      >
-                        <span className="truncate">{workflow.label}</span>
-                      </Button>
-                    ) : (
-                      <PresentationLink block={subject} compact />
-                    )}
+                    <Button
+                      aria-label={`Open ${flow!.label.toLowerCase()} run`}
+                      className="h-auto min-w-0 max-w-[42ch] shrink justify-start truncate p-0 text-left text-sm"
+                      onClick={openFlow}
+                      title={`Open ${flow!.label.toLowerCase()} run`}
+                      variant="link"
+                    >
+                      <span className="truncate">{flow!.label} run</span>
+                    </Button>
+                    <span aria-hidden="true">)</span>
+                  </>
+                ) : subject ? (
+                  <>
+                    <span aria-hidden="true">(</span>
+                    <PresentationLink block={subject} compact />
                     <span aria-hidden="true">)</span>
                   </>
                 ) : null}
@@ -280,21 +277,19 @@ export function ClioToolInvocation({
               {formatDuration(duration, 'tenths')}
             </p>
           ) : null}
-          {compact && subject ? (
-            workflow && navigation?.onOpenWorkflow ? (
-              <Button
-                variant="link"
-                className="h-auto justify-start p-0"
-                onClick={() => {
-                  setOpen(false);
-                  navigation.onOpenWorkflow?.(tool);
-                }}
-              >
-                Open workflow {workflow.label}
-              </Button>
-            ) : (
-              <PresentationLink block={subject} />
-            )
+          {compact && openFlow ? (
+            <Button
+              variant="link"
+              className="h-auto justify-start p-0"
+              onClick={() => {
+                setOpen(false);
+                openFlow();
+              }}
+            >
+              Open {flow!.label.toLowerCase()} run
+            </Button>
+          ) : compact && subject ? (
+            <PresentationLink block={subject} />
           ) : null}
           {open && catalogContent.length ? (
             <section aria-label="Loaded widget catalog" className="min-w-0 space-y-2">

@@ -3,13 +3,11 @@ import type {
   ExecutionProvenanceResult,
   RunState,
   SubagentRun,
-  ToolInvocation,
 } from '@clio/core/v3';
 import { graphlib, layout } from '@dagrejs/dagre';
 import { MarkerType, Position, type Edge, type Node } from '@xyflow/react';
 import { formatDuration, formatNestingDepth } from '@/lib/format';
 import type { SubagentOpenTarget } from './subagent-card';
-import { workflowDescriptor } from './workflow-tool-presentation';
 
 export interface WorkflowNodeData extends Record<string, unknown> {
   label: string;
@@ -281,77 +279,6 @@ export function buildWorkflowGraph(
   });
 
   return layoutGraph(nodes, edges, direction);
-}
-
-/** Build the ordered graph declared by a recorded run_workflow result. */
-export function buildWorkflowExecutionGraph(
-  tool: ToolInvocation,
-  subagents: readonly SubagentRun[],
-  direction: 'LR' | 'TB',
-): { nodes: WorkflowNode[]; edges: Edge[] } {
-  const descriptor = workflowDescriptor(tool);
-  if (!descriptor) return { nodes: [], edges: [] };
-  const workflowState = toolStateAsRunState(tool.state);
-  const nodes: WorkflowNode[] = [
-    {
-      id: `workflow:${tool.id}`,
-      type: 'clio-workflow',
-      position: { x: 0, y: 0 },
-      data: {
-        label: descriptor.label,
-        detail: `${descriptor.steps.length} ordered ${descriptor.steps.length === 1 ? 'step' : 'steps'}`,
-        state: workflowState,
-      },
-      ariaLabel: `${descriptor.label}, workflow, ${workflowState}`,
-    },
-    ...descriptor.steps.map((step, index): WorkflowNode => {
-      const subagent = subagents.find((candidate) => candidate.id === step.taskId);
-      const state = subagent?.state ?? workflowState;
-      const detail = [
-        `Step ${index + 1} of ${descriptor.steps.length}`,
-        subagent?.duration_ms !== undefined ? formatDuration(subagent.duration_ms) : undefined,
-      ]
-        .filter(Boolean)
-        .join(', ');
-      return {
-        id: step.taskId ? `workflow-step:${step.taskId}` : `workflow-step:${tool.id}:${index}`,
-        type: 'clio-workflow',
-        position: { x: 0, y: 0 },
-        data: { label: step.name, detail, state, subagent },
-        ariaLabel: `${step.name}, ${detail}, ${state}`,
-      };
-    }),
-  ];
-  const edges = descriptor.steps.map((step, index): Edge => {
-    const target = step.taskId
-      ? `workflow-step:${step.taskId}`
-      : `workflow-step:${tool.id}:${index}`;
-    const previous = descriptor.steps[index - 1];
-    const source =
-      index === 0
-        ? `workflow:${tool.id}`
-        : previous.taskId
-          ? `workflow-step:${previous.taskId}`
-          : `workflow-step:${tool.id}:${index - 1}`;
-    return {
-      id: `workflow-order:${source}->${target}`,
-      source,
-      target,
-      label: index === 0 ? 'starts' : 'then',
-      type: 'smoothstep',
-      markerEnd: { type: MarkerType.ArrowClosed },
-    };
-  });
-  return layoutGraph(nodes, edges, direction);
-}
-
-export function toolStateAsRunState(state: ToolInvocation['state']): RunState {
-  if (state === 'pending') return 'queued';
-  if (state === 'running') return 'running';
-  if (state === 'succeeded') return 'completed';
-  if (state === 'failed') return 'failed';
-  if (state === 'cancelled' || state === 'denied') return 'cancelled';
-  return 'unknown';
 }
 
 export function stringAttribute(attributes: Record<string, unknown>, key: string): string {
