@@ -147,6 +147,42 @@ describe('PluginSettings', () => {
     );
   });
 
+  it('accepts an update that waits for trust from the plugin row and refreshes the list', async () => {
+    const user = userEvent.setup();
+    const waiting = {
+      ...(await repository.plugins()).plugins[0],
+      id: 'pdf',
+      ref: 'clio/pdf',
+      kind: 'plugin',
+      members: [],
+      pending_trust: true,
+    };
+    repository.plugins.mockClear();
+    repository.plugins
+      .mockResolvedValueOnce({ plugins: [waiting], default_marketplace_error: null })
+      .mockResolvedValue({
+        plugins: [{ ...waiting, pending_trust: false }],
+        default_marketplace_error: null,
+      });
+    repository.trustPluginMarketplace.mockResolvedValue({ ...summary, marketplace: 'clio' });
+    renderSettings();
+    const marketplaces = await screen.findByRole('region', { name: 'Marketplaces' });
+    expect(await within(marketplaces).findByText('1 update waits for trust')).toBeVisible();
+    expect(
+      within(marketplaces).getByRole('button', { name: 'Trust the update from clio' }),
+    ).toBeVisible();
+    const installed = screen.getByRole('region', { name: 'Installed plugins' });
+    expect(within(installed).getByText('Update waits for trust')).toBeVisible();
+    await user.click(within(installed).getByRole('button', { name: 'Trust the update of pdf' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Trust the update from clio?')).toBeVisible();
+    expect(repository.trustPluginMarketplace).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: 'Trust update' }));
+    await waitFor(() => expect(repository.trustPluginMarketplace).toHaveBeenCalledWith('clio'));
+    await waitFor(() => expect(within(installed).queryByText('Update waits for trust')).toBeNull());
+    expect(repository.plugins.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('shows plugin check results per failing plugin', async () => {
     const user = userEvent.setup();
     repository.checkPlugins.mockResolvedValue({

@@ -2,6 +2,7 @@ import type { PluginEntry } from '@clio/core/v3';
 import { BoxesIcon, PackageIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 function contributions(plugin: PluginEntry): string {
@@ -25,10 +26,15 @@ export function InstalledPluginList({
   plugins,
   pending,
   error,
+  busy = false,
+  onTrustUpdate,
 }: {
   plugins: readonly PluginEntry[];
   pending: boolean;
   error?: string;
+  busy?: boolean;
+  /** Accept a waiting update: the trust step of the plugin's marketplace. */
+  onTrustUpdate?: (marketplace: string) => void;
 }) {
   const [filter, setFilter] = useState('');
   const term = filter.trim().toLocaleLowerCase();
@@ -117,6 +123,18 @@ export function InstalledPluginList({
                           : contributions(plugin)}
                         {plugin.requires.length ? ` · needs ${plugin.requires.join(', ')}` : ''}
                       </p>
+                      {plugin.pending_trust && onTrustUpdate ? (
+                        <Button
+                          aria-label={`Trust the update of ${plugin.id}`}
+                          className="mt-1.5"
+                          disabled={busy}
+                          onClick={() => onTrustUpdate(plugin.marketplace)}
+                          size="xs"
+                          variant="outline"
+                        >
+                          Trust update
+                        </Button>
+                      ) : null}
                       {plugin.diagnostics.length ? (
                         <ul className="mt-1 grid gap-0.5 text-xs text-muted-foreground">
                           {plugin.diagnostics.map((row, index) => (

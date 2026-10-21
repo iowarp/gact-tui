@@ -36,7 +36,8 @@ import { ClioStatus } from './status';
 type Confirm = { kind: 'trust' | 'uninstall'; marketplace: PluginMarketplace };
 
 function summaryText(summary: MarketplaceSummary): string {
-  const parts = [`${summary.plugins.length} plugins`, `${summary.agents.length} agents`];
+  const count = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
+  const parts = [count(summary.plugins.length, 'plugin'), count(summary.agents.length, 'agent')];
   if (summary.pending_trust.length) parts.push(`${summary.pending_trust.length} waiting for trust`);
   return parts.join(', ');
 }
@@ -167,6 +168,11 @@ export function PluginSettings() {
               marketplace={marketplace}
               onCheck={() => check.mutate(marketplace.name)}
               onTrust={() => setConfirm({ kind: 'trust', marketplace })}
+              pendingUpdates={
+                catalog.data?.plugins.filter(
+                  (plugin) => plugin.pending_trust && plugin.marketplace === marketplace.name,
+                ).length ?? 0
+              }
               onUninstall={() => setConfirm({ kind: 'uninstall', marketplace })}
               onUpdate={() => update.mutate(marketplace.name)}
               updating={update.isPending && update.variables === marketplace.name}
@@ -176,6 +182,11 @@ export function PluginSettings() {
       </section>
       {report ? <CheckReport onClose={() => setReport(undefined)} report={report} /> : null}
       <InstalledPluginList
+        busy={busy}
+        onTrustUpdate={(name) => {
+          const marketplace = marketplaces.data?.find((row) => row.name === name);
+          if (marketplace) setConfirm({ kind: 'trust', marketplace });
+        }}
         error={catalog.error?.message}
         pending={catalog.isPending}
         plugins={catalog.data?.plugins ?? []}
@@ -197,12 +208,16 @@ export function PluginSettings() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirm?.kind === 'trust'
-                ? `Trust ${confirm.marketplace.name}?`
+                ? confirm.marketplace.trusted
+                  ? `Trust the update from ${confirm.marketplace.name}?`
+                  : `Trust ${confirm.marketplace.name}?`
                 : `Uninstall ${confirm?.marketplace.name}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm?.kind === 'trust'
-                ? 'Its plugins can run commands, start servers and run hooks on this service. Trust only sources you know. An update that changes executable parts asks again.'
+                ? confirm.marketplace.trusted
+                  ? 'The update changes parts that run on this service: commands, servers or hooks. Until you trust it, the installed version keeps running.'
+                  : 'Its plugins can run commands, start servers and run hooks on this service. Trust only sources you know. An update that changes executable parts asks again.'
                 : 'Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -222,7 +237,11 @@ export function PluginSettings() {
                 else uninstall.mutate(confirm.marketplace.name);
               }}
             >
-              {confirm?.kind === 'trust' ? 'Trust marketplace' : 'Uninstall'}
+              {confirm?.kind === 'trust'
+                ? confirm.marketplace.trusted
+                  ? 'Trust update'
+                  : 'Trust marketplace'
+                : 'Uninstall'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -236,6 +255,7 @@ function MarketplaceRow({
   busy,
   updating,
   checking,
+  pendingUpdates,
   onTrust,
   onUpdate,
   onCheck,
@@ -245,6 +265,8 @@ function MarketplaceRow({
   busy: boolean;
   updating: boolean;
   checking: boolean;
+  /** Plugins whose update waits for the trust step. */
+  pendingUpdates: number;
   onTrust: () => void;
   onUpdate: () => void;
   onCheck: () => void;
@@ -270,6 +292,11 @@ function MarketplaceRow({
           />
           {marketplace.default ? <Badge variant="secondary">Shipped</Badge> : null}
           {marketplace.parent ? <Badge variant="outline">Via {marketplace.parent}</Badge> : null}
+          {marketplace.trusted && pendingUpdates ? (
+            <Badge variant="outline">
+              {pendingUpdates === 1 ? '1 update waits' : `${pendingUpdates} updates wait`} for trust
+            </Badge>
+          ) : null}
           {errors ? (
             <Badge variant="destructive">
               {errors} {errors === 1 ? 'problem' : 'problems'}
@@ -306,6 +333,15 @@ function MarketplaceRow({
         {!marketplace.trusted ? (
           <Button disabled={busy} onClick={onTrust} size="sm">
             Trust
+          </Button>
+        ) : pendingUpdates ? (
+          <Button
+            aria-label={`Trust the update from ${marketplace.name}`}
+            disabled={busy}
+            onClick={onTrust}
+            size="sm"
+          >
+            Trust update
           </Button>
         ) : null}
         <DropdownMenu>
