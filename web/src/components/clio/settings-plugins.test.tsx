@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
   pluginMarketplaces: vi.fn(),
+  capabilities: vi.fn(async () => ({
+    capabilities: { x_clio_agent_plugins: true },
+    gact_versions: [],
+  })),
   plugins: vi.fn(),
   installPluginMarketplace: vi.fn(),
   trustPluginMarketplace: vi.fn(),
@@ -110,7 +114,7 @@ describe('PluginSettings', () => {
     repository.trustPluginMarketplace.mockResolvedValue(summary);
     renderSettings();
     const marketplaces = await screen.findByRole('region', { name: 'Marketplaces' });
-    expect(within(marketplaces).getByText('Not trusted')).toBeVisible();
+    expect(await within(marketplaces).findByText('Not trusted')).toBeVisible();
     expect(within(marketplaces).getByText('1 problem')).toBeVisible();
     expect(within(marketplaces).getAllByRole('button', { name: 'Trust' })).toHaveLength(1);
     await user.click(within(marketplaces).getByRole('button', { name: 'Trust' }));

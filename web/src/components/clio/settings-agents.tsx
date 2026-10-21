@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
-import { useInstalledAgents } from '@/hooks/use-session-agent';
+import { useAgentPluginsSupported, useInstalledAgents } from '@/hooks/use-session-agent';
 import { agentSearchTarget } from '@/lib/global-search-commands';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { agentDisplayName, provenanceLabel } from '@/lib/plugin-presentation';
@@ -41,6 +41,7 @@ export function AgentSettings() {
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const location = useLocation();
+  const supported = useAgentPluginsSupported();
   const agents = useInstalledAgents();
   const [deleting, setDeleting] = useState<AgentEntry>();
   const [previewing, setPreviewing] = useState<AgentEntry>();
@@ -58,6 +59,16 @@ export function AgentSettings() {
       toast.success(`Deleted ${agent.name || agent.ref}`);
     },
   });
+  if (supported === false) {
+    return (
+      <Alert>
+        <AlertTitle>Plugins are not available on this service</AlertTitle>
+        <AlertDescription>
+          The connected service does not compose agents from plugins.
+        </AlertDescription>
+      </Alert>
+    );
+  }
   const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
   const installed = agents.data?.filter((agent) => agent.kind !== 'user') ?? [];
   return (

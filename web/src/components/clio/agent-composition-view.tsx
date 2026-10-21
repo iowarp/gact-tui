@@ -35,7 +35,7 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const { agent, update } = useSessionAgent(sessionId);
+  const { supported, agent, update } = useSessionAgent(sessionId);
   const catalog = usePluginCatalog();
   const agents = useInstalledAgents();
   const [removing, setRemoving] = useState<string>();
@@ -74,6 +74,17 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
       },
     );
 
+  if (supported === false) {
+    return (
+      <Alert className="m-4 w-auto">
+        <AlertTitle>Agents are not composable here</AlertTitle>
+        <AlertDescription>
+          This service does not compose agents from plugins, so the conversation&apos;s plugins
+          cannot be shown or changed.
+        </AlertDescription>
+      </Alert>
+    );
+  }
   if (agent.isPending) {
     return (
       <p className="p-4 text-sm text-muted-foreground" role="status">

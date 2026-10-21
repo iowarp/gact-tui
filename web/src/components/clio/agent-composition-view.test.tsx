@@ -7,6 +7,10 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 const repository = vi.hoisted(() => ({
   sessionAgent: vi.fn(),
+  capabilities: vi.fn(async () => ({
+    capabilities: { x_clio_agent_plugins: true },
+    gact_versions: [],
+  })),
   updateSessionAgent: vi.fn(),
   plugins: vi.fn(),
   agents: vi.fn(),
@@ -232,7 +236,7 @@ describe('AgentCompositionView', () => {
     await user.click(screen.getByRole('button', { name: 'Add back' }));
     await waitFor(() =>
       expect(repository.updateSessionAgent).toHaveBeenLastCalledWith('sess_1', {
-        delta: { add: [], remove: [] },
+        delta: { add: ['clio/hdf5'], remove: [] },
       }),
     );
   });
@@ -274,6 +278,14 @@ describe('AgentCompositionView', () => {
       screen.getByRole('article', { name: 'standard.identity from Agent standard' }),
     ).toHaveTextContent('You are CLIO.');
     expect(screen.getByRole('region', { name: 'Capabilities section' })).toBeVisible();
+  });
+
+  it('says so instead of calling plugin routes when the service lacks agent plugins', async () => {
+    repository.capabilities.mockResolvedValueOnce({ capabilities: {}, gact_versions: [] });
+    renderView();
+    expect(await screen.findByText('Agents are not composable here')).toBeVisible();
+    expect(repository.sessionAgent).not.toHaveBeenCalled();
+    expect(repository.plugins).not.toHaveBeenCalled();
   });
 
   it('keeps a defined subagent read-only', async () => {

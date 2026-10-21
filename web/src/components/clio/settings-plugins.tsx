@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
-import { usePluginCatalog } from '@/hooks/use-session-agent';
+import { useAgentPluginsSupported, usePluginCatalog } from '@/hooks/use-session-agent';
 import { AddIcon, DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -49,8 +49,10 @@ export function PluginSettings() {
   const [installing, setInstalling] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>();
   const [report, setReport] = useState<PluginCheckReport>();
+  const supported = useAgentPluginsSupported();
   const marketplaces = useQuery({
     queryKey: queryKeys.key('plugin-marketplaces', settings.endpoint),
+    enabled: supported === true,
     queryFn: ({ signal }) => repository.pluginMarketplaces(signal),
   });
   const catalog = usePluginCatalog();
@@ -111,6 +113,16 @@ export function PluginSettings() {
   });
   const busy = trust.isPending || update.isPending || uninstall.isPending;
 
+  if (supported === false) {
+    return (
+      <Alert>
+        <AlertTitle>Plugins are not available on this service</AlertTitle>
+        <AlertDescription>
+          The connected service does not compose agents from plugins.
+        </AlertDescription>
+      </Alert>
+    );
+  }
   return (
     <div className="grid gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">

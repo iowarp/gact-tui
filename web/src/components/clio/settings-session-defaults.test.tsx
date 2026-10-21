@@ -22,6 +22,10 @@ const repository = vi.hoisted(() => ({
   updateSessionDefaults: vi.fn(),
   languageModelConfiguration: vi.fn(),
   agents: vi.fn(),
+  capabilities: vi.fn(async () => ({
+    capabilities: { x_clio_agent_plugins: true },
+    gact_versions: [],
+  })),
   providerModels: vi.fn(),
   providerCatalog: vi.fn(),
   updateLanguageModelConfiguration: vi.fn(),

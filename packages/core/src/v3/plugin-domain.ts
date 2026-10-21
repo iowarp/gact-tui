@@ -284,6 +284,14 @@ export function sessionAgentRef(session: { metadata?: Record<string, unknown> } 
 }
 
 /**
+ * Whether the service composes agents from plugins (`x_clio_agent_plugins`):
+ * the plugin catalog, agents, user agents and the session agent routes.
+ */
+export function agentPluginsSupported(capabilities: Record<string, unknown> | undefined): boolean {
+  return capabilities?.x_clio_agent_plugins === true;
+}
+
+/**
  * The plugin id a delta reference names: `<id>`, `<id>@<range>` or
  * `<marketplace>/<id>[@<range>]` (the `ref` /v1/plugins advertises).
  */
