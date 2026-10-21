@@ -140,3 +140,24 @@ export function buildPlanGraph(
     edges,
   };
 }
+
+/** A flow call's task state with its text label; a state this client does not know is spelled out. */
+export function flowCallStatus(status: string): { value: ClioStatusValue; label: string } {
+  switch (status) {
+    case 'pending':
+    case 'queued':
+      return { value: 'queued', label: 'Waiting' };
+    case 'running':
+      return { value: 'running', label: 'Running' };
+    case 'completed':
+      return { value: 'completed', label: 'Completed' };
+    case 'failed':
+      return { value: 'failed', label: 'Failed' };
+    case 'cancelled':
+      return { value: 'cancelled', label: 'Cancelled' };
+    case '':
+      return { value: 'unknown', label: 'Not reported' };
+    default:
+      return { value: 'unknown', label: status.replaceAll('_', ' ') };
+  }
+}

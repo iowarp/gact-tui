@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFlowRun, useOpenTaskHandle } from '@/hooks/use-flow-run';
 import { FlowPlanGraph } from './flow-plan-graph';
-import { flowRunStatus, planNodeStatus } from './flow-run-presentation';
+import { flowCallStatus, flowRunStatus, planNodeStatus } from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -295,7 +295,10 @@ function CallList({
               {call.kind === 'ask' ? 'Question' : `Call ${index + 1}`}
             </span>
             <span className="text-muted-foreground">{call.target}</span>
-            <Badge variant="outline">{call.status.replaceAll('_', ' ') || 'Not reported'}</Badge>
+            <ClioStatus
+              label={flowCallStatus(call.status).label}
+              value={flowCallStatus(call.status).value}
+            />
             {call.handle ? (
               <Button
                 className="ml-auto"

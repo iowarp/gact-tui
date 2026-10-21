@@ -99,7 +99,9 @@ describe('FlowRunView', () => {
     expect(within(nodes).getByText('Running')).toBeVisible();
     expect(within(nodes).getByText('after draft')).toBeVisible();
     expect(screen.getByText('A proposed node is waiting for your approval')).toBeVisible();
-    expect(screen.getByText(/polish/u, { selector: 'span' })).toBeVisible();
+    expect(
+      screen.getByText('polish', { selector: 'li > span.font-medium' }).parentElement,
+    ).toHaveTextContent('polish runs self after review, proposed by critic: tighten the wording');
     expect(screen.getByText('Additions need your approval')).toBeVisible();
     await user.click(within(nodes).getAllByRole('button', { name: 'Open' })[1]!);
     await waitFor(() =>
@@ -151,7 +153,7 @@ describe('FlowRunView', () => {
     );
     renderRun();
     expect(await screen.findByRole('heading', { name: 'Council' })).toBeVisible();
-    expect(screen.getAllByText('completed')).toHaveLength(2);
+    expect(screen.getAllByText('Completed')).toHaveLength(3);
     expect(screen.getByText('Python first; Julia for hot loops.')).toBeVisible();
   });
 

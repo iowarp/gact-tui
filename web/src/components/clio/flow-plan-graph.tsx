@@ -52,7 +52,11 @@ export function FlowPlanGraph({
         proOptions={{ hideAttribution: true }}
         zoomOnDoubleClick={false}
       >
-        <Controls aria-label="Plan graph controls" showInteractive={false} />
+        <Controls
+          aria-label="Plan graph controls"
+          className="!border-border !shadow-none [&_button]:!border-border [&_button]:!bg-background [&_button]:!fill-foreground [&_button:hover]:!bg-muted"
+          showInteractive={false}
+        />
       </ReactFlow>
     </div>
   );
