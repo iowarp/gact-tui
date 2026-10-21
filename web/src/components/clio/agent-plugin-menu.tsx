@@ -139,7 +139,7 @@ export function AgentPluginMenu({
                 Plugins could not be listed: {pluginsError}
               </p>
             ) : null}
-            <CommandEmpty>No matching plugins.</CommandEmpty>
+            {plugins !== undefined ? <CommandEmpty>No matching plugins.</CommandEmpty> : null}
             {packs.length ? <CommandGroup heading="Packs">{packs.map(item)}</CommandGroup> : null}
             {singles.length ? (
               <CommandGroup heading="Plugins">{singles.map(item)}</CommandGroup>

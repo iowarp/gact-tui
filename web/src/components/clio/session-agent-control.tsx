@@ -33,12 +33,13 @@ export function SessionAgentControl({
         className="h-7 min-w-0 max-w-full justify-start px-1.5 text-xs font-normal text-muted-foreground"
         onClick={onOpenAgent}
         size="xs"
+        aria-label={`Open agent ${label}${changes ? `, ${changes === 1 ? '1 change' : `${changes} changes`} in this conversation` : ''}`}
         title={`Open agent ${label}`}
         variant="ghost"
       >
         <span className="truncate">{label}</span>
         {changes ? (
-          <span className="shrink-0 text-[0.625rem] text-muted-foreground">
+          <span className="shrink-0 text-[0.625rem] text-muted-foreground max-sm:hidden">
             ({changes === 1 ? '1 change' : `${changes} changes`})
           </span>
         ) : null}
