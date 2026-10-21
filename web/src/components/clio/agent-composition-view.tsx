@@ -278,6 +278,11 @@ function PluginList({
           .map((plugin) => (
             <li key={plugin.id}>
               <PluginRow
+                activeMembers={
+                  plugin.members.filter((member) =>
+                    resolution.plugins.some((candidate) => candidate.id === member),
+                  ).length
+                }
                 onRemove={readOnly ? undefined : onRemove}
                 pending={pending}
                 plugin={plugin}
@@ -353,14 +358,25 @@ function PluginList({
   );
 }
 
+/** A pack's member count, naming how many are active when some have left. */
+function packMembersLabel(total: number, active: number): string {
+  const noun = total === 1 ? 'member' : 'members';
+  return active === total
+    ? `${total} ${noun}`
+    : `${active} of ${total} ${noun} in this conversation`;
+}
+
 function PluginRow({
   plugin,
   tools,
+  activeMembers,
   pending,
   onRemove,
 }: {
   plugin: ResolvedPlugin;
   tools: number;
+  /** For a pack: how many of its members are active in this conversation. */
+  activeMembers?: number;
   pending: boolean;
   onRemove?: (plugin: string) => void;
 }) {
@@ -389,7 +405,7 @@ function PluginRow({
         ) : null}
         <p className="mt-0.5 text-xs text-muted-foreground">
           {plugin.kind === 'pack'
-            ? `${plugin.members.length} ${plugin.members.length === 1 ? 'member' : 'members'}`
+            ? packMembersLabel(plugin.members.length, activeMembers ?? plugin.members.length)
             : tools
               ? `${tools} ${tools === 1 ? 'tool' : 'tools'}`
               : 'No tools'}

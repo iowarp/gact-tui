@@ -191,6 +191,7 @@ describe('AgentCompositionView', () => {
     const members = within(active).getByRole('list', { name: 'Members of documents' });
     expect(within(members).getByText('In pack documents')).toBeVisible();
     expect(within(members).getByText('xlsx · not in this conversation')).toBeVisible();
+    expect(within(active).getByText('1 of 2 members in this conversation')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Remove core' })).toBeNull();
     expect(screen.getByText('Removed by you')).toBeVisible();
   });
