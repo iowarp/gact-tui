@@ -2,6 +2,7 @@ import {
   pluginReferenceId,
   type AgentDelta,
   type AgentResolution,
+  type PromptBasis,
   type ResolvedPlugin,
 } from '@clio/core/v3';
 import { BoxesIcon, ChevronRightIcon, PackageIcon } from 'lucide-react';
@@ -21,6 +22,9 @@ import {
   removedPluginReason,
   type PluginContributions,
 } from '@/lib/plugin-presentation';
+import { PluginChangePendingNotice } from './plugin-change-pending-notice';
+
+const STILL_IN_PROMPT = 'Still in the agent’s prompt until compaction';
 
 export interface AgentPluginTreeProps {
   resolution: AgentResolution;
@@ -29,6 +33,10 @@ export interface AgentPluginTreeProps {
   pending: boolean;
   onRemove: (plugin: string) => void;
   onAddBack: (plugin: string) => void;
+  /** The prompt the model has; while `pending`, a change waits for compaction. */
+  basis?: PromptBasis;
+  compacting?: boolean;
+  onCompact?: () => void;
 }
 
 /**
@@ -44,7 +52,13 @@ export function AgentPluginTree({
   pending,
   onRemove,
   onAddBack,
+  basis,
+  compacting = false,
+  onCompact,
 }: AgentPluginTreeProps) {
+  const pendingChange = basis?.pending ? basis : undefined;
+  const announced = new Set(pendingChange?.added);
+  const inPrompt = new Set(pendingChange?.removed);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const byId = new Map(resolution.plugins.map((plugin) => [plugin.id, plugin]));
   const packIds = new Set(
@@ -68,6 +82,7 @@ export function AgentPluginTree({
   const node = (plugin: ResolvedPlugin) => (
     <PluginNode
       activeMembers={plugin.members.filter((member) => byId.has(member)).length}
+      announced={announced.has(plugin.id)}
       contributions={pluginContributions(resolution, plugin.id)}
       onOpenChange={(open) => toggle(plugin.id, open)}
       onRemove={readOnly ? undefined : onRemove}
@@ -78,6 +93,13 @@ export function AgentPluginTree({
   );
   return (
     <div className="grid gap-4">
+      {pendingChange ? (
+        <PluginChangePendingNotice
+          basis={pendingChange}
+          compacting={compacting}
+          onCompact={readOnly ? undefined : onCompact}
+        />
+      ) : null}
       <div className="grid gap-1">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">Select a plugin to see what it adds.</p>
@@ -138,6 +160,7 @@ export function AgentPluginTree({
               >
                 <span className="font-medium">{id}</span>
                 <span className="text-xs text-muted-foreground">Removed by you</span>
+                {inPrompt.has(pluginReferenceId(id)) ? <StillInPrompt /> : null}
                 {readOnly ? null : (
                   <Button
                     className="ml-auto"
@@ -158,6 +181,7 @@ export function AgentPluginTree({
               >
                 <span className="font-medium">{row.id}</span>
                 <span className="text-xs text-muted-foreground">{removedPluginReason(row)}</span>
+                {inPrompt.has(row.id) ? <StillInPrompt /> : null}
               </li>
             ))}
           </ul>
@@ -167,10 +191,19 @@ export function AgentPluginTree({
   );
 }
 
+function StillInPrompt() {
+  return (
+    <Badge className="font-normal" variant="secondary">
+      {STILL_IN_PROMPT}
+    </Badge>
+  );
+}
+
 function PluginNode({
   plugin,
   contributions,
   activeMembers,
+  announced,
   open,
   pending,
   onOpenChange,
@@ -180,6 +213,8 @@ function PluginNode({
   contributions: PluginContributions;
   /** For a pack: how many of its members are active in this conversation. */
   activeMembers: number;
+  /** Added as an injection: the agent was told, its prompt does not list it yet. */
+  announced: boolean;
   open: boolean;
   pending: boolean;
   onOpenChange: (open: boolean) => void;
@@ -212,6 +247,11 @@ function PluginNode({
             </TooltipTrigger>
             <TooltipContent>{provenanceDetail(plugin.provenance)}</TooltipContent>
           </Tooltip>
+          {announced ? (
+            <Badge className="relative z-10 font-normal" variant="secondary">
+              Announced to the agent
+            </Badge>
+          ) : null}
           <span className="max-w-full text-xs text-muted-foreground">{summary}</span>
         </div>
         {onRemove && plugin.removable ? (

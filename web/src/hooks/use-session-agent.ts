@@ -1,4 +1,9 @@
-import { agentPluginsSupported, type AgentDelta, type SessionAgent } from '@clio/core/v3';
+import {
+  agentPluginsSupported,
+  type AgentDelta,
+  type PluginChangeApply,
+  type SessionAgent,
+} from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
@@ -22,7 +27,8 @@ export function useAgentPluginsSupported(): boolean | undefined {
 /**
  * The session's pinned agent resolution, and the one way to change it: send
  * the session's whole delta. The server reruns resolution and pins the result,
- * so the view always shows what the next turn runs.
+ * so the view always shows what the next turn runs. `compact` compacts the
+ * conversation, which joins a change held as a note to the prompt.
  */
 export function useSessionAgent(sessionId: string | undefined) {
   const repository = useRepository();
@@ -36,7 +42,7 @@ export function useSessionAgent(sessionId: string | undefined) {
     queryFn: ({ signal }) => repository.sessionAgent(sessionId!, signal),
   });
   const update = useMutation({
-    mutationFn: (input: { delta: AgentDelta; ref?: string }) =>
+    mutationFn: (input: { delta?: AgentDelta; ref?: string; apply?: PluginChangeApply }) =>
       repository.updateSessionAgent(sessionId!, input),
     onSuccess: async (next: SessionAgent) => {
       queryClient.setQueryData(key, next);
@@ -48,7 +54,13 @@ export function useSessionAgent(sessionId: string | undefined) {
       ]);
     },
   });
-  return { supported, agent, update };
+  // A compaction settles a change held as a note: the prompt catches up with
+  // the pinned resolution, so the agent's prompt basis is read again.
+  const compact = useMutation({
+    mutationFn: () => repository.compactSession(sessionId!),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+  return { supported, agent, update, compact };
 }
 
 /** Installed plugins and packs, shared by the + menu and Settings. */

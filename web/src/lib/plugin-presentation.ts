@@ -260,3 +260,27 @@ export function removalPreviewReason(reason: { reason: string; because: string }
       return reason.because ? `requires ${reason.because}` : 'leaves with it';
   }
 }
+
+/**
+ * The plugins a `plugin_change` note names, read from the note itself so a
+ * past turn keeps the change it carried: "Removed: a, b. Do not use …" and
+ * one "Added: x." line per added plugin.
+ */
+export function pluginChangeSummary(text: string): { added: string[]; removed: string[] } {
+  const added: string[] = [];
+  const removed: string[] = [];
+  for (const line of text.split('\n')) {
+    const add = /^Added: (.+)\.$/u.exec(line.trim());
+    if (add) added.push(add[1]!.trim());
+    const remove = /^Removed: (.+?)\. Do not use/u.exec(line.trim());
+    if (remove) removed.push(...remove[1]!.split(',').map((id) => id.trim()));
+  }
+  return { added, removed: removed.filter(Boolean) };
+}
+
+/** "Plugins changed: +shell · −document-runtime", or "Plugins changed". */
+export function pluginChangeLabel(text: string): string {
+  const { added, removed } = pluginChangeSummary(text);
+  const items = [...added.map((id) => `+${id}`), ...removed.map((id) => `−${id}`)];
+  return items.length ? `Plugins changed: ${items.join(' · ')}` : 'Plugins changed';
+}

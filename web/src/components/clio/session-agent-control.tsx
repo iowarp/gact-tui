@@ -1,9 +1,10 @@
 import { deltaWith, emptyAgentDelta, pluginReferenceId } from '@clio/core/v3';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { usePluginCatalog, useSessionAgent } from '@/hooks/use-session-agent';
+import { usePluginChange } from '@/hooks/use-plugin-change';
+import { usePluginCatalog } from '@/hooks/use-session-agent';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { AgentPluginMenu } from './agent-plugin-menu';
+import { PluginChangeDialog } from './plugin-change-dialog';
 
 /**
  * The conversation's agent beside its title: the agent's name opens the agent
@@ -19,7 +20,7 @@ export function SessionAgentControl({
   fallbackLabel?: string;
   onOpenAgent: () => void;
 }) {
-  const { agent, update } = useSessionAgent(sessionId);
+  const { agent, update, propose, dialog } = usePluginChange(sessionId);
   const resolution = agent.data?.resolution;
   const editable = Boolean(resolution && !agent.data?.subagent);
   const catalog = usePluginCatalog(editable);
@@ -48,19 +49,15 @@ export function SessionAgentControl({
         <AgentPluginMenu
           delta={delta}
           disabled={update.isPending}
-          onAdd={(plugin) =>
-            update.mutate(
-              { delta: deltaWith(delta, { add: plugin }) },
-              {
-                onSuccess: () =>
-                  toast.success(`Added ${pluginReferenceId(plugin)} to this conversation`),
-                onError: (error) =>
-                  toast.error(`${pluginReferenceId(plugin)} was not added`, {
-                    description: error.message,
-                  }),
-              },
-            )
-          }
+          onAdd={(plugin) => {
+            const id = pluginReferenceId(plugin);
+            propose({
+              delta: deltaWith(delta, { add: plugin }),
+              summary: `Adds ${id} to this conversation.`,
+              success: `Added ${id} to this conversation`,
+              failure: `${id} was not added`,
+            });
+          }}
           plugins={catalog.data?.plugins}
           pluginsError={catalog.error?.message}
           resolution={resolution}
@@ -75,6 +72,7 @@ export function SessionAgentControl({
           </Button>
         </AgentPluginMenu>
       ) : null}
+      <PluginChangeDialog {...dialog} />
     </span>
   );
 }

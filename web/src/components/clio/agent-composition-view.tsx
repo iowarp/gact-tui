@@ -7,38 +7,36 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
-import { useInstalledAgents, usePluginCatalog, useSessionAgent } from '@/hooks/use-session-agent';
+import { usePluginChange, type PluginChange } from '@/hooks/use-plugin-change';
+import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
 import { AddIcon, SaveIcon } from '@/lib/icon-vocabulary';
 import { agentDisplayName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { AgentPluginMenu } from './agent-plugin-menu';
 import { AgentPluginTree } from './agent-plugin-tree';
-import { AgentRemovalDialog } from './agent-removal-dialog';
+import { AgentSwitchMenu } from './agent-switch-menu';
 import { ComposedPromptView } from './composed-prompt-view';
+import { PluginChangeDialog } from './plugin-change-dialog';
 import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-dialog';
 
 /**
  * The conversation's agent: which plugins it carries and where each came
  * from, the + menu that adds and removes plugins for this conversation, and
- * the composed prompt with every fragment attributed to its plugin.
+ * the composed prompt with every fragment attributed to its plugin. Every
+ * change goes through the plugin-change warning (`usePluginChange`).
  */
 export function AgentCompositionView({ sessionId }: { sessionId: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const { supported, agent, update } = useSessionAgent(sessionId);
+  const { supported, agent, update, compact, propose, dialog } = usePluginChange(sessionId);
   const catalog = usePluginCatalog();
   const agents = useInstalledAgents();
-  const [removing, setRemoving] = useState<string>();
   const [saving, setSaving] = useState(false);
   const resolution = agent.data?.resolution;
   const delta = agent.data?.delta ?? emptyAgentDelta;
   const readOnly = Boolean(agent.data?.subagent);
-  const preview = useMutation({
-    mutationFn: (plugin: string) =>
-      repository.previewPluginRemoval({ ref: resolution!.agent.ref, plugin, delta }),
-  });
   const save = useMutation({
     mutationFn: (input: SaveUserAgentInput) =>
       repository.saveUserAgent({
@@ -57,14 +55,23 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
       });
     },
   });
-  const apply = (next: AgentDelta, success: string) =>
-    update.mutate(
-      { delta: next },
-      {
-        onSuccess: () => toast.success(success),
-        onSettled: () => setRemoving(undefined),
+  const change = (next: AgentDelta, rest: Omit<PluginChange, 'delta'>) =>
+    propose({ delta: next, ...rest });
+  const compactNow = () =>
+    compact.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.compacted)
+          toast.success('Conversation compacted', {
+            description: 'The plugin changes are in the agent’s system prompt now.',
+          });
+        else
+          toast.info('Conversation was not compacted', {
+            description: result.reason ?? 'The service did not report a reason.',
+          });
       },
-    );
+      onError: (error) =>
+        toast.error('Unable to compact this conversation', { description: error.message }),
+    });
 
   if (supported === false) {
     return (
@@ -131,9 +138,14 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
             <AgentPluginMenu
               delta={delta}
               disabled={update.isPending}
-              onAdd={(plugin) =>
-                apply(deltaWith(delta, { add: plugin }), `Added ${pluginReferenceId(plugin)}`)
-              }
+              onAdd={(plugin) => {
+                const id = pluginReferenceId(plugin);
+                change(deltaWith(delta, { add: plugin }), {
+                  summary: `Adds ${id} to this conversation.`,
+                  success: `Added ${id}`,
+                  failure: `${id} was not added`,
+                });
+              }}
               plugins={catalog.data?.plugins}
               pluginsError={catalog.error?.message}
               resolution={resolution}
@@ -142,6 +154,28 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
                 <AddIcon aria-hidden="true" /> Add plugin
               </Button>
             </AgentPluginMenu>
+            <AgentSwitchMenu
+              agents={agents.data}
+              agentsError={agents.error?.message}
+              current={resolution.agent.ref}
+              disabled={update.isPending}
+              onSwitch={(next) => {
+                const name = next.name || next.id;
+                propose({
+                  ref: next.ref,
+                  delta: emptyAgentDelta,
+                  summary: changed
+                    ? `Switches this conversation to ${name}, without this conversation’s plugin changes.`
+                    : `Switches this conversation to ${name}.`,
+                  success: `Switched to ${name}`,
+                  failure: `The conversation was not switched to ${name}`,
+                });
+              }}
+            >
+              <Button size="sm" variant="outline">
+                <BotIcon aria-hidden="true" /> Switch agent
+              </Button>
+            </AgentSwitchMenu>
             <Button
               disabled={!changed || update.isPending}
               onClick={() => setSaving(true)}
@@ -154,7 +188,13 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
             {changed ? (
               <Button
                 disabled={update.isPending}
-                onClick={() => apply(emptyAgentDelta, `Restored ${parentName}`)}
+                onClick={() =>
+                  change(emptyAgentDelta, {
+                    summary: `Restores ${parentName}’s plugins in this conversation.`,
+                    success: `Restored ${parentName}`,
+                    failure: `${parentName} was not restored`,
+                  })
+                }
                 size="sm"
                 variant="ghost"
               >
@@ -179,11 +219,24 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
         <TabsContent value="plugins" className="mt-2">
           <AgentPluginTree
             delta={delta}
-            onAddBack={(plugin) => apply(deltaWith(delta, { add: plugin }), `Added ${plugin} back`)}
-            onRemove={(plugin) => {
-              setRemoving(plugin);
-              preview.mutate(plugin);
-            }}
+            basis={agent.data?.prompt_basis}
+            compacting={compact.isPending}
+            onAddBack={(plugin) =>
+              change(deltaWith(delta, { add: plugin }), {
+                summary: `Adds ${plugin} back to this conversation.`,
+                success: `Added ${plugin} back`,
+                failure: `${plugin} was not added back`,
+              })
+            }
+            onCompact={compactNow}
+            onRemove={(plugin) =>
+              change(deltaWith(delta, { remove: plugin }), {
+                removing: plugin,
+                summary: `Removes ${plugin} from this conversation.`,
+                success: `Removed ${plugin}`,
+                failure: `${plugin} was not removed`,
+              })
+            }
             pending={update.isPending}
             readOnly={readOnly}
             resolution={resolution}
@@ -193,20 +246,7 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
           <ComposedPromptView resolution={resolution} />
         </TabsContent>
       </Tabs>
-      <AgentRemovalDialog
-        applying={update.isPending}
-        onClose={() => {
-          setRemoving(undefined);
-          preview.reset();
-        }}
-        onConfirm={() => {
-          if (removing) apply(deltaWith(delta, { remove: removing }), `Removed ${removing}`);
-        }}
-        plugin={removing}
-        preview={preview.data?.plugin === removing ? preview.data : undefined}
-        previewError={preview.error?.message}
-        previewPending={preview.isPending}
-      />
+      <PluginChangeDialog {...dialog} />
       {saving ? (
         <SaveUserAgentDialog
           delta={delta}

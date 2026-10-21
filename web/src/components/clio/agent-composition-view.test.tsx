@@ -2,6 +2,7 @@ import type { AgentResolution, SessionAgent } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -18,15 +19,24 @@ const repository = vi.hoisted(() => ({
   agents: vi.fn(),
   previewPluginRemoval: vi.fn(),
   saveUserAgent: vi.fn(),
+  compactSession: vi.fn(),
 }));
+// Messages in the conversation: with any, a plugin change asks first.
+const transcript = vi.hoisted(() => ({ messages: 2 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@/hooks/use-session-message-count', () => ({
+  useSessionMessageCount: () => transcript.messages,
+}));
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
 
 import { AgentCompositionView } from './agent-composition-view';
+import { SessionAgentControl } from './session-agent-control';
 
 function plugin(
   id: string,
@@ -46,6 +56,8 @@ function plugin(
     ...extra,
   };
 }
+
+const emptyDelta = { add: [], remove: [] };
 
 const resolution: AgentResolution = {
   agent: {
@@ -125,20 +137,35 @@ const sessionAgent: SessionAgent = {
   delta: { add: [], remove: ['xlsx'] },
   subagent: false,
   resolution,
+  prompt_basis: {
+    digest: 'r',
+    pending: false,
+    added: [],
+    removed: [],
+    skills_now: [],
+    tools_unlisted: [],
+    tools_still_listed: [],
+  },
 };
 
-function renderView() {
+function renderView(view = <AgentCompositionView sessionId="sess_1" />) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <TooltipProvider>
-        <AgentCompositionView sessionId="sess_1" />
-      </TooltipProvider>
+      <TooltipProvider>{view}</TooltipProvider>
     </QueryClientProvider>,
   );
 }
 
+/** Opens the + menu and picks hdf5; returns the warning dialog. */
+async function addHdf5(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'Add plugin' }));
+  await user.click(await screen.findByRole('option', { name: /hdf5/u }));
+  return screen.findByRole('alertdialog');
+}
+
 beforeEach(() => {
+  transcript.messages = 2;
   repository.sessionAgent.mockResolvedValue(sessionAgent);
   repository.agents.mockResolvedValue([
     { ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' },
@@ -172,9 +199,9 @@ beforeEach(() => {
     default_marketplace_error: null,
   });
   repository.updateSessionAgent.mockImplementation(
-    async (_sid: string, input: { delta: SessionAgent['delta'] }) => ({
+    async (_sid: string, input: { delta?: SessionAgent['delta'] }) => ({
       ...sessionAgent,
-      delta: input.delta,
+      delta: input.delta ?? sessionAgent.delta,
     }),
   );
 });
@@ -275,7 +302,7 @@ describe('AgentCompositionView', () => {
     ).toBeVisible();
   });
 
-  it('previews the cascade before a removal and applies the whole delta only on confirm', async () => {
+  it('warns once before a removal, with its cascade, and applies the whole delta only on a yes', async () => {
     const user = userEvent.setup();
     repository.previewPluginRemoval.mockResolvedValue({
       plugin: 'document-runtime',
@@ -289,6 +316,11 @@ describe('AgentCompositionView', () => {
     renderView();
     await user.click(await screen.findByRole('button', { name: 'Remove document-runtime' }));
     const dialog = await screen.findByRole('alertdialog');
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+    expect(within(dialog).getByRole('heading', { name: 'Warning' })).toBeVisible();
+    expect(
+      within(dialog).getByText('Removes document-runtime from this conversation.'),
+    ).toBeVisible();
     expect(await within(dialog).findByText('pdf')).toBeVisible();
     expect(within(dialog).getByText('requires document-runtime')).toBeVisible();
     expect(within(dialog).getByText('none of its members remain')).toBeVisible();
@@ -299,15 +331,67 @@ describe('AgentCompositionView', () => {
       delta: { add: [], remove: ['xlsx'] },
     });
     expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: 'Remove 3 plugins' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Yes, as an injection' }));
     await waitFor(() =>
       expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
         delta: { add: [], remove: ['xlsx', 'document-runtime'] },
+        apply: 'note',
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  });
+
+  it.each([
+    ['Yes', 'now'],
+    ['Yes, after compaction', 'compact'],
+    ['Yes, as an injection', 'note'],
+  ] as const)('sends apply %s → %s for an add from the + menu', async (choice, apply) => {
+    const user = userEvent.setup();
+    renderView();
+    const dialog = await addHdf5(user);
+    expect(within(dialog).getByRole('heading', { name: 'Warning' })).toBeVisible();
+    expect(
+      within(dialog).getByText(
+        'Changing plugins changes the system prompt, which invalidates the prompt cache, so the next model call may cost more.',
+      ),
+    ).toBeVisible();
+    expect(within(dialog).getByText('Do you want to proceed?')).toBeVisible();
+    expect(
+      within(dialog)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual([
+      'YesRebuilds the prompt cache on the next call.',
+      'Yes, after compactionCompacts the conversation now; the change goes in with it.',
+      'Yes, as an injectionTells the agent now; the prompt changes at the next compaction. Added tools are announced, not listed; removed plugins stay visible to the agent until then.',
+      'No',
+    ]);
+    // No default: "No" holds the focus, never a yes.
+    expect(within(dialog).getByRole('button', { name: 'No' })).toHaveFocus();
+    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: choice }));
+    await waitFor(() =>
+      expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
+        delta: { add: ['clio/hdf5'], remove: ['xlsx'] },
+        apply,
       }),
     );
   });
 
-  it('adds a plugin from the + menu and adds a removed plugin back', async () => {
+  it('sends nothing when the person says No', async () => {
+    const user = userEvent.setup();
+    renderView();
+    const dialog = await addHdf5(user);
+    await user.click(within(dialog).getByRole('button', { name: 'No' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await user.click(screen.getByRole('button', { name: 'Add back' }));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
+  });
+
+  it('applies at once on a conversation with no messages, where nothing is cached', async () => {
+    transcript.messages = 0;
     const user = userEvent.setup();
     renderView();
     await user.click(await screen.findByRole('button', { name: 'Add plugin' }));
@@ -315,12 +399,120 @@ describe('AgentCompositionView', () => {
     await waitFor(() =>
       expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
         delta: { add: ['clio/hdf5'], remove: ['xlsx'] },
+        apply: 'now',
       }),
     );
-    await user.click(screen.getByRole('button', { name: 'Add back' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('shows the compaction running and says so when it fails', async () => {
+    const user = userEvent.setup();
+    let finish!: (value: SessionAgent) => void;
+    repository.updateSessionAgent.mockImplementationOnce(
+      () => new Promise<SessionAgent>((resolve) => (finish = resolve)),
+    );
+    renderView();
+    await user.click(await screen.findByRole('button', { name: 'Add back' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Yes, after compaction' }));
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      'Compacting the conversation. This calls the model and can take a few seconds…',
+    );
+    expect(within(dialog).getByRole('button', { name: 'Yes' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'No' })).toBeDisabled();
+    finish({
+      ...sessionAgent,
+      delta: emptyDelta,
+      prompt_basis: { ...sessionAgent.prompt_basis, pending: true, added: ['xlsx'] },
+      compaction: {
+        compacted: false,
+        error: { error: { error: 'compaction_failed', message: 'the model timed out' } },
+      },
+    });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(toast.warning).toHaveBeenCalledWith('The compaction failed', {
+      description:
+        'Added xlsx back, but the conversation was not compacted (the model timed out). The change was sent as an injection instead and joins the system prompt at the next compaction.',
+      duration: 12_000,
+    });
+    expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
+      delta: emptyDelta,
+      apply: 'compact',
+    });
+  });
+
+  it('shows a change waiting for compaction and compacts on request', async () => {
+    const user = userEvent.setup();
+    repository.sessionAgent.mockResolvedValue({
+      ...sessionAgent,
+      prompt_basis: {
+        ...sessionAgent.prompt_basis,
+        digest: 'old',
+        pending: true,
+        added: ['shell'],
+        removed: ['xlsx'],
+      },
+    });
+    repository.compactSession.mockResolvedValue({ session_id: 'sess_1', compacted: true });
+    renderView();
+    const notice = await screen.findByRole('region', {
+      name: 'Plugin changes waiting for compaction',
+    });
+    expect(notice).toHaveTextContent(
+      'These changes were sent as an injection. They join the system prompt at the next compaction.',
+    );
+    expect(notice).toHaveTextContent('Addedshell');
+    expect(notice).toHaveTextContent('Removedxlsx');
+    const active = screen.getByRole('list', { name: 'Active plugins' });
+    expect(within(active).getAllByText('Announced to the agent')).toHaveLength(1);
+    const removed = screen.getByRole('region', { name: 'Removed plugins' });
+    expect(within(removed).getByText('Still in the agent’s prompt until compaction')).toBeVisible();
+    await user.click(within(notice).getByRole('button', { name: 'Compact now' }));
+    await waitFor(() => expect(repository.compactSession).toHaveBeenCalledWith('sess_1'));
+    await waitFor(() => expect(repository.sessionAgent).toHaveBeenCalledTimes(2));
+    expect(toast.success).toHaveBeenCalledWith('Conversation compacted', {
+      description: 'The plugin changes are in the agent’s system prompt now.',
+    });
+  });
+
+  it('switches the conversation agent only after the warning', async () => {
+    const user = userEvent.setup();
+    repository.agents.mockResolvedValue([
+      { ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' },
+      { ref: 'clio/science', id: 'science', name: 'Scientist', plugins: [], kind: 'agent' },
+    ]);
+    renderView();
+    await user.click(await screen.findByRole('button', { name: 'Switch agent' }));
+    await user.click(await screen.findByRole('option', { name: /Scientist/u }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(
+      within(dialog).getByText(
+        'Switches this conversation to Scientist, without this conversation’s plugin changes.',
+      ),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Yes' }));
     await waitFor(() =>
-      expect(repository.updateSessionAgent).toHaveBeenLastCalledWith('sess_1', {
-        delta: { add: ['clio/hdf5'], remove: [] },
+      expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
+        ref: 'clio/science',
+        delta: emptyDelta,
+        apply: 'now',
+      }),
+    );
+  });
+
+  it('asks the same question from the header +', async () => {
+    const user = userEvent.setup();
+    renderView(<SessionAgentControl onOpenAgent={vi.fn()} sessionId="sess_1" />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Add a plugin to this conversation' }),
+    );
+    await user.click(await screen.findByRole('option', { name: /hdf5/u }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Yes, as an injection' }));
+    await waitFor(() =>
+      expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
+        delta: { add: ['clio/hdf5'], remove: ['xlsx'] },
+        apply: 'note',
       }),
     );
   });
