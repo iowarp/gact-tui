@@ -83,7 +83,13 @@ export function FlowRunView({
           </p>
         ) : null}
       </header>
-      {data.outcome ? <FlowStall outcome={data.outcome} onOpenHandle={openHandle} /> : null}
+      {data.outcome ? (
+        <FlowStall
+          cancelled={data.status === 'cancelled'}
+          onOpenHandle={openHandle}
+          outcome={data.outcome}
+        />
+      ) : null}
       {data.view ? (
         <PlanSection
           onOpenHandle={openHandle}
@@ -142,16 +148,24 @@ function PlanBounds({ view }: { view: PlanView }) {
 }
 
 function FlowStall({
+  cancelled,
   outcome,
   onOpenHandle,
 }: {
+  cancelled: boolean;
   outcome: FlowOutcome;
   onOpenHandle: (handle: string) => void;
 }) {
+  // A cancelled run ended because someone asked it to: no fault to repair.
+  const title = cancelled
+    ? 'The flow was cancelled'
+    : outcome.reason === 'flow_stall'
+      ? 'The flow stalled'
+      : 'The flow stopped';
   return (
-    <Alert variant="destructive">
+    <Alert variant={cancelled ? 'default' : 'destructive'}>
       <AlertTitle>
-        {outcome.reason === 'flow_stall' ? 'The flow stalled' : 'The flow stopped'}
+        {title}
         {outcome.step ? ` at ${outcome.step}` : ''}
       </AlertTitle>
       <AlertDescription className="grid gap-2">
@@ -185,7 +199,7 @@ function FlowStall({
             size="xs"
             variant="outline"
           >
-            Open the stalled step
+            {cancelled ? 'Open the cancelled step' : 'Open the stalled step'}
           </Button>
         ) : null}
         {outcome.observed !== undefined ? (

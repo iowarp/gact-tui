@@ -138,6 +138,26 @@ describe('FlowRunView', () => {
     expect(screen.getByRole('button', { name: 'Open the stalled step' })).toBeVisible();
   });
 
+  it('shows a cancelled run as cancelled, not as a stall', async () => {
+    repository.taskFlow.mockResolvedValue(
+      flowRunSchema.parse({
+        ...planRun,
+        status: 'cancelled',
+        questions: [],
+        outcome: {
+          reason: 'call_cancelled',
+          message: "subagent 'researcher' ended cancelled",
+          handle: 'task_review',
+        },
+      }),
+    );
+    renderRun();
+    expect(await screen.findByText('The flow was cancelled')).toBeVisible();
+    expect(screen.getByText('Cancelled')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open the cancelled step' })).toBeVisible();
+    expect(screen.queryByText('The flow stopped')).toBeNull();
+  });
+
   it('lists the calls and the result of a flow without a plan view', async () => {
     repository.taskFlow.mockResolvedValue(
       flowRunSchema.parse({
