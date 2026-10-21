@@ -88,7 +88,8 @@ function serverTitle(server: McpServerDefinition) {
 
 function connectionLabel(server: McpServerDefinition) {
   if (server.transport === 'in_process') return 'Built in';
-  if (server.source === 'agent_blueprint') return 'Provided by blueprint';
+  if (server.source === 'plugin')
+    return server.plugin ? `From plugin ${server.plugin}` : 'From a plugin';
   if (server.transport === 'stdio') return 'Local command';
   if (server.transport === 'http' || server.transport === 'streamable-http') {
     return 'Remote service';
@@ -274,8 +275,8 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
           <div>
             <FrameTitle>Connected MCP services</FrameTitle>
             <FrameDescription className="mt-1">
-              The selected workspace includes its blueprint MCPs alongside the agent’s built-in and
-              external services.
+              The selected workspace includes servers its agent&apos;s plugins bring alongside the
+              built-in and external services.
             </FrameDescription>
           </div>
           <div className="flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-end">

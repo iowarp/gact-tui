@@ -4,8 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
   capabilities: vi.fn(),
-  blueprintSourceUpdates: vi.fn(),
-  refreshAgentBlueprintSource: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -41,7 +39,6 @@ const baseCapabilities = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  repository.blueprintSourceUpdates.mockResolvedValue({ sources: [], checked_at: undefined });
 });
 
 afterEach(cleanup);

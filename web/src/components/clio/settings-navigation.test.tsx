@@ -16,14 +16,14 @@ function Location() {
 it('exposes every section in the compact menu and keeps the workspace return route', async () => {
   const user = userEvent.setup();
   const sections = [
-    { id: 'blueprints', label: 'Marketplaces', icon: FolderIcon },
+    { id: 'plugins', label: 'Plugins & marketplaces', icon: FolderIcon },
     { id: 'appearance', label: 'Appearance', icon: FolderIcon },
   ];
   render(
-    <MemoryRouter initialEntries={['/settings/blueprints']}>
+    <MemoryRouter initialEntries={['/settings/plugins']}>
       <SettingsNavigation
         sections={sections}
-        section="blueprints"
+        section="plugins"
         endpoint="http://delta"
         workspaceRoute="/workspaces/ws/sessions/sess"
       />
@@ -32,7 +32,7 @@ it('exposes every section in the compact menu and keeps the workspace return rou
   );
   await user.click(screen.getByRole('button', { name: 'Choose settings section' }));
   expect(screen.getAllByRole('menuitem')).toHaveLength(3);
-  expect(screen.getByRole('menuitem', { name: 'Marketplaces' })).toHaveAttribute(
+  expect(screen.getByRole('menuitem', { name: 'Plugins & marketplaces' })).toHaveAttribute(
     'aria-current',
     'page',
   );

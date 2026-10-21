@@ -22,10 +22,9 @@ import { useEffect, useRef } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
-import { BlueprintSettings } from '@/components/clio/settings-catalogs';
+import { PluginSettings } from '@/components/clio/settings-plugins';
 import { RelaySettings } from '@/components/clio/relay-settings';
 import { AgentSettings } from '@/components/clio/settings-agents';
-import { ExpertPackSettings } from '@/components/clio/settings-expert-packs';
 import { SystemSettings } from '@/components/clio/settings-operations';
 import { PermissionPoliciesPanel } from '@/components/clio/settings-permissions';
 import { ToolsSettings } from '@/components/clio/settings-tools';
@@ -466,12 +465,10 @@ function NotificationSettings() {
 }
 
 function SettingsSection({
-  blueprintId,
   section,
   sessionId,
   workspaceId,
 }: {
-  blueprintId?: string;
   section: string;
   sessionId?: string;
   workspaceId?: string;
@@ -484,8 +481,7 @@ function SettingsSection({
   if (section === 'providers') return <ProvidersSettings />;
   if (section === 'models') return <ModelsSettings />;
   if (section === 'agents') return <AgentSettings />;
-  if (section === 'blueprints') return <BlueprintSettings initialBlueprintId={blueprintId} />;
-  if (section === 'expert-packs') return <ExpertPackSettings initialWorkspaceId={workspaceId} />;
+  if (section === 'plugins') return <PluginSettings />;
   if (section === 'tools') return <ToolsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
@@ -512,7 +508,6 @@ export function SettingsPage() {
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
-  const blueprintId = new URLSearchParams(location.search).get('blueprint') || undefined;
   if (section === 'desktop') {
     return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
   }
@@ -532,7 +527,6 @@ export function SettingsPage() {
         <div className="mx-auto max-w-4xl pb-12">
           <SettingsSection
             key={connectionScope(settings)}
-            blueprintId={blueprintId}
             section={section}
             sessionId={sessionId}
             workspaceId={workspaceId}

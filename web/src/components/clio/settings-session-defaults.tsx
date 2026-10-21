@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
+import { useInstalledAgents } from '@/hooks/use-session-agent';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
@@ -35,7 +36,7 @@ import {
   SESSION_MODE_PATCHES,
 } from './session-behavior-options';
 
-const standardBlueprint = '__standard__';
+const serviceDefaultAgent = '__default__';
 
 function SectionHeading() {
   return (
@@ -57,10 +58,7 @@ export function SessionDefaultsSettings() {
     queryFn: ({ signal }) => repository.sessionDefaults(signal),
   });
   const { configuration: modelConfiguration, catalog, options } = useProviderGroups();
-  const blueprints = useQuery({
-    queryKey: queryKeys.key('agent-blueprints', settings.endpoint, 'session-defaults'),
-    queryFn: ({ signal }) => repository.agentBlueprints(undefined, signal),
-  });
+  const agents = useInstalledAgents();
   const [draft, setDraft] = useState<{
     source?: SessionDefaults;
     value?: SessionDefaults;
@@ -124,7 +122,7 @@ export function SessionDefaultsSettings() {
 
   const update = <Key extends keyof SessionDefaults>(key: Key, value: SessionDefaults[Key]) =>
     setForm((current) => (current ? { ...current, [key]: value } : current));
-  const blueprintValue = form.blueprint_id || standardBlueprint;
+  const agentValue = form.agent_ref || serviceDefaultAgent;
   const selectedMode =
     SESSION_MODE_OPTIONS.find((option) => option.value === form.mode) ?? SESSION_MODE_OPTIONS[0];
   const selectedApproval =
@@ -217,29 +215,30 @@ export function SessionDefaultsSettings() {
             value={form.effort}
           />
           <SettingsRow
-            htmlFor="session-default-blueprint"
+            htmlFor="session-default-agent"
             title="Agent"
-            info="An agent blueprint adds its experts, tools and instructions to new sessions."
+            info="The agent new sessions run. Its plugins bring tools, skills and guidance; you can still add or remove plugins in a conversation."
           >
             <Select
               onValueChange={(value) =>
-                update('blueprint_id', value === standardBlueprint ? '' : value)
+                update('agent_ref', value === serviceDefaultAgent ? '' : value)
               }
-              value={blueprintValue}
+              value={agentValue}
             >
-              <SelectTrigger id="session-default-blueprint">
+              <SelectTrigger id="session-default-agent">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={standardBlueprint}>Standard agent</SelectItem>
-                {blueprints.data
-                  ?.filter((blueprint) => blueprint.enabled)
-                  .map((blueprint) => (
-                    <SelectItem key={blueprint.id} value={blueprint.id}>
-                      {blueprint.display_name}
-                      {blueprint.materialized === false ? ' · Installs when used' : ''}
-                    </SelectItem>
-                  ))}
+                <SelectItem value={serviceDefaultAgent}>Service default</SelectItem>
+                {agents.data?.map((agent) => (
+                  <SelectItem key={agent.ref} value={agent.ref}>
+                    {agent.name || agent.id}
+                    {agent.kind === 'user' ? ' · yours' : ''}
+                  </SelectItem>
+                ))}
+                {form.agent_ref && !agents.data?.some((agent) => agent.ref === form.agent_ref) ? (
+                  <SelectItem value={form.agent_ref}>{form.agent_ref} · not installed</SelectItem>
+                ) : null}
               </SelectContent>
             </Select>
           </SettingsRow>
