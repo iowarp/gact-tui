@@ -22,8 +22,8 @@ describe('sessionDefaultsPatch', () => {
     } as unknown as SessionDefaults;
 
     expect(Object.keys(sessionDefaultsPatch(withExtras)).sort()).toEqual([
-      'approval_mode',
       'agent_ref',
+      'approval_mode',
       'edit_mode',
       'effort',
       'mode',
