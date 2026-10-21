@@ -1,8 +1,9 @@
-import type { MessageBlock } from '@clio/core/v3';
+import type { Message, MessageBlock } from '@clio/core/v3';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { HarnessInjection } from './conversation-harness-injection';
+import { conversationTurnPresentation } from './conversation-turn-model';
 import { pluginChangeLabel } from '@/lib/plugin-presentation';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
@@ -59,5 +60,18 @@ describe('plugin_change injection', () => {
         ),
       ).toBeVisible(),
     );
+  });
+
+  it('stays at its step in the turn instead of folding into the activity', () => {
+    const message: Message = {
+      id: 'msg_1',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-10-21T00:00:00Z',
+      blocks: [block(NOTE), { id: 'text_1', type: 'text', text: 'Hi' }],
+    };
+    const view = conversationTurnPresentation(message, {});
+    expect(view.segments[0]).toEqual({ kind: 'block', block: block(NOTE) });
+    expect(view.iterations.flatMap((item) => item.activity)).toEqual([]);
   });
 });

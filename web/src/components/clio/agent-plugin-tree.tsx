@@ -193,7 +193,7 @@ export function AgentPluginTree({
 
 function StillInPrompt() {
   return (
-    <Badge className="font-normal" variant="secondary">
+    <Badge className="h-auto max-w-full shrink font-normal whitespace-normal" variant="secondary">
       {STILL_IN_PROMPT}
     </Badge>
   );
