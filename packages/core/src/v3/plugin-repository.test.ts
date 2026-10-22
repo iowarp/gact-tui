@@ -227,3 +227,33 @@ describe('PluginRepository contracts', () => {
     expect(pluginReferenceId('iowarp-clio-coder/archify@1.2')).toBe('archify');
   });
 });
+
+describe('plugin review', () => {
+  it('reads a review from the address a flow-trust permission names, and nothing else', async () => {
+    const transport = new RecordingTransport([
+      { name: 'debate', flows: [{ id: 'debate' }], reach: ['network'], authored_by_clio: true },
+    ]);
+    const repository = new ClioRepository(transport);
+    const review = await repository.pluginReview('/v1/plugins/debate/review');
+    expect(review).toEqual({
+      name: 'debate',
+      version: '',
+      description: '',
+      flows: [{ id: 'debate', description: '', shape: '', file: '' }],
+      reach: ['network'],
+      unreadable: [],
+      files: {},
+      files_truncated: false,
+      authored_by_clio: true,
+    });
+    await expect(repository.pluginReview('/v1/sessions/x/messages')).rejects.toThrow(
+      'Not a plugin review address',
+    );
+    await expect(
+      repository.pluginReview('https://example.org/v1/plugins/x/review'),
+    ).rejects.toThrow('Not a plugin review address');
+    expect(transport.requests.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      'GET /v1/plugins/debate/review',
+    ]);
+  });
+});

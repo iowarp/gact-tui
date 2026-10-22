@@ -60,6 +60,7 @@ export * from './reducer.js';
 export * from './variant-domain.js';
 export * from './variant-reducer.js';
 export * from './variant-schemas.js';
+export * from './plugin-review-schemas.js';
 export * from './repository.js';
 export * from './session-history-repository.js';
 export * from './session-export-snapshot.js';

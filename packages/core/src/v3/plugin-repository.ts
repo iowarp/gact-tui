@@ -19,7 +19,10 @@ import {
   type PluginChangeApply,
   type SessionAgent,
 } from './plugin-domain.js';
+import { pluginReviewSchema, type PluginReview } from './plugin-review-schemas.js';
 import { SessionObservabilityRepository } from './session-observability-repository.js';
+
+const PLUGIN_REVIEW_PATH = /^\/v1\/plugins\/[^/?#]+\/review$/u;
 
 /** Plugins, marketplaces, agents, user agents and the session's pinned agent. */
 export class PluginRepository extends SessionObservabilityRepository {
@@ -29,6 +32,24 @@ export class PluginRepository extends SessionObservabilityRepository {
       method: 'GET',
       path: '/v1/plugins',
       decode: (value) => pluginCatalogSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * What a person reviews before trusting a plugin, read from its files
+   * without running them. `reviewUrl` is the `review_url` a flow's trust
+   * permission names (`/v1/plugins/{name}/review`); any other address is
+   * refused rather than fetched.
+   */
+  public pluginReview(reviewUrl: string, signal?: AbortSignal): Promise<PluginReview> {
+    if (!PLUGIN_REVIEW_PATH.test(reviewUrl)) {
+      return Promise.reject(new Error(`Not a plugin review address: ${reviewUrl}`));
+    }
+    return this.transport.request({
+      method: 'GET',
+      path: reviewUrl,
+      decode: (value) => pluginReviewSchema.parse(value),
       signal,
     });
   }
