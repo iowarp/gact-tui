@@ -899,7 +899,8 @@ html[data-clio-motion='reduced'] *::after {
 }
 .clio-flow-diagram .clio-flow-box-label > text {
   fill: var(--foreground);
-  font-family: var(--pele-font-mono);
+  font-family: var(--pele-font, system-ui, sans-serif);
+  font-weight: 600;
   dominant-baseline: central;
 }
 .clio-flow-diagram .clio-flow-box[data-tone='done'],

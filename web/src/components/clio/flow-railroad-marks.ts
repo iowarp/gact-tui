@@ -5,7 +5,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 /** Room between a boxed flow's nodes and its box, and above them for a "parallel" label. */
 const BOX_PAD = 8;
 const BOX_PAD_PARALLEL = 22;
-/** The box's name tab: monospace text of this size on a pill this tall. */
+/** The box's name tab: text of this size on a squared tab this tall. */
 const TAB_FONT = 11;
 const TAB_HEIGHT = 18;
 
@@ -88,13 +88,14 @@ export function markRailroad(svg: SVGElement, diagram: RailroadDiagram, selectab
     text.setAttribute('y', String(boxTop));
     // Inline, so the drawing's own text rules do not resize the tab's name.
     text.setAttribute('style', `font-size: ${TAB_FONT}px; text-anchor: start`);
-    text.textContent = flow.label;
+    const name = boxName(flow.label);
+    text.textContent = name;
     const backing = document.createElementNS(SVG_NS, 'rect');
     backing.setAttribute('x', String(left + 6));
     backing.setAttribute('y', String(boxTop - TAB_HEIGHT / 2));
-    backing.setAttribute('width', String(flow.label.length * TAB_FONT * 0.62 + 16));
+    backing.setAttribute('width', String(name.length * TAB_FONT * 0.6 + 16));
     backing.setAttribute('height', String(TAB_HEIGHT));
-    backing.setAttribute('rx', String(TAB_HEIGHT / 2));
+    backing.setAttribute('rx', '3');
     tab.append(title, backing, text);
     if (selectable) {
       tab.setAttribute('role', 'button');
@@ -122,4 +123,10 @@ export function scaleSvg(svg: SVGElement, scale: number, limit: number) {
   const factor = Math.min(scale, limit / width);
   svg.setAttribute('width', String(Math.round(width * factor)));
   svg.setAttribute('height', String(Math.round(height * factor)));
+}
+
+/** A step's name as a box's title: "headline" reads "Headline", "verify_hdf5" "Verify hdf5". */
+export function boxName(step: string): string {
+  const words = step.replace(/[_-]+/gu, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }

@@ -147,6 +147,20 @@ export function workflowRailroadExpr(
   return build(shape);
 }
 
+function memberTerminal(member: FlowMember): RailroadExpr {
+  return {
+    kind: 'terminal',
+    label: member.label.toLowerCase(),
+    mark: {
+      tone: member.status.tone,
+      title: `${member.label}: ${member.status.label}${member.chosen ? ", the judge's choice" : ''}. Runs ${member.targetLabel}.`,
+      key: member.key,
+      pick: { kind: 'member', member },
+      ...(member.chosen ? { chosen: true } : {}),
+    },
+  };
+}
+
 /**
  * A council or an arena: its members side by side, then the synthesis or the
  * judge. Also the railroad of a workflow step that runs one.
@@ -157,21 +171,10 @@ export function membersRailroadExpr(
   flow: string,
   verdict: FlowVerdict,
 ): RailroadExpr {
-  const items: RailroadExpr[] = members.map((member) => ({
-    kind: 'terminal',
-    label: member.label.toLowerCase(),
-    mark: {
-      tone: member.status.tone,
-      title: `${member.label}: ${member.status.label}${member.chosen ? ", the judge's choice" : ''}. Runs ${member.targetLabel}.`,
-      key: member.key,
-      pick: { kind: 'member', member },
-      ...(member.chosen ? { chosen: true } : {}),
-    },
-  }));
   return {
     kind: 'sequence',
     items: [
-      { kind: 'parallel', items },
+      { kind: 'parallel', items: members.map(memberTerminal) },
       {
         kind: 'terminal',
         label: closing.label,
@@ -184,6 +187,25 @@ export function membersRailroadExpr(
       },
     ],
   };
+}
+
+/**
+ * Any other flow, drawn from the calls it made, as it made them: calls it started
+ * together (one gather) side by side, and each batch after the one before. A flow
+ * that loops shows each round; one still running shows the calls made so far.
+ */
+export function callsRailroadExpr(members: readonly FlowMember[]): RailroadExpr | undefined {
+  const batches: FlowMember[][] = [];
+  for (const member of members) {
+    const last = batches.at(-1);
+    if (member.together && last?.[0]?.together === member.together) last.push(member);
+    else batches.push([member]);
+  }
+  const items = batches.map((batch): RailroadExpr =>
+    batch.length > 1 ? { kind: 'parallel', items: batch.map(memberTerminal) } : memberTerminal(batch[0]!),
+  );
+  if (!items.length) return undefined;
+  return items.length === 1 ? items[0] : { kind: 'sequence', items };
 }
 
 /** The same expression with every mark's key prefixed, so an inline flow's keys stay unique. */

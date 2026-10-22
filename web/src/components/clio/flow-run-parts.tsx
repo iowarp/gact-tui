@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFlowTaskAnswer } from '@/hooks/use-flow-run';
-import { rowDuration } from '@/hooks/use-flow-presentation';
+import { rowDuration, type FlowInfo } from '@/hooks/use-flow-presentation';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
@@ -19,6 +19,7 @@ import {
   type FlowTone,
   type FlowVerdict,
 } from './flow-run-presentation';
+import { FlowName } from './flow-name';
 import type { FlowPick } from './flow-railroad';
 import { ClioStatus } from './status';
 
@@ -100,11 +101,14 @@ function Instructions({ input, title = 'Instructions' }: { input: unknown; title
 export function FlowPickDetails({
   pick,
   elapsed,
+  flows,
   onOpenHandle,
   onClose,
 }: {
   pick: FlowPick;
   elapsed: ReadonlyMap<string, number>;
+  /** What each flow the agent can run is, so a flow's name opens it. */
+  flows?: ReadonlyMap<string, FlowInfo>;
   onOpenHandle: (handle: string) => void;
   onClose: () => void;
 }) {
@@ -127,6 +131,7 @@ export function FlowPickDetails({
     return (
       <MemberDetails
         elapsed={elapsed.get(pick.member.key)}
+        flows={flows}
         member={pick.member}
         onClose={onClose}
         onOpenHandle={onOpenHandle}
@@ -154,7 +159,13 @@ export function FlowPickDetails({
       status={step.status}
       time={rowDuration(elapsed.get(step.id))}
     >
-      <Fact label="Runs">{step.targetLabel}</Fact>
+      <Fact label="Runs">
+        {step.kind === 'flow' ? (
+          <FlowName info={flows?.get(step.target)} name={step.targetLabel} />
+        ) : (
+          step.targetLabel
+        )}
+      </Fact>
       <Fact label="Waits on">
         {step.after.length ? step.after.join(', ') : 'nothing; starts first'}
       </Fact>
@@ -240,11 +251,13 @@ function PickFrame({
 function MemberDetails({
   member,
   elapsed,
+  flows,
   onOpenHandle,
   onClose,
 }: {
   member: FlowMember;
   elapsed?: number;
+  flows?: ReadonlyMap<string, FlowInfo>;
   onOpenHandle: (handle: string) => void;
   onClose: () => void;
 }) {
@@ -260,7 +273,9 @@ function MemberDetails({
       status={member.status}
       time={rowDuration(elapsed)}
     >
-      <Fact label="Runs">{member.targetLabel}</Fact>
+      <Fact label="Runs">
+        <FlowName info={flows?.get(member.target)} name={member.targetLabel} />
+      </Fact>
       {member.perspective ? <Fact label="Asked to answer as">{member.perspective}</Fact> : null}
       <div className="grid min-w-0 gap-1">
         <p className="text-muted-foreground">Answer</p>

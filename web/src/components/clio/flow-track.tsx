@@ -86,6 +86,7 @@ export function FlowTrack({
       {pick ? (
         <FlowPickDetails
           elapsed={elapsed}
+          flows={presentation.flows}
           onClose={() => setSelected(undefined)}
           onOpenHandle={onOpenHandle}
           pick={pick}

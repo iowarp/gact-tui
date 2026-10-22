@@ -73,6 +73,8 @@ export const flowCallSchema = z.object({
   target: z.string().default(''),
   handle: z.string().default(''),
   status: z.string().default(''),
+  /** Calls started together (one gather) share the first one's invocation; empty alone. */
+  together: z.string().default(''),
 });
 
 export type FlowCall = z.infer<typeof flowCallSchema>;

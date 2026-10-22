@@ -14,6 +14,7 @@ import {
   seriesParallel,
 } from '@/components/clio/flow-diagram-source';
 import {
+  callsRailroadExpr,
   membersRailroadExpr,
   railroadDiagram,
   workflowRailroadExpr,
@@ -50,6 +51,16 @@ export interface FlowPresentation {
   diagram?: FlowDiagramSpec;
   /** The whole run's time so far, from its first task. Unit: milliseconds. */
   runElapsed?: number;
+  /** What each flow this agent can run is, by id: its plugin, description and shape. */
+  flows: ReadonlyMap<string, FlowInfo>;
+}
+
+/** A flow as the person reads it before or while it runs. */
+export interface FlowInfo {
+  id: string;
+  plugin: string;
+  description: string;
+  shape: string;
 }
 
 /** Shown under a graph drawn in place of the railroad, so the switch is never silent. */
@@ -114,7 +125,8 @@ export function nestedFlowExpr(run: FlowRun, agentRef: string): RailroadExpr | u
     return shape ? workflowRailroadExpr(steps, shape) : undefined;
   }
   const members = flowMembers(run, agentRef);
-  if (!members.length || !['council', 'arena'].includes(run.flow)) return undefined;
+  if (!members.length) return undefined;
+  if (!['council', 'arena'].includes(run.flow)) return callsRailroadExpr(members);
   const verdict = flowVerdict(run);
   return membersRailroadExpr(
     members,
@@ -138,6 +150,18 @@ export function useFlowPresentation(
     return { steps, members, verdict: flowVerdict(run) };
   }, [agentRef, args, run]);
   const nested = useNestedFlowRuns(sessionId, model.steps);
+  const { agent } = useSessionAgent(sessionId);
+  const catalog = agent.data?.resolution.flows;
+  const flows = useMemo(
+    () =>
+      new Map(
+        (catalog ?? []).map((row) => [
+          row.id,
+          { id: row.id, plugin: row.plugin, description: row.description, shape: row.shape ?? '' },
+        ]),
+      ),
+    [catalog],
+  );
   const tasks = useMemo(
     () =>
       [...model.steps, ...model.members].map((row) => ({
@@ -175,7 +199,7 @@ export function useFlowPresentation(
     starts.length && run
       ? (run.status === 'running' ? now : Math.max(...ends)) - Math.min(...starts)
       : undefined;
-  return { ...model, ...diagrams, elapsed, runElapsed };
+  return { ...model, ...diagrams, elapsed, runElapsed, flows };
 }
 
 /**
@@ -220,7 +244,23 @@ export function flowDiagrams(
     };
   }
   const members = model.members;
-  if (!members.length || !['council', 'arena'].includes(run.flow)) return {};
+  if (!members.length) return {};
+  if (!['council', 'arena'].includes(run.flow)) {
+    // Council and arena end in a step that is not a call (their synthesis, their judge);
+    // any other flow is what it called.
+    const expr = callsRailroadExpr(members);
+    return expr
+      ? {
+          diagram: {
+            kind: 'railroad',
+            railroad: railroadDiagram(run.flow, expr),
+            label: `The ${run.flow} flow's ${members.length} calls as they ran: ${members
+              .map((member) => `${member.label}, ${member.status.word}`)
+              .join('; ')}`,
+          },
+        }
+      : {};
+  }
   const closing = closingStep(run.flow, run.status, members, model.verdict);
   const word = (member: FlowMember) =>
     member.chosen ? `${member.status.word}, chosen` : member.status.word;

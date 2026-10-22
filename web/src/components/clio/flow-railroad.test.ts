@@ -1,7 +1,7 @@
 import { flowRunSchema, type FlowRun } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import { flowDiagrams, NOT_SERIES_PARALLEL_NOTE } from '@/hooks/use-flow-presentation';
-import { markRailroad } from './flow-railroad-marks';
+import { boxName, markRailroad } from './flow-railroad-marks';
 import { seriesParallel } from './flow-diagram-source';
 import { railroadDiagram } from './flow-railroad';
 import { flowMembers, flowVerdict, workflowSteps } from './flow-run-presentation';
@@ -265,6 +265,54 @@ describe('flow railroad', () => {
     expect(diagram.railroad.marks[2]!.title).toBe('The judge: picked entry 2.');
   });
 
+  it('draws any other flow from its calls: each batch side by side, batches in order', () => {
+    // A debate: two sides together, the judge alone, then the next round.
+    const run = flowRunSchema.parse({
+      flow: 'debate',
+      status: 'running',
+      view: null,
+      calls: [
+        { invocation: 'r1a', kind: 'agent', target: 'self', status: 'completed', together: 'r1a' },
+        { invocation: 'r1b', kind: 'agent', target: 'self', status: 'completed', together: 'r1a' },
+        { invocation: 'j1', kind: 'agent', target: 'self', status: 'completed' },
+        { invocation: 'r2a', kind: 'agent', target: 'self', status: 'running', together: 'r2a' },
+        { invocation: 'r2b', kind: 'agent', target: 'self', status: 'running', together: 'r2a' },
+      ],
+    });
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.source).toBe(
+      'railroad-beta\n  debate = sequence(choice(terminal("call 1"), terminal("call 2")), ' +
+        'terminal("call 3"), choice(terminal("call 4"), terminal("call 5")));',
+    );
+    expect(diagram.label).toMatch(/^The debate flow's 5 calls as they ran: Call 1, done/u);
+  });
+
+  it('draws a workflow step that runs any flow inline, from that flow\'s calls', () => {
+    const run = workflow(
+      [
+        { id: 'takes', target: 'two-takes', status: 'completed', handle: 't_takes',
+          invocation: 'flowrun_1:flow:key=step:takes:cc:0' },
+      ],
+      { calls: [{ invocation: 'flowrun_1:flow:key=step:takes:cc:0', kind: 'flow' }] },
+    );
+    const nested = flowRunSchema.parse({
+      flow: 'two-takes',
+      status: 'completed',
+      view: null,
+      calls: [
+        { invocation: 'o', kind: 'agent', target: 'self', status: 'completed', together: 'o' },
+        { invocation: 's', kind: 'agent', target: 'self', status: 'completed', together: 'o' },
+      ],
+    });
+    const diagram = diagramOf(run, new Map([['takes', nested]]));
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.source).toBe(
+      'railroad-beta\n  workflow = choice(terminal("call 1"), terminal("call 2"));',
+    );
+    expect(diagram.railroad.boxes).toEqual([expect.objectContaining({ label: 'takes' })]);
+  });
+
   it('keeps labels inside quotes and rule names to identifiers', () => {
     const diagram = railroadDiagram('my-workflow', {
       kind: 'terminal',
@@ -320,5 +368,12 @@ describe('markRailroad', () => {
     expect(parallel?.getAttribute('y')).toBe('36');
     expect(svg.querySelector('.pele-rule-name')).toBeNull();
     expect(svg.getAttribute('viewBox')).toBe('0 12 300 188');
+  });
+});
+
+describe('boxName', () => {
+  it("reads a step's name as a title", () => {
+    expect(boxName('headline')).toBe('Headline');
+    expect(boxName('verify_hdf5-metadata')).toBe('Verify hdf5 metadata');
   });
 });

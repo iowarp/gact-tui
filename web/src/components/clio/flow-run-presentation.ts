@@ -225,6 +225,8 @@ export interface FlowMember {
   chosen: boolean;
   /** The perspective a council member was asked to answer from, when the agent named one. */
   perspective?: string;
+  /** Shared by the calls the flow started together (one gather). */
+  together?: string;
 }
 
 /** The judge's verdict or the synthesis a finished council or arena returned. */
@@ -279,6 +281,7 @@ export function flowMembers(
       targetLabel: flowTargetLabel(call.target, agentRef),
       status: flowCallStatus(call.status),
       ...(call.handle ? { handle: call.handle } : {}),
+      ...(call.together ? { together: call.together } : {}),
       chosen: run.flow === 'arena' && verdict.winner === index + 1,
       ...(perspective ? { perspective } : {}),
     };

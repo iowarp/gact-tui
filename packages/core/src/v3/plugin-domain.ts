@@ -181,7 +181,13 @@ export const removedPluginSchema = z.object({
 export type RemovedPlugin = z.infer<typeof removedPluginSchema>;
 
 const contributionSchema = z
-  .object({ id: z.string(), plugin: z.string().default(''), description: z.string().default('') })
+  .object({
+    id: z.string(),
+    plugin: z.string().default(''),
+    description: z.string().default(''),
+    /** A flow's railroad as its author drew it; empty for other contributions. */
+    shape: z.string().optional(),
+  })
   .passthrough();
 
 export const resolvedToolSchema = z
