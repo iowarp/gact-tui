@@ -31,7 +31,7 @@ export function markRailroad(svg: SVGElement, diagram: RailroadDiagram, selectab
     node.setAttribute('tabindex', '0');
     node.setAttribute('aria-label', mark.title);
   });
-  for (const { from, to } of diagram.parallels) {
+  for (const { from, to, count } of diagram.parallels) {
     const boxes = nodes.slice(from, to).flatMap((node) => {
       const rect = node.querySelector('rect');
       const x = Number(rect?.getAttribute('x'));
@@ -46,7 +46,7 @@ export function markRailroad(svg: SVGElement, diagram: RailroadDiagram, selectab
     label.setAttribute('x', String(left + 2));
     label.setAttribute('y', String(top - 4));
     label.setAttribute('text-anchor', 'start');
-    label.textContent = `${to - from} in parallel`;
+    label.textContent = `${count} in parallel`;
     boxes[0]!.node.parentElement?.append(label);
   }
   let top = Infinity;

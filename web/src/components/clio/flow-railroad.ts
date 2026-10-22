@@ -63,8 +63,11 @@ export interface RailroadDiagram {
   source: string;
   /** One per drawn node (terminal or nonterminal), in the order Pele draws them. */
   marks: RailroadMark[];
-  /** Node index ranges `[from, to)` of each parallel group, for its "parallel" label. */
-  parallels: { from: number; to: number }[];
+  /**
+   * Node index ranges `[from, to)` of each parallel group with no boxed flow in it, and
+   * how many branches it has, for its "N in parallel" label.
+   */
+  parallels: { from: number; to: number; count: number }[];
   /** The flows steps run, drawn inline, each boxed with its step's name. */
   boxes: RailroadBox[];
 }
@@ -72,7 +75,7 @@ export interface RailroadDiagram {
 /** Serialize one rule to `railroad-beta` and collect the marks in drawing order. */
 export function railroadDiagram(name: string, expr: RailroadExpr): RailroadDiagram {
   const marks: RailroadMark[] = [];
-  const parallels: { from: number; to: number }[] = [];
+  const parallels: { from: number; to: number; count: number }[] = [];
   const boxes: RailroadBox[] = [];
   const write = (expr: RailroadExpr): string => {
     switch (expr.kind) {
@@ -90,7 +93,8 @@ export function railroadDiagram(name: string, expr: RailroadExpr): RailroadDiagr
         if (expr.items.length === 1) return write(expr.items[0]!);
         const from = marks.length;
         const body = expr.items.map(write).join(', ');
-        parallels.push({ from, to: marks.length });
+        // A branch that is a boxed flow carries its own name; the fork itself shows the rest.
+        if (!expr.items.some(boxed)) parallels.push({ from, to: marks.length, count: expr.items.length });
         return `choice(${body})`;
       }
       case 'optional':
@@ -106,7 +110,26 @@ export function railroadDiagram(name: string, expr: RailroadExpr): RailroadDiagr
     }
   };
   const rule = `  ${ruleName(name)} = ${write(expr)};`;
-  return { source: ['railroad-beta', rule].join('\n'), marks, parallels, boxes };
+  // A boxed flow's frame and name tab need more room between branches than Pele leaves.
+  const room = boxes.length ? BOXED_CONFIG : [];
+  return { source: [...room, 'railroad-beta', rule].join('\n'), marks, parallels, boxes };
+}
+
+const BOXED_CONFIG = ['---', 'config:', '  railroad:', '    verticalSeparation: 44', '---'];
+
+function boxed(expr: RailroadExpr): boolean {
+  switch (expr.kind) {
+    case 'flow':
+      return true;
+    case 'sequence':
+    case 'parallel':
+      return expr.items.some(boxed);
+    case 'optional':
+    case 'repeat':
+      return boxed(expr.item);
+    default:
+      return false;
+  }
 }
 
 /** A railroad rule name: letters, digits and underscores. */

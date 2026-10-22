@@ -139,7 +139,7 @@ describe('flow railroad', () => {
       'note',
     ]);
     expect(diagram.railroad.marks[1]!.pick).toMatchObject({ kind: 'step', step: { id: 'north' } });
-    expect(diagram.railroad.parallels).toEqual([{ from: 1, to: 3 }]);
+    expect(diagram.railroad.parallels).toEqual([{ from: 1, to: 3, count: 2 }]);
   });
 
   it('draws a proposal as optional and a retried step as oneOrMore', () => {
@@ -208,7 +208,8 @@ describe('flow railroad', () => {
     const diagram = diagramOf(run, new Map([['pick', nested]]));
     if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
     expect(diagram.railroad.source).toBe(
-      'railroad-beta\n  workflow = sequence(terminal("gather"), sequence(choice(terminal("entry 1"), ' +
+      '---\nconfig:\n  railroad:\n    verticalSeparation: 44\n---\n' +
+        'railroad-beta\n  workflow = sequence(terminal("gather"), sequence(choice(terminal("entry 1"), ' +
         'terminal("entry 2")), terminal("judge")));',
     );
     expect(diagram.railroad.marks.map((mark) => [mark.key, mark.tone])).toEqual([
@@ -308,7 +309,8 @@ describe('flow railroad', () => {
     const diagram = diagramOf(run, new Map([['takes', nested]]));
     if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
     expect(diagram.railroad.source).toBe(
-      'railroad-beta\n  workflow = choice(terminal("call 1"), terminal("call 2"));',
+      '---\nconfig:\n  railroad:\n    verticalSeparation: 44\n---\n' +
+        'railroad-beta\n  workflow = choice(terminal("call 1"), terminal("call 2"));',
     );
     expect(diagram.railroad.boxes).toEqual([expect.objectContaining({ label: 'takes' })]);
   });
@@ -346,7 +348,7 @@ describe('markRailroad', () => {
           { tone: 'failed', title: 'c: Failed.', key: 'c', pick },
           { tone: 'waiting', title: 'pick: Waiting.', key: 'pick', pick },
         ],
-        parallels: [{ from: 1, to: 3 }],
+        parallels: [{ from: 1, to: 3, count: 2 }],
         boxes: [],
       },
       true,
