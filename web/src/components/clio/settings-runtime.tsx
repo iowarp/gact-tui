@@ -128,7 +128,9 @@ export function RuntimeSettingsPanel() {
               ? 'Choose request budgets and recovery behavior.'
               : group === 'Subagents'
                 ? `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`
-                : 'Choose how context and response history are saved.'
+                : group === 'Workflows'
+                  ? 'Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.'
+                  : 'Choose how context and response history are saved.'
           }
         >
           {source.settings
