@@ -68,13 +68,18 @@ export function FlowDiagram({
   useEffect(() => {
     if (!width) return;
     let cancelled = false;
-    renderPeleDiagram(source, `flow-${id}`, Math.floor(width / scale), {
+    // A railroad is drawn at its natural width, never wrapped onto a second line (a wrapped
+    // track crosses itself); a narrow screen scrolls it sideways. A graph fits the width.
+    renderPeleDiagram(source, `flow-${id}`, railroad ? undefined : Math.floor(width / scale), {
       fontSize,
       autoDirection: !railroad,
       inheritTheme: true,
       transform: (element) => {
         element.removeAttribute('role');
-        if (railroad) markRailroad(element, railroad, selectable);
+        if (railroad) {
+          element.style.maxWidth = 'none';
+          markRailroad(element, railroad, selectable);
+        }
         if (scale !== 1) scaleSvg(element, scale, width);
       },
     })
@@ -120,7 +125,7 @@ export function FlowDiagram({
         aria-label={spec.label}
         className={cn(
           'clio-flow-diagram min-w-0',
-          railroad ? 'min-h-10' : 'min-h-24',
+          railroad ? 'clio-scrollbar min-h-10 overflow-x-auto' : 'min-h-24',
           selectable && 'is-selectable',
         )}
         onClick={selectable ? pick : undefined}
