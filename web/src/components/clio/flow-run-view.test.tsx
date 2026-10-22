@@ -178,6 +178,16 @@ describe('FlowRunView', () => {
     expect(bounds).toBeVisible();
   });
 
+  it('keeps its one column at the width it is given, so a wide part scrolls inside it', async () => {
+    repository.taskFlow.mockResolvedValue(workflowRun);
+    repository.agentTask.mockResolvedValue({ task_id: 'x', created_at: '', updated_at: '' });
+    renderRun();
+    const [header] = await screen.findAllByText(/Editors critic may add/);
+    // An implicit grid column grows to its widest part's min-content (a long step name,
+    // a URL in the result) and pushes the whole run past a phone screen.
+    expect(header.closest('.\\@container')).toHaveClass('grid-cols-[minmax(0,1fr)]');
+  });
+
   it('shows a typed stall with its reason, step and message', async () => {
     repository.taskFlow.mockResolvedValue(
       flowRunSchema.parse({

@@ -268,7 +268,7 @@ export function FlowRunDetails({
     </>
   );
   return (
-    <div className="@container grid min-w-0 gap-3">
+    <div className="@container grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
       {header}
       {run.outcome ? (
         <FlowStall
@@ -298,7 +298,7 @@ function FlowResult({ result }: { result: unknown }) {
       ? (result as { answer: unknown }).answer
       : result;
   return (
-    <section aria-label="Flow result" className="grid gap-1">
+    <section aria-label="Flow result" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
       <h3 className="text-xs font-medium text-muted-foreground">Result</h3>
       {typeof answer === 'string' ? (
         // The answer is the model's Markdown, rendered as the conversation renders it.
