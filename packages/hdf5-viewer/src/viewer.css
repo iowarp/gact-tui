@@ -1,0 +1,12 @@
+html,
+body,
+#root,
+.viewer-root {
+  height: 100%;
+  margin: 0;
+}
+
+.viewer-error {
+  font: 0.875rem system-ui, sans-serif;
+  padding: 1rem;
+}

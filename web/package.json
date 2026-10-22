@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build && vite build --config vite.offline.config.ts",
+    "dev": "pnpm --filter @clio/hdf5-viewer build && vite --host 127.0.0.1",
+    "build": "pnpm --filter @clio/hdf5-viewer build && tsc -b && vite build && vite build --config vite.offline.config.ts",
     "build:offline": "vite build --config vite.offline.config.ts",
     "lint": "oxlint src/components/ai-elements src/components/kibo-ui src/components/mermaidcn src/components/reui src/components/theokit src/components/ui --quiet && oxlint src/components/clio src/routes src/providers src/hooks src/lib src/store src/tauri src/App.tsx src/main.tsx --deny-warnings",
     "typecheck": "tsc -b --pretty false",
@@ -21,6 +21,7 @@
     "@a2ui/web_core": "0.11.0",
     "@base-ui/react": "^1.7.0",
     "@clio/core": "workspace:^",
+    "@clio/hdf5-viewer": "workspace:^",
     "@dagrejs/dagre": "^3.1.1",
     "@date-fns/tz": "^1.5.0",
     "@dnd-kit/core": "^6.3.1",

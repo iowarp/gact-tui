@@ -10,7 +10,7 @@ import {
   GitBranchIcon,
   FileCode2Icon,
 } from 'lucide-react';
-import { useContext, useMemo, useState } from 'react';
+import { lazy, Suspense, useContext, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -82,6 +82,10 @@ export function WorkspaceFileView({
         mediaType={detected}
         htmlView={html ? 'preview' : undefined}
       />
+    ) : detected === HDF5_MEDIA_TYPE ? (
+      <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />}>
+        <Hdf5ViewerFrame path={path} workspaceId={workspaceId} />
+      </Suspense>
     ) : (
       <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
     );
@@ -113,6 +117,12 @@ export function WorkspaceFileView({
     />
   );
 }
+
+const HDF5_MEDIA_TYPE = 'application/x-hdf5';
+
+const Hdf5ViewerFrame = lazy(() =>
+  import('./hdf5-viewer-frame').then((module) => ({ default: module.Hdf5ViewerFrame })),
+);
 
 function WorkspacePdfView({
   workspaceId,
@@ -655,6 +665,9 @@ function inferredWorkspaceMediaType(path: string): string {
   if (isImagePath(path)) return imageMediaType(path);
   if (extension === 'json') return 'application/json';
   if (extension === 'xml') return 'application/xml';
+  // HDF5 and formats built on it (HDF-EOS5, NeXus). `.hdf` is left out: it is
+  // usually HDF4.
+  if (['h5', 'hdf5', 'he5', 'nxs'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
   if (isTextArtifact('', path)) return 'text/plain';
   return 'application/octet-stream';
 }

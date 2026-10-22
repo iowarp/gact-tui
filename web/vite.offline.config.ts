@@ -46,7 +46,12 @@ export default defineConfig(async () => {
             plugin &&
             typeof plugin === 'object' &&
             'name' in plugin &&
-            !['workspace-brand', 'maplibre-worker-passthrough'].includes(plugin.name),
+            ![
+              'workspace-brand',
+              'maplibre-worker-passthrough',
+              // Needs a live data route; an offline review has none.
+              'hdf5-viewer-page',
+            ].includes(plugin.name),
         ),
     ],
     build: {
