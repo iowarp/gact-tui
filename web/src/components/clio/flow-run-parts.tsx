@@ -1,5 +1,5 @@
 import type { FlowOutcome, FlowRun, PlanView } from '@clio/core/v3';
-import { CheckIcon, ChevronRightIcon, CopyIcon } from 'lucide-react';
+import { ChevronRightIcon, CopyIcon, XIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -15,92 +15,54 @@ import {
   type FlowMember,
   type FlowState,
   type FlowStep,
+  type FlowTone,
   type FlowVerdict,
 } from './flow-run-presentation';
+import type { FlowPick } from './flow-railroad';
 import { ClioStatus } from './status';
 
+/** Each state's word in the legend, in the order the legend lists them. */
+const TONE_WORDS: readonly (readonly [FlowTone, string])[] = [
+  ['running', 'running'],
+  ['done', 'done'],
+  ['failed', 'failed'],
+  ['waiting', 'waiting'],
+  ['proposed', 'awaiting approval'],
+  ['cancelled', 'cancelled or skipped'],
+  ['unknown', 'not reported'],
+];
+
+/** The swatch of a state, drawn as index.css draws a node in that state. */
+const TONE_SWATCH: Record<FlowTone, string> = {
+  running: 'border-primary bg-primary/15',
+  done: 'border-success bg-success/10',
+  failed: 'border-destructive bg-destructive/10',
+  waiting: 'border-dashed border-muted-foreground',
+  proposed: 'border-dashed border-warning bg-warning/10',
+  cancelled: 'border-dotted border-muted-foreground bg-muted',
+  unknown: 'border-muted-foreground',
+};
+
 /**
- * One line per step: its state in words, its name, who runs it, how long it
- * took, and Open. Expanding the row shows what the agent wrote for it.
+ * What the colours of the diagram mean, for the states it shows, and how to
+ * see a step. The diagram's labels are names only.
  */
-function FlowRow({
-  status,
-  title,
-  target,
-  time,
-  badge,
-  handle,
-  onOpenHandle,
-  openLabel,
-  children,
-  defaultOpen = false,
-  onToggle,
-}: {
-  status: FlowState;
-  title: string;
-  target: string;
-  time?: string;
-  badge?: ReactNode;
-  handle?: string;
-  onOpenHandle: (handle: string) => void;
-  openLabel: string;
-  children: ReactNode;
-  defaultOpen?: boolean;
-  onToggle?: (open: boolean) => void;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
+export function FlowLegend({ tones, hint }: { tones: readonly FlowTone[]; hint?: string }) {
+  const shown = TONE_WORDS.filter(([tone]) => tones.includes(tone));
+  if (!shown.length && !hint) return null;
   return (
-    <li className="min-w-0 rounded-md border bg-card/60" data-state={open ? 'open' : 'closed'}>
-      <div className="flex min-w-0 items-center gap-2 px-2 py-1.5 text-sm">
-        <button
-          aria-expanded={open}
-          aria-label={`${open ? 'Hide' : 'Show'} details of ${title}`}
-          className="flex min-w-0 flex-1 cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => {
-            setOpen(!open);
-            onToggle?.(!open);
-          }}
-          type="button"
-        >
-          <ChevronRightIcon
+    <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+      {shown.map(([tone, word]) => (
+        <span className="inline-flex items-center gap-1" key={tone}>
+          <span
             aria-hidden="true"
-            className={cn(
-              'size-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none',
-              open && 'rotate-90',
-            )}
+            className={cn('inline-block h-2.5 w-4 rounded-full border-[1.5px]', TONE_SWATCH[tone])}
           />
-          <ClioStatus
-            className="shrink-0 px-1.5 py-0 text-[11px]"
-            label={status.label}
-            value={status.value}
-          />
-          <span className="min-w-0 max-w-full truncate font-medium">{title}</span>
-          {badge}
-          <span className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground @min-[26rem]:block">
-            {target}
-          </span>
-          {time ? (
-            <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
-              {time}
-            </span>
-          ) : null}
-        </button>
-        {handle ? (
-          <Button
-            aria-label={openLabel}
-            className="h-6 shrink-0 px-2 text-xs"
-            onClick={() => onOpenHandle(handle)}
-            size="xs"
-            variant="ghost"
-          >
-            Open
-          </Button>
-        ) : null}
-      </div>
-      {open ? (
-        <div className="grid min-w-0 gap-2 border-t px-3 py-2 text-xs leading-5">{children}</div>
-      ) : null}
-    </li>
+          {word}
+        </span>
+      ))}
+      {hint ? <span className="ml-auto">{hint}</span> : null}
+    </p>
   );
 }
 
@@ -129,125 +91,173 @@ function Instructions({ input, title = 'Instructions' }: { input: unknown; title
   );
 }
 
-/** The plan's steps, one line each, in plan order. */
-export function FlowStepRows({
-  steps,
+/**
+ * The node the person selected in the diagram: its state, who runs it, how
+ * long it took, Open, and what it holds: a step's instructions, an entry's
+ * or member's answer, or the judge's choice or the synthesis.
+ */
+export function FlowPickDetails({
+  pick,
   elapsed,
   onOpenHandle,
+  onClose,
 }: {
-  steps: readonly FlowStep[];
+  pick: FlowPick;
   elapsed: ReadonlyMap<string, number>;
   onOpenHandle: (handle: string) => void;
+  onClose: () => void;
 }) {
+  if (pick.kind === 'closing') {
+    return (
+      <PickFrame name={pick.label} onClose={onClose} status={pick.state}>
+        {pick.state.tone === 'done' ? (
+          <FlowVerdictView flow={pick.flow} verdict={pick.verdict} />
+        ) : (
+          <p>
+            {pick.state.tone === 'cancelled'
+              ? 'It did not run.'
+              : `It runs once every ${pick.flow === 'arena' ? 'entry' : 'member'} has answered.`}
+          </p>
+        )}
+      </PickFrame>
+    );
+  }
+  if (pick.kind === 'member') {
+    return (
+      <MemberDetails
+        elapsed={elapsed.get(pick.member.key)}
+        member={pick.member}
+        onClose={onClose}
+        onOpenHandle={onOpenHandle}
+      />
+    );
+  }
+  const step = pick.step;
   return (
-    <ol aria-label="Plan steps" className="@container grid min-w-0 gap-1">
-      {steps.map((step) => (
-        <FlowRow
-          badge={
-            step.kind === 'flow' ? (
-              <Badge className="shrink-0 px-1.5 py-0 text-[10px]" variant="outline">
-                Flow
-              </Badge>
-            ) : step.kind === 'editor' ? (
-              <Badge className="shrink-0 px-1.5 py-0 text-[10px]" variant="outline">
-                Editor
-              </Badge>
-            ) : step.addedBy ? (
-              <Badge className="shrink-0 px-1.5 py-0 text-[10px]" variant="outline">
-                {step.kind === 'proposal' ? 'Proposed' : 'Added'}
-              </Badge>
-            ) : null
-          }
-          handle={step.handle}
-          key={step.id}
-          onOpenHandle={onOpenHandle}
-          openLabel={`Open step ${step.id}`}
-          status={step.status}
-          target={step.targetLabel}
-          time={rowDuration(elapsed.get(step.id))}
-          title={step.id}
-        >
-          <Fact label="Runs">{step.targetLabel}</Fact>
-          <Fact label="Waits on">
-            {step.after.length ? step.after.join(', ') : 'nothing; starts first'}
-          </Fact>
-          {step.addedBy ? (
-            <Fact label={step.kind === 'proposal' ? 'Proposed by' : 'Added by'}>
-              {step.addedBy}
-              {step.note ? ` — ${step.note}` : ''}
-            </Fact>
-          ) : step.note ? (
-            <Fact label="Description">{step.note}</Fact>
-          ) : null}
-          <Instructions input={step.input} />
-        </FlowRow>
-      ))}
-    </ol>
+    <PickFrame
+      badge={
+        step.kind === 'flow'
+          ? 'Flow'
+          : step.kind === 'editor'
+            ? 'Editor'
+            : step.addedBy
+              ? step.kind === 'proposal'
+                ? 'Proposed'
+                : 'Added'
+              : undefined
+      }
+      handle={step.handle}
+      name={step.id}
+      onClose={onClose}
+      onOpenHandle={onOpenHandle}
+      status={step.status}
+      time={rowDuration(elapsed.get(step.id))}
+    >
+      <Fact label="Runs">{step.targetLabel}</Fact>
+      <Fact label="Waits on">
+        {step.after.length ? step.after.join(', ') : 'nothing; starts first'}
+      </Fact>
+      {step.attempts > 1 ? <Fact label="Attempts">{step.attempts}</Fact> : null}
+      {step.addedBy ? (
+        <Fact label={step.kind === 'proposal' ? 'Proposed by' : 'Added by'}>
+          {step.addedBy}
+          {step.note ? `: ${step.note}` : ''}
+        </Fact>
+      ) : step.note ? (
+        <Fact label="Description">{step.note}</Fact>
+      ) : null}
+      <Instructions input={step.input} />
+    </PickFrame>
   );
 }
 
-/** Council members or arena entries, each expandable to the answer it gave. */
-export function FlowMemberRows({
-  members,
-  elapsed,
+function PickFrame({
+  name,
+  status,
+  badge,
+  handle,
+  time,
   onOpenHandle,
-  expandChosen = false,
+  onClose,
+  children,
 }: {
-  members: readonly FlowMember[];
-  elapsed: ReadonlyMap<string, number>;
-  onOpenHandle: (handle: string) => void;
-  /** Open the judge's chosen entry from the start. */
-  expandChosen?: boolean;
+  name: string;
+  status: FlowState;
+  badge?: string;
+  handle?: string;
+  time?: string;
+  onOpenHandle?: (handle: string) => void;
+  onClose: () => void;
+  children: ReactNode;
 }) {
   return (
-    <ol aria-label="Flow members" className="@container grid min-w-0 gap-1">
-      {members.map((member) => (
-        <MemberRow
-          elapsed={elapsed.get(member.key)}
-          expanded={expandChosen && member.chosen}
-          key={member.key}
-          member={member}
-          onOpenHandle={onOpenHandle}
+    <section
+      aria-label={`${name}: ${status.label}`}
+      className="grid min-w-0 gap-2 rounded-md border bg-card/60 px-3 py-2 text-xs leading-5"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+        <ClioStatus
+          className="shrink-0 px-1.5 py-0 text-[11px]"
+          label={status.label}
+          value={status.value}
         />
-      ))}
-    </ol>
+        <span className="min-w-0 truncate font-medium">{name}</span>
+        {badge ? (
+          <Badge className="shrink-0 px-1.5 py-0 text-[10px]" variant="outline">
+            {badge}
+          </Badge>
+        ) : null}
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          {time ? <span className="text-xs tabular-nums text-muted-foreground">{time}</span> : null}
+          {handle && onOpenHandle ? (
+            <Button
+              aria-label={`Open ${name}`}
+              className="h-6 px-2 text-xs"
+              onClick={() => onOpenHandle(handle)}
+              size="xs"
+              variant="ghost"
+            >
+              Open
+            </Button>
+          ) : null}
+          <Button
+            aria-label={`Close ${name}`}
+            className="size-6"
+            onClick={onClose}
+            size="icon"
+            variant="ghost"
+          >
+            <XIcon aria-hidden="true" className="size-3.5" />
+          </Button>
+        </span>
+      </div>
+      {children}
+    </section>
   );
 }
 
-function MemberRow({
+function MemberDetails({
   member,
   elapsed,
-  expanded,
   onOpenHandle,
+  onClose,
 }: {
   member: FlowMember;
   elapsed?: number;
-  expanded: boolean;
   onOpenHandle: (handle: string) => void;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(expanded);
   const settled = !['running', 'waiting'].includes(member.status.tone);
-  const answer = useFlowTaskAnswer(member.handle, open, settled);
+  const answer = useFlowTaskAnswer(member.handle, true, settled);
   return (
-    <FlowRow
-      badge={
-        member.chosen ? (
-          <Badge className="shrink-0 px-1.5 py-0 text-[10px]" variant="secondary">
-            <CheckIcon aria-hidden="true" className="size-3" /> Chosen
-          </Badge>
-        ) : null
-      }
-      defaultOpen={expanded}
+    <PickFrame
+      badge={member.chosen ? 'Chosen' : undefined}
       handle={member.handle}
+      name={member.label}
+      onClose={onClose}
       onOpenHandle={onOpenHandle}
-      onToggle={setOpen}
-      openLabel={`Open ${member.label}`}
       status={member.status}
-      target={
-        member.perspective ? `${member.targetLabel}, as ${member.perspective}` : member.targetLabel
-      }
       time={rowDuration(elapsed)}
-      title={member.label}
     >
       <Fact label="Runs">{member.targetLabel}</Fact>
       {member.perspective ? <Fact label="Asked to answer as">{member.perspective}</Fact> : null}
@@ -269,7 +279,7 @@ function MemberRow({
           <p>{settled ? 'No answer was recorded.' : 'Still working.'}</p>
         )}
       </div>
-    </FlowRow>
+    </PickFrame>
   );
 }
 

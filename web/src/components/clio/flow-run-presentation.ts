@@ -245,7 +245,7 @@ export function flowVerdict(run: FlowRun): FlowVerdict {
 
 /**
  * The tasks a flow started, labelled as that flow names them. Arena entries
- * keep the judge's own numbering (from 0) so its rationale reads against them.
+ * use the judge's own numbering (from 1) so its rationale reads against them.
  */
 export function flowMembers(
   run: FlowRun,
@@ -263,7 +263,7 @@ export function flowMembers(
       run.flow === 'council'
         ? `Member ${index + 1}`
         : run.flow === 'arena'
-          ? `Entry ${index}`
+          ? `Entry ${index + 1}`
           : `Call ${index + 1}`;
     const perspective =
       run.flow === 'council' && perspectives.length
@@ -276,7 +276,7 @@ export function flowMembers(
       targetLabel: flowTargetLabel(call.target, agentRef),
       status: flowCallStatus(call.status),
       ...(call.handle ? { handle: call.handle } : {}),
-      chosen: run.flow === 'arena' && verdict.winner === index,
+      chosen: run.flow === 'arena' && verdict.winner === index + 1,
       ...(perspective ? { perspective } : {}),
     };
   });

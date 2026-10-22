@@ -9,36 +9,26 @@ import {
   ArtifactHeader,
   ArtifactTitle,
 } from '@/components/ai-elements/artifact';
-import { Button } from '@/components/ui/button';
 import { useFlowRun, useOpenTaskHandle } from '@/hooks/use-flow-run';
 import {
   rowDuration,
   useFlowPresentation,
   useSessionAgentRef,
 } from '@/hooks/use-flow-presentation';
-import { FlowDiagram } from './flow-diagram';
-import {
-  FlowMemberRows,
-  FlowScript,
-  FlowStall,
-  FlowStepRows,
-  FlowVerdictView,
-} from './flow-run-parts';
+import { FlowScript, FlowStall, FlowVerdictView } from './flow-run-parts';
 import { flowRunStatus, stepTally } from './flow-run-presentation';
 import { FlowRunDetails, FlowRunFullScreen } from './flow-run-view';
+import { FlowTrack } from './flow-track';
 import type { FlowToolDescriptor } from './flow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 
-/** Rows the card shows before "Show all steps". */
-const CARD_ROWS = 6;
-
 /**
  * The flow an agent started, as a card in the conversation where it started
- * it: a one-line diagram, a row per step or member with its state in words,
- * and the plan the agent wrote. It follows the run live, opens it in the side
- * panel, and shows it full screen.
+ * it: the railroad, coloured by state, whose nodes open their details; the
+ * result; and the plan the agent wrote. It follows the run live, opens it in
+ * the side panel, and shows it full screen.
  */
 export function FlowRunCard({
   flow,
@@ -60,11 +50,10 @@ export function FlowRunCard({
   const agentRef = useSessionAgentRef(sessionId);
   const presentation = useFlowPresentation(run.data, agentRef, flow.args, sessionId);
   const [fullScreen, setFullScreen] = useState(false);
-  const [allRows, setAllRows] = useState(false);
   const title = `${flow.label} run`;
   const data = run.data;
   const status = data ? flowRunStatus(data) : undefined;
-  const { steps, members, elapsed, diagram, verdict, closing, runElapsed } = presentation;
+  const { steps, members, verdict, closing, runElapsed } = presentation;
   const rows = data?.view ? steps : members;
   const noun = data?.view
     ? 'step'
@@ -81,13 +70,12 @@ export function FlowRunCard({
         rowDuration(runElapsed),
       ]
         .filter(Boolean)
-        .join(' · ')
+        .join(', ')
     : run.isPending
       ? 'Loading the run…'
       : run.error
         ? 'The run could not be loaded'
         : 'Not started yet';
-  const shown = allRows ? rows.length : CARD_ROWS;
   const openPanel = navigation?.onOpenFlow
     ? () => navigation.onOpenFlow?.(flow.handle, title)
     : undefined;
@@ -125,7 +113,12 @@ export function FlowRunCard({
       </ArtifactHeader>
       {data ? (
         <ArtifactContent className="grid min-w-0 gap-2 p-3">
-          {diagram ? <FlowDiagram fontSize={12} spec={diagram} /> : null}
+          <FlowTrack
+            flow={data.flow}
+            fontSize={12}
+            onOpenHandle={openHandle}
+            presentation={presentation}
+          />
           {data.outcome ? (
             <FlowStall
               cancelled={data.status === 'cancelled'}
@@ -142,30 +135,6 @@ export function FlowRunCard({
                 ? 'A proposed step is waiting for your approval.'
                 : `${data.view.awaiting_approval.length} proposed steps are waiting for your approval.`}
             </p>
-          ) : null}
-          {data.view ? (
-            <FlowStepRows
-              elapsed={elapsed}
-              onOpenHandle={openHandle}
-              steps={steps.slice(0, shown)}
-            />
-          ) : members.length ? (
-            <FlowMemberRows
-              elapsed={elapsed}
-              members={members.slice(0, shown)}
-              onOpenHandle={openHandle}
-            />
-          ) : (
-            <p className="text-xs text-muted-foreground">The flow has not started any task yet.</p>
-          )}
-          {rows.length > CARD_ROWS ? (
-            <Button
-              className="h-auto w-fit p-0 text-xs"
-              onClick={() => setAllRows(!allRows)}
-              variant="link"
-            >
-              {allRows ? 'Show fewer' : `Show all ${rows.length} ${plural}`}
-            </Button>
           ) : null}
           {closing && data.status === 'completed' ? (
             <FlowVerdictView clamp flow={data.flow} verdict={verdict} />

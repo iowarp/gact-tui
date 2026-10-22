@@ -15,7 +15,7 @@ import {
 } from '@/components/clio/flow-diagram-source';
 import {
   membersRailroadExpr,
-  planRailroadRules,
+  planRailroadExpr,
   railroadDiagram,
   type RailroadDiagram,
   type RailroadExpr,
@@ -104,18 +104,24 @@ function useNestedFlowRuns(sessionId: string, steps: readonly FlowStep[]) {
   );
 }
 
-/** A nested run as its sub-rule's expression; its own nested flows are drawn as steps. */
+/** A nested run as its inline track; its own nested flows are drawn as steps. */
 export function nestedFlowExpr(run: FlowRun, agentRef: string): RailroadExpr | undefined {
   if (run.view) {
     const steps = planSteps(run, agentRef).map((step) =>
       step.kind === 'flow' ? { ...step, kind: 'agent' as const } : step,
     );
     const shape = seriesParallel(steps);
-    return shape ? planRailroadRules('nested', steps, shape)[0]!.expr : undefined;
+    return shape ? planRailroadExpr(steps, shape) : undefined;
   }
   const members = flowMembers(run, agentRef);
   if (!members.length || !['council', 'arena'].includes(run.flow)) return undefined;
-  return membersRailroadExpr(members, closingStep(run.flow, run.status, members, flowVerdict(run)));
+  const verdict = flowVerdict(run);
+  return membersRailroadExpr(
+    members,
+    closingStep(run.flow, run.status, members, verdict),
+    run.flow,
+    verdict,
+  );
 }
 
 /** Everything the card, the panel and the full-screen view present for one run. */
@@ -179,8 +185,8 @@ export function useFlowPresentation(
 export function flowDiagrams(
   run: FlowRun | null | undefined,
   model: { steps: FlowStep[]; members: FlowMember[]; verdict: FlowVerdict },
-  nested: ReadonlyMap<string, FlowRun>,
-  agentRef: string,
+  nested: ReadonlyMap<string, FlowRun> = new Map(),
+  agentRef = '',
 ): Pick<FlowPresentation, 'diagram' | 'closing'> {
   if (!run) return {};
   if (run.view) {
@@ -206,7 +212,7 @@ export function flowDiagrams(
     return {
       diagram: {
         kind: 'railroad',
-        railroad: railroadDiagram(planRailroadRules('plan', steps, shape, subflows)),
+        railroad: railroadDiagram('plan', planRailroadExpr(steps, shape, subflows)),
         label: `The plan's ${steps.length} steps in order: ${steps
           .map((step) => `${step.id}, ${step.status.word}`)
           .join('; ')}`,
@@ -222,13 +228,16 @@ export function flowDiagrams(
     closing,
     diagram: {
       kind: 'railroad',
-      railroad: railroadDiagram([{ name: run.flow, expr: membersRailroadExpr(members, closing) }]),
+      railroad: railroadDiagram(
+        run.flow,
+        membersRailroadExpr(members, closing, run.flow, model.verdict),
+      ),
       label: `${members.map((member) => `${member.label}, ${word(member)}`).join('; ')}; then the ${closing.label}, ${closing.state.word}`,
     },
   };
 }
 
-/** A duration as the rows show it: "42 s", "3 min 5 s". */
+/** A duration as the panel shows it: "42 s", "3 min 5 s". */
 export function rowDuration(milliseconds: number | undefined): string {
   return milliseconds === undefined ? '' : formatDuration(milliseconds);
 }

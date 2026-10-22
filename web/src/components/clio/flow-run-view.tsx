@@ -14,26 +14,25 @@ import {
 } from '@/hooks/use-flow-presentation';
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
-import { FlowDiagram } from './flow-diagram';
 import {
   FlowApprovals,
-  FlowMemberRows,
   FlowScript,
   FlowStall,
-  FlowStepRows,
   FlowVerdictView,
   PlanBounds,
 } from './flow-run-parts';
 import { flowRunStatus, stepTally } from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
+import { FlowTrack } from './flow-track';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 
 /**
- * A flow run drawn from the task layer: the live plan as a Pele railroad with one
- * row per step, the members of a council or arena with their answers, and any
- * typed stall. Each task handle opens its conversation; Full screen shows the
- * same run large, for following (or recording) it as it changes.
+ * A flow run drawn from the task layer: the live plan, council or arena as a
+ * Pele railroad coloured by state, whose nodes open their instructions or
+ * answers, and any typed stall. Each task handle opens its conversation; Full
+ * screen shows the same run large, for following (or recording) it as it
+ * changes.
  */
 export function FlowRunView({
   sessionId,
@@ -147,7 +146,7 @@ export function FlowRunFullScreen({
   );
 }
 
-/** The run's header, outcome, diagram, rows, script and result, shared by the panel and full screen. */
+/** The run's header, outcome, track, script and result, shared by the panel and full screen. */
 export function FlowRunDetails({
   run,
   handle,
@@ -170,7 +169,7 @@ export function FlowRunDetails({
   openError?: string;
 }) {
   const status = flowRunStatus(run);
-  const { steps, members, elapsed, diagram: spec, verdict, closing, runElapsed } = presentation;
+  const { steps, members, verdict, closing, runElapsed } = presentation;
   const plan = run.view;
   const tally = stepTally((plan ? steps : members).map((row) => row.status));
   const count = plan
@@ -191,8 +190,15 @@ export function FlowRunDetails({
       )}
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <p className="min-w-0 text-xs text-muted-foreground">
-          {[flowLabel(run.flow), count, tally, rowDuration(runElapsed)].filter(Boolean).join(' · ')}
-          {run.depth > 1 ? ` · nested ${run.depth} flows deep` : ''}
+          {[
+            flowLabel(run.flow),
+            count,
+            tally,
+            rowDuration(runElapsed),
+            run.depth > 1 ? `nested ${run.depth} flows deep` : '',
+          ]
+            .filter(Boolean)
+            .join(', ')}
         </p>
         <div className="ml-auto flex items-center gap-1">
           {onFullScreen ? (
@@ -213,20 +219,15 @@ export function FlowRunDetails({
       ) : null}
     </header>
   );
-  const diagram = spec ? (
-    <FlowDiagram
+  const track = (
+    <FlowTrack
       className={cn('rounded-md border bg-background/60 p-2', wide && 'p-4 sm:p-6 [&_svg]:mx-auto')}
+      flow={run.flow}
       fontSize={wide ? 14 : 12}
+      onOpenHandle={onOpenHandle}
+      presentation={presentation}
       scale={wide ? 1.5 : 1}
-      spec={spec}
     />
-  ) : null;
-  const rows = plan ? (
-    <FlowStepRows elapsed={elapsed} onOpenHandle={onOpenHandle} steps={steps} />
-  ) : members.length ? (
-    <FlowMemberRows elapsed={elapsed} expandChosen members={members} onOpenHandle={onOpenHandle} />
-  ) : (
-    <p className="text-sm text-muted-foreground">The flow has not started any task yet.</p>
   );
   const after = (
     <>
@@ -257,7 +258,7 @@ export function FlowRunDetails({
                   <span className="text-muted-foreground">by {event.by}</span>
                 ) : null}
                 {typeof event.message === 'string' ? (
-                  <span className="text-muted-foreground">· {event.message}</span>
+                  <span className="text-muted-foreground">{event.message}</span>
                 ) : null}
               </li>
             ))}
@@ -284,22 +285,9 @@ export function FlowRunDetails({
           view={plan}
         />
       ) : null}
-      {wide ? (
-        // Full screen gives the diagram the whole width, to follow (or record) the run.
-        <>
-          {diagram}
-          <div className="grid min-w-0 gap-4 @min-[64rem]:grid-cols-2 @min-[64rem]:items-start">
-            {rows}
-            <div className="grid min-w-0 gap-3">{after}</div>
-          </div>
-        </>
-      ) : (
-        <>
-          {diagram}
-          {rows}
-          {after}
-        </>
-      )}
+      {/* Full screen gives the diagram the whole width, to follow (or record) the run. */}
+      {track}
+      {after}
     </div>
   );
 }

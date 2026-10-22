@@ -13,11 +13,30 @@ vi.mock('@/providers/connection-provider', () => ({
 vi.mock('@/hooks/use-session-agent', () => ({
   useSessionAgent: () => ({ agent: { data: undefined } }),
 }));
-// Pele draws in a browser; here the diagram's text alternative stands in for it.
+// Pele draws in a browser; here the diagram's text alternative and one button per node stand in.
 vi.mock('./flow-diagram', () => ({
-  FlowDiagram: ({ spec }: { spec: { kind: string; label: string; note?: string } }) => (
+  FlowDiagram: ({
+    spec,
+    onSelect,
+  }: {
+    spec: {
+      kind: string;
+      label: string;
+      note?: string;
+      railroad?: { marks: { key: string; title: string }[] };
+    };
+    onSelect?: (key: string) => void;
+  }) => (
     <figure>
       <div aria-label={spec.label} data-kind={spec.kind} role="img" />
+      {spec.railroad?.marks.map((mark) => (
+        <button
+          aria-label={mark.title}
+          key={mark.key}
+          onClick={() => onSelect?.(mark.key)}
+          type="button"
+        />
+      ))}
       {spec.note ? <figcaption>{spec.note}</figcaption> : null}
     </figure>
   ),
@@ -102,13 +121,15 @@ describe('FlowRunView', () => {
       answer_excerpt: '',
     });
     const onOpen = renderRun();
-    const nodes = await screen.findByRole('list', { name: 'Plan steps' });
-    expect(within(nodes).getByText('Completed')).toBeVisible();
-    expect(within(nodes).getByText('Running')).toBeVisible();
-    expect(within(nodes).getByText('Awaiting approval')).toBeVisible();
-    expect(within(nodes).getAllByText('this agent')).toHaveLength(2);
-    await user.click(within(nodes).getByRole('button', { name: 'Show details of review' }));
-    expect(within(nodes).getByText('Waits on:').parentElement).toHaveTextContent('Waits on: draft');
+    await screen.findByRole('img', { name: /The plan's 3 steps in order/u });
+    for (const word of ['done', 'running', 'awaiting approval']) {
+      expect(screen.getByText(word)).toBeVisible();
+    }
+    await user.click(screen.getByRole('button', { name: /^review: Running\./u }));
+    const details = screen.getByRole('region', { name: 'review: Running' });
+    expect(within(details).getByText('Waits on:').parentElement).toHaveTextContent(
+      'Waits on: draft',
+    );
     expect(screen.getByText('A proposed step is waiting for your approval')).toBeVisible();
     expect(
       screen.getByText('polish', { selector: 'li > span.font-medium' }).parentElement,
@@ -119,7 +140,7 @@ describe('FlowRunView', () => {
         name: /The plan's 3 steps in order: draft, done; review, running/u,
       }),
     ).toHaveAttribute('data-kind', 'railroad');
-    await user.click(within(nodes).getByRole('button', { name: 'Open step review' }));
+    await user.click(within(details).getByRole('button', { name: 'Open review' }));
     await waitFor(() =>
       expect(onOpen).toHaveBeenCalledWith(
         expect.objectContaining({ child_session_id: 'sess_review' }),
@@ -191,10 +212,14 @@ describe('FlowRunView', () => {
     );
     renderRun();
     expect(await screen.findByRole('heading', { name: 'Council run' })).toBeVisible();
-    expect(screen.getAllByText('Completed')).toHaveLength(3);
-    const members = screen.getByRole('list', { name: 'Flow members' });
-    expect(within(members).getByText('Member 1')).toBeVisible();
-    expect(within(members).getByText('Member 2')).toBeVisible();
+    expect(screen.getAllByText('Completed')).toHaveLength(1);
+    expect(
+      screen.getByRole('button', { name: 'Member 1: Completed. Runs this agent.' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Member 2: Completed. Runs this agent.' }),
+    ).toBeVisible();
+    expect(screen.getByText('Select a member to see it')).toBeVisible();
     expect(screen.getByText('Synthesis')).toBeVisible();
     expect(screen.getByText('Python first; Julia for hot loops.')).toBeVisible();
     expect(

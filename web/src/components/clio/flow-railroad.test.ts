@@ -28,6 +28,14 @@ function diagramOf(run: FlowRun, nested = new Map<string, FlowRun>()) {
   return flowDiagrams(run, model, nested, 'clio/standard').diagram;
 }
 
+const pick = {
+  kind: 'closing',
+  label: 'judge',
+  state: { value: 'completed', label: 'Completed', word: 'done', tone: 'done' },
+  flow: 'arena',
+  verdict: {},
+} as const;
+
 describe('seriesParallel', () => {
   it('finds sequences and parallel branches, reducing transitive dependencies', () => {
     expect(
@@ -100,7 +108,7 @@ describe('seriesParallel', () => {
 });
 
 describe('flow railroad', () => {
-  it('writes a plan as sequence and choice with each state in words', () => {
+  it('writes a plan as sequence and choice, its states in the marks, not the labels', () => {
     const run = plan([
       { id: 'clean', target: 'clio/standard', status: 'completed', handle: 't1' },
       { id: 'north', target: 'clio/standard', after: ['clean'], status: 'running', handle: 't2' },
@@ -113,8 +121,8 @@ describe('flow railroad', () => {
     expect(diagram.railroad.source).toBe(
       [
         'railroad-beta',
-        '  plan = sequence(terminal("clean · done"), choice(terminal("north · running"), ' +
-          'terminal("south · waiting")), terminal("note · waiting"));',
+        '  plan = sequence(terminal("clean"), choice(terminal("north"), ' +
+          'terminal("south")), terminal("note"));',
       ].join('\n'),
     );
     expect(diagram.railroad.marks.map((mark) => mark.tone)).toEqual([
@@ -124,6 +132,13 @@ describe('flow railroad', () => {
       'waiting',
     ]);
     expect(diagram.railroad.marks[2]!.title).toBe('south: Waiting. Runs reviewer.');
+    expect(diagram.railroad.marks.map((mark) => mark.key)).toEqual([
+      'clean',
+      'north',
+      'south',
+      'note',
+    ]);
+    expect(diagram.railroad.marks[1]!.pick).toMatchObject({ kind: 'step', step: { id: 'north' } });
     expect(diagram.railroad.parallels).toEqual([{ from: 1, to: 3 }]);
   });
 
@@ -153,14 +168,15 @@ describe('flow railroad', () => {
     );
     const diagram = diagramOf(run);
     if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
-    expect(diagram.railroad.source).toContain(
-      'oneOrMore(terminal("check · repaired · 2 attempts"))',
+    expect(diagram.railroad.source).toContain('oneOrMore(terminal("check"))');
+    expect(diagram.railroad.source).toContain('optional(terminal("polish"))');
+    expect(diagram.railroad.marks.find((mark) => mark.key === 'check')!.title).toBe(
+      'check: Repaired, 2 attempts. Runs this agent.',
     );
-    expect(diagram.railroad.source).toContain('optional(terminal("polish · awaiting approval"))');
     expect(diagram.railroad.marks.at(-1)!.tone).toBe('proposed');
   });
 
-  it('draws a step that runs a flow as a nonterminal with its own rule', () => {
+  it('draws the flow a step runs inline, boxed under the step name', () => {
     const run = plan(
       [
         { id: 'gather', target: 'self', status: 'completed', handle: 't1' },
@@ -184,22 +200,32 @@ describe('flow railroad', () => {
         { invocation: 'b', kind: 'agent', target: 'self', handle: 'e1', status: 'running' },
       ],
     });
+    expect(diagramOf(run)).toMatchObject({
+      railroad: {
+        source: 'railroad-beta\n  plan = sequence(terminal("gather"), nonterminal("pick"));',
+      },
+    });
     const diagram = diagramOf(run, new Map([['pick', nested]]));
     if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
-    expect(diagram.railroad.source.split('\n')).toEqual([
-      'railroad-beta',
-      '  plan = sequence(terminal("gather · done"), nonterminal("pick"));',
-      '  pick = sequence(choice(terminal("entry 0 · done"), terminal("entry 1 · running")), ' +
-        'terminal("judge · waiting"));',
+    expect(diagram.railroad.source).toBe(
+      'railroad-beta\n  plan = sequence(terminal("gather"), sequence(choice(terminal("entry 1"), ' +
+        'terminal("entry 2")), terminal("judge")));',
+    );
+    expect(diagram.railroad.marks.map((mark) => [mark.key, mark.tone])).toEqual([
+      ['gather', 'done'],
+      ['pick/a', 'done'],
+      ['pick/b', 'running'],
+      ['pick/closing', 'waiting'],
     ]);
-    expect(diagram.railroad.headings).toEqual(['pick: the arena flow, running']);
-    expect(diagram.railroad.marks.map((mark) => mark.tone)).toEqual([
-      'done',
-      'running',
-      'done',
-      'running',
-      'waiting',
+    expect(diagram.railroad.boxes).toEqual([
+      expect.objectContaining({
+        label: 'pick',
+        from: 1,
+        to: 4,
+        mark: expect.objectContaining({ key: 'pick', tone: 'running' }),
+      }),
     ]);
+    expect(diagram.railroad.marks[3]!.pick).toMatchObject({ kind: 'closing', flow: 'arena' });
   });
 
   it('falls back to the graph with a visible reason when the plan is not series-parallel', () => {
@@ -223,33 +249,34 @@ describe('flow railroad', () => {
         { invocation: 'a', kind: 'agent', target: 'self', handle: 'e0', status: 'completed' },
         { invocation: 'b', kind: 'agent', target: 'self', handle: 'e1', status: 'completed' },
       ],
-      result: { answer: 'x', winner: 1, rationale: 'clearer' },
+      result: { answer: 'x', winner: 2, rationale: 'clearer' },
     });
     const diagram = diagramOf(run);
     if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
     expect(diagram.railroad.source).toBe(
-      'railroad-beta\n  arena = sequence(choice(terminal("entry 0 · done"), ' +
-        'terminal("entry 1 · done, chosen")), terminal("judge · picked entry 1"));',
+      'railroad-beta\n  arena = sequence(choice(terminal("entry 1"), ' +
+        'terminal("entry 2")), terminal("judge"));',
     );
+    expect(diagram.railroad.marks.map((mark) => Boolean(mark.chosen))).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    expect(diagram.railroad.marks[2]!.title).toBe('The judge: picked entry 2.');
   });
 
   it('keeps labels inside quotes and rule names to identifiers', () => {
-    const diagram = railroadDiagram([
-      {
-        name: 'plan',
-        expr: {
-          kind: 'terminal',
-          label: 'say "hi"\\now',
-          mark: { tone: 'done', title: '' },
-        },
-      },
-    ]);
-    expect(diagram.source).toBe(`railroad-beta\n  plan = terminal("say 'hi''now");`);
+    const diagram = railroadDiagram('my-plan', {
+      kind: 'terminal',
+      label: 'say "hi"\\now',
+      mark: { tone: 'done', title: '', key: 'k', pick },
+    });
+    expect(diagram.source).toBe(`railroad-beta\n  my_plan = terminal("say 'hi''now");`);
   });
 });
 
 describe('markRailroad', () => {
-  it('marks nodes in drawing order, labels parallel groups and titles sub-flows', () => {
+  it('marks nodes in drawing order as buttons, labels parallel groups, drops the rule name', () => {
     const svg = new DOMParser().parseFromString(
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="300" height="200">
         <g class="pele-rule"><text class="pele-rule-name">plan</text>
@@ -258,35 +285,40 @@ describe('markRailroad', () => {
           <g class="pele-node pele-terminal"><rect x="60" y="76" width="40" height="26"/></g>
           <g class="pele-node pele-nonterminal"><rect x="120" y="40" width="40" height="26"/></g>
         </g>
-        <g class="pele-rule"><text class="pele-rule-name">pick</text></g>
       </svg>`,
       'image/svg+xml',
     ).documentElement as unknown as SVGElement;
-    markRailroad(svg, {
-      source: '',
-      marks: [
-        { tone: 'done', title: 'a: Completed.' },
-        { tone: 'running', title: 'b: Running.' },
-        { tone: 'failed', title: 'c: Failed.' },
-        { tone: 'waiting', title: 'pick: Waiting.' },
-      ],
-      parallels: [{ from: 1, to: 3 }],
-      headings: ['pick: the arena flow, waiting'],
-    });
+    markRailroad(
+      svg,
+      {
+        source: '',
+        marks: [
+          { tone: 'done', title: 'a: Completed.', key: 'a', pick },
+          { tone: 'running', title: 'b: Running.', key: 'b', pick, chosen: true },
+          { tone: 'failed', title: 'c: Failed.', key: 'c', pick },
+          { tone: 'waiting', title: 'pick: Waiting.', key: 'pick', pick },
+        ],
+        parallels: [{ from: 1, to: 3 }],
+        boxes: [],
+      },
+      true,
+    );
     const nodes = [...svg.querySelectorAll('g.pele-node')];
     expect(nodes.map((node) => node.getAttribute('class'))).toEqual([
       'pele-node pele-terminal st-done',
-      'pele-node pele-terminal st-running',
+      'pele-node pele-terminal st-running is-chosen',
       'pele-node pele-terminal st-failed',
       'pele-node pele-nonterminal st-waiting',
     ]);
     expect(nodes[1]!.querySelector('title')?.textContent).toBe('b: Running.');
+    expect(nodes[1]!.getAttribute('data-key')).toBe('b');
+    expect(nodes[1]!.getAttribute('role')).toBe('button');
+    expect(nodes[1]!.getAttribute('aria-label')).toBe('b: Running.');
+    expect(nodes[1]!.getAttribute('tabindex')).toBe('0');
     const parallel = svg.querySelector('.clio-flow-parallel');
     expect(parallel?.textContent).toBe('2 in parallel');
     expect(parallel?.getAttribute('y')).toBe('36');
-    expect([...svg.querySelectorAll('.pele-rule-name')].map((name) => name.textContent)).toEqual([
-      'plan',
-      'pick: the arena flow, waiting',
-    ]);
+    expect(svg.querySelector('.pele-rule-name')).toBeNull();
+    expect(svg.getAttribute('viewBox')).toBe('0 12 300 188');
   });
 });

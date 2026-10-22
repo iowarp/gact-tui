@@ -802,9 +802,10 @@ html[data-clio-motion='reduced'] *::after {
 }
 
 /*
- * Flow diagrams (Pele railroad strips and agentflow graphs). Each step's state
- * is written in its label; these classes only reinforce it. The palette reads
- * the theme variables, so a theme change needs no redraw.
+ * Flow diagrams (Pele railroad strips and agentflow graphs). A railroad node's
+ * label is its name and these classes colour it by state; its tooltip and
+ * accessible name, and the legend under it, say the state in words. The
+ * palette reads the theme variables, so a theme change needs no redraw.
  */
 .clio-flow-diagram {
   --pele-bg: var(--background);
@@ -881,6 +882,64 @@ html[data-clio-motion='reduced'] *::after {
 .clio-flow-diagram .st-added > :is(rect, polygon, path) {
   stroke-dasharray: 7 3;
 }
-.clio-flow-diagram .st-chosen > :is(rect, polygon, path) {
+.clio-flow-diagram .is-chosen > :is(rect, polygon, path) {
   stroke-width: 3px;
+}
+/* A flow a step runs, drawn inline: a box in its step's state, its name on the top edge. */
+.clio-flow-diagram .clio-flow-box {
+  fill: color-mix(in oklab, var(--muted) 35%, transparent);
+  stroke: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  stroke-width: 1.25px;
+  stroke-dasharray: 5 3;
+}
+.clio-flow-diagram .clio-flow-box-label > rect {
+  fill: var(--card);
+  stroke: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  stroke-width: 1.25px;
+}
+.clio-flow-diagram .clio-flow-box-label > text {
+  fill: var(--foreground);
+  font-family: var(--pele-font-mono);
+  dominant-baseline: central;
+}
+.clio-flow-diagram .clio-flow-box[data-tone='done'],
+.clio-flow-diagram .clio-flow-box-label[data-tone='done'] > rect {
+  stroke: var(--success);
+}
+.clio-flow-diagram .clio-flow-box[data-tone='failed'],
+.clio-flow-diagram .clio-flow-box-label[data-tone='failed'] > rect {
+  stroke: var(--destructive);
+}
+.clio-flow-diagram .clio-flow-box[data-tone='running'],
+.clio-flow-diagram .clio-flow-box-label[data-tone='running'] > rect {
+  stroke: var(--primary);
+  stroke-width: 2px;
+}
+.clio-flow-diagram .clio-flow-box[data-tone='running'] {
+  animation: clio-flow-running 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .clio-flow-diagram .clio-flow-box[data-tone='running'] {
+    animation: none;
+  }
+}
+.clio-flow-diagram.is-selectable .clio-flow-box-label {
+  cursor: pointer;
+  outline: none;
+}
+.clio-flow-diagram .clio-flow-box-label:is(.is-selected, :focus-visible) > rect {
+  stroke: var(--foreground);
+  stroke-width: 2.5px;
+}
+.clio-flow-diagram.is-selectable .pele-node[data-key] {
+  cursor: pointer;
+  outline: none;
+}
+.clio-flow-diagram.is-selectable .pele-node[data-key]:hover > :is(rect, polygon, path) {
+  fill: color-mix(in oklab, var(--foreground) 8%, var(--card));
+}
+.clio-flow-diagram .pele-node.is-selected > :is(rect, polygon, path),
+.clio-flow-diagram .pele-node[data-key]:focus-visible > :is(rect, polygon, path) {
+  stroke: var(--foreground);
+  stroke-width: 2.5px;
 }

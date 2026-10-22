@@ -18,9 +18,32 @@ vi.mock('@/providers/connection-provider', () => ({
 vi.mock('@/hooks/use-session-agent', () => ({
   useSessionAgent: () => ({ agent: { data: { resolution: { agent: { ref: 'clio/standard' } } } } }),
 }));
+// Pele draws in a browser; here the diagram's text alternative and one button per node stand in.
 vi.mock('./flow-diagram', () => ({
-  FlowDiagram: ({ spec }: { spec: { kind: string; label: string } }) => (
-    <div aria-label={spec.label} data-kind={spec.kind} role="img" />
+  FlowDiagram: ({
+    spec,
+    onSelect,
+  }: {
+    spec: {
+      kind: string;
+      label: string;
+      note?: string;
+      railroad?: { marks: { key: string; title: string }[] };
+    };
+    onSelect?: (key: string) => void;
+  }) => (
+    <figure>
+      <div aria-label={spec.label} data-kind={spec.kind} role="img" />
+      {spec.railroad?.marks.map((mark) => (
+        <button
+          aria-label={mark.title}
+          key={mark.key}
+          onClick={() => onSelect?.(mark.key)}
+          type="button"
+        />
+      ))}
+      {spec.note ? <figcaption>{spec.note}</figcaption> : null}
+    </figure>
   ),
 }));
 
@@ -83,7 +106,7 @@ afterEach(() => {
 });
 
 describe('FlowRunCard', () => {
-  it('shows the run in the conversation: track, step rows, and the plan the agent wrote', async () => {
+  it('shows the run in the conversation: the track, a selected step, and the plan the agent wrote', async () => {
     const user = userEvent.setup();
     repository.taskFlow.mockResolvedValue(run);
     repository.agentTask.mockImplementation(async (handle: string) => ({
@@ -103,18 +126,26 @@ describe('FlowRunCard', () => {
       />,
     );
     expect(await screen.findByText('Plan run')).toBeVisible();
-    expect(await screen.findByText(/3 steps · 1 done, 1 running, 1 waiting/u)).toBeVisible();
+    expect(await screen.findByText('3 steps, 1 done, 1 running, 1 waiting')).toBeVisible();
     expect(screen.getByRole('img', { name: /The plan's 3 steps in order/u })).toHaveAttribute(
       'data-kind',
       'railroad',
     );
-    const rows = screen.getByRole('list', { name: 'Plan steps' });
-    expect(within(rows).getAllByText('this agent')).toHaveLength(2);
-    expect(within(rows).getByText('reviewer')).toBeVisible();
-    await waitFor(() => expect(within(rows).getByText('2 min 5 s')).toBeVisible());
+    // The track's colours are explained once, in words; no row repeats each step.
+    expect(screen.getByText('Select a step to see it')).toBeVisible();
+    for (const word of ['done', 'running', 'waiting']) expect(screen.getByText(word)).toBeVisible();
+    expect(screen.queryByRole('list', { name: 'Plan steps' })).toBeNull();
 
-    await user.click(within(rows).getByRole('button', { name: 'Show details of clean' }));
-    expect(within(rows).getByText('Clean the measurements and log every rule.')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'clean: Completed. Runs this agent.' }));
+    const details = screen.getByRole('region', { name: 'clean: Completed' });
+    expect(within(details).getByText('Clean the measurements and log every rule.')).toBeVisible();
+    await waitFor(() => expect(within(details).getByText('2 min 5 s')).toBeVisible());
+    await user.click(within(details).getByRole('button', { name: 'Close clean' }));
+    expect(screen.queryByRole('region', { name: 'clean: Completed' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'south: Waiting. Runs reviewer.' }));
+    expect(screen.getByRole('region', { name: 'south: Waiting' })).toHaveTextContent(
+      'Waits on: clean',
+    );
 
     await user.click(screen.getByText('Show the plan'));
     expect(screen.getByText('Compare the sites.')).toBeVisible();
