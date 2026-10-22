@@ -19,6 +19,7 @@ import { ArtifactLineageGraph } from './artifact-lineage-graph';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
 import { downloadBytes } from './surface-export';
+import { ResourceLoading } from './resource-states';
 
 export function ArtifactProvenance({
   artifact,
@@ -73,7 +74,7 @@ export function ArtifactProvenance({
             message="The service could not resolve this file's source relationships. Its saved content remains readable."
           />
         ) : (
-          <p className="text-sm text-muted-foreground">Loading lineage…</p>
+          <ResourceLoading label="Loading lineage" />
         )}
       </section>
     );

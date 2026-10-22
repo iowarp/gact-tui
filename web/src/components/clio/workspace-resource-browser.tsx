@@ -28,6 +28,7 @@ import {
 } from 'react';
 import { formatResourceSize } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { ResourceLoading } from './resource-states';
 
 const WorkspaceResourceView = lazy(() =>
   import('./workspace-resource-view').then((module) => ({
@@ -182,7 +183,5 @@ function LoadingResources() {
 }
 
 function PreviewLoading() {
-  return (
-    <div className="grid h-full place-items-center text-sm text-muted-foreground">Loading…</div>
-  );
+  return <ResourceLoading className="p-4" label="Loading preview" />;
 }
