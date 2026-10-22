@@ -87,6 +87,19 @@ describe('forward-compatible wire enums', () => {
     });
   });
 
+  it("keeps an answer hook notice's hook and the part its revision replaces", () => {
+    expect(
+      messageBlockSchema.parse({
+        id: 'part_revised',
+        type: 'notice',
+        source: 'answer_hook',
+        code: 'revised',
+        text: 'added the source',
+        metadata: { hook: 'review.cite', revises: 'part_answer' },
+      }),
+    ).toMatchObject({ metadata: { hook: 'review.cite', revises: 'part_answer' } });
+  });
+
   it('retains message metadata used to classify internal resume envelopes', () => {
     expect(
       messageSchema.parse({

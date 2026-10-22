@@ -23,6 +23,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ClioMessageHistoryActions } from './message-history-actions';
+import { answerRevisions } from './answer-revisions';
 import { MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
 import { VariantRunsForMessage } from './variant-runs-for-message';
@@ -206,14 +207,17 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       ) : null}
       <MessageAction
         label="Copy message"
-        onClick={() =>
+        onClick={() => {
+          // A hook's revision replaces the answer it revised; copy what is shown.
+          const revised = answerRevisions(message.blocks);
           void copyText(
             message.blocks
-              .filter((block) => block.type === 'text')
-              .map((block) => block.text)
+              .flatMap((block) =>
+                block.type === 'text' && !revised.has(block.id) ? [block.text] : [],
+              )
               .join('\n'),
-          )
-        }
+          );
+        }}
         tooltip="Copy message"
       >
         <CopyIcon aria-hidden="true" className="size-3.5" />
@@ -407,6 +411,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                         ) : segment.kind === 'block' ? (
                           <MessageBlockSequence
                             blocks={[segment.block]}
+                            messageBlocks={message.blocks}
                             key={segment.block.id}
                             messageId={message.id}
                             messageAttentionIndex={messageAttentionIndex}

@@ -49,6 +49,8 @@ import { TranscriptResourceAttachments } from './transcript-resource-attachment'
 import { TranscriptTextBlock } from './transcript-text-block';
 import { toolOutputDiffKey } from './declared-diff-key';
 import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
+import { AnswerHookNotice } from './answer-hook-notice';
+import { ANSWER_HOOK_SOURCE, answerRevisions } from './answer-revisions';
 import { SummarizationInjection, TranscriptNotice } from './conversation-summarization';
 import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
@@ -417,10 +419,13 @@ function MessageBlockView({
 
 export function MessageBlockSequence({
   blocks,
+  messageBlocks,
   resourcesFirst = false,
   ...props
 }: Omit<MessageBlockViewProps, 'block'> & {
   blocks: readonly MessageBlock[];
+  /** The whole message's blocks, when `blocks` is one segment of it. */
+  messageBlocks?: readonly MessageBlock[];
   resourcesFirst?: boolean;
 }) {
   const uniqueBlocks = responseArtifactBlocks(
@@ -441,12 +446,28 @@ export function MessageBlockSequence({
       return key ? [key] : [];
     }),
   );
+  // An answer a hook revised folds behind the hook's `revised` notice.
+  const revisions = answerRevisions(messageBlocks ?? orderedBlocks);
   let index = 0;
 
   while (index < orderedBlocks.length) {
     const block = orderedBlocks[index];
     if (!block) break;
     const keyIndex = index;
+
+    if (block.type === 'text' && revisions.has(block.id)) {
+      index += 1;
+      continue;
+    }
+
+    if (block.type === 'notice' && block.source === ANSWER_HOOK_SOURCE) {
+      const original = block.metadata?.revises ? revisions.get(block.metadata.revises) : undefined;
+      rendered.push(
+        <AnswerHookNotice block={block} key={`${block.id}-${keyIndex}`} original={original} />,
+      );
+      index += 1;
+      continue;
+    }
 
     if (block.type === 'diff' && inlineDiffs.has(`${block.path}\u0000${block.unified_diff}`)) {
       index += 1;
