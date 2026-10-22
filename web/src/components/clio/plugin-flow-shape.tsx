@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { renderPeleDiagram } from './diagram-renderer';
+import { parseDiagramSource } from './mermaid-security';
 
 type ShapeState = { kind: 'drawing' } | { kind: 'drawn'; svg: string } | { kind: 'failed' };
 
@@ -15,13 +16,26 @@ type Drawing = { source: string; state: ShapeState };
 export function PluginFlowShape({ source, label }: { source: string; label: string }) {
   const id = useId().replaceAll(':', '');
   const shape = source.trim();
+  // A plugin's drawing passes the same source checks as any diagram the agent sends.
+  const checked = useMemo(() => {
+    try {
+      return shape ? parseDiagramSource(shape).source : '';
+    } catch {
+      return undefined;
+    }
+  }, [shape]);
   const [drawing, setDrawing] = useState<Drawing>();
-  const state: ShapeState = drawing?.source === shape ? drawing.state : { kind: 'drawing' };
+  const state: ShapeState =
+    checked === undefined
+      ? { kind: 'failed' }
+      : drawing?.source === shape
+        ? drawing.state
+        : { kind: 'drawing' };
 
   useEffect(() => {
-    if (!shape) return;
+    if (!checked) return;
     let cancelled = false;
-    renderPeleDiagram(shape, `plugin-shape-${id}`, undefined, {
+    renderPeleDiagram(checked, `plugin-shape-${id}`, undefined, {
       fontSize: 13,
       inheritTheme: true,
       transform: (element) => {
@@ -40,7 +54,7 @@ export function PluginFlowShape({ source, label }: { source: string; label: stri
     return () => {
       cancelled = true;
     };
-  }, [id, shape]);
+  }, [checked, id, shape]);
 
   const svg = state.kind === 'drawn' ? state.svg : '';
   const html = useMemo(() => ({ __html: svg }), [svg]);

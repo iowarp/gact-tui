@@ -47,15 +47,29 @@ export function validateMermaidSource(source: string): void {
   parseDiagramSource(source);
 }
 
+/** CSS that reaches outside the drawing: an import, or a url() that is not a #fragment. */
+const EXTERNAL_CSS = /@import|url\s*\(\s*['"]?\s*(?!#)|expression\s*\(/iu;
+
 export function sanitizeMermaidSvg(svg: string): SVGElement {
   const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
   if (parsed.querySelector('parsererror')) throw new Error('Diagram renderer returned invalid SVG');
+  // Animation elements can set any attribute later (an href, an event handler), after
+  // the attribute pass below has run; a drawing needs none of them.
   parsed
-    .querySelectorAll('script,foreignObject,iframe,object,embed')
+    .querySelectorAll(
+      'script,foreignObject,iframe,object,embed,animate,set,animateMotion,animateTransform,animateColor',
+    )
     .forEach((node) => node.remove());
+  parsed.querySelectorAll('style').forEach((node) => {
+    if (EXTERNAL_CSS.test(node.textContent ?? '')) node.remove();
+  });
   parsed.querySelectorAll('*').forEach((node) => {
     for (const attribute of [...node.attributes]) {
-      if (/^on/iu.test(attribute.name) || /^(?:href|xlink:href)$/iu.test(attribute.name)) {
+      if (
+        /^on/iu.test(attribute.name) ||
+        /^(?:href|xlink:href)$/iu.test(attribute.name) ||
+        (attribute.name === 'style' && EXTERNAL_CSS.test(attribute.value))
+      ) {
         node.removeAttribute(attribute.name);
       }
     }
