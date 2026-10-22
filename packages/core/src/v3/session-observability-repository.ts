@@ -86,6 +86,11 @@ const asyncProcessSchema = z
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
     error_reason: z.string().optional(),
+    /** Set when the task's child conversation runs a flow: its flow id. */
+    flow: z
+      .object({ id: z.string() })
+      .nullish()
+      .transform((value) => value ?? undefined),
     result: z
       .object({
         answer: z.string().optional(),

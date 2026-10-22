@@ -522,6 +522,7 @@ export function WorkspacePage() {
               onOpenFile={openWorkspaceFile}
               onOpenResource={openWorkspaceResource}
               onOpenSubagent={openSubagent}
+              onOpenFlow={openFlow}
               onProvenanceProviderChange={executionProvenance.setProvider}
               processes={processes}
               workPages={workPages}
@@ -661,6 +662,7 @@ export function WorkspacePage() {
                   onOpenFile={openWorkspaceFile}
                   onOpenResource={openWorkspaceResource}
                   onOpenSubagent={openSubagent}
+                  onOpenFlow={openFlow}
                   onCompactContext={() => sessionContext.compact.mutateAsync()}
                   onContextTargetChange={setContextTargetId}
                   onProvenanceProviderChange={executionProvenance.setProvider}

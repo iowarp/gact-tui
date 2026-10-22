@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { ClioEvidenceViewProps } from './observability-evidence';
 import type { TaskActivity } from './task-activity';
+import { flowLabel } from './flow-tool-presentation';
 import { taskProgressLabel } from './task-progress-label';
 import { subagentOpenTarget, SUBAGENT_OPEN_HINT } from './subagent-navigation';
 
@@ -26,16 +27,21 @@ export function TaskActivityRow({
   status,
   actions,
   onOpenSubagent,
+  onOpenFlow,
 }: {
   entry: TaskActivity;
   status: string;
   actions?: ReactNode;
   onOpenSubagent?: ClioEvidenceViewProps['onOpenSubagent'];
+  /** A task that runs a flow opens its run view. */
+  onOpenFlow?: ClioEvidenceViewProps['onOpenFlow'];
 }) {
   const { process: task, subagent } = entry;
   const conversation = subagent ?? (task ? mergeSessionSubagents([], [task])[0] : undefined);
   const title = task?.title || subagent?.title || 'Task';
   const kind = task?.task_kind ?? (task?.kind === 'agent' || subagent ? 'Subagent' : 'MCP');
+  // A child conversation that runs a flow reads as that flow's run, not as a chat.
+  const flowRun = task?.flow ? `${flowLabel(task.flow.id)} run` : undefined;
   const assignment = task?.description || subagent?.task;
   const progress = taskProgressLabel(task?.progress, kind, task?.error_reason);
   const held = status === 'paused' || status === 'pause_requested';
@@ -90,7 +96,7 @@ export function TaskActivityRow({
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{title}</span>
               <span className="block truncate text-xs text-muted-foreground">
-                {kind} · {label}
+                {flowRun ?? kind} · {label}
                 {progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
@@ -147,6 +153,17 @@ export function TaskActivityRow({
             >
               {result}
             </div>
+          ) : null}
+          {flowRun && onOpenFlow ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-8 px-0"
+              aria-label={`Open the ${flowRun.toLowerCase()}: ${title}`}
+              onClick={() => onOpenFlow(entry.key, flowRun)}
+            >
+              Open the run
+            </Button>
           ) : null}
           {conversation?.child_session_id && onOpenSubagent ? (
             <div className="flex flex-wrap items-center gap-1">

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ClioEvidenceView } from './observability-evidence';
 import { AsyncTaskList } from './async-task-list';
+import { asyncProcessDetail } from './observability-activity';
 
 afterEach(cleanup);
 
@@ -106,7 +107,9 @@ it.each(['cancelled', 'completed'] as const)(
     render(<AsyncTaskList processes={[historical]} subagents={[]} onOpenSubagent={open} />);
     expect(screen.queryByRole('button', { name: 'Open child conversation Worker #1' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Task details: Worker #1' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Open child conversation Worker #1' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Open child conversation Worker #1' }),
+    );
     expect(open).toHaveBeenCalledWith(
       expect.objectContaining({
         id: historical.handle,
@@ -330,4 +333,32 @@ it('retains one navigable durable child row in the full evidence view', async ()
   await user.keyboard('{/Shift}');
   expect(open).toHaveBeenLastCalledWith(child, 'conversation');
   expect(open).toHaveBeenCalledTimes(2);
+});
+
+it('names a task that runs a flow as that run and opens the run view', async () => {
+  const user = userEvent.setup();
+  const openFlow = vi.fn();
+  const openChild = vi.fn();
+  const flowTask: AsyncProcess = {
+    ...task,
+    id: 'task_plan_handle',
+    handle: 'task_plan_handle',
+    title: 'Field sites workflow',
+    flow: { id: 'plan' },
+    effective_status: 'running',
+    live_state: 'running',
+    status: 'running',
+    raw_status: 'running',
+    supported_actions: ['cancel'],
+  };
+  render(<AsyncTaskList processes={[flowTask]} onOpenFlow={openFlow} onOpenSubagent={openChild} />);
+  expect(screen.getByText(/^Plan run · Running/u)).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Task details: Field sites workflow' }));
+  await user.click(screen.getByRole('button', { name: 'Open the plan run: Field sites workflow' }));
+  expect(openFlow).toHaveBeenCalledWith('task_plan_handle', 'Plan run');
+  // Its conversation stays one click away.
+  expect(
+    screen.getByRole('button', { name: 'Open child conversation Field sites workflow' }),
+  ).toBeVisible();
+  expect(asyncProcessDetail(flowTask)).toBe('Plan run');
 });

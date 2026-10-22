@@ -520,6 +520,8 @@ export interface AsyncProcess {
   created_at?: string;
   updated_at?: string;
   error_reason?: string;
+  /** Set when the task's child conversation runs a flow (a plan, council, arena...). */
+  flow?: { id: string };
   result?: {
     answer?: string;
     answer_excerpt?: string;

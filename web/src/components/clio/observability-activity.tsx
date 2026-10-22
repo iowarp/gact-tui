@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
+import { flowLabel } from './flow-tool-presentation';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -72,6 +73,9 @@ const PROJECTED_COORDINATION_TOOLS = new Set([
   'wait_agent_tasks',
   'message_agent_task',
   'collect_agent_task',
+  // A started flow is its process row (labelled as the flow's run); the tool row repeats it.
+  'run_flow',
+  'run_plan',
 ]);
 
 interface CausalLane {
@@ -93,6 +97,7 @@ interface CausalLane {
 export function asyncProcessDetail(process: AsyncProcess): string {
   const reported = process.error_reason?.trim() || process.result?.answer_excerpt?.trim();
   if (reported) return truncate(reported, SUMMARY_TRUNCATE_CHARS);
+  if (process.flow) return `${flowLabel(process.flow.id)} run`;
   if (process.kind === 'agent') return process.placement?.trim() || 'Child agent';
   return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
 }

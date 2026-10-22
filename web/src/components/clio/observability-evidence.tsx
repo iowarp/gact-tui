@@ -94,6 +94,8 @@ export interface ClioEvidenceViewProps {
   onOpenFile?: (path: string) => void;
   onOpenResource?: (resource: WorkspaceResource) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  /** Open a flow run's view: a task that runs a flow opens its run, not a chat. */
+  onOpenFlow?: (handle: string, title: string) => void;
   onOpenWork?: () => void;
   onOpenActivity?: () => void;
   provenanceProvider?: ProvenanceProviderSummary;
@@ -254,6 +256,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
               processes={backgroundProcesses}
               subagents={taskSubagents}
               onOpenSubagent={props.onOpenSubagent}
+              onOpenFlow={props.onOpenFlow}
               onCancelTask={props.onCancelTask}
               onControlTask={props.onControlTask}
               pagination={props.workPages}

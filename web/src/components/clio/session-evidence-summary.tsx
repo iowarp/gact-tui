@@ -53,6 +53,7 @@ export function SessionEvidenceSummary({
   | 'onOpenDiff'
   | 'onOpenResource'
   | 'onOpenSubagent'
+  | 'onOpenFlow'
   | 'onOpenWork'
   | 'onOpenActivity'
   | 'onCancelTask'
@@ -152,6 +153,7 @@ export function SessionEvidenceSummary({
             processes={backgroundProcesses}
             subagents={subagents}
             onOpenSubagent={actions.onOpenSubagent}
+            onOpenFlow={actions.onOpenFlow}
             onCancelTask={actions.onCancelTask}
             onControlTask={actions.onControlTask}
             pagination={actions.workPages}
