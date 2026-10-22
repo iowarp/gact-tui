@@ -1,0 +1,234 @@
+import { flowRunActive, sessionAgentRef, type FlowRun } from '@clio/core/v3';
+import { useQueries } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { FLOW_RUN_POLL_MS, useFlowTaskTimes } from '@/hooks/use-flow-run';
+import { useNow } from '@/hooks/use-now';
+import { useRepository } from '@/hooks/use-repository';
+import { useSessionAgent } from '@/hooks/use-session-agent';
+import { queryKeys } from '@/lib/query-keys';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { useLiveStore } from '@/store/live-store';
+import {
+  closingStep,
+  planAgentflowSource,
+  seriesParallel,
+} from '@/components/clio/flow-diagram-source';
+import {
+  membersRailroadExpr,
+  planRailroadRules,
+  railroadDiagram,
+  type RailroadDiagram,
+  type RailroadExpr,
+} from '@/components/clio/flow-railroad';
+import {
+  flowMembers,
+  flowVerdict,
+  planSteps,
+  type FlowMember,
+  type FlowState,
+  type FlowStep,
+  type FlowVerdict,
+} from '@/components/clio/flow-run-presentation';
+import { flowToolDescriptor } from '@/components/clio/flow-tool-presentation';
+import { formatDuration } from '@/lib/format';
+
+/** How a run is drawn: as a railroad, or as a graph with the reason it is not a railroad. */
+export type FlowDiagramSpec =
+  | { kind: 'railroad'; railroad: RailroadDiagram; label: string }
+  | { kind: 'graph'; source: string; label: string; note: string };
+
+export interface FlowPresentation {
+  /** Plan steps; empty for a flow without a plan. */
+  steps: FlowStep[];
+  /** Council members, arena entries or other calls; empty for a plan. */
+  members: FlowMember[];
+  verdict: FlowVerdict;
+  /** A council's synthesis or an arena's judge, with its state. */
+  closing?: { label: string; state: FlowState };
+  /** How long each step or member took, or has been running. Unit: milliseconds. */
+  elapsed: ReadonlyMap<string, number>;
+  diagram?: FlowDiagramSpec;
+  /** The whole run's time so far, from its first task. Unit: milliseconds. */
+  runElapsed?: number;
+}
+
+/** Shown under a graph drawn in place of the railroad, so the switch is never silent. */
+export const NOT_SERIES_PARALLEL_NOTE =
+  "Drawn as a graph: some steps wait on only part of a parallel group, so the plan can't be laid out as one track of sequences and parallel branches.";
+
+/**
+ * The session's own agent reference, so a step it runs reads as "this agent":
+ * the pinned resolution when the service reports it, else the session's pin.
+ */
+export function useSessionAgentRef(sessionId: string): string {
+  const session = useLiveStore((state) => state.entities.sessions[sessionId]);
+  const { agent } = useSessionAgent(sessionId);
+  return agent.data?.resolution.agent.ref || sessionAgentRef(session);
+}
+
+/** The arguments of the run_flow / run_plan call that started the flow under `handle`. */
+export function useFlowToolArgs(handle: string): Record<string, unknown> | undefined {
+  const tools = useLiveStore((state) => state.entities.tools);
+  return useMemo(() => {
+    for (const tool of Object.values(tools)) {
+      if (!['run_flow', 'run_plan'].includes(tool.name)) continue;
+      const descriptor = flowToolDescriptor(tool);
+      if (descriptor?.handle === handle) return descriptor.args;
+    }
+    return undefined;
+  }, [handle, tools]);
+}
+
+/** The runs of plan steps that are flows themselves, read again while they run. */
+function useNestedFlowRuns(sessionId: string, steps: readonly FlowStep[]) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const nested = steps.filter(
+    (step): step is FlowStep & { handle: string } => step.kind === 'flow' && Boolean(step.handle),
+  );
+  const results = useQueries({
+    queries: nested.map((step) => ({
+      queryKey: queryKeys.key('task-flow', settings.endpoint, sessionId, step.handle),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        repository.taskFlow(sessionId, step.handle, signal),
+      retry: false,
+      refetchInterval: (query: { state: { data?: FlowRun | null } }) =>
+        query.state.data && flowRunActive(query.state.data) ? FLOW_RUN_POLL_MS : false,
+    })),
+  });
+  return new Map(
+    nested.flatMap((step, index) => {
+      const data = results[index]?.data;
+      return data ? [[step.id, data] as const] : [];
+    }),
+  );
+}
+
+/** A nested run as its sub-rule's expression; its own nested flows are drawn as steps. */
+export function nestedFlowExpr(run: FlowRun, agentRef: string): RailroadExpr | undefined {
+  if (run.view) {
+    const steps = planSteps(run, agentRef).map((step) =>
+      step.kind === 'flow' ? { ...step, kind: 'agent' as const } : step,
+    );
+    const shape = seriesParallel(steps);
+    return shape ? planRailroadRules('nested', steps, shape)[0]!.expr : undefined;
+  }
+  const members = flowMembers(run, agentRef);
+  if (!members.length || !['council', 'arena'].includes(run.flow)) return undefined;
+  return membersRailroadExpr(members, closingStep(run.flow, run.status, members, flowVerdict(run)));
+}
+
+/** Everything the card, the panel and the full-screen view present for one run. */
+export function useFlowPresentation(
+  run: FlowRun | null | undefined,
+  agentRef: string,
+  args: Record<string, unknown> | undefined,
+  sessionId: string,
+): FlowPresentation {
+  const model = useMemo(() => {
+    if (!run) return { steps: [], members: [], verdict: {} as FlowVerdict };
+    const steps = planSteps(run, agentRef);
+    const members = run.view ? [] : flowMembers(run, agentRef, args);
+    return { steps, members, verdict: flowVerdict(run) };
+  }, [agentRef, args, run]);
+  const nested = useNestedFlowRuns(sessionId, model.steps);
+  const tasks = useMemo(
+    () =>
+      [...model.steps, ...model.members].map((row) => ({
+        handle: row.handle,
+        settled: !['running', 'waiting'].includes(row.status.tone),
+      })),
+    [model],
+  );
+  const times = useFlowTaskTimes(tasks);
+  const ticking = tasks.some((task) => task.handle && !task.settled);
+  const now = useNow(ticking);
+  const elapsed = useMemo(() => {
+    const result = new Map<string, number>();
+    for (const row of [...model.steps, ...model.members]) {
+      const time = row.handle ? times.get(row.handle) : undefined;
+      if (!time) continue;
+      const key = 'id' in row ? row.id : row.key;
+      if (time.settledAt !== undefined) result.set(key, time.settledAt - time.startedAt);
+      else if (row.status.tone === 'running') result.set(key, now - time.startedAt);
+    }
+    return result;
+  }, [model, now, times]);
+  // The nested runs' identity changes every render; their states are what matter.
+  const nestedKey = [...nested]
+    .map(([id, value]) => `${id}:${value.status}:${value.entries}:${value.calls.length}`)
+    .join(',');
+  const diagrams = useMemo(
+    () => flowDiagrams(run, model, nested, agentRef),
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [run, model, agentRef, nestedKey],
+  );
+  const starts = [...times.values()].map((time) => time.startedAt);
+  const ends = [...times.values()].map((time) => time.settledAt ?? now);
+  const runElapsed =
+    starts.length && run
+      ? (run.status === 'running' ? now : Math.max(...ends)) - Math.min(...starts)
+      : undefined;
+  return { ...model, ...diagrams, elapsed, runElapsed };
+}
+
+/**
+ * The diagram of a run: a railroad whenever the flow's shape is nested
+ * sequences and parallel branches, else the plan graph with the reason.
+ */
+export function flowDiagrams(
+  run: FlowRun | null | undefined,
+  model: { steps: FlowStep[]; members: FlowMember[]; verdict: FlowVerdict },
+  nested: ReadonlyMap<string, FlowRun>,
+  agentRef: string,
+): Pick<FlowPresentation, 'diagram' | 'closing'> {
+  if (!run) return {};
+  if (run.view) {
+    const steps = model.steps;
+    if (!steps.length) return {};
+    const shape = seriesParallel(steps);
+    if (!shape) {
+      return {
+        diagram: {
+          kind: 'graph',
+          source: planAgentflowSource(steps, new Map()),
+          label: `Plan graph of ${steps.length} steps and what each waits on`,
+          note: NOT_SERIES_PARALLEL_NOTE,
+        },
+      };
+    }
+    const subflows = new Map(
+      [...nested].flatMap(([id, value]) => {
+        const expr = nestedFlowExpr(value, agentRef);
+        return expr ? [[id, expr] as const] : [];
+      }),
+    );
+    return {
+      diagram: {
+        kind: 'railroad',
+        railroad: railroadDiagram(planRailroadRules('plan', steps, shape, subflows)),
+        label: `The plan's ${steps.length} steps in order: ${steps
+          .map((step) => `${step.id}, ${step.status.word}`)
+          .join('; ')}`,
+      },
+    };
+  }
+  const members = model.members;
+  if (!members.length || !['council', 'arena'].includes(run.flow)) return {};
+  const closing = closingStep(run.flow, run.status, members, model.verdict);
+  const word = (member: FlowMember) =>
+    member.chosen ? `${member.status.word}, chosen` : member.status.word;
+  return {
+    closing,
+    diagram: {
+      kind: 'railroad',
+      railroad: railroadDiagram([{ name: run.flow, expr: membersRailroadExpr(members, closing) }]),
+      label: `${members.map((member) => `${member.label}, ${word(member)}`).join('; ')}; then the ${closing.label}, ${closing.state.word}`,
+    },
+  };
+}
+
+/** A duration as the rows show it: "42 s", "3 min 5 s". */
+export function rowDuration(milliseconds: number | undefined): string {
+  return milliseconds === undefined ? '' : formatDuration(milliseconds);
+}

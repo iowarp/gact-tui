@@ -1,7 +1,27 @@
-import type { FlowRun, PlanNode, PlanView } from '@clio/core/v3';
-import { graphlib, layout } from '@dagrejs/dagre';
-import { MarkerType, Position, type Edge, type Node } from '@xyflow/react';
+import type { FlowCall, FlowRun, PlanNode } from '@clio/core/v3';
 import type { ClioStatusValue } from './status';
+
+/**
+ * How a step reads in a diagram: the class Pele draws it with and the word its
+ * label carries. The word is always written, so the state never rests on color.
+ */
+export type FlowTone =
+  | 'done'
+  | 'running'
+  | 'waiting'
+  | 'failed'
+  | 'cancelled'
+  | 'proposed'
+  | 'unknown';
+
+export interface FlowState {
+  value: ClioStatusValue;
+  /** The chip label, e.g. "Completed". */
+  label: string;
+  /** The lower-case word a diagram label carries, e.g. "done". */
+  word: string;
+  tone: FlowTone;
+}
 
 /** A run's overall state with its text label: running, completed, or the typed outcome. */
 export function flowRunStatus(run: Pick<FlowRun, 'status' | 'outcome'>): {
@@ -17,147 +37,306 @@ export function flowRunStatus(run: Pick<FlowRun, 'status' | 'outcome'>): {
   return { value: 'failed', label: `Stopped: ${run.status.replaceAll('_', ' ')}` };
 }
 
-/** Width and height of one drawn plan node. Unit: CSS pixels. */
-export const NODE_WIDTH = 200;
-export const NODE_HEIGHT = 96;
-
-export interface PlanNodeData extends Record<string, unknown> {
-  id: string;
-  target: string;
-  status: ClioStatusValue;
-  statusLabel: string;
-  proposed: boolean;
-  handle?: string;
-  direction: 'LR' | 'TB';
-  open?: (handle: string) => void;
-}
-
-export type PlanGraphNode = Node<PlanNodeData, 'clio-plan-node'>;
-
-/** A plan node's state, always with its text label (never color alone). */
-export function planNodeStatus(node: Pick<PlanNode, 'status'>): {
-  value: ClioStatusValue;
-  label: string;
-} {
+/**
+ * A plan node's state, always with its text label. A node the plan skipped
+ * because a step it waits on failed is reported as skipped, not as cancelled
+ * by someone.
+ */
+export function planNodeStatus(node: Pick<PlanNode, 'status'>, skipped = false): FlowState {
   switch (node.status) {
     case 'pending':
-      return { value: 'queued', label: 'Waiting' };
+      return { value: 'queued', label: 'Waiting', word: 'waiting', tone: 'waiting' };
     case 'running':
-      return { value: 'running', label: 'Running' };
+      return { value: 'running', label: 'Running', word: 'running', tone: 'running' };
     case 'completed':
-      return { value: 'completed', label: 'Completed' };
+      return { value: 'completed', label: 'Completed', word: 'done', tone: 'done' };
     case 'failed':
-      return { value: 'failed', label: 'Failed' };
+      return { value: 'failed', label: 'Failed', word: 'failed', tone: 'failed' };
     case 'cancelled':
-      return { value: 'cancelled', label: 'Cancelled' };
+      return skipped
+        ? { value: 'cancelled', label: 'Skipped', word: 'skipped', tone: 'cancelled' }
+        : { value: 'cancelled', label: 'Cancelled', word: 'cancelled', tone: 'cancelled' };
     case 'repaired':
-      return { value: 'recovering', label: 'Repaired' };
+      return { value: 'recovering', label: 'Repaired', word: 'repaired', tone: 'done' };
     default:
-      return { value: 'unknown', label: 'State not recognized' };
+      return {
+        value: 'unknown',
+        label: 'State not recognized',
+        word: 'state unknown',
+        tone: 'unknown',
+      };
   }
-}
-
-/**
- * Lay out a plan: one node per plan node, an edge per dependency, and each
- * proposal awaiting approval drawn as a pending node hanging off what it waits on.
- */
-export function buildPlanGraph(
-  view: PlanView,
-  direction: 'LR' | 'TB',
-): { nodes: PlanGraphNode[]; edges: Edge[] } {
-  const nodes: PlanGraphNode[] = [
-    ...view.nodes.map((node): PlanGraphNode => {
-      const status = planNodeStatus(node);
-      return {
-        id: node.id,
-        type: 'clio-plan-node',
-        position: { x: 0, y: 0 },
-        data: {
-          id: node.id,
-          target: node.target,
-          status: status.value,
-          statusLabel: status.label,
-          proposed: false,
-          handle: node.handle || undefined,
-          direction,
-        },
-        ariaLabel: `${node.id}, ${node.target}, ${status.label}`,
-      };
-    }),
-    ...view.awaiting_approval
-      .filter((proposal) => !view.nodes.some((node) => node.id === proposal.id))
-      .map(
-        (proposal): PlanGraphNode => ({
-          id: proposal.id,
-          type: 'clio-plan-node',
-          position: { x: 0, y: 0 },
-          data: {
-            id: proposal.id,
-            target: proposal.target,
-            status: 'waiting_user',
-            statusLabel: 'Awaiting approval',
-            proposed: true,
-            direction,
-          },
-          ariaLabel: `${proposal.id}, proposed by ${proposal.by || 'an editor'}, awaiting approval`,
-        }),
-      ),
-  ];
-  const known = new Set(nodes.map((node) => node.id));
-  const dependencies = [
-    ...view.nodes.map((node) => ({ id: node.id, after: node.after, proposed: false })),
-    ...view.awaiting_approval.map((row) => ({ id: row.id, after: row.after, proposed: true })),
-  ];
-  const edges: Edge[] = dependencies.flatMap(({ id, after, proposed }) =>
-    after
-      .filter((source) => known.has(source))
-      .map((source) => ({
-        id: `${source}->${id}`,
-        source,
-        target: id,
-        type: 'smoothstep',
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: proposed ? { strokeDasharray: '4 4' } : undefined,
-      })),
-  );
-  const graph = new graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  graph.setGraph({ rankdir: direction, nodesep: 20, ranksep: 54, marginx: 18, marginy: 18 });
-  for (const node of nodes) graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-  for (const edge of edges) graph.setEdge(edge.source, edge.target);
-  layout(graph);
-  const sourcePosition = direction === 'LR' ? Position.Right : Position.Bottom;
-  const targetPosition = direction === 'LR' ? Position.Left : Position.Top;
-  return {
-    nodes: nodes.map((node) => {
-      const position = graph.node(node.id);
-      return {
-        ...node,
-        sourcePosition,
-        targetPosition,
-        position: { x: position.x - NODE_WIDTH / 2, y: position.y - NODE_HEIGHT / 2 },
-      };
-    }),
-    edges,
-  };
 }
 
 /** A flow call's task state with its text label; a state this client does not know is spelled out. */
-export function flowCallStatus(status: string): { value: ClioStatusValue; label: string } {
+export function flowCallStatus(status: string): FlowState {
   switch (status) {
     case 'pending':
     case 'queued':
-      return { value: 'queued', label: 'Waiting' };
+      return { value: 'queued', label: 'Waiting', word: 'waiting', tone: 'waiting' };
     case 'running':
-      return { value: 'running', label: 'Running' };
+      return { value: 'running', label: 'Running', word: 'running', tone: 'running' };
     case 'completed':
-      return { value: 'completed', label: 'Completed' };
+      return { value: 'completed', label: 'Completed', word: 'done', tone: 'done' };
     case 'failed':
-      return { value: 'failed', label: 'Failed' };
+      return { value: 'failed', label: 'Failed', word: 'failed', tone: 'failed' };
     case 'cancelled':
-      return { value: 'cancelled', label: 'Cancelled' };
+      return { value: 'cancelled', label: 'Cancelled', word: 'cancelled', tone: 'cancelled' };
+    case 'task_state_uncertain':
+      return {
+        value: 'task_state_uncertain',
+        label: 'Needs inspection',
+        word: 'needs inspection',
+        tone: 'failed',
+      };
     case '':
-      return { value: 'unknown', label: 'Not reported' };
-    default:
-      return { value: 'unknown', label: status.replaceAll('_', ' ') };
+      return { value: 'unknown', label: 'Not reported', word: 'not reported', tone: 'unknown' };
+    default: {
+      const label = status.replaceAll('_', ' ');
+      return { value: 'unknown', label, word: label, tone: 'unknown' };
+    }
   }
+}
+
+const PROPOSED: FlowState = {
+  value: 'waiting_user',
+  label: 'Awaiting approval',
+  word: 'awaiting approval',
+  tone: 'proposed',
+};
+
+/** Who a call runs: the session's own agent reads as "this agent". */
+export function flowTargetLabel(target: string, agentRef: string): string {
+  if (!target) return 'Target not reported';
+  return target === 'self' || (agentRef !== '' && target === agentRef) ? 'this agent' : target;
+}
+
+/** One step of a plan as the transcript card, the panel and the diagram present it. */
+export interface FlowStep {
+  id: string;
+  target: string;
+  targetLabel: string;
+  /** The instructions the agent wrote for this step (text or an object). */
+  input: unknown;
+  after: string[];
+  status: FlowState;
+  /** The task that runs it, once it started. */
+  handle?: string;
+  /** `flow` when the step runs another flow, `editor` when it may edit the plan. */
+  kind: 'agent' | 'flow' | 'editor' | 'proposal';
+  /** The editor that added this step while the plan ran. */
+  addedBy?: string;
+  /** The reason an editor gave for adding or proposing it. */
+  note?: string;
+  /** How many times it ran: more than one after a retry or an editor's repair. */
+  attempts: number;
+}
+
+/** The plan's steps, in plan order, then the proposals still waiting for approval. */
+export function planSteps(run: FlowRun, agentRef: string): FlowStep[] {
+  const view = run.view;
+  if (!view) return [];
+  const kinds = new Map(run.calls.map((call) => [call.invocation, call.kind]));
+  const skipped = new Set(
+    run.events.flatMap((event) =>
+      event.event === 'node_skipped' && event.node ? [event.node] : [],
+    ),
+  );
+  const addedBy = new Map(
+    run.events.flatMap((event) =>
+      event.event === 'node_added' && event.node
+        ? [[event.node, typeof event.by === 'string' ? event.by : ''] as const]
+        : [],
+    ),
+  );
+  const steps = view.nodes.map(
+    (node): FlowStep => ({
+      id: node.id,
+      target: node.target,
+      targetLabel: flowTargetLabel(node.target, agentRef),
+      input: node.input,
+      after: node.after,
+      status: planNodeStatus(node, skipped.has(node.id)),
+      ...(node.handle ? { handle: node.handle } : {}),
+      kind: view.editors.includes(node.target)
+        ? 'editor'
+        : (node.invocation && kinds.get(node.invocation) === 'flow') ||
+            node.invocation?.includes(':flow:')
+          ? 'flow'
+          : 'agent',
+      ...(addedBy.has(node.id) ? { addedBy: addedBy.get(node.id) || 'an editor' } : {}),
+      ...(node.description ? { note: node.description } : {}),
+      attempts: stepAttempts(run, node),
+    }),
+  );
+  const known = new Set(steps.map((step) => step.id));
+  for (const proposal of view.awaiting_approval) {
+    if (known.has(proposal.id)) continue;
+    steps.push({
+      id: proposal.id,
+      target: proposal.target,
+      targetLabel: flowTargetLabel(proposal.target, agentRef),
+      input: proposal.input,
+      after: proposal.after,
+      status: PROPOSED,
+      kind: 'proposal',
+      addedBy: proposal.by || 'an editor',
+      ...(proposal.reason ? { note: proposal.reason } : {}),
+      attempts: 0,
+    });
+  }
+  return steps;
+}
+
+/**
+ * How many times a plan step ran: the distinct calls keyed to it and the
+ * distinct tasks its events name; a repaired step ran at least twice.
+ */
+function stepAttempts(run: FlowRun, node: PlanNode): number {
+  const keyed = (invocation: string) =>
+    invocation.includes(`=node:${node.id}:`) || invocation.includes(`:node:${node.id}:`);
+  const invocations = new Set(
+    run.calls.flatMap((call) => (keyed(call.invocation) ? [call.invocation] : [])),
+  );
+  if (node.invocation) invocations.add(node.invocation);
+  const handles = new Set(
+    run.events.flatMap((event) =>
+      event.node === node.id && typeof event.handle === 'string' && event.handle
+        ? [event.handle]
+        : [],
+    ),
+  );
+  const seen = Math.max(invocations.size, handles.size);
+  return node.status === 'repaired' ? Math.max(2, seen) : seen;
+}
+
+/** One member of a flow without a plan: a council member, an arena entry, or a call. */
+export interface FlowMember {
+  key: string;
+  label: string;
+  target: string;
+  targetLabel: string;
+  status: FlowState;
+  handle?: string;
+  /** The arena judge picked this entry. */
+  chosen: boolean;
+  /** The perspective a council member was asked to answer from, when the agent named one. */
+  perspective?: string;
+}
+
+/** The judge's verdict or the synthesis a finished council or arena returned. */
+export interface FlowVerdict {
+  /** Arena: the 0-based entry the judge picked, as the judge numbered them. */
+  winner?: number;
+  rationale?: string;
+  /** The flow's answer: a council's synthesis, an arena's winning entry with the verdict. */
+  answer?: string;
+}
+
+export function flowVerdict(run: FlowRun): FlowVerdict {
+  const result = asRecord(run.result);
+  if (!result) return typeof run.result === 'string' ? { answer: run.result } : {};
+  return {
+    ...(typeof result.winner === 'number' ? { winner: result.winner } : {}),
+    ...(typeof result.rationale === 'string' ? { rationale: result.rationale } : {}),
+    ...(typeof result.answer === 'string' ? { answer: result.answer } : {}),
+  };
+}
+
+/**
+ * The tasks a flow started, labelled as that flow names them. Arena entries
+ * keep the judge's own numbering (from 0) so its rationale reads against them.
+ */
+export function flowMembers(
+  run: FlowRun,
+  agentRef: string,
+  args?: Record<string, unknown>,
+): FlowMember[] {
+  const options = asRecord(args?.options);
+  const perspectives = Array.isArray(options?.perspectives)
+    ? options.perspectives.filter((value): value is string => typeof value === 'string')
+    : [];
+  const verdict = flowVerdict(run);
+  const calls = run.calls.filter((call) => call.kind !== 'ask');
+  return calls.map((call: FlowCall, index): FlowMember => {
+    const label =
+      run.flow === 'council'
+        ? `Member ${index + 1}`
+        : run.flow === 'arena'
+          ? `Entry ${index}`
+          : `Call ${index + 1}`;
+    const perspective =
+      run.flow === 'council' && perspectives.length
+        ? perspectives[index % perspectives.length]
+        : undefined;
+    return {
+      key: call.invocation || `${index}`,
+      label,
+      target: call.target,
+      targetLabel: flowTargetLabel(call.target, agentRef),
+      status: flowCallStatus(call.status),
+      ...(call.handle ? { handle: call.handle } : {}),
+      chosen: run.flow === 'arena' && verdict.winner === index,
+      ...(perspective ? { perspective } : {}),
+    };
+  });
+}
+
+/** Counts of steps by state, in words: "1 done, 1 failed, 3 skipped". */
+export function stepTally(states: readonly FlowState[]): string {
+  const counts = new Map<string, number>();
+  for (const state of states) counts.set(state.word, (counts.get(state.word) ?? 0) + 1);
+  return [...counts].map(([word, count]) => `${count} ${word}`).join(', ');
+}
+
+/**
+ * The script the agent wrote, as JSON a person can copy: the plan's steps
+ * (live, including steps editors added) with its task and editing bounds, or a
+ * flow's input and options.
+ */
+export function flowScriptJson(run: FlowRun, args?: Record<string, unknown>): string {
+  const view = run.view;
+  if (view) {
+    return JSON.stringify(
+      {
+        ...(typeof args?.task === 'string' && args.task ? { task: args.task } : {}),
+        plan: {
+          nodes: view.nodes.map((node) => ({
+            id: node.id,
+            target: node.target,
+            after: node.after,
+            ...(node.input !== undefined && node.input !== null ? { input: node.input } : {}),
+            ...(node.description ? { description: node.description } : {}),
+          })),
+        },
+        editors: view.editors,
+        max_added: view.max_added ?? null,
+        max_rounds: view.max_rounds ?? null,
+        approve_edits: view.approve_edits,
+      },
+      null,
+      2,
+    );
+  }
+  return JSON.stringify(
+    {
+      flow: run.flow,
+      input: args?.input ?? null,
+      options: args?.options ?? null,
+    },
+    null,
+    2,
+  );
+}
+
+/** A step's instructions as readable text: strings as written, objects as JSON. */
+export function inputText(input: unknown): string {
+  if (input === undefined || input === null || input === '') return '';
+  return typeof input === 'string' ? input : JSON.stringify(input, null, 2);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }

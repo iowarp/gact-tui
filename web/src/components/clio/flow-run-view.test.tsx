@@ -10,13 +10,21 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
-vi.mock('./flow-plan-graph', async (original) => ({
-  ...(await original<typeof import('./flow-plan-graph')>()),
-  FlowPlanGraph: () => <div aria-label="Plan graph" role="img" />,
+vi.mock('@/hooks/use-session-agent', () => ({
+  useSessionAgent: () => ({ agent: { data: undefined } }),
+}));
+// Pele draws in a browser; here the diagram's text alternative stands in for it.
+vi.mock('./flow-diagram', () => ({
+  FlowDiagram: ({ spec }: { spec: { kind: string; label: string; note?: string } }) => (
+    <figure>
+      <div aria-label={spec.label} data-kind={spec.kind} role="img" />
+      {spec.note ? <figcaption>{spec.note}</figcaption> : null}
+    </figure>
+  ),
 }));
 
 import { FlowRunView } from './flow-run-view';
-import { buildPlanGraph, flowRunStatus } from './flow-run-presentation';
+import { flowRunStatus } from './flow-run-presentation';
 
 const planRun = flowRunSchema.parse({
   run_id: 'flowrun_1',
@@ -94,16 +102,24 @@ describe('FlowRunView', () => {
       answer_excerpt: '',
     });
     const onOpen = renderRun();
-    const nodes = await screen.findByRole('list', { name: 'Plan nodes' });
+    const nodes = await screen.findByRole('list', { name: 'Plan steps' });
     expect(within(nodes).getByText('Completed')).toBeVisible();
     expect(within(nodes).getByText('Running')).toBeVisible();
-    expect(within(nodes).getByText('after draft')).toBeVisible();
-    expect(screen.getByText('A proposed node is waiting for your approval')).toBeVisible();
+    expect(within(nodes).getByText('Awaiting approval')).toBeVisible();
+    expect(within(nodes).getAllByText('this agent')).toHaveLength(2);
+    await user.click(within(nodes).getByRole('button', { name: 'Show details of review' }));
+    expect(within(nodes).getByText('Waits on:').parentElement).toHaveTextContent('Waits on: draft');
+    expect(screen.getByText('A proposed step is waiting for your approval')).toBeVisible();
     expect(
       screen.getByText('polish', { selector: 'li > span.font-medium' }).parentElement,
     ).toHaveTextContent('polish runs self after review, proposed by critic: tighten the wording');
-    expect(screen.getByText('Additions need your approval')).toBeVisible();
-    await user.click(within(nodes).getAllByRole('button', { name: 'Open' })[1]!);
+    expect(screen.getAllByText(/Added steps need your approval/u)[0]).toBeVisible();
+    expect(
+      screen.getByRole('img', {
+        name: /The plan's 3 steps in order: draft, done; review, running/u,
+      }),
+    ).toHaveAttribute('data-kind', 'railroad');
+    await user.click(within(nodes).getByRole('button', { name: 'Open step review' }));
     await waitFor(() =>
       expect(onOpen).toHaveBeenCalledWith(
         expect.objectContaining({ child_session_id: 'sess_review' }),
@@ -130,9 +146,11 @@ describe('FlowRunView', () => {
         },
       }),
     );
+    const user = userEvent.setup();
     renderRun();
-    expect(await screen.findByText('The flow stalled at review')).toBeVisible();
+    expect(await screen.findByText('The flow stalled at review:')).toBeVisible();
     expect(screen.getByText("plan node 'review' failed and no editor repaired it")).toBeVisible();
+    await user.click(screen.getByText('Details'));
     expect(screen.getByText('node_failed')).toBeVisible();
     expect(screen.getByText('Stalled')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open the stalled step' })).toBeVisible();
@@ -152,13 +170,13 @@ describe('FlowRunView', () => {
       }),
     );
     renderRun();
-    expect(await screen.findByText('The flow was cancelled')).toBeVisible();
+    expect(await screen.findByText('The flow was cancelled:')).toBeVisible();
     expect(screen.getByText('Cancelled')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open the cancelled step' })).toBeVisible();
     expect(screen.queryByText('The flow stopped')).toBeNull();
   });
 
-  it('lists the calls and the result of a flow without a plan view', async () => {
+  it('lists the members and the synthesis of a council', async () => {
     repository.taskFlow.mockResolvedValue(
       flowRunSchema.parse({
         flow: 'council',
@@ -172,9 +190,18 @@ describe('FlowRunView', () => {
       }),
     );
     renderRun();
-    expect(await screen.findByRole('heading', { name: 'Council' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Council run' })).toBeVisible();
     expect(screen.getAllByText('Completed')).toHaveLength(3);
+    const members = screen.getByRole('list', { name: 'Flow members' });
+    expect(within(members).getByText('Member 1')).toBeVisible();
+    expect(within(members).getByText('Member 2')).toBeVisible();
+    expect(screen.getByText('Synthesis')).toBeVisible();
     expect(screen.getByText('Python first; Julia for hot loops.')).toBeVisible();
+    expect(
+      screen.getByRole('img', {
+        name: /Member 1, done; Member 2, done; then the synthesis, done/u,
+      }),
+    ).toBeVisible();
   });
 
   it('says when no flow run is recorded under the task', async () => {
@@ -193,15 +220,5 @@ describe('flow presentation helpers', () => {
     expect(flowRunStatus({ status: 'flow_checkpoint_limit', outcome: null }).label).toBe(
       'Stopped: flow checkpoint limit',
     );
-  });
-
-  it('lays out dependencies and draws proposals as pending nodes', () => {
-    const graph = buildPlanGraph(planRun.view!, 'LR');
-    expect(graph.nodes.map((node) => [node.id, node.data.statusLabel])).toEqual([
-      ['draft', 'Completed'],
-      ['review', 'Running'],
-      ['polish', 'Awaiting approval'],
-    ]);
-    expect(graph.edges.map((edge) => edge.id)).toEqual(['draft->review', 'review->polish']);
   });
 });

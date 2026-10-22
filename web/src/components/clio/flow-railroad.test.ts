@@ -1,0 +1,292 @@
+import { flowRunSchema, type FlowRun } from '@clio/core/v3';
+import { describe, expect, it } from 'vitest';
+import { flowDiagrams, NOT_SERIES_PARALLEL_NOTE } from '@/hooks/use-flow-presentation';
+import { markRailroad } from './flow-railroad-marks';
+import { seriesParallel } from './flow-diagram-source';
+import { railroadDiagram } from './flow-railroad';
+import { flowMembers, flowVerdict, planSteps } from './flow-run-presentation';
+
+function plan(
+  nodes: Array<Record<string, unknown>>,
+  extra: Partial<Record<keyof FlowRun, unknown>> = {},
+  view: Record<string, unknown> = {},
+): FlowRun {
+  return flowRunSchema.parse({
+    flow: 'plan',
+    status: 'running',
+    view: { kind: 'plan', nodes, ...view },
+    ...extra,
+  });
+}
+
+function diagramOf(run: FlowRun, nested = new Map<string, FlowRun>()) {
+  const model = {
+    steps: planSteps(run, 'clio/standard'),
+    members: run.view ? [] : flowMembers(run, 'clio/standard'),
+    verdict: flowVerdict(run),
+  };
+  return flowDiagrams(run, model, nested, 'clio/standard').diagram;
+}
+
+describe('seriesParallel', () => {
+  it('finds sequences and parallel branches, reducing transitive dependencies', () => {
+    expect(
+      seriesParallel([
+        { id: 'clean', after: [] },
+        { id: 'north', after: ['clean'] },
+        { id: 'south', after: ['clean'] },
+        { id: 'note', after: ['north', 'south', 'clean'] },
+      ]),
+    ).toEqual({
+      kind: 'seq',
+      items: [
+        { kind: 'step', id: 'clean' },
+        {
+          kind: 'par',
+          items: [
+            { kind: 'step', id: 'north' },
+            { kind: 'step', id: 'south' },
+          ],
+        },
+        { kind: 'step', id: 'note' },
+      ],
+    });
+  });
+
+  it('nests a branch that is itself a sequence', () => {
+    const shape = seriesParallel([
+      { id: 'a', after: [] },
+      { id: 'b', after: ['a'] },
+      { id: 'c', after: [] },
+      { id: 'd', after: ['b', 'c'] },
+    ]);
+    expect(shape).toEqual({
+      kind: 'seq',
+      items: [
+        {
+          kind: 'par',
+          items: [
+            {
+              kind: 'seq',
+              items: [
+                { kind: 'step', id: 'a' },
+                { kind: 'step', id: 'b' },
+              ],
+            },
+            { kind: 'step', id: 'c' },
+          ],
+        },
+        { kind: 'step', id: 'd' },
+      ],
+    });
+  });
+
+  it('returns null for crossing dependencies and cycles', () => {
+    expect(
+      seriesParallel([
+        { id: 'a', after: [] },
+        { id: 'b', after: [] },
+        { id: 'c', after: ['a', 'b'] },
+        { id: 'd', after: ['b'] },
+      ]),
+    ).toBeNull();
+    expect(
+      seriesParallel([
+        { id: 'a', after: ['b'] },
+        { id: 'b', after: ['a'] },
+      ]),
+    ).toBeNull();
+  });
+});
+
+describe('flow railroad', () => {
+  it('writes a plan as sequence and choice with each state in words', () => {
+    const run = plan([
+      { id: 'clean', target: 'clio/standard', status: 'completed', handle: 't1' },
+      { id: 'north', target: 'clio/standard', after: ['clean'], status: 'running', handle: 't2' },
+      { id: 'south', target: 'reviewer', after: ['clean'], status: 'pending' },
+      { id: 'note', target: 'self', after: ['north', 'south'], status: 'pending' },
+    ]);
+    const diagram = diagramOf(run);
+    expect(diagram?.kind).toBe('railroad');
+    if (diagram?.kind !== 'railroad') return;
+    expect(diagram.railroad.source).toBe(
+      [
+        'railroad-beta',
+        '  plan = sequence(terminal("clean · done"), choice(terminal("north · running"), ' +
+          'terminal("south · waiting")), terminal("note · waiting"));',
+      ].join('\n'),
+    );
+    expect(diagram.railroad.marks.map((mark) => mark.tone)).toEqual([
+      'done',
+      'running',
+      'waiting',
+      'waiting',
+    ]);
+    expect(diagram.railroad.marks[2]!.title).toBe('south: Waiting. Runs reviewer.');
+    expect(diagram.railroad.parallels).toEqual([{ from: 1, to: 3 }]);
+  });
+
+  it('draws a proposal as optional and a retried step as oneOrMore', () => {
+    const run = plan(
+      [
+        { id: 'draft', target: 'self', status: 'completed', handle: 't1' },
+        {
+          id: 'check',
+          target: 'self',
+          after: ['draft'],
+          status: 'repaired',
+          invocation: 'flowrun_1:agent:key=node:check:aa:0',
+          handle: 't3',
+        },
+      ],
+      {
+        calls: [
+          { invocation: 'flowrun_1:agent:key=node:check:aa:0', kind: 'agent', handle: 't2' },
+          { invocation: 'flowrun_1:agent:key=node:check:bb:0', kind: 'agent', handle: 't3' },
+        ],
+      },
+      {
+        awaiting_approval: [{ id: 'polish', target: 'self', after: ['check'], by: 'critic' }],
+        editors: ['critic'],
+      },
+    );
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.source).toContain(
+      'oneOrMore(terminal("check · repaired · 2 attempts"))',
+    );
+    expect(diagram.railroad.source).toContain('optional(terminal("polish · awaiting approval"))');
+    expect(diagram.railroad.marks.at(-1)!.tone).toBe('proposed');
+  });
+
+  it('draws a step that runs a flow as a nonterminal with its own rule', () => {
+    const run = plan(
+      [
+        { id: 'gather', target: 'self', status: 'completed', handle: 't1' },
+        {
+          id: 'pick',
+          target: 'arena',
+          after: ['gather'],
+          status: 'running',
+          handle: 't_arena',
+          invocation: 'flowrun_1:flow:key=node:pick:cc:0',
+        },
+      ],
+      { calls: [{ invocation: 'flowrun_1:flow:key=node:pick:cc:0', kind: 'flow' }] },
+    );
+    const nested = flowRunSchema.parse({
+      flow: 'arena',
+      status: 'running',
+      view: null,
+      calls: [
+        { invocation: 'a', kind: 'agent', target: 'self', handle: 'e0', status: 'completed' },
+        { invocation: 'b', kind: 'agent', target: 'self', handle: 'e1', status: 'running' },
+      ],
+    });
+    const diagram = diagramOf(run, new Map([['pick', nested]]));
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.source.split('\n')).toEqual([
+      'railroad-beta',
+      '  plan = sequence(terminal("gather · done"), nonterminal("pick"));',
+      '  pick = sequence(choice(terminal("entry 0 · done"), terminal("entry 1 · running")), ' +
+        'terminal("judge · waiting"));',
+    ]);
+    expect(diagram.railroad.headings).toEqual(['pick: the arena flow, running']);
+    expect(diagram.railroad.marks.map((mark) => mark.tone)).toEqual([
+      'done',
+      'running',
+      'done',
+      'running',
+      'waiting',
+    ]);
+  });
+
+  it('falls back to the graph with a visible reason when the plan is not series-parallel', () => {
+    const run = plan([
+      { id: 'a', status: 'completed' },
+      { id: 'b', status: 'completed' },
+      { id: 'c', after: ['a', 'b'] },
+      { id: 'd', after: ['b'] },
+    ]);
+    const diagram = diagramOf(run);
+    expect(diagram).toMatchObject({ kind: 'graph', note: NOT_SERIES_PARALLEL_NOTE });
+    if (diagram?.kind === 'graph') expect(diagram.source).toMatch(/^agentflow-beta LR/u);
+  });
+
+  it('writes an arena as its entries in parallel, then the judge', () => {
+    const run = flowRunSchema.parse({
+      flow: 'arena',
+      status: 'completed',
+      view: null,
+      calls: [
+        { invocation: 'a', kind: 'agent', target: 'self', handle: 'e0', status: 'completed' },
+        { invocation: 'b', kind: 'agent', target: 'self', handle: 'e1', status: 'completed' },
+      ],
+      result: { answer: 'x', winner: 1, rationale: 'clearer' },
+    });
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.source).toBe(
+      'railroad-beta\n  arena = sequence(choice(terminal("entry 0 · done"), ' +
+        'terminal("entry 1 · done, chosen")), terminal("judge · picked entry 1"));',
+    );
+  });
+
+  it('keeps labels inside quotes and rule names to identifiers', () => {
+    const diagram = railroadDiagram([
+      {
+        name: 'plan',
+        expr: {
+          kind: 'terminal',
+          label: 'say "hi"\\now',
+          mark: { tone: 'done', title: '' },
+        },
+      },
+    ]);
+    expect(diagram.source).toBe(`railroad-beta\n  plan = terminal("say 'hi''now");`);
+  });
+});
+
+describe('markRailroad', () => {
+  it('marks nodes in drawing order, labels parallel groups and titles sub-flows', () => {
+    const svg = new DOMParser().parseFromString(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="300" height="200">
+        <g class="pele-rule"><text class="pele-rule-name">plan</text>
+          <g class="pele-node pele-terminal"><rect x="10" y="40" width="40" height="26"/></g>
+          <g class="pele-node pele-terminal"><rect x="60" y="40" width="40" height="26"/></g>
+          <g class="pele-node pele-terminal"><rect x="60" y="76" width="40" height="26"/></g>
+          <g class="pele-node pele-nonterminal"><rect x="120" y="40" width="40" height="26"/></g>
+        </g>
+        <g class="pele-rule"><text class="pele-rule-name">pick</text></g>
+      </svg>`,
+      'image/svg+xml',
+    ).documentElement as unknown as SVGElement;
+    markRailroad(svg, {
+      source: '',
+      marks: [
+        { tone: 'done', title: 'a: Completed.' },
+        { tone: 'running', title: 'b: Running.' },
+        { tone: 'failed', title: 'c: Failed.' },
+        { tone: 'waiting', title: 'pick: Waiting.' },
+      ],
+      parallels: [{ from: 1, to: 3 }],
+      headings: ['pick: the arena flow, waiting'],
+    });
+    const nodes = [...svg.querySelectorAll('g.pele-node')];
+    expect(nodes.map((node) => node.getAttribute('class'))).toEqual([
+      'pele-node pele-terminal st-done',
+      'pele-node pele-terminal st-running',
+      'pele-node pele-terminal st-failed',
+      'pele-node pele-nonterminal st-waiting',
+    ]);
+    expect(nodes[1]!.querySelector('title')?.textContent).toBe('b: Running.');
+    const parallel = svg.querySelector('.clio-flow-parallel');
+    expect(parallel?.textContent).toBe('2 in parallel');
+    expect(parallel?.getAttribute('y')).toBe('36');
+    expect([...svg.querySelectorAll('.pele-rule-name')].map((name) => name.textContent)).toEqual([
+      'plan',
+      'pick: the arena flow, waiting',
+    ]);
+  });
+});

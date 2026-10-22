@@ -11,6 +11,11 @@ export interface FlowToolDescriptor {
   handle?: string;
   /** Present when the start was refused before acceptance (for example `plan_invalid`). */
   refusal?: { reason: string; message: string };
+  /**
+   * What the agent wrote when it started the flow: run_plan's plan, task and
+   * editing bounds, or run_flow's input and options.
+   */
+  args?: Record<string, unknown>;
 }
 
 /** Read a run_flow / run_plan invocation without inventing a flow or a handle. */
@@ -39,7 +44,7 @@ export function flowToolDescriptor(
           message: typeof result.error === 'string' ? result.error : 'The flow did not start.',
         }
       : undefined;
-  return { flow: flow || 'flow', label: flowLabel(flow), handle, refusal };
+  return { flow: flow || 'flow', label: flowLabel(flow), handle, refusal, args: kwargs };
 }
 
 /** A person-facing name for a flow id. */

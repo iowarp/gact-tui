@@ -14,7 +14,13 @@ describe('flowToolDescriptor', () => {
           { type: 'text', text: '{"accepted": true, "handle": "task_c", "flow": "council"}' },
         ]),
       ),
-    ).toEqual({ flow: 'council', label: 'Council', handle: 'task_c', refusal: undefined });
+    ).toEqual({
+      flow: 'council',
+      label: 'Council',
+      handle: 'task_c',
+      refusal: undefined,
+      args: { flow: 'council' },
+    });
     expect(
       flowToolDescriptor(tool('run_plan', {}, { result: { accepted: true, handle: 'task_p' } })),
     ).toMatchObject({ flow: 'plan', label: 'Plan', handle: 'task_p' });
