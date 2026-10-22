@@ -171,7 +171,12 @@ describe('tool provider settings', () => {
     expect(within(dialog).queryByLabelText('Process settings')).not.toBeInTheDocument();
 
     await user.click(within(dialog).getByRole('button', { name: 'Advanced configuration' }));
-    await fill('Process settings', 'WEB_STATE_DIR=D:\\agent-state');
+    // A Variable / Value table, the way the system environment editor shows it.
+    await fill('Variable 1', 'WEB_STATE_DIR');
+    await fill('Value 1', 'D:\\agent-state');
+    await user.click(within(dialog).getByRole('button', { name: 'Add variable' }));
+    await fill('Variable 2', 'WEB_MODE');
+    await fill('Value 2', 'a=b');
     await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
 
     expect(repository.configureMcpServer).toHaveBeenCalledWith('Web search', {
@@ -179,8 +184,31 @@ describe('tool provider settings', () => {
       transport: 'stdio',
       command: 'web-tools',
       args: ['serve'],
-      env: { WEB_STATE_DIR: 'D:\\agent-state' },
+      env: { WEB_STATE_DIR: 'D:\\agent-state', WEB_MODE: 'a=b' },
     });
+  });
+
+  it('switches the process settings between the table and raw NAME=value lines', async () => {
+    const user = userEvent.setup();
+    renderSettings(<ToolsSettings />);
+
+    await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByLabelText('Connection type'));
+    await user.click(screen.getByRole('option', { name: 'Local command' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Advanced configuration' }));
+    await user.click(within(dialog).getByLabelText('Variable 1'));
+    await user.paste('TOKEN');
+    await user.click(within(dialog).getByLabelText('Value 1'));
+    await user.paste('secret');
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Raw input' }));
+    const raw = within(dialog).getByLabelText('Process settings');
+    expect(raw).toHaveValue('TOKEN=secret');
+    await user.clear(raw);
+    await user.paste('A=1\nB=2');
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Raw input' }));
+    expect(within(dialog).getByLabelText('Variable 2')).toHaveValue('B');
+    expect(within(dialog).getByLabelText('Value 2')).toHaveValue('2');
   });
 
   it('saves a service for conversations that ask for it when the box is cleared', async () => {

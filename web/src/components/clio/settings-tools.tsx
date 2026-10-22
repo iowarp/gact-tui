@@ -1,6 +1,7 @@
 import { queryKeys } from '@/lib/query-keys';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
+import { EnvironmentTable } from './environment-table';
 import { SavedMcpServices } from './settings-saved-mcp';
 import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -432,7 +433,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         }}
         open={installOpen}
       >
-        <DialogContent className="grid max-h-[min(720px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
+        <DialogContent className="grid max-h-[min(720px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Connect an MCP service</DialogTitle>
             <DialogDescription>
@@ -510,15 +511,14 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                         <FieldLabel htmlFor="tool-provider-environment">
                           Process settings
                         </FieldLabel>
-                        <Textarea
+                        <EnvironmentTable
                           id="tool-provider-environment"
-                          onChange={(event) => setEnvironmentText(event.target.value)}
-                          placeholder={'NAME=value\nSECOND_NAME=value'}
+                          onChange={setEnvironmentText}
                           value={environmentText}
                         />
                         <FieldDescription>
-                          Enter one NAME=value setting per line. Values stay with the connected
-                          service and are hidden when the provider is read back.
+                          Environment variables for the service&apos;s process. Values stay with the
+                          connected service and are hidden when it is read back.
                         </FieldDescription>
                       </Field>
                     </CollapsibleContent>
