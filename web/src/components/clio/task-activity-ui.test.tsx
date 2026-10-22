@@ -341,10 +341,10 @@ it('names a task that runs a flow as that run and opens the run view', async () 
   const openChild = vi.fn();
   const flowTask: AsyncProcess = {
     ...task,
-    id: 'task_plan_handle',
-    handle: 'task_plan_handle',
+    id: 'task_workflow_handle',
+    handle: 'task_workflow_handle',
     title: 'Field sites workflow',
-    flow: { id: 'plan' },
+    flow: { id: 'workflow' },
     effective_status: 'running',
     live_state: 'running',
     status: 'running',
@@ -352,13 +352,15 @@ it('names a task that runs a flow as that run and opens the run view', async () 
     supported_actions: ['cancel'],
   };
   render(<AsyncTaskList processes={[flowTask]} onOpenFlow={openFlow} onOpenSubagent={openChild} />);
-  expect(screen.getByText(/^Plan run · Running/u)).toBeVisible();
+  expect(screen.getByText(/^Workflow run · Running/u)).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Task details: Field sites workflow' }));
-  await user.click(screen.getByRole('button', { name: 'Open the plan run: Field sites workflow' }));
-  expect(openFlow).toHaveBeenCalledWith('task_plan_handle', 'Plan run');
+  await user.click(
+    screen.getByRole('button', { name: 'Open the workflow run: Field sites workflow' }),
+  );
+  expect(openFlow).toHaveBeenCalledWith('task_workflow_handle', 'Workflow run');
   // Its conversation stays one click away.
   expect(
     screen.getByRole('button', { name: 'Open child conversation Field sites workflow' }),
   ).toBeVisible();
-  expect(asyncProcessDetail(flowTask)).toBe('Plan run');
+  expect(asyncProcessDetail(flowTask)).toBe('Workflow run');
 });

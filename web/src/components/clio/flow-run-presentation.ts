@@ -1,4 +1,4 @@
-import type { FlowCall, FlowRun, PlanNode } from '@clio/core/v3';
+import type { FlowCall, FlowRun, WorkflowStep } from '@clio/core/v3';
 import type { ClioStatusValue } from './status';
 
 /**
@@ -38,12 +38,15 @@ export function flowRunStatus(run: Pick<FlowRun, 'status' | 'outcome'>): {
 }
 
 /**
- * A plan node's state, always with its text label. A node the plan skipped
- * because a step it waits on failed is reported as skipped, not as cancelled
- * by someone.
+ * A workflow step's state, always with its text label. A step the workflow
+ * skipped because a step it waits on failed is reported as skipped, not as
+ * cancelled by someone.
  */
-export function planNodeStatus(node: Pick<PlanNode, 'status'>, skipped = false): FlowState {
-  switch (node.status) {
+export function workflowStepStatus(
+  step: Pick<WorkflowStep, 'status'>,
+  skipped = false,
+): FlowState {
+  switch (step.status) {
     case 'pending':
       return { value: 'queued', label: 'Waiting', word: 'waiting', tone: 'waiting' };
     case 'running':
@@ -111,7 +114,7 @@ export function flowTargetLabel(target: string, agentRef: string): string {
   return target === 'self' || (agentRef !== '' && target === agentRef) ? 'this agent' : target;
 }
 
-/** One step of a plan as the transcript card, the panel and the diagram present it. */
+/** One step of a workflow as the transcript card, the panel and the diagram present it. */
 export interface FlowStep {
   id: string;
   target: string;
@@ -122,9 +125,9 @@ export interface FlowStep {
   status: FlowState;
   /** The task that runs it, once it started. */
   handle?: string;
-  /** `flow` when the step runs another flow, `editor` when it may edit the plan. */
+  /** `flow` when the step runs another flow, `editor` when it may edit the workflow. */
   kind: 'agent' | 'flow' | 'editor' | 'proposal';
-  /** The editor that added this step while the plan ran. */
+  /** The editor that added this step while the workflow ran. */
   addedBy?: string;
   /** The reason an editor gave for adding or proposing it. */
   note?: string;
@@ -132,41 +135,41 @@ export interface FlowStep {
   attempts: number;
 }
 
-/** The plan's steps, in plan order, then the proposals still waiting for approval. */
-export function planSteps(run: FlowRun, agentRef: string): FlowStep[] {
+/** The workflow's steps, in workflow order, then the proposals still waiting for approval. */
+export function workflowSteps(run: FlowRun, agentRef: string): FlowStep[] {
   const view = run.view;
   if (!view) return [];
   const kinds = new Map(run.calls.map((call) => [call.invocation, call.kind]));
   const skipped = new Set(
     run.events.flatMap((event) =>
-      event.event === 'node_skipped' && event.node ? [event.node] : [],
+      event.event === 'step_skipped' && event.step ? [event.step] : [],
     ),
   );
   const addedBy = new Map(
     run.events.flatMap((event) =>
-      event.event === 'node_added' && event.node
-        ? [[event.node, typeof event.by === 'string' ? event.by : ''] as const]
+      event.event === 'step_added' && event.step
+        ? [[event.step, typeof event.by === 'string' ? event.by : ''] as const]
         : [],
     ),
   );
-  const steps = view.nodes.map(
-    (node): FlowStep => ({
-      id: node.id,
-      target: node.target,
-      targetLabel: flowTargetLabel(node.target, agentRef),
-      input: node.input,
-      after: node.after,
-      status: planNodeStatus(node, skipped.has(node.id)),
-      ...(node.handle ? { handle: node.handle } : {}),
-      kind: view.editors.includes(node.target)
+  const steps = view.steps.map(
+    (step): FlowStep => ({
+      id: step.id,
+      target: step.target,
+      targetLabel: flowTargetLabel(step.target, agentRef),
+      input: step.input,
+      after: step.after,
+      status: workflowStepStatus(step, skipped.has(step.id)),
+      ...(step.handle ? { handle: step.handle } : {}),
+      kind: view.editors.includes(step.target)
         ? 'editor'
-        : (node.invocation && kinds.get(node.invocation) === 'flow') ||
-            node.invocation?.includes(':flow:')
+        : (step.invocation && kinds.get(step.invocation) === 'flow') ||
+            step.invocation?.includes(':flow:')
           ? 'flow'
           : 'agent',
-      ...(addedBy.has(node.id) ? { addedBy: addedBy.get(node.id) || 'an editor' } : {}),
-      ...(node.description ? { note: node.description } : {}),
-      attempts: stepAttempts(run, node),
+      ...(addedBy.has(step.id) ? { addedBy: addedBy.get(step.id) || 'an editor' } : {}),
+      ...(step.description ? { note: step.description } : {}),
+      attempts: stepAttempts(run, step),
     }),
   );
   const known = new Set(steps.map((step) => step.id));
@@ -189,28 +192,28 @@ export function planSteps(run: FlowRun, agentRef: string): FlowStep[] {
 }
 
 /**
- * How many times a plan step ran: the distinct calls keyed to it and the
+ * How many times a workflow step ran: the distinct calls keyed to it and the
  * distinct tasks its events name; a repaired step ran at least twice.
  */
-function stepAttempts(run: FlowRun, node: PlanNode): number {
+function stepAttempts(run: FlowRun, step: WorkflowStep): number {
   const keyed = (invocation: string) =>
-    invocation.includes(`=node:${node.id}:`) || invocation.includes(`:node:${node.id}:`);
+    invocation.includes(`=step:${step.id}:`) || invocation.includes(`:step:${step.id}:`);
   const invocations = new Set(
     run.calls.flatMap((call) => (keyed(call.invocation) ? [call.invocation] : [])),
   );
-  if (node.invocation) invocations.add(node.invocation);
+  if (step.invocation) invocations.add(step.invocation);
   const handles = new Set(
     run.events.flatMap((event) =>
-      event.node === node.id && typeof event.handle === 'string' && event.handle
+      event.step === step.id && typeof event.handle === 'string' && event.handle
         ? [event.handle]
         : [],
     ),
   );
   const seen = Math.max(invocations.size, handles.size);
-  return node.status === 'repaired' ? Math.max(2, seen) : seen;
+  return step.status === 'repaired' ? Math.max(2, seen) : seen;
 }
 
-/** One member of a flow without a plan: a council member, an arena entry, or a call. */
+/** One member of a flow without a workflow: a council member, an arena entry, or a call. */
 export interface FlowMember {
   key: string;
   label: string;
@@ -290,7 +293,7 @@ export function stepTally(states: readonly FlowState[]): string {
 }
 
 /**
- * The script the agent wrote, as JSON a person can copy: the plan's steps
+ * The script the agent wrote, as JSON a person can copy: the workflow's steps
  * (live, including steps editors added) with its task and editing bounds, or a
  * flow's input and options.
  */
@@ -300,18 +303,18 @@ export function flowScriptJson(run: FlowRun, args?: Record<string, unknown>): st
     return JSON.stringify(
       {
         ...(typeof args?.task === 'string' && args.task ? { task: args.task } : {}),
-        plan: {
-          nodes: view.nodes.map((node) => ({
-            id: node.id,
-            target: node.target,
-            after: node.after,
-            ...(node.input !== undefined && node.input !== null ? { input: node.input } : {}),
-            ...(node.description ? { description: node.description } : {}),
+        workflow: {
+          steps: view.steps.map((step) => ({
+            id: step.id,
+            target: step.target,
+            after: step.after,
+            ...(step.input !== undefined && step.input !== null ? { input: step.input } : {}),
+            ...(step.description ? { description: step.description } : {}),
           })),
         },
         editors: view.editors,
-        max_added: view.max_added ?? null,
-        max_rounds: view.max_rounds ?? null,
+        max_added_steps: view.max_added_steps ?? null,
+        max_edit_rounds: view.max_edit_rounds ?? null,
         approve_edits: view.approve_edits,
       },
       null,

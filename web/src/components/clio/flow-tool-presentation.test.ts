@@ -7,7 +7,7 @@ function tool(name: string, input: unknown, output: unknown): ToolInvocation {
 }
 
 describe('flowToolDescriptor', () => {
-  it('reads the accepted handle of run_flow and run_plan, wherever the result nests it', () => {
+  it('reads the accepted handle of run_flow and run_workflow, wherever the result nests it', () => {
     expect(
       flowToolDescriptor(
         tool('run_flow', { kwargs: { flow: 'council' } }, [
@@ -22,16 +22,30 @@ describe('flowToolDescriptor', () => {
       args: { flow: 'council' },
     });
     expect(
-      flowToolDescriptor(tool('run_plan', {}, { result: { accepted: true, handle: 'task_p' } })),
-    ).toMatchObject({ flow: 'plan', label: 'Plan', handle: 'task_p' });
+      flowToolDescriptor(
+        tool('run_workflow', {}, { result: { accepted: true, handle: 'task_w' } }),
+      ),
+    ).toMatchObject({ flow: 'workflow', label: 'Workflow', handle: 'task_w' });
   });
 
   it('reports a refused start and ignores other tools', () => {
     expect(
       flowToolDescriptor(
-        tool('run_plan', {}, { accepted: false, reason: 'plan_invalid', error: 'cycle' }),
+        tool('run_workflow', {}, { accepted: false, reason: 'workflow_invalid', error: 'cycle' }),
       ),
-    ).toMatchObject({ handle: undefined, refusal: { reason: 'plan_invalid', message: 'cycle' } });
+    ).toMatchObject({
+      handle: undefined,
+      refusal: { reason: 'workflow_invalid', message: 'cycle' },
+    });
+    expect(
+      flowToolDescriptor(
+        tool(
+          'run_workflow',
+          {},
+          { accepted: false, reason: 'flow_not_trusted', step: 'debate', error: 'not trusted' },
+        ),
+      )?.refusal,
+    ).toEqual({ reason: 'flow_not_trusted', message: 'not trusted', step: 'debate' });
     expect(flowToolDescriptor(tool('wait_tasks', {}, {}))).toBeUndefined();
     expect(flowLabel('deep_review')).toBe('Deep review');
   });

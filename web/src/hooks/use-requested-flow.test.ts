@@ -9,10 +9,10 @@ describe('flow run deep links', () => {
       initialProps: { handle: null as string | null },
     });
     expect(open).not.toHaveBeenCalled();
-    hook.rerender({ handle: 'task_plan' });
-    hook.rerender({ handle: 'task_plan' });
+    hook.rerender({ handle: 'task_workflow' });
+    hook.rerender({ handle: 'task_workflow' });
     expect(open).toHaveBeenCalledOnce();
-    expect(open).toHaveBeenCalledWith('task_plan');
+    expect(open).toHaveBeenCalledWith('task_workflow');
     hook.rerender({ handle: 'task_council' });
     expect(open).toHaveBeenLastCalledWith('task_council');
   });

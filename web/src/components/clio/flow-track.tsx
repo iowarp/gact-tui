@@ -8,7 +8,7 @@ import { FlowLegend, FlowPickDetails } from './flow-run-parts';
 /**
  * A run's diagram with what it means and what it holds: the legend of the
  * states it shows, and the details of the node the person selects (selecting
- * it again, or Close, clears it). A plan drawn as a graph, or a flow without
+ * it again, or Close, clears it). A workflow drawn as a graph, or a flow without
  * a diagram, lists its steps as buttons to select instead.
  */
 export function FlowTrack({
@@ -47,7 +47,7 @@ export function FlowTrack({
   );
   const pick = selected ? picks.get(selected)?.pick : undefined;
   const select = (key: string) => setSelected(key === selected ? undefined : key);
-  const noun = steps.length || flow === 'plan' ? 'step' : flow === 'arena' ? 'entry' : 'member';
+  const noun = steps.length || flow === 'workflow' ? 'step' : flow === 'arena' ? 'entry' : 'member';
   return (
     <div className="grid min-w-0 gap-2">
       {diagram ? (

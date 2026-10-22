@@ -19,7 +19,7 @@ import {
   FlowScript,
   FlowStall,
   FlowVerdictView,
-  PlanBounds,
+  WorkflowBounds,
 } from './flow-run-parts';
 import { flowRunStatus, stepTally } from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
@@ -28,7 +28,7 @@ import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 
 /**
- * A flow run drawn from the task layer: the live plan, council or arena as a
+ * A flow run drawn from the task layer: the live workflow, council or arena as a
  * Pele railroad coloured by state, whose nodes open their instructions or
  * answers, and any typed stall. Each task handle opens its conversation; Full
  * screen shows the same run large, for following (or recording) it as it
@@ -170,9 +170,9 @@ export function FlowRunDetails({
 }) {
   const status = flowRunStatus(run);
   const { steps, members, verdict, closing, runElapsed } = presentation;
-  const plan = run.view;
-  const tally = stepTally((plan ? steps : members).map((row) => row.status));
-  const count = plan
+  const workflow = run.view;
+  const tally = stepTally((workflow ? steps : members).map((row) => row.status));
+  const count = workflow
     ? `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`
     : `${members.length} ${run.flow === 'arena' ? (members.length === 1 ? 'entry' : 'entries') : run.flow === 'council' ? (members.length === 1 ? 'member' : 'members') : members.length === 1 ? 'task' : 'tasks'}`;
   const wide = layout === 'wide';
@@ -211,7 +211,7 @@ export function FlowRunDetails({
           </Button>
         </div>
       </div>
-      {plan ? <PlanBounds view={plan} /> : null}
+      {workflow ? <WorkflowBounds view={workflow} /> : null}
       {openError ? (
         <p className="text-sm text-destructive" role="alert">
           {openError}
@@ -231,13 +231,13 @@ export function FlowRunDetails({
   );
   const after = (
     <>
-      {!plan && closing && run.status === 'completed' ? (
+      {!workflow && closing && run.status === 'completed' ? (
         <FlowVerdictView flow={run.flow} verdict={verdict} />
       ) : null}
-      {!plan && !closing && run.status === 'completed' && run.result !== undefined ? (
+      {!workflow && !closing && run.status === 'completed' && run.result !== undefined ? (
         <FlowResult result={run.result} />
       ) : null}
-      {plan && run.status === 'completed' && run.result !== undefined && run.result !== null ? (
+      {workflow && run.status === 'completed' && run.result !== undefined && run.result !== null ? (
         <FlowResult result={run.result} />
       ) : null}
       <FlowScript args={args} run={run} steps={steps} />
@@ -250,10 +250,10 @@ export function FlowRunDetails({
             {run.events.map((event, index) => (
               <li
                 className="flex flex-wrap gap-x-2"
-                key={`${event.event}:${event.node ?? ''}:${index}`}
+                key={`${event.event}:${event.step ?? ''}:${index}`}
               >
                 <span className="font-medium">{event.event.replaceAll('_', ' ')}</span>
-                {event.node ? <span className="text-muted-foreground">{event.node}</span> : null}
+                {event.step ? <span className="text-muted-foreground">{event.step}</span> : null}
                 {typeof event.by === 'string' && event.by ? (
                   <span className="text-muted-foreground">by {event.by}</span>
                 ) : null}
@@ -278,11 +278,11 @@ export function FlowRunDetails({
           outcome={run.outcome}
         />
       ) : null}
-      {plan ? (
+      {workflow ? (
         <FlowApprovals
           onOpenQuestions={() => onOpenHandle(handle, 'conversation')}
           questions={run.questions.length}
-          view={plan}
+          view={workflow}
         />
       ) : null}
       {/* Full screen gives the diagram the whole width, to follow (or record) the run. */}

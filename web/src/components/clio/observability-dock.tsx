@@ -172,7 +172,7 @@ export function ClioObservabilityView({
           (((tool.name === 'spawn_agent_task' || tool.name === 'spawn_agents_parallel') &&
             processes.some((candidate) => candidate.kind === 'agent')) ||
             // A started flow is its process row, labelled as the flow's run.
-            ((tool.name === 'run_flow' || tool.name === 'run_plan') &&
+            ((tool.name === 'run_flow' || tool.name === 'run_workflow') &&
               processes.some((candidate) => candidate.flow)))
         ) {
           return [];

@@ -100,7 +100,7 @@ export type ClioWorkbenchOpenRequest =
       relatedResources?: readonly WorkspaceResource[];
     }
   | { kind: 'subagent'; subagent: SubagentRun }
-  /** A flow run (a plan, a council, ...) recorded under the task `handle`. */
+  /** A flow run (a workflow, a council, ...) recorded under the task `handle`. */
   | { kind: 'flow'; handle: string; label?: string }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
   | { kind: 'session' }

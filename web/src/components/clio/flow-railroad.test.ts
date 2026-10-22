@@ -4,24 +4,24 @@ import { flowDiagrams, NOT_SERIES_PARALLEL_NOTE } from '@/hooks/use-flow-present
 import { markRailroad } from './flow-railroad-marks';
 import { seriesParallel } from './flow-diagram-source';
 import { railroadDiagram } from './flow-railroad';
-import { flowMembers, flowVerdict, planSteps } from './flow-run-presentation';
+import { flowMembers, flowVerdict, workflowSteps } from './flow-run-presentation';
 
-function plan(
-  nodes: Array<Record<string, unknown>>,
+function workflow(
+  steps: Array<Record<string, unknown>>,
   extra: Partial<Record<keyof FlowRun, unknown>> = {},
   view: Record<string, unknown> = {},
 ): FlowRun {
   return flowRunSchema.parse({
-    flow: 'plan',
+    flow: 'workflow',
     status: 'running',
-    view: { kind: 'plan', nodes, ...view },
+    view: { kind: 'workflow', steps, ...view },
     ...extra,
   });
 }
 
 function diagramOf(run: FlowRun, nested = new Map<string, FlowRun>()) {
   const model = {
-    steps: planSteps(run, 'clio/standard'),
+    steps: workflowSteps(run, 'clio/standard'),
     members: run.view ? [] : flowMembers(run, 'clio/standard'),
     verdict: flowVerdict(run),
   };
@@ -108,8 +108,8 @@ describe('seriesParallel', () => {
 });
 
 describe('flow railroad', () => {
-  it('writes a plan as sequence and choice, its states in the marks, not the labels', () => {
-    const run = plan([
+  it('writes a workflow as sequence and choice, its states in the marks, not the labels', () => {
+    const run = workflow([
       { id: 'clean', target: 'clio/standard', status: 'completed', handle: 't1' },
       { id: 'north', target: 'clio/standard', after: ['clean'], status: 'running', handle: 't2' },
       { id: 'south', target: 'reviewer', after: ['clean'], status: 'pending' },
@@ -121,7 +121,7 @@ describe('flow railroad', () => {
     expect(diagram.railroad.source).toBe(
       [
         'railroad-beta',
-        '  plan = sequence(terminal("clean"), choice(terminal("north"), ' +
+        '  workflow = sequence(terminal("clean"), choice(terminal("north"), ' +
           'terminal("south")), terminal("note"));',
       ].join('\n'),
     );
@@ -143,7 +143,7 @@ describe('flow railroad', () => {
   });
 
   it('draws a proposal as optional and a retried step as oneOrMore', () => {
-    const run = plan(
+    const run = workflow(
       [
         { id: 'draft', target: 'self', status: 'completed', handle: 't1' },
         {
@@ -151,14 +151,14 @@ describe('flow railroad', () => {
           target: 'self',
           after: ['draft'],
           status: 'repaired',
-          invocation: 'flowrun_1:agent:key=node:check:aa:0',
+          invocation: 'flowrun_1:agent:key=step:check:aa:0',
           handle: 't3',
         },
       ],
       {
         calls: [
-          { invocation: 'flowrun_1:agent:key=node:check:aa:0', kind: 'agent', handle: 't2' },
-          { invocation: 'flowrun_1:agent:key=node:check:bb:0', kind: 'agent', handle: 't3' },
+          { invocation: 'flowrun_1:agent:key=step:check:aa:0', kind: 'agent', handle: 't2' },
+          { invocation: 'flowrun_1:agent:key=step:check:bb:0', kind: 'agent', handle: 't3' },
         ],
       },
       {
@@ -177,7 +177,7 @@ describe('flow railroad', () => {
   });
 
   it('draws the flow a step runs inline, boxed under the step name', () => {
-    const run = plan(
+    const run = workflow(
       [
         { id: 'gather', target: 'self', status: 'completed', handle: 't1' },
         {
@@ -186,10 +186,10 @@ describe('flow railroad', () => {
           after: ['gather'],
           status: 'running',
           handle: 't_arena',
-          invocation: 'flowrun_1:flow:key=node:pick:cc:0',
+          invocation: 'flowrun_1:flow:key=step:pick:cc:0',
         },
       ],
-      { calls: [{ invocation: 'flowrun_1:flow:key=node:pick:cc:0', kind: 'flow' }] },
+      { calls: [{ invocation: 'flowrun_1:flow:key=step:pick:cc:0', kind: 'flow' }] },
     );
     const nested = flowRunSchema.parse({
       flow: 'arena',
@@ -202,13 +202,13 @@ describe('flow railroad', () => {
     });
     expect(diagramOf(run)).toMatchObject({
       railroad: {
-        source: 'railroad-beta\n  plan = sequence(terminal("gather"), nonterminal("pick"));',
+        source: 'railroad-beta\n  workflow = sequence(terminal("gather"), nonterminal("pick"));',
       },
     });
     const diagram = diagramOf(run, new Map([['pick', nested]]));
     if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
     expect(diagram.railroad.source).toBe(
-      'railroad-beta\n  plan = sequence(terminal("gather"), sequence(choice(terminal("entry 1"), ' +
+      'railroad-beta\n  workflow = sequence(terminal("gather"), sequence(choice(terminal("entry 1"), ' +
         'terminal("entry 2")), terminal("judge")));',
     );
     expect(diagram.railroad.marks.map((mark) => [mark.key, mark.tone])).toEqual([
@@ -228,8 +228,8 @@ describe('flow railroad', () => {
     expect(diagram.railroad.marks[3]!.pick).toMatchObject({ kind: 'closing', flow: 'arena' });
   });
 
-  it('falls back to the graph with a visible reason when the plan is not series-parallel', () => {
-    const run = plan([
+  it('falls back to the graph with a visible reason when the workflow is not series-parallel', () => {
+    const run = workflow([
       { id: 'a', status: 'completed' },
       { id: 'b', status: 'completed' },
       { id: 'c', after: ['a', 'b'] },
@@ -266,12 +266,12 @@ describe('flow railroad', () => {
   });
 
   it('keeps labels inside quotes and rule names to identifiers', () => {
-    const diagram = railroadDiagram('my-plan', {
+    const diagram = railroadDiagram('my-workflow', {
       kind: 'terminal',
       label: 'say "hi"\\now',
       mark: { tone: 'done', title: '', key: 'k', pick },
     });
-    expect(diagram.source).toBe(`railroad-beta\n  my_plan = terminal("say 'hi''now");`);
+    expect(diagram.source).toBe(`railroad-beta\n  my_workflow = terminal("say 'hi''now");`);
   });
 });
 
@@ -279,7 +279,7 @@ describe('markRailroad', () => {
   it('marks nodes in drawing order as buttons, labels parallel groups, drops the rule name', () => {
     const svg = new DOMParser().parseFromString(
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="300" height="200">
-        <g class="pele-rule"><text class="pele-rule-name">plan</text>
+        <g class="pele-rule"><text class="pele-rule-name">workflow</text>
           <g class="pele-node pele-terminal"><rect x="10" y="40" width="40" height="26"/></g>
           <g class="pele-node pele-terminal"><rect x="60" y="40" width="40" height="26"/></g>
           <g class="pele-node pele-terminal"><rect x="60" y="76" width="40" height="26"/></g>

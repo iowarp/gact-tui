@@ -1,4 +1,4 @@
-import type { FlowOutcome, FlowRun, PlanView } from '@clio/core/v3';
+import type { FlowOutcome, FlowRun, WorkflowView } from '@clio/core/v3';
 import { ChevronRightIcon, CopyIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useState, type ReactNode } from 'react';
@@ -86,7 +86,7 @@ function Instructions({ input, title = 'Instructions' }: { input: unknown; title
           {text}
         </pre>
       ) : (
-        <p>None written; the step receives the plan&apos;s task and the answers it waits on.</p>
+        <p>None written; the step receives the workflow&apos;s task and the answers it waits on.</p>
       )}
     </div>
   );
@@ -330,7 +330,7 @@ export function FlowVerdictView({
 }
 
 /**
- * What the agent wrote to start the flow: the plan (every step's target,
+ * What the agent wrote to start the flow: the workflow (every step's target,
  * instructions and dependencies) or a flow's request and options, readable,
  * with the exact JSON to copy.
  */
@@ -346,7 +346,7 @@ export function FlowScript({
   const [asJson, setAsJson] = useState(false);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   const json = flowScriptJson(run, args);
-  const plan = Boolean(run.view);
+  const workflow = Boolean(run.view);
   const task = typeof args?.task === 'string' ? args.task : '';
   return (
     <details className="group/script min-w-0 rounded-md border text-sm">
@@ -355,7 +355,7 @@ export function FlowScript({
           aria-hidden="true"
           className="size-3.5 text-muted-foreground transition-transform group-open/script:rotate-90 motion-reduce:transition-none"
         />
-        {plan ? 'Show the plan' : 'Show what the agent asked'}
+        {workflow ? 'Show the workflow' : 'Show what the agent asked'}
       </summary>
       <div className="grid min-w-0 gap-2 border-t p-2">
         <div className="flex flex-wrap items-center gap-1">
@@ -401,10 +401,10 @@ export function FlowScript({
           <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 font-mono text-xs leading-5">
             {json}
           </pre>
-        ) : plan ? (
+        ) : workflow ? (
           <div className="grid min-w-0 gap-2 text-xs leading-5">
             {task ? <Fact label="Task">{task}</Fact> : null}
-            <PlanBounds view={run.view!} />
+            <WorkflowBounds view={run.view!} />
             <ol className="grid min-w-0 gap-2">
               {steps
                 .filter((step) => step.kind !== 'proposal')
@@ -445,16 +445,37 @@ export function FlowScript({
   );
 }
 
-/** The plan's editing bounds in words. */
-export function PlanBounds({ view }: { view: PlanView }) {
+/** The workflow's editing bounds in words. */
+export function WorkflowBounds({ view }: { view: WorkflowView }) {
   return (
     <p className="text-xs text-muted-foreground">
-      {view.editors.length
-        ? `Editors ${view.editors.join(', ')} may add up to ${view.max_added ?? 'any number of'} steps over ${view.max_rounds ?? 'any number of'} editing rounds (${view.added} added, ${view.rounds} ${view.rounds === 1 ? 'round' : 'rounds'} so far)`
-        : 'No editors; the plan runs as written'}
+      {view.editors.length ? editorBounds(view) : 'No editors; the workflow runs as written'}
       {view.approve_edits ? '. Added steps need your approval.' : '.'}
     </p>
   );
+}
+
+/**
+ * What the editors may do, as one sentence: a missing bound is no limit, said
+ * once when neither is set.
+ */
+function editorBounds(view: WorkflowView): string {
+  const steps = view.max_added_steps;
+  const rounds = view.max_edit_rounds;
+  const may =
+    steps === null || steps === undefined
+      ? 'may add steps'
+      : `may add up to ${steps} ${steps === 1 ? 'step' : 'steps'}`;
+  const over =
+    rounds === null || rounds === undefined
+      ? ''
+      : ` over at most ${rounds} editing ${rounds === 1 ? 'round' : 'rounds'}`;
+  const unbounded =
+    (steps === null || steps === undefined) && (rounds === null || rounds === undefined)
+      ? 'no limit set; '
+      : '';
+  const so = `${view.added} added, ${view.rounds} ${view.rounds === 1 ? 'round' : 'rounds'} so far`;
+  return `Editors ${view.editors.join(', ')} ${may}${over} (${unbounded}${so})`;
 }
 
 /** Why a run ended without a result, on one line: a stall with its step, or a cancellation. */
@@ -551,7 +572,7 @@ export function FlowApprovals({
   questions,
   onOpenQuestions,
 }: {
-  view: PlanView;
+  view: WorkflowView;
   questions: number;
   onOpenQuestions: () => void;
 }) {

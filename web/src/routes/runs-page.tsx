@@ -558,7 +558,7 @@ export function RunsPage() {
             </p>
             <h1 className="mt-2 text-4xl font-semibold tracking-tight">Runs</h1>
             <p className="mt-2 text-muted-foreground">
-              Track operational handles and the flows agents started (plans, councils and more).
+              Track operational handles and the flows agents started (workflows, councils and more).
             </p>
           </div>
           <Button asChild variant="outline">
@@ -640,7 +640,7 @@ export function RunsPage() {
             <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
               <span>
                 Each row is a flow an agent started in a conversation, with its task&apos;s current
-                state. Open one to see its plan, steps and any stall in the workspace canvas.
+                state. Open one to see its steps and any stall in the workspace canvas.
                 {flowsRemaining > 0
                   ? ` ${flowsIndexed} of ${orderedFlowSessions.length} sessions indexed.`
                   : ''}

@@ -75,7 +75,7 @@ const PROJECTED_COORDINATION_TOOLS = new Set([
   'collect_agent_task',
   // A started flow is its process row (labelled as the flow's run); the tool row repeats it.
   'run_flow',
-  'run_plan',
+  'run_workflow',
 ]);
 
 interface CausalLane {

@@ -16,7 +16,7 @@ import { markRailroad, scaleSvg } from './flow-railroad-marks';
 const WIDTH_STEP = 40;
 
 /**
- * A flow drawn by Pele: the railroad, or the plan graph with the visible
+ * A flow drawn by Pele: the railroad, or the workflow graph with the visible
  * reason it is not a railroad. A railroad node's label is its name; the
  * `st-*` classes (index.css) colour it by state, a running step's outline
  * moves unless the person prefers reduced motion, and its tooltip and
@@ -141,7 +141,7 @@ export function FlowDiagram({
       >
         {failed && !svg ? (
           <p className="py-2 text-xs text-muted-foreground">
-            The diagram could not be drawn; the plan below carries the same steps.
+            The diagram could not be drawn; the workflow below carries the same steps.
           </p>
         ) : (
           <div aria-hidden={selectable ? undefined : true} dangerouslySetInnerHTML={html} />

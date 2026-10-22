@@ -77,12 +77,17 @@ describe('flow run indexing', () => {
       [
         transcript([
           {
-            id: 'call_plan',
+            id: 'call_workflow',
             session_id: 'session_root',
-            name: 'run_plan',
+            name: 'run_workflow',
             state: 'succeeded',
             output: {
-              result: { accepted: true, handle: 'task_plan', kind: 'Subagent', flow: 'plan' },
+              result: {
+                accepted: true,
+                handle: 'task_workflow',
+                kind: 'Subagent',
+                flow: 'workflow',
+              },
             },
           },
           {
@@ -103,15 +108,15 @@ describe('flow run indexing', () => {
       ],
       [session],
       [workspace],
-      [task('task_plan', 'failed'), task('task_council', 'running', false)],
+      [task('task_workflow', 'failed'), task('task_council', 'running', false)],
     );
     expect(rows).toEqual([
       expect.objectContaining({
-        label: 'Plan run',
+        label: 'Workflow run',
         source: 'flow',
-        placement: 'plan',
+        placement: 'workflow',
         state: 'failed',
-        flowHandle: 'task_plan',
+        flowHandle: 'task_workflow',
         workspaceId: 'workspace_1',
         targetSessionId: 'session_root',
       }),
@@ -132,9 +137,13 @@ describe('flow run indexing', () => {
           {
             id: 'call_refused',
             session_id: 'session_root',
-            name: 'run_plan',
+            name: 'run_workflow',
             state: 'succeeded',
-            output: { accepted: false, reason: 'plan_invalid', error: 'node b waits on missing a' },
+            output: {
+              accepted: false,
+              reason: 'workflow_invalid',
+              error: 'step b waits on missing a',
+            },
           },
           {
             id: 'call_unloaded',
@@ -150,8 +159,8 @@ describe('flow run indexing', () => {
     );
     expect(rows[0]).toMatchObject({
       state: 'failed',
-      reportedStatus: 'plan_invalid',
-      statusReason: 'node b waits on missing a',
+      reportedStatus: 'workflow_invalid',
+      statusReason: 'step b waits on missing a',
       flowHandle: undefined,
     });
     expect(rows[1]).toMatchObject({

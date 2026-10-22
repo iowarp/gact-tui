@@ -27,7 +27,7 @@ import type { SubagentOpenTarget } from './subagent-card';
 /**
  * The flow an agent started, as a card in the conversation where it started
  * it: the railroad, coloured by state, whose nodes open their details; the
- * result; and the plan the agent wrote. It follows the run live, opens it in
+ * result; and the workflow or request the agent wrote. It follows the run live, opens it in
  * the side panel, and shows it full screen.
  */
 export function FlowRunCard({

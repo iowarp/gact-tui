@@ -4,16 +4,16 @@ import { forwardCompatibleEnum } from './schema-utils.js';
 /**
  * A flow run checkpointed under one task (`GET /v1/sessions/{sid}/tasks/{handle}/flow`).
  *
- * Flows are orchestration programs whose calls are ordinary tasks. The `plan`
- * flow publishes a view of its nodes (each with its own task handle once it
- * starts) and of the proposed nodes waiting for approval. A run that cannot
+ * Flows are orchestration programs whose calls are ordinary tasks. The `workflow`
+ * flow publishes a view of its steps (each with its own task handle once it
+ * starts) and of the proposed steps waiting for approval. A run that cannot
  * proceed ends on a typed outcome (a stall with its reason, step and message)
  * instead of a guess.
  */
 
 const strings = z.array(z.string()).default([]);
 
-export const planNodeStatusValues = [
+export const workflowStepStatusValues = [
   'pending',
   'running',
   'completed',
@@ -22,23 +22,23 @@ export const planNodeStatusValues = [
   'repaired',
 ] as const;
 
-export const planNodeSchema = z
+export const workflowStepSchema = z
   .object({
     id: z.string(),
     target: z.string().default(''),
     input: z.unknown().optional(),
     after: strings,
     description: z.string().nullish(),
-    status: forwardCompatibleEnum(planNodeStatusValues).default('pending'),
+    status: forwardCompatibleEnum(workflowStepStatusValues).default('pending'),
     handle: z.string().nullish(),
     invocation: z.string().nullish(),
     task_status: z.string().nullish(),
   })
   .passthrough();
 
-export type PlanNode = z.infer<typeof planNodeSchema>;
+export type WorkflowStep = z.infer<typeof workflowStepSchema>;
 
-export const planProposalSchema = z
+export const workflowProposalSchema = z
   .object({
     id: z.string(),
     target: z.string().default(''),
@@ -48,24 +48,24 @@ export const planProposalSchema = z
   })
   .passthrough();
 
-export type PlanProposal = z.infer<typeof planProposalSchema>;
+export type WorkflowProposal = z.infer<typeof workflowProposalSchema>;
 
-/** The live plan a `plan` flow publishes; other flows publish no view. */
-export const planViewSchema = z
+/** The live workflow a `workflow` flow publishes; other flows publish no view. */
+export const workflowViewSchema = z
   .object({
-    kind: z.literal('plan'),
-    nodes: z.array(planNodeSchema).default([]),
+    kind: z.literal('workflow'),
+    steps: z.array(workflowStepSchema).default([]),
     added: z.number().int().nonnegative().default(0),
     rounds: z.number().int().nonnegative().default(0),
-    awaiting_approval: z.array(planProposalSchema).default([]),
+    awaiting_approval: z.array(workflowProposalSchema).default([]),
     editors: strings,
-    max_added: z.number().int().nonnegative().nullish(),
-    max_rounds: z.number().int().nonnegative().nullish(),
+    max_added_steps: z.number().int().nonnegative().nullish(),
+    max_edit_rounds: z.number().int().nonnegative().nullish(),
     approve_edits: z.boolean().default(false),
   })
   .passthrough();
 
-export type PlanView = z.infer<typeof planViewSchema>;
+export type WorkflowView = z.infer<typeof workflowViewSchema>;
 
 export const flowCallSchema = z.object({
   invocation: z.string(),
@@ -93,7 +93,7 @@ export const flowOutcomeSchema = z
 export type FlowOutcome = z.infer<typeof flowOutcomeSchema>;
 
 export const flowEventSchema = z
-  .object({ event: z.string(), node: z.string().nullish() })
+  .object({ event: z.string(), step: z.string().nullish() })
   .passthrough();
 
 export type FlowEvent = z.infer<typeof flowEventSchema>;
@@ -108,7 +108,7 @@ export const flowRunSchema = z.object({
   view: z
     .unknown()
     .transform((value) => {
-      const parsed = planViewSchema.safeParse(value);
+      const parsed = workflowViewSchema.safeParse(value);
       return parsed.success ? parsed.data : null;
     })
     .nullable(),

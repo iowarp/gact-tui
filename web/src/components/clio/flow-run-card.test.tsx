@@ -54,11 +54,11 @@ import { FlowRunCard } from './flow-run-card';
 import { PresentationNavigation } from './presentation-navigation';
 
 const run = flowRunSchema.parse({
-  flow: 'plan',
+  flow: 'workflow',
   status: 'running',
   view: {
-    kind: 'plan',
-    nodes: [
+    kind: 'workflow',
+    steps: [
       {
         id: 'clean',
         target: 'clio/standard',
@@ -79,13 +79,13 @@ const run = flowRunSchema.parse({
   },
 });
 
-const planTool: ToolInvocation = {
-  id: 'call_plan',
+const workflowTool: ToolInvocation = {
+  id: 'call_workflow',
   session_id: 'sess_1',
-  name: 'run_plan',
+  name: 'run_workflow',
   state: 'succeeded',
-  input: { plan: { nodes: [] }, task: 'Compare the sites.' },
-  output: { accepted: true, handle: 'task_plan' },
+  input: { workflow: { steps: [] }, task: 'Compare the sites.' },
+  output: { accepted: true, handle: 'task_workflow' },
 };
 
 function wrap(children: ReactNode, onOpenFlow = vi.fn()) {
@@ -106,7 +106,7 @@ afterEach(() => {
 });
 
 describe('FlowRunCard', () => {
-  it('shows the run in the conversation: the track, a selected step, and the plan the agent wrote', async () => {
+  it('shows the run in the conversation: the track, a selected step, and the workflow the agent wrote', async () => {
     const user = userEvent.setup();
     repository.taskFlow.mockResolvedValue(run);
     repository.agentTask.mockImplementation(async (handle: string) => ({
@@ -117,24 +117,24 @@ describe('FlowRunCard', () => {
     const onOpenFlow = wrap(
       <FlowRunCard
         flow={{
-          flow: 'plan',
-          label: 'Plan',
-          handle: 'task_plan',
+          flow: 'workflow',
+          label: 'Workflow',
+          handle: 'task_workflow',
           args: { task: 'Compare the sites.' },
         }}
         sessionId="sess_1"
       />,
     );
-    expect(await screen.findByText('Plan run')).toBeVisible();
+    expect(await screen.findByText('Workflow run')).toBeVisible();
     expect(await screen.findByText('3 steps, 1 done, 1 running, 1 waiting')).toBeVisible();
-    expect(screen.getByRole('img', { name: /The plan's 3 steps in order/u })).toHaveAttribute(
+    expect(screen.getByRole('img', { name: /The workflow's 3 steps in order/u })).toHaveAttribute(
       'data-kind',
       'railroad',
     );
     // The track's colours are explained once, in words; no row repeats each step.
     expect(screen.getByText('Select a step to see it')).toBeVisible();
     for (const word of ['done', 'running', 'waiting']) expect(screen.getByText(word)).toBeVisible();
-    expect(screen.queryByRole('list', { name: 'Plan steps' })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Workflow steps' })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'clean: Completed. Runs this agent.' }));
     const details = screen.getByRole('region', { name: 'clean: Completed' });
@@ -147,13 +147,15 @@ describe('FlowRunCard', () => {
       'Waits on: clean',
     );
 
-    await user.click(screen.getByText('Show the plan'));
+    await user.click(screen.getByText('Show the workflow'));
     expect(screen.getByText('Compare the sites.')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'JSON' }));
     expect(screen.getByText(/"task": "Compare the sites."/u)).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: /Open the plan run in the side panel/u }));
-    expect(onOpenFlow).toHaveBeenCalledWith('task_plan', 'Plan run');
+    await user.click(
+      screen.getByRole('button', { name: /Open the workflow run in the side panel/u }),
+    );
+    expect(onOpenFlow).toHaveBeenCalledWith('task_workflow', 'Workflow run');
   });
 
   it('stands as its own boundary in the conversation, once', async () => {
@@ -164,14 +166,14 @@ describe('FlowRunCard', () => {
       index: 0,
       agentId: 'main',
       thinking: [],
-      nextThoughts: ['Start the plan.'],
-      activity: [{ kind: 'tool', id: 'call_plan', tool: planTool }],
-      tools: [planTool],
+      nextThoughts: ['Start the workflow.'],
+      activity: [{ kind: 'tool', id: 'call_workflow', tool: workflowTool }],
+      tools: [workflowTool],
       tasks: [],
       terminal: false,
       interrupted: false,
       streaming: false,
-      summary: 'Start the plan.',
+      summary: 'Start the workflow.',
     };
     wrap(
       <ConversationTurn
@@ -181,8 +183,8 @@ describe('FlowRunCard', () => {
         subagents={{}}
       />,
     );
-    expect(await screen.findByText('Plan run')).toBeVisible();
-    expect(screen.getAllByText('Plan run')).toHaveLength(1);
-    expect(repository.taskFlow).toHaveBeenCalledWith('sess_1', 'task_plan', expect.anything());
+    expect(await screen.findByText('Workflow run')).toBeVisible();
+    expect(screen.getAllByText('Workflow run')).toHaveLength(1);
+    expect(repository.taskFlow).toHaveBeenCalledWith('sess_1', 'task_workflow', expect.anything());
   });
 });

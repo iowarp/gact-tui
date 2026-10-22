@@ -2,9 +2,9 @@ import type { FlowMember, FlowState, FlowStep, FlowVerdict } from './flow-run-pr
 import { formatDuration } from '@/lib/format';
 
 /**
- * The shape of a plan and the agentflow graph for a plan the railroad cannot
- * draw. `seriesParallel` finds the nested sequence/parallel structure the
- * railroad (flow-railroad.ts) draws; a plan without one is drawn as a graph,
+ * The shape of a workflow and the agentflow graph for a workflow the railroad
+ * cannot draw. `seriesParallel` finds the nested sequence/parallel structure
+ * the railroad (flow-railroad.ts) draws; a workflow without one is drawn as a graph,
  * each step's state in its label and a class per state.
  */
 
@@ -68,8 +68,8 @@ export function stepWord(state: FlowState, elapsedMs?: number): string {
     : `${state.word} ${formatDuration(elapsedMs, 'compact')}`;
 }
 
-/** The full plan graph: every step with its state, dependencies reduced to the direct ones. */
-export function planAgentflowSource(
+/** The full workflow graph: every step with its state, dependencies reduced to the direct ones. */
+export function workflowAgentflowSource(
   steps: readonly FlowStep[],
   elapsed: ReadonlyMap<string, number>,
 ): string {
@@ -92,7 +92,7 @@ export function planAgentflowSource(
   );
   for (const step of steps) {
     for (const parent of directParents(step.id, parents)) {
-      // Agentflow draws a reference edge dashed: a proposal waits on these steps but has not joined the plan.
+      // Agentflow draws a reference edge dashed: a proposal waits on these steps but has not joined the workflow.
       const arrow = step.kind === 'proposal' ? '-.-' : '-->';
       lines.push(`  ${ids.get(parent)} ${arrow} ${ids.get(step.id)}`);
     }

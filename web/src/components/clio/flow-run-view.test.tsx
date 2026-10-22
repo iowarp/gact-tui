@@ -45,16 +45,16 @@ vi.mock('./flow-diagram', () => ({
 import { FlowRunView } from './flow-run-view';
 import { flowRunStatus } from './flow-run-presentation';
 
-const planRun = flowRunSchema.parse({
+const workflowRun = flowRunSchema.parse({
   run_id: 'flowrun_1',
-  flow: 'plan',
+  flow: 'workflow',
   status: 'running',
   depth: 1,
   root_handle: 'task_flow',
   entries: 4,
   view: {
-    kind: 'plan',
-    nodes: [
+    kind: 'workflow',
+    steps: [
       { id: 'draft', target: 'self', after: [], status: 'completed', handle: 'task_draft' },
       {
         id: 'review',
@@ -76,13 +76,13 @@ const planRun = flowRunSchema.parse({
       },
     ],
     editors: ['critic'],
-    max_added: 2,
-    max_rounds: 1,
+    max_added_steps: 2,
+    max_edit_rounds: 1,
     approve_edits: true,
   },
   calls: [],
   questions: [{ handle: 'task_question', question: 'Approve polish?' }],
-  events: [{ event: 'node_proposed', node: 'polish' }],
+  events: [{ event: 'step_proposed', step: 'polish' }],
   outcome: null,
 });
 
@@ -102,9 +102,9 @@ afterEach(() => {
 });
 
 describe('FlowRunView', () => {
-  it('draws the live plan with text statuses and the proposal awaiting approval', async () => {
+  it('draws the live workflow with text statuses and the proposal awaiting approval', async () => {
     const user = userEvent.setup();
-    repository.taskFlow.mockResolvedValue(planRun);
+    repository.taskFlow.mockResolvedValue(workflowRun);
     repository.agentTask.mockResolvedValue({
       task_id: 'task_review',
       parent_session_id: 'sess_flow',
@@ -121,7 +121,12 @@ describe('FlowRunView', () => {
       answer_excerpt: '',
     });
     const onOpen = renderRun();
-    await screen.findByRole('img', { name: /The plan's 3 steps in order/u });
+    await screen.findByRole('img', { name: /The workflow's 3 steps in order/u });
+    expect(
+      screen.getAllByText(
+        'Editors critic may add up to 2 steps over at most 1 editing round (0 added, 1 round so far). Added steps need your approval.',
+      )[0],
+    ).toBeVisible();
     for (const word of ['done', 'running', 'awaiting approval']) {
       expect(screen.getByText(word)).toBeVisible();
     }
@@ -137,7 +142,7 @@ describe('FlowRunView', () => {
     expect(screen.getAllByText(/Added steps need your approval/u)[0]).toBeVisible();
     expect(
       screen.getByRole('img', {
-        name: /The plan's 3 steps in order: draft, done; review, running/u,
+        name: /The workflow's 3 steps in order: draft, done; review, running/u,
       }),
     ).toHaveAttribute('data-kind', 'railroad');
     await user.click(within(details).getByRole('button', { name: 'Open review' }));
@@ -151,16 +156,38 @@ describe('FlowRunView', () => {
     await waitFor(() => expect(repository.agentTask).toHaveBeenLastCalledWith('task_flow'));
   });
 
+  it('says when no limit is set on what the editors may add', async () => {
+    repository.taskFlow.mockResolvedValue(
+      flowRunSchema.parse({
+        ...workflowRun,
+        questions: [],
+        view: {
+          ...workflowRun.view,
+          awaiting_approval: [],
+          max_added_steps: null,
+          max_edit_rounds: null,
+          approve_edits: false,
+        },
+      }),
+    );
+    repository.agentTask.mockResolvedValue({ task_id: 'x', created_at: '', updated_at: '' });
+    renderRun();
+    const [bounds] = await screen.findAllByText(
+      'Editors critic may add steps (no limit set; 0 added, 1 round so far).',
+    );
+    expect(bounds).toBeVisible();
+  });
+
   it('shows a typed stall with its reason, step and message', async () => {
     repository.taskFlow.mockResolvedValue(
       flowRunSchema.parse({
-        ...planRun,
+        ...workflowRun,
         status: 'flow_stall',
         questions: [],
         outcome: {
           reason: 'flow_stall',
-          message: "plan node 'review' failed and no editor repaired it",
-          stall: 'node_failed',
+          message: "workflow step 'review' failed and no editor repaired it",
+          stall: 'step_failed',
           step: 'review',
           handle: 'task_review',
           observed: { error: { reason: 'call_failed' } },
@@ -170,9 +197,11 @@ describe('FlowRunView', () => {
     const user = userEvent.setup();
     renderRun();
     expect(await screen.findByText('The flow stalled at review:')).toBeVisible();
-    expect(screen.getByText("plan node 'review' failed and no editor repaired it")).toBeVisible();
+    expect(
+      screen.getByText("workflow step 'review' failed and no editor repaired it"),
+    ).toBeVisible();
     await user.click(screen.getByText('Details'));
-    expect(screen.getByText('node_failed')).toBeVisible();
+    expect(screen.getByText('step_failed')).toBeVisible();
     expect(screen.getByText('Stalled')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open the stalled step' })).toBeVisible();
   });
@@ -180,7 +209,7 @@ describe('FlowRunView', () => {
   it('shows a cancelled run as cancelled, not as a stall', async () => {
     repository.taskFlow.mockResolvedValue(
       flowRunSchema.parse({
-        ...planRun,
+        ...workflowRun,
         status: 'cancelled',
         questions: [],
         outcome: {

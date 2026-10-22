@@ -181,7 +181,7 @@ export class TaskRepository extends ResponseFeedbackRepository {
 
   /**
    * The flow run checkpointed under a task, or `null` when that task runs no
-   * flow. A plan run carries its live nodes, proposals awaiting approval and
+   * flow. A workflow run carries its live steps, proposals awaiting approval and
    * any typed stall.
    */
   public async taskFlow(

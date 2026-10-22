@@ -10,7 +10,7 @@ import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 export const FLOW_RUN_POLL_MS = 2_000;
 
 /**
- * The flow run checkpointed under one task, re-read while it runs so the plan,
+ * The flow run checkpointed under one task, re-read while it runs so the workflow,
  * its proposals and any stall appear as the task layer records them.
  */
 export function useFlowRun(sessionId: string, handle: string) {
@@ -25,7 +25,7 @@ export function useFlowRun(sessionId: string, handle: string) {
   });
 }
 
-/** Open the conversation behind a task handle (a plan node, a council member, the flow). */
+/** Open the conversation behind a task handle (a workflow step, a council member, the flow). */
 export function useOpenTaskHandle(
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void,
 ) {

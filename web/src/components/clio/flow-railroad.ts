@@ -45,7 +45,7 @@ export interface RailroadMark {
   chosen?: boolean;
 }
 
-/** A node the person selected: a plan step, a council member or arena entry, or the closing step. */
+/** A node the person selected: a workflow step, a council member or arena entry, or the closing step. */
 export type FlowPick =
   | { kind: 'step'; step: FlowStep }
   | { kind: 'member'; member: FlowMember }
@@ -116,11 +116,11 @@ function ruleName(id: string): string {
 }
 
 /**
- * The plan as one railroad expression, from its series-parallel shape. A step
+ * The workflow as one railroad expression, from its series-parallel shape. A step
  * that runs another flow is that flow's track (`subflows`, by step id) when
  * the flow has started, else a nonterminal with the step's name.
  */
-export function planRailroadExpr(
+export function workflowRailroadExpr(
   steps: readonly FlowStep[],
   shape: SeriesParallel,
   subflows: ReadonlyMap<string, RailroadExpr> = new Map(),
@@ -149,7 +149,7 @@ export function planRailroadExpr(
 
 /**
  * A council or an arena: its members side by side, then the synthesis or the
- * judge. Also the railroad of a plan step that runs one.
+ * judge. Also the railroad of a workflow step that runs one.
  */
 export function membersRailroadExpr(
   members: readonly FlowMember[],

@@ -1,24 +1,27 @@
 import type { ToolInvocation } from '@clio/core/v3';
 
 /** The tools that start a flow as owned work and return its task handle at acceptance. */
-const FLOW_TOOLS = new Set(['run_flow', 'run_plan']);
+const FLOW_TOOLS = new Set(['run_flow', 'run_workflow']);
 
 export interface FlowToolDescriptor {
-  /** The flow id: `plan` for run_plan, otherwise the flow the model named. */
+  /** The flow id: `workflow` for run_workflow, otherwise the flow the model named. */
   flow: string;
   label: string;
   /** The accepted task that runs the flow; absent until the start is accepted. */
   handle?: string;
-  /** Present when the start was refused before acceptance (for example `plan_invalid`). */
-  refusal?: { reason: string; message: string };
   /**
-   * What the agent wrote when it started the flow: run_plan's plan, task and
+   * Present when the start was refused before acceptance (for example
+   * `workflow_invalid`, or `flow_not_trusted` with the step whose flow is not trusted).
+   */
+  refusal?: { reason: string; message: string; step?: string };
+  /**
+   * What the agent wrote when it started the flow: run_workflow's workflow, task and
    * editing bounds, or run_flow's input and options.
    */
   args?: Record<string, unknown>;
 }
 
-/** Read a run_flow / run_plan invocation without inventing a flow or a handle. */
+/** Read a run_flow / run_workflow invocation without inventing a flow or a handle. */
 export function flowToolDescriptor(
   tool: ToolInvocation | undefined,
 ): FlowToolDescriptor | undefined {
@@ -28,8 +31,8 @@ export function flowToolDescriptor(
   const result = findAcceptance(tool.output);
   const named = typeof kwargs?.flow === 'string' ? kwargs.flow.trim() : '';
   const flow =
-    tool.name === 'run_plan'
-      ? 'plan'
+    tool.name === 'run_workflow'
+      ? 'workflow'
       : typeof result?.flow === 'string' && result.flow
         ? result.flow
         : named;
@@ -42,6 +45,7 @@ export function flowToolDescriptor(
       ? {
           reason: typeof result.reason === 'string' ? result.reason : 'not_accepted',
           message: typeof result.error === 'string' ? result.error : 'The flow did not start.',
+          ...(typeof result.step === 'string' && result.step ? { step: result.step } : {}),
         }
       : undefined;
   return { flow: flow || 'flow', label: flowLabel(flow), handle, refusal, args: kwargs };
@@ -50,7 +54,6 @@ export function flowToolDescriptor(
 /** A person-facing name for a flow id. */
 export function flowLabel(flow: string): string {
   if (!flow) return 'Flow';
-  if (flow === 'plan') return 'Plan';
   return flow.charAt(0).toUpperCase() + flow.slice(1).replaceAll(/[-_]/gu, ' ');
 }
 

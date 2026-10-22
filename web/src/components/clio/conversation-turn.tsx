@@ -39,7 +39,7 @@ import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-present
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 
-/** The flow a run_flow / run_plan call started, once its start was accepted. */
+/** The flow a run_flow / run_workflow call started, once its start was accepted. */
 function startedFlow(
   tool: ToolInvocation | undefined,
 ): (FlowToolDescriptor & { handle: string }) | undefined {

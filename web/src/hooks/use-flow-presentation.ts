@@ -10,20 +10,20 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import {
   closingStep,
-  planAgentflowSource,
+  workflowAgentflowSource,
   seriesParallel,
 } from '@/components/clio/flow-diagram-source';
 import {
   membersRailroadExpr,
-  planRailroadExpr,
   railroadDiagram,
+  workflowRailroadExpr,
   type RailroadDiagram,
   type RailroadExpr,
 } from '@/components/clio/flow-railroad';
 import {
   flowMembers,
   flowVerdict,
-  planSteps,
+  workflowSteps,
   type FlowMember,
   type FlowState,
   type FlowStep,
@@ -38,9 +38,9 @@ export type FlowDiagramSpec =
   | { kind: 'graph'; source: string; label: string; note: string };
 
 export interface FlowPresentation {
-  /** Plan steps; empty for a flow without a plan. */
+  /** Workflow steps; empty for a flow without a workflow. */
   steps: FlowStep[];
-  /** Council members, arena entries or other calls; empty for a plan. */
+  /** Council members, arena entries or other calls; empty for a workflow. */
   members: FlowMember[];
   verdict: FlowVerdict;
   /** A council's synthesis or an arena's judge, with its state. */
@@ -54,7 +54,7 @@ export interface FlowPresentation {
 
 /** Shown under a graph drawn in place of the railroad, so the switch is never silent. */
 export const NOT_SERIES_PARALLEL_NOTE =
-  "Drawn as a graph: some steps wait on only part of a parallel group, so the plan can't be laid out as one track of sequences and parallel branches.";
+  "Drawn as a graph: some steps wait on only part of a parallel group, so the workflow can't be laid out as one track of sequences and parallel branches.";
 
 /**
  * The session's own agent reference, so a step it runs reads as "this agent":
@@ -66,12 +66,12 @@ export function useSessionAgentRef(sessionId: string): string {
   return agent.data?.resolution.agent.ref || sessionAgentRef(session);
 }
 
-/** The arguments of the run_flow / run_plan call that started the flow under `handle`. */
+/** The arguments of the run_flow / run_workflow call that started the flow under `handle`. */
 export function useFlowToolArgs(handle: string): Record<string, unknown> | undefined {
   const tools = useLiveStore((state) => state.entities.tools);
   return useMemo(() => {
     for (const tool of Object.values(tools)) {
-      if (!['run_flow', 'run_plan'].includes(tool.name)) continue;
+      if (!['run_flow', 'run_workflow'].includes(tool.name)) continue;
       const descriptor = flowToolDescriptor(tool);
       if (descriptor?.handle === handle) return descriptor.args;
     }
@@ -79,7 +79,7 @@ export function useFlowToolArgs(handle: string): Record<string, unknown> | undef
   }, [handle, tools]);
 }
 
-/** The runs of plan steps that are flows themselves, read again while they run. */
+/** The runs of workflow steps that are flows themselves, read again while they run. */
 function useNestedFlowRuns(sessionId: string, steps: readonly FlowStep[]) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -107,11 +107,11 @@ function useNestedFlowRuns(sessionId: string, steps: readonly FlowStep[]) {
 /** A nested run as its inline track; its own nested flows are drawn as steps. */
 export function nestedFlowExpr(run: FlowRun, agentRef: string): RailroadExpr | undefined {
   if (run.view) {
-    const steps = planSteps(run, agentRef).map((step) =>
+    const steps = workflowSteps(run, agentRef).map((step) =>
       step.kind === 'flow' ? { ...step, kind: 'agent' as const } : step,
     );
     const shape = seriesParallel(steps);
-    return shape ? planRailroadExpr(steps, shape) : undefined;
+    return shape ? workflowRailroadExpr(steps, shape) : undefined;
   }
   const members = flowMembers(run, agentRef);
   if (!members.length || !['council', 'arena'].includes(run.flow)) return undefined;
@@ -133,7 +133,7 @@ export function useFlowPresentation(
 ): FlowPresentation {
   const model = useMemo(() => {
     if (!run) return { steps: [], members: [], verdict: {} as FlowVerdict };
-    const steps = planSteps(run, agentRef);
+    const steps = workflowSteps(run, agentRef);
     const members = run.view ? [] : flowMembers(run, agentRef, args);
     return { steps, members, verdict: flowVerdict(run) };
   }, [agentRef, args, run]);
@@ -180,7 +180,7 @@ export function useFlowPresentation(
 
 /**
  * The diagram of a run: a railroad whenever the flow's shape is nested
- * sequences and parallel branches, else the plan graph with the reason.
+ * sequences and parallel branches, else the workflow graph with the reason.
  */
 export function flowDiagrams(
   run: FlowRun | null | undefined,
@@ -197,8 +197,8 @@ export function flowDiagrams(
       return {
         diagram: {
           kind: 'graph',
-          source: planAgentflowSource(steps, new Map()),
-          label: `Plan graph of ${steps.length} steps and what each waits on`,
+          source: workflowAgentflowSource(steps, new Map()),
+          label: `Workflow graph of ${steps.length} steps and what each waits on`,
           note: NOT_SERIES_PARALLEL_NOTE,
         },
       };
@@ -212,8 +212,8 @@ export function flowDiagrams(
     return {
       diagram: {
         kind: 'railroad',
-        railroad: railroadDiagram('plan', planRailroadExpr(steps, shape, subflows)),
-        label: `The plan's ${steps.length} steps in order: ${steps
+        railroad: railroadDiagram('workflow', workflowRailroadExpr(steps, shape, subflows)),
+        label: `The workflow's ${steps.length} steps in order: ${steps
           .map((step) => `${step.id}, ${step.status.word}`)
           .join('; ')}`,
       },
