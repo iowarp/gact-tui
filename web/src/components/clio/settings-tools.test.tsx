@@ -10,7 +10,9 @@ const repository = vi.hoisted(() => ({
   tools: vi.fn(),
   mcpServer: vi.fn(),
   mcpServerInventory: vi.fn(),
-  installMcpServer: vi.fn(),
+  configureMcpServer: vi.fn(),
+  savedMcpServices: vi.fn(),
+  removeMcpConfiguration: vi.fn(),
   reconnectMcpServer: vi.fn(),
   deleteMcpServer: vi.fn(),
 }));
@@ -58,7 +60,17 @@ beforeEach(() => {
         ? [{ name: 'fs_read_file', title: 'Read file', description: 'Read a workspace file.' }]
         : [],
   );
-  repository.installMcpServer.mockResolvedValue(external);
+  repository.configureMcpServer.mockImplementation(async (name: string) => ({
+    name,
+    configured: true,
+    scope: 'user',
+    status: 'ready',
+    tools: [],
+    tools_count: 0,
+    retryable: false,
+  }));
+  repository.savedMcpServices.mockResolvedValue([]);
+  repository.removeMcpConfiguration.mockResolvedValue({});
   repository.reconnectMcpServer.mockResolvedValue(external);
   repository.deleteMcpServer.mockResolvedValue(undefined);
 });
@@ -131,10 +143,11 @@ describe('tool provider settings', () => {
     await user.type(within(dialog).getByLabelText('Service address'), 'https://mcp.example.test');
     await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
 
-    expect(repository.installMcpServer).toHaveBeenCalledWith({
-      name: 'Science tools',
+    // Saved, so it survives a restart and reaches every conversation by default.
+    expect(repository.configureMcpServer).toHaveBeenCalledWith('Science tools', {
       transport: 'http',
       url: 'https://mcp.example.test',
+      always_load: true,
     });
   });
 
@@ -161,13 +174,57 @@ describe('tool provider settings', () => {
     await fill('Process settings', 'WEB_STATE_DIR=D:\\agent-state');
     await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
 
-    expect(repository.installMcpServer).toHaveBeenCalledWith({
-      name: 'Web search',
+    expect(repository.configureMcpServer).toHaveBeenCalledWith('Web search', {
+      always_load: true,
       transport: 'stdio',
       command: 'web-tools',
       args: ['serve'],
       env: { WEB_STATE_DIR: 'D:\\agent-state' },
     });
+  });
+
+  it('saves a service for conversations that ask for it when the box is cleared', async () => {
+    const user = userEvent.setup();
+    renderSettings(<ToolsSettings />);
+
+    await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
+    const dialog = screen.getByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Name'), 'docs');
+    await user.type(within(dialog).getByLabelText('Service address'), 'https://mcp.example.test');
+    await user.click(
+      within(dialog).getByRole('checkbox', { name: 'Available in every conversation' }),
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
+
+    expect(repository.configureMcpServer).toHaveBeenCalledWith('docs', {
+      transport: 'http',
+      url: 'https://mcp.example.test',
+      always_load: false,
+    });
+  });
+
+  it('lists the saved services and removes one after confirming', async () => {
+    const user = userEvent.setup();
+    repository.savedMcpServices.mockResolvedValue([
+      {
+        name: 'colab-mcp',
+        transport: 'stdio',
+        always_load: true,
+        spec: { command: 'uvx', args: ['git+https://github.com/googlecolab/colab-mcp'] },
+      },
+    ]);
+    renderSettings(<ToolsSettings />);
+
+    const saved = await screen.findByRole('region', { name: 'Your MCP services' });
+    expect(saved).toHaveTextContent('uvx git+https://github.com/googlecolab/colab-mcp');
+    expect(saved).toHaveTextContent('Local command, available in every conversation');
+    await user.click(within(saved).getByRole('button', { name: 'Remove' }));
+    await user.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
+    );
+    await waitFor(() =>
+      expect(repository.removeMcpConfiguration).toHaveBeenCalledWith('colab-mcp'),
+    );
   });
 
   it('exposes reconnect and confirmed disconnect only for runtime connections', async () => {

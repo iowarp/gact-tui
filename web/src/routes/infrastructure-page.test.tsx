@@ -19,7 +19,6 @@ const repository = vi.hoisted(() => ({
   removeMcpConfiguration: vi.fn(),
   configureRelay: vi.fn(),
   deleteMcpServer: vi.fn(),
-  installMcpServer: vi.fn(),
   sandboxStatus: vi.fn(),
   setupSandbox: vi.fn(),
 }));

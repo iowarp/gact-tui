@@ -19,7 +19,7 @@ const mcpUserConfigurationSchema = z.object({
 });
 
 export type McpConfigurationInput =
-  | { transport: 'http'; url: string; name?: string }
+  | { transport: 'http'; url: string; always_load?: boolean; name?: string }
   | {
       transport: 'stdio';
       command: string;
@@ -28,6 +28,16 @@ export type McpConfigurationInput =
       always_load?: boolean;
       name?: string;
     };
+
+const savedMcpServiceSchema = z.object({
+  name: z.string(),
+  transport: z.string(),
+  always_load: z.boolean(),
+  spec: z.record(z.string(), z.unknown()).default({}),
+});
+
+/** A service the person saved (Settings or `clio-agent mcp add`), not yet started. */
+export type SavedMcpService = z.infer<typeof savedMcpServiceSchema>;
 
 /** Narrows an MCP server listing to the tools one session holds open. */
 export interface McpServerListOptions {
@@ -53,14 +63,20 @@ export class McpRepository extends DocumentRepository {
     });
   }
 
-  public mcpConfiguration(
-    name: string,
-    signal?: AbortSignal,
-  ): Promise<McpUserConfiguration> {
+  public mcpConfiguration(name: string, signal?: AbortSignal): Promise<McpUserConfiguration> {
     return this.transport.request({
       method: 'GET',
       path: `/v1/mcp/configuration/${encodeURIComponent(name)}`,
       decode: (value) => mcpUserConfigurationSchema.parse(value),
+      signal,
+    });
+  }
+
+  public savedMcpServices(signal?: AbortSignal): Promise<SavedMcpService[]> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/mcp/configuration',
+      decode: (value) => z.object({ servers: z.array(savedMcpServiceSchema) }).parse(value).servers,
       signal,
     });
   }
@@ -79,10 +95,7 @@ export class McpRepository extends DocumentRepository {
     });
   }
 
-  public removeMcpConfiguration(
-    name: string,
-    signal?: AbortSignal,
-  ): Promise<McpUserConfiguration> {
+  public removeMcpConfiguration(name: string, signal?: AbortSignal): Promise<McpUserConfiguration> {
     return this.transport.request({
       method: 'DELETE',
       path: `/v1/mcp/configuration/${encodeURIComponent(name)}`,
@@ -114,27 +127,6 @@ export class McpRepository extends DocumentRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/mcp/servers/${encodeURIComponent(serverId)}`,
-      decode: (value) => mcpServerDefinitionSchema.parse(value),
-      signal,
-    });
-  }
-
-  public installMcpServer(
-    input:
-      | { name: string; transport: 'http'; url: string }
-      | {
-          name: string;
-          transport: 'stdio';
-          command: string;
-          args: string[];
-          env?: Record<string, string>;
-        },
-    signal?: AbortSignal,
-  ): Promise<McpServerDefinition> {
-    return this.transport.request({
-      method: 'POST',
-      path: '/v1/mcp/servers',
-      body: input,
       decode: (value) => mcpServerDefinitionSchema.parse(value),
       signal,
     });

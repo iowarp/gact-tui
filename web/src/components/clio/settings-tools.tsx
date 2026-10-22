@@ -1,6 +1,7 @@
 import { queryKeys } from '@/lib/query-keys';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
+import { SavedMcpServices } from './settings-saved-mcp';
 import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -36,6 +37,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
@@ -146,6 +148,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
   const [command, setCommand] = useState('');
   const [argumentsText, setArgumentsText] = useState('');
   const [environmentText, setEnvironmentText] = useState('');
+  const [everyConversation, setEveryConversation] = useState(true);
   const [detailServer, setDetailServer] = useState<McpServerDefinition>();
   const [deleteServer, setDeleteServer] = useState<McpServerDefinition>();
 
@@ -205,6 +208,9 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
       queryClient.invalidateQueries({ queryKey: queryKeys.key('mcp-servers', settings.endpoint) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('mcp-configurations', settings.endpoint),
+      }),
     ]);
   };
   const resetInstallForm = () => {
@@ -214,19 +220,21 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
     setArgumentsText('');
     setEnvironmentText('');
     setConnectionKind('http');
+    setEveryConversation(true);
   };
+  // Saved, not only connected: it survives a restart and reaches conversations.
   const install = useMutation({
     mutationFn: () => {
       if (connectionKind === 'http') {
-        return repository.installMcpServer({
-          name: name.trim(),
+        return repository.configureMcpServer(name.trim(), {
           transport: 'http',
           url: url.trim(),
+          always_load: everyConversation,
         });
       }
       const env = parseProcessSettings(environmentText);
-      return repository.installMcpServer({
-        name: name.trim(),
+      return repository.configureMcpServer(name.trim(), {
+        always_load: everyConversation,
         transport: 'stdio',
         command: command.trim(),
         args: argumentsText
@@ -236,11 +244,13 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         ...(Object.keys(env).length ? { env } : {}),
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (saved) => {
       setInstallOpen(false);
       resetInstallForm();
       await invalidate();
-      toast.success('Tool provider connected');
+      if (saved.status === 'ready') toast.success(`Connected ${saved.name}`);
+      else
+        toast.warning(`Saved ${saved.name}, but it did not answer`, { description: saved.error });
     },
     onError: (error) => toast.error(error.message),
   });
@@ -383,6 +393,8 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         </FramePanel>
       </Frame>
 
+      <SavedMcpServices />
+
       <Frame spacing="lg">
         <FrameHeader>
           <FrameTitle>Available tools</FrameTitle>
@@ -514,6 +526,13 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                 </>
               )}
             </FieldGroup>
+            <label className="mt-4 flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={everyConversation}
+                onCheckedChange={(checked) => setEveryConversation(checked === true)}
+              />
+              Available in every conversation
+            </label>
             {install.error ? (
               <Alert className="mt-4" variant="destructive">
                 <AlertTitle>Connection failed</AlertTitle>

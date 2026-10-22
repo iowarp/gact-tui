@@ -51,8 +51,7 @@ describe('MCP server repository', () => {
       { ...configuration, configured: false, status: 'local_fallback', removed: true },
       { servers: [server] },
       server,
-      server,
-      server,
+      { servers: [] },
       server,
       { tools: [{ name: 'catalog_search', description: 'Search the catalog.' }] },
       { resources: [{ name: 'Dataset guide', uri: 'resource://guide' }] },
@@ -70,18 +69,7 @@ describe('MCP server repository', () => {
     await repository.removeMcpConfiguration('web/search');
     await repository.mcpServers('ws science', undefined, { sessionId: 'sess/earth' });
     await repository.mcpServer('science/tools');
-    await repository.installMcpServer({
-      name: 'Science tools',
-      transport: 'http',
-      url: 'https://mcp.example.test',
-    });
-    await repository.installMcpServer({
-      name: 'Local science tools',
-      transport: 'stdio',
-      command: 'science-tools',
-      args: ['serve'],
-      env: { SCIENCE_STATE: 'D:\\science-state' },
-    });
+    await repository.savedMcpServices();
     await repository.reconnectMcpServer('science/tools');
     await repository.mcpServerInventory('science/tools', 'tools');
     await repository.mcpServerInventory('science/tools', 'resources');
@@ -97,8 +85,7 @@ describe('MCP server repository', () => {
         path: '/v1/mcp/servers?workspace_id=ws%20science&session_id=sess%2Fearth',
       },
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools' },
-      { method: 'POST', path: '/v1/mcp/servers' },
-      { method: 'POST', path: '/v1/mcp/servers' },
+      { method: 'GET', path: '/v1/mcp/configuration' },
       { method: 'POST', path: '/v1/mcp/servers/science%2Ftools/reconnect' },
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools/tools' },
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools/resources' },
@@ -109,18 +96,6 @@ describe('MCP server repository', () => {
       transport: 'stdio',
       command: 'uvx',
       args: ['clio-kit', 'mcp-server', 'web', '--remote-url', 'http://search:8089'],
-    });
-    expect(transport.requests[5]?.body).toEqual({
-      name: 'Science tools',
-      transport: 'http',
-      url: 'https://mcp.example.test',
-    });
-    expect(transport.requests[6]?.body).toEqual({
-      name: 'Local science tools',
-      transport: 'stdio',
-      command: 'science-tools',
-      args: ['serve'],
-      env: { SCIENCE_STATE: 'D:\\science-state' },
     });
   });
 });
