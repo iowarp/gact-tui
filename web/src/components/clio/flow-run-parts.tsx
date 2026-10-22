@@ -1,5 +1,6 @@
 import type { FlowOutcome, FlowRun, PlanView } from '@clio/core/v3';
-import { ChevronRightIcon, CopyIcon, XIcon } from 'lucide-react';
+import { ChevronRightIcon, CopyIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useState, type ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -227,7 +228,7 @@ function PickFrame({
             size="icon"
             variant="ghost"
           >
-            <XIcon aria-hidden="true" className="size-3.5" />
+            <CloseIcon aria-hidden="true" className="size-3.5" />
           </Button>
         </span>
       </div>
