@@ -148,6 +148,11 @@ export function SessionEvidenceSummary({
           label="Background work"
           value="background"
           count={activityCount}
+          summary={
+            !activityCount && (actions.workPages?.hasMore || actions.workPages?.history)
+              ? 'none running'
+              : undefined
+          }
         >
           <AsyncTaskList
             processes={backgroundProcesses}
