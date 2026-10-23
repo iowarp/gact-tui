@@ -577,6 +577,41 @@
   min-width: 100%;
 }
 
+/* maplibre's own controls and attribution, in the active theme. The control
+   icons are maplibre's dark glyph images, so a dark variant inverts them. */
+/* maplibre's stylesheet loads later with a `font` shorthand; outrank it. */
+div.maplibregl-map {
+  font-family: var(--font-sans);
+}
+.maplibregl-map .maplibregl-ctrl-group {
+  background: var(--popover);
+}
+.maplibregl-map .maplibregl-ctrl-group:not(:empty) {
+  box-shadow: 0 0 0 1px var(--border);
+}
+.maplibregl-map .maplibregl-ctrl-group button + button {
+  border-top-color: var(--border);
+}
+.maplibregl-map .maplibregl-ctrl-group button:focus-visible,
+.maplibregl-map .maplibregl-ctrl-attrib-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+.dark .maplibregl-map .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.maplibregl-map .maplibregl-ctrl-attrib,
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  background-color: color-mix(in oklab, var(--popover) 85%, transparent);
+  color: var(--popover-foreground);
+}
+.maplibregl-map .maplibregl-ctrl-attrib-button,
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button {
+  background-color: color-mix(in oklab, var(--muted) 70%, transparent);
+}
+.maplibregl-map .maplibregl-ctrl-attrib a {
+  color: var(--muted-foreground);
+}
+
 .clio-scientific-map-popup .maplibregl-popup-content {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

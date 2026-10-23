@@ -148,9 +148,9 @@
   --sidebar-border: oklch(0.34 0 0 / 60%);
   --sidebar-ring: oklch(0.77 0.145 198);
   --destructive: oklch(0.69 0.19 24);
-  --destructive-foreground: var(--color-red-600);
+  --destructive-foreground: var(--color-red-400);
   --info: oklch(0.72 0.14 215);
-  --info-foreground: var(--color-violet-600);
+  --info-foreground: var(--color-violet-400);
   --success: oklch(0.72 0.15 155);
   --success-foreground: var(--color-emerald-600);
   --warning: oklch(0.78 0.15 80);

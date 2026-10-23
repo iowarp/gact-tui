@@ -86,7 +86,9 @@ export function SettingsChoice({
           htmlFor={`${id}-${option}`}
           title={description}
           className={cn(
-            'flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-0.5 py-1.5 text-center text-sm text-muted-foreground @2xs:flex-row has-focus-visible:ring-2 has-focus-visible:ring-ring',
+            'flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-0.5 py-1.5 text-center text-sm text-muted-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring',
+            // Four or more labelled icons do not fit side by side in the control column.
+            (options.length < 4 || !Icon) && '@2xs:flex-row',
             value === option && 'bg-background text-foreground shadow-sm',
           )}
         >
