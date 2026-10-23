@@ -273,9 +273,9 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
         </Alert>
       ) : null}
       <RuntimeSettingsPanel
-        description="Global switches for long-term memory."
+        description="What the agent remembers, how it learns, and what waits for you."
         only="Memory"
-        title="Memory settings"
+        title="Settings"
       />
       <ClioSettingsSection
         description="Changes learned in the background or imported, waiting for your decision."
@@ -323,7 +323,14 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
           ))}
         </div>
       </ClioSettingsSection>
-      {sessionSearch ? <PastSessionsSearch initialSessionId={initialSessionId} /> : null}
+      {sessionSearch ? (
+        <ClioSettingsSection
+          description="Search what was said in earlier conversations. The agent can do the same when it needs to."
+          title="Past sessions"
+        >
+          <PastSessionsSearch initialSessionId={initialSessionId} />
+        </ClioSettingsSection>
+      ) : null}
       {opened ? (
         <MemoryDocumentDialog
           name={opened}

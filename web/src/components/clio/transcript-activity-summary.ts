@@ -31,6 +31,9 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
     if (tool.name === 'ask_user')
       return tool.state === 'running' ? 'asking questions' : 'asked questions';
     const category = activityCategory(tool);
+    if (category === 'remember') return active ? 'updating memory' : 'updated memory';
+    if (category === 'forget') return active ? 'forgetting' : 'forgot from memory';
+    if (category === 'recall') return active ? 'checking memory' : 'checked memory';
     if (category === 'search') return active ? 'running searches' : 'searched';
     if (category === 'read') return active ? 'reading files' : 'read files';
     if (category === 'edit') return active ? 'editing files' : 'edited files';
@@ -69,7 +72,12 @@ function injectionLabel(source: string): string {
   return 'received injection';
 }
 
-function activityCategory(tool: ToolInvocation): 'search' | 'read' | 'edit' | 'command' | 'other' {
+function activityCategory(
+  tool: ToolInvocation,
+): 'search' | 'read' | 'edit' | 'command' | 'remember' | 'forget' | 'recall' | 'other' {
+  if (['create_memory', 'update_memory'].includes(tool.name)) return 'remember';
+  if (tool.name === 'forget_memory') return 'forget';
+  if (['memory_search', 'memory_read'].includes(tool.name)) return 'recall';
   if (['shell_bash', 'shell_run', 'exec_command'].includes(tool.name)) return 'command';
   if (['fs_read_file', 'fs_read_text_file', 'workspace_resource_read'].includes(tool.name))
     return 'read';

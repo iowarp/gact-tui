@@ -314,7 +314,9 @@ export function MemoryHistoryDialog({
                   variant={chosen?.n === version.n ? 'secondary' : 'ghost'}
                 >
                   <span className="text-sm">{authorLabel(version)}</span>
-                  <span className="text-xs font-normal text-muted-foreground">{version.at}</span>
+                  <time className="text-xs font-normal text-muted-foreground" dateTime={version.at}>
+                    {new Date(version.at).toLocaleString()}
+                  </time>
                 </Button>
               </li>
             ))}

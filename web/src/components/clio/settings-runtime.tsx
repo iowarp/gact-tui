@@ -142,21 +142,23 @@ export function RuntimeSettingsPanel({
   );
   return (
     <div className="grid gap-6">
-      {heading}
+      {only ? null : heading}
       {groups.map((group) => (
         <ClioSettingsSection
           key={group}
-          title={group}
+          title={only ? title : group}
           description={
-            group === 'Execution'
-              ? 'Choose request budgets and recovery behavior.'
-              : group === 'Subagents'
-                ? `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`
-                : group === 'Workflows'
-                  ? 'Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.'
-                  : group === 'Memory'
-                    ? `Choose what ${vocab.agent} remembers about you and how it learns.`
-                    : 'Choose how context and response history are saved.'
+            only && description
+              ? description
+              : group === 'Execution'
+                ? 'Choose request budgets and recovery behavior.'
+                : group === 'Subagents'
+                  ? `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`
+                  : group === 'Workflows'
+                    ? 'Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.'
+                    : group === 'Memory'
+                      ? `Choose what ${vocab.agent} remembers about you and how it learns.`
+                      : 'Choose how context and response history are saved.'
           }
         >
           {source.settings
