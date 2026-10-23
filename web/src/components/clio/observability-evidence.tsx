@@ -44,6 +44,7 @@ import {
 import { Accordion } from '@/components/ui/accordion';
 import { useEvidenceSections } from '@/hooks/use-evidence-disclosures';
 import { EvidenceSection } from './observability-evidence-section';
+import { EvidenceRecord } from './observability-evidence-record';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -63,7 +64,7 @@ import {
   type EvidenceFile,
   type EvidencePlan,
 } from './session-evidence-projection';
-import { ClioStatus, type ClioStatusValue } from './status';
+import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 import { AsyncTaskList, type TaskPageControls } from './async-task-list';
@@ -463,35 +464,6 @@ function ToolEvidence({ tools }: { tools: readonly ToolInvocation[] }) {
           />
         </ClioInteractiveRow>
       ))}
-    </div>
-  );
-}
-
-function EvidenceRecord({
-  detail,
-  icon: Icon,
-  label,
-  state,
-}: {
-  detail?: string;
-  icon: typeof ActivityIcon;
-  label: string;
-  state: ClioStatusValue;
-}) {
-  return (
-    <div className="flex min-w-0 items-start gap-3">
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
-            {label}
-          </p>
-          <ClioStatus className="shrink-0 py-0.5" value={state} />
-        </div>
-        {detail ? (
-          <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{detail}</p>
-        ) : null}
-      </div>
     </div>
   );
 }
