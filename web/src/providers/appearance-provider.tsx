@@ -6,16 +6,27 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import { DEFAULT_PASTE_SOURCE_THRESHOLD } from '@/lib/composer-paste';
-
-const STORAGE_KEY = 'clio.appearance.v1';
+import type { ThemePreference } from '@/theme/contract';
+import {
+  APPEARANCE_STORAGE_KEY as STORAGE_KEY,
+  DARK_SCHEME_QUERY,
+  DEFAULT_THEME_PREFERENCE,
+  parseThemePreference,
+  readThemePreference,
+  resolveTheme,
+  switchTheme,
+  type ResolvedTheme,
+} from '@/theme/preference';
 
 export type MotionPreference = 'system' | 'reduced';
 export type ConversationWidth = 'focused' | 'wide';
 export type InterfaceSize = 100 | 125 | 150;
 
 interface AppearancePreferences {
+  theme: ThemePreference;
   motion: MotionPreference;
   conversationWidth: ConversationWidth;
   collapseThreshold: number;
@@ -25,6 +36,9 @@ interface AppearancePreferences {
 }
 
 interface AppearanceContextValue extends AppearancePreferences {
+  /** The applied theme: the choice, with System and Notebook following the OS scheme. */
+  resolvedTheme: ResolvedTheme;
+  setTheme: (theme: ThemePreference) => void;
   setMotion: (motion: MotionPreference) => void;
   setConversationWidth: (width: ConversationWidth) => void;
   setCollapseThreshold: (lines: number) => void;
@@ -34,6 +48,7 @@ interface AppearanceContextValue extends AppearancePreferences {
 }
 
 const defaults: AppearancePreferences = {
+  theme: DEFAULT_THEME_PREFERENCE,
   motion: 'system',
   conversationWidth: 'focused',
   collapseThreshold: 5,
@@ -72,6 +87,16 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
+  const systemDark = useSyncExternalStore(subscribeSystemScheme, systemPrefersDark, () => false);
+  const resolvedTheme = useMemo(
+    () => resolveTheme(preferences.theme, systemDark),
+    [preferences.theme, systemDark],
+  );
+  // The boot script applied the stored theme before first paint; this keeps
+  // <html> in step with later choices and OS scheme changes, without a reload.
+  useEffect(() => {
+    switchTheme(document.documentElement, resolvedTheme);
+  }, [resolvedTheme]);
   useEffect(() => {
     document.documentElement.dataset.clioMotion = preferences.motion;
   }, [preferences.motion]);
@@ -81,6 +106,8 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   const value = useMemo<AppearanceContextValue>(
     () => ({
       ...preferences,
+      resolvedTheme,
+      setTheme: (theme) => update({ theme }),
       setMotion: (motion) => update({ motion }),
       setConversationWidth: (conversationWidth) => update({ conversationWidth }),
       setCollapseThreshold: (lines) =>
@@ -94,7 +121,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
             : DEFAULT_PASTE_SOURCE_THRESHOLD,
         }),
     }),
-    [preferences, update],
+    [preferences, resolvedTheme, update],
   );
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;
 }
@@ -116,10 +143,30 @@ export function useAppearancePreferences(): AppearanceContextValue {
 function readPreferences(): AppearancePreferences {
   if (typeof window === 'undefined') return defaults;
   try {
-    return parsePreferences(window.localStorage.getItem(STORAGE_KEY));
+    return {
+      ...parsePreferences(window.localStorage.getItem(STORAGE_KEY)),
+      theme: readThemePreference(window.localStorage),
+    };
   } catch {
     return defaults;
   }
+}
+
+function subscribeSystemScheme(onChange: () => void): () => void {
+  const query = window.matchMedia(DARK_SCHEME_QUERY);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+function systemPrefersDark(): boolean {
+  return window.matchMedia(DARK_SCHEME_QUERY).matches;
+}
+
+/** The theme choice and the theme applied to the page. */
+// oxlint-disable-next-line react/only-export-components
+export function useTheme(): Pick<AppearanceContextValue, 'theme' | 'resolvedTheme' | 'setTheme'> {
+  const { theme, resolvedTheme, setTheme } = useAppearancePreferences();
+  return { theme, resolvedTheme, setTheme };
 }
 
 // oxlint-disable-next-line react/only-export-components
@@ -136,6 +183,7 @@ export function usePasteSourceThreshold(): number {
 function parsePreferences(raw: string | null): AppearancePreferences {
   const value = JSON.parse(raw ?? '{}') as Record<string, unknown>;
   return {
+    theme: parseThemePreference(value.theme),
     motion: value.motion === 'reduced' ? 'reduced' : 'system',
     conversationWidth: value.conversationWidth === 'wide' ? 'wide' : 'focused',
     collapseThreshold:

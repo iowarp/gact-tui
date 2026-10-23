@@ -11,14 +11,15 @@ import {
   CheckCircle2Icon,
   CircleAlertIcon,
   KeyRoundIcon,
+  BugIcon,
   MonitorCogIcon,
   MoonIcon,
+  NotebookPenIcon,
   SunIcon,
   Volume2Icon,
 } from 'lucide-react';
 import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { useTheme } from 'next-themes';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ComponentType, type SVGProps } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
@@ -75,7 +76,9 @@ import {
   type InterfaceSize,
   type MotionPreference,
   useAppearancePreferences,
+  useTheme,
 } from '@/providers/appearance-provider';
+import { THEMES, type ThemeId, type ThemePreference } from '@/theme/contract';
 import {
   returnRouteFromState,
   sessionIdFromRoute,
@@ -302,6 +305,28 @@ function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
   );
 }
 
+const THEME_ICONS: Record<ThemeId, ComponentType<SVGProps<SVGSVGElement>>> = {
+  light: SunIcon,
+  dark: MoonIcon,
+  notebook: NotebookPenIcon,
+  debug: BugIcon,
+};
+
+const THEME_DESCRIPTIONS: Partial<Record<ThemeId, string>> = {
+  notebook: 'Paper, ink and verdigris. Follows your system light or dark setting.',
+  debug: 'Development only: every color is red, so anything else skips the theme.',
+};
+
+const themeOptions = [
+  { value: 'system', label: 'System', icon: MonitorCogIcon },
+  ...THEMES.filter((theme) => !theme.development || import.meta.env.DEV).map((theme) => ({
+    value: theme.id,
+    label: theme.label,
+    description: THEME_DESCRIPTIONS[theme.id],
+    icon: THEME_ICONS[theme.id],
+  })),
+];
+
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();
   const {
@@ -319,17 +344,20 @@ function AppearanceSettings() {
         description={`Choose how ${vocab.agent} looks and presents your conversations.`}
       />
       <div>
-        <SettingsRow title="Theme" description={`System currently uses ${resolvedTheme}.`}>
+        <SettingsRow
+          title="Theme"
+          description={
+            theme === 'system' || THEMES.find(({ id }) => id === theme)?.scheme === 'system'
+              ? `Following your system, now ${resolvedTheme.dark ? 'dark' : 'light'}.`
+              : 'Choose a theme, or follow your system setting.'
+          }
+        >
           <SettingsChoice
             id="theme"
             label="Theme"
-            value={theme ?? 'system'}
-            onChange={setTheme}
-            options={[
-              { value: 'system', label: 'System', icon: MonitorCogIcon },
-              { value: 'light', label: 'Light', icon: SunIcon },
-              { value: 'dark', label: 'Dark', icon: MoonIcon },
-            ]}
+            value={theme}
+            onChange={(value) => setTheme(value as ThemePreference)}
+            options={themeOptions}
           />
         </SettingsRow>
         <SettingsRow

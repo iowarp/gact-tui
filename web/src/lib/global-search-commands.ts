@@ -1,4 +1,13 @@
-import { ActivityIcon, CableIcon, MonitorIcon, MoonIcon, NetworkIcon, SunIcon } from 'lucide-react';
+import {
+  ActivityIcon,
+  CableIcon,
+  MonitorIcon,
+  MoonIcon,
+  NetworkIcon,
+  NotebookPenIcon,
+  SunIcon,
+} from 'lucide-react';
+import type { ThemePreference } from '@/theme/contract';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import {
   INFRASTRUCTURE_SECTIONS,
@@ -8,7 +17,7 @@ import {
 
 export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group'> {
   group: 'Navigation' | 'Settings' | 'Infrastructure' | 'Actions';
-  action: { route: string } | { theme: 'light' | 'dark' | 'system' };
+  action: { route: string } | { theme: ThemePreference };
 }
 
 /** Match all typed terms across names, categories and aliases without a remote request. */
@@ -90,6 +99,14 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
       group: 'Actions',
       keywords: 'theme appearance color night',
       action: { theme: 'dark' },
+    },
+    {
+      id: 'theme:notebook',
+      label: 'Switch to Notebook theme',
+      icon: NotebookPenIcon,
+      group: 'Actions',
+      keywords: 'theme appearance color paper ink notebook warm',
+      action: { theme: 'notebook' },
     },
     {
       id: 'theme:system',
