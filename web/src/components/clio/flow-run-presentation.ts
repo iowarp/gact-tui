@@ -249,6 +249,23 @@ export function flowVerdict(run: FlowRun): FlowVerdict {
 }
 
 /**
+ * A council's members or an arena's entries: the calls its result lists, or
+ * while it runs, the calls gathered together with the first one. A synthesis
+ * or judge run as a call of its own is the flow's closing step, not a member.
+ */
+function memberCalls(run: FlowRun, calls: FlowCall[]): FlowCall[] {
+  if (run.flow !== 'council' && run.flow !== 'arena') return calls;
+  const result = asRecord(run.result);
+  const listed = result?.[run.flow === 'council' ? 'members' : 'entries'];
+  if (Array.isArray(listed) && listed.length) {
+    const handles = new Set(listed.filter((value): value is string => typeof value === 'string'));
+    return calls.filter((call) => call.handle !== undefined && handles.has(call.handle));
+  }
+  const group = calls[0]?.together;
+  return group ? calls.filter((call) => call.together === group) : calls;
+}
+
+/**
  * The tasks a flow started, labelled as that flow names them. Arena entries
  * use the judge's own numbering (from 1) so its rationale reads against them.
  */
@@ -262,7 +279,7 @@ export function flowMembers(
     ? options.perspectives.filter((value): value is string => typeof value === 'string')
     : [];
   const verdict = flowVerdict(run);
-  const calls = run.calls.filter((call) => call.kind !== 'ask');
+  const calls = memberCalls(run, run.calls.filter((call) => call.kind !== 'ask'));
   return calls.map((call: FlowCall, index): FlowMember => {
     const label =
       run.flow === 'council'

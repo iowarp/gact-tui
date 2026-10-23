@@ -266,6 +266,30 @@ describe('flow railroad', () => {
     expect(diagram.railroad.marks[2]!.title).toBe('The judge: picked entry 2.');
   });
 
+  it('keeps a council synthesis run as its own call out of the members', () => {
+    const run = flowRunSchema.parse({
+      flow: 'council',
+      status: 'completed',
+      view: null,
+      calls: [
+        { invocation: 'a', kind: 'agent', target: 'clio/standard', handle: 'm0', status: 'completed', together: 'a' },
+        { invocation: 'b', kind: 'agent', target: 'clio/standard', handle: 'm1', status: 'completed', together: 'a' },
+        { invocation: 'c', kind: 'agent', target: 'self', handle: 's', status: 'completed' },
+      ],
+      result: { answer: 'x', members: ['m0', 'm1'], synthesizer: 's' },
+    });
+    expect(flowMembers(run, 'clio/standard').map((member) => member.handle)).toEqual(['m0', 'm1']);
+    const running = flowRunSchema.parse({ ...run, status: 'running', result: null });
+    expect(flowMembers(running, 'clio/standard').map((member) => member.handle)).toEqual([
+      'm0',
+      'm1',
+    ]);
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.source).toContain('terminal("member 2")');
+    expect(diagram.railroad.source).not.toContain('member 3');
+  });
+
   it('draws any other flow from its calls: each batch side by side, batches in order', () => {
     // A debate: two sides together, the judge alone, then the next round.
     const run = flowRunSchema.parse({
