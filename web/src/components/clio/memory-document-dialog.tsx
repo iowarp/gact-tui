@@ -202,7 +202,10 @@ export function MemoryDocumentDialog({
 
 /** A document line as a person reads it: a fact without its annotation, no stamps. */
 function readable(line: string): string | undefined {
-  if (!line.trim() || line === '---' || /^updated:/u.test(line)) return undefined;
+  if (!line.trim() || line === '---' || /^(updated|name|category|forgotten):/u.test(line))
+    return undefined;
+  const about = /^description: (.*)$/u.exec(line);
+  if (about) return `About: ${about[1]}`;
   const fact = /^- (.*) \{id=[^}]*\}$/u.exec(line);
   if (!fact) return line;
   const struck = /^~~(.*)~~$/u.exec(fact[1]);

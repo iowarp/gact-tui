@@ -236,7 +236,9 @@ export class MemoryRepository extends ResponseFeedbackRepository {
     target: { scope?: string; name?: string } = {},
     signal?: AbortSignal,
   ): Promise<Uint8Array> {
-    const query = target.name ? { name: target.name } : { scope: target.scope ?? 'all' };
+    const query: Record<string, string> = target.name
+      ? { name: target.name }
+      : { scope: target.scope ?? 'all' };
     return this.transport.request({
       method: 'GET',
       path: `/v1/memory/export?${new URLSearchParams(query)}`,

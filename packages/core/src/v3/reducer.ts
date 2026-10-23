@@ -414,6 +414,9 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
             cost_usd: payload.cost_usd ?? message.cost_usd,
             stop_reason: payload.stop_reason ?? message.stop_reason,
             error_info: payload.error_info ?? message.error_info,
+            metadata: payload.metadata
+              ? { ...message.metadata, ...payload.metadata }
+              : message.metadata,
             blocks: message.blocks.map((block) =>
               block.type === 'text' || block.type === 'reasoning'
                 ? { ...block, streaming: false }
