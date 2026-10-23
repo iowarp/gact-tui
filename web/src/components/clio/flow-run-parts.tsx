@@ -471,13 +471,23 @@ export function FlowScript({
   );
 }
 
-/** The workflow's editing bounds in words. */
+/**
+ * A workflow that can change while it runs says so with one tag; who may change it,
+ * by how much, and whether you approve each change are on hover. A workflow nobody
+ * may change says nothing: running as written is the expected case.
+ */
 export function WorkflowBounds({ view }: { view: WorkflowView }) {
+  if (!view.editors.length) return null;
+  const detail = `${editorBounds(view)}${view.approve_edits ? '. Added steps need your approval.' : '.'}`;
   return (
-    <p className="text-xs text-muted-foreground">
-      {view.editors.length ? editorBounds(view) : 'No editors; the workflow runs as written'}
-      {view.approve_edits ? '. Added steps need your approval.' : '.'}
-    </p>
+    <span
+      aria-label={`Can change while running: ${detail}`}
+      className="w-fit cursor-help text-xs text-muted-foreground underline decoration-dotted underline-offset-4"
+      tabIndex={0}
+      title={detail}
+    >
+      Can change while running
+    </span>
   );
 }
 

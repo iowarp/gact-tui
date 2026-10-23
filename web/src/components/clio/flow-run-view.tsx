@@ -296,6 +296,7 @@ export function FlowRunDetails({
 }
 
 function FlowResult({ result }: { result: unknown }) {
+  const finals = workflowFinalAnswers(result);
   const answer =
     result && typeof result === 'object' && 'answer' in result
       ? (result as { answer: unknown }).answer
@@ -303,16 +304,42 @@ function FlowResult({ result }: { result: unknown }) {
   return (
     <section aria-label="Flow result" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
       <h3 className="text-xs font-medium text-muted-foreground">Result</h3>
-      {typeof answer === 'string' ? (
+      {finals ? (
+        // A workflow's result is its final steps' answers; each earlier step's answer is
+        // on that step in the diagram, not repeated here.
+        finals.map(([step, text]) => (
+          <div className="grid min-w-0 gap-1" key={step}>
+            {finals.length > 1 ? <p className="text-xs font-medium">{step}</p> : null}
+            <ContentMarkdown className="text-sm leading-6">{text}</ContentMarkdown>
+          </div>
+        ))
+      ) : typeof answer === 'string' ? (
         // The answer is the model's Markdown, rendered as the conversation renders it.
-        <ContentMarkdown className="rounded-md border bg-card p-3 text-sm leading-6">
-          {answer}
-        </ContentMarkdown>
+        <ContentMarkdown className="text-sm leading-6">{answer}</ContentMarkdown>
       ) : (
-        <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-card p-3 font-mono text-xs">
+        <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/30 p-3 font-mono text-xs">
           {JSON.stringify(answer, null, 2)}
         </pre>
       )}
     </section>
   );
+}
+
+/** A completed workflow's final steps (none waits on them) with their answers, in order. */
+function workflowFinalAnswers(result: unknown): Array<[string, string]> | undefined {
+  if (!result || typeof result !== 'object') return undefined;
+  const { results, workflow } = result as {
+    results?: Record<string, unknown>;
+    workflow?: { steps?: Array<{ id?: unknown; after?: unknown }> };
+  };
+  const steps = workflow?.steps;
+  if (!results || typeof results !== 'object' || !Array.isArray(steps)) return undefined;
+  const waitedOn = new Set(
+    steps.flatMap((step) => (Array.isArray(step.after) ? step.after.map(String) : [])),
+  );
+  const finals = steps
+    .map((step) => String(step.id ?? ''))
+    .filter((id) => id && !waitedOn.has(id) && typeof results[id] === 'string')
+    .map((id): [string, string] => [id, String(results[id])]);
+  return finals.length ? finals : undefined;
 }
