@@ -53,7 +53,8 @@ test('settings controls share a centre and remain within narrow windows', async 
     .getByRole('radiogroup', { name: 'Theme' })
     .locator('svg')
     .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().width));
-  expect(icons).toHaveLength(3);
+  // System, Light, Dark and Notebook (Debug is offered in development builds only).
+  expect(icons).toHaveLength(4);
   expect(Math.min(...icons)).toBeGreaterThanOrEqual(15);
 });
 

@@ -180,7 +180,8 @@
   --color-highlight-foreground: var(--highlight-foreground);
   --color-media-backdrop: var(--media-backdrop);
   --color-media-foreground: var(--media-foreground);
-  /* Tailwind's shadow scale, in the theme's shadow color instead of black. */
+  /* Tailwind's shadow scale in the theme's shadow color. Light and Dark use
+     black at 50%, which reproduces Tailwind's own black shadows exactly. */
   --shadow-2xs: 0 1px color-mix(in oklab, var(--shadow-color) 10%, transparent);
   --shadow-xs: 0 1px 2px 0 color-mix(in oklab, var(--shadow-color) 10%, transparent);
   --shadow-sm: 0 1px 3px 0 color-mix(in oklab, var(--shadow-color) 20%, transparent),

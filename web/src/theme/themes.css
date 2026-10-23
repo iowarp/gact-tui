@@ -102,7 +102,7 @@
   --syntax-token-punctuation: #24292e;
   --syntax-token-link: #032f62;
   --scrim: oklch(0 0 0 / 10%);
-  --shadow-color: oklch(0.21 0.04 265 / 50%);
+  --shadow-color: oklch(0 0 0 / 50%);
   --highlight: var(--color-blue-200);
   --highlight-foreground: var(--color-blue-950);
   --media-backdrop: oklch(0 0 0);
@@ -200,7 +200,7 @@
   --syntax-token-punctuation: #e1e4e8;
   --syntax-token-link: #dbedff;
   --scrim: oklch(0 0 0 / 10%);
-  --shadow-color: oklch(0 0 0 / 80%);
+  --shadow-color: oklch(0 0 0 / 50%);
   --highlight: var(--color-blue-800);
   --highlight-foreground: var(--color-blue-50);
   --media-backdrop: oklch(0 0 0);
