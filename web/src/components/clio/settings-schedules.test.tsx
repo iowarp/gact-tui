@@ -79,13 +79,55 @@ function renderSettings(initialSessionId?: string) {
 }
 
 describe('scheduled work settings', () => {
+  it('summarizes the service timezone and submits a typed repeating time only on Schedule', async () => {
+    const user = userEvent.setup();
+    renderSettings('sess_1');
+    await screen.findByText('Inspect fresh results.');
+    await user.click(screen.getByRole('radio', { name: /^Repeats/u }));
+    const time = screen.getByRole('textbox', { name: 'Time' });
+    await user.clear(time);
+    await user.type(time, '14:35');
+    await user.tab();
+    expect(screen.getByText(/^Every weekday at .*America\/Chicago\.$/u)).toBeVisible();
+    expect(repository.createScheduledTurn).not.toHaveBeenCalled();
+    await user.type(screen.getByRole('textbox', { name: 'Instruction' }), 'Review observations.');
+    await user.click(screen.getByRole('button', { name: 'Schedule work' }));
+    await waitFor(() =>
+      expect(repository.createScheduledTurn).toHaveBeenCalledWith(
+        'sess_1',
+        expect.objectContaining({
+          cron: '35 14 * * 1-5',
+          timezone: 'America/Chicago',
+          recurring: true,
+        }),
+      ),
+    );
+  });
+
+  it('shows a real loading layout, then an error with Retry rather than a false empty state', async () => {
+    let reject!: (reason: Error) => void;
+    repository.scheduledTurns.mockReturnValueOnce(
+      new Promise((_resolve, fail) => {
+        reject = fail;
+      }),
+    );
+    renderSettings('sess_1');
+    expect(await screen.findByRole('status', { name: 'Loading scheduled work…' })).toBeVisible();
+    reject(new Error('Service unavailable'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Service unavailable');
+    expect(screen.queryByText('Nothing is scheduled for this session')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Inspect fresh results.')).toBeVisible();
+  });
+
   it('creates and cancels session-owned work without exposing paths or fake progress', async () => {
     const user = userEvent.setup();
     renderSettings('sess_1');
 
     expect(await screen.findByText('Inspect fresh results.')).toBeVisible();
     expect(screen.getByText('Weekdays')).toBeVisible();
-    expect(screen.getByText(/America\/Chicago/)).toBeVisible();
+    const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(screen.getByText(/^Run once on /u)).toHaveTextContent(`${deviceTimezone}.`);
     expect(screen.queryByText(/D:\\/u)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: 'Session' }));

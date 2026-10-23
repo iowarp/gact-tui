@@ -31,6 +31,7 @@ import {
   ManagedServiceState,
   VerificationState,
 } from './managed-service-identity';
+import { managedServiceStatus } from '@/lib/managed-service-status';
 
 export type ServiceAction = ServiceActionInput['action'];
 export type ServiceActionFeedback = {
@@ -117,6 +118,7 @@ export function ManagedServiceCard({
     service.state === 'running' ||
     service.state === 'stopped';
   const recorded = (service.owned_resources ?? []).length > 0;
+  const serviceStatus = managedServiceStatus(service);
   const compatible = service.variants.some((item) => item.id === variant && item.compatible);
   const fields = service.configuration_fields.filter(
     (field) => !field.variants?.length || field.variants.includes(variant),
@@ -262,6 +264,9 @@ export function ManagedServiceCard({
             <TabsTrigger value="storage">Storage</TabsTrigger>
           </TabsList>
           <TabsContent value="status" className="space-y-4 pt-3">
+            {serviceStatus.reason ? (
+              <p className="text-sm text-warning-foreground">{serviceStatus.reason}</p>
+            ) : null}
             {llama && installed && service.state !== 'running' ? (
               <>
                 <p className="text-sm text-muted-foreground">
@@ -290,7 +295,7 @@ export function ManagedServiceCard({
                 </>
               ) : installed ? (
                 act('start')
-              ) : retainsData && service.observation?.phase === 'not_installed' ? (
+              ) : serviceStatus.action === 'install' ? (
                 act('install')
               ) : null}
               {act('status')}

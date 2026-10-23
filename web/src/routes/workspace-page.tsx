@@ -616,6 +616,7 @@ export function WorkspacePage() {
               onOpenTerminal={terminalActions.onOpenTerminal}
               onOpenSubagent={openSubagent}
               subagents={subagents}
+              finishedWorkHidden={Boolean(workPages?.hasMore || workPages?.history)}
               onUndoDiff={(targetSessionId, targetWorkspaceId, changeId) =>
                 diffActions.undo.mutateAsync({
                   sessionId: targetSessionId,

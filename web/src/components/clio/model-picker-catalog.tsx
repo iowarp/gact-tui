@@ -1,6 +1,7 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { LoadingFeedback } from './loading-feedback';
 import {
   Cascader,
   CascaderList,
@@ -135,7 +136,12 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   const loadingModels =
     activeGroup && (!prepared.has(activeGroup.id) || (loading && !activeGroup.choices.length));
   const loadingPanel = (
-    <div role="status" aria-busy="true" aria-label="Loading available models" className="space-y-3 p-3">
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading available models"
+      className="space-y-3 p-3"
+    >
       <p className="text-sm text-muted-foreground">Loading {activeGroup?.name} models…</p>
       {Array.from({ length: 6 }, (_, index) => (
         <Skeleton key={index} className="h-9 w-full" />
@@ -402,14 +408,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
           </>
         )}
         <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-1 px-2">
-          {prepared.size < visibleProviders.length ? (
-            <span
-              role="status"
-              aria-label={search.searching ? 'Loading available models' : undefined}
-              className="text-xs text-muted-foreground"
-            >
-              Loading remaining models…
-            </span>
+          {loading || prepared.size < visibleProviders.length ? (
+            <LoadingFeedback label={loading ? 'Refreshing models…' : 'Loading remaining models…'} />
           ) : null}
           <div className="flex min-w-0 items-center gap-1">
             <Button

@@ -36,7 +36,11 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
     if (category === 'recall') return active ? 'checking memory' : 'checked memory';
     if (category === 'search') return active ? 'running searches' : 'searched';
     if (category === 'read') return active ? 'reading files' : 'read files';
-    if (category === 'edit') return active ? 'editing files' : 'edited files';
+    if (category === 'edit') {
+      if (active) return 'editing files';
+      // A refused or failed write changed nothing; do not say it edited.
+      return tool.state === 'succeeded' ? 'edited files' : 'tried to edit files';
+    }
     if (category === 'command') return active ? 'running commands' : 'ran commands';
     return active ? 'using tools' : 'used tools';
   };
@@ -61,13 +65,14 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
 }
 
 function injectionLabel(source: string): string {
-  if (['task_completion', 'task_results'].includes(source)) return 'received results';
+  if (['task_completion', 'task_result', 'task_results', 'memory_search'].includes(source))
+    return 'received results';
   if (source === 'memory') return 'received memory';
   if (source === 'goal_judgment') return 'received goal judgment';
   if (source === 'loop_wake') return 'received loop wake';
   if (source === 'scheduled_wake') return 'received scheduled wake';
   if (source === 'summarization' || source === 'earlier_turns') return 'received context';
-  if (['plan_mode', 'todos', 'path_hint', 'replan', 'circuit_breaker'].includes(source))
+  if (['plan_mode', 'todos', 'path_hint', 'replan', 'circuit_breaker', 'tool_use'].includes(source))
     return 'received reminder';
   return 'received injection';
 }

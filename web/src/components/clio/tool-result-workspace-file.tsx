@@ -86,9 +86,7 @@ function useWorkspaceFileIntegrity({
   if (query.error) {
     return {
       status:
-        query.error instanceof TransportError && query.error.status === 404
-          ? 'missing'
-          : 'unknown',
+        query.error instanceof TransportError && query.error.status === 404 ? 'missing' : 'unknown',
     };
   }
   if (!expectedSha256) return { status: 'unknown', bytes: query.data.bytes };
@@ -228,6 +226,7 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
         ) : (
           <div className="max-h-72 min-h-36 overflow-hidden">
             <WorkspaceFileView
+              embedded
               initialPage={block.pages?.[0]}
               mediaType={block.media_type}
               path={path}

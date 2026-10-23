@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { ComponentProps } from 'react';
+import { createRef, type ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useUpdateFlowStore } from '@/store/update-flow-store';
@@ -8,9 +8,20 @@ import {
   WorkspaceHydrating,
   WorkspaceStatusStrip,
   WorkspaceTranscriptAlerts,
+  TranscriptPresenceSurface,
 } from './workspace-route-surfaces';
 
 const tauri = vi.hoisted(() => ({ inTauri: vi.fn(() => false) }));
+
+it('gives the transition its DOM node so an exiting welcome can leave the flex layout', () => {
+  const ref = createRef<HTMLDivElement>();
+  render(
+    <TranscriptPresenceSurface ref={ref} className="min-h-0 flex-1">
+      Welcome
+    </TranscriptPresenceSurface>,
+  );
+  expect(ref.current).toBe(screen.getByText('Welcome'));
+});
 
 vi.mock('./navigation-version-status', () => ({
   SystemVersionStatus: () => <button type="button">System version</button>,

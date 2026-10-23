@@ -8,10 +8,9 @@ import {
   EyeIcon,
   HistoryIcon,
   GitBranchIcon,
-  FileIcon,
   FileCode2Icon,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -23,13 +22,7 @@ import {
 } from '@/components/ai-elements/code-block';
 import { ContentMarkdown } from './content-markdown';
 import { DOCUMENT_MARKDOWN_CLASS_NAME, normalizeConvertedMarkdown } from '@/lib/document-markdown';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRepository } from '@/hooks/use-repository';
@@ -49,6 +42,8 @@ import { isHtmlFile } from './html-preview-policy';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { FileViewerShell } from './file-viewer-shell';
+import { FileViewerInformationHost } from './file-viewer-context';
+import { ViewerToolbarContent } from './viewer-toolbar';
 import { ImageResourceView } from './image-resource-view';
 import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
@@ -59,6 +54,7 @@ export function WorkspaceFileView({
   size,
   mediaType,
   initialPage,
+  embedded = false,
 }: {
   workspaceId: string;
   path: string;
@@ -67,6 +63,8 @@ export function WorkspaceFileView({
   /** PDF only: the page to open on, when the caller already knows which page
    * matters (e.g. the page range an agent's view_pdf call actually viewed). */
   initialPage?: number;
+  /** The enclosing tool-result card already owns the file identity. */
+  embedded?: boolean;
 }) {
   const detected = mediaType || inferredWorkspaceMediaType(path);
   const html =
@@ -90,6 +88,7 @@ export function WorkspaceFileView({
   return (
     <FileViewerShell
       source={{ kind: 'workspace', workspaceId, path, mediaType: detected, size }}
+      showIdentity={!embedded}
       tabs={[
         { value: 'preview', label: 'Preview', icon: EyeIcon, content: preview },
         ...(html
@@ -235,16 +234,12 @@ function WorkspaceBinaryView({
 
   return (
     <div className="grid h-full place-items-center p-6">
-      <Empty className="max-w-lg border">
+      <Empty className="max-w-lg">
         <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <FileIcon aria-hidden="true" />
-          </EmptyMedia>
-          <EmptyTitle>{fileName(path)}</EmptyTitle>
+          <EmptyTitle>No inline preview</EmptyTitle>
           <EmptyDescription>
             {mediaType} · {size === undefined ? 'Size unavailable' : formatBytes(size)}
           </EmptyDescription>
-          <p className="break-all font-mono text-xs text-muted-foreground">{path}</p>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
             <Button disabled={busy} onClick={() => void open()} size="sm">
               <ExternalLinkIcon aria-hidden="true" />
@@ -472,6 +467,7 @@ export function TextResourceView({
   mediaType?: string;
   htmlView?: 'preview' | 'source';
 }) {
+  const sharedHeader = useContext(FileViewerInformationHost) !== undefined;
   if (content === undefined && !error)
     return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
   if (error)
@@ -505,15 +501,21 @@ export function TextResourceView({
         language={languageForPath(path)}
         showLineNumbers
       >
-        <CodeBlockHeader>
-          <CodeBlockTitle>
-            <FileCode2Icon aria-hidden="true" className="size-4 shrink-0" />
-            <CodeBlockFilename>{path}</CodeBlockFilename>
-          </CodeBlockTitle>
-          <CodeBlockActions>
+        {sharedHeader ? (
+          <ViewerToolbarContent>
             <CodeBlockCopyButton aria-label={`Copy ${fileName(path)}`} size="icon-xs" />
-          </CodeBlockActions>
-        </CodeBlockHeader>
+          </ViewerToolbarContent>
+        ) : (
+          <CodeBlockHeader>
+            <CodeBlockTitle>
+              <FileCode2Icon aria-hidden="true" className="size-4 shrink-0" />
+              <CodeBlockFilename>{path}</CodeBlockFilename>
+            </CodeBlockTitle>
+            <CodeBlockActions>
+              <CodeBlockCopyButton aria-label={`Copy ${fileName(path)}`} size="icon-xs" />
+            </CodeBlockActions>
+          </CodeBlockHeader>
+        )}
       </CodeBlock>
     </div>
   );

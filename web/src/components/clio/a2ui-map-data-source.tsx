@@ -19,6 +19,7 @@ import { filenameStemFromTitle } from './surface-export';
 import type { SurfaceCapabilities, SurfaceExportFormat } from './surface-toolbar';
 import type { MapCameraProps } from './map-camera';
 import { artifactIdFromDataUri, useTableQueryRows, type TableDataQuery } from './table-query-rows';
+import { LoadingFeedback, LoadingFailure } from './loading-feedback';
 import { downloadServerTableExport, type ServerExportQuery } from './table-export-client';
 
 export interface ClioMapArtifactSourceProps extends MapFieldNames, MapCameraProps {
@@ -118,12 +119,13 @@ export function ClioMapArtifactSource({
     if (!merged.length) return dataQuery;
     return { ...dataQuery, filter: merged };
   }, [dataQuery, filters]);
-  const { rows, loading, error, matchedRows, totalRows, returnedRows, schema } = useTableQueryRows({
-    columns,
-    data: undefined,
-    dataQuery: effectiveDataQuery,
-    dataUri,
-  });
+  const { rows, loading, refreshing, retry, error, matchedRows, totalRows, returnedRows, schema } =
+    useTableQueryRows({
+      columns,
+      data: undefined,
+      dataQuery: effectiveDataQuery,
+      dataUri,
+    });
   const filterableFields = useMemo<DataFilterField[]>(() => {
     const seen = new Set<string>();
     const fields: DataFilterField[] = [];
@@ -345,7 +347,7 @@ export function ClioMapArtifactSource({
     return (
       <div className="min-w-0 space-y-2" role="group">
         <h3 className="text-sm font-medium">{title}</h3>
-        <p className="text-sm text-destructive">Map unavailable: {error}</p>
+        <LoadingFailure title="Map unavailable" detail={error} onRetry={retry} />
       </div>
     );
   }
@@ -353,12 +355,15 @@ export function ClioMapArtifactSource({
     return (
       <div className="min-w-0 space-y-2" role="group">
         <h3 className="text-sm font-medium">{title}</h3>
-        <Skeleton aria-label={`Loading ${title} map`} className="h-[26rem] w-full rounded-none" />
+        <LoadingFeedback label={`Loading ${title} map`} variant="skeleton">
+          <Skeleton className="h-[26rem] w-full rounded-none" />
+        </LoadingFeedback>
       </div>
     );
   }
   return (
     <div className="grid gap-1">
+      {refreshing ? <LoadingFeedback label="Updating map…" /> : null}
       <ClioScientificMap
         {...rest}
         dataCapabilities={dataCapabilities}

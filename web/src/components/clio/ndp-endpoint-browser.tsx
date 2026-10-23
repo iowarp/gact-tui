@@ -19,6 +19,7 @@ import {
   type NDPRecord,
 } from './ndp-endpoint-data';
 import { NDPWorkflowForm, type NDPWorkflow } from './ndp-workflow-form';
+import { NDPSdkStreamActions } from './ndp-sdk-stream-actions';
 
 /** Browse data domains first; the API console remains an optional diagnostic surface. */
 export function NDPEndpointBrowser({
@@ -95,7 +96,11 @@ export function NDPEndpointBrowser({
         : tab === 'Catalog'
           ? 'POST /dataset'
           : tab === 'Streams' || tab === 'Stations'
-            ? 'POST /bridge/sessions'
+            ? tab === 'Streams' && has('SDK streaming_v2.open')
+              ? 'SDK streaming_v2.open'
+              : tab === 'Streams' && has('POST /streams')
+                ? 'POST /streams'
+                : 'POST /bridge/sessions'
             : '';
   const createTitle =
     tab === 'Organizations'
@@ -104,7 +109,11 @@ export function NDPEndpointBrowser({
         ? 'Register service'
         : tab === 'Catalog'
           ? 'Create dataset'
-          : 'Start stream';
+          : has('SDK streaming_v2.open')
+            ? 'Open stream reader'
+            : has('POST /streams')
+              ? 'Open stream view'
+              : 'Start stream';
   const sample = (row: NDPRecord) => {
     if (tab === 'Files')
       action('GET /pull/file/{filename}', 'Sample archived data', {
@@ -123,7 +132,12 @@ export function NDPEndpointBrowser({
         workflow={workflow}
         onClose={() => setWorkflow(undefined)}
         onSaved={() => {
-          if (!workflow.operation.read_only) void listing.refetch();
+          if (
+            !workflow.operation.read_only ||
+            workflow.operation.id === 'GET /streams/{stream_id}/segment' ||
+            workflow.operation.id.startsWith('SDK streaming_v2.')
+          )
+            void listing.refetch();
         }}
       />
     );
@@ -261,10 +275,20 @@ export function NDPEndpointBrowser({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="break-words text-sm font-medium">{recordName(row)}</p>
-                        {row.notes || row.description || row.status ? (
+                        {row.notes || row.description || row.status || row.state ? (
                           <p className="line-clamp-2 text-xs text-muted-foreground">
-                            {String(row.notes ?? row.description ?? row.status)}
+                            {String(row.notes ?? row.description ?? row.status ?? row.state)}
                           </p>
+                        ) : null}
+                        {tab === 'Streams' &&
+                        typeof row.created_at === 'string' &&
+                        Number.isFinite(Date.parse(row.created_at)) ? (
+                          <time
+                            dateTime={row.created_at}
+                            className="block text-xs text-muted-foreground"
+                          >
+                            Opened {new Date(row.created_at).toLocaleString()}
+                          </time>
                         ) : null}
                       </div>
                       {tab === 'Organizations' ? (
@@ -286,7 +310,42 @@ export function NDPEndpointBrowser({
                           {tab === 'Files' ? 'Sample' : 'Start stream'}
                         </Button>
                       ) : null}
-                      {tab === 'Streams' && has('DELETE /bridge/sessions/{session_id}') ? (
+                      {tab === 'Streams' && has('SDK streaming_v2.read') ? (
+                        <NDPSdkStreamActions row={row} action={action} />
+                      ) : tab === 'Streams' && has('GET /streams/{stream_id}/segment') ? (
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={row.state === 'stopped'}
+                            onClick={() =>
+                              action('GET /streams/{stream_id}/segment', 'Capture stream records', {
+                                stream_id: String(row.id),
+                                cursor: String(row.cursor),
+                                max_records: 100,
+                                seconds: 3,
+                              })
+                            }
+                          >
+                            Capture records
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              action(
+                                row.state === 'stopped'
+                                  ? 'POST /streams/{stream_id}/resume'
+                                  : 'DELETE /streams/{stream_id}',
+                                row.state === 'stopped' ? 'Resume stream view' : 'Stop stream view',
+                                { stream_id: String(row.id) },
+                              )
+                            }
+                          >
+                            {row.state === 'stopped' ? 'Resume' : 'Stop'}
+                          </Button>
+                        </div>
+                      ) : tab === 'Streams' && has('DELETE /bridge/sessions/{session_id}') ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -331,6 +390,29 @@ export function NDPEndpointBrowser({
                               <span className="text-muted-foreground">
                                 {String(resource.format ?? '')}
                               </span>
+                              {String(resource.format).toLowerCase() === 'kafka' &&
+                              (has('SDK streaming_v2.open') || has('POST /streams')) ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    action(
+                                      has('SDK streaming_v2.open')
+                                        ? 'SDK streaming_v2.open'
+                                        : 'POST /streams',
+                                      `Read ${recordName(resource)}`,
+                                      has('SDK streaming_v2.open')
+                                        ? { resource_id: String(resource.id), start: 'earliest' }
+                                        : {},
+                                      has('SDK streaming_v2.open')
+                                        ? undefined
+                                        : { resource_id: String(resource.id), start: 'earliest' },
+                                    )
+                                  }
+                                >
+                                  Read stream
+                                </Button>
+                              ) : null}
                               {typeof resource.url === 'string' &&
                               /^https?:\/\//i.test(resource.url) ? (
                                 <ExternalLink href={resource.url} className="underline">

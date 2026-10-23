@@ -150,38 +150,79 @@ describe('ClioObservabilityView', () => {
   it('opens a dismissible evidence panel and hands full details to the workspace canvas', async () => {
     const user = userEvent.setup();
     const onOpenCanvas = vi.fn();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
-      <ClioObservabilityDock
-        artifacts={[]}
-        contextFiles={[]}
-        contextFrames={[]}
-        diffs={[]}
-        messages={[]}
-        onOpenCanvas={onOpenCanvas}
-        processes={[]}
-        runs={[]}
-        subagents={[]}
-        tasks={[]}
-        tools={[]}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <ClioObservabilityDock
+          artifacts={[]}
+          contextFiles={[]}
+          contextFrames={[]}
+          diffs={[]}
+          messages={[]}
+          onOpenCanvas={onOpenCanvas}
+          processes={[]}
+          runs={[]}
+          subagents={[]}
+          tasks={[]}
+          tools={[]}
+        />
+      </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('button', { name: /^Evidence layout:/ }));
-    expect(screen.getByRole('dialog', { name: 'Activity and evidence' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Evidence layout: Bottom' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /^Evidence layout:/ }));
-    expect(screen.getByRole('button', { name: 'Evidence layout: Top' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /^Evidence layout:/ }));
-    expect(screen.getByRole('button', { name: 'Evidence layout: Both' })).toBeVisible();
-    fireEvent.contextMenu(screen.getByRole('button', { name: /^Evidence layout:/ }));
-    expect(screen.getByRole('button', { name: 'Evidence layout: Top' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Hide activity and evidence' }));
+    await user.click(screen.getByRole('button', { name: 'Session rail' }));
+    expect(screen.getByRole('dialog', { name: 'Session rail' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Session rail' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    await user.click(screen.getByRole('button', { name: 'Session rail' }));
+    expect(screen.queryByRole('dialog', { name: 'Session rail' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Session rail' }));
+    await user.click(screen.getByRole('button', { name: 'Hide session rail' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /^Evidence layout:/ }));
+    await user.click(screen.getByRole('button', { name: 'Session rail' }));
     await user.click(screen.getByRole('button', { name: 'Open full details' }));
 
     expect(onOpenCanvas).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('restores an old Data-only rail preference without filtering out individual work sections', async () => {
+    localStorage.setItem(
+      'clio.evidence-disclosures.v1',
+      JSON.stringify({
+        'evidence-layout:top': true,
+        'evidence-layout:bottom': false,
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ClioObservabilityDock
+          artifacts={[]}
+          contextFiles={[]}
+          contextFrames={[]}
+          diffs={[]}
+          messages={[]}
+          processes={[]}
+          runs={[]}
+          subagents={[]}
+          tasks={[]}
+          tools={[
+            {
+              id: 'read',
+              session_id: 'session',
+              name: 'read',
+              state: 'succeeded',
+              presentation: { action: 'Read source', summary: '', blocks: [] },
+            },
+          ]}
+        />
+      </QueryClientProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Session rail' }));
+    expect(screen.getByRole('region', { name: 'Context section' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Tool calls section' })).toBeVisible();
   });
 
   it('shows a session waiting on permission with its own typed status, not the running spinner', () => {
@@ -257,7 +298,7 @@ describe('ClioObservabilityView', () => {
     expect(liveRegion).not.toBeNull();
     expect(liveRegion).toHaveTextContent('No active work');
     expect(liveRegion).not.toHaveTextContent('Up to date');
-    const button = screen.getByRole('button', { name: /^Evidence layout:/ });
+    const button = screen.getByRole('button', { name: 'Session rail' });
     expect(button.contains(liveRegion)).toBe(false);
 
     rerender(
@@ -389,7 +430,7 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText('2 background activities')).toBeVisible();
-    const evidenceControl = screen.getByRole('button', { name: 'Evidence layout: None' });
+    const evidenceControl = screen.getByRole('button', { name: 'Work rail' });
     expect(within(evidenceControl).getByText('Settled')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Browse child conversations' }));
     await user.click(

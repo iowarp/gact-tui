@@ -162,12 +162,18 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   await page.screenshot({ path: testInfo.outputPath('shared-image-toolbar.png'), fullPage: true });
   await toolbar.getByRole('tab', { name: 'Versions', exact: true }).click();
   await expect(canvas.getByRole('tabpanel', { name: 'Versions', exact: true })).toBeVisible();
+  expect(
+    (await new AxeBuilder({ page }).include('[data-slot="viewer-toolbar"]').analyze()).violations,
+  ).toEqual([]);
   await toolbar.getByRole('tab', { name: 'Lineage', exact: true }).click();
   await expect(canvas.getByRole('tabpanel', { name: 'Lineage', exact: true })).toBeVisible();
   await expect(
     canvas.getByRole('region', { name: 'Artifact lineage graph', exact: true }),
   ).toBeVisible();
   await expect(canvas.getByText('Research execution', { exact: true })).toHaveCount(0);
+  expect(
+    (await new AxeBuilder({ page }).include('[data-slot="viewer-toolbar"]').analyze()).violations,
+  ).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('artifact-lineage-only.png'), fullPage: true });
   await toolbar.getByRole('tab', { name: 'Preview', exact: true }).click();
   await expect(image).toBeVisible();
@@ -291,7 +297,9 @@ test('an unsupported workspace file uses one shared original download', async ({
   await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
   await page.getByRole('treeitem', { name: 'run.h5', exact: true }).click();
   const preview = page.getByRole('region', { name: 'Workspace file preview', exact: true });
-  await expect(preview.locator('[data-slot="empty-title"]')).toHaveText('run.h5');
+  await expect(preview.getByRole('tab', { name: 'Preview', exact: true })).toContainText('run.h5');
+  await expect(preview.getByText('run.h5', { exact: true })).toHaveCount(1);
+  await expect(preview.locator('[data-slot="empty-title"]')).toHaveText('No inline preview');
   await expect(preview.getByRole('button', { name: /Download/ })).toHaveCount(1);
   await expect(preview.locator('[data-slot="viewer-toolbar"]')).toHaveCount(1);
   const download = page.waitForEvent('download');

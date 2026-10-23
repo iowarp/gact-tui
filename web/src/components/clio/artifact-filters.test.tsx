@@ -58,7 +58,7 @@ describe('ArtifactFilters', () => {
     expect(screen.queryByText('other.py')).toBeNull();
     await user.click(screen.getByText('collect_sweep.py'));
     expect(onOpen.mock.calls[0]?.[0]).toBe(artifacts[0]);
-    expect(view.container.querySelector('.lucide-file-code')).not.toBeNull();
+    expect(view.container.querySelector('[data-slot="file-type"]')).not.toBeNull();
     await user.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(screen.getByText('5 of 5 artifacts')).toBeVisible();
     expect(screen.getByText('optimized.glb')).toBeVisible();

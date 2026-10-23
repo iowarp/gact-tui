@@ -1,76 +1,58 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
-test('compact Session rows open source, tool, Context and Work destinations', async ({ page }) => {
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
+async function openSession(page: Page, width = 1920, density = '') {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.request.post(`${endpoint}/__test/reset`);
   await page.request.post(`${endpoint}/v1/permissions/perm_fixture`);
   await page.request.post(
     `${endpoint}/v1/sessions/sess_flat_ndp/questions/question_fixture/answer`,
-    { data: { selected_options: ['table'] } },
+    {
+      data: { selected_options: ['table'] },
+    },
   );
-  await page.request.post(`${endpoint}/__test/session-summary`);
+  await page.request.post(
+    `${endpoint}/__test/session-summary${density ? `?density=${density}` : ''}`,
+  );
   await page.addInitScript((value) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([value]));
     localStorage.setItem('theme', 'light');
   }, endpoint);
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width, height: 900 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
-  await expect(
-    page.locator('[data-slot="clio-composer-stack"] [contenteditable="true"]'),
-  ).toBeVisible();
-  await expect(page.locator('[data-slot="transcript-column"]')).toBeVisible({ timeout: 30000 });
-  await page.setViewportSize({ width: 1920, height: 900 });
-  const toggle = page.getByRole('button', { name: /^Evidence layout:/ });
-  const panel = page.getByRole('dialog', { name: 'Activity and evidence' });
-  await toggle.click({ button: 'right' });
+  await expect(page.locator('[data-slot="transcript-column"]')).toBeVisible();
+}
+
+test('compact Session rows open source, tool and Context details, with Work kept separate', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await openSession(page);
+  const toggle = page.getByRole('button', { name: 'Session rail', exact: true });
+  const panel = page.getByRole('dialog', { name: 'Session rail', exact: true });
+  await toggle.click();
   await expect(panel).toHaveAttribute('data-showcase-mode', 'docked');
-  const top = panel.locator('[data-showcase-section="top"]');
-  const work = panel.locator('[data-showcase-section="bottom"]');
-  await expect(top.getByRole('button', { name: 'Open Sensor repository' })).toBeVisible();
-  await expect(work.getByRole('button', { name: 'Open Check the report' })).toBeVisible();
-  // Successive bounds calls can land on different opening-animation frames.
-  // Wait for the popup and its ancestors to settle, retaining exact geometry
-  // assertions below; descendant spinners do not prevent this wait.
-  await expect
-    .poll(() =>
-      panel.evaluate((node) => {
-        for (let element: Element | null = node; element; element = element.parentElement) {
-          if (element.getAnimations().some((animation) => animation.playState === 'running'))
-            return false;
-        }
-        return true;
-      }),
-    )
-    .toBe(true);
-  const topBounds = await top.boundingBox();
-  const workBounds = await work.boundingBox();
-  expect(workBounds!.x).toBe(topBounds!.x);
-  expect(workBounds!.width).toBe(topBounds!.width);
-  expect(workBounds!.y).toBeGreaterThan(topBounds!.y + topBounds!.height);
-  const panelBounds = (await panel.boundingBox())!;
-  expect(workBounds!.y + workBounds!.height).toBeCloseTo(panelBounds.y + panelBounds.height, 0);
+  await expect(panel.getByRole('button', { name: 'Open Sensor repository' })).toBeVisible();
+  await expect(panel.getByRole('region', { name: 'Todos section', exact: true })).toHaveCount(0);
   await expect(panel.locator('[data-slot="artifact"]')).toHaveCount(0);
   await expect(panel.getByText('Output', { exact: true })).toHaveCount(0);
-  for (const row of await panel.locator('button[aria-label^="Open "]').all()) {
-    if (['Open Context tab', 'Open full details'].includes((await row.getAttribute('aria-label'))!))
-      continue;
-    expect((await row.boundingBox())!.height).toBeLessThanOrEqual(28);
+  for (const row of await panel.locator('[data-slot="artifact-rail-row"]').all()) {
+    expect((await row.boundingBox())!.height).toBeLessThanOrEqual(32);
+    await expect(row.getByRole('button', { name: /^Download / })).toBeVisible();
   }
-  const details = panel.getByRole('button', { name: 'Open full details' });
-  await details.hover();
+  await panel.getByRole('button', { name: 'Open full details' }).hover();
   await expect(page.getByRole('tooltip', { name: 'Open full details' })).toBeVisible();
-  await top.getByRole('button', { name: 'Open Sensor repository' }).click();
+  await panel.getByRole('button', { name: 'Open Sensor repository' }).click();
   const sources = page.getByRole('dialog', { name: 'Sources', exact: true });
   await expect(sources.getByRole('heading', { name: 'Sensor repository' })).toBeVisible();
   await expect(sources.getByText('sensor.csv', { exact: true })).toBeVisible();
   await expect(sources.getByRole('button', { name: 'Link folder' })).toBeEnabled();
   await sources.getByRole('button', { name: 'Close and keep setup' }).click();
   await expect(panel).toBeVisible();
-  await work.getByRole('button', { name: /^Tool calls,/ }).click();
-  await work
+  await panel.getByRole('button', { name: 'Expand Tool calls', exact: true }).click();
+  await panel
     .getByRole('button', { name: /^Technical details for/ })
     .first()
     .click();
@@ -80,19 +62,17 @@ test('compact Session rows open source, tool, Context and Work destinations', as
   await expect(technical).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toBeVisible();
-  await panel.getByRole('button', { name: 'Open Context tab' }).click();
+  await panel.getByRole('button', { name: 'Context details', exact: true }).click();
   const view = page.getByRole('tablist', { name: 'Observability view' });
   await expect(view.getByRole('tab', { name: 'Context' })).toHaveAttribute('data-state', 'active');
-  await page.getByRole('button', { name: 'Close workspace canvas' }).click();
-  // Closing the canvas restores the remembered panels after layout settles.
-  // Wait for that restoration before dismissing; an immediate visibility probe
-  // can otherwise miss it and cycle the restored layout from Both to Top.
+  await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(panel).toBeVisible();
-  await panel.getByRole('button', { name: 'Hide activity and evidence' }).click();
-  await expect(panel).toBeHidden();
-  await toggle.click({ button: 'right' });
-  await expect(panel).toHaveAttribute('data-showcase-mode', 'docked');
-  await panel.getByRole('button', { name: 'Open Work view' }).click();
+  await page.getByRole('button', { name: 'Work rail', exact: true }).click();
+  const work = page.getByRole('dialog', { name: 'Work rail', exact: true });
+  await expect(work).toBeVisible();
+  await expect(panel).toHaveCount(0);
+  await expect(work.getByRole('button', { name: 'Open Check the report' })).toBeVisible();
+  await work.getByRole('button', { name: 'Open Check the report', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Work', exact: true })).toHaveAttribute(
     'data-state',
     'active',
@@ -105,19 +85,14 @@ test('compact Session rows open source, tool, Context and Work destinations', as
   expect(errors).toEqual([]);
 });
 
-test('temporary Session source links survive dismissing the small overlay', async ({ page }) => {
-  await page.request.post(`${endpoint}/__test/reset`);
-  await page.request.post(`${endpoint}/__test/session-summary`);
-  await page.addInitScript((value) => {
-    localStorage.setItem('clio.recent-connections', JSON.stringify([value]));
-    localStorage.setItem('theme', 'light');
-  }, endpoint);
-  await page.setViewportSize({ width: 390, height: 900 });
-  await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
-  const toggle = page.getByRole('button', { name: /^Evidence layout:/ });
+test('temporary Session links survive technical-dialog dismissal and open source details on mobile', async ({
+  page,
+}) => {
+  await openSession(page, 390);
+  const toggle = page.getByRole('button', { name: 'Session rail', exact: true });
   await toggle.click();
-  const panel = page.getByRole('dialog', { name: 'Activity and evidence' });
-  await panel.getByRole('button', { name: /^Tool calls,/ }).click();
+  const panel = page.getByRole('dialog', { name: 'Session rail', exact: true });
+  await panel.getByRole('button', { name: 'Expand Tool calls', exact: true }).click();
   await panel
     .getByRole('button', { name: /^Technical details for/ })
     .first()
@@ -128,7 +103,6 @@ test('temporary Session source links survive dismissing the small overlay', asyn
   await expect(technical).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toBeVisible();
-  await toggle.click();
   await panel.getByRole('button', { name: 'Open Sensor repository' }).click();
   await expect(panel).toHaveCount(0);
   await expect(
@@ -138,105 +112,104 @@ test('temporary Session source links survive dismissing the small overlay', asyn
   ).toBeVisible();
 });
 
+for (const width of [1920, 390]) {
+  test(`Customize reorders expanded sections without losing content or the draft at ${width}px`, async ({
+    page,
+  }) => {
+    await openSession(page, width);
+    const input = page.locator('[data-slot="clio-composer-stack"] [contenteditable="true"]');
+    await input.fill('Keep this draft while I arrange the rail.');
+    await page.getByRole('button', { name: 'Session rail', exact: true }).click();
+    const panel = page.getByRole('dialog', { name: 'Session rail', exact: true });
+    await expect(panel.getByRole('region', { name: 'Files section', exact: true })).toBeVisible();
+    const sectionOrder = () =>
+      panel
+        .getByRole('region', { name: / section$/ })
+        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
+    const originalOrder = await sectionOrder();
+    const expectedOrder = originalOrder.filter((name) => name !== 'Context section');
+    expectedOrder.splice(expectedOrder.indexOf('Files section') + 1, 0, 'Context section');
+    const context = panel.getByRole('region', { name: 'Context section', exact: true });
+    await expect(
+      context.getByRole('button', { name: 'Collapse Context', exact: true }),
+    ).toBeVisible();
+    await expect(panel.getByRole('button', { name: /^Drag / })).toHaveCount(0);
+    await panel.getByRole('button', { name: 'Customize rail', exact: true }).click();
+    const customize = page.getByRole('dialog', { name: 'Customize session rail', exact: true });
+    const source = customize.getByRole('button', { name: 'Drag Context in layout', exact: true });
+    const target = customize.getByRole('button', { name: 'Drag Files in layout', exact: true });
+    const from = (await source.boundingBox())!;
+    const to = (await target.boundingBox())!;
+    expect(from.width).toBeGreaterThan(180);
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + 12, { steps: 3 });
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await expect.poll(sectionOrder).toEqual(expectedOrder);
+    await page.keyboard.press('Escape');
+    await expect(customize).toHaveCount(0);
+    await expect(
+      context.getByRole('button', { name: 'Collapse Context', exact: true }),
+    ).toBeVisible();
+    await expect(context.getByRole('region', { name: 'Context usage', exact: true })).toBeVisible();
+    await panel.getByRole('button', { name: 'Hide session rail', exact: true }).click();
+    await expect(input).toHaveText('Keep this draft while I arrange the rail.');
+    await page.reload();
+    await page.getByRole('button', { name: 'Session rail', exact: true }).click();
+    await expect.poll(sectionOrder).toEqual(expectedOrder);
+    await expect(
+      context.getByRole('button', { name: 'Collapse Context', exact: true }),
+    ).toBeVisible();
+  });
+}
+
 for (const density of ['both', 'work']) {
-  test(`Session column lends unused and collapsed space to ${density} inventories`, async ({
+  test(`dense ${density} inventories use a single scrolling rail without nested cards`, async ({
     page,
   }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.request.post(`${endpoint}/__test/reset`);
-    await page.request.post(`${endpoint}/__test/session-summary?density=${density}`);
-    await page.addInitScript((value) => {
-      localStorage.setItem('clio.recent-connections', JSON.stringify([value]));
-      localStorage.setItem('theme', 'light');
-    }, endpoint);
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
-    await expect(page.locator('[data-slot="transcript-column"]')).toBeVisible({ timeout: 30000 });
-    await page.setViewportSize({ width: 1920, height: 900 });
-    const toggle = page.getByRole('button', { name: /^Evidence layout:/ });
-    await toggle.click({ button: 'right' });
-    const panel = page.getByRole('dialog', { name: 'Activity and evidence' });
-    const data = panel.getByRole('region', { name: 'Data', exact: true });
-    const work = panel.getByRole('region', { name: 'Work', exact: true });
-    await expect(work.getByRole('button', { name: 'Todos, 60/60 current' })).toBeVisible();
-    await expect
-      .poll(async () => {
-        const d = (await data.boundingBox())!;
-        const w = (await work.boundingBox())!;
-        return w.y - d.y - d.height;
-      })
-      .toBeGreaterThanOrEqual(11);
-    const naturalDataHeight = () =>
-      data.evaluate(
-        (node) =>
-          Math.ceil(node.children[0]!.getBoundingClientRect().height) +
-          Math.ceil(node.children[1]!.firstElementChild!.getBoundingClientRect().height) +
-          1,
-      );
-    if (density === 'both') {
-      // Both inventories need their ResizeObserver measurements before the
-      // allocator can lend them equal space. Preserve the exact final tolerance.
+    await openSession(page, 1920, density);
+    for (const kind of ['Session', 'Work'] as const) {
+      await page.getByRole('button', { name: `${kind} rail`, exact: true }).click();
+      const panel = page.getByRole('dialog', { name: `${kind} rail`, exact: true });
+      await expect(panel).toHaveAttribute('data-showcase-mode', 'docked');
+      const scroll = panel.locator('[data-slot="session-rail-scroll"]');
+      expect(await panel.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+      for (const section of await panel.getByRole('region', { name: / section$/ }).all()) {
+        expect(await section.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+        expect(await section.evaluate((node) => getComputedStyle(node).borderLeftWidth)).toBe(
+          '0px',
+        );
+        expect(await section.evaluate((node) => getComputedStyle(node).borderRightWidth)).toBe(
+          '0px',
+        );
+      }
+      if (kind === 'Work') {
+        await expect(
+          panel.getByRole('button', { name: 'Collapse Todos', exact: true }),
+        ).toBeVisible();
+        await expect
+          .poll(() => scroll.evaluate((node) => node.scrollHeight > node.clientHeight))
+          .toBe(true);
+        const todos = panel.getByRole('region', { name: 'Todos section', exact: true });
+        const last = todos.getByRole('button', { name: /^Open / }).last();
+        await last.scrollIntoViewIfNeeded();
+        await expect(last).toBeInViewport();
+      }
+      while (await panel.getByRole('button', { name: /^Collapse / }).count())
+        await panel
+          .getByRole('button', { name: /^Collapse / })
+          .first()
+          .click();
       await expect
-        .poll(async () =>
-          Math.abs((await data.boundingBox())!.height - (await work.boundingBox())!.height),
-        )
-        .toBeLessThan(2);
-    } else {
-      // ResizeObserver applies the newly measured allocation on the next
-      // animation frame. Wait for that allocation, retaining the same exact
-      // half-pixel tolerance rather than accepting a clipped natural height.
-      await expect
-        .poll(async () => (await data.boundingBox())!.height - (await naturalDataHeight()))
-        .toBeCloseTo(0, 0);
+        .poll(() => scroll.evaluate((node) => node.scrollHeight <= node.clientHeight))
+        .toBe(true);
+      await panel
+        .getByRole('button', { name: `Hide ${kind.toLowerCase()} rail`, exact: true })
+        .click();
     }
-    const d = (await data.boundingBox())!;
-    const w = (await work.boundingBox())!;
-    if (density === 'both') expect(Math.abs(d.height - w.height)).toBeLessThan(2);
-    else {
-      expect(d.height).toBeCloseTo(await naturalDataHeight(), 0);
-      expect(w.height).toBeCloseTo((await panel.boundingBox())!.height - d.height - 12, 0);
-      expect(w.height).toBeGreaterThan(d.height);
-    }
-    const composer = (await page.locator('[data-slot="clio-composer-stack"] form').boundingBox())!;
-    expect(w.y + w.height).toBeGreaterThan(composer.y);
-    expect(w.y + w.height).toBeLessThanOrEqual(composer.y + composer.height + 16);
-    for (const section of [data, work]) {
-      expect(await section.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-    }
-    await data.getByRole('button', { name: 'Collapse Data' }).click();
-    await expect(data.getByRole('button', { name: 'Expand Data' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    await expect.poll(async () => (await data.boundingBox())!.height).toBeLessThanOrEqual(37);
-    await expect
-      .poll(async () => (await work.boundingBox())!.height)
-      .toBeGreaterThan(w.height + 30);
-    await work.getByRole('button', { name: 'Collapse Work' }).click();
-    await expect.poll(async () => (await work.boundingBox())!.height).toBeLessThanOrEqual(37);
-    await data.getByRole('button', { name: 'Expand Data' }).click();
-    await expect.poll(async () => (await data.boundingBox())!.height).toBeGreaterThan(100);
-    await work.getByRole('button', { name: 'Expand Work' }).click();
-    await expect(work.getByRole('button', { name: 'Todos, 60/60 current' })).toBeVisible();
-    // Inner disclosure also frees height; mounted sections preserve their own state.
-    if (density === 'both') {
-      await data.getByRole('button', { name: 'Connected sources, 25 recorded' }).click();
-      await expect
-        .poll(async () => (await work.boundingBox())!.height)
-        .toBeGreaterThan(w.height + 30);
-    }
-    // The single-view states take the entire column.
-    await toggle.click({ button: 'right' }); // Data only
-    await expect(work).toHaveCount(0);
-    await expect
-      .poll(async () => (await data.boundingBox())!.height)
-      .toBeCloseTo((await panel.boundingBox())!.height, 0);
-    await toggle.click({ button: 'right' }); // Work only
-    await expect(data).toHaveCount(0);
-    await expect
-      .poll(async () => (await work.boundingBox())!.height)
-      .toBeCloseTo((await panel.boundingBox())!.height, 0);
     expect(errors).toEqual([]);
   });
 }

@@ -1,6 +1,6 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,7 +9,7 @@ import {
   TranscriptResourceAttachments,
 } from './transcript-resource-attachment';
 
-const repository = vi.hoisted(() => ({ resourcePreview: vi.fn() }));
+const repository = vi.hoisted(() => ({ resourcePreview: vi.fn(), resourceContent: vi.fn() }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -84,6 +84,7 @@ afterEach(cleanup);
 beforeEach(() => {
   repository.resourcePreview.mockReset();
   repository.resourcePreview.mockResolvedValue(new Uint8Array([1, 2, 3]));
+  repository.resourceContent.mockResolvedValue(new Uint8Array([4, 5, 6]));
 });
 
 function renderAttachment(element: ReactElement) {
@@ -92,6 +93,34 @@ function renderAttachment(element: ReactElement) {
 }
 
 describe('TranscriptResourceAttachment availability', () => {
+  it('downloads original attachment bytes independently of the open action', async () => {
+    const original = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:download'),
+    });
+    const onOpen = vi.fn();
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    try {
+      renderAttachment(
+        <TranscriptResourceAttachment
+          block={block}
+          resource={resource('application/pdf', processing('not_started'))}
+          onOpen={onOpen}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Download paper.pdf' }));
+      await waitFor(() => expect(click).toHaveBeenCalledOnce());
+      expect(repository.resourceContent).toHaveBeenCalledWith('ws_1', 'res_1');
+      expect(onOpen).not.toHaveBeenCalled();
+    } finally {
+      click.mockRestore();
+      if (original) Object.defineProperty(URL, 'createObjectURL', original);
+      else Reflect.deleteProperty(URL, 'createObjectURL');
+    }
+  });
   it('presents a folder using its source name and folder icon', () => {
     const folder = {
       ...resource('application/json', processing('not_started')),
@@ -132,10 +161,10 @@ describe('TranscriptResourceAttachment availability', () => {
 
     expect(onOpen).toHaveBeenCalledWith(first, [first, second]);
     const openPaper = screen.getByRole('button', { name: 'Open paper.pdf' });
-    expect(openPaper).toHaveClass('size-full', 'flex-col');
-    expect(openPaper.closest('[data-attachment-variant]')).toHaveClass('size-36');
+    expect(openPaper.closest('[data-file-row]')).toHaveClass('w-full', 'items-center');
+    expect(openPaper.querySelector('button')).toBeNull();
     const attachmentTray = screen.getByRole('group', { name: '2 message attachments' });
-    expect(attachmentTray).toHaveClass('w-max', 'min-w-full');
+    expect(attachmentTray).toHaveClass('w-full', 'flex-wrap');
     expect(attachmentTray.closest('[data-slot="scroll-area"]')).toHaveClass('rounded-2xl');
   });
 
@@ -148,7 +177,7 @@ describe('TranscriptResourceAttachment availability', () => {
       />,
     );
 
-    const attachment = screen.getByText('paper.pdf').closest('[data-slot="hover-card-trigger"]');
+    const attachment = screen.getByText('paper.pdf').closest('[data-file-row]');
     expect(attachment).not.toBeNull();
     expect(screen.getByRole('img', { name: 'Attachment status: Processing' })).toBeVisible();
     await user.hover(attachment!);

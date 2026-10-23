@@ -102,8 +102,10 @@ it.each(['MCP', 'Subagent', 'Session'] as const)(
       'false',
     );
     expect(screen.queryByText(task.description!)).not.toBeInTheDocument();
-    expect(screen.getByText(`${kind} · Running — Reading owned evidence`)).toBeVisible();
+    expect(screen.getByText('Running')).toBeVisible();
+    expect(screen.queryByText('Reading owned evidence')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Task details: Owned work' }));
+    expect(screen.getByText('Reading owned evidence')).toBeVisible();
     expect(screen.getByRole('region', { name: 'Assignment: Owned work' }).textContent).toBe(
       task.description,
     );
@@ -126,9 +128,7 @@ it.each(['MCP', 'Subagent', 'Session'] as const)(
     await user.click(screen.getByRole('button', { name: 'Cancel task' }));
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(cancel).toHaveBeenCalledWith(task);
-    expect(
-      screen.getByText(`${kind} · Cancellation requested — Reading owned evidence`),
-    ).toBeVisible();
+    expect(screen.getByText('Cancellation requested')).toBeVisible();
     expect(screen.getByRole('button', { name })).toBeDisabled();
     finish();
     await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));

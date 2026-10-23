@@ -87,6 +87,126 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+const sdkOperation = (action: string, fields: string[] = []) =>
+  operation(`SDK streaming_v2.${action}`, {
+    read_only: true,
+    parameters: fields.map((name) => ({
+      name,
+      in: 'query',
+      required: name !== 'cursor',
+      schema: { type: 'string' },
+    })),
+  });
+
+it('opens the selected catalog resource through the SDK without an HTTP stream route', async () => {
+  fixture.repository.browseNdpEndpoint.mockImplementation(async (_w, _id, request) =>
+    request.operation_id === 'SDK streaming_v2.list'
+      ? { streams: [] }
+      : [
+          {
+            id: 'dataset',
+            title: 'Scientific observations',
+            resources: [{ id: 'catalog-resource', name: 'Observed events', format: 'kafka' }],
+          },
+        ],
+  );
+  show({
+    ...endpoint,
+    operations: [
+      operation('GET /search'),
+      sdkOperation('open', ['resource_id']),
+      sdkOperation('list'),
+    ],
+  });
+  await userEvent.click(await screen.findByText('1 resources'));
+  await userEvent.click(screen.getByRole('button', { name: 'Read stream' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Read Observed events' }));
+  await waitFor(() =>
+    expect(fixture.repository.requestNdpEndpoint).toHaveBeenCalledWith(
+      'w',
+      'ep',
+      expect.objectContaining({
+        operation_id: 'SDK streaming_v2.open',
+        parameters: { resource_id: 'catalog-resource', start: 'earliest' },
+      }),
+    ),
+  );
+});
+
+it('SDK capture advances the hidden cursor for the next capture', async () => {
+  fixture.repository.browseNdpEndpoint.mockResolvedValue({
+    streams: [{ id: 'reader', topic: 'Scientific events', cursor: 'first', state: 'active' }],
+  });
+  fixture.repository.requestNdpEndpoint.mockResolvedValue({
+    id: 'capture',
+    method: 'SDK',
+    status_code: 200,
+    bytes_received: 40,
+    events: 5,
+    stop_reason: 'completed',
+    sha256: 'abc',
+    preview: '{}',
+    continuation: {
+      stream_id: 'reader',
+      next_cursor: 'second',
+      next_positions: { '0': 5 },
+      count: 5,
+    },
+  });
+  show({
+    ...endpoint,
+    operations: [
+      sdkOperation('list'),
+      sdkOperation('read', ['stream_id', 'cursor']),
+      sdkOperation('stop', ['stream_id']),
+      sdkOperation('resume', ['stream_id']),
+    ],
+  });
+  expect(await screen.findByText('Scientific events')).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: /^Capture$/ }));
+  expect(screen.queryByLabelText(/cursor/i)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Capture records' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Capture next records' }));
+  await waitFor(() =>
+    expect(fixture.repository.requestNdpEndpoint).toHaveBeenLastCalledWith(
+      'w',
+      'ep',
+      expect.objectContaining({
+        operation_id: 'SDK streaming_v2.read',
+        parameters: { stream_id: 'reader', cursor: 'second' },
+      }),
+    ),
+  );
+});
+
+it('SDK stopped readers offer resume while capture remains disabled', async () => {
+  fixture.repository.browseNdpEndpoint.mockResolvedValue({
+    streams: [{ id: 'reader', topic: 'Scientific events', cursor: 'current', state: 'stopped' }],
+  });
+  show({
+    ...endpoint,
+    operations: [
+      sdkOperation('list'),
+      sdkOperation('read', ['stream_id']),
+      sdkOperation('resume', ['stream_id']),
+    ],
+  });
+  expect(await screen.findByRole('button', { name: /^Capture$/ })).toBeDisabled();
+  await userEvent.click(screen.getByRole('button', { name: /^Resume$/ }));
+  await userEvent.click(screen.getByRole('button', { name: 'Resume reader' }));
+  await waitFor(() =>
+    expect(fixture.repository.requestNdpEndpoint).toHaveBeenCalledWith(
+      'w',
+      'ep',
+      expect.objectContaining({
+        operation_id: 'SDK streaming_v2.resume',
+        parameters: { stream_id: 'reader' },
+      }),
+    ),
+  );
+});
+
 function show(current = endpoint) {
   render(
     <MemoryRouter>
@@ -98,6 +218,129 @@ function show(current = endpoint) {
     </MemoryRouter>,
   );
 }
+
+it('offers named catalog streams without asking the user to copy a resource ID', async () => {
+  fixture.repository.requestNdpEndpoint.mockResolvedValue({
+    id: 'reader-capture',
+    operation_id: 'POST /streams',
+    status_code: 201,
+    bytes_received: 90,
+    stop_reason: 'completed',
+    preview: '{"id":"stream-a","state":"ready","cursor":"internal-checkpoint"}',
+    preview_truncated: false,
+  });
+  fixture.repository.browseNdpEndpoint.mockImplementation(async (_w, _ep, request) =>
+    request.operation_id === 'GET /streams'
+      ? { streams: [] }
+      : {
+          results: [{ id: 'resource-real-id', name: 'Recent earthquake catalog', format: 'kafka' }],
+        },
+  );
+  show({
+    ...endpoint,
+    operations: [
+      operation('GET /streams'),
+      operation('GET /resources/search'),
+      operation('POST /streams', {
+        body_required: true,
+        body_schema: {
+          type: 'object',
+          required: ['resource_id'],
+          properties: {
+            resource_id: { type: 'string' },
+            start: { type: 'string', enum: ['earliest', 'latest'], default: 'earliest' },
+          },
+        },
+      }),
+    ],
+  });
+  await userEvent.click(await screen.findByRole('button', { name: 'Open stream view' }));
+  expect(
+    await screen.findByRole('option', { name: 'Recent earthquake catalog' }),
+  ).toBeInTheDocument();
+  await userEvent.selectOptions(
+    screen.getByLabelText('Catalog resource', { exact: false }),
+    'resource-real-id',
+  );
+  await userEvent.selectOptions(screen.getByLabelText('Start reading'), 'earliest');
+  await userEvent.click(screen.getByRole('button', { name: 'Review' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+  await waitFor(() =>
+    expect(fixture.repository.requestNdpEndpoint).toHaveBeenCalledWith(
+      'w',
+      'ep',
+      expect.objectContaining({
+        operation_id: 'POST /streams',
+        body: { resource_id: 'resource-real-id', start: 'earliest' },
+      }),
+    ),
+  );
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    'Stream reader ready. Checkpoint saved.',
+  );
+  expect(screen.getByText(/"cursor":"internal-checkpoint"/)).not.toBeVisible();
+});
+
+it('continues from complete response metadata when the preview is truncated, keeping cursors hidden', async () => {
+  const firstCursor = 'a'.repeat(32);
+  const nextCursor = 'b'.repeat(32);
+  fixture.repository.browseNdpEndpoint.mockResolvedValue({
+    streams: [
+      {
+        id: 'stream-a',
+        name: 'Recent earthquake catalog',
+        state: 'ready',
+        cursor: firstCursor,
+        created_at: '2026-10-20T03:00:00Z',
+      },
+    ],
+  });
+  fixture.repository.requestNdpEndpoint.mockResolvedValue({
+    id: 'capture-a',
+    status_code: 200,
+    bytes_received: 30000,
+    stop_reason: 'completed',
+    preview: '{"records":[...truncated',
+    preview_truncated: true,
+    continuation: {
+      stream_id: 'stream-a',
+      next_cursor: nextCursor,
+      count: 5,
+      next_positions: { '0': 5 },
+    },
+  });
+  show({
+    ...endpoint,
+    operations: [
+      operation('GET /streams'),
+      operation('GET /streams/{stream_id}/segment', {
+        parameters: [
+          { name: 'stream_id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'cursor', in: 'query', required: true, schema: { type: 'string' } },
+          { name: 'max_records', in: 'query', schema: { type: 'integer', default: 100 } },
+        ],
+      }),
+    ],
+  });
+  expect(await screen.findByText(/^Opened /)).toBeVisible();
+  await userEvent.click(await screen.findByRole('button', { name: 'Capture records' }));
+  expect(screen.queryByLabelText(/cursor/i)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Capture records' }));
+  expect(
+    await screen.findByText('5 stream records captured. Continuation checkpoint saved.'),
+  ).toBeVisible();
+  expect(screen.getByText('{"records":[...truncated')).not.toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'Capture next records' }));
+  await waitFor(() =>
+    expect(fixture.repository.requestNdpEndpoint).toHaveBeenLastCalledWith(
+      'w',
+      'ep',
+      expect.objectContaining({
+        parameters: expect.objectContaining({ stream_id: 'stream-a', cursor: nextCursor }),
+      }),
+    ),
+  );
+});
 
 it('samples a declared URL replay despite listing failure and preserves its resume input', async () => {
   fixture.repository.browseNdpEndpoint.mockRejectedValue(new Error('File listing unavailable'));
@@ -117,7 +360,10 @@ it('samples a declared URL replay despite listing failure and preserves its resu
   });
   expect(await screen.findByText('File listing unavailable')).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Sample CSV from URL' }));
-  await userEvent.type(screen.getByLabelText('CSV URL', { exact: false }), 'https://data.test/a.csv');
+  await userEvent.type(
+    screen.getByLabelText('CSV URL', { exact: false }),
+    'https://data.test/a.csv',
+  );
   await userEvent.clear(screen.getByLabelText('Rows to sample'));
   await userEvent.type(screen.getByLabelText('Rows to sample'), '3');
   await userEvent.click(screen.getByText('Options', { exact: true }));
@@ -135,7 +381,7 @@ it('samples a declared URL replay despite listing failure and preserves its resu
         interval: 0.1,
         cursor: 'opaque-cursor-3',
       },
-      max_seconds: 10,
+      max_seconds: 30,
       max_events: 100,
     }),
   );
@@ -185,7 +431,7 @@ it('lists organizations and creates one from the plus button with a typed review
       operation_id: 'POST /organization',
       parameters: { server: 'local' },
       body: { name: 'test-ocean', title: 'Ocean research' },
-      max_seconds: 10,
+      max_seconds: 30,
       max_events: 100,
     }),
   );

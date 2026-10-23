@@ -156,7 +156,7 @@ test('shows one latest response output while Evidence retains versions and revie
   for (const name of ['requested.pdf', 'requested.png'])
     await expect(conversation.getByRole('button', { name: `Open ${name}` })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('latest-response.png') });
-  await page.getByRole('button', { name: /^Evidence layout:/ }).click();
+  await page.getByRole('button', { name: 'Session rail', exact: true }).click();
   await page.getByRole('button', { name: 'Open full details' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
@@ -164,12 +164,12 @@ test('shows one latest response output while Evidence retains versions and revie
   await expect(
     canvas.getByRole('button', { name: 'Open sunflower-garden.html', exact: true }),
   ).toHaveCount(2);
-  await expect(canvas.locator('p[title="text/html"]').filter({ hasText: /v1$/u })).toHaveText(
-    /HTML\s*512 B\s*v1/u,
-  );
-  await expect(canvas.locator('p[title="text/html"]').filter({ hasText: /v2$/u })).toHaveText(
-    /HTML\s*512 B\s*v2/u,
-  );
+  await expect(
+    canvas.locator('p[title="text/html"]').filter({ has: page.getByText('v1', { exact: true }) }),
+  ).toHaveText(/HTML\s*512 B\s*v1/u);
+  await expect(
+    canvas.locator('p[title="text/html"]').filter({ has: page.getByText('v2', { exact: true }) }),
+  ).toHaveText(/HTML\s*512 B\s*v2/u);
   await expect(canvas.getByText('Verification', { exact: true })).toBeVisible();
   await expect(canvas.getByText('Intermediate', { exact: true })).toBeVisible();
   await expect(canvas.getByRole('button', { name: 'Open review.png' })).toBeVisible();

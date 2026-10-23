@@ -480,7 +480,7 @@ function WorkspaceDisclosureButton({
     <button
       aria-expanded={workspaceExpanded}
       aria-label={`${workspaceExpanded ? 'Collapse' : 'Expand'} workspace ${labelText}`}
-      className="flex h-full w-full min-w-0 cursor-pointer items-center gap-2 text-left outline-none"
+      className="flex h-full w-full min-w-0 cursor-pointer items-center gap-2 text-left outline-none group-data-[collapsible=icon]:justify-center"
       onClick={() => onExpandedChange(!workspaceExpanded)}
       type="button"
     >

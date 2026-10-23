@@ -1,6 +1,6 @@
 import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -336,6 +336,28 @@ describe('InfrastructurePage', () => {
     expect(await screen.findByText('Not verified yet on this computer')).toBeVisible();
     expect(screen.queryByText('Optional')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'CLIO agent' })).not.toBeInTheDocument();
+  });
+
+  it('names what needs attention in the header and on the Local row, not only in a badge', async () => {
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [
+        { name: 'api', status: 'ready' },
+        { name: 'clio_core_daemon_memory', status: 'degraded', required: true },
+        { name: 'cte_metadata_log', status: 'degraded', required: false },
+      ],
+    });
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    expect(
+      await screen.findByText('Running. Memory service process on Local needs attention.'),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole('region', { name: 'Local computer' })).getByText(
+        /Needs attention: Memory service process\./u,
+      ),
+    ).toBeVisible();
   });
 
   it('offers a "Set up protected execution" fix, not just a label', async () => {

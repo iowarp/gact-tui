@@ -12,7 +12,9 @@ import { OverlayContainer } from '@/components/ui/overlay-container';
 import { FileViewerActions } from './file-viewer-actions';
 import { FileViewerActionRegistry, type FileViewerAction } from './file-viewer-action-context';
 import { FileViewerInformationHost } from './file-viewer-context';
-import type { FileViewerSource } from './file-viewer-source';
+import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
+import { FileTypeIcon } from './file-type-icon';
+import { cn } from '@/lib/utils';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
 export interface FileViewerTab {
@@ -31,6 +33,7 @@ export function FileViewerShell({
   value,
   onValueChange,
   hasDocumentActions = false,
+  showIdentity = true,
 }: {
   source: FileViewerSource;
   tabs: readonly FileViewerTab[];
@@ -38,8 +41,11 @@ export function FileViewerShell({
   value?: string;
   onValueChange?: (value: string) => void;
   hasDocumentActions?: boolean;
+  /** An enclosing file card already presents the icon and filename. */
+  showIdentity?: boolean;
 }) {
   const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
+  const identity = fileViewerIdentity(source);
   const [informationHost, setInformationHost] = useState<HTMLDivElement | null>(null);
   const [formatActions, setFormatActions] = useState<
     ReadonlyMap<string, readonly FileViewerAction[]>
@@ -89,30 +95,49 @@ export function FileViewerShell({
                 onValueChange={onValueChange}
               >
                 <div
-                  className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b px-2"
+                  className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b px-2"
                   data-slot="viewer-toolbar"
                 >
-                  <TabsList
-                    aria-label={label}
-                    className="h-full shrink-0 gap-0 bg-transparent p-0 group-data-horizontal/tabs:h-full"
-                    variant="line"
-                  >
-                    {tabs.map(({ value: tabValue, label: tabLabel, title, icon: Icon }) => (
-                      <TabsTrigger
-                        key={tabValue}
-                        className="h-full rounded-none px-2 text-xs data-[state=active]:text-primary dark:data-[state=active]:text-primary after:bg-primary group-data-horizontal/tabs:after:bottom-0 @max-[720px]/viewer:w-7 @max-[720px]/viewer:px-0"
-                        value={tabValue}
-                        title={title || tabLabel}
-                        aria-label={tabLabel}
-                      >
-                        <Icon
-                          aria-hidden="true"
-                          className="hidden size-3.5 @max-[720px]/viewer:block"
-                        />
-                        <span className="@max-[720px]/viewer:sr-only">{tabLabel}</span>
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
+                  {showIdentity || tabs.length > 1 ? (
+                    <TabsList
+                      aria-label={label}
+                      className="h-full min-w-0 flex-1 justify-start gap-0 bg-transparent p-0 group-data-horizontal/tabs:h-full"
+                      variant="line"
+                    >
+                      {tabs.map(({ value: tabValue, label: tabLabel, title, icon: Icon }) => (
+                        <TabsTrigger
+                          key={tabValue}
+                          className={cn(
+                            'h-full rounded-none text-xs text-foreground dark:text-foreground after:bg-primary group-data-horizontal/tabs:after:bottom-0',
+                            tabValue === 'preview' && showIdentity
+                              ? 'min-w-7 max-w-64 flex-1 justify-start gap-2 px-1'
+                              : 'w-8 flex-none px-0',
+                          )}
+                          value={tabValue}
+                          title={
+                            tabValue === 'preview' && showIdentity
+                              ? identity.name
+                              : title || tabLabel
+                          }
+                          aria-label={tabLabel}
+                        >
+                          {tabValue === 'preview' && showIdentity ? (
+                            <>
+                              <FileTypeIcon
+                                name={identity.name}
+                                mediaType={identity.mediaType}
+                                badge
+                                className="size-6 shrink-0"
+                              />
+                              <span className="truncate">{identity.name}</span>
+                            </>
+                          ) : (
+                            <Icon aria-hidden="true" className="size-3.5" />
+                          )}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  ) : null}
                   <div
                     className="ml-auto flex shrink-0 items-center gap-0.5"
                     ref={setToolbarHost}
@@ -128,15 +153,19 @@ export function FileViewerShell({
                     />
                   </div>
                 </div>
-                {tabs.map((tab) => (
-                  <TabsContent
-                    key={tab.value}
-                    className="m-0 min-h-0 overflow-hidden"
-                    value={tab.value}
-                  >
-                    {tab.content}
-                  </TabsContent>
-                ))}
+                {!showIdentity && tabs.length === 1 ? (
+                  <div className="min-h-0 flex-1 overflow-hidden">{tabs[0]?.content}</div>
+                ) : (
+                  tabs.map((tab) => (
+                    <TabsContent
+                      key={tab.value}
+                      className="m-0 min-h-0 overflow-hidden"
+                      value={tab.value}
+                    >
+                      {tab.content}
+                    </TabsContent>
+                  ))
+                )}
               </Tabs>
             </div>
           </FileViewerActionRegistry.Provider>

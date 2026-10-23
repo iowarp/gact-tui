@@ -18,6 +18,9 @@ interface InteractionFrameHeaderProps {
   actions?: ReactNode;
   disabled?: boolean;
   showFullPrompt?: boolean;
+  questionTitle?: string;
+  progress?: ReactNode;
+  questionnaire?: boolean;
 }
 
 /** Shared compact heading for questions and interactive response surfaces. */
@@ -30,6 +33,9 @@ export function InteractionFrameHeader({
   actions,
   disabled,
   showFullPrompt,
+  questionTitle,
+  progress,
+  questionnaire,
 }: InteractionFrameHeaderProps) {
   const isPlanExit = interaction.source.tool_name === 'plan_exit';
   const Icon =
@@ -42,19 +48,28 @@ export function InteractionFrameHeader({
     <FrameHeader
       className={cn('relative flex-row items-start gap-2', actions ? 'pr-28' : 'pr-10', className)}
     >
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-action" />
+      {questionnaire ? null : (
+        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-action" />
+      )}
       <div className="min-w-0 flex-1">
-        <FrameTitle
-          className={cn(
-            'break-words font-normal',
-            !showFullPrompt && 'clio-scrollbar max-h-28 overflow-y-auto pb-1 pr-1',
-          )}
-          data-slot="pending-interaction-title"
-        >
-          <QuestionMarkdown>
-            {isPlanExit ? interaction.title : (interaction.prompt ?? interaction.title)}
-          </QuestionMarkdown>
-        </FrameTitle>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+          <FrameTitle
+            className={cn(
+              'min-w-0 flex-1 break-words',
+              questionnaire ? 'text-base font-semibold leading-snug' : 'font-normal',
+              !showFullPrompt && 'clio-scrollbar max-h-28 overflow-y-auto pb-1 pr-1',
+            )}
+            data-slot="pending-interaction-title"
+          >
+            <QuestionMarkdown>
+              {questionTitle ??
+                (isPlanExit ? interaction.title : (interaction.prompt ?? interaction.title))}
+            </QuestionMarkdown>
+          </FrameTitle>
+          {progress ? (
+            <div className="shrink-0 pt-0.5 text-xs text-muted-foreground">{progress}</div>
+          ) : null}
+        </div>
         <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
         {interaction.routing_state === 'agent_elicitation_fallback_to_human' ? (
           <>

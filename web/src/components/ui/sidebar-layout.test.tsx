@@ -94,6 +94,26 @@ describe('collapsed navigation preview', () => {
     expect(screen.getByRole('button')).toHaveTextContent('unpinned collapsed');
   });
 
+  it('releases keyboard preview focus when the same control is clicked with the pointer', () => {
+    const { container } = render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarState />
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    const control = screen.getByRole('button');
+    act(() => control.focus());
+    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerDown(control, { pointerType: 'mouse' });
+    fireEvent.click(control);
+    fireEvent.pointerLeave(sidebar);
+    expect(control).toHaveFocus();
+    expect(control).toHaveTextContent('unpinned collapsed');
+    expect(sidebar).not.toHaveAttribute('data-preview');
+  });
+
   it('preserves the focused menu control when preview styling replaces icon styling', () => {
     render(
       <TooltipProvider>

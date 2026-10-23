@@ -251,7 +251,7 @@ describe('ClioComposer service commands', () => {
       'composer',
     );
     const attachmentTray = screen.getByRole('group', { name: 'Pending attachments' });
-    expect(attachmentTray).toHaveClass('w-max', 'min-w-full');
+    expect(attachmentTray).toHaveClass('w-full', 'flex-wrap');
     expect(attachmentTray.closest('[data-slot="scroll-area"]')).toHaveClass('rounded-2xl');
 
     const openAttachment = screen.getByRole('button', { name: 'Open field-map.png' });
@@ -321,13 +321,11 @@ describe('ClioComposer service commands', () => {
 
     const openAttachment = screen.getByRole('button', { name: 'Open field-notes.md' });
     expect(within(openAttachment).getByText('field-notes.md')).toBeVisible();
-    expect(within(openAttachment).getByText('text/markdown')).toBeVisible();
-    expect(openAttachment).toHaveClass('size-full', 'flex-col');
-    expect(openAttachment.closest('[data-attachment-variant]')).toHaveAttribute(
-      'data-attachment-category',
-      'document',
-    );
-    expect(openAttachment.closest('[data-attachment-variant]')).toHaveClass('size-36');
+    expect(within(openAttachment).getByText('7 B')).toBeVisible();
+    expect(within(openAttachment).getByText('Ready locally')).toBeVisible();
+    expect(openAttachment.closest('[data-slot="file-identity-row"]')).not.toBeNull();
+    await user.hover(openAttachment);
+    expect(await screen.findByText('text/markdown')).toBeVisible();
   });
 
   it('uploads a selected file before submission so conversion can start immediately', async () => {

@@ -3,6 +3,7 @@ import { ActivityIcon, NetworkIcon, PackageIcon } from 'lucide-react';
 import { ClioStatus } from './status';
 import { BrandIcon } from './brand-icon';
 import { vocab } from '@/lib/brand-vocabulary';
+import { managedServiceStatus } from '@/lib/managed-service-status';
 
 /** Packaged provider marks, with a neutral capability icon when no vendor mark exists. */
 export function ManagedServiceLogo({ service }: { service: Pick<ManagedServiceDefinition, 'id'> }) {
@@ -31,36 +32,12 @@ export function ManagedServiceLogo({ service }: { service: Pick<ManagedServiceDe
 
 /** Report observed readiness separately from installation and verification. */
 export function ManagedServiceState({ service }: { service: ManagedServiceDefinition }) {
-  const observed = service.observation;
-  const label = observed
-    ? observed.serving
-      ? 'Running'
-      : observed.phase === 'installing'
-        ? 'Installing'
-        : observed.running
-          ? 'Starting'
-          : observed.installed
-            ? 'Stopped'
-            : observed.phase === 'not_installed'
-              ? 'Not installed'
-              : observed.phase
-    : service.state === 'running'
-      ? 'Running'
-      : service.state === 'stopped'
-        ? 'Stopped'
-        : service.variants.some((row) => row.compatible)
-          ? 'Not installed'
-          : 'Unavailable here';
+  const status = managedServiceStatus(service);
   return (
     <span
       title={`Running means the service is responding. Connect makes it available to ${vocab.agent}; stopping the service does not remove its configuration.`}
     >
-      <ClioStatus
-        label={label}
-        value={
-          observed?.serving || (!observed && service.state === 'running') ? 'healthy' : 'degraded'
-        }
-      />
+      <ClioStatus label={status.label} value={status.value} />
     </span>
   );
 }

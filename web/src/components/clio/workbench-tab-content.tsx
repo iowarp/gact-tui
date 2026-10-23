@@ -62,6 +62,8 @@ export interface WorkbenchTabContentProps {
   diffActionError?: string;
   diffActionPending?: boolean;
   sessionView: ReactNode;
+  /** The Agent tab before the conversation exists (a new conversation's draft agent). */
+  agentView?: ReactNode;
   maximized: boolean;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
@@ -97,6 +99,7 @@ export function WorkbenchTabContent({
   diffActionError,
   diffActionPending,
   sessionView,
+  agentView,
   maximized,
   onOpenSubagent,
   onUndoDiff,
@@ -179,6 +182,8 @@ export function WorkbenchTabContent({
     case 'agent':
       return sessionId ? (
         <AgentCompositionView key={sessionId} sessionId={sessionId} />
+      ) : agentView ? (
+        agentView
       ) : (
         <p className="p-6 text-sm text-muted-foreground">
           The conversation&apos;s agent appears after you send your first message.

@@ -46,17 +46,18 @@ describe('ClioContextCanvasPanel', () => {
       />,
     );
 
-    expect(screen.getByText('Context composition')).toBeVisible();
-    expect(screen.getByText('460K of 922K tokens')).toBeVisible();
-    expect(screen.getByText('framing')).toBeVisible();
-    expect(screen.getByText(/Latest prompt measured by provider, 460K tokens/)).toBeVisible();
-    expect(screen.getByText(/Prompt cache read 230K tokens, 50% of this prompt/)).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Context usage' })).toBeVisible();
+    expect(screen.getByText('460K / 922K')).toBeVisible();
+    expect(screen.getByText('Unattributed prompt')).toBeVisible();
+    expect(screen.getByText(/Provider-reported usage/)).toBeVisible();
+    expect(screen.getByText(/Prompt cache: 230K reused \(50.0%\)/)).toBeVisible();
     expect(screen.queryByText('Session-only working context')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: 'Context agent' }));
     await user.click(screen.getByRole('option', { name: /Station analyst/ }));
     expect(onTargetChange).toHaveBeenCalledWith('sess_2');
 
+    await user.click(screen.getByRole('button', { name: 'Compaction settings' }));
     await user.click(screen.getByRole('switch', { name: 'Automatic compaction' }));
     expect(onUpdatePreferences).toHaveBeenCalledWith({ automatic_compaction: false });
 
@@ -79,8 +80,46 @@ describe('ClioContextCanvasPanel', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Compaction settings' }));
     expect(screen.getByRole('button', { name: 'Compact now' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: /Latest context snapshot/ }));
     expect(screen.getByText('No context snapshot is available for this agent.')).toBeVisible();
+  });
+
+  it('shows named contributors without replacing provider usage with estimates', async () => {
+    const user = userEvent.setup();
+    render(
+      <ClioContextCanvasPanel
+        context={{
+          ...context,
+          used_tokens: 1000,
+          prompt_breakdown: {
+            method: 'characters_div_4',
+            tokens_estimated: 1800,
+            media_items: 1,
+            sections: [
+              {
+                id: 'skills',
+                label: 'Skills',
+                tokens_estimated: 1800,
+                count: 2,
+                items: [
+                  { label: 'Skill descriptions', tokens_estimated: 1000 },
+                  { label: 'work-with-ndp / references/catalog.md', tokens_estimated: 800 },
+                ],
+              },
+            ],
+          },
+        }}
+        files={[]}
+        frames={[]}
+      />,
+    );
+    expect(screen.getByText('1K / 922K')).toBeVisible();
+    expect(screen.getByText('≈1.8K')).toBeVisible();
+    expect(screen.queryByText(/Section counts are text estimates/)).not.toBeInTheDocument();
+    expect(screen.getByText('work-with-ndp / references/catalog.md')).not.toBeVisible();
+    await user.click(screen.getByText('Skills'));
+    expect(screen.getByText('work-with-ndp / references/catalog.md')).toBeVisible();
   });
 });

@@ -34,6 +34,23 @@ class RecordingTransport implements ClioTransport {
             cache_read_tokens: 750,
             cache_write_tokens: 40,
             cache_tokens_measured: true,
+            usage_recorded_at: '2026-10-21T06:00:00Z',
+            prompt_breakdown: {
+              method: 'characters_div_4',
+              tokens_estimated: 800,
+              media_items: 0,
+              sections: [
+                {
+                  id: 'skills',
+                  label: 'Skills',
+                  tokens_estimated: 800,
+                  count: 1,
+                  items: [
+                    { label: 'work-with-ndp / references/catalog.md', tokens_estimated: 800 },
+                  ],
+                },
+              ],
+            },
             live_block_count: 1,
             tokens_by_kind: { message: 120 },
             categories: { conversation: 120 },
@@ -61,6 +78,12 @@ describe('ContextRepository', () => {
       cache_read_tokens: 750,
       cache_write_tokens: 40,
       cache_tokens_measured: true,
+      usage_recorded_at: '2026-10-21T06:00:00Z',
+      prompt_breakdown: {
+        sections: [
+          { label: 'Skills', items: [{ label: 'work-with-ndp / references/catalog.md' }] },
+        ],
+      },
     });
     expect(
       await repository.updateContextPreferences('sess 1', {

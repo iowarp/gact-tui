@@ -6,8 +6,9 @@ import {
 } from '@/lib/artifact-presentation';
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { TriangleAlertIcon } from 'lucide-react';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import { DownloadIcon, TriangleAlertIcon } from 'lucide-react';
+import { useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { toast } from 'sonner';
 import {
   Artifact,
   ArtifactContent,
@@ -41,8 +42,10 @@ import { cn } from '@/lib/utils';
 import { describeReferenceError } from '@/lib/a2ui/reference-failure';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 import { downloadBytes } from './surface-export';
-import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
+import { Button } from '@/components/ui/button';
 import { ArtifactTypeIcon } from './artifact-type-icon';
+import { fileRowTint } from '@/lib/file-presentation';
+import { ClioRelativeTime } from './relative-time';
 
 export interface ClioArtifactCardProps {
   artifact: ArtifactEntity;
@@ -112,6 +115,7 @@ function ArtifactCardContent({
   presentation,
 }: ClioArtifactCardProps) {
   const repository = useRepository();
+  const [downloading, setDownloading] = useState(false);
   const displayName = artifactDisplayName(artifact);
   const { settings } = useConnectionSettings();
   const image = isImageArtifact(artifact);
@@ -188,23 +192,26 @@ function ArtifactCardContent({
   // `onOpen` click). Fetched on demand, independent of the preview query
   // above (which is gated to images within the inline preview budget) — a
   // download must reach the artifact regardless of size or media type.
-  const downloadCapabilities: SurfaceCapabilities = {
-    exportFormats: [
-      {
-        id: 'original',
-        label: 'Original file',
-        run: async () => {
-          const bytes = await repository.readArtifactBytesFor(artifact);
-          downloadBytes(bytes, artifact.media_type || 'application/octet-stream', artifact.name);
-        },
-      },
-    ],
+  const downloadOriginal = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const bytes = await repository.readArtifactBytesFor(artifact);
+      downloadBytes(bytes, artifact.media_type || 'application/octet-stream', artifact.name);
+    } catch (error) {
+      toast.error('Could not download artifact', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
     <Artifact
       className={cn(
         'group/artifact group relative isolate',
+        fileRowTint(artifact.name, artifact.media_type),
         onOpen &&
           'transition-[background-color,border-color] hover:border-primary/50 hover:bg-accent/60',
         className,
@@ -213,8 +220,8 @@ function ArtifactCardContent({
       <ArtifactHeader
         className={cn('gap-2.5 px-3 py-2', onOpen && 'group-hover/artifact:bg-accent/60')}
       >
-        <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted/60 text-muted-foreground">
-          <ArtifactTypeIcon artifact={artifact} className="size-4" />
+        <span className="grid size-10 shrink-0 place-items-center">
+          <ArtifactTypeIcon artifact={artifact} badge className="size-9" />
         </span>
         <div className="min-w-0 flex-1">
           {onOpen ? (
@@ -223,7 +230,7 @@ function ArtifactCardContent({
             // so the whole card opens without nesting interactive controls.
             <button
               aria-label={`Open ${displayName}`}
-              className="block w-full truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 after:z-10 after:cursor-pointer after:rounded-lg after:content-[''] group-hover/artifact:text-primary focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+              className="block w-full truncate text-left text-sm font-medium text-foreground outline-none after:absolute after:inset-0 after:z-10 after:cursor-pointer after:rounded-lg after:content-[''] group-hover/artifact:text-primary focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
               onClick={(event) => onOpen(artifact, event as unknown as MouseEvent<HTMLDivElement>)}
               title={displayName}
               type="button"
@@ -231,7 +238,7 @@ function ArtifactCardContent({
               {displayName}
             </button>
           ) : (
-            <ArtifactTitle className="truncate">{displayName}</ArtifactTitle>
+            <ArtifactTitle className="truncate text-foreground">{displayName}</ArtifactTitle>
           )}
           <ArtifactDescription
             className="flex gap-2 truncate text-xs"
@@ -244,6 +251,14 @@ function ArtifactCardContent({
             </span>
             {artifact.size === undefined ? null : <span>{formatBytes(artifact.size)}</span>}
             {artifact.version === undefined ? null : <span>v{artifact.version}</span>}
+            {artifact.created_at ? (
+              <ClioRelativeTime
+                timestamp={artifact.created_at}
+                label="Created"
+                compact
+                className="text-xs"
+              />
+            ) : null}
           </ArtifactDescription>
         </div>
         {artifact.session_relation || presentation === 'evidence' ? (
@@ -255,12 +270,21 @@ function ArtifactCardContent({
                 : 'Input'}
           </Badge>
         ) : null}
-        <div className="relative z-20 shrink-0">
-          <SurfaceToolbar capabilities={downloadCapabilities} floating={false} />
+        <div className="relative z-20 shrink-0 text-foreground">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Download ${displayName}`}
+            title="Download original file"
+            disabled={downloading}
+            onClick={() => void downloadOriginal()}
+          >
+            <DownloadIcon className="size-4" />
+          </Button>
         </div>
       </ArtifactHeader>
       {preview && !isDashboardArtifact(artifact) ? (
-        <ArtifactContent className="p-0 [&_a]:relative [&_a]:z-20 [&_button]:relative [&_button]:z-20">
+        <ArtifactContent className="p-0 text-foreground [&_a]:relative [&_a]:z-20 [&_button]:relative [&_button]:z-20">
           {textPreview.data ? (
             <div className="relative max-h-44 overflow-hidden border-t bg-muted/15 px-4 py-3">
               {isMarkdownArtifact(artifact) ? (

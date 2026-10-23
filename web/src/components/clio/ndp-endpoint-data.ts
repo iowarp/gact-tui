@@ -35,6 +35,7 @@ export function records(value: unknown): NDPRecord[] {
 export const recordName = (row: NDPRecord): string =>
   String(
     row.title ??
+      row.topic ??
       row.name ??
       row.sncl_code ??
       row.station ??
@@ -59,11 +60,15 @@ export function endpointSections(endpoint: NDPEndpointConnection): NDPSection[] 
       ? [{ name: 'Stations', operation: 'GET /bridge/stations/catalog' }]
       : []),
     ...(has('GET /data/csv-files') ? [{ name: 'Files', operation: 'GET /data/csv-files' }] : []),
-    ...(has('GET /bridge/sessions')
-      ? [{ name: 'Streams', operation: 'GET /bridge/sessions' }]
-      : has('GET /active-streams')
-        ? [{ name: 'Streams', operation: 'GET /active-streams' }]
-        : []),
+    ...(has('SDK streaming_v2.list')
+      ? [{ name: 'Streams', operation: 'SDK streaming_v2.list' }]
+      : has('GET /streams')
+        ? [{ name: 'Streams', operation: 'GET /streams' }]
+        : has('GET /bridge/sessions')
+          ? [{ name: 'Streams', operation: 'GET /bridge/sessions' }]
+          : has('GET /active-streams')
+            ? [{ name: 'Streams', operation: 'GET /active-streams' }]
+            : []),
   ];
 }
 export function listingParameters(section: NDPSection, query: string, server: string): NDPRecord {

@@ -188,10 +188,10 @@ describe('model picker catalog preparation', () => {
     tags.mockClear();
     // The refresh arrives externally while the modal is open.
     act(() => screen.getByText('Refresh catalog', { selector: 'button' }).click());
-    expect(skeleton()).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Loading remaining models…' })).toBeVisible();
     expect(tags).not.toHaveBeenCalled();
     await paintFrame();
-    expect(skeleton()).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Loading remaining models…' })).toBeVisible();
     await paintFrame();
     expect(search()).toHaveValue('model-new');
     expect(search()).toHaveFocus();

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { TransportError } from '@clio/core/v3';
@@ -203,6 +203,51 @@ describe('WorkspaceFileView', () => {
     return render(<QueryClientProvider client={queryClient}>{view}</QueryClientProvider>);
   }
 
+  it('shows CSV identity once in the preview control and keeps the count in pagination', async () => {
+    repository.readWorkspaceFile.mockResolvedValue(
+      `station,count\n${Array.from({ length: 25 }, (_, index) => `MTA${index},${index}`).join('\n')}`,
+    );
+    renderFile(
+      <WorkspaceFileView path="stations.csv" mediaType="text/csv" workspaceId="workspace_1" />,
+    );
+    expect(await screen.findByText('MTA0')).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Preview' })).toHaveTextContent('stations.csv');
+    expect(screen.getAllByText('stations.csv', { exact: true })).toHaveLength(1);
+    expect(screen.queryByText('CSV preview')).not.toBeInTheDocument();
+    expect(screen.queryByText(/parsed rows/u)).not.toBeInTheDocument();
+    expect(screen.getByText('1 - 10 of 25')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: '2' }));
+    expect(screen.getByText('11 - 20 of 25')).toBeVisible();
+    expect(screen.getByText('MTA10')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Download file' })).toBeEnabled();
+  });
+
+  it.each([
+    ['notes.md', 'text/markdown', '# Field notes'],
+    ['status.json', 'application/json', '{"state":"ready"}'],
+    ['stations.json', 'application/json', '[{"station":"MTA1","count":25}]'],
+    ['pipeline.py', 'text/x-python', 'print("ready")'],
+  ])(
+    'shows one file identity for %s while retaining its source view',
+    async (name, mediaType, content) => {
+      repository.readWorkspaceFile.mockResolvedValue(content);
+      renderFile(<WorkspaceFileView path={name} mediaType={mediaType} workspaceId="workspace_1" />);
+      await waitFor(() =>
+        expect(screen.queryByLabelText(`Loading ${name}`)).not.toBeInTheDocument(),
+      );
+      expect(screen.getAllByText(name, { exact: true })).toHaveLength(1);
+      const toolbar = document.querySelector('[data-slot="viewer-toolbar"]') as HTMLElement;
+      expect(
+        within(toolbar).getByRole('tab', { name: 'Preview', selected: true }),
+      ).toHaveTextContent(name);
+      const source = screen.queryByRole('tab', { name: 'Source' });
+      if (source) await userEvent.click(source);
+      expect(document.querySelector('pre')).toHaveTextContent(content);
+      expect(screen.getByRole('button', { name: `Copy ${name}` })).toBeVisible();
+      expect(screen.getAllByText(name, { exact: true })).toHaveLength(1);
+    },
+  );
+
   it.each(['cat.html', 'cat.HTM', 'unlabelled.txt'])(
     'renders HTML %s with its exact source available',
     async (path) => {
@@ -273,7 +318,7 @@ describe('WorkspaceFileView', () => {
     expect(screen.getByText('file not found: missing.pdf')).toBeVisible();
   });
 
-  it('presents unsupported binary metadata and controls instead of a code block', () => {
+  it('presents unsupported binary metadata and controls instead of a code block', async () => {
     renderFile(
       <WorkspaceFileView
         mediaType="application/x-hdf5"
@@ -289,6 +334,9 @@ describe('WorkspaceFileView', () => {
     expect(screen.getAllByRole('button', { name: 'Download file' })).toHaveLength(1);
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
+    expect(screen.queryByText('data/run.h5')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'File information' }));
+    expect(await screen.findByText('data/run.h5')).toBeVisible();
   });
 
   it('aborts the previous text preview when selection changes', async () => {

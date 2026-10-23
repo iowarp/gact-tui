@@ -1,4 +1,4 @@
-import type { PendingInteraction, Session } from '@clio/core/v3';
+import type { AgentDelta, PendingInteraction, Session } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { StrictMode, type ReactNode } from 'react';
@@ -85,7 +85,7 @@ beforeEach(() => {
   });
 });
 
-function renderDraft() {
+function renderDraft(agent: { draftAgentRef?: string; draftAgentDelta?: AgentDelta } = {}) {
   return renderHook(
     () =>
       useSessionMutations({
@@ -94,6 +94,7 @@ function renderDraft() {
         sessionId: '',
         workspaceId: 'ws_1',
         createOnSend: true,
+        ...agent,
       }),
     { wrapper: strictWrapper },
   );
@@ -174,6 +175,28 @@ describe('presentation-only conversation', () => {
     expect(mocks.navigate).toHaveBeenCalledWith('/workspaces/ws_1/sessions/sess_created', {
       replace: true,
     });
+  });
+
+  it('creates the conversation with the agent and plugin changes chosen before sending', async () => {
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderDraft({
+      draftAgentRef: 'clio/standard',
+      draftAgentDelta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
+    });
+    await result.current.send.mutateAsync(draft);
+    expect(mocks.repository.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent_ref: 'clio/standard',
+        agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
+      }),
+    );
+  });
+
+  it('sends no plugin changes when the draft made none', async () => {
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderDraft({ draftAgentDelta: { add: [], remove: [] } });
+    await result.current.send.mutateAsync(draft);
+    expect(mocks.repository.createSession.mock.calls[0]?.[0]).not.toHaveProperty('agent_delta');
   });
 
   it('reuses the created session and message identity after a failed first send', async () => {

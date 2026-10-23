@@ -1,6 +1,8 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { FolderIcon, PaperclipIcon } from 'lucide-react';
+import { DownloadIcon, FolderIcon, PaperclipIcon } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -15,6 +17,12 @@ import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
+import { formatBytes } from '@/lib/format';
+import { fileFormatLabel } from '@/lib/media-types';
+import { Button } from '@/components/ui/button';
+import { FileIdentityRow } from './file-identity-row';
+import { ClioRelativeTime } from './relative-time';
+import { downloadBytes } from './surface-export';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { resourceAvailability, resourcePipelineStages } from './resource-availability';
 import {
@@ -62,7 +70,7 @@ export function TranscriptResourceAttachments({
         aria-label={
           blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`
         }
-        className="w-max min-w-full justify-start gap-3 pb-3 group-[.is-user]:justify-end"
+        className="w-full min-w-0 flex-wrap justify-start gap-2 pb-3 group-[.is-user]:justify-end"
         role="group"
         variant="composer"
       >
@@ -172,6 +180,8 @@ function TranscriptResourceAttachmentDisplay({
   previewUrl,
   visual,
 }: TranscriptResourceAttachmentProps & { previewUrl?: string; visual: boolean }) {
+  const repository = useRepository();
+  const [downloading, setDownloading] = useState(false);
   const folder =
     resource?.connected_source?.kind === 'folder' ? resource.connected_source : undefined;
   const filename = folder?.label ?? resource?.name ?? block.name;
@@ -182,37 +192,95 @@ function TranscriptResourceAttachmentDisplay({
   const open = () => {
     if (resource) onOpen?.(resource, relatedResources);
   };
+  const download = async () => {
+    if (!resource || downloading) return;
+    setDownloading(true);
+    try {
+      const bytes = await repository.resourceContent(
+        resource.workspace_id || block.workspace_id,
+        resource.id,
+      );
+      downloadBytes(bytes, mediaType || 'application/octet-stream', filename);
+    } catch (error) {
+      toast.error('Could not download attachment', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <AttachmentHoverCard closeDelay={100} openDelay={220}>
       <AttachmentHoverCardTrigger asChild>
-        <Attachment
-          data={{ filename, id: block.id, mediaType, type: 'file', url: previewUrl ?? '' }}
-          title={filename}
-        >
-          <button
-            aria-label={`Open ${filename}`}
-            className={cn(
-              'text-left',
-              visual ? 'size-full' : 'flex size-full min-w-0 flex-col overflow-hidden',
-            )}
+        {!visual ? (
+          <FileIdentityRow
+            name={filename}
+            mediaType={mediaType}
             disabled={!resource || !onOpen}
-            onClick={open}
-            type="button"
+            onOpen={open}
+            icon={
+              folder ? (
+                <FolderIcon
+                  aria-label="Folder"
+                  className="size-8 text-amber-600 dark:text-amber-400"
+                />
+              ) : undefined
+            }
+            metadata={
+              <span className="flex items-center gap-2">
+                <span>{folder ? 'Folder' : fileFormatLabel(filename, mediaType)}</span>
+                {resource ? <span>{formatBytes(resource.received_size)}</span> : null}
+                <ResourcePipelineSummaryIcon stages={stages} />
+                <span>{stages.overallLabel}</span>
+                {resource?.created_at ? (
+                  <ClioRelativeTime timestamp={resource.created_at} label="Attached" compact />
+                ) : null}
+              </span>
+            }
+            actions={
+              resource?.state === 'ready' && !folder ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Download ${filename}`}
+                  disabled={downloading}
+                  onClick={() => void download()}
+                >
+                  <DownloadIcon className="size-4" />
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <Attachment
+            data={{ filename, id: block.id, mediaType, type: 'file', url: previewUrl ?? '' }}
+            title={filename}
           >
-            <AttachmentPreview
-              fallbackIcon={
-                folder ? (
-                  <FolderIcon aria-label="Folder" className="size-7 text-muted-foreground" />
-                ) : undefined
-              }
-            />
-            <AttachmentInfo className="text-xs" showMediaType={!folder} />
-            <span className="absolute right-2 bottom-2 shrink-0">
-              <ResourcePipelineSummaryIcon overlay stages={stages} />
-            </span>
-          </button>
-        </Attachment>
+            <button
+              aria-label={`Open ${filename}`}
+              className={cn(
+                'text-left',
+                visual ? 'size-full' : 'flex size-full min-w-0 flex-col overflow-hidden',
+              )}
+              disabled={!resource || !onOpen}
+              onClick={open}
+              type="button"
+            >
+              <AttachmentPreview
+                fallbackIcon={
+                  folder ? (
+                    <FolderIcon aria-label="Folder" className="size-7 text-muted-foreground" />
+                  ) : undefined
+                }
+              />
+              <AttachmentInfo className="text-xs" showMediaType={!folder} />
+              <span className="absolute right-2 bottom-2 shrink-0">
+                <ResourcePipelineSummaryIcon overlay stages={stages} />
+              </span>
+            </button>
+          </Attachment>
+        )}
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
         <p className="truncate text-sm font-medium">{filename}</p>

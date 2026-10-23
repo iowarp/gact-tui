@@ -115,6 +115,30 @@ it('includes received results and reminders in the same ordered action summary',
   ).toBe('Received results, ran commands, received reminder');
 });
 
+it('names a shell result notification and the parallel-calls hint by what they are', () => {
+  // The service sends one task's result as task_result and the parallel-calls hint as tool_use.
+  const run = { id: 'run', session_id: 's', name: 'shell_bash', state: 'succeeded' as const };
+  expect(
+    transcriptActivitySummary([
+      iteration([run], {
+        activity: [
+          {
+            kind: 'injection',
+            id: 'hint',
+            block: { id: 'hint', type: 'injection', source: 'tool_use', text: 'Hint' },
+          },
+          { kind: 'tool', id: run.id, tool: run },
+          {
+            kind: 'injection',
+            id: 'result',
+            block: { id: 'result', type: 'injection', source: 'task_result', text: 'Result' },
+          },
+        ],
+      }),
+    ]).label,
+  ).toBe('Received reminder, ran commands, received results');
+});
+
 it('identifies streamed reasoning after a read has finished without claiming the read is running', () => {
   const read = { id: 'read', session_id: 's', name: 'fs_read_file', state: 'succeeded' as const };
   expect(
@@ -160,4 +184,11 @@ it('names memory work so a folded turn shows that memory changed', () => {
     output: { tool: 'create_memory', memory: { action: 'already_remembered' } },
   };
   expect(transcriptActivitySummary([iteration([held])]).label).toBe('Checked memory');
+});
+
+it('does not say files were edited when the write was refused', () => {
+  const refused = { id: 'w', session_id: 's', name: 'fs_write_file', state: 'failed' as const };
+  const written = { ...refused, id: 'w2', state: 'succeeded' as const };
+  expect(transcriptActivitySummary([iteration([refused])]).label).toBe('Tried to edit files');
+  expect(transcriptActivitySummary([iteration([written])]).label).toBe('Edited files');
 });

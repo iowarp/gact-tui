@@ -40,7 +40,6 @@ function DesktopNavigationLayout({
   // its own keyboard shortcut, so no useMenuAction registration is needed.
   const { open, setOpen } = useSidebar();
   const panelRef = useRef<PanelImperativeHandle>(null);
-  const restoreNavigationRef = useRef(false);
   const previousCollapseForWorkbenchRef = useRef(false);
 
   useEffect(() => {
@@ -49,15 +48,9 @@ function DesktopNavigationLayout({
 
     if (collapseForWorkbench && !wasCollapsedForWorkbench) {
       if (open) {
-        restoreNavigationRef.current = true;
         setOpen(false);
       }
       return;
-    }
-
-    if (!collapseForWorkbench && wasCollapsedForWorkbench && restoreNavigationRef.current) {
-      restoreNavigationRef.current = false;
-      setOpen(true);
     }
   }, [collapseForWorkbench, open, setOpen]);
 

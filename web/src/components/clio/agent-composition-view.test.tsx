@@ -18,6 +18,7 @@ const repository = vi.hoisted(() => ({
   plugins: vi.fn(),
   agents: vi.fn(),
   previewPluginRemoval: vi.fn(),
+  resolveAgent: vi.fn(),
   saveUserAgent: vi.fn(),
   compactSession: vi.fn(),
 }));
@@ -35,7 +36,7 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
-import { AgentCompositionView } from './agent-composition-view';
+import { AgentCompositionView, DraftAgentCompositionView } from './agent-composition-view';
 import { SessionAgentControl } from './session-agent-control';
 
 function plugin(
@@ -570,5 +571,67 @@ describe('AgentCompositionView', () => {
     expect(await screen.findByText(/runs a defined subagent/u)).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Add plugin' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Remove shell' })).toBeNull();
+  });
+});
+
+describe('the agent of a conversation not yet started', () => {
+  const draft = { ref: 'clio/standard', delta: { add: [], remove: ['xlsx'] } };
+
+  beforeEach(() => repository.resolveAgent.mockResolvedValue(resolution));
+
+  function renderDraft(onChange = vi.fn()) {
+    renderView(<DraftAgentCompositionView draft={draft} onChange={onChange} />);
+    return onChange;
+  }
+
+  it('resolves the chosen agent with its changes, without a session', async () => {
+    renderDraft();
+    expect(await screen.findByRole('list', { name: 'Active plugins' })).toBeVisible();
+    expect(repository.resolveAgent).toHaveBeenCalledWith(
+      'clio/standard',
+      { add: [], remove: ['xlsx'] },
+      expect.anything(),
+    );
+    expect(repository.sessionAgent).not.toHaveBeenCalled();
+  });
+
+  it('adds a plugin at once: nothing is cached before the first message', async () => {
+    const user = userEvent.setup();
+    const onChange = renderDraft();
+    await user.click(await screen.findByRole('button', { name: 'Add plugin' }));
+    await user.click(await screen.findByRole('option', { name: /hdf5/u }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ref: 'clio/standard',
+        delta: { add: ['clio/hdf5'], remove: ['xlsx'] },
+      }),
+    );
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
+  });
+
+  it('shows what leaves with a removal before it applies', async () => {
+    const user = userEvent.setup();
+    repository.previewPluginRemoval.mockResolvedValue({
+      plugin: 'document-runtime',
+      removes: [
+        { id: 'pdf', reason: { reason: 'cascade', because: 'document-runtime' } },
+        { id: 'document-runtime', reason: { reason: 'removed', because: '' } },
+      ],
+      tools_removed: ['prepare_document'],
+    });
+    const onChange = renderDraft();
+    await user.click(await screen.findByRole('button', { name: 'Remove document-runtime' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(await within(dialog).findByText('requires document-runtime')).toBeVisible();
+    expect(onChange).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: 'Yes' }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ref: 'clio/standard',
+        delta: { add: [], remove: ['xlsx', 'document-runtime'] },
+      }),
+    );
+    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
   });
 });

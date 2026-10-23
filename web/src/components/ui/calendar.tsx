@@ -5,6 +5,7 @@ import {
   getDefaultClassNames,
   type DayButton,
   type Locale,
+  type RootProps,
 } from "react-day-picker"
 
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -132,16 +133,7 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Root: ({ className, rootRef, ...props }) => {
-          return (
-            <div
-              data-slot="calendar"
-              ref={rootRef}
-              className={cn(className)}
-              {...props}
-            />
-          )
-        },
+        Root: CalendarRoot,
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === "left") {
             return (
@@ -176,6 +168,11 @@ function Calendar({
       {...props}
     />
   )
+}
+
+// Keep the subtree mounted when a parent input blurs during a calendar click.
+function CalendarRoot({ className, rootRef, ...props }: RootProps) {
+  return <div data-slot="calendar" ref={rootRef} className={cn(className)} {...props} />
 }
 
 function CalendarDayButton({

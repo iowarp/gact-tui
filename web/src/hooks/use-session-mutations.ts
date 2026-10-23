@@ -13,7 +13,7 @@ import type {
   SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { QueuedMessageReorderConflictError } from '@clio/core/v3';
+import { QueuedMessageReorderConflictError, type AgentDelta } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -46,6 +46,8 @@ interface UseSessionMutationsInput {
   createOnSend?: boolean;
   /** The agent a session created on first send runs; omitted uses the service default. */
   draftAgentRef?: string;
+  /** Plugin changes made to the draft's agent before the first message. */
+  draftAgentDelta?: AgentDelta;
   interactionRootSessionId?: string;
   supportsUnifiedInteractions?: boolean;
 }
@@ -85,6 +87,7 @@ export function useSessionMutations({
   workspaceId,
   createOnSend = false,
   draftAgentRef,
+  draftAgentDelta,
   interactionRootSessionId = sessionId,
   supportsUnifiedInteractions = false,
 }: UseSessionMutationsInput) {
@@ -267,6 +270,9 @@ export function useSessionMutations({
             routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
             approval_mode: value.behavior.confirmation_policy,
             ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),
+            ...(draftAgentDelta && draftAgentDelta.add.length + draftAgentDelta.remove.length
+              ? { agent_delta: draftAgentDelta }
+              : {}),
           })
           .catch((error: unknown) => {
             draftSession.current = null;

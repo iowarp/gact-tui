@@ -15,7 +15,7 @@ export function ResultDialogContent({
   footer,
 }: {
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
   footer?: ReactNode;
 }) {
@@ -29,10 +29,13 @@ export function ResultDialogContent({
     return () => observer.disconnect();
   }, []);
   return (
-    <DialogContent className="flex max-h-[85dvh] min-w-0 flex-col overflow-hidden sm:max-w-4xl">
+    <DialogContent
+      {...(!description ? { 'aria-describedby': undefined } : {})}
+      className="flex max-h-[85dvh] min-w-0 flex-col overflow-hidden sm:max-w-4xl"
+    >
       <DialogHeader className="shrink-0">
         <DialogTitle className="min-w-0 [overflow-wrap:anywhere]">{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
+        {description ? <DialogDescription>{description}</DialogDescription> : null}
       </DialogHeader>
       <ScrollArea
         className="max-h-[65dvh] min-h-0 min-w-0"

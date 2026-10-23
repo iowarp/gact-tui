@@ -72,6 +72,7 @@ export function TaskPageContinuation({
 }
 
 export interface AsyncTaskListProps {
+  compact?: boolean;
   processes: readonly AsyncProcess[];
   subagents?: readonly SubagentRun[];
   onOpenSubagent?: ClioEvidenceViewProps['onOpenSubagent'];
@@ -82,6 +83,7 @@ export interface AsyncTaskListProps {
 }
 
 export function AsyncTaskList({
+  compact = false,
   processes,
   subagents,
   onOpenSubagent,
@@ -163,6 +165,7 @@ export function AsyncTaskList({
         if (!task)
           return (
             <TaskActivityRow
+              compact={compact}
               key={entry.key}
               entry={entry}
               status={entry.subagent!.state}
@@ -181,6 +184,7 @@ export function AsyncTaskList({
         const kind = task.task_kind ?? (task.kind === 'agent' ? 'Subagent' : 'MCP');
         return (
           <TaskActivityRow
+            compact={compact}
             key={handle}
             entry={entry}
             onOpenSubagent={onOpenSubagent}

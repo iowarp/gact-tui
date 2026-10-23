@@ -80,10 +80,14 @@ export interface ClioWorkbenchProps {
   diffActionError?: string;
   diffActionPending?: boolean;
   sessionView: ReactNode;
+  /** The Agent tab before the conversation exists (a new conversation's draft agent). */
+  agentView?: ReactNode;
   onOpenTerminal?: () => void;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   subagents?: readonly SubagentRun[];
+  /** Finished child agents are not loaded yet (they sit behind Show completed work). */
+  finishedWorkHidden?: boolean;
   requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
 }
 
@@ -230,10 +234,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       diffActionError,
       diffActionPending,
       sessionView,
+      agentView,
       onOpenTerminal,
       onOpenSubagent,
       onUndoDiff,
       subagents = [],
+      finishedWorkHidden = false,
       requestedOpen,
     },
     ref,
@@ -595,6 +601,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               onOpenSubagent={openSubagentTab}
               onOpenTerminal={onOpenTerminal}
               subagents={subagents}
+              finishedWorkHidden={finishedWorkHidden}
             />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
@@ -675,6 +682,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       resourcesPending={resourcesPending}
                       sessionId={sessionId}
                       sessionView={sessionView}
+                      agentView={agentView}
                       tab={tab}
                       workspaceId={workspaceId}
                     />

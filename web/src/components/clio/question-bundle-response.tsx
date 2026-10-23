@@ -2,11 +2,10 @@ import { useAttentionDraft } from './attention-drafts';
 import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { QuestionResponseFrame } from './question-response-frame';
-import { QuestionMarkdown } from './question-markdown';
+import { QuestionChoiceCard } from './question-choice-card';
 import { ResponseErrorNotice } from './pending-interaction-notices';
 
 import { bundleQuestions, type BundleQuestion } from './question-bundle';
@@ -15,6 +14,8 @@ interface BundleAnswer {
   answer: string;
   selected_options: string[];
   other?: boolean;
+  comments?: Record<string, string>;
+  freeform?: string;
 }
 const emptyAnswer: BundleAnswer = { answer: '', selected_options: [] };
 
@@ -74,60 +75,83 @@ export function QuestionBundleResponse(props: {
     }
   };
   return (
-    <QuestionResponseFrame {...props} disabled={disabled}>
-      <div className="mb-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>
+    <QuestionResponseFrame
+      {...props}
+      disabled={disabled}
+      questionTitle={question.question}
+      progress={
+        <span role="status">
           Question {index + 1} of {questions.length}
         </span>
-        <span>{complete} answered · submitted together</span>
-      </div>
-      <fieldset disabled={disabled} className="min-w-0">
-        <legend className="mb-3 text-sm font-medium">
-          <QuestionMarkdown>{question.question}</QuestionMarkdown>
-        </legend>
+      }
+    >
+      <fieldset
+        disabled={disabled}
+        className="clio-scrollbar max-h-[min(24rem,35dvh)] min-w-0 overflow-y-auto p-0.5"
+      >
+        <legend className="sr-only">{question.question}</legend>
         {question.options.length ? (
           <RadioGroup
             aria-label={question.question}
+            className="gap-2"
             value={selection}
             onValueChange={(next) =>
               setValue({
-                answer: next === otherValue ? value.answer : '',
+                ...value,
+                answer:
+                  next === otherValue ? (value.freeform ?? '') : (value.comments?.[next] ?? ''),
                 selected_options: next === otherValue ? [] : [next],
                 other: next === otherValue,
               })
             }
           >
             {question.options.map((option, i) => (
-              <Label
-                key={option.value}
-                htmlFor={`${props.interaction.id}-${question.id}-${i}`}
-                className="flex items-start gap-2.5 rounded-md px-2 py-2 hover:bg-muted/50"
-              >
-                <RadioGroupItem
-                  id={`${props.interaction.id}-${question.id}-${i}`}
-                  value={option.value}
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm">{option.label}</span>
-                  {option.description ? (
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                      {option.description}
-                    </span>
-                  ) : null}
-                </span>
-              </Label>
+              <QuestionChoiceCard
+                key={`${question.id}-${option.value}`}
+                id={`${props.interaction.id}-${question.id}-${i}`}
+                label={option.label}
+                description={option.description}
+                selected={selection === option.value}
+                disabled={disabled}
+                control={
+                  <RadioGroupItem
+                    aria-label={option.label}
+                    id={`${props.interaction.id}-${question.id}-${i}`}
+                    value={option.value}
+                  />
+                }
+                comment={value.comments?.[option.value] ?? ''}
+                onCommentOpen={() =>
+                  setValue({
+                    ...value,
+                    selected_options: [option.value],
+                    answer: value.comments?.[option.value] ?? '',
+                    other: false,
+                  })
+                }
+                onCommentChange={(text) =>
+                  setValue({
+                    ...value,
+                    answer: text,
+                    comments: { ...value.comments, [option.value]: text },
+                  })
+                }
+              />
             ))}
             {question.allow_freeform ? (
-              <Label
-                className="flex items-center gap-2.5 px-2 py-2"
-                htmlFor={`${props.interaction.id}-${question.id}-other`}
-              >
-                <RadioGroupItem
-                  id={`${props.interaction.id}-${question.id}-other`}
-                  value={otherValue}
-                />
-                Other answer
-              </Label>
+              <QuestionChoiceCard
+                id={`${props.interaction.id}-${question.id}-other`}
+                label="Other answer"
+                selected={selection === otherValue}
+                disabled={disabled}
+                control={
+                  <RadioGroupItem
+                    aria-label="Other answer"
+                    id={`${props.interaction.id}-${question.id}-other`}
+                    value={otherValue}
+                  />
+                }
+              />
             ) : null}
           </RadioGroup>
         ) : null}
@@ -137,13 +161,19 @@ export function QuestionBundleResponse(props: {
             className="mt-2 min-h-20"
             value={value.answer}
             onChange={(event) =>
-              setValue({ answer: event.target.value, selected_options: [], other: true })
+              setValue({
+                ...value,
+                answer: event.target.value,
+                freeform: event.target.value,
+                selected_options: [],
+                other: true,
+              })
             }
           />
         ) : null}
       </fieldset>
       <ResponseErrorNotice error={props.responseError} />
-      <div className="mt-4 flex items-center justify-between gap-2">
+      <div className="mt-4 flex items-center justify-between gap-2 border-t pt-3">
         <Button
           size="sm"
           variant="ghost"

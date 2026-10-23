@@ -122,11 +122,10 @@ describe('FlowRunView', () => {
     });
     const onOpen = renderRun();
     await screen.findByRole('img', { name: /The workflow's 3 steps in order/u });
-    expect(
-      screen.getAllByText(
-        'Editors critic may add up to 2 steps over at most 1 editing round (0 added, 1 round so far). Added steps need your approval.',
-      )[0],
-    ).toBeVisible();
+    expect(screen.getAllByText('Can change while running')[0]).toHaveAttribute(
+      'title',
+      'Editors critic may add up to 2 steps over at most 1 editing round (0 added, 1 round so far). Added steps need your approval.',
+    );
     for (const word of ['done', 'running', 'awaiting approval']) {
       expect(screen.getByText(word)).toBeVisible();
     }
@@ -139,7 +138,6 @@ describe('FlowRunView', () => {
     expect(
       screen.getByText('polish', { selector: 'li > span.font-medium' }).parentElement,
     ).toHaveTextContent('polish runs self after review, proposed by critic: tighten the wording');
-    expect(screen.getAllByText(/Added steps need your approval/u)[0]).toBeVisible();
     expect(
       screen.getByRole('img', {
         name: /The workflow's 3 steps in order: draft, done; review, running/u,
@@ -154,6 +152,34 @@ describe('FlowRunView', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Answer the approval question' }));
     await waitFor(() => expect(repository.agentTask).toHaveBeenLastCalledWith('task_flow'));
+  });
+
+  it('shows a finished workflow by its final answer, not the text the model reads', async () => {
+    repository.taskFlow.mockResolvedValue(
+      flowRunSchema.parse({
+        ...workflowRun,
+        status: 'completed',
+        questions: [],
+        view: { ...workflowRun.view, awaiting_approval: [] },
+        result: {
+          answer:
+            '[review, on claude_code/m] Looks right.\n\nEarlier steps:\n\n[draft, on claude_code/m] A draft.',
+          results: { draft: 'A draft.', review: 'Looks right.' },
+          workflow: {
+            steps: [
+              { id: 'draft', after: [] },
+              { id: 'review', after: ['draft'] },
+            ],
+          },
+        },
+      }),
+    );
+    repository.agentTask.mockResolvedValue({ task_id: 'x', created_at: '', updated_at: '' });
+    renderRun();
+    const result = await screen.findByRole('region', { name: 'Flow result' });
+    expect(result).toHaveTextContent('Looks right.');
+    expect(result).not.toHaveTextContent('on claude_code');
+    expect(result).not.toHaveTextContent('Earlier steps');
   });
 
   it('says when no limit is set on what the editors may add', async () => {
@@ -172,17 +198,18 @@ describe('FlowRunView', () => {
     );
     repository.agentTask.mockResolvedValue({ task_id: 'x', created_at: '', updated_at: '' });
     renderRun();
-    const [bounds] = await screen.findAllByText(
+    const [bounds] = await screen.findAllByText('Can change while running');
+    expect(bounds).toHaveAttribute(
+      'title',
       'Editors critic may add steps (no limit set; 0 added, 1 round so far).',
     );
-    expect(bounds).toBeVisible();
   });
 
   it('keeps its one column at the width it is given, so a wide part scrolls inside it', async () => {
     repository.taskFlow.mockResolvedValue(workflowRun);
     repository.agentTask.mockResolvedValue({ task_id: 'x', created_at: '', updated_at: '' });
     renderRun();
-    const [header] = await screen.findAllByText(/Editors critic may add/);
+    const [header] = await screen.findAllByText('Can change while running');
     // An implicit grid column grows to its widest part's min-content (a long step name,
     // a URL in the result) and pushes the whole run past a phone screen.
     expect(header.closest('.\\@container')).toHaveClass('grid-cols-[minmax(0,1fr)]');

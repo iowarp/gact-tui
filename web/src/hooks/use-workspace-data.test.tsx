@@ -607,6 +607,24 @@ describe('useWorkspaceData transcript recovery', () => {
 });
 
 describe('useWorkspaceData background polls', () => {
+  it('reports an explicit model catalog refresh while retaining its cached catalog', async () => {
+    const { result } = renderWorkspaceData();
+    await waitFor(() => expect(result.current.modelCatalogStatus).toBe('ready'));
+    const previous = result.current.providerCatalog.data;
+    const payload = { providers: [] };
+    let finish!: (value: typeof payload) => void;
+    mocks.repository.providerCatalog.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    act(() => result.current.providerCatalog.refreshCatalog());
+    await waitFor(() => expect(result.current.modelCatalogStatus).toBe('loading'));
+    expect(result.current.providerCatalog.data).toEqual(previous);
+    act(() => finish(payload));
+    await waitFor(() => expect(result.current.modelCatalogStatus).toBe('ready'));
+  });
+
   it('does not re-render the workspace when a poll returns the same data', async () => {
     mocks.repository.pendingApprovals.mockResolvedValue([approval]);
     const client = new QueryClient({

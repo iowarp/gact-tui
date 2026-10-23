@@ -32,6 +32,7 @@ type SidebarContextProps = {
   openMobile: boolean;
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
+  previewOnHover: boolean;
   toggleSidebar: () => void;
 };
 
@@ -109,6 +110,7 @@ function SidebarProvider({
       open,
       setOpen,
       isMobile,
+      previewOnHover: false,
       openMobile,
       setOpenMobile,
       toggleSidebar,
@@ -158,6 +160,14 @@ function Sidebar({
   const { isMobile, state, openMobile, setOpenMobile } = context;
   const [hovered, setHovered] = React.useState(false);
   const [focused, setFocused] = React.useState(false);
+  const pointerFocus = React.useRef(false);
+  React.useEffect(() => {
+    const keyboardNavigation = (event: KeyboardEvent) => {
+      if (event.key === 'Tab' || event.key.startsWith('Arrow')) pointerFocus.current = false;
+    };
+    document.addEventListener('keydown', keyboardNavigation, true);
+    return () => document.removeEventListener('keydown', keyboardNavigation, true);
+  }, []);
   React.useEffect(() => {
     setHovered(false);
     setFocused(false);
@@ -225,8 +235,17 @@ function Sidebar({
           if (state === 'collapsed' && event.pointerType !== 'touch') setHovered(true);
         }}
         onPointerLeave={() => setHovered(false)}
+        onPointerDownCapture={() => {
+          pointerFocus.current = true;
+          setFocused(false);
+        }}
         onFocusCapture={(event) => {
-          if (state === 'collapsed' && event.target !== event.currentTarget) setFocused(true);
+          if (
+            state === 'collapsed' &&
+            event.target !== event.currentTarget &&
+            !pointerFocus.current
+          )
+            setFocused(true);
         }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
@@ -266,7 +285,9 @@ function Sidebar({
             data-slot="sidebar-inner"
             className="flex size-full min-w-0 flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=inset]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=inset]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=inset]:ring-1 group-data-[variant=floating]:ring-sidebar-border group-data-[variant=inset]:ring-sidebar-border"
           >
-            <SidebarContext.Provider value={{ ...context, state: displayState }}>
+            <SidebarContext.Provider
+              value={{ ...context, state: displayState, previewOnHover: true }}
+            >
               {children}
             </SidebarContext.Provider>
           </div>
@@ -529,7 +550,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<'li'>) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  'peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
+  'peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
   {
     variants: {
       variant: {
@@ -564,9 +585,9 @@ function SidebarMenuButton({
   tooltip?: string | React.ComponentProps<typeof TooltipContent>;
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot.Root : 'button';
-  const { isMobile, state } = useSidebar();
+  const { isMobile, state, previewOnHover } = useSidebar();
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
-  const tooltipEnabled = !isMobile && state === 'collapsed';
+  const tooltipEnabled = !isMobile && !previewOnHover && state === 'collapsed';
   React.useEffect(() => {
     if (!tooltipEnabled) setTooltipOpen(false);
   }, [tooltipEnabled]);
@@ -598,7 +619,12 @@ function SidebarMenuButton({
       onOpenChange={(open) => setTooltipOpen(tooltipEnabled && open)}
     >
       <TooltipTrigger asChild>{button}</TooltipTrigger>
-      <TooltipContent side="right" align="center" {...tooltip} />
+      <TooltipContent
+        side="right"
+        align="center"
+        {...tooltip}
+        className={cn('pointer-events-none', tooltip.className)}
+      />
     </Tooltip>
   );
 }

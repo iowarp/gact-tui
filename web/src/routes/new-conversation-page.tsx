@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import type { WorkspaceReference } from '@clio/core/v3';
+import { emptyAgentDelta, type AgentDelta, type WorkspaceReference } from '@clio/core/v3';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { connectionScope } from '@/lib/connection-scope';
 import { ConnectedSourcePicker } from '@/components/clio/connected-source-picker';
 import type { ObsidianChoice } from '@/components/clio/obsidian-source-form';
+import { DraftAgentCompositionView } from '@/components/clio/agent-composition-view';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
@@ -13,6 +14,7 @@ import { ClioNavigation } from '@/components/clio/navigation';
 import { ClioDraftActions } from '@/components/clio/draft-actions';
 import { ClioDownloadsButton } from '@/components/clio/downloads-button';
 import { ClioWorkbench } from '@/components/clio/workbench';
+import { Button } from '@/components/ui/button';
 import {
   WorkspaceActionAlerts,
   WorkspaceUnavailable,
@@ -33,6 +35,7 @@ import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-acti
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
 import { useWorkspaceWarmup } from '@/hooks/use-workspace-warmup';
+import { ConfigureIcon } from '@/lib/icon-vocabulary';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { queryKeys } from '@/lib/query-keys';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
@@ -79,6 +82,9 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const model =
     defaults.data?.model_id || data.activeModel || data.capabilities.data?.active_model?.model_id;
   const [agentChoice, setAgentChoice] = useState<string>();
+  // Plugin changes made to the agent before the first message (the Agent tab).
+  const [draftDelta, setDraftDelta] = useState<AgentDelta>(emptyAgentDelta);
+  const draftChanges = draftDelta.add.length + draftDelta.remove.length;
   const { send, prepareFiles, discardFiles } = useSessionMutations({
     activeProvider: provider,
     activeModel: model,
@@ -86,6 +92,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     workspaceId,
     createOnSend: true,
     draftAgentRef: agentChoice || undefined,
+    draftAgentDelta: draftDelta,
   });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
   const sessions = data.allSessions.data ?? data.sessions.data ?? [];
@@ -144,6 +151,12 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     ),
     defaults.data?.agent_ref,
   );
+  const agents = data.installedAgents.data ?? [];
+  const defaultRef = defaults.data?.default_agent_ref || defaults.data?.agent_ref || undefined;
+  const defaultListed = Boolean(defaultRef && agents.some((agent) => agent.ref === defaultRef));
+  const yourAgents = agents.filter((agent) => agent.kind === 'user');
+  const installedAgents = agents.filter((agent) => agent.kind !== 'user');
+  const draftRef = agentChoice || defaultRef || '';
   useDesktopTitleSync({ workspace: workspace?.display_name, session: 'New conversation' });
   const error = data.workspaces.error ?? data.capabilities.error ?? defaults.error;
   if (error || (!data.workspaces.isPending && !workspace)) {
@@ -199,18 +212,54 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               aria-label="Conversation agent"
               className="min-w-0 max-w-36 rounded-md border border-border bg-background px-2 py-1 sm:max-w-48"
               disabled={send.isPending}
-              onChange={(event) => setAgentChoice(event.target.value)}
-              value={agentChoice ?? defaults.data?.agent_ref ?? ''}
+              onChange={(event) => {
+                setAgentChoice(event.target.value);
+                setDraftDelta(emptyAgentDelta);
+              }}
+              value={agentChoice ?? defaultRef ?? ''}
             >
-              <option value="">Default agent</option>
-              {(data.installedAgents.data ?? []).map((agent) => (
-                <option key={agent.ref} value={agent.ref}>
-                  {agent.name || agent.id}
-                  {agent.kind === 'user' ? ' (yours)' : ''}
-                </option>
-              ))}
+              {defaultListed ? null : <option value="">Default agent</option>}
+              {yourAgents.length ? (
+                <optgroup label="Your agents">
+                  {yourAgents.map((agent) => (
+                    <option
+                      key={agent.ref}
+                      title={agent.description || undefined}
+                      value={agent.ref}
+                    >
+                      {agent.name || agent.id}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              <optgroup label="Installed agents">
+                {installedAgents.map((agent) => (
+                  <option key={agent.ref} title={agent.description || undefined} value={agent.ref}>
+                    {agent.name || agent.id}
+                    {agent.ref === defaultRef ? ' (default)' : ''}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </label>
+          {draftRef ? (
+            <Button
+              aria-label={
+                draftChanges
+                  ? `Customize the agent (${draftChanges} ${draftChanges === 1 ? 'change' : 'changes'})`
+                  : 'Customize the agent'
+              }
+              disabled={send.isPending}
+              onClick={() => revealWorkbench({ kind: 'resources', section: 'agent' })}
+              size="sm"
+              variant="ghost"
+            >
+              <ConfigureIcon aria-hidden="true" />
+              <span className="max-sm:sr-only">
+                {draftChanges ? `Customized (${draftChanges})` : 'Customize'}
+              </span>
+            </Button>
+          ) : null}
           <ClioDraftActions
             disabled={!workspace || send.isPending}
             onOpen={(section) => revealWorkbench({ kind: 'resources', section })}
@@ -242,6 +291,17 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             <p className="p-6 text-sm text-muted-foreground">
               Session activity appears after you send your first message.
             </p>
+          }
+          agentView={
+            draftRef ? (
+              <DraftAgentCompositionView
+                draft={{ ref: draftRef, delta: draftDelta }}
+                onChange={(next) => {
+                  if (next.ref !== draftRef) setAgentChoice(next.ref);
+                  setDraftDelta(next.delta);
+                }}
+              />
+            ) : undefined
           }
           onUndoDiff={(sessionId, workspaceId, changeId) =>
             diffActions.undo.mutateAsync({ sessionId, workspaceId, changeId })

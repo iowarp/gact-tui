@@ -1,7 +1,18 @@
 import type { ViewState } from 'react-map-gl/maplibre';
+import type { FeatureCollection, Polygon } from 'geojson';
+import offlineLand from '@/assets/offline-basemap/land-110m.json';
 import type { ScientificMapPoint } from './scientific-map-view';
 
 export const MAP_BASE_LAYER_ID = 'clio-map-background';
+
+const offlineLandData: FeatureCollection<Polygon> = {
+  type: 'FeatureCollection',
+  features: offlineLand.features.map((feature) => ({
+    type: 'Feature',
+    properties: feature.properties,
+    geometry: { type: 'Polygon', coordinates: feature.geometry.coordinates },
+  })),
+};
 
 export const rasterStyle = {
   version: 8 as const,
@@ -18,15 +29,35 @@ export const rasterStyle = {
   layers: [{ id: MAP_BASE_LAYER_ID, type: 'raster' as const, source: 'openStreetMap' }],
 };
 
-/** Archives retain scientific geometry, but do not contain remote basemap tiles. */
+/** Contained geographic context stays distinct from the scientific data layers. */
 export const offlineStyle = {
   version: 8 as const,
-  sources: {},
-  layers: [{
-    id: MAP_BASE_LAYER_ID,
-    type: 'background' as const,
-    paint: { 'background-color': '#eef4f3' },
-  }],
+  sources: {
+    'offline-land': {
+      type: 'geojson' as const,
+      data: offlineLandData,
+      attribution: 'Natural Earth · coarse land outline',
+    },
+  },
+  layers: [
+    {
+      id: MAP_BASE_LAYER_ID,
+      type: 'background' as const,
+      paint: { 'background-color': '#eef4f3' },
+    },
+    {
+      id: 'clio-offline-land',
+      type: 'fill' as const,
+      source: 'offline-land',
+      paint: { 'fill-color': '#dfe7e2' },
+    },
+    {
+      id: 'clio-offline-coastline',
+      type: 'line' as const,
+      source: 'offline-land',
+      paint: { 'line-color': '#84978d', 'line-width': 0.75 },
+    },
+  ],
 };
 
 export function initialView(

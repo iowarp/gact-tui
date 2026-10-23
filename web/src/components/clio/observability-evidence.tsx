@@ -124,6 +124,8 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
   const taskSubagents = activity.flatMap((entry) =>
     entry.process && entry.subagent ? [entry.subagent] : [],
   );
+  // Finished work sits behind Show completed work: a count of 0 would read as none ever ran.
+  const finishedWorkHidden = Boolean(props.workPages?.hasMore || props.workPages?.history);
   const tasks = showActivity ? (props.tasks ?? []) : [];
   const tools = showActivity ? (props.tools ?? []) : [];
   const files = showData
@@ -235,14 +237,17 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             icon={BoxesIcon}
             label="Child agents"
             value="child-agents"
-            count={separateSubagents.length}
+            count={separateSubagents.length + taskSubagents.length}
+            summary={
+              separateSubagents.length + taskSubagents.length === 0 && finishedWorkHidden
+                ? 'none running'
+                : undefined
+            }
           >
             <SubagentEvidence
               onOpenSubagent={props.onOpenSubagent}
               subagents={separateSubagents}
-              listedWithTasks={Boolean(
-                taskSubagents.length || props.workPages?.hasMore || props.workPages?.history,
-              )}
+              listedWithTasks={Boolean(taskSubagents.length) || finishedWorkHidden}
             />
           </EvidenceSection>
         ) : null}
@@ -258,6 +263,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             label="Background tasks"
             value="background"
             count={backgroundProcesses.length}
+            summary={!backgroundProcesses.length && finishedWorkHidden ? 'none running' : undefined}
           >
             <AsyncTaskList
               processes={backgroundProcesses}

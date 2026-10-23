@@ -1,7 +1,7 @@
 import type { MarketplaceSummary, PluginCheckReport, PluginMarketplace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { StoreIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -374,8 +374,17 @@ function MarketplaceRow({
 
 function CheckReport({ report, onClose }: { report: PluginCheckReport; onClose: () => void }) {
   const failed = report.targets.filter((target) => !target.ok);
+  const section = useRef<HTMLElement>(null);
+  // The menu that asked for the check sits above; on a phone the report lands below the fold.
+  useEffect(() => {
+    section.current?.scrollIntoView({ block: 'nearest' });
+  }, [report]);
   return (
-    <section aria-label="Plugin check results" className="grid gap-2 rounded-lg border p-3">
+    <section
+      aria-label="Plugin check results"
+      className="grid gap-2 rounded-lg border p-3"
+      ref={section}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold">Plugin check: {report.source}</h2>
         <ClioStatus

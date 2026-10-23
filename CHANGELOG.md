@@ -6,6 +6,49 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3-beta.11] - 2026-10-21
+
+### Changed
+
+- Inspect and control shared background tasks, retain interrupted assignments and
+  navigate to their results or child conversations.
+- Keep Session and Work in separate rails. Arrange their sections in Customize,
+  inspect context contributors inline and open or download artifacts from compact rows.
+- Use shared date and time controls for schedules and generated forms. Keep
+  existing content available during background refreshes and show request state
+  for charts, maps, tables and model discovery.
+- Add details to questionnaire choices, navigate bundled questions and keep drafts
+  across view changes. Show file formats, real upload progress and conversion state
+  in compact attachment rows.
+- Group adjacent citations under a Sources count with a clickable list available
+  by hover, touch or keyboard. Align thinking rows with other recorded activity.
+- Show tool purpose, requested files and readable results before technical details.
+  Distinguish a skill's instructions from supporting reference files, and show
+  its recorded description in previews and full document views.
+- Browse NDP datasets as expandable entries with bounded descriptions and file
+  lists. Reuse cached catalogs while refreshing and use the shared SSH selector.
+
+### Fixed
+
+- Keep reordering in Customize and preserve expanded section content when moving
+  rows. Give file views one filename header and compact Versions/Lineage controls.
+- Align collapsed navigation icons and keep hover previews temporary after ordinary
+  navigation clicks. Only explicit pinning keeps navigation open.
+- Give generated-form actions the shared primary, outlined and borderless button
+  styles, with keyboard focus and disabled validation states.
+- Let the welcome screen leave the layout when the first message arrives so the
+  conversation can use the available height.
+- Size authored charts to their available space, including composed charts and
+  fullscreen views. Preserve native selection and brush interactions.
+- Render saved map geometry in standalone HTML conversations, including local
+  files and restricted browser origins.
+- Keep source permissions readable, show one request at a time and hide redundant
+  navigation for a single request. Preserve approved source access in previews.
+- Retain native NDP stream checkpoints and saved captures, including reader state
+  after a bounded response. Open captured data with the shared map and table views.
+- Remove internal widget revision/state hover text and keep recorded failures
+  attached to the invocation that produced them.
+
 ## [0.11.3-beta.10] - 2026-10-18
 
 ### Added
