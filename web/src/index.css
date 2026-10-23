@@ -766,8 +766,11 @@ html[data-clio-motion='reduced'] *::after {
 /*
  * Flow diagrams (Pele railroad strips and agentflow graphs). A railroad node's
  * label is its name and these classes colour it by state; its tooltip and
- * accessible name, and the legend under it, say the state in words. The
- * palette reads the theme variables, so a theme change needs no redraw.
+ * accessible name, and the legend under it, say the state in words. Done,
+ * running and cancelled read the science-state tokens (supported, running,
+ * superseded) so a step and a study node share one vocabulary; a failure is
+ * an error and stays `destructive`. The palette reads the theme variables,
+ * so a theme change needs no redraw.
  */
 .clio-flow-diagram {
   --pele-bg: var(--background);
@@ -791,12 +794,15 @@ html[data-clio-motion='reduced'] *::after {
   stroke-width: 1.25px;
 }
 .clio-flow-diagram .st-done > :is(rect, polygon, path) {
-  fill: color-mix(in oklab, var(--success) 9%, var(--card));
-  stroke: var(--success);
+  fill: var(--status-supported);
+  stroke: var(--status-supported-foreground);
+}
+.clio-flow-diagram .st-done text {
+  fill: var(--status-supported-foreground);
 }
 .clio-flow-diagram .st-running > :is(rect, polygon, path) {
-  fill: color-mix(in oklab, var(--primary) 14%, var(--card));
-  stroke: var(--primary);
+  fill: var(--status-running);
+  stroke: var(--status-running-foreground);
   stroke-width: 2.25px;
   stroke-dasharray: 7 4;
   animation: clio-flow-running 0.9s linear infinite;
@@ -823,12 +829,16 @@ html[data-clio-motion='reduced'] *::after {
   stroke: var(--destructive);
   stroke-width: 1.75px;
 }
+.clio-flow-diagram .st-running text {
+  fill: var(--status-running-foreground);
+}
 .clio-flow-diagram .st-cancelled > :is(rect, polygon, path) {
-  fill: var(--muted);
+  fill: var(--status-superseded);
+  stroke: var(--status-superseded-foreground);
   stroke-dasharray: 2 3;
 }
 .clio-flow-diagram .st-cancelled text {
-  fill: var(--muted-foreground);
+  fill: var(--status-superseded-foreground);
 }
 .clio-flow-diagram .clio-flow-parallel {
   fill: var(--muted-foreground);
@@ -867,7 +877,7 @@ html[data-clio-motion='reduced'] *::after {
 }
 .clio-flow-diagram .clio-flow-box[data-tone='done'],
 .clio-flow-diagram .clio-flow-box-label[data-tone='done'] > rect {
-  stroke: var(--success);
+  stroke: var(--status-supported-foreground);
 }
 .clio-flow-diagram .clio-flow-box[data-tone='failed'],
 .clio-flow-diagram .clio-flow-box-label[data-tone='failed'] > rect {
@@ -875,7 +885,7 @@ html[data-clio-motion='reduced'] *::after {
 }
 .clio-flow-diagram .clio-flow-box[data-tone='running'],
 .clio-flow-diagram .clio-flow-box-label[data-tone='running'] > rect {
-  stroke: var(--primary);
+  stroke: var(--status-running-foreground);
   stroke-width: 2px;
 }
 .clio-flow-diagram .clio-flow-box[data-tone='running'] {

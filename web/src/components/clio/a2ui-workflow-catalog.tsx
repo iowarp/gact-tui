@@ -50,6 +50,36 @@ function mermaidLabel(value: string): string {
   return truncate(line, DIAGRAM_LABEL_TRUNCATE_CHARS);
 }
 
+/** A node's free-text state, read as a science state or a failure, for its color. */
+type StateTone = 'supported' | 'running' | 'refuted' | 'superseded' | 'failed';
+const STATE_TONES: Record<string, StateTone> = {
+  completed: 'supported',
+  complete: 'supported',
+  done: 'supported',
+  succeeded: 'supported',
+  supported: 'supported',
+  running: 'running',
+  active: 'running',
+  in_progress: 'running',
+  refuted: 'refuted',
+  cancelled: 'superseded',
+  canceled: 'superseded',
+  skipped: 'superseded',
+  superseded: 'superseded',
+  failed: 'failed',
+  error: 'failed',
+};
+
+/** Pele and Mermaid parse these colors themselves, so they get the theme's resolved values. */
+function toneClassDef(tone: StateTone): string {
+  if (tone === 'failed') {
+    const color = readThemeColor('destructive');
+    return `  classDef failed fill:${readThemeColor('card')},stroke:${color},color:${color}`;
+  }
+  const text = readThemeColor(`status-${tone}-foreground`);
+  return `  classDef ${tone} fill:${readThemeColor(`status-${tone}`)},stroke:${text},color:${text}`;
+}
+
 function workflowSource(
   nodes: readonly WorkflowNode[],
   edges: readonly WorkflowEdge[],
@@ -72,9 +102,18 @@ function workflowSource(
         : `  ${source} --> ${target}`,
     );
   }
+  // The label already says the state in words; the color repeats it.
+  const tones = new Map<StateTone, string[]>();
+  for (const node of nodes) {
+    const tone = node.state ? STATE_TONES[node.state.toLowerCase()] : undefined;
+    if (tone) tones.set(tone, [...(tones.get(tone) ?? []), identifiers.get(node.id)!]);
+  }
+  for (const [tone, ids] of tones) {
+    lines.push(toneClassDef(tone));
+    lines.push(`  class ${ids.join(',')} ${tone}`);
+  }
   const selectedId = selected ? identifiers.get(selected) : undefined;
   if (selectedId) {
-    // Pele and Mermaid parse these colors themselves, so they get the theme's resolved values.
     lines.push(
       `  classDef selected fill:${readThemeColor('accent')},stroke:${readThemeColor('action')},stroke-width:3px`,
     );

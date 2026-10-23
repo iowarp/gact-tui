@@ -26,6 +26,11 @@ export type ClioStatusValue =
   | 'unavailable';
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
+/**
+ * Run states read the science-state tokens (running, supported, superseded) so
+ * a task row, a railroad node and a study node say the same thing in color as
+ * in words. Failures stay `destructive`; connection health keeps its own tones.
+ */
 const statusPresentation: Record<
   ClioStatusValue,
   { label: string; icon: Icon; className: string }
@@ -63,7 +68,8 @@ const statusPresentation: Record<
   running: {
     label: 'Running',
     icon: LoaderCircleIcon,
-    className: 'text-info-foreground dark:text-info border-info/30 bg-info/10',
+    className:
+      'text-status-running-foreground border-status-running-foreground/25 bg-status-running',
   },
   stopping: {
     label: 'Stopping',
@@ -88,7 +94,8 @@ const statusPresentation: Record<
   recovering: {
     label: 'Recovering',
     icon: RetryIcon,
-    className: 'text-info-foreground dark:text-info border-info/30 bg-info/10',
+    className:
+      'text-status-running-foreground border-status-running-foreground/25 bg-status-running',
   },
   pause_requested: {
     label: 'Pause requested',
@@ -123,7 +130,8 @@ const statusPresentation: Record<
   completed: {
     label: 'Completed',
     icon: CheckCircle2Icon,
-    className: 'text-success border-success/30 bg-success/10',
+    className:
+      'text-status-supported-foreground border-status-supported-foreground/25 bg-status-supported',
   },
   failed: {
     label: 'Failed',
@@ -133,7 +141,8 @@ const statusPresentation: Record<
   cancelled: {
     label: 'Cancelled',
     icon: BanIcon,
-    className: 'text-muted-foreground border-border bg-muted/50',
+    className:
+      'text-status-superseded-foreground border-status-superseded-foreground/25 bg-status-superseded',
   },
   interrupted: {
     label: 'Interrupted',
@@ -148,7 +157,8 @@ const statusPresentation: Record<
   succeeded: {
     label: 'Succeeded',
     icon: CheckCircle2Icon,
-    className: 'text-success border-success/30 bg-success/10',
+    className:
+      'text-status-supported-foreground border-status-supported-foreground/25 bg-status-supported',
   },
   denied: {
     label: 'Denied',
