@@ -1,7 +1,12 @@
 import type { ExpressionSpecification, MapLibreMap } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { readThemeColor } from '@/theme/runtime';
-import { MAP_BASE_LAYER_ID } from './map-initial-view';
+import {
+  MAP_BASE_LAYER_ID,
+  OFFLINE_COASTLINE_LAYER_ID,
+  OFFLINE_LAND_LAYER_ID,
+  offlineBasemapColors,
+} from './map-initial-view';
 
 export const POINTS_LAYER_ID = 'clio-map-points-circles';
 export const GEOMETRY_LAYER_IDS = [
@@ -41,7 +46,11 @@ export function useMapThemeRepaint(map: MapLibreMap | undefined, theme: string):
     paint(GEOMETRY_LAYER_IDS[1], 'line-color', color);
     paint(GEOMETRY_LAYER_IDS[2], 'circle-color', color);
     paint(GEOMETRY_LAYER_IDS[2], 'circle-stroke-color', outline);
-    if (map.getLayer(MAP_BASE_LAYER_ID)?.type === 'background')
-      paint(MAP_BASE_LAYER_ID, 'background-color', readThemeColor('muted'));
+    if (map.getLayer(MAP_BASE_LAYER_ID)?.type === 'background') {
+      const basemap = offlineBasemapColors();
+      paint(MAP_BASE_LAYER_ID, 'background-color', basemap.water);
+      paint(OFFLINE_LAND_LAYER_ID, 'fill-color', basemap.land);
+      paint(OFFLINE_COASTLINE_LAYER_ID, 'line-color', basemap.coastline);
+    }
   }, [map, theme]);
 }

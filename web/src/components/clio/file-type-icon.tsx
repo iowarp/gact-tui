@@ -17,12 +17,7 @@ export function FileTypeIcon({
   badge?: boolean;
 }) {
   if (fileCategory(name, mediaType) === 'models')
-    return (
-      <BoxIcon
-        aria-hidden="true"
-        className={cn('text-indigo-600 dark:text-indigo-400', className)}
-      />
-    );
+    return <BoxIcon aria-hidden="true" className={cn('text-category-8', className)} />;
   const type = fileIdentityType(name, mediaType);
   return (
     <FileType
