@@ -1998,6 +1998,10 @@ const server = createServer(async (request, response) => {
     sendJson(response, { commands: [] });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/memory/summary') {
+    sendJson(response, { enabled: true, inbox: 0, documents: 0 });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/provenance/providers') {
     sendJson(response, {
       schema_version: '1.0',
