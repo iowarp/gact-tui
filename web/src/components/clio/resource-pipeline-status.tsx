@@ -20,7 +20,7 @@ export function ResourcePipelineSummaryIcon({
   const iconClassName = (statusClassName: string) =>
     cn(
       overlay
-        ? 'size-4 text-black [filter:drop-shadow(0_0_1px_white)_drop-shadow(0_0_1px_white)]'
+        ? 'size-4 text-media-backdrop [filter:drop-shadow(0_0_1px_var(--media-foreground))_drop-shadow(0_0_1px_var(--media-foreground))]'
         : 'size-3',
       !overlay && statusClassName,
     );
@@ -36,24 +36,24 @@ export function ResourcePipelineSummaryIcon({
         <LoaderCircleIcon
           aria-hidden="true"
           className={cn(
-            iconClassName('text-amber-600 dark:text-amber-400'),
+            iconClassName('text-status-running-foreground'),
             'animate-spin motion-reduce:animate-none',
           )}
         />
       ) : stages.overall === 'waiting' ? (
         <Clock3Icon
           aria-hidden="true"
-          className={iconClassName('text-amber-600 dark:text-amber-400')}
+          className={iconClassName('text-status-running-foreground')}
         />
       ) : stages.overall === 'failed' ? (
         <TriangleAlertIcon aria-hidden="true" className={iconClassName('text-destructive')} />
       ) : stages.overall === 'unknown' ? (
-        // Not amber: nothing is in motion, the state simply cannot be read.
+        // Not the running color: nothing is in motion, the state simply cannot be read.
         <HelpIcon aria-hidden="true" className={iconClassName('text-muted-foreground')} />
       ) : (
         <ActivityIcon
           aria-hidden="true"
-          className={iconClassName('text-emerald-600 dark:text-emerald-400')}
+          className={iconClassName('text-status-supported-foreground')}
         />
       )}
     </span>
@@ -76,13 +76,10 @@ function ResourceStageLine({ stage }: { stage: ResourcePipelineStage }) {
     stage.kind === 'active' ? (
       <LoaderCircleIcon
         aria-hidden="true"
-        className="size-3.5 animate-spin text-amber-600 motion-reduce:animate-none dark:text-amber-400"
+        className="size-3.5 animate-spin text-status-running-foreground motion-reduce:animate-none"
       />
     ) : stage.kind === 'complete' ? (
-      <CircleCheckIcon
-        aria-hidden="true"
-        className="size-3.5 text-emerald-600 dark:text-emerald-400"
-      />
+      <CircleCheckIcon aria-hidden="true" className="size-3.5 text-status-supported-foreground" />
     ) : stage.kind === 'failed' ? (
       <TriangleAlertIcon aria-hidden="true" className="size-3.5 text-destructive" />
     ) : stage.kind === 'unknown' ? (

@@ -1,10 +1,4 @@
 import type { ScientificMapPoint } from './scientific-map-view';
-import {
-  CONTINUOUS_HIGH_COLOR,
-  CONTINUOUS_LOW_COLOR,
-  CONTINUOUS_MID_COLOR,
-  UNCATEGORIZED_COLOR,
-} from './map-category-palette';
 
 const MAX_INLINE_CATEGORY_LEGEND = 12;
 
@@ -43,7 +37,8 @@ export function MapLegend({
         aria-hidden="true"
         className="h-2.5 min-w-0 rounded-full"
         style={{
-          background: `linear-gradient(to right, ${CONTINUOUS_LOW_COLOR}, ${CONTINUOUS_MID_COLOR}, ${CONTINUOUS_HIGH_COLOR})`,
+          background:
+            'linear-gradient(to right, var(--scale-low), var(--scale-mid), var(--scale-high))',
         }}
       />
       <span className="whitespace-nowrap tabular-nums">
@@ -86,7 +81,7 @@ export function MapLegend({
           <span
             aria-hidden="true"
             className="size-2.5 rounded-full"
-            style={{ backgroundColor: UNCATEGORIZED_COLOR }}
+            style={{ backgroundColor: 'var(--muted-foreground)' }}
           />
           Uncategorized
         </span>

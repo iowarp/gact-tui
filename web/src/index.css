@@ -3,7 +3,16 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource-variable/literata';
+@import '@fontsource-variable/literata/wght-italic.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/400-italic.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
 @import 'katex/dist/katex.min.css';
+@import './theme/themes.css';
 
 /* Streamdown's utility classes live in the installed package, outside app source. */
 @source '../node_modules/streamdown/dist/*.js';
@@ -86,9 +95,10 @@
 }
 
 @theme inline {
-  --font-heading: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
-  --font-sans: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --font-heading: var(--typeface-heading);
+  --font-sans: var(--typeface-ui);
+  --font-voice: var(--typeface-voice);
+  --font-mono: var(--typeface-mono);
   --color-info: var(--info);
   --color-success: var(--success);
   --color-warning: var(--warning);
@@ -139,99 +149,49 @@
   --color-info-foreground: var(--info-foreground);
   --color-success-foreground: var(--success-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
-}
-
-:root {
-  --background: oklch(0.985 0.008 225);
-  --foreground: oklch(0.19 0.026 235);
-  --card: oklch(1 0 0);
-  --composer: oklch(0.955 0.01 225);
-  --composer-border: oklch(0.83 0.018 225);
-  --card-foreground: oklch(0.19 0.026 235);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.026 235);
-  --primary: oklch(0.63 0.14 205);
-  --primary-foreground: oklch(0.12 0.03 225);
-  --secondary: oklch(0.94 0.014 225);
-  --secondary-foreground: oklch(0.22 0.03 235);
-  --muted: oklch(0.95 0.01 225);
-  --muted-foreground: oklch(0.47 0.035 235);
-  --accent: oklch(0.92 0.035 210);
-  --accent-foreground: oklch(0.21 0.04 230);
-  --destructive: oklch(0.5 0.19 25);
-  --info: oklch(0.48 0.13 220);
-  --success: oklch(0.46 0.13 155);
-  --warning: oklch(0.62 0.15 70);
-  --action: oklch(0.64 0.17 55);
-  --border: oklch(0.87 0.024 225);
-  --input: oklch(0.87 0.024 225);
-  --ring: oklch(0.63 0.14 205);
-  --chart-1: oklch(0.63 0.14 205);
-  --chart-2: oklch(0.64 0.17 55);
-  --chart-3: oklch(0.54 0.14 155);
-  --chart-4: oklch(0.58 0.15 290);
-  --chart-5: oklch(0.58 0.17 25);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.965 0.012 225);
-  --sidebar-foreground: oklch(0.2 0.03 235);
-  --sidebar-primary: oklch(0.63 0.14 205);
-  --sidebar-primary-foreground: oklch(0.12 0.03 225);
-  --sidebar-accent: oklch(0.92 0.035 210);
-  --sidebar-accent-foreground: oklch(0.21 0.04 230);
-  --sidebar-border: oklch(0.87 0.024 225);
-  --sidebar-ring: oklch(0.63 0.14 205);
-  --destructive-foreground: var(--color-red-800);
-  --success-foreground: var(--color-emerald-900);
-  --info-foreground: var(--color-violet-900);
-  --warning-foreground: var(--color-yellow-900);
-  --invert: var(--color-zinc-900);
-  --invert-foreground: var(--color-zinc-50);
-}
-
-.dark {
-  --background: oklch(0.105 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.155 0 0);
-  --composer: oklch(0.285 0 0);
-  --composer-border: oklch(0.42 0 0 / 65%);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.18 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.77 0.145 198);
-  --primary-foreground: oklch(0.13 0 0);
-  --secondary: oklch(0.21 0 0);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.195 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent: oklch(0.245 0 0);
-  --accent-foreground: oklch(0.96 0 0);
-  --destructive: oklch(0.69 0.19 24);
-  --info: oklch(0.72 0.14 215);
-  --success: oklch(0.72 0.15 155);
-  --warning: oklch(0.78 0.15 80);
-  --action: oklch(0.75 0.17 57);
-  --border: oklch(0.34 0 0 / 60%);
-  --input: oklch(0.38 0 0 / 70%);
-  --ring: oklch(0.77 0.145 198);
-  --chart-1: oklch(0.77 0.145 198);
-  --chart-2: oklch(0.75 0.17 57);
-  --chart-3: oklch(0.72 0.15 155);
-  --chart-4: oklch(0.72 0.15 290);
-  --chart-5: oklch(0.7 0.18 25);
-  --sidebar: oklch(0.125 0 0);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.77 0.145 198);
-  --sidebar-primary-foreground: oklch(0.13 0 0);
-  --sidebar-accent: oklch(0.22 0 0);
-  --sidebar-accent-foreground: oklch(0.96 0 0);
-  --sidebar-border: oklch(0.34 0 0 / 60%);
-  --sidebar-ring: oklch(0.77 0.145 198);
-  --destructive-foreground: var(--color-red-600);
-  --success-foreground: var(--color-emerald-600);
-  --info-foreground: var(--color-violet-600);
-  --warning-foreground: var(--color-yellow-600);
-  --invert: var(--color-zinc-700);
-  --invert-foreground: var(--color-zinc-50);
+  --color-link: var(--link);
+  --color-status-supported: var(--status-supported);
+  --color-status-supported-foreground: var(--status-supported-foreground);
+  --color-status-running: var(--status-running);
+  --color-status-running-foreground: var(--status-running-foreground);
+  --color-status-refuted: var(--status-refuted);
+  --color-status-refuted-foreground: var(--status-refuted-foreground);
+  --color-status-superseded: var(--status-superseded);
+  --color-status-superseded-foreground: var(--status-superseded-foreground);
+  --color-category-1: var(--category-1);
+  --color-category-2: var(--category-2);
+  --color-category-3: var(--category-3);
+  --color-category-4: var(--category-4);
+  --color-category-5: var(--category-5);
+  --color-category-6: var(--category-6);
+  --color-category-7: var(--category-7);
+  --color-category-8: var(--category-8);
+  --color-category-9: var(--category-9);
+  --color-category-10: var(--category-10);
+  --color-category-11: var(--category-11);
+  --color-category-12: var(--category-12);
+  --color-terminal: var(--terminal);
+  --color-terminal-foreground: var(--terminal-foreground);
+  --color-terminal-muted: var(--terminal-muted);
+  --color-terminal-border: var(--terminal-border);
+  --color-terminal-accent: var(--terminal-accent);
+  --color-scrim: var(--scrim);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-media-backdrop: var(--media-backdrop);
+  --color-media-foreground: var(--media-foreground);
+  /* Tailwind's shadow scale, in the theme's shadow color instead of black. */
+  --shadow-2xs: 0 1px color-mix(in oklab, var(--shadow-color) 10%, transparent);
+  --shadow-xs: 0 1px 2px 0 color-mix(in oklab, var(--shadow-color) 10%, transparent);
+  --shadow-sm: 0 1px 3px 0 color-mix(in oklab, var(--shadow-color) 20%, transparent),
+    0 1px 2px -1px color-mix(in oklab, var(--shadow-color) 20%, transparent);
+  --shadow-md: 0 4px 6px -1px color-mix(in oklab, var(--shadow-color) 20%, transparent),
+    0 2px 4px -2px color-mix(in oklab, var(--shadow-color) 20%, transparent);
+  --shadow-lg: 0 10px 15px -3px color-mix(in oklab, var(--shadow-color) 20%, transparent),
+    0 4px 6px -4px color-mix(in oklab, var(--shadow-color) 20%, transparent);
+  --shadow-xl: 0 20px 25px -5px color-mix(in oklab, var(--shadow-color) 20%, transparent),
+    0 8px 10px -6px color-mix(in oklab, var(--shadow-color) 20%, transparent);
+  --shadow-2xl: 0 25px 50px -12px color-mix(in oklab, var(--shadow-color) 50%, transparent);
 }
 
 @layer base {
@@ -265,11 +225,7 @@
   }
   html {
     @apply font-sans antialiased;
-    color-scheme: light;
     height: 100%;
-  }
-  html.dark {
-    color-scheme: dark;
   }
   /* Relative sizing scales typography, control spacing and portalled surfaces
      together while retaining browser zoom and the user's default font size. */
@@ -822,8 +778,8 @@ html[data-clio-motion='reduced'] *::after {
   --pele-surface-alt: var(--muted);
   --pele-border: var(--border);
   --pele-accent: var(--primary);
-  --pele-font: system-ui, sans-serif;
-  --pele-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --pele-font: var(--font-sans);
+  --pele-font-mono: var(--font-mono);
 }
 .clio-flow-diagram svg {
   display: block;
@@ -905,7 +861,7 @@ html[data-clio-motion='reduced'] *::after {
 }
 .clio-flow-diagram .clio-flow-box-label > text {
   fill: var(--foreground);
-  font-family: var(--pele-font, system-ui, sans-serif);
+  font-family: var(--pele-font);
   font-weight: 600;
   dominant-baseline: central;
 }
@@ -949,4 +905,16 @@ html[data-clio-motion='reduced'] *::after {
 .clio-flow-diagram .pele-node[data-key]:focus-visible > :is(rect, polygon, path) {
   stroke: var(--foreground);
   stroke-width: 2.5px;
+}
+
+/* Chart tooltips (vega-tooltip's `custom` theme) in the active theme. */
+#vg-tooltip-element.custom-theme {
+  background-color: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: 2px 2px 4px color-mix(in oklab, var(--shadow-color) 20%, transparent);
+  color: var(--popover-foreground);
+  font-family: var(--font-sans);
+}
+#vg-tooltip-element.custom-theme table tr td.key {
+  color: var(--muted-foreground);
 }

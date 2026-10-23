@@ -1,6 +1,7 @@
 import type { ViewState } from 'react-map-gl/maplibre';
 import type { FeatureCollection, Polygon } from 'geojson';
 import offlineLand from '@/assets/offline-basemap/land-110m.json';
+import { readThemeColor } from '@/theme/runtime';
 import type { ScientificMapPoint } from './scientific-map-view';
 
 export const MAP_BASE_LAYER_ID = 'clio-map-background';
@@ -29,35 +30,48 @@ export const rasterStyle = {
   layers: [{ id: MAP_BASE_LAYER_ID, type: 'raster' as const, source: 'openStreetMap' }],
 };
 
+export const OFFLINE_LAND_LAYER_ID = 'clio-offline-land';
+export const OFFLINE_COASTLINE_LAYER_ID = 'clio-offline-coastline';
+
+/** The contained basemap's water, land and coastline in the active theme. */
+export const offlineBasemapColors = () => ({
+  water: readThemeColor('muted'),
+  land: readThemeColor('card'),
+  coastline: readThemeColor('border'),
+});
+
 /** Contained geographic context stays distinct from the scientific data layers. */
-export const offlineStyle = {
-  version: 8 as const,
-  sources: {
-    'offline-land': {
-      type: 'geojson' as const,
-      data: offlineLandData,
-      attribution: 'Natural Earth · coarse land outline',
+export const offlineStyle = () => {
+  const colors = offlineBasemapColors();
+  return {
+    version: 8 as const,
+    sources: {
+      'offline-land': {
+        type: 'geojson' as const,
+        data: offlineLandData,
+        attribution: 'Natural Earth · coarse land outline',
+      },
     },
-  },
-  layers: [
-    {
-      id: MAP_BASE_LAYER_ID,
-      type: 'background' as const,
-      paint: { 'background-color': '#eef4f3' },
-    },
-    {
-      id: 'clio-offline-land',
-      type: 'fill' as const,
-      source: 'offline-land',
-      paint: { 'fill-color': '#dfe7e2' },
-    },
-    {
-      id: 'clio-offline-coastline',
-      type: 'line' as const,
-      source: 'offline-land',
-      paint: { 'line-color': '#84978d', 'line-width': 0.75 },
-    },
-  ],
+    layers: [
+      {
+        id: MAP_BASE_LAYER_ID,
+        type: 'background' as const,
+        paint: { 'background-color': colors.water },
+      },
+      {
+        id: OFFLINE_LAND_LAYER_ID,
+        type: 'fill' as const,
+        source: 'offline-land',
+        paint: { 'fill-color': colors.land },
+      },
+      {
+        id: OFFLINE_COASTLINE_LAYER_ID,
+        type: 'line' as const,
+        source: 'offline-land',
+        paint: { 'line-color': colors.coastline, 'line-width': 0.75 },
+      },
+    ],
+  };
 };
 
 export function initialView(

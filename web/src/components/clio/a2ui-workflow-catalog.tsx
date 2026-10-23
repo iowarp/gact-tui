@@ -17,6 +17,7 @@ import { refinedStrictObject } from './a2ui-refined-schema';
 import { useArtifactText } from './artifact-text-query';
 import { ClioMermaidDiagram } from './mermaid-diagram';
 import { buildZoneReference } from './data-zone-reference';
+import { readThemeColor, useThemeKey } from '@/theme/runtime';
 
 const workflowNode = z
   .object({
@@ -73,7 +74,10 @@ function workflowSource(
   }
   const selectedId = selected ? identifiers.get(selected) : undefined;
   if (selectedId) {
-    lines.push('  classDef selected fill:#2d2418,stroke:#f39a55,stroke-width:3px');
+    // Pele and Mermaid parse these colors themselves, so they get the theme's resolved values.
+    lines.push(
+      `  classDef selected fill:${readThemeColor('accent')},stroke:${readThemeColor('action')},stroke-width:3px`,
+    );
     lines.push(`  class ${selectedId} selected`);
   }
   return lines.join('\n');
@@ -99,6 +103,8 @@ function ClioWorkflowDiagram({
   selected,
 }: ClioWorkflowDiagramProps) {
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  // The source carries resolved theme colors; re-render it when the theme changes.
+  useThemeKey();
   const interactiveNodes = useMemo(() => nodes.map(({ id, label }) => ({ id, label })), [nodes]);
   const selectNode = (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
     setSelectedNodeIds((previous) => {

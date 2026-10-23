@@ -1,4 +1,12 @@
 import { initialView, MAP_BASE_LAYER_ID, offlineStyle, rasterStyle } from './map-initial-view';
+import { useThemeKey } from '@/theme/runtime';
+import {
+  GEOMETRY_LAYER_IDS,
+  highlightedPointColor,
+  markerOutlineColor,
+  POINTS_LAYER_ID,
+  useMapThemeRepaint,
+} from './map-theme-paint';
 import { useOfflineArchive } from '@/providers/connection-provider';
 import { MapPinIcon } from 'lucide-react';
 import type { FeatureCollection } from 'geojson';
@@ -15,7 +23,12 @@ import Map, {
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { cn } from '@/lib/utils';
-import { mapCategoryColors, mapPointColor, mapValueExtent } from './map-category-palette';
+import {
+  mapCategoryColors,
+  mapPointColor,
+  mapValueExtent,
+  uncategorizedColor,
+} from './map-category-palette';
 import { nearestProjectedGeometryId } from './map-points';
 import { useMapSelectionPointerHandlers } from './map-selection-pointer';
 
@@ -87,17 +100,9 @@ interface ScientificMapViewProps {
  */
 const MANY_POINTS_THRESHOLD = 150;
 const POINTS_SOURCE_ID = 'clio-map-points';
-const POINTS_LAYER_ID = 'clio-map-points-circles';
 const GEOMETRY_SOURCE_ID = 'clio-map-geometry';
-const GEOMETRY_LAYER_IDS = [
-  'clio-map-geometry-fill',
-  'clio-map-geometry-line',
-  'clio-map-geometry-points',
-] as const;
 /** Which mounted view last claimed the points layer on a (possibly pooled) map instance. */
 const pointsLayerOwners = new WeakMap<MapLibreMap, symbol>();
-/** Paint-expression colors; maplibre evaluates these itself and cannot read CSS custom properties. */
-const POINT_HIGHLIGHTED_COLOR = '#ea580c';
 
 interface PointFeatureProperties {
   id: string;
@@ -225,7 +230,12 @@ export function ClioScientificMapView({
   const suppressHandledClick = useRef(false);
   const manyPoints = !geometry && points.length > MANY_POINTS_THRESHOLD;
   const denseTrajectories = Boolean(geometrySelectionByPoints && points.length > 1_000);
-  const categoryColors = useMemo(() => mapCategoryColors(points), [points]);
+  // Point colors are resolved from the theme, so a theme change recolors them.
+  const theme = useThemeKey();
+  // Created once: a new style object would reload the map; the effect below repaints it.
+  const offlineMapStyle = useMemo(offlineStyle, []);
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
+  const categoryColors = useMemo(() => mapCategoryColors(points), [points, theme]);
   const valueExtent = useMemo(() => mapValueExtent(points), [points]);
   const resolvedHighlightedIds = useMemo(
     () => highlightedIds ?? new Set(selectedId ? [selectedId] : []),
@@ -236,7 +246,8 @@ export function ClioScientificMapView({
       manyPoints
         ? pointsToGeoJson(points, resolvedHighlightedIds, categoryColors, valueExtent)
         : undefined,
-    [manyPoints, points, resolvedHighlightedIds, categoryColors, valueExtent],
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [manyPoints, points, resolvedHighlightedIds, categoryColors, valueExtent, theme],
   );
   const pointsGeoJsonRef = useRef<PointsGeoJson | undefined>(pointsGeoJson);
   useEffect(() => {
@@ -254,17 +265,19 @@ export function ClioScientificMapView({
           properties: {
             ...feature.properties,
             id: String(feature.id),
-            color: point ? mapPointColor(point, categoryColors, valueExtent) : '#64748b',
+            color: point ? mapPointColor(point, categoryColors, valueExtent) : uncategorizedColor(),
             highlighted: resolvedHighlightedIds.has(String(feature.id)),
           },
         };
       }),
     };
-  }, [geometry, points, categoryColors, valueExtent, resolvedHighlightedIds]);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [geometry, points, categoryColors, valueExtent, resolvedHighlightedIds, theme]);
   const styledGeometryRef = useRef(styledGeometry);
   useEffect(() => {
     styledGeometryRef.current = styledGeometry;
   }, [styledGeometry]);
+  useMapThemeRepaint(mapInstance, theme);
   useEffect(() => {
     if (!geometry || !mapInstance) return undefined;
     const map = mapInstance;
@@ -285,7 +298,7 @@ export function ClioScientificMapView({
       const color: ExpressionSpecification = [
         'case',
         ['get', 'highlighted'],
-        POINT_HIGHLIGHTED_COLOR,
+        highlightedPointColor(),
         ['get', 'color'],
       ];
       const lineWidth: ExpressionSpecification = denseTrajectories
@@ -334,7 +347,7 @@ export function ClioScientificMapView({
           type: 'fill',
           source: GEOMETRY_SOURCE_ID,
           filter: ['==', ['geometry-type'], 'Polygon'],
-          paint: { 'fill-color': color, 'fill-opacity': 0.42, 'fill-outline-color': '#f8fafc' },
+          paint: { 'fill-color': color, 'fill-opacity': 0.42, 'fill-outline-color': markerOutlineColor() },
         });
       if (!map.getLayer(GEOMETRY_LAYER_IDS[1]))
         map.addLayer({
@@ -358,7 +371,7 @@ export function ClioScientificMapView({
             'circle-color': color,
             'circle-radius': ['case', ['get', 'highlighted'], 7, ['get', 'endpoint'], 6, 4],
             'circle-opacity': pointOpacity,
-            'circle-stroke-color': '#fff',
+            'circle-stroke-color': markerOutlineColor(),
             'circle-stroke-width': 1,
             'circle-stroke-opacity': pointOpacity,
           },
@@ -458,12 +471,12 @@ export function ClioScientificMapView({
             'circle-color': [
               'case',
               ['get', 'highlighted'],
-              POINT_HIGHLIGHTED_COLOR,
+              highlightedPointColor(),
               ['get', 'color'],
             ],
             'circle-opacity': 0.85,
             'circle-radius': ['case', ['get', 'highlighted'], 6, 4],
-            'circle-stroke-color': '#ffffff',
+            'circle-stroke-color': markerOutlineColor(),
             'circle-stroke-width': ['case', ['get', 'highlighted'], 1.5, 0.5],
           },
         });
@@ -682,7 +695,7 @@ export function ClioScientificMapView({
         interactiveLayerIds={
           geometry ? [...GEOMETRY_LAYER_IDS] : manyPoints ? [POINTS_LAYER_ID] : undefined
         }
-        mapStyle={offlineArchive ? offlineStyle : rasterStyle}
+        mapStyle={offlineArchive ? offlineMapStyle : rasterStyle}
         maxPitch={60}
         maxZoom={16}
         minZoom={1}
@@ -713,7 +726,7 @@ export function ClioScientificMapView({
                     aria-label={`Select ${point.label}`}
                     aria-pressed={highlighted}
                     className={cn(
-                      'group grid size-8 cursor-pointer place-items-center rounded-full border border-white/80 text-white shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'group grid size-8 cursor-pointer place-items-center rounded-full border border-media-foreground/80 text-media-foreground shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       highlighted &&
                         'scale-110 ring-2 ring-primary ring-offset-1 ring-offset-background',
                     )}

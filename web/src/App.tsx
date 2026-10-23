@@ -90,18 +90,6 @@ export default function App() {
     if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);
     else navigate('/settings/about', { state: settingsReturnState });
   });
-  useEffect(() => {
-    // Title comes from index.html's brand-driven <title> (vite-plugin-brand.ts's
-    // transformIndexHtml) now, not a runtime patch here — no route in this
-    // app currently overrides it with a session-specific title.
-    for (const [token, value] of Object.entries(brand.themeTokens)) {
-      document.documentElement.style.setProperty(token, value);
-    }
-    if (brand.accent) {
-      document.documentElement.style.setProperty('--brand-accent', brand.accent);
-      document.documentElement.style.setProperty('--action', brand.accent);
-    }
-  }, []);
 
   const appContent = (
     <>

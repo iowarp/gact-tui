@@ -383,7 +383,7 @@ function NativeMediaPreview({
   if (error) return <ResourceUnavailable detail={error} label="Preview unavailable" />;
   if (!url) return <ResourceLoading className="p-4" label={`Loading ${resource.name}`} />;
   if (resource.detected_mime.startsWith('video/')) {
-    return <video className="size-full bg-black object-contain" controls src={url} />;
+    return <video className="size-full bg-media-backdrop object-contain" controls src={url} />;
   }
   if (resource.detected_mime.startsWith('audio/')) {
     return (

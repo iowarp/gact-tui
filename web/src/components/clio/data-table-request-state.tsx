@@ -24,7 +24,7 @@ export function DataTableRequestState({
               This viewer has {filterCount === 1 ? 'a filter' : `${filterCount} filters`} of its own
               active, which may be the cause.{' '}
               <button
-                className="font-medium text-primary underline underline-offset-2"
+                className="font-medium text-link underline underline-offset-2"
                 onClick={clearFilters}
                 type="button"
               >

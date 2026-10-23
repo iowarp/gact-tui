@@ -21,7 +21,12 @@ export function AppProviders({ children }: PropsWithChildren) {
   );
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+    <ThemeProvider
+      attribute={['class', 'data-theme']}
+      defaultTheme="dark"
+      enableSystem
+      disableTransitionOnChange
+    >
       <QueryClientProvider client={queryClient}>
         <ConnectionProvider>
           <AppearanceProvider>

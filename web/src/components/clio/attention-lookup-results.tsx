@@ -93,7 +93,7 @@ export function AttentionLookupResults({
                 <a
                   key={`${reference.message_id}:${reference.part_id}:${reference.field}`}
                   href={attentionEvidenceHash(reference, view.profile_revision, evidence(view))}
-                  className="text-primary underline underline-offset-4"
+                  className="text-link underline underline-offset-4"
                 >
                   Inspect {reference.field === 'thought' ? 'reasoning' : reference.field}
                 </a>
@@ -105,7 +105,7 @@ export function AttentionLookupResults({
                   view.profile_revision,
                   evidence(view),
                 )}
-                className="text-primary underline underline-offset-4"
+                className="text-link underline underline-offset-4"
               >
                 Inspect answer
               </a>
@@ -142,7 +142,7 @@ export function AttentionLookupResults({
                   <li key={`${block.message_id}:${block.part_id}:${block.field}`}>
                     <a
                       href={attentionEvidenceHash(block, view.profile_revision, evidence(view))}
-                      className="text-primary underline underline-offset-4"
+                      className="text-link underline underline-offset-4"
                     >
                       Inspect {blockLabel(view, block)}
                     </a>{' '}

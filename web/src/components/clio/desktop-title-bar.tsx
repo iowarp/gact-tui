@@ -95,7 +95,7 @@ function WindowButton({
         <button
           aria-label={label}
           className={`grid h-10 w-12 place-items-center text-muted-foreground transition-colors hover:text-foreground ${
-            danger ? 'hover:bg-destructive hover:text-white' : 'hover:bg-accent'
+            danger ? 'hover:bg-destructive hover:text-background' : 'hover:bg-accent'
           }`}
           onClick={() => void runWindowAction(action)}
           type="button"
@@ -347,7 +347,7 @@ export function DesktopTitleBar() {
               <TooltipTrigger asChild>
                 <button
                   aria-label="Close"
-                  className="grid h-10 w-12 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
+                  className="grid h-10 w-12 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-background"
                   onClick={() => setClosePromptOpen(true)}
                   type="button"
                 >

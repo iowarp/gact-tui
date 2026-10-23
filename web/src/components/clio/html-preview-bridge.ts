@@ -21,8 +21,8 @@ export function htmlPreviewHostDocument(
   const defaults = doc.createElement('style');
   defaults.textContent = `${themeVariablesCss(theme)}
     html { font-size: var(--clio-font-size, 16px); }
-    body { color: var(--foreground, #17252e); background: var(--background, white); font-family: var(--font-sans, system-ui); display: flow-root; }
-    :where(input, select, textarea, button) { font: inherit; color: inherit; border: 1px solid var(--border, #aaa); border-radius: var(--radius, .4rem); background: var(--card, white); }
+    body { color: var(--foreground); background: var(--background); font-family: var(--font-sans, system-ui); display: flow-root; }
+    :where(input, select, textarea, button) { font: inherit; color: inherit; border: 1px solid var(--border); border-radius: var(--radius, .4rem); background: var(--card); }
     :where(button, select) { cursor: pointer; }
     :where(a) { color: var(--primary, currentColor); }
     :where(code, pre) { font-family: var(--font-mono, monospace); }
