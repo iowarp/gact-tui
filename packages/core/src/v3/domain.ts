@@ -738,6 +738,8 @@ export interface EntityState {
   connection?: Connection;
   capabilities?: CapabilityNegotiation;
   stream: StreamState;
+  /** How many `stream.gap` frames this stream reported; each one asks for a reconcile. */
+  streamGaps?: number;
   cursor?: string;
   workspaces: Record<string, Workspace>;
   sessions: Record<string, Session>;

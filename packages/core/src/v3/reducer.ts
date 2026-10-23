@@ -694,7 +694,9 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         compactions: reduceCompactionFailed(base, envelope.payload, envelope.occurred_at),
       };
     case 'stream.gap':
-      return { ...base, revisions, stream: 'gapped' };
+      // Counted, not just flagged: a gap that arrives while an earlier one is
+      // still being reconciled must start another reconcile.
+      return { ...base, revisions, stream: 'gapped', streamGaps: (base.streamGaps ?? 0) + 1 };
     case 'stream.live':
       return { ...base, revisions, stream: 'live' };
     default:
