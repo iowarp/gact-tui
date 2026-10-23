@@ -30,6 +30,7 @@ export function NDPEndpointEditor({
     ssh_profile: initial?.ssh_profile ?? '',
     ssh_route: initial?.ssh_route,
     authentication: initial?.authentication ?? 'none',
+    streaming_runtime: initial?.streaming_runtime,
   });
   const [transport, setTransport] = useState(
     initial?.ssh_profile || initial?.ssh_route ? 'ssh' : 'url',
@@ -137,6 +138,55 @@ export function NDPEndpointEditor({
           <span className="block">Your SSH connection is authenticated separately.</span>
         ) : null}
       </p>
+      <details className="space-y-2 text-sm">
+        <summary className="cursor-pointer text-muted-foreground">Streaming runtime</summary>
+        <p className="text-xs text-muted-foreground">
+          Use the NDP streaming SDK installed on the connected computer. Broker credentials stay in
+          its private profile.
+        </p>
+        <div className="space-y-1">
+          <Label htmlFor="ndp-sdk-python">SDK Python interpreter</Label>
+          <Input
+            id="ndp-sdk-python"
+            value={choice.streaming_runtime?.python ?? ''}
+            onChange={(event) =>
+              setChoice({
+                ...choice,
+                streaming_runtime: {
+                  python: event.target.value,
+                  profile_path: choice.streaming_runtime?.profile_path ?? '',
+                },
+              })
+            }
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="ndp-sdk-profile">Private broker profile path</Label>
+          <Input
+            id="ndp-sdk-profile"
+            value={choice.streaming_runtime?.profile_path ?? ''}
+            onChange={(event) =>
+              setChoice({
+                ...choice,
+                streaming_runtime: {
+                  python: choice.streaming_runtime?.python ?? '',
+                  profile_path: event.target.value,
+                },
+              })
+            }
+          />
+        </div>
+        {choice.streaming_runtime ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setChoice({ ...choice, streaming_runtime: null })}
+          >
+            Disconnect streaming runtime
+          </Button>
+        ) : null}
+      </details>
       <div className="flex gap-2">
         <Button disabled={pending || (transport === 'ssh' && (!host || Boolean(routeError)))}>
           {pending ? 'Checking API…' : initial ? 'Save endpoint' : 'Connect'}

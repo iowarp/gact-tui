@@ -5,9 +5,10 @@ export interface ClioContextMeterProps {
   used?: number
   limit?: number
   className?: string
+  showLabel?: boolean
 }
 
-export function ClioContextMeter({ used, limit, className }: ClioContextMeterProps) {
+export function ClioContextMeter({ used, limit, className, showLabel = true }: ClioContextMeterProps) {
   if (used === undefined || limit === undefined || limit <= 0) {
     return (
       <div className={cn('flex items-center gap-2 text-xs text-muted-foreground', className)}>
@@ -22,7 +23,7 @@ export function ClioContextMeter({ used, limit, className }: ClioContextMeterPro
   return (
     <div className={cn('grid min-w-40 gap-1.5', className)}>
       <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="font-medium">Context</span>
+        {showLabel ? <span className="font-medium">Context</span> : null}
         <span className="font-mono text-muted-foreground">{percentageLabel}</span>
       </div>
       <div

@@ -141,7 +141,7 @@ describe('explicit agent question modes', () => {
         onResponse={respond}
       />,
     );
-    expect(screen.getByRole('dialog')).toHaveClass('top-1/2', '-translate-y-1/2', 'sm:max-w-4xl');
+    expect(screen.getByRole('dialog')).toHaveClass('top-1/2', '-translate-y-1/2', 'sm:max-w-xl');
     await userEvent.type(screen.getByRole('textbox'), 'Stiffness');
     await userEvent.click(screen.getByRole('button', { name: 'Send response' }));
     expect(respond).toHaveBeenCalledWith(question('async'), {

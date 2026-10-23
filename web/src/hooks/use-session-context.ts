@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import type { ContextSnapshot } from '@clio/core/v3';
 import { toast } from 'sonner';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -17,6 +18,19 @@ export function useSessionContext(sessionId: string, scope: string, enabled = tr
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const canLoad = Boolean(enabled && sessionId && scope);
+  const settledRuns = useLiveStore((live) =>
+    Object.values(live.entities.runs)
+      .filter((run) => run.session_id === sessionId && run.completed_at)
+      .map((run) => `${run.id}:${run.completed_at}`)
+      .sort()
+      .join('|'),
+  );
+  useEffect(() => {
+    if (canLoad && settledRuns)
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.sessionContextState(settings.endpoint, sessionId, scope),
+      });
+  }, [canLoad, settledRuns, queryClient, settings.endpoint, sessionId, scope]);
   const state = useQuery({
     queryKey: queryKeys.sessionContextState(settings.endpoint, sessionId, scope),
     queryFn: ({ signal }) => repository.contextState(sessionId, scope, signal),

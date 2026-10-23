@@ -29,6 +29,7 @@ export function TaskActivityRow({
   actions,
   onOpenSubagent,
   onOpenFlow,
+  compact = false,
 }: {
   entry: TaskActivity;
   status: string;
@@ -36,6 +37,7 @@ export function TaskActivityRow({
   onOpenSubagent?: ClioEvidenceViewProps['onOpenSubagent'];
   /** A task that runs a flow opens its run view. */
   onOpenFlow?: ClioEvidenceViewProps['onOpenFlow'];
+  compact?: boolean;
 }) {
   const { process: task, subagent } = entry;
   const conversation = subagent ?? (task ? mergeSessionSubagents([], [task])[0] : undefined);
@@ -88,22 +90,32 @@ export function TaskActivityRow({
             type="button"
             aria-label={`Task details: ${title}`}
             title={title}
-            className="flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+            className={`flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'h-8 gap-1.5 px-1' : 'min-h-14 gap-2.5 px-2 py-2'}`}
           >
             <Icon
               aria-hidden="true"
               className={`size-4 shrink-0 ${running ? 'animate-spin text-primary motion-reduce:animate-none' : status === 'completed' ? 'text-success' : settled.has(status) && status !== 'cancelled' ? 'text-destructive' : 'text-muted-foreground'}`}
             />
-            <span className="min-w-0 flex-1">
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span className="truncate text-sm font-medium">{title}</span>
-                {conversation?.model_choice ? (
-                  <SubagentModel choice={conversation.model_choice} />
-                ) : null}
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {flowRun ?? kind} · {label}
-                {progress && progress !== label ? ` — ${progress}` : ''}
+            <span className={`min-w-0 flex-1 ${compact ? 'flex items-baseline gap-2' : ''}`}>
+              {compact ? (
+                <span className="block flex-1 truncate text-xs">{title}</span>
+              ) : (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-sm font-medium">{title}</span>
+                  {conversation?.model_choice ? (
+                    <SubagentModel choice={conversation.model_choice} />
+                  ) : null}
+                </span>
+              )}
+              <span
+                className={`block truncate text-muted-foreground ${compact ? 'max-w-[40%] text-[10px]' : 'text-xs'}`}
+              >
+                {compact
+                  ? flowRun
+                    ? `${flowRun} · ${label}`
+                    : label
+                  : `${flowRun ?? kind} · ${label}`}
+                {!compact && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
             <ChevronRightIcon
@@ -116,6 +128,9 @@ export function TaskActivityRow({
       </div>
       <CollapsibleContent>
         <div className="min-w-0 space-y-3 px-3 pb-3 pl-[2.125rem]">
+          {compact && conversation?.model_choice ? (
+            <SubagentModel choice={conversation.model_choice} />
+          ) : null}
           <div
             role="region"
             aria-label={`Assignment: ${title}`}

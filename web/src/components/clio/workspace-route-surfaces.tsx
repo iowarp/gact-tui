@@ -1,7 +1,7 @@
 import type { RunState, StreamState } from '@clio/core/v3';
 import { AlertTriangleIcon } from 'lucide-react';
 import { m, useIsPresent } from 'motion/react';
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -19,16 +19,14 @@ import { SessionWorkStatus } from './session-work';
  * mounted and out of the tab/AT order through its `AnimatePresence` fade,
  * rather than snapping away mid-animation.
  */
-export function TranscriptPresenceSurface({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className: string;
-}) {
+export const TranscriptPresenceSurface = forwardRef<
+  HTMLDivElement,
+  { children: ReactNode; className: string }
+>(function TranscriptPresenceSurface({ children, className }, ref) {
   const isPresent = useIsPresent();
   return (
     <m.div
+      ref={ref}
       animate={{ opacity: 1 }}
       aria-hidden={!isPresent}
       className={className}
@@ -39,7 +37,7 @@ export function TranscriptPresenceSurface({
       {children}
     </m.div>
   );
-}
+});
 
 /** Surface failed user actions alongside the composer, independently of stream health. */
 export function WorkspaceActionAlerts({

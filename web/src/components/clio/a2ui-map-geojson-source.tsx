@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingFeedback, LoadingFailure } from './loading-feedback';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import type { A2UIAccessibility } from './a2ui-accessibility';
 import { ClioScientificMap } from './a2ui-map';
@@ -68,16 +70,18 @@ export function ClioMapGeoJsonSource({
   }, [artifact.text, categoryField, detailField, labelField, effectiveSelectionField, valueField]);
   if (artifact.error || parsed.error) {
     return (
-      <p className="text-sm text-destructive" role="alert">
-        Map unavailable: {artifact.error || parsed.error}
-      </p>
+      <LoadingFailure
+        title="Map unavailable"
+        detail={artifact.error || parsed.error}
+        onRetry={artifact.error ? artifact.retry : undefined}
+      />
     );
   }
   if (!parsed.data) {
     return (
-      <p className="text-sm text-muted-foreground" role="status">
-        Loading {title} map…
-      </p>
+      <LoadingFeedback label={`Loading ${title} map…`} variant="skeleton">
+        <Skeleton className="h-[26rem] w-full rounded-none" />
+      </LoadingFeedback>
     );
   }
   const { collection, points, bounds } = parsed.data;
@@ -124,17 +128,20 @@ export function ClioMapGeoJsonSource({
     },
   ];
   return (
-    <ClioScientificMap
-      {...rest}
-      dataCapabilities={{ buildReference: reference, exportFormats }}
-      geometry={collection}
-      geometryBounds={bounds}
-      points={points}
-      selection={effectiveSelection}
-      selectionField={effectiveSelectionField}
-      setSelection={effectiveSetSelection}
-      title={title}
-      valueLabel={valueLabel ?? valueField}
-    />
+    <div className="grid min-w-0 gap-2">
+      {artifact.refreshing ? <LoadingFeedback label="Updating map…" /> : null}
+      <ClioScientificMap
+        {...rest}
+        dataCapabilities={{ buildReference: reference, exportFormats }}
+        geometry={collection}
+        geometryBounds={bounds}
+        points={points}
+        selection={effectiveSelection}
+        selectionField={effectiveSelectionField}
+        setSelection={effectiveSetSelection}
+        title={title}
+        valueLabel={valueLabel ?? valueField}
+      />
+    </div>
   );
 }

@@ -16,6 +16,12 @@ for (const width of [1100, 1600]) {
   }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+    // The opening placeholder has its own shell; exercise the restored session.
+    await expect(
+      page.getByText('Review the EarthScope station evidence and keep provenance visible.', {
+        exact: true,
+      }),
+    ).toBeVisible();
     await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
     if (width === 1600) await page.locator('[data-slot="sidebar-trigger"]').click();
     const sidebar = page
@@ -50,10 +56,11 @@ for (const width of [1100, 1600]) {
     await page.keyboard.press('Escape');
     await expect(edit).toHaveCount(0);
     await expect(actions).toBeFocused();
-    await expect(sidebar).toHaveAttribute('data-preview', 'true');
-    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Maximize canvas', exact: true }).hover();
     await expect(sidebar).not.toHaveAttribute('data-preview');
 
+    // Keyboard navigation can hold a temporary preview; mouse focus cannot.
+    await page.keyboard.press('Tab');
     await sidebar.hover();
     await sidebar.getByRole('link', { name: 'Settings', exact: true }).focus();
     await page.getByRole('button', { name: 'Maximize canvas', exact: true }).hover();
@@ -67,11 +74,69 @@ for (const width of [1100, 1600]) {
     await composer.click();
     await expect(composer).toBeFocused();
     await expect(sidebar).not.toHaveAttribute('data-preview');
+    await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
+    await page.mouse.move(width - 20, 850);
+    await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+    await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
+    await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     await sidebar.hover();
     await sidebar.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(page).toHaveURL(/\/settings\/general$/);
   });
 }
+
+test('sidebar clicks stay temporary and collapsed icons share one center line', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
+  await page.locator('[data-slot="sidebar-trigger"]').click();
+  const sidebar = page.locator('[data-slot="sidebar"]').filter({
+    has: page.getByRole('navigation', { name: 'Workspace navigation' }),
+  });
+  await page.mouse.move(1500, 850);
+  await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+  const centers = await sidebar.evaluate((element) =>
+    [...element.querySelectorAll('[data-sidebar="menu-button"], button[aria-label*=" workspace "]')]
+      .map((button) => button.querySelector('svg, img, [style*="mask"]'))
+      .filter((icon): icon is Element => Boolean(icon && icon.getBoundingClientRect().width))
+      .map((icon) => {
+        const bounds = icon.getBoundingClientRect();
+        return bounds.x + bounds.width / 2;
+      }),
+  );
+  expect(centers.length).toBeGreaterThanOrEqual(6);
+  expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath('collapsed-alignment.png') });
+  const cookie = await page.evaluate(() => document.cookie);
+  await sidebar.hover();
+  await sidebar.getByRole('link', { name: /EarthScope NDP evidence review/u }).click();
+  await page.mouse.move(1500, 850);
+  await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+  await expect(sidebar).not.toHaveAttribute('data-preview');
+  expect(await page.evaluate(() => document.cookie)).toBe(cookie);
+  const controls = [
+    sidebar.getByRole('button', { name: 'Search work', exact: true }),
+    sidebar.getByRole('button', { name: 'Create or import', exact: true }),
+    sidebar.locator('[data-slot="sidebar-header"] [data-sidebar="menu-button"]').first(),
+  ];
+  for (const control of controls) {
+    await sidebar.hover();
+    await expect(sidebar).toHaveAttribute('data-preview', 'true');
+    await control.click();
+    await page.mouse.move(1500, 850);
+    await expect(sidebar).not.toHaveAttribute('data-preview');
+    await page.keyboard.press('Escape');
+    await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+    await expect(sidebar).not.toHaveAttribute('data-preview');
+    expect(await page.evaluate(() => document.cookie)).toBe(cookie);
+  }
+  await page.locator('[data-slot="sidebar-trigger"]').click();
+  await page.mouse.move(1500, 850);
+  await expect(sidebar).toHaveAttribute('data-state', 'expanded');
+  await expect(sidebar).not.toHaveAttribute('data-preview');
+});
 
 async function expectSelectedTabVisible(canvas: Locator) {
   const tab = canvas.locator('[data-slot="canvas-header"] [role="tab"][aria-selected="true"]');
@@ -103,6 +168,11 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
   }, longTitle);
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  await expect(
+    page.getByText('Review the EarthScope station evidence and keep provenance visible.', {
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas', exact: true });
   for (const name of [

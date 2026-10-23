@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { PanelsTopLeftIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
 import { artifactDetailVersionEntity } from '@/lib/session-artifacts';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Spinner } from '@/components/ui/spinner';
+import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingFeedback, LoadingFailure } from './loading-feedback';
 import { ClioArtifactCard, type ClioArtifactCardProps } from './artifact-card';
 
 /** Fetch a just-announced reference while the session registry snapshot catches up. */
@@ -26,9 +25,9 @@ export function ReferencedArtifact({
   });
   if (detail.isPending) {
     return (
-      <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground" role="status">
-        <Spinner aria-hidden="true" role="presentation" className="size-3.5" /> Loading saved file…
-      </div>
+      <LoadingFeedback label="Loading saved file…" variant="skeleton">
+        <Skeleton className="h-16 w-full rounded-lg" />
+      </LoadingFeedback>
     );
   }
   const version = detail.data?.artifact.versions.find((item) => item.artifact_id === artifactId);
@@ -43,12 +42,10 @@ export function ReferencedArtifact({
     );
   }
   return (
-    <Alert>
-      <PanelsTopLeftIcon aria-hidden="true" />
-      <AlertTitle>Artifact unavailable</AlertTitle>
-      <AlertDescription>
-        {detail.error?.message ?? 'The saved file has no readable version.'}
-      </AlertDescription>
-    </Alert>
+    <LoadingFailure
+      title="Artifact unavailable"
+      detail={detail.error?.message ?? 'The saved file has no readable version.'}
+      onRetry={() => void detail.refetch()}
+    />
   );
 }

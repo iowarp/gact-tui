@@ -646,12 +646,19 @@ export function ClioScientificMapView({
     setDragBox(null);
   };
 
-  const selectionPointerHandlers = useMapSelectionPointerHandlers(Boolean(onZoneSelect), boxSelectMode, {
-    start: handleMouseDownCapture,
-    move: handleMouseMoveCapture,
-    finish: handleMouseUpCapture,
-    cancel: () => { dragBoxRef.current = null; setDragBox(null); },
-  });
+  const selectionPointerHandlers = useMapSelectionPointerHandlers(
+    Boolean(onZoneSelect),
+    boxSelectMode,
+    {
+      start: handleMouseDownCapture,
+      move: handleMouseMoveCapture,
+      finish: handleMouseUpCapture,
+      cancel: () => {
+        dragBoxRef.current = null;
+        setDragBox(null);
+      },
+    },
+  );
 
   return (
     <div
@@ -760,7 +767,7 @@ export function ClioScientificMapView({
       ) : null}
       {offlineArchive ? (
         <p className="absolute bottom-1 left-2 rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground">
-          Offline map: saved geometry; background tiles are not included.
+          Offline map · Natural Earth land outline · saved scientific data
         </p>
       ) : null}
       {mapError ? (

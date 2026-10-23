@@ -587,7 +587,9 @@ export function useWorkspaceData({
     return () => clearTimeout(timer);
   }, [modelOptions, activeProvider]);
   const modelCatalogStatus: 'error' | 'loading' | 'ready' =
-    providerCatalog.isPending && !providerCatalog.data
+    providerCatalog.isRefreshing ||
+    modelCatalog.isFetching ||
+    (providerCatalog.isPending && !providerCatalog.data)
       ? 'loading'
       : providerCatalog.isError && !providerCatalog.data
         ? 'error'

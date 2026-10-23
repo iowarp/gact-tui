@@ -8,60 +8,57 @@ import { useEvidenceSections } from '@/hooks/use-evidence-disclosures';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConnectedSourcePicker } from './connected-source-picker';
-import { ClioEvidenceView } from './observability-evidence';
-import { SessionWorkSummary } from './session-work';
-import { SessionConnectedSources, SessionWorkShowcase } from './session-showcase-inventory';
-import { ClioContextMeter } from './context-meter';
 import { useShowcasePlacement } from './use-showcase-placement';
-import { cycleEvidenceLayout, type EvidenceLayout } from './evidence-layout';
 import { restoreEvidenceFocus } from './evidence-focus';
-import { SessionEvidenceColumn } from './session-evidence-column';
+import { SessionRailContent } from './session-rail-content';
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
+import type { RailKind } from './session-rail-layout';
 
 /** A compact launcher that stays docked while the transcript has room beside it. */
 export function SessionEvidencePopover({
   evidence,
   children,
+  kind = 'session',
 }: {
   evidence: ClioObservabilityDockProps;
+  kind?: RailKind;
   children: (control: {
-    layout: EvidenceLayout;
     visible: boolean;
     buttonRef: RefObject<HTMLButtonElement | null>;
     panelId: string;
-    cycle: (direction: 1 | -1) => void;
+    toggle: () => void;
   }) => ReactNode;
 }) {
   const selection = useEvidenceSections('evidence-layout', []);
-  const top = selection.value.includes('top');
-  const bottom = selection.value.includes('bottom');
-  const layout: EvidenceLayout = top ? (bottom ? 'both' : 'top') : bottom ? 'bottom' : 'none';
-  const setLayout = (next: EvidenceLayout) =>
-    selection.onValueChange(next === 'both' ? ['top', 'bottom'] : next === 'none' ? [] : [next]);
+  // Honor existing top/bottom preferences as visible, now that sections have their own controls.
+  const enabled = selection.value.some((value) =>
+    (kind === 'session' ? ['top', 'open', 'session'] : ['bottom', 'work']).includes(value),
+  );
   const buttonRef = useRef<HTMLButtonElement>(null);
   const outsideRef = useRef(false);
-  const [mode, setMode] = useState<'docked' | 'temporary'>(
-    layout === 'none' ? 'temporary' : 'docked',
-  );
+  const [mode, setMode] = useState<'docked' | 'temporary'>(enabled ? 'docked' : 'temporary');
   const [selectedSource, setSelectedSource] = useState<{ workspaceId: string; id: string }>();
   const { gutter, flyoutHeight, dockAnchor, flyoutAnchor, measureNow } = useShowcasePlacement(
     buttonRef,
     evidence.surfaceRef,
   );
   const docked = mode === 'docked' && Boolean(gutter);
-  const open = layout !== 'none' && (mode !== 'docked' || Boolean(gutter));
+  const open = enabled && (mode !== 'docked' || Boolean(gutter));
   const panelId = useId();
   // Opening while the transcript hydrates must not lock a roomy viewport into overlay mode.
-  if (layout !== 'none' && gutter && mode === 'temporary') setMode('docked');
+  if (enabled && gutter && mode === 'temporary') setMode('docked');
   const setOpen = (open: boolean) => {
-    if (!open) setLayout('none');
+    if (!open) selection.onValueChange([]);
   };
   // Opening a workbench tab may take the gutter; preserve the selected panels
   // so they return when that tab closes. Explicit dismissal still selects none.
   const suspendForWorkbench = () => setMode('docked');
-  const cycle = (direction: 1 | -1) => {
-    if (layout === 'none' || !open) setMode(measureNow() ? 'docked' : 'temporary');
-    setLayout(cycleEvidenceLayout(layout, direction));
+  const toggle = () => {
+    if (open) setOpen(false);
+    else {
+      setMode(measureNow() ? 'docked' : 'temporary');
+      selection.onValueChange([kind]);
+    }
   };
   const openWork = evidence.onOpenWork
     ? () => {
@@ -70,9 +67,6 @@ export function SessionEvidencePopover({
       }
     : undefined;
   const summaryActions = {
-    provenanceProvider: evidence.provenanceProviders?.find(
-      (provider) => provider.name === evidence.provenanceProvider,
-    ),
     onOpenWork: openWork,
     onOpenActivity: evidence.onOpenCanvas
       ? () => {
@@ -114,14 +108,13 @@ export function SessionEvidencePopover({
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
-        {children({ layout, visible: open, buttonRef, panelId, cycle })}
+        {children({ visible: open, buttonRef, panelId, toggle })}
         <PopoverAnchor virtualRef={docked ? dockAnchor : flyoutAnchor} />
         <PopoverContent
           id={panelId}
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => {
-            if (layout === 'none')
-              restoreEvidenceFocus(event, buttonRef.current, outsideRef.current);
+            if (!enabled) restoreEvidenceFocus(event, buttonRef.current, outsideRef.current);
             else event.preventDefault();
             outsideRef.current = false;
           }}
@@ -150,16 +143,26 @@ export function SessionEvidencePopover({
                       : `min(${flyoutHeight}px, var(--radix-popover-content-available-height))`,
                 }
           }
-          aria-label="Activity and evidence"
+          aria-label={kind === 'work' ? 'Work rail' : 'Session rail'}
           className={cn(
-            'w-[min(30rem,calc(100vw-2rem))] overflow-hidden gap-0 p-0',
+            'w-[min(22rem,calc(100vw-2rem))] overflow-hidden gap-0 p-0',
             docked
               ? 'bg-transparent shadow-none ring-0'
               : 'max-h-[min(32rem,var(--radix-popover-content-available-height))]',
           )}
         >
-          <SessionEvidenceColumn
-            docked={docked}
+          <SessionRailContent
+            kind={kind}
+            evidence={{
+              ...evidence,
+              ...summaryActions,
+              onOpenCanvas: evidence.onOpenCanvas
+                ? (view) => {
+                    suspendForWorkbench();
+                    evidence.onOpenCanvas?.(view);
+                  }
+                : undefined,
+            }}
             actions={
               <>
                 {evidence.onOpenCanvas ? (
@@ -183,8 +186,8 @@ export function SessionEvidencePopover({
                   </TooltipProvider>
                 ) : null}
                 <Button
-                  aria-label="Hide activity and evidence"
-                  title="Hide activity and evidence"
+                  aria-label={`Hide ${kind} rail`}
+                  title={`Hide ${kind} rail`}
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => setOpen(false)}
@@ -193,80 +196,10 @@ export function SessionEvidencePopover({
                 </Button>
               </>
             }
-            workActions={
-              openWork ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        aria-label="Open Work view"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={openWork}
-                      >
-                        <PanelRightOpenIcon />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Open Work view</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : null
-            }
-            data={
-              layout !== 'bottom' ? (
-                <>
-                  {evidence.onOpenCanvas ? (
-                    <button
-                      type="button"
-                      aria-label="Open Context tab"
-                      className="mb-2 block w-full rounded-sm text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => {
-                        suspendForWorkbench();
-                        evidence.onOpenCanvas?.('context');
-                      }}
-                    >
-                      <ClioContextMeter
-                        used={evidence.context?.used_tokens}
-                        limit={evidence.context?.limit_tokens}
-                      />
-                    </button>
-                  ) : (
-                    <ClioContextMeter
-                      used={evidence.context?.used_tokens}
-                      limit={evidence.context?.limit_tokens}
-                      className="mb-2"
-                    />
-                  )}
-                  {evidence.workspaceId ? (
-                    <SessionConnectedSources
-                      workspaceId={evidence.workspaceId}
-                      onOpenSource={(source) => {
-                        suspendForWorkbench();
-                        setSelectedSource({ workspaceId: evidence.workspaceId!, id: source.id });
-                      }}
-                    />
-                  ) : null}
-                  <ClioEvidenceView {...evidence} {...summaryActions} compact section="data" />
-                </>
-              ) : undefined
-            }
-            work={
-              layout !== 'top' ? (
-                <>
-                  {evidence.sessionId && openWork ? (
-                    <SessionWorkSummary
-                      sessionId={evidence.sessionId}
-                      onOpen={openWork}
-                      includeTodos={false}
-                    />
-                  ) : null}
-                  <ClioEvidenceView {...evidence} {...summaryActions} compact section="work" />
-                  {evidence.sessionId ? (
-                    <SessionWorkShowcase sessionId={evidence.sessionId} onOpenWork={openWork} />
-                  ) : null}
-                </>
-              ) : undefined
-            }
+            onOpenSource={(source) => {
+              suspendForWorkbench();
+              setSelectedSource({ workspaceId: evidence.workspaceId!, id: source.id });
+            }}
           />
         </PopoverContent>
       </Popover>

@@ -56,6 +56,8 @@ function contextSnapshot(value: unknown): ContextSnapshot {
     live_block_count: result.live_block_count,
     tokens_by_kind: result.tokens_by_kind,
     categories: result.categories,
+    prompt_breakdown: result.prompt_breakdown ?? undefined,
+    usage_recorded_at: result.usage_recorded_at ?? undefined,
     autocompact_enabled: result.autocompact_enabled,
     autocompact_pct: result.autocompact_pct ?? undefined,
     segments: result.segments,

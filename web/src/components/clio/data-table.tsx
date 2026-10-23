@@ -133,6 +133,7 @@ export function ClioDataTable({
   rows,
   label = 'Data table',
   showLabel = true,
+  showToolbar = true,
   description,
   onRowClick,
   selectedRows,
@@ -152,6 +153,8 @@ export function ClioDataTable({
   label?: string;
   /** Keep the accessible label while omitting a generic visible heading in composed A2UI. */
   showLabel?: boolean;
+  /** File viewers provide their own shared download and fullscreen controls. */
+  showToolbar?: boolean;
   description?: string;
   onRowClick?: (row: ClioDataRow, interaction: { index: number; shiftKey: boolean }) => void;
   /** Indexes (into `rows`) to highlight as selected. */
@@ -373,17 +376,26 @@ export function ClioDataTable({
             '[&_tr[aria-selected=true]]:bg-primary/20 [&_tr[aria-selected=true]]:shadow-[inset_3px_0_0_var(--primary)]',
         )}
       >
-        <div className={cn('flex min-w-0 items-start gap-3', showLabel ? 'px-3 py-2' : 'min-h-7 px-2 py-0.5')}>
-          {showLabel ? (
-            <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
-              {label}
-            </h3>
-          ) : (
-            <span className="min-w-0 flex-1" />
-          )}
-          {selectedOnlyAction}
-          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
-        </div>
+        {showLabel || selectedOnlyAction || showToolbar ? (
+          <div
+            className={cn(
+              'flex min-w-0 items-start gap-3',
+              showLabel ? 'px-3 py-2' : 'min-h-7 px-2 py-0.5',
+            )}
+          >
+            {showLabel ? (
+              <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
+                {label}
+              </h3>
+            ) : (
+              <span className="min-w-0 flex-1" />
+            )}
+            {selectedOnlyAction}
+            {showToolbar ? (
+              <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+            ) : null}
+          </div>
+        ) : null}
         {/* Only the scrollable rows + pagination move into the full-screen
             dialog (same convention as `clio.chart.v1`'s `FramePanel`): the
             header above, with the toolbar's own full-screen toggle, stays put. */}

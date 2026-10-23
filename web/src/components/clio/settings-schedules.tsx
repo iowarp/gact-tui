@@ -3,7 +3,7 @@ import type { CreateScheduledTurnInput, ScheduledTurn } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClockIcon, ChevronDownIcon, Clock3Icon, Repeat2Icon } from 'lucide-react';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Frame,
@@ -24,7 +24,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -44,6 +43,9 @@ import { isPrimarySession } from '@/lib/recent-sessions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus } from './status';
+import { DateTimeField } from './date-time-field';
+import { LoadingFeedback, LoadingFailure } from './loading-feedback';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type ScheduleKind = 'once' | 'repeating';
 type RepeatPreset = 'daily' | 'weekdays' | 'weekly' | 'advanced';
@@ -119,6 +121,11 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   const [repeatTime, setRepeatTime] = useState('09:00');
   const [weekday, setWeekday] = useState('1');
   const [customCron, setCustomCron] = useState('');
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const sessions = useQuery({
     queryKey: queryKeys.key('sessions', 'all', settings.endpoint),
@@ -167,11 +174,33 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
     (workspaces.data ?? []).map((workspace) => [workspace.id, workspace.display_name]),
   );
   const cron = buildCron(preset, repeatTime, weekday, customCron);
+  const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const onceDate = new Date(onceAt);
+  const validOnce =
+    !Number.isNaN(onceDate.getTime()) &&
+    onceDate.getTime() > now &&
+    new Date(onceDate.getTime() - onceDate.getTimezoneOffset() * 60_000)
+      .toISOString()
+      .slice(0, 16) === onceAt;
+  const timeCaption = /^\d{2}:\d{2}$/u.test(repeatTime)
+    ? new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(new Date(`2000-01-01T${repeatTime}`))
+    : '';
+  const repeatCaption =
+    preset === 'daily'
+      ? 'Every day'
+      : preset === 'weekdays'
+        ? 'Every weekday'
+        : preset === 'weekly'
+          ? `Every ${weekdayLabels.find(([value]) => value === weekday)?.[1]}`
+          : 'Custom schedule';
   const canCreate =
     Boolean(selectedSessionId && question.trim()) &&
     (kind === 'once'
-      ? Boolean(onceAt && !Number.isNaN(new Date(onceAt).getTime()))
-      : Boolean(cron));
+      ? Boolean(onceAt && validOnce)
+      : Boolean(cron && scheduledTurns.data?.timezone && (preset === 'advanced' || timeCaption)));
   const submit = () => {
     if (!canCreate) return;
     create.mutate(
@@ -203,6 +232,16 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-5">
+          {sessions.isPending || workspaces.isPending ? (
+            <LoadingFeedback label="Loading sessions…" />
+          ) : null}
+          {sessions.error ? (
+            <LoadingFailure
+              title="Sessions unavailable"
+              detail={sessions.error.message}
+              onRetry={() => void sessions.refetch()}
+            />
+          ) : null}
           <div className="grid gap-2">
             <Label htmlFor="schedule-session">Session</Label>
             <Select onValueChange={setSessionId} value={selectedSessionId}>
@@ -278,15 +317,22 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
           </RadioGroup>
           {kind === 'once' ? (
             <div className="grid gap-2 sm:max-w-sm">
-              <Label htmlFor="schedule-once-at">Date and time</Label>
-              <Input
+              <DateTimeField
+                label="Date and time"
                 id="schedule-once-at"
-                min={defaultOnceAt()}
-                onChange={(event) => setOnceAt(event.target.value)}
-                type="datetime-local"
+                onChange={setOnceAt}
                 value={onceAt}
+                timezone={deviceTimezone}
               />
-              <p className="text-xs text-muted-foreground">Shown in your device time zone.</p>
+              {validOnce ? (
+                <p className="text-sm">
+                  Run once on {formatDateTime(onceAt)}, {deviceTimezone}.
+                </p>
+              ) : (
+                <p role="alert" className="text-xs text-destructive">
+                  Choose a future date and time that exists in {deviceTimezone}.
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid gap-4 rounded-xl border p-4">
@@ -310,11 +356,11 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
                 </div>
                 {preset !== 'advanced' ? (
                   <div className="grid gap-2">
-                    <Label htmlFor="schedule-repeat-time">Time</Label>
-                    <Input
+                    <DateTimeField
+                      label="Time"
                       id="schedule-repeat-time"
-                      onChange={(event) => setRepeatTime(event.target.value)}
-                      type="time"
+                      onChange={setRepeatTime}
+                      enableDate={false}
                       value={repeatTime}
                     />
                   </div>
@@ -363,6 +409,11 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
               <p className="text-xs text-muted-foreground">
                 Service time zone: {scheduledTurns.data?.timezone ?? 'Loading…'}
               </p>
+              {scheduledTurns.data?.timezone && timeCaption && preset !== 'advanced' ? (
+                <p className="text-sm">
+                  {repeatCaption} at {timeCaption}, {scheduledTurns.data.timezone}.
+                </p>
+              ) : null}
             </div>
           )}
         </FramePanel>
@@ -382,6 +433,18 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-2 p-2">
+          {selectedSessionId && scheduledTurns.isPending ? (
+            <LoadingFeedback label="Loading scheduled work…" variant="skeleton" className="p-3">
+              <div className="grid gap-3">
+                {[0, 1, 2].map((item) => (
+                  <Skeleton key={item} className="h-16 w-full" />
+                ))}
+              </div>
+            </LoadingFeedback>
+          ) : null}
+          {scheduledTurns.isFetching && scheduledTurns.data ? (
+            <LoadingFeedback label="Refreshing scheduled work…" className="px-3 py-2" />
+          ) : null}
           {scheduledTurns.data?.schedules.map((schedule) => (
             <ClioInteractiveRow
               actions={
@@ -460,7 +523,10 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
               </div>
             </ClioInteractiveRow>
           ))}
-          {!scheduledTurns.isPending && !scheduledTurns.data?.schedules.length ? (
+          {selectedSessionId &&
+          !scheduledTurns.isPending &&
+          !scheduledTurns.error &&
+          !scheduledTurns.data?.schedules.length ? (
             <div className="grid place-items-center gap-2 rounded-lg border p-10 text-center">
               <CalendarClockIcon aria-hidden="true" className="size-6 text-muted-foreground" />
               <p className="font-medium">Nothing is scheduled for this session</p>
@@ -471,10 +537,11 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
             </div>
           ) : null}
           {scheduledTurns.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>Scheduled work unavailable</AlertTitle>
-              <AlertDescription>{scheduledTurns.error.message}</AlertDescription>
-            </Alert>
+            <LoadingFailure
+              title="Scheduled work unavailable"
+              detail={scheduledTurns.error.message}
+              onRetry={() => void scheduledTurns.refetch()}
+            />
           ) : null}
         </FramePanel>
       </Frame>

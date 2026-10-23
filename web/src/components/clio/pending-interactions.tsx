@@ -204,7 +204,9 @@ export function ClioPendingInteractions({
               // visual to push its controls beyond the conversation viewport.
               hasInteractiveSurface || selected?.payload?.access
                 ? 'max-h-[calc(100dvh-12rem)]'
-                : 'max-h-[min(22rem,40dvh)]',
+                : selected?.kind === 'question' && selected.source.protocol === 'native'
+                  ? 'max-h-[min(38rem,65dvh)]'
+                  : 'max-h-[min(22rem,40dvh)]',
             )}
             scrollHideDelay={500}
             type="hover"

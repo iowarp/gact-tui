@@ -12,26 +12,41 @@ vi.mock('@/providers/connection-provider', () => ({
 vi.mock('./artifact-card', () => ({
   ClioArtifactCard: ({ artifact }: { artifact: Artifact }) => <button>{artifact.id}</button>,
 }));
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 const detail = {
   artifact: {
-    workspace_id: 'w', name: 'figure.png', kind: 'image', head_artifact_id: 'figure_v2',
-    versions: [1, 2].map(version => ({
-      artifact_id: `figure_v${version}`, version, uri: `artifact://figure_v${version}`,
-      fetch_url: `/v1/artifacts/figure_v${version}/bytes`, custody: 'cas',
+    workspace_id: 'w',
+    name: 'figure.png',
+    kind: 'image',
+    head_artifact_id: 'figure_v2',
+    versions: [1, 2].map((version) => ({
+      artifact_id: `figure_v${version}`,
+      version,
+      uri: `artifact://figure_v${version}`,
+      fetch_url: `/v1/artifacts/figure_v${version}/bytes`,
+      custody: 'cas',
     })),
   },
 };
 function view(id = 'figure_v1') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>
-    <ReferencedArtifact artifactId={id} sessionId="s" />
-  </QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <ReferencedArtifact artifactId={id} sessionId="s" />
+    </QueryClientProvider>,
+  );
 }
 describe('just-announced artifact references', () => {
   it('shows loading until the registered version arrives', async () => {
     let resolve!: (value: typeof detail) => void;
-    repository.artifactDetail.mockReturnValue(new Promise<typeof detail>(done => { resolve = done; }));
+    repository.artifactDetail.mockReturnValue(
+      new Promise<typeof detail>((done) => {
+        resolve = done;
+      }),
+    );
     view();
     expect(screen.getByRole('status')).toHaveTextContent('Loading saved file');
     expect(screen.queryByText('Artifact unavailable')).toBeNull();
@@ -55,6 +70,7 @@ describe('just-announced artifact references', () => {
     repository.artifactDetail.mockResolvedValue(detail);
     view('missing');
     expect(await screen.findByText('The saved file has no readable version.')).toBeVisible();
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'figure_v2' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
   });
 });

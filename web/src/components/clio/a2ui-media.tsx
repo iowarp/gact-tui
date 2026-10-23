@@ -4,7 +4,8 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ExternalLink } from '@/components/ui/external-link';
-import { Spinner } from '@/components/ui/spinner';
+import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingFeedback } from './loading-feedback';
 import { referenceFailure, type A2uiReferenceFailure } from '@/lib/a2ui/reference-failure';
 import { useA2uiReference, type A2uiReferenceState } from '@/lib/a2ui/use-a2ui-reference';
 import { useA2uiUrlGuard } from '@/lib/a2ui/url-guard';
@@ -222,12 +223,13 @@ function ReferenceMedia({ componentId, kind, label, objectFit, url, variant }: A
   if (failure) return <A2uiMediaNotice failure={failure} kind={kind} />;
   if (state.pending || !state.objectUrl) {
     return (
-      <div
-        className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
-        data-slot="a2ui-media-loading"
-      >
-        <Spinner className="size-3.5" />
-        <span>{`Loading ${KIND_NOUN[kind].toLowerCase()}…`}</span>
+      <div className="rounded-md border bg-muted/20 p-3" data-slot="a2ui-media-loading">
+        <LoadingFeedback
+          label={`Loading ${KIND_NOUN[kind].toLowerCase()}…`}
+          variant={kind === 'audio' ? 'inline' : 'skeleton'}
+        >
+          {kind !== 'audio' ? <Skeleton className="aspect-video w-full" /> : null}
+        </LoadingFeedback>
       </div>
     );
   }

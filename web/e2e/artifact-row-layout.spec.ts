@@ -25,12 +25,17 @@ test('centers artifact row actions without covering the relation badge', async (
   const open = page.getByRole('button', { name: 'Open vertical-displacement.png' }).first();
   await expect(open).toBeVisible();
   const card = page.locator('.group\\/artifact').filter({ has: open });
-  const more = card.getByRole('button', { name: 'More', exact: true });
+  const download = card.getByRole('button', {
+    name: 'Download vertical-displacement.png',
+    exact: true,
+  });
   const measure = () =>
     card.evaluate((element) => {
       const header = element.firstElementChild!;
       const badge = header.querySelector('[data-slot="badge"]')!;
-      const action = header.querySelector('button[aria-label="More"]')!;
+      const action = header.querySelector(
+        'button[aria-label="Download vertical-displacement.png"]',
+      )!;
       const origin = header.getBoundingClientRect();
       const bounds = (node: Element) => {
         const { x, y, width, height } = node.getBoundingClientRect();
@@ -127,11 +132,11 @@ test('centers artifact row actions without covering the relation badge', async (
     expect(hitArea.height).toBeGreaterThanOrEqual(hovered.header.height - 2);
     expect(hitArea.focus).not.toBe('none');
     await page.keyboard.press('Tab');
-    await expect(more).toBeFocused();
+    await expect(download).toBeFocused();
     expect(await measure()).toEqual(resting);
-    await more.click();
-    await expect(page.getByRole('menuitem', { name: 'Download', exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
+    const saved = page.waitForEvent('download');
+    await download.click();
+    expect((await saved).suggestedFilename()).toBe('vertical-displacement.png');
   }
   // Padding and the file icon open the artifact, not just its name.
   await card.click({ position: { x: 8, y: 8 } });

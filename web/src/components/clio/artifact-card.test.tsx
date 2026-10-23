@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -203,11 +203,7 @@ describe('ClioArtifactCard', () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     await screen.findByRole('img', { name: 'station-timeseries.png' }); // wait past the preview query
 
-    await user.click(screen.getByRole('button', { name: 'More' }));
-    await user.click(screen.getByRole('menuitem', { name: /Download/ }));
-    const item = await screen.findByRole('menuitem', { name: 'Original file' });
-    fireEvent.pointerMove(item);
-    fireEvent.click(item);
+    await user.click(screen.getByRole('button', { name: 'Download station-timeseries.png' }));
 
     await waitFor(() =>
       expect(repository.readArtifactBytesFor).toHaveBeenCalledWith(

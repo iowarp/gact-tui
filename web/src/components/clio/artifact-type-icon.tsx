@@ -8,15 +8,28 @@ import { FileTypeIcon } from './file-type-icon';
 export function ArtifactTypeIcon({
   artifact,
   className,
+  badge,
 }: {
   artifact: Artifact;
   className?: string;
+  badge?: boolean;
 }) {
   return isDashboardArtifact(artifact) ? (
-    <LayoutDashboardIcon aria-hidden="true" className={className} />
+    <LayoutDashboardIcon
+      aria-hidden="true"
+      className={`text-indigo-600 dark:text-indigo-400 ${className ?? ''}`}
+    />
   ) : artifactCategory(artifact) === 'plans' ? (
-    <ListTreeIcon aria-hidden="true" className={className} />
+    <ListTreeIcon
+      aria-hidden="true"
+      className={`text-teal-600 dark:text-teal-400 ${className ?? ''}`}
+    />
   ) : (
-    <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} className={className} />
+    <FileTypeIcon
+      name={artifact.name}
+      mediaType={artifact.media_type}
+      className={className}
+      badge={badge}
+    />
   );
 }

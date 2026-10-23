@@ -6,7 +6,7 @@ import {
 } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useLiveStore } from '@/store/live-store';
 
@@ -19,7 +19,13 @@ class RecordingTransport implements ClioTransport {
     if (request.path.includes('/compact')) {
       return request.decode({ session_id: 'sess 1', compacted: true });
     }
-    return request.decode({ session_id: 'sess 1', scope: 'expert/main', live_tokens: 10 });
+    return request.decode({
+      session_id: 'sess 1',
+      scope: 'expert/main',
+      live_tokens: 10,
+      window_tokens: 1000,
+      live_block_count: 1,
+    });
   }
 
   public async *stream(): AsyncIterable<never> {}
@@ -36,10 +42,12 @@ vi.mock('./use-repository', () => ({
 
 import { useSessionContext } from './use-session-context';
 
-function wrapper({ children }: { children: ReactNode }) {
-  const client = new QueryClient({
-    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
-  });
+function ContextTestProvider({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () => new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    }),
+  );
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
@@ -63,10 +71,50 @@ afterEach(() => {
 });
 
 describe('useSessionContext compaction', () => {
+  it('refreshes the selected context when a real run settles', async () => {
+    const recording = new RecordingTransport();
+    transport.current = new ClioRepository(recording);
+    const { result, unmount } = renderHook(() => {
+      const context = useSessionContext('sess 1', 'expert/main');
+      return { ...context, fetching: context.state.isFetching };
+    }, {
+      wrapper: ContextTestProvider,
+    });
+    await waitFor(() => expect(result.current.state.isSuccess).toBe(true));
+    await waitFor(() =>
+      expect(recording.requests.some((request) => request.path.includes('/context/state'))).toBe(
+        true,
+      ),
+    );
+    const before = recording.requests.filter((request) =>
+      request.path.includes('/context/state'),
+    ).length;
+    act(() =>
+      useLiveStore.getState().replaceSnapshots({
+        runs: {
+          run: {
+            id: 'run',
+            session_id: 'sess 1',
+            state: 'completed',
+            completed_at: '2026-10-21T06:15:00Z',
+          },
+        },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        recording.requests.filter((request) => request.path.includes('/context/state')).length,
+      ).toBeGreaterThan(before),
+    );
+    await waitFor(() => expect(result.current.fetching).toBe(false));
+    unmount();
+  });
   it("compacts the panel's selected scope through the session compact route", async () => {
     const recording = new RecordingTransport();
     transport.current = new ClioRepository(recording);
-    const { result } = renderHook(() => useSessionContext('sess 1', 'expert/main'), { wrapper });
+    const { result } = renderHook(() => useSessionContext('sess 1', 'expert/main'), {
+      wrapper: ContextTestProvider,
+    });
 
     await act(async () => {
       await result.current.compact.mutateAsync();
@@ -83,7 +131,9 @@ describe('useSessionContext compaction', () => {
 
   it('stays pending while the live stream reports a running compaction', async () => {
     transport.current = new ClioRepository(new RecordingTransport());
-    const { result } = renderHook(() => useSessionContext('sess 1', 'expert/main'), { wrapper });
+    const { result } = renderHook(() => useSessionContext('sess 1', 'expert/main'), {
+      wrapper: ContextTestProvider,
+    });
     expect(result.current.compactPending).toBe(false);
 
     const event = {

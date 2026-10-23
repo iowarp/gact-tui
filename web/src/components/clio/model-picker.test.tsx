@@ -171,6 +171,7 @@ describe('ClioModelPicker', () => {
     expect(screen.getByText('Codex', { exact: true })).toBeVisible();
     expect(screen.getByText('Luna')).toBeVisible();
     expect(screen.getByRole('combobox', { name: 'Search providers and models' })).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Refreshing models…' })).toBeVisible();
     expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0);
   });
 

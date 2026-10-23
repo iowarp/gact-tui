@@ -9,9 +9,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClioDataTable } from './data-table';
 import { tabularJsonDataset } from './json-resource-data';
+import { useContext } from 'react';
+import { FileViewerInformationHost } from './file-viewer-context';
+import { ViewerToolbarContent } from './viewer-toolbar';
 
 /** Renders homogeneous JSON records through the shared ReUI data grid while preserving source. */
 export function ClioJsonResourceView({ content, title }: { content: string; title: string }) {
+  const sharedHeader = useContext(FileViewerInformationHost) !== undefined;
   const dataset = tabularJsonDataset(content, title);
   if (!dataset) return <JsonSource content={content} title={title} />;
 
@@ -22,7 +26,13 @@ export function ClioJsonResourceView({ content, title }: { content: string; titl
         <TabsTrigger value="source">Source</TabsTrigger>
       </TabsList>
       <TabsContent className="min-w-0 pt-3" value="data">
-        <ClioDataTable columns={dataset.columns} label={dataset.label} rows={dataset.rows} />
+        <ClioDataTable
+          columns={dataset.columns}
+          label={dataset.label}
+          rows={dataset.rows}
+          showLabel={!sharedHeader || dataset.label !== title}
+          showToolbar={!sharedHeader}
+        />
         {dataset.rows.length < dataset.totalRows ? (
           <p className="mt-2 text-xs text-muted-foreground">
             Showing the first {dataset.rows.length.toLocaleString()} of{' '}
@@ -39,16 +49,23 @@ export function ClioJsonResourceView({ content, title }: { content: string; titl
 }
 
 function JsonSource({ content, title }: { content: string; title: string }) {
+  const sharedHeader = useContext(FileViewerInformationHost) !== undefined;
   return (
     <CodeBlock code={content} language="json" showLineNumbers>
-      <CodeBlockHeader>
-        <CodeBlockTitle>
-          <CodeBlockFilename>{title}</CodeBlockFilename>
-        </CodeBlockTitle>
-        <CodeBlockActions>
+      {sharedHeader ? (
+        <ViewerToolbarContent>
           <CodeBlockCopyButton aria-label={`Copy ${title}`} size="icon-xs" />
-        </CodeBlockActions>
-      </CodeBlockHeader>
+        </ViewerToolbarContent>
+      ) : (
+        <CodeBlockHeader>
+          <CodeBlockTitle>
+            <CodeBlockFilename>{title}</CodeBlockFilename>
+          </CodeBlockTitle>
+          <CodeBlockActions>
+            <CodeBlockCopyButton aria-label={`Copy ${title}`} size="icon-xs" />
+          </CodeBlockActions>
+        </CodeBlockHeader>
+      )}
     </CodeBlock>
   );
 }

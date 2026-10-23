@@ -1,8 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClioEvidenceView, type ClioEvidenceViewProps } from './observability-evidence';
-import { SessionConnectedSources, SessionWorkShowcase } from './session-showcase-inventory';
+import { SessionRailContent } from './session-rail-content';
+import { QuestionAnswerContext } from './question-answer-context';
+import type { PendingInteraction } from '@clio/core/v3';
 
 const repository = vi.hoisted(() => ({
   sessionWork: vi
@@ -21,6 +24,10 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'https://showcase.test' } }),
 }));
 afterEach(cleanup);
+beforeEach(() => {
+  localStorage.clear();
+  window.dispatchEvent(new StorageEvent('storage', { key: null }));
+});
 
 function renderEvidence(props: ClioEvidenceViewProps) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -60,6 +67,94 @@ const evidence = {
 };
 
 describe('session showcase inventory', () => {
+  it('shows the context breakdown and flat artifact rows in Session, with work kept separate', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={client}>
+        <SessionRailContent
+          kind="session"
+          onOpenSource={vi.fn()}
+          evidence={{
+            ...evidence,
+            contextFrames: [],
+            tools: [],
+            runs: [],
+            context: {
+              session_id: 'session',
+              provenance: {
+                source: 'server',
+                observed_at: '2026-10-21T00:00:00Z',
+                stale: false,
+              },
+              used_tokens: 2200,
+              limit_tokens: 10000,
+              categories: { tools: 1000, messages: 1200 },
+            },
+          }}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('Tool definitions')).toBeVisible();
+    expect(screen.getByText('Messages')).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Context token composition' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Tasks section' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Child agents section' })).not.toBeInTheDocument();
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <SessionRailContent
+          kind="work"
+          onOpenSource={vi.fn()}
+          evidence={{
+            ...evidence,
+            contextFrames: [],
+            tools: [],
+            runs: [],
+          }}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole('region', { name: 'Tasks section' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Child agents section' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Context section' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Artifacts section' })).not.toBeInTheDocument();
+    client.clear();
+  });
+  it('keeps live questions reachable through the existing workspace answer owner', async () => {
+    const interaction: PendingInteraction = {
+      id: 'question',
+      kind: 'question',
+      status: 'pending',
+      owner_session_id: 'session',
+      attended_session_id: 'session',
+      title: 'Choose a time window',
+      prompt: 'Which time window should I compare?',
+      created_at: '2026-10-21T00:00:00Z',
+      source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'ask' },
+      actions: ['answer', 'cancel'],
+    };
+    const openQuestion = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <QuestionAnswerContext.Provider
+          value={{
+            interactions: [interaction],
+            openQuestion,
+            startAnswer: vi.fn(),
+            stopAnswer: vi.fn(),
+          }}
+        >
+          <SessionRailContent
+            evidence={{ ...evidence, contextFrames: [], tools: [], runs: [] }}
+            onOpenSource={vi.fn()}
+          />
+        </QuestionAnswerContext.Provider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Read and answer question 1' }));
+    expect(openQuestion).toHaveBeenCalledWith(interaction);
+    client.clear();
+  });
   it('puts artifacts and context files in the data section without work categories', () => {
     renderEvidence({ ...evidence, compact: true, section: 'data' });
     expect(screen.getByText('Report.docx')).toBeVisible();
@@ -80,12 +175,22 @@ describe('session showcase inventory', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <SessionConnectedSources workspaceId="workspace" />
-        <SessionWorkShowcase sessionId="session" />
+        <SessionRailContent
+          evidence={{
+            ...evidence,
+            contextFrames: [],
+            tools: [],
+            runs: [],
+            sessionId: 'session',
+            workspaceId: 'workspace',
+          }}
+          onOpenSource={vi.fn()}
+        />
       </QueryClientProvider>,
     );
     expect(await screen.findByText('Sensor repository')).toBeVisible();
     expect(await screen.findByText('Check the report')).toBeVisible();
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Schedules' }));
     expect(await screen.findByText('Review tomorrow')).toBeVisible();
     expect(screen.queryByText('Disconnected source')).not.toBeInTheDocument();
     expect(repository.sessionWork).toHaveBeenCalledWith('session', 0, expect.any(AbortSignal));
@@ -93,7 +198,7 @@ describe('session showcase inventory', () => {
     expect(repository.connectedSources).toHaveBeenCalledWith('workspace', expect.any(AbortSignal));
     client.clear();
   });
-  it('opens an artifact from a compact row with format, size and timestamp, without an output card', () => {
+  it('opens an artifact from one compact line with a direct download action', () => {
     const onOpenArtifact = vi.fn();
     const artifact = { ...evidence.artifacts[0]!, size: 158, created_at: '2026-10-08T12:00:00Z' };
     renderEvidence({
@@ -105,7 +210,9 @@ describe('session showcase inventory', () => {
     });
     const row = screen.getByRole('button', { name: 'Open Report.docx' });
     expect(row).toHaveTextContent('158 B');
-    expect(row.querySelector('time')).not.toBeNull();
+    expect(row.querySelector('time')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Download Report.docx' })).toBeVisible();
+    expect(document.querySelector('[data-slot="file-identity-row"]')).toBeNull();
     expect(screen.queryByText('Output')).not.toBeInTheDocument();
     expect(document.querySelector('[data-slot="artifact"]')).toBeNull();
     fireEvent.click(row);
@@ -158,13 +265,24 @@ describe('session showcase inventory', () => {
     const onOpenWork = vi.fn();
     render(
       <QueryClientProvider client={client}>
-        <SessionConnectedSources workspaceId="workspace" onOpenSource={onOpenSource} />
-        <SessionWorkShowcase sessionId="session" onOpenWork={onOpenWork} />
+        <SessionRailContent
+          evidence={{
+            ...evidence,
+            contextFrames: [],
+            tools: [],
+            runs: [],
+            sessionId: 'session',
+            workspaceId: 'workspace',
+            onOpenWork,
+          }}
+          onOpenSource={onOpenSource}
+        />
       </QueryClientProvider>,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Open Sensor repository' }));
     expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'source' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Check the report' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Schedules' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Review tomorrow' }));
     expect(onOpenWork).toHaveBeenCalledTimes(2);
     client.clear();

@@ -373,9 +373,9 @@ describe('ClioChart', () => {
         />,
       ),
     );
-    expect(
-      screen.getByText(/Chart unavailable: the spec breaks the chart rules/u),
-    ).toHaveTextContent("'url' is not allowed anywhere (at /data/url)");
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "'url' is not allowed anywhere (at /data/url)",
+    );
     expect(embedded.views).toHaveLength(0);
   });
 
@@ -530,9 +530,7 @@ describe('ClioChart', () => {
       }),
     );
     render(wrap(<ClioChart {...PRESET} componentId="ch2" dataUri="artifact://artifact_runs01" />));
-    expect(
-      await screen.findByText('Chart unavailable: the table has no column “v”.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('the table has no column “v”.')).toBeInTheDocument();
   });
 
   it('writes a selection made in the chart, with itself as the source', async () => {

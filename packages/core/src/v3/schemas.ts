@@ -475,6 +475,25 @@ export const contextStateSchema = z.object({
   live_block_count: z.number().int().nonnegative(),
   tokens_by_kind: z.record(z.string(), z.number().int().nonnegative()).default({}),
   categories: z.record(z.string(), z.number().int().nonnegative()).default({}),
+  prompt_breakdown: z
+    .object({
+      method: z.literal('characters_div_4'),
+      tokens_estimated: z.number().int().nonnegative(),
+      media_items: z.number().int().nonnegative().default(0),
+      sections: z.array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          tokens_estimated: z.number().int().nonnegative(),
+          count: z.number().int().nonnegative(),
+          items: z.array(
+            z.object({ label: z.string(), tokens_estimated: z.number().int().nonnegative() }),
+          ),
+        }),
+      ),
+    })
+    .nullish(),
+  usage_recorded_at: z.string().nullish(),
   segments: z.array(z.record(z.string(), z.unknown())).default([]),
   render_text: z.string().default(''),
   messages: z

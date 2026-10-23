@@ -103,6 +103,8 @@ export interface QueryRowKey {
 export interface TableQueryRows {
   rows: QueryRow[] | undefined;
   loading: boolean;
+  refreshing?: boolean;
+  retry?: () => void;
   error: string;
   /** Says when the server returned fewer rows than matched (truncated, downsampled, or a later page). */
   note: string;
@@ -259,11 +261,13 @@ export function useTableQueryRows({
   const queried = useMemo(
     () =>
       query.data
-        ? columnarToRows(query.data.columns as Record<string, QueryCell[]>, query.data.returnedRows).map(
-            (row, index) =>
-              query.data?.rowKey?.values[index] === undefined
-                ? row
-                : { ...row, [query.data.rowKey.column]: query.data.rowKey.values[index]! },
+        ? columnarToRows(
+            query.data.columns as Record<string, QueryCell[]>,
+            query.data.returnedRows,
+          ).map((row, index) =>
+            query.data?.rowKey?.values[index] === undefined
+              ? row
+              : { ...row, [query.data.rowKey.column]: query.data.rowKey.values[index]! },
           )
         : undefined,
     [query.data],
@@ -300,6 +304,7 @@ export function useTableQueryRows({
       rows: undefined,
       loading: false,
       error: tableQueryErrorMessage(query.error),
+      retry: () => void query.refetch(),
       note: '',
       matchedRows: undefined,
       totalRows: undefined,
@@ -311,6 +316,8 @@ export function useTableQueryRows({
   return {
     rows: queried,
     loading: query.isPending,
+    refreshing: query.isFetching && !query.isPending,
+    retry: () => void query.refetch(),
     error: '',
     note: query.data ? describeResult(query.data, (dataQuery?.offset ?? 0) > 0) : '',
     matchedRows: query.data ? (query.data.matchedRows ?? query.data.totalRows) : undefined,

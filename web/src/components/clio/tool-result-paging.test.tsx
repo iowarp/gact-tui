@@ -167,6 +167,56 @@ describe('full presentation viewer paging', () => {
     expect(await within(dialog).findByText('first complete body')).toBeVisible();
     expect(page).toHaveBeenCalledWith('session', 'call', 'body', 6, expect.any(AbortSignal));
   });
+  it('retains skill metadata when the full instructions need paging', async () => {
+    page.mockResolvedValueOnce({
+      text: 'complete procedure',
+      cursor: 6,
+      next_cursor: null,
+      total_chars: 24,
+    });
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'call',
+          session_id: 'session',
+          name: 'load_skill',
+          state: 'succeeded',
+          presentation: {
+            action: 'Load skill',
+            subject: 'skill-purpose',
+            summary: 'Main procedure',
+            blocks: [
+              { id: 'skill-purpose', type: 'text', text: 'Find scientific data' },
+              {
+                id: 'skill-description',
+                type: 'text',
+                label: 'When to use',
+                text: 'Use for scientific observation queries.',
+              },
+              { id: 'skill-identity', type: 'text', label: 'Skill', text: 'work-with-ndp' },
+              {
+                id: 'content',
+                type: 'markdown',
+                text: 'first ',
+                content_ref: {
+                  session_id: 'session',
+                  call_id: 'call',
+                  block_id: 'content',
+                  cursor: 6,
+                  total_chars: 24,
+                },
+              },
+            ],
+          },
+        }}
+      />,
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Show more' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('When to use: Use for scientific observation queries.');
+    expect(await within(dialog).findByText('first complete procedure')).toBeVisible();
+    expect(page).toHaveBeenCalledWith('session', 'call', 'content', 6, expect.any(AbortSignal));
+  });
   it('one user action fetches contiguous pages and renders the complete result outside the transcript', async () => {
     page
       .mockResolvedValueOnce({ text: 'second ', cursor: 6, next_cursor: 13, total_chars: 17 })

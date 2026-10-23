@@ -1,3 +1,5 @@
+import type { ContextSnapshot } from './context-domain.js';
+export type { ContextSnapshot, ContextPromptSection } from './context-domain.js';
 import type { A2UIActionLifecycle } from './a2ui/lifecycle.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
@@ -399,29 +401,6 @@ export interface ArtifactLineage {
   nodes: ArtifactLineageNode[];
   edges: ArtifactLineageEdge[];
   truncated?: { reason: string; nodes?: number; at_depth?: number };
-}
-
-export interface ContextSnapshot {
-  session_id: string;
-  scope?: string;
-  used_tokens?: number;
-  used_tokens_source?: 'provider' | 'estimated';
-  usage_model?: string;
-  cache_read_tokens?: number;
-  cache_write_tokens?: number;
-  cache_tokens_measured?: boolean;
-  limit_tokens?: number;
-  live_tokens?: number;
-  live_block_count?: number;
-  tokens_by_kind?: Record<string, number>;
-  categories?: Record<string, number>;
-  autocompact_enabled?: boolean;
-  autocompact_pct?: number;
-  segments?: Array<Record<string, unknown>>;
-  render_text?: string;
-  /** The agent's context as the model receives it (role + typed parts). */
-  messages?: Array<{ role: string; parts: Array<Record<string, unknown>> }>;
-  provenance: Provenance;
 }
 
 export interface WorkspaceFileEntry {

@@ -143,7 +143,7 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await page.reload();
     await waitForArtifactPreview(page);
     await page.evaluate(() => document.fonts.ready);
-    await page.getByRole('button', { name: /^Evidence layout:/ }).click();
+    await page.getByRole('button', { name: 'Session rail', exact: true }).click();
     await page.getByRole('button', { name: 'Open full details' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
@@ -1019,6 +1019,15 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   // each carries its own composer, so two queue panels are on screen until that
   // exit finishes. Settle on one before driving it.
   await expect(queue).toHaveCount(1);
+  // A hidden welcome screen must leave the flex layout after hydration.
+  // Otherwise it takes half the height while the transcript is squeezed below it.
+  await expect
+    .poll(async () => {
+      const surface = (await page.locator('[data-slot="session-transcript"]').boundingBox())!;
+      const transcript = (await page.getByRole('log', { name: 'Conversation' }).boundingBox())!;
+      return transcript.y - surface.y;
+    })
+    .toBeLessThan(2);
   await expect(queue).toBeVisible();
   await expect(queue.getByText('6 queued messages')).toBeVisible();
   await expect(queue.locator('[data-queue-live-item]')).toHaveCount(6);
@@ -1060,12 +1069,14 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
-  // The top-toolbar toggle announces its layout and evidence count. The
+  // The top-toolbar retains separate rail controls. The
   // persistent live region retains work status without a second visible badge.
   const observabilityDock = page.getByRole('button', {
-    name: /^Evidence layout:/,
+    name: 'Session rail',
+    exact: true,
   });
-  await expect(observabilityDock).toHaveAttribute('title', /1 background activity/);
+  await expect(observabilityDock).toHaveAttribute('title', 'Show session rail');
+  await expect(page.getByRole('button', { name: 'Work rail', exact: true })).toBeVisible();
   await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Working$/ })).toHaveCount(
     1,
   );

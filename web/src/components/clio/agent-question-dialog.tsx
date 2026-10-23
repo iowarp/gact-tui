@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { QuestionResponse } from './pending-interaction-question-response';
 import { useQuestionAnswer } from './question-answer-context';
 import { Button } from '@/components/ui/button';
+import { bundleQuestions } from './question-bundle';
 
 export function AgentQuestionDialog({
   interaction,
@@ -22,6 +23,10 @@ export function AgentQuestionDialog({
 }) {
   const width = useConversationWidth();
   const answer = useQuestionAnswer();
+  const compact =
+    interaction &&
+    !interaction.source.surface_id &&
+    (interaction.source.protocol === 'native' || bundleQuestions(interaction).length > 0);
   return (
     <Dialog
       open={Boolean(interaction)}
@@ -33,10 +38,12 @@ export function AgentQuestionDialog({
         aria-describedby={undefined}
         className={cn(
           'top-1/2 -translate-y-1/2 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto',
-          width === 'wide' ? 'sm:max-w-6xl' : 'sm:max-w-4xl',
+          compact ? 'sm:max-w-xl' : width === 'wide' ? 'sm:max-w-6xl' : 'sm:max-w-4xl',
         )}
       >
-        <DialogTitle>{vocab.agent} asked a question</DialogTitle>
+        <DialogTitle className={compact ? 'sr-only' : undefined}>
+          {vocab.agent} asked a question
+        </DialogTitle>
         {interaction &&
         answer &&
         interaction.source.protocol === 'native' &&

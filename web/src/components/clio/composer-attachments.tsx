@@ -28,7 +28,8 @@ import { cn } from '@/lib/utils';
 import type { ComposerAnnotation, RegionCaptureAnnotation } from '@/lib/composer-annotations';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { RemoveIcon } from '@/lib/icon-vocabulary';
+import { RemoveIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { AttachmentQueueRow } from './attachment-queue-row';
 import {
   readAttachmentBytes,
   type ResourceUploadProgress,
@@ -124,7 +125,12 @@ export function ClioComposerAttachments({
   useEffect(() => {
     if (!onPrepareFiles) return;
     for (const file of attachments.files) {
-      if (preparingAttachmentIds.current.has(file.id) || preparedResources[file.id]) continue;
+      if (
+        preparingAttachmentIds.current.has(file.id) ||
+        preparedResources[file.id] ||
+        attachmentFailures[file.id]
+      )
+        continue;
       preparingAttachmentIds.current.add(file.id);
       const controller = new AbortController();
       preparationControllers.current.set(file.id, controller);
@@ -166,7 +172,20 @@ export function ClioComposerAttachments({
           }
         });
     }
-  }, [attachments.files, onPrepareFiles, preparedResources]);
+  }, [attachments.files, onPrepareFiles, preparedResources, attachmentFailures]);
+
+  const retryFile = (file: { id: string }) => {
+    setAttachmentFailures((current) => {
+      const next = { ...current };
+      delete next[file.id];
+      return next;
+    });
+    setAttachmentProgress((current) => {
+      const next = { ...current };
+      delete next[file.id];
+      return next;
+    });
+  };
 
   const removeFile = async (file: (typeof attachments.files)[number]) => {
     preparationControllers.current.get(file.id)?.abort();
@@ -205,10 +224,13 @@ export function ClioComposerAttachments({
 
   return (
     <>
-      <ScrollArea className="h-auto w-full max-w-full rounded-2xl" type="auto">
+      <ScrollArea
+        className="h-auto max-h-64 w-full max-w-full rounded-2xl [&_[data-slot=scroll-area-viewport]]:max-h-64"
+        type="auto"
+      >
         <Attachments
           aria-label="Pending attachments"
-          className="w-max min-w-full justify-start gap-3 p-3"
+          className="w-full min-w-0 flex-wrap justify-start gap-2 p-3"
           role="group"
           variant="composer"
         >
@@ -228,6 +250,7 @@ export function ClioComposerAttachments({
                   attachmentFailures[file.id] ?? uploadFailure,
                   Boolean(onPrepareFiles),
                 );
+            const progress = attachmentProgress[file.id] ?? uploadProgress;
             if (capture) {
               return (
                 <div
@@ -291,24 +314,52 @@ export function ClioComposerAttachments({
             return (
               <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
                 <AttachmentHoverCardTrigger asChild>
-                  <Attachment data={file} onRemove={() => void removeFile(file)}>
-                    <button
-                      aria-label={`Open ${filename}`}
-                      className={cn(
-                        'text-left',
-                        visual ? 'size-full' : 'flex size-full min-w-0 flex-col overflow-hidden',
-                      )}
-                      onClick={() => setPreviewId(file.id)}
-                      type="button"
-                    >
-                      <AttachmentPreview />
-                      <AttachmentInfo className="text-xs" showMediaType />
-                      <span className="absolute right-2 bottom-2 shrink-0">
-                        <ResourcePipelineSummaryIcon overlay stages={stages} />
-                      </span>
-                    </button>
-                    <AttachmentRemove aria-label={`Remove ${filename}`} />
-                  </Attachment>
+                  {!visual ? (
+                    <AttachmentQueueRow
+                      name={filename}
+                      mediaType={file.mediaType || ''}
+                      size={(file as UploadableFilePart).file?.size ?? resource?.declared_size}
+                      progress={progress}
+                      stages={stages}
+                      onOpen={() => setPreviewId(file.id)}
+                      onRemove={() => void removeFile(file)}
+                      onRetry={
+                        onPrepareFiles && attachmentFailures[file.id]
+                          ? () => retryFile(file)
+                          : undefined
+                      }
+                    />
+                  ) : (
+                    <Attachment data={file} onRemove={() => void removeFile(file)}>
+                      <button
+                        aria-label={`Open ${filename}`}
+                        className={cn(
+                          'text-left',
+                          visual ? 'size-full' : 'flex size-full min-w-0 flex-col overflow-hidden',
+                        )}
+                        onClick={() => setPreviewId(file.id)}
+                        type="button"
+                      >
+                        <AttachmentPreview />
+                        <AttachmentInfo className="text-xs" showMediaType />
+                        <span className="absolute right-2 bottom-2 shrink-0">
+                          <ResourcePipelineSummaryIcon overlay stages={stages} />
+                        </span>
+                      </button>
+                      <AttachmentRemove aria-label={`Remove ${filename}`} />
+                      {onPrepareFiles && attachmentFailures[file.id] ? (
+                        <Button
+                          variant="secondary"
+                          size="icon-sm"
+                          className="absolute top-1 left-1"
+                          aria-label={`Retry upload for ${filename}`}
+                          onClick={() => retryFile(file)}
+                        >
+                          <RetryIcon className="size-3.5" />
+                        </Button>
+                      ) : null}
+                    </Attachment>
+                  )}
                 </AttachmentHoverCardTrigger>
                 <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
                   <p className="truncate text-sm font-medium">{filename}</p>

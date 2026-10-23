@@ -16,6 +16,8 @@ import { artifactIdFromDataUri } from './table-query-rows';
 export interface ArtifactTextResult {
   text: string | undefined;
   loading: boolean;
+  refreshing?: boolean;
+  retry?: () => void;
   error: string;
 }
 
@@ -51,10 +53,25 @@ export function useArtifactText(dataUri: string | undefined): ArtifactTextResult
   });
 
   if (!artifactId) {
-    return { text: undefined, loading: false, error: 'the data source is not a registered artifact id.' };
+    return {
+      text: undefined,
+      loading: false,
+      error: 'the data source is not a registered artifact id.',
+    };
   }
   if (query.isError) {
-    return { text: undefined, loading: false, error: artifactTextErrorMessage(query.error) };
+    return {
+      text: undefined,
+      loading: false,
+      error: artifactTextErrorMessage(query.error),
+      retry: () => void query.refetch(),
+    };
   }
-  return { text: query.data, loading: query.isPending, error: '' };
+  return {
+    text: query.data,
+    loading: query.isPending,
+    refreshing: query.isFetching && !query.isPending,
+    retry: () => void query.refetch(),
+    error: '',
+  };
 }

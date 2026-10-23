@@ -1,4 +1,4 @@
-import { FileSpreadsheetIcon, LogsIcon } from 'lucide-react';
+import { LogsIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { useMemo } from 'react';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -13,18 +13,18 @@ export function ClioCsvView({ content, title }: { content: string; title: string
   const preview = useMemo(() => parseCsvPreview(content), [content]);
   return (
     <div className="grid gap-3">
-      <div className="flex items-start gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-        <FileSpreadsheetIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{title}</p>
-          <p className="text-xs text-muted-foreground">
-            {preview.truncated
-              ? `Showing the first ${PREVIEW_ROW_LIMIT.toLocaleString()} parsed rows.`
-              : `${preview.rows.length.toLocaleString()} parsed rows.`}
-          </p>
-        </div>
-      </div>
-      <ClioDataTable columns={preview.columns} label="CSV preview" rows={preview.rows} />
+      <ClioDataTable
+        columns={preview.columns}
+        label={title}
+        rows={preview.rows}
+        showLabel={false}
+        showToolbar={false}
+      />
+      {preview.truncated ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          Preview limited to the first {PREVIEW_ROW_LIMIT.toLocaleString()} rows.
+        </p>
+      ) : null}
       {preview.errors.length ? <CsvParseLog errors={preview.errors} /> : null}
     </div>
   );

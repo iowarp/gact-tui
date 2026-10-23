@@ -18,7 +18,7 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   }, endpoint);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
-  await expect(page.getByRole('button', { name: /^Evidence layout:/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Session rail', exact: true })).toBeVisible();
   await page.request.post(`${endpoint}/__test/transcript-activity`, {
     data: { phase: 'thinking' },
   });

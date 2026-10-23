@@ -178,8 +178,8 @@ it('shows one compact task row and discloses complete assignments and technical 
       subagents={[child]}
     />,
   );
-  expect(screen.getByRole('button', { name: 'Background work, 1 recorded' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: /^Child agents/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Child agents, 1 recorded' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: /^Background tasks/ })).toBeNull();
   const row = screen.getByRole('button', { name: 'Task details: Worker #1' });
   expect(row).toHaveAttribute('aria-expanded', 'false');
   expect(screen.queryByRole('region', { name: 'Assignment: Worker #1' })).toBeNull();

@@ -3,9 +3,11 @@ import { useRepository } from '@/hooks/use-repository';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import { inlineSelectionKey } from '@/lib/a2ui/inline-selection-key';
 import { cn } from '@/lib/utils';
-import { MousePointerSquareDashedIcon, ZoomInIcon } from 'lucide-react';
-import { RetryIcon } from '@/lib/icon-vocabulary';
+import { MousePointerSquareDashedIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LoadingFeedback, LoadingFailure } from './loading-feedback';
+import { ChartDataNotice } from './chart-data-notice';
+import { ChartZoomActions } from './chart-zoom-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenuItem,
@@ -235,6 +237,8 @@ export function ClioChart(props: ClioChartProps) {
   const {
     rows,
     loading,
+    refreshing,
+    retry,
     error: dataError,
     matchedRows,
     note,
@@ -611,20 +615,12 @@ export function ClioChart(props: ClioChartProps) {
   );
   const renderZoomActions = () =>
     zoomParam ? (
-      <div className="flex shrink-0 items-center gap-1">
-        {selectedZoomRows.length ? (
-          <Button
-            aria-label="Zoom to selection"
-            onClick={zoomToSelection}
-            size="icon-sm"
-            title="Zoom to selection"
-            variant="ghost"
-          >
-            <ZoomInIcon aria-hidden="true" className="size-3.5" />
-          </Button>
-        ) : null}
-        {zoomActive ? <ChartZoomResetButton onClick={resetChartZoom} /> : null}
-      </div>
+      <ChartZoomActions
+        active={zoomActive}
+        selected={selectedZoomRows.length > 0}
+        onZoom={zoomToSelection}
+        onReset={resetChartZoom}
+      />
     ) : null;
   const renderBoxSelectAction = () =>
     boxSelectionParam ? (
@@ -710,6 +706,7 @@ export function ClioChart(props: ClioChartProps) {
           <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
         </div>
       </div>
+      {refreshing ? <LoadingFeedback label="Updating chart…" /> : null}
       <SurfaceFullScreenHost
         fullscreen={fullscreen}
         headerExtra={
@@ -728,7 +725,11 @@ export function ClioChart(props: ClioChartProps) {
       >
         <div className="min-w-0">
           {failure ? (
-            <p className="p-4 text-sm text-destructive">Chart unavailable: {failure}</p>
+            <LoadingFailure
+              title="Chart unavailable"
+              detail={failure}
+              onRetry={dataError ? retry : undefined}
+            />
           ) : (
             <div
               aria-label={`${heading}: ${description}`}
@@ -741,15 +742,14 @@ export function ClioChart(props: ClioChartProps) {
               style={{ minHeight: chartHeight }}
             >
               {!hasRows || !spec ? (
-                <div className="absolute inset-0 animate-pulse bg-muted motion-reduce:animate-none" />
+                <LoadingFeedback
+                  label="Loading chart…"
+                  variant="skeleton"
+                  className="absolute inset-0"
+                />
               ) : null}
               {boxSelectMode && !boxReady && hasRows && spec ? (
-                <div
-                  className="absolute inset-0 z-10 grid place-items-center bg-background/70 text-xs text-muted-foreground"
-                  role="status"
-                >
-                  Preparing box selection
-                </div>
+                <LoadingFeedback label="Preparing box selection" variant="overlay" />
               ) : null}
               {/* Vega owns this node's children; React never renders into it. */}
               <div
@@ -762,30 +762,16 @@ export function ClioChart(props: ClioChartProps) {
               />
             </div>
           )}
-          {!failure && note ? <p className="py-2 text-xs text-muted-foreground">{note}</p> : null}
-          {!failure && !linkable && selection !== undefined ? (
-            <p className="py-2 text-xs text-muted-foreground">
-              This chart has no “{param}” selection, so it neither follows nor shares the linked
-              selection.
-            </p>
+          {!failure ? (
+            <ChartDataNotice
+              note={note}
+              empty={!loading && rows?.length === 0}
+              unlinkedSelection={!linkable && selection !== undefined}
+              param={param}
+            />
           ) : null}
         </div>
       </SurfaceFullScreenHost>
     </section>
-  );
-}
-
-function ChartZoomResetButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button
-      aria-label="Reset zoom"
-      className="shrink-0"
-      onClick={onClick}
-      size="icon-sm"
-      title="Reset zoom"
-      variant="ghost"
-    >
-      <RetryIcon aria-hidden="true" className="size-3.5" />
-    </Button>
   );
 }

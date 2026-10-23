@@ -26,6 +26,7 @@ import { isProvenanceBlock } from './tool-result-shared';
 import { WorkspaceFilePresentationBlock } from './tool-result-workspace-file';
 import { ToolTerminalResult } from './tool-terminal-result';
 import { TodoList } from './todo-list';
+import { SkillToolResult } from './skill-tool-result';
 import { belongsToTerminal, savedOutputsAfter } from './tool-result-saved-output-blocks';
 import { getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
 
@@ -66,6 +67,9 @@ export function ToolResultPresentation({
   // The schema itself is useful to the agent, but it overwhelms the human
   // activity lane. The info button on the tool row retains the exact result.
   if (isA2uiCatalogLookup(tool) && getToolStatus(tool) === 'succeeded') return null;
+  if (tool.name === 'load_skill' && blocks.some((block) => block.type === 'markdown')) {
+    return <SkillToolResult tool={tool} blocks={blocks} lines={lines} />;
+  }
   // An explicitly declared file subject owns one document preview, including
   // metadata. Do not give each constituent block another preview-line budget.
   // Provenance blocks are ignored for this decision (see isProvenanceBlock)

@@ -7,7 +7,8 @@ import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import { inlineSelectionKey } from '@/lib/a2ui/inline-selection-key';
 import { dataViewFlexStyle } from './data-view-layout';
 import { BoundDataQuery } from './bound-data-query';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingFeedback } from './loading-feedback';
+import { DataTableRequestState } from './data-table-request-state';
 import {
   a2uiAccessibilityDescription,
   a2uiAccessibilityLabel,
@@ -153,9 +154,11 @@ export function ClioSelectableDataTable({
     ? selection
     : (selection ?? autoInlineSelection.selection ?? localSelection);
   const boundField = setSelection ? parseSelectionState(effectiveSelection)?.field : undefined;
-  const keyColumn = selectionField ??
+  const keyColumn =
+    selectionField ??
     (boundField && keys.includes(boundField) ? boundField : undefined) ??
-    (autoInlineSelection.active ? inlineIdentity?.field : undefined) ?? keys[0];
+    (autoInlineSelection.active ? inlineIdentity?.field : undefined) ??
+    keys[0];
   const state = useMemo(() => {
     if (setSelection && !selectionField && boundField && !keys.includes(boundField)) {
       return undefined;
@@ -484,7 +487,7 @@ function ClioDataTableArtifactSource({
       selectedValues,
     ],
   );
-  const { rows, loading, error, matchedRows, schema } = useTableQueryRows({
+  const { rows, loading, refreshing, retry, error, matchedRows, schema } = useTableQueryRows({
     columns: requestColumns,
     data: undefined,
     dataQuery: effectiveDataQuery,
@@ -562,40 +565,17 @@ function ClioDataTableArtifactSource({
     ],
   );
 
-  if (error) {
+  if (error || loading || !rows || !renderColumns) {
     return (
-      <div className="min-w-0 space-y-2" role="group">
-        <h3 className="text-sm font-medium">Data table</h3>
-        <div className="space-y-2">
-          <p className="text-sm text-destructive">Table unavailable: {error}</p>
-          {filters.size > 0 ? (
-            <p className="text-xs text-muted-foreground">
-              This viewer has {filters.size === 1 ? 'a filter' : `${filters.size} filters`} of its
-              own active, which may be the cause.{' '}
-              <button
-                className="font-medium text-primary underline underline-offset-2"
-                onClick={() => {
-                  setFilters(new Map());
-                  setPageIndex(0);
-                }}
-                type="button"
-              >
-                Clear {filters.size === 1 ? 'it' : 'them'}
-              </button>
-              .
-            </p>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-  if (loading || !rows || !renderColumns) {
-    return (
-      <div className="min-w-0 space-y-2" role="group">
-        <h3 className="text-sm font-medium">Data table</h3>
-        <p className="text-xs text-muted-foreground">Loading rows…</p>
-        <Skeleton aria-label="Loading data table" className="h-48 w-full rounded-none" />
-      </div>
+      <DataTableRequestState
+        error={error}
+        retry={retry}
+        filterCount={filters.size}
+        clearFilters={() => {
+          setFilters(new Map());
+          setPageIndex(0);
+        }}
+      />
     );
   }
   const heading = a2uiAccessibilityLabel(accessibility) ?? 'Data table';
@@ -689,18 +669,21 @@ function ClioDataTableArtifactSource({
   ]);
   const tableCapabilities: SurfaceCapabilities = { buildReference, exportFormats };
   return (
-    <ClioSelectableDataTable
-      accessibility={accessibility}
-      action={action}
-      capabilities={tableCapabilities}
-      columns={renderColumns}
-      componentId={componentId}
-      rows={rows as ClioDataRow[]}
-      selection={effectiveSelection}
-      selectionField={effectiveSelectionField}
-      server={server}
-      setSelection={effectiveSetSelection}
-    />
+    <div className="grid min-w-0 gap-2">
+      {refreshing ? <LoadingFeedback label="Updating rows…" /> : null}
+      <ClioSelectableDataTable
+        accessibility={accessibility}
+        action={action}
+        capabilities={tableCapabilities}
+        columns={renderColumns}
+        componentId={componentId}
+        rows={rows as ClioDataRow[]}
+        selection={effectiveSelection}
+        selectionField={effectiveSelectionField}
+        server={server}
+        setSelection={effectiveSetSelection}
+      />
+    </div>
   );
 }
 
