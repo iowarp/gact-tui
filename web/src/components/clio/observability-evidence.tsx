@@ -236,7 +236,13 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             value="child-agents"
             count={separateSubagents.length}
           >
-            <SubagentEvidence onOpenSubagent={props.onOpenSubagent} subagents={separateSubagents} />
+            <SubagentEvidence
+              onOpenSubagent={props.onOpenSubagent}
+              subagents={separateSubagents}
+              listedWithTasks={Boolean(
+                taskSubagents.length || props.workPages?.hasMore || props.workPages?.history,
+              )}
+            />
           </EvidenceSection>
         ) : null}
         {tools.length ? (
@@ -362,14 +368,19 @@ function TaskEvidence({ tasks }: { tasks: readonly Task[] }) {
 function SubagentEvidence({
   onOpenSubagent,
   subagents,
+  listedWithTasks,
 }: {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: readonly SubagentRun[];
+  /** Child agents that have a task row are shown there, not here. */
+  listedWithTasks: boolean;
 }) {
   if (!subagents.length) {
     return (
       <p className="px-2 py-1 text-xs text-muted-foreground">
-        No child agents in this session yet.
+        {listedWithTasks
+          ? 'Child agents are listed with their tasks under Background tasks; finished ones under Show completed work.'
+          : 'No child agents in this session yet.'}
       </p>
     );
   }

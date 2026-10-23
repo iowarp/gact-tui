@@ -644,6 +644,35 @@ describe('ClioEvidenceView child agents', () => {
     expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
   });
 
+  it('says finished child agents are under Background tasks instead of claiming there are none', () => {
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        subagents={[]}
+        workPages={{
+          hasMore: false,
+          pending: false,
+          loadMore: async () => undefined,
+          history: {
+            visible: false,
+            toggle: () => {},
+            items: [],
+            hasMore: false,
+            pending: false,
+            loadMore: async () => undefined,
+            error: '',
+          },
+        }}
+      />,
+    );
+    expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
+    expect(screen.getByText(/listed with their tasks under Background tasks/)).toBeVisible();
+  });
+
   it('opens a workspace tab on click and the center on Shift-click', async () => {
     const user = userEvent.setup();
     const onOpenSubagent = vi.fn();
