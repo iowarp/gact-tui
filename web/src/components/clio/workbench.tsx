@@ -80,6 +80,8 @@ export interface ClioWorkbenchProps {
   diffActionError?: string;
   diffActionPending?: boolean;
   sessionView: ReactNode;
+  /** The Agent tab before the conversation exists (a new conversation's draft agent). */
+  agentView?: ReactNode;
   onOpenTerminal?: () => void;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
@@ -230,6 +232,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       diffActionError,
       diffActionPending,
       sessionView,
+      agentView,
       onOpenTerminal,
       onOpenSubagent,
       onUndoDiff,
@@ -675,6 +678,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       resourcesPending={resourcesPending}
                       sessionId={sessionId}
                       sessionView={sessionView}
+                      agentView={agentView}
                       tab={tab}
                       workspaceId={workspaceId}
                     />

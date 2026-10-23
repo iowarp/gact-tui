@@ -246,6 +246,8 @@ export const sessionDefaultsSchema = z.object({
     'spotter-ai',
   ]).default('ask'),
   agent_ref: z.string().default(''),
+  /** The agent a new session runs when it names none (`agent_ref` or the service default). */
+  default_agent_ref: z.string().default(''),
 });
 
 export const scheduledTurnSchema = z.object({

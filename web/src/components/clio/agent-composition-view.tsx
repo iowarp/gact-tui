@@ -1,4 +1,10 @@
-import { deltaWith, pluginReferenceId, emptyAgentDelta, type AgentDelta } from '@clio/core/v3';
+import {
+  deltaWith,
+  pluginReferenceId,
+  emptyAgentDelta,
+  type AgentDelta,
+  type SessionAgent,
+} from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BotIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -7,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
+import { useDraftAgentChange, type DraftAgent } from '@/hooks/use-draft-agent-change';
 import { usePluginChange, type PluginChange } from '@/hooks/use-plugin-change';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
 import { AddIcon, SaveIcon } from '@/lib/icon-vocabulary';
@@ -17,8 +24,18 @@ import { AgentPluginMenu } from './agent-plugin-menu';
 import { AgentPluginTree } from './agent-plugin-tree';
 import { AgentSwitchMenu } from './agent-switch-menu';
 import { ComposedPromptView } from './composed-prompt-view';
-import { PluginChangeDialog } from './plugin-change-dialog';
+import { PluginChangeDialog, type PluginChangeDialogProps } from './plugin-change-dialog';
 import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-dialog';
+
+/** What the agent panel reads and changes: a conversation's agent, or a new conversation's draft. */
+interface AgentChangeSource {
+  supported: boolean | undefined;
+  agent: { data?: SessionAgent; isPending: boolean; error: Error | null };
+  update: { isPending: boolean; error: Error | null };
+  compact: { isPending: boolean };
+  propose: (change: PluginChange) => void;
+  dialog: PluginChangeDialogProps;
+}
 
 /**
  * The conversation's agent: which plugins it carries and where each came
@@ -27,10 +44,54 @@ import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-
  * change goes through the plugin-change warning (`usePluginChange`).
  */
 export function AgentCompositionView({ sessionId }: { sessionId: string }) {
+  const change = usePluginChange(sessionId);
+  const { compact } = change;
+  const compactNow = () =>
+    compact.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.compacted)
+          toast.success('Conversation compacted', {
+            description: 'The plugin changes are in the agent’s system prompt now.',
+          });
+        else
+          toast.info('Conversation was not compacted', {
+            description: result.reason ?? 'The service did not report a reason.',
+          });
+      },
+      onError: (error) =>
+        toast.error('Unable to compact this conversation', { description: error.message }),
+    });
+  return <AgentComposition change={change} onCompact={compactNow} />;
+}
+
+/**
+ * A new conversation's agent before its first message: the same panel, on
+ * the draft. Changes apply when the first message creates the conversation.
+ */
+export function DraftAgentCompositionView({
+  draft,
+  onChange,
+}: {
+  draft: DraftAgent;
+  onChange: (next: DraftAgent) => void;
+}) {
+  const change = useDraftAgentChange(draft, onChange);
+  return <AgentComposition change={change} draft onCompact={() => undefined} />;
+}
+
+function AgentComposition({
+  change: source,
+  draft = false,
+  onCompact,
+}: {
+  change: AgentChangeSource;
+  draft?: boolean;
+  onCompact: () => void;
+}) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const { supported, agent, update, compact, propose, dialog } = usePluginChange(sessionId);
+  const { supported, agent, update, compact, propose, dialog } = source;
   const catalog = usePluginCatalog();
   const agents = useInstalledAgents();
   const [saving, setSaving] = useState(false);
@@ -57,21 +118,6 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
   });
   const change = (next: AgentDelta, rest: Omit<PluginChange, 'delta'>) =>
     propose({ delta: next, ...rest });
-  const compactNow = () =>
-    compact.mutate(undefined, {
-      onSuccess: (result) => {
-        if (result.compacted)
-          toast.success('Conversation compacted', {
-            description: 'The plugin changes are in the agent’s system prompt now.',
-          });
-        else
-          toast.info('Conversation was not compacted', {
-            description: result.reason ?? 'The service did not report a reason.',
-          });
-      },
-      onError: (error) =>
-        toast.error('Unable to compact this conversation', { description: error.message }),
-    });
 
   if (supported === false) {
     return (
@@ -120,6 +166,10 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
             </h2>
             {resolution.agent.role ? (
               <p className="mt-0.5 text-sm text-muted-foreground">{resolution.agent.role}</p>
+            ) : null}
+            {resolution.agent.description &&
+            resolution.agent.description !== resolution.agent.role ? (
+              <p className="mt-1 text-sm">{resolution.agent.description}</p>
             ) : null}
             {resolution.agent.kind === 'user' && resolution.agent.parent ? (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -203,7 +253,7 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
             ) : null}
           </div>
         )}
-        {changed ? <DeltaSummary delta={delta} parentName={parentName} /> : null}
+        {changed ? <DeltaSummary delta={delta} draft={draft} parentName={parentName} /> : null}
         {update.error ? (
           <Alert variant="destructive">
             <AlertTitle>The agent was not changed</AlertTitle>
@@ -228,7 +278,7 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
                 failure: `${plugin} was not added back`,
               })
             }
-            onCompact={compactNow}
+            onCompact={onCompact}
             onRemove={(plugin) =>
               change(deltaWith(delta, { remove: plugin }), {
                 removing: plugin,
@@ -263,10 +313,18 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
   );
 }
 
-function DeltaSummary({ delta, parentName }: { delta: AgentDelta; parentName: string }) {
+function DeltaSummary({
+  delta,
+  draft,
+  parentName,
+}: {
+  delta: AgentDelta;
+  draft: boolean;
+  parentName: string;
+}) {
   return (
     <p className="text-sm text-muted-foreground">
-      This conversation changes {parentName}
+      {draft ? 'This new conversation will change' : 'This conversation changes'} {parentName}
       {delta.add.length ? `: adds ${delta.add.join(', ')}` : ''}
       {delta.add.length && delta.remove.length ? ';' : delta.remove.length ? ':' : ''}
       {delta.remove.length ? ` removes ${delta.remove.join(', ')}` : ''}.

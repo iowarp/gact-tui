@@ -123,6 +123,8 @@ export interface SessionDefaults {
   approval_mode: WireValue<'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai'>;
   /** The agent new sessions run (`<marketplace>/<id>`); empty means the service default. */
   agent_ref: string;
+  /** The agent a new session runs when it names none: `agent_ref` or the service default. */
+  default_agent_ref?: string;
 }
 
 /** A server-owned instruction that will be submitted to one session at a future time. */

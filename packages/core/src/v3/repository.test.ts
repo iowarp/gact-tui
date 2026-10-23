@@ -252,6 +252,7 @@ describe('ClioRepository interaction contracts', () => {
       title: 'Evidence review',
       pinned: true,
       agent_ref: 'user/research',
+      agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
       mode: 'plan',
       routing_mode: 'experts',
       approval_mode: 'spotter-ai',
@@ -277,7 +278,11 @@ describe('ClioRepository interaction contracts', () => {
         body: {
           workspace_id: 'ws_1',
           title: 'Evidence review',
-          metadata: { pinned: true, agent_ref: 'user/research' },
+          metadata: {
+            pinned: true,
+            agent_ref: 'user/research',
+            agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
+          },
           mode: 'plan',
           routing_mode: 'experts',
           approval_mode: 'spotter-ai',
@@ -364,6 +369,7 @@ describe('ClioRepository interaction contracts', () => {
       routing_mode: 'experts',
       approval_mode: 'ai-review',
       agent_ref: 'clio/earthscope-flat',
+      default_agent_ref: 'clio/standard',
     };
     const transport = new RecordingTransport([defaults, { ...defaults, mode: 'edit' }]);
     const repository = new ClioRepository(transport);

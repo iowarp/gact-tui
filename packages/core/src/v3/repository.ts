@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ComposerMessagePart } from './composer-domain.js';
 import { sessionMetadataPatch, type SessionUpdateInput } from './session-metadata-patch.js';
 import { agentTaskRecordSchema } from './agent-task-domain.js';
+import type { AgentDelta } from './plugin-domain.js';
 import type {
   Artifact,
   ArtifactDetail,
@@ -183,6 +184,8 @@ export class ClioRepository extends WorkRepository {
       pinned?: boolean;
       /** The agent this session runs (`<marketplace>/<id>`); omitted uses the service default. */
       agent_ref?: string;
+      /** Plugin changes the session's agent starts with. */
+      agent_delta?: AgentDelta;
       mode?: 'plan' | 'edit' | 'architect';
       routing_mode?: 'auto' | 'chat' | 'experts' | 'reasoning_only';
       approval_mode?: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
@@ -198,12 +201,13 @@ export class ClioRepository extends WorkRepository {
         ...(input.provider_id || input.model_id
           ? { model: { provider_id: input.provider_id ?? '', model_id: input.model_id ?? '' } }
           : {}),
-        ...(input.pinned === undefined && !input.agent_ref
+        ...(input.pinned === undefined && !input.agent_ref && !input.agent_delta
           ? {}
           : {
               metadata: {
                 ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
                 ...(input.agent_ref ? { agent_ref: input.agent_ref } : {}),
+                ...(input.agent_delta ? { agent_delta: input.agent_delta } : {}),
               },
             }),
         ...(input.mode ? { mode: input.mode } : {}),

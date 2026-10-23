@@ -4,6 +4,7 @@ export type ClioQueryNamespace =
   | 'a2ui-reference'
   | 'a2ui-reference-bytes'
   | 'agent-resolution'
+  | 'agent-draft'
   | 'agents'
   | 'all-sessions'
   | 'artifact-attachment-image'
