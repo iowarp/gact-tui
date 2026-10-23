@@ -202,10 +202,14 @@ describe('PluginSettings', () => {
       diagnostics: [],
       text: '1/2 passed -- check failed',
     });
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
     renderSettings();
     await user.click(await screen.findByRole('button', { name: 'Actions for lab' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Check plugins' }));
     const report = await screen.findByRole('region', { name: 'Plugin check results' });
+    // On a phone the report lands below the menu that asked for it.
+    expect(scrolled.mock.contexts).toContain(report);
+    scrolled.mockRestore();
     expect(within(report).getByText('Failed')).toBeVisible();
     expect(within(report).getByText('1 of 2 passed')).toBeVisible();
     expect(within(report).getByText(/prompt\/missing.md is missing/u)).toBeVisible();
