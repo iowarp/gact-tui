@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
 import { AddIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 
 type Row = { name: string; value: string };
@@ -10,7 +11,7 @@ type Row = { name: string; value: string };
 function toRows(text: string): Row[] {
   const rows = text
     .split('\n')
-    .filter((line) => line.trim())
+    .filter((line) => line.trim() && !isEnvironmentComment(line))
     .map((line) => {
       const separator = line.indexOf('=');
       return separator < 0
@@ -43,6 +44,11 @@ export function EnvironmentTable({
 }) {
   const [raw, setRaw] = useState(false);
   const [rows, setRows] = useState<Row[]>(() => toRows(value));
+  const problems = (raw ? toRows(value) : rows).flatMap((row) => {
+    const name = row.name.trim();
+    const problem = name ? environmentNameProblem(name) : '';
+    return problem ? [`"${name}" ${problem}.`] : [];
+  });
   const update = (next: Row[]) => {
     setRows(next);
     onChange(toText(next));
@@ -96,6 +102,7 @@ export function EnvironmentTable({
               <tr key={index}>
                 <td>
                   <Input
+                    aria-invalid={Boolean(row.name.trim() && environmentNameProblem(row.name.trim()))}
                     aria-label={`Variable ${index + 1}`}
                     className="font-mono text-xs"
                     id={index === 0 ? id : undefined}
@@ -140,6 +147,13 @@ export function EnvironmentTable({
           </tbody>
         </table>
       )}
+      {problems.length ? (
+        <ul className="grid gap-0.5 text-xs text-destructive" role="alert">
+          {problems.map((problem) => (
+            <li key={problem}>{problem}</li>
+          ))}
+        </ul>
+      ) : null}
       {raw ? null : (
         <Button
           className="w-fit"

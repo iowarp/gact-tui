@@ -2,6 +2,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { EnvironmentTable } from './environment-table';
+import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
 import { SavedMcpServices } from './settings-saved-mcp';
 import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -108,14 +109,15 @@ function parseProcessSettings(value: string): Record<string, string> {
   const settings: Record<string, string> = {};
   for (const [index, rawLine] of value.split('\n').entries()) {
     const line = rawLine.trim();
-    if (!line) continue;
+    if (!line || isEnvironmentComment(line)) continue;
     const separator = line.indexOf('=');
     if (separator < 1) {
       throw new Error(`Process setting on line ${index + 1} must use NAME=value.`);
     }
     const name = line.slice(0, separator).trim();
     const settingValue = line.slice(separator + 1).trim();
-    if (!name) throw new Error(`Process setting on line ${index + 1} needs a name.`);
+    const problem = environmentNameProblem(name);
+    if (problem) throw new Error(`Process setting "${name}" on line ${index + 1} ${problem}.`);
     settings[name] = settingValue;
   }
   return settings;
