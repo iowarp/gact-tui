@@ -2269,6 +2269,18 @@ const server = createServer(async (request, response) => {
     sendJson(response, providerCatalog);
     return;
   }
+  // The model fleet: no connected account reports usage here, so the composer
+  // shows no usage readout and no model-fit notice (the baselines predate both).
+  if (request.method === 'GET' && url.pathname === '/v1/fleet') {
+    sendJson(response, {
+      observed_at: '2026-01-01T00:00:00+00:00',
+      accounts: [],
+      entries: [],
+      spend_by_model: {},
+      estimated_sessions: 0,
+    });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
     const artifacts = [
       ...(a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord]),

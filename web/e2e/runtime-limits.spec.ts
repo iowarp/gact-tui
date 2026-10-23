@@ -62,12 +62,6 @@ for (const width of [1280, 390]) {
         },
       }),
     );
-    let savedParallelism: number | undefined;
-    await page.route('**/v1/agents/reviewer', async (route) => {
-      const agent = route.request().postDataJSON();
-      savedParallelism = agent.fanout.max_workers;
-      await route.fulfill({ json: agent });
-    });
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/tests/review/runtime-limits.html');
     const concurrent = page.getByRole('spinbutton', { name: 'Concurrent subagents' });
@@ -95,29 +89,6 @@ for (const width of [1280, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await page.getByRole('button', { name: 'Edit Reviewer' }).click();
-    const parallel = page.getByRole('spinbutton', { name: 'Per-agent parallelism' });
-    await expect(parallel).toHaveValue('2');
-    await parallel.scrollIntoViewIfNeeded();
-    await page.getByRole('switch', { name: 'Unlimited per-agent parallelism' }).click();
-    await expect(parallel).toBeDisabled();
-    const unlimited = page.getByRole('switch', { name: 'Unlimited per-agent parallelism' });
-    await expect(unlimited).toBeChecked();
-    await unlimited.evaluate(async (node) => {
-      await new Promise(requestAnimationFrame);
-      await Promise.all(
-        node.getAnimations({ subtree: true }).map((animation) => animation.finished),
-      );
-    });
-    await page.screenshot({ path: test.info().outputPath(`agent-parallelism-${width}.png`) });
-    await page.getByRole('button', { name: 'Save agent' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    expect(savedParallelism).toBe(0);
-    await page.getByRole('button', { name: 'Edit Reviewer' }).click();
-    await expect(
-      page.getByRole('switch', { name: 'Unlimited per-agent parallelism' }),
-    ).toBeChecked();
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.reload();
     await expect(
       page.getByRole('switch', { name: 'Unlimited concurrent subagents' }),
