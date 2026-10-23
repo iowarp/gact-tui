@@ -16,7 +16,8 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { compareReleaseVersions, displayReleaseVersion, releaseTag } from '@/lib/release-version';
-import { latestPublishedRelease } from '@/lib/github-releases';
+import { latestPublishedRelease, ReleaseFeedRateLimited } from '@/lib/github-releases';
+import { QUERY_RETRY_COUNT } from '@/lib/runtime-limits';
 import { initializeUpdateChannel, useUpdateChannel } from '@/lib/update-channel';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
@@ -112,6 +113,9 @@ export function SystemVersionStatus() {
       };
     },
     staleTime: 5 * 60 * 1000,
+    // A rate-limited feed answers the same until its reset; retrying only adds a 403.
+    retry: (failures, error) =>
+      !(error instanceof ReleaseFeedRateLimited) && failures < QUERY_RETRY_COUNT,
   });
 
   useEffect(() => {
@@ -164,7 +168,11 @@ export function SystemVersionStatus() {
   // update is a separate, narrower permission (only a managed connection can).
   const latestClioReleaseChecking =
     !desktopShell && credentialsReady && latestClioRelease.isPending;
-  const agentIssue = agentCheckIssue(latestClioRelease.data, latestClioRelease.isError);
+  const agentIssue = agentCheckIssue(
+    latestClioRelease.data,
+    latestClioRelease.isError,
+    latestClioRelease.error,
+  );
   const desktopIssue = desktopCheckIssue(snapshot);
   const agentRowState: VersionState = capabilities.isError
     ? 'error'

@@ -2,7 +2,7 @@ import type { DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import { toast } from 'sonner';
 import { brand } from '@brand';
 import { vocab } from '@/lib/brand-vocabulary';
-import { latestPublishedRelease } from '@/lib/github-releases';
+import { latestPublishedRelease, ReleaseFeedRateLimited } from '@/lib/github-releases';
 import {
   getUpdateChannel,
   initializeUpdateChannel,
@@ -61,6 +61,7 @@ export type DesktopUpdateFailure =
   | 'manifest_not_published'
   | 'platform_not_published'
   | 'signature_mismatch'
+  | 'rate_limited'
   | 'unreachable';
 
 export type DesktopUpdateSnapshot =
@@ -143,6 +144,7 @@ export function classifyUpdateError(error: unknown): {
   message: string;
 } {
   const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof ReleaseFeedRateLimited) return { reason: 'rate_limited', message };
   const normalized = message.toLowerCase();
   if (normalized.startsWith('components differ:')) {
     return { reason: 'version_mismatch', message };
