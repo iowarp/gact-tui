@@ -63,11 +63,9 @@ export function sessionFiles(
     const action = tool.presentation.action?.toLocaleLowerCase() ?? '';
     const fact = action.includes('read')
       ? 'Read by agent'
-      : action.includes('propose')
-        ? 'Proposed by agent'
-        : action.includes('write') || action.includes('edit') || action.includes('patch')
-          ? 'Written by agent'
-          : undefined;
+      : action.includes('write') || action.includes('edit') || action.includes('patch')
+        ? 'Written by agent'
+        : undefined;
     if (!fact) continue;
     const size = presentationByteCount(tool.presentation.summary) ?? outputByteCount(tool.output);
     for (const block of tool.presentation.blocks) {
@@ -102,10 +100,9 @@ export function sessionFiles(
   return [...files.values()];
 }
 
-export function provenanceFileFact(toolName: string): 'Read' | 'Proposed' | 'Written' | undefined {
+export function provenanceFileFact(toolName: string): 'Read' | 'Written' | undefined {
   if (toolName === 'fs_read_file') return 'Read';
-  if (toolName === 'fs_propose_edit') return 'Proposed';
-  if (toolName === 'fs_apply_edit_write') return 'Written';
+  if (toolName === 'fs_write_file' || toolName === 'fs_edit_file') return 'Written';
   return undefined;
 }
 
@@ -124,47 +121,42 @@ function stringAttribute(attributes: Record<string, unknown> | undefined, key: s
   return typeof value === 'string' ? value : '';
 }
 
+/**
+ * The session's file changes: the service's change ledger first (it holds the
+ * Undo state), then any older write the transcript still shows but the ledger no
+ * longer holds (for example after a service restart), which can no longer be undone.
+ */
 export function sessionDiffs(
   authoritativeDiffs: readonly SessionDiff[],
   tools: readonly ToolInvocation[],
-  executionProvenance?: ExecutionProvenanceResult,
 ): SessionDiff[] {
-  const diffs = new Map(
-    authoritativeDiffs.map((diff) => [normalizedFilePath(diff.path), diff] as const),
-  );
-  const completedWrites = new Set<string>();
-  for (const node of executionProvenance?.nodes ?? []) {
-    if (node.kind !== 'tool' || node.status !== 'completed') continue;
-    const toolName = stringAttribute(node.attributes, 'tool_name');
-    if (provenanceFileFact(toolName) !== 'Written') continue;
-    const toolInput = objectAttribute(node.attributes, 'tool_input');
-    const path = stringAttribute(toolInput, 'filepath');
-    if (path) completedWrites.add(normalizedFilePath(path));
+  const diffs = new Map<string, SessionDiff>();
+  const recordedParts = new Set<string>();
+  for (const diff of authoritativeDiffs) {
+    diffs.set(diff.id, diff);
+    if (diff.call_id) recordedParts.add(diff.call_id);
   }
+  const recordedPaths = new Set(authoritativeDiffs.map((diff) => normalizedFilePath(diff.path)));
   for (const tool of tools) {
     if (tool.state !== 'succeeded' || !tool.presentation) continue;
+    if (recordedParts.has(tool.id)) continue;
     const link = tool.presentation.blocks.find(
       (block) => block.type === 'link' && block.target === 'file',
     );
     const path = link?.uri || link?.label || '';
-    if (!path) continue;
-    const action = tool.presentation.action ?? '';
-    const directWrite = !/propose/iu.test(action) && /(?:write|edit|patch|apply)/iu.test(action);
+    if (!path || recordedPaths.has(normalizedFilePath(path))) continue;
     for (const block of tool.presentation.blocks) {
       if (block.type !== 'diff' || !block.text) continue;
-      const key = normalizedFilePath(path);
-      const existing = diffs.get(key);
-      // The pending-diff ledger is the current review state for any path it
-      // reports. Transcript blocks are historical evidence and must not replay
-      // an older proposal over an applied, rejected, or newer pending record.
-      if (existing) continue;
-      const applied = directWrite || completedWrites.has(key);
-      diffs.set(key, {
+      const id = `${tool.id}:${block.id}`;
+      diffs.set(id, {
+        id,
         path,
-        status: applied ? 'applied' : 'pending',
-        applied,
+        status: 'applied',
+        created: false,
+        undo_available: false,
+        undo_unavailable_reason: 'not_on_server_record',
         unified_diff: block.text,
-        part_id: `${tool.id}:${block.id}`,
+        part_id: id,
       });
     }
   }

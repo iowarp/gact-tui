@@ -88,7 +88,7 @@ vi.mock('@/hooks/use-session-mutations', () => ({
   }),
 }));
 vi.mock('@/hooks/use-session-diff-actions', () => ({
-  useSessionDiffActions: () => ({ apply: {}, reject: {} }),
+  useSessionDiffActions: () => ({ undo: {} }),
 }));
 vi.mock('@/hooks/use-workspace-navigation-actions', () => ({
   useWorkspaceNavigationActions: () => ({ navigationActions: {} }),

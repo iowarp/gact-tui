@@ -246,9 +246,12 @@ and messages are rejected while Core cannot confirm them.
 
 ### workspace.edits (plugin workspace)
 
-Respect the session's execution and confirmation policies: propose edits with
-`fs_propose_edit` when review is required, apply them only through
-`fs_apply_edit_write`, and verify the result.
+`fs_write_file` creates a file or replaces its whole content; `fs_edit_file`
+replaces an exact string in an existing file (`old_string` must occur once
+unless `replace_all` is set). Both change the file on disk when they return.
+The session's permission mode decides whether the person is asked first, and a
+refused write comes back with its reason. Each result carries the diff of the
+change, and the person sees every change in the diff panel, where they can undo it.
 
 ### workspace.grounding (plugin workspace)
 

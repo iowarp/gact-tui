@@ -1,6 +1,5 @@
 import type {
   Artifact,
-  ExecutionProvenanceResult,
   Message,
   ToolInvocation,
   WorkspaceResource,
@@ -546,74 +545,67 @@ describe('ClioEvidenceView session_lineage fallback', () => {
 });
 
 describe('ClioEvidenceView change status', () => {
-  it('marks a historical proposal applied when provenance records the completed write', () => {
-    const path = 'D:\\workspace\\example.py';
-    const proposal: ToolInvocation = {
-      id: 'tool_proposal',
-      session_id: 'session_root',
-      name: 'fs_propose_edit',
-      state: 'succeeded',
-      presentation: {
-        action: 'Proposed edit',
-        summary: 'Review the proposed change.',
-        blocks: [
-          { id: 'file', type: 'link', target: 'file', label: 'example.py', uri: path },
-          {
-            id: 'diff',
-            type: 'diff',
-            text: '--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new',
-          },
-        ],
-      },
-    };
-    const provenance: ExecutionProvenanceResult = {
-      schema_version: 'clio.execution_provenance.v1',
-      provider: 'native',
-      session_id: 'session_root',
-      root_session_id: 'session_root',
-      complete: true,
-      truncated: false,
-      provider_health: {},
-      campaigns: [],
-      workflows: [],
-      agents: [],
-      session_lineage: [],
-      spans: [],
-      nodes: [
+  const path = 'D:\\workspace\\example.py';
+  const write: ToolInvocation = {
+    id: 'tool_write',
+    session_id: 'session_root',
+    name: 'fs_edit_file',
+    state: 'succeeded',
+    presentation: {
+      action: 'Edit',
+      summary: '',
+      blocks: [
+        { id: 'file', type: 'link', target: 'file', label: 'example.py', uri: path },
         {
-          id: 'tool_write',
-          kind: 'tool',
-          label: 'Write example.py',
-          status: 'completed',
-          session_id: 'session_root',
-          agent_id: 'main',
-          start_time: 1,
-          end_time: 2,
-          attributes: {
-            tool_name: 'fs_apply_edit_write',
-            owner_session_id: 'session_root',
-            tool_input: { filepath: path },
-          },
+          id: 'diff',
+          type: 'diff',
+          text: '--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new',
         },
       ],
-      edges: [],
-    };
+    },
+  };
 
+  it('lists the service record of a change with its undone status', () => {
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[
+          {
+            id: 'chg_1',
+            call_id: 'tool_write',
+            path,
+            status: 'reverted',
+            created: false,
+            undo_available: false,
+            unified_diff: '@@ -1 +1 @@\n-old\n+new',
+          },
+        ]}
+        messages={[]}
+        processes={[]}
+        resources={[]}
+        tools={[write]}
+      />,
+    );
+
+    expect(screen.getByText('Reverted')).toBeVisible();
+    expect(screen.queryByText('Applied')).not.toBeInTheDocument();
+  });
+
+  it('keeps a transcript-only write as applied when the service no longer records it', () => {
     render(
       <ClioEvidenceView
         artifacts={[]}
         contextFiles={[]}
         diffs={[]}
-        executionProvenance={provenance}
         messages={[]}
         processes={[]}
         resources={[]}
-        tools={[proposal]}
+        tools={[write]}
       />,
     );
 
     expect(screen.getByText('Applied')).toBeVisible();
-    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
   });
 });
 

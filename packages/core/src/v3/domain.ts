@@ -435,13 +435,29 @@ export interface WorkspaceFileListing {
   next_offset?: number | null;
 }
 
+/**
+ * One file the agent changed (``fs_write_file`` / ``fs_edit_file``), as the
+ * session's change ledger records it. ``status`` is ``applied`` until the
+ * person's Undo (``POST /v1/sessions/{sid}/diffs/revert``) makes it ``reverted``.
+ * ``undo_unavailable_reason`` names why Undo cannot restore it when
+ * ``undo_available`` is false.
+ */
 export interface SessionDiff {
+  id: string;
   path: string;
-  status: string;
-  applied: boolean;
+  status: 'applied' | 'reverted';
+  created: boolean;
   unified_diff?: string;
+  lines_added?: number;
+  lines_removed?: number;
+  undo_available: boolean;
+  undo_unavailable_reason?: string;
   message_id?: string;
   part_id?: string;
+  call_id?: string;
+  tool_name?: string;
+  recorded_at?: string;
+  reverted_at?: string;
 }
 
 export interface ContextFile {

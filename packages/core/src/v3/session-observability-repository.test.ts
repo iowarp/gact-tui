@@ -22,48 +22,62 @@ class RecordingTransport implements ClioTransport {
   }
 }
 
-describe('SessionObservabilityRepository diff mutations', () => {
-  it('applies and rejects only the explicitly selected server paths', async () => {
+describe('SessionObservabilityRepository diff undo', () => {
+  it('reverts exactly the selected recorded change and decodes the settled row', async () => {
     const transport = new RecordingTransport([
-      { applied: ['src/analysis.py'] },
-      { rejected: ['notes/draft.md'] },
+      {
+        reverted: {
+          id: 'chg_1',
+          path: 'src/analysis.py',
+          status: 'reverted',
+          created: false,
+          undo_available: false,
+          unified_diff: '@@ -1 +1 @@\n-old\n+new',
+          reverted_at: '2026-10-23T00:00:00Z',
+        },
+      },
     ]);
     const repository = new ClioRepository(transport);
 
-    await expect(repository.applySessionDiffs('sess 1', ['src/analysis.py'])).resolves.toEqual({
-      applied: ['src/analysis.py'],
-    });
-    await expect(repository.rejectSessionDiffs('sess 1', ['notes/draft.md'])).resolves.toEqual({
-      rejected: ['notes/draft.md'],
+    await expect(repository.revertSessionDiff('sess 1', 'chg_1')).resolves.toMatchObject({
+      id: 'chg_1',
+      status: 'reverted',
+      undo_available: false,
     });
 
     expect(transport.requests.map(({ method, path, body }) => ({ method, path, body }))).toEqual([
       {
         method: 'POST',
-        path: '/v1/sessions/sess%201/diffs/apply',
-        body: { paths: ['src/analysis.py'] },
-      },
-      {
-        method: 'POST',
-        path: '/v1/sessions/sess%201/diffs/reject',
-        body: { paths: ['notes/draft.md'] },
+        path: '/v1/sessions/sess%201/diffs/revert',
+        body: { id: 'chg_1' },
       },
     ]);
   });
 
-  it('preserves per-path write failures from the server', async () => {
+  it('decodes a change whose undo is unavailable with its typed reason', async () => {
     const transport = new RecordingTransport([
       {
-        applied: [],
-        write_errors: { 'src/analysis.py': 'permission denied' },
+        diffs: [
+          {
+            id: 'chg_2',
+            path: 'big.csv',
+            status: 'applied',
+            created: false,
+            undo_available: false,
+            undo_unavailable_reason: 'previous_content_too_large',
+          },
+        ],
       },
     ]);
     const repository = new ClioRepository(transport);
 
-    await expect(repository.applySessionDiffs('sess', ['src/analysis.py'])).resolves.toEqual({
-      applied: [],
-      write_errors: { 'src/analysis.py': 'permission denied' },
-    });
+    await expect(repository.sessionDiffs('sess')).resolves.toEqual([
+      expect.objectContaining({
+        id: 'chg_2',
+        undo_available: false,
+        undo_unavailable_reason: 'previous_content_too_large',
+      }),
+    ]);
   });
 });
 

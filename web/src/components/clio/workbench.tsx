@@ -80,10 +80,9 @@ export interface ClioWorkbenchProps {
   diffActionError?: string;
   diffActionPending?: boolean;
   sessionView: ReactNode;
-  onApplyDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
   onOpenTerminal?: () => void;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  onRejectDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
+  onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   subagents?: readonly SubagentRun[];
   requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
 }
@@ -231,10 +230,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       diffActionError,
       diffActionPending,
       sessionView,
-      onApplyDiff,
       onOpenTerminal,
       onOpenSubagent,
-      onRejectDiff,
+      onUndoDiff,
       subagents = [],
       requestedOpen,
     },
@@ -665,11 +663,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       filesTruncated={filesTruncated}
                       filesNextOffset={filesNextOffset}
                       maximized={maximized}
-                      onApplyDiff={onApplyDiff}
                       onOpenSubagent={onOpenSubagent}
                       onOpenTab={openTab}
                       onRefreshFiles={onRefreshFiles}
-                      onRejectDiff={onRejectDiff}
+                      onUndoDiff={onUndoDiff}
                       onReplaceTab={replaceTab}
                       onSelectFilesPath={selectFilesPath}
                       onSelectWorkspaceFilePath={selectWorkspaceFilePath}

@@ -739,8 +739,8 @@ function ToolCatalogRow({ tool }: { tool: ToolCatalogItem }) {
 function catalogToolSummary(tool: ToolCatalogItem): string {
   const known: Record<string, string> = {
     fs_read_file: 'Reads a file that this workspace has granted the agent access to.',
-    fs_propose_edit: 'Prepares a reviewable file change without writing it to disk.',
-    fs_apply_edit_write: 'Applies an approved file change to the workspace.',
+    fs_write_file: 'Creates a file or replaces its content in the workspace; each change can be undone.',
+    fs_edit_file: 'Replaces exact text in a workspace file; each change can be undone.',
     shell_bash: 'Runs a command inside the workspace’s permitted folders.',
   };
   if (known[tool.name]) return known[tool.name];

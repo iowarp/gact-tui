@@ -129,7 +129,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
     ? sessionFiles(props.contextFiles, props.tools ?? [], props.executionProvenance)
     : [];
   const diffs = showData
-    ? sessionDiffs(props.diffs, props.tools ?? [], props.executionProvenance)
+    ? sessionDiffs(props.diffs, props.tools ?? [])
     : [];
   const plans = showActivity
     ? sessionPlans(props.messages, props.interactions ?? [], props.artifacts)
@@ -498,7 +498,7 @@ function DiffEvidence({
   return diffs.map((diff) => (
     <CodeBlock
       code={diff.unified_diff || 'Diff content unavailable.'}
-      key={diff.path}
+      key={diff.id}
       language="diff"
     >
       <CodeBlockHeader>
@@ -510,10 +510,10 @@ function DiffEvidence({
         <CodeBlockActions>
           {onOpenDiff ? (
             <Button
-              aria-label={`Review diff for ${diff.path} in canvas`}
+              aria-label={`Open the change to ${diff.path} in canvas`}
               onClick={() => onOpenDiff(diff)}
               size="icon-xs"
-              title="Open review tab"
+              title="Open change tab"
               variant="ghost"
             >
               <PanelsTopLeftIcon aria-hidden="true" />

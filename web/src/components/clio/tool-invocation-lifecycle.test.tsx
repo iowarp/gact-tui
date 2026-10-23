@@ -226,13 +226,13 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     expect(openFile).toHaveBeenCalledWith(path);
   });
 
-  it('renders an exact proposed edit as a visible diff beneath the tool row', () => {
+  it('renders an exact file edit as a visible diff beneath the tool row', () => {
     render(
       <ClioToolInvocation
         tool={{
           id: 'tool-diff',
           session_id: 'session-1',
-          name: 'fs_propose_edit',
+          name: 'fs_edit_file',
           presentation: {
             summary: 'src/example.py',
             blocks: [{ id: 'diff', type: 'diff', text: '@@ -1 +1 @@\n-old\n+new' }],
@@ -252,7 +252,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     expect(screen.getByText('src/example.py')).toBeVisible();
     expect(screen.getByText('+new')).toBeVisible();
     expect(
-      screen.getByRole('button', { name: 'Technical details for fs_propose_edit' }),
+      screen.getByRole('button', { name: 'Technical details for fs_edit_file' }),
     ).toBeVisible();
   });
 

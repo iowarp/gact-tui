@@ -42,8 +42,7 @@ it.each(['workspace_1', 'workspace_other'])(
           files={[{ path: 'wrong-root.txt', type: 'file', internal: false }]}
           artifacts={[]}
           diffs={[]}
-          onApplyDiff={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
           sessionView={<p>Session</p>}
         />

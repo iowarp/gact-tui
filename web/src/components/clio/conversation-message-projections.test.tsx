@@ -351,7 +351,7 @@ describe('conversation message projections', () => {
               tool_edit: {
                 id: 'tool_edit',
                 session_id: 'session_1',
-                name: 'fs_apply_edit_write',
+                name: 'fs_write_file',
                 state: 'succeeded',
                 output: {
                   content: [],

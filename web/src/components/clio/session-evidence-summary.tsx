@@ -190,7 +190,7 @@ export function SessionEvidenceSummary({
         >
           {diffs.map((diff) => (
             <SessionSummaryRow
-              key={diff.path}
+              key={diff.id}
               icon={<FileDiffIcon />}
               label={diff.path}
               metadata={friendlyStatus(diff.status) || clioStatusLabel(diffStatus(diff))}

@@ -7,6 +7,7 @@ import {
   screen,
   within,
 } from '@testing-library/react';
+import type { SessionDiff } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { createRef, type PropsWithChildren, type ReactElement } from 'react';
@@ -79,9 +80,8 @@ function renderWorkbench() {
       artifacts={[]}
       diffs={[]}
       files={[]}
-      onApplyDiff={vi.fn()}
       onOpenSubagent={vi.fn()}
-      onRejectDiff={vi.fn()}
+      onUndoDiff={vi.fn()}
       sessionId="session_parent"
       sessionView={<p>Session intelligence</p>}
       workspaceId="workspace_1"
@@ -104,8 +104,7 @@ describe('ClioWorkbench canvas', () => {
         files={[]}
         artifacts={[]}
         diffs={[]}
-        onApplyDiff={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
         sessionView={<p>Send your first message to see session activity.</p>}
       />,
@@ -122,9 +121,8 @@ describe('ClioWorkbench canvas', () => {
         artifacts={[]}
         diffs={[]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         sessionId="session_parent"
         sessionView={<BrokenCanvasItem />}
         workspaceId="workspace_1"
@@ -146,9 +144,8 @@ describe('ClioWorkbench canvas', () => {
           artifacts={[]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
           workspaceId="workspace_1"
@@ -168,9 +165,8 @@ describe('ClioWorkbench canvas', () => {
           artifacts={[]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
           workspaceId="workspace_1"
@@ -208,10 +204,9 @@ describe('ClioWorkbench canvas', () => {
         artifacts={[]}
         diffs={[]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
         onOpenTerminal={onOpenTerminal}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         sessionId="session_parent"
         sessionView={<p>Session intelligence</p>}
         workspaceId="workspace_1"
@@ -334,9 +329,8 @@ describe('ClioWorkbench canvas', () => {
           ]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
           workspaceId="workspace_1"
@@ -378,9 +372,8 @@ describe('ClioWorkbench canvas', () => {
           ]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
           workspaceId="workspace_1"
@@ -422,12 +415,14 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
-  it('opens a changed file as a durable review tab', () => {
+  it('opens a changed file as a durable record tab with Undo', () => {
     const ref = createRef<ClioWorkbenchHandle>();
-    const diff = {
+    const diff: SessionDiff = {
+      id: 'chg_1',
       path: 'src/analysis.py',
-      status: 'pending',
-      applied: false,
+      status: 'applied',
+      created: false,
+      undo_available: true,
       unified_diff: '@@ -1 +1 @@\n-old\n+new',
     };
     render(
@@ -435,9 +430,8 @@ describe('ClioWorkbench canvas', () => {
         artifacts={[]}
         diffs={[diff]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         ref={ref}
         sessionId="session_parent"
         sessionView={<p>Session intelligence</p>}
@@ -451,9 +445,8 @@ describe('ClioWorkbench canvas', () => {
       'aria-selected',
       'true',
     );
-    expect(screen.getByText('Review file change')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Apply change' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Reject change' })).toBeVisible();
+    expect(screen.getByText('File changed by the agent')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible();
   });
 
   it('keeps the file tree beside a directly opened rendered file', async () => {
@@ -467,9 +460,8 @@ describe('ClioWorkbench canvas', () => {
           artifacts={[]}
           diffs={[]}
           files={[{ path: 'reports/summary.md', type: 'file', internal: false, size: 18 }]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           ref={ref}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
@@ -698,10 +690,12 @@ describe('ClioWorkbench canvas', () => {
   });
 
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
-    const diff = {
+    const diff: SessionDiff = {
+      id: 'chg_compact',
       path: 'src/compact-canvas.py',
-      status: 'pending',
-      applied: false,
+      status: 'applied',
+      created: false,
+      undo_available: true,
       unified_diff: '@@ -1 +1 @@\n-old\n+new',
     };
 
@@ -710,9 +704,8 @@ describe('ClioWorkbench canvas', () => {
         artifacts={[]}
         diffs={[diff]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         requestedOpen={{ key: 'request-1', request: { kind: 'diff', diff } }}
         sessionId="session_parent"
         sessionView={<p>Session intelligence</p>}
@@ -724,6 +717,6 @@ describe('ClioWorkbench canvas', () => {
       'aria-selected',
       'true',
     );
-    expect(screen.getByText('Review file change')).toBeVisible();
+    expect(screen.getByText('File changed by the agent')).toBeVisible();
   });
 });
