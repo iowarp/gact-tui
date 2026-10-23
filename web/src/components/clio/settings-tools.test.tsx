@@ -103,7 +103,8 @@ describe('tool provider settings', () => {
     ]);
     renderSettings(<ToolsSettings />);
 
-    expect(await screen.findByText('Read workspace file')).toBeVisible();
+    const files = await screen.findByRole('list', { name: 'Tools of Workspace files' });
+    expect(within(files).getByText('Read workspace file')).toBeVisible();
     expect(
       screen.getByText('Reads a file that this workspace has granted the agent access to.'),
     ).toBeVisible();
@@ -112,7 +113,7 @@ describe('tool provider settings', () => {
       screen.queryByText('Technical provider documentation with internal implementation details.'),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Show details for Read workspace file' }));
+    await user.click(screen.getByRole('button', { name: 'Read workspace file: show details' }));
     expect(screen.getByText('fs_read_file')).toBeVisible();
     expect(
       screen.getByText('Technical provider documentation with internal implementation details.'),
@@ -126,7 +127,7 @@ describe('tool provider settings', () => {
     await user.click(await screen.findByRole('button', { name: 'Actions for Workspace files' }));
     expect(screen.queryByRole('menuitem', { name: 'Reconnect' })).not.toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Disconnect' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('menuitem', { name: 'View contents' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Resources and prompts' }));
     expect(await screen.findByText('Read file')).toBeVisible();
     expect(screen.getByText('Read a workspace file.')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Resources' }));
@@ -243,10 +244,13 @@ describe('tool provider settings', () => {
     ]);
     renderSettings(<ToolsSettings />);
 
-    const saved = await screen.findByRole('region', { name: 'Your MCP services' });
+    const services = await screen.findByRole('list', { name: 'MCP services' });
+    const saved = (await within(services).findByText('colab-mcp')).closest('li') as HTMLElement;
     expect(saved).toHaveTextContent('uvx git+https://github.com/googlecolab/colab-mcp');
-    expect(saved).toHaveTextContent('Local command, available in every conversation');
-    await user.click(within(saved).getByRole('button', { name: 'Remove' }));
+    expect(saved).toHaveTextContent('Yours, local command, every conversation');
+    expect(saved).toHaveTextContent('Not started');
+    await user.click(within(saved).getByRole('button', { name: 'Actions for colab-mcp' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Remove' }));
     await user.click(
       within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     );

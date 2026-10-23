@@ -1,31 +1,21 @@
 import { queryKeys } from '@/lib/query-keys';
-import { truncate } from '@/lib/format';
-import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { EnvironmentTable } from './environment-table';
 import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
-import { SavedMcpServices } from './settings-saved-mcp';
-import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
+import { RemoveSavedMcpDialog } from './settings-saved-mcp';
+import { McpServiceList } from './settings-mcp-services';
+import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
+import { mcpServiceEntries } from '@/lib/mcp-service-entries';
+import type { McpServerDefinition, SavedMcpService, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  BlocksIcon,
   BookOpenIcon,
   ChevronDownIcon,
   PackagePlusIcon,
-  PlugZapIcon,
   ScrollTextIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { RefreshIndicator } from './refresh-button';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/clio/settings-frame';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,13 +39,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
@@ -99,10 +82,6 @@ function connectionLabel(server: McpServerDefinition) {
     return 'Remote service';
   }
   return server.transport ? humanizeToolName(server.transport) : 'Connection unavailable';
-}
-
-function isRuntimeConnection(server: McpServerDefinition) {
-  return server.id.startsWith('mcp_ext_');
 }
 
 function parseProcessSettings(value: string): Record<string, string> {
@@ -154,6 +133,8 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
   const [everyConversation, setEveryConversation] = useState(true);
   const [detailServer, setDetailServer] = useState<McpServerDefinition>();
   const [deleteServer, setDeleteServer] = useState<McpServerDefinition>();
+  const [removingSaved, setRemovingSaved] = useState<SavedMcpService>();
+  const saved = useSavedMcpServices();
 
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint, 'tool-settings'),
@@ -205,6 +186,11 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
       (tool) => tool.server_id === detailServer.id || tool.source === detailServer.id,
     );
   }, [detailServer, tools.data]);
+
+  const entries = useMemo(
+    () => mcpServiceEntries(servers.data ?? [], saved.data ?? [], tools.data ?? []),
+    [servers.data, saved.data, tools.data],
+  );
 
   const invalidate = async () => {
     await Promise.all([
@@ -283,19 +269,21 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         description="MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage."
         title="MCP tools"
       />
-      <Frame spacing="lg">
-        <FrameHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <FrameTitle>Connected MCP services</FrameTitle>
-            <FrameDescription className="mt-1">
-              The selected workspace includes servers its agent&apos;s plugins bring alongside the
-              built-in and external services.
-            </FrameDescription>
+      <section aria-labelledby="mcp-services-heading" className="grid gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold" id="mcp-services-heading">
+              Services and their tools
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              What a new conversation in this workspace gets: the built-in services, the services
+              its agent&apos;s plugins bring, and yours.
+            </p>
           </div>
-          <div className="flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-end">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end md:w-auto">
             {workspaces.data?.length ? (
               <Field className="w-full sm:w-56">
-                <FieldLabel htmlFor="tools-workspace">Workspace view</FieldLabel>
+                <FieldLabel htmlFor="tools-workspace">Workspace</FieldLabel>
                 <Select onValueChange={setWorkspacePreference} value={workspaceId}>
                   <SelectTrigger id="tools-workspace">
                     <SelectValue placeholder="Choose a workspace" />
@@ -314,119 +302,37 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
               <PackagePlusIcon aria-hidden="true" /> Connect MCP
             </Button>
           </div>
-        </FrameHeader>
-        <FramePanel className="grid gap-2 p-2 sm:grid-cols-2">
-          {servers.data?.map((server) => (
-            <ClioInteractiveRow key={server.id}>
-              <div className="flex items-start gap-3">
-                <PlugZapIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{serverTitle(server)}</p>
-                    <ClioStatus
-                      label={server.status === 'ready' ? 'Ready' : humanizeToolName(server.status)}
-                      value={server.status === 'ready' ? 'healthy' : 'degraded'}
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {connectionLabel(server)}, {server.tools_count}{' '}
-                    {server.tools_count === 1 ? 'tool' : 'tools'}
-                  </p>
-                  {server.error ? (
-                    <p className="mt-2 line-clamp-2 text-xs text-destructive">{server.error}</p>
-                  ) : null}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      aria-label={`Actions for ${serverTitle(server)}`}
-                      aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
-                      disabled={reconnect.isPending && reconnect.variables?.id === server.id}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      {reconnect.isPending && reconnect.variables?.id === server.id ? (
-                        <RefreshIndicator refreshing />
-                      ) : (
-                        <MoreIcon aria-hidden="true" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
-                    <DropdownMenuItem onSelect={() => setDetailServer(server)}>
-                      <BlocksIcon aria-hidden="true" /> View contents
-                    </DropdownMenuItem>
-                    {isRuntimeConnection(server) ? (
-                      <>
-                        <DropdownMenuItem
-                          aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
-                          disabled={reconnect.isPending}
-                          onSelect={() => reconnect.mutate(server)}
-                        >
-                          <RefreshIndicator
-                            refreshing={
-                              reconnect.isPending && reconnect.variables?.id === server.id
-                            }
-                          />{' '}
-                          Reconnect
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={() => setDeleteServer(server)}
-                          variant="destructive"
-                        >
-                          <DeleteIcon aria-hidden="true" /> Disconnect
-                        </DropdownMenuItem>
-                      </>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </ClioInteractiveRow>
-          ))}
-          {!servers.isPending && !servers.data?.length ? (
-            <p className="p-5 text-sm text-muted-foreground">No MCP services were reported.</p>
-          ) : null}
-          {servers.error ? (
-            <Alert className="sm:col-span-2" variant="destructive">
-              <AlertTitle>MCP services unavailable</AlertTitle>
-              <AlertDescription>{servers.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-        </FramePanel>
-      </Frame>
+        </div>
+        {servers.isPending || tools.isPending ? <ToolCatalogLoading /> : null}
+        {servers.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>MCP services unavailable</AlertTitle>
+            <AlertDescription>{servers.error.message}</AlertDescription>
+          </Alert>
+        ) : null}
+        {tools.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Tool descriptions could not be loaded</AlertTitle>
+            <AlertDescription>{tools.error.message}</AlertDescription>
+          </Alert>
+        ) : null}
+        {servers.data ? (
+          entries.length ? (
+            <McpServiceList
+              entries={entries}
+              onDetails={setDetailServer}
+              onDisconnect={setDeleteServer}
+              onReconnect={(server) => reconnect.mutate(server)}
+              onRemoveSaved={setRemovingSaved}
+              reconnecting={reconnect.isPending ? reconnect.variables?.id : undefined}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">No MCP services were reported.</p>
+          )
+        ) : null}
+      </section>
 
-      <SavedMcpServices />
-
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Available tools</FrameTitle>
-          <FrameDescription>
-            Tools available in this workspace. Expand a tool to inspect its inputs and actions.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel className="grid gap-2 p-2">
-          {tools.isPending ? <ToolCatalogLoading /> : null}
-          {tools.data?.map((tool) => (
-            <ToolCatalogRow key={`${tool.server_id}:${tool.id}`} tool={tool} />
-          ))}
-          {!tools.isPending && !tools.error && !tools.data?.length ? (
-            <Alert>
-              <WrenchIcon aria-hidden="true" />
-              <AlertTitle>No tools reported</AlertTitle>
-              <AlertDescription>
-                The connected agent did not advertise any tools for this configuration.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          {tools.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>Available tools could not be loaded</AlertTitle>
-              <AlertDescription>{tools.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-        </FramePanel>
-      </Frame>
+      <RemoveSavedMcpDialog onClose={() => setRemovingSaved(undefined)} service={removingSaved} />
 
       <Dialog
         onOpenChange={(open) => {
@@ -689,67 +595,6 @@ function ToolCatalogLoading() {
       ))}
     </div>
   );
-}
-
-function ToolCatalogRow({ tool }: { tool: ToolCatalogItem }) {
-  const [open, setOpen] = useState(false);
-  const title = tool.title?.trim() || humanizeToolName(tool.name);
-  const summary = catalogToolSummary(tool);
-  return (
-    <ClioInteractiveRow>
-      <Collapsible onOpenChange={setOpen} open={open}>
-        <div className="flex items-start gap-3">
-          <WrenchIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-          <div className="min-w-0 flex-1">
-            <p className="font-medium">{title}</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">{summary}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <ClioStatus
-              label={tool.enabled === false ? 'Unavailable' : 'Ready'}
-              value={tool.enabled === false ? 'unavailable' : 'healthy'}
-            />
-            <CollapsibleTrigger asChild>
-              <Button
-                aria-label={`${open ? 'Hide' : 'Show'} details for ${title}`}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-                />
-              </Button>
-            </CollapsibleTrigger>
-          </div>
-        </div>
-        <CollapsibleContent className="ml-7 mt-3 grid gap-2 border-t pt-3 text-xs text-muted-foreground">
-          <p>
-            Exact identifier <code className="font-mono text-foreground">{tool.name}</code>
-          </p>
-          {tool.description ? (
-            <p className="max-w-3xl whitespace-pre-line leading-5">{tool.description}</p>
-          ) : (
-            <p>The provider did not supply additional documentation.</p>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-    </ClioInteractiveRow>
-  );
-}
-
-function catalogToolSummary(tool: ToolCatalogItem): string {
-  const known: Record<string, string> = {
-    fs_read_file: 'Reads a file that this workspace has granted the agent access to.',
-    fs_write_file: 'Creates a file or replaces its content in the workspace; each change can be undone.',
-    fs_edit_file: 'Replaces exact text in a workspace file; each change can be undone.',
-    shell_bash: 'Runs a command inside the workspace’s permitted folders.',
-  };
-  if (known[tool.name]) return known[tool.name];
-  const description = tool.description?.replace(/\s+/gu, ' ').trim();
-  if (!description) return 'The provider did not describe this tool.';
-  const firstSentence = description.match(/^.*?[.!?](?:\s|$)/u)?.[0]?.trim() ?? description;
-  return truncate(firstSentence, SUMMARY_TRUNCATE_CHARS);
 }
 
 function InventoryList({
