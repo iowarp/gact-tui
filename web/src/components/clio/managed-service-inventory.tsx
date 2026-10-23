@@ -20,6 +20,7 @@ import {
 } from './managed-service-identity';
 import { InfoTip } from './info-tip';
 import { ServiceMethodAvailability } from './service-installation-method';
+import { managedServiceStatus } from '@/lib/managed-service-status';
 
 const groups = [
   { id: 'model_runtime', label: 'Inference' },
@@ -132,98 +133,113 @@ export function ManagedServiceInventory({
             <div className="divide-y border-b">
               {rows.map((service) => {
                 const connection = connectionFor?.(service);
+                const status = managedServiceStatus(service);
+                const manage = () => {
+                  onDeploying(false);
+                  onSelected(service.id);
+                };
                 return (
-                  <div key={service.id} className="flex flex-wrap items-center gap-3 py-4">
-                    <ManagedServiceLogo service={service} />
-                    <div className="min-w-0 flex-1">
-                      <button
-                        className="font-medium hover:underline underline-offset-4"
-                        onClick={() => {
-                          onDeploying(false);
-                          onSelected(service.id);
-                        }}
-                      >
-                        {service.label}
-                      </button>
-                      <p className="text-xs text-muted-foreground">{service.description}</p>
-                      {feedback[service.id]?.error ? (
-                        <p role="alert" className="text-xs text-destructive">
-                          {feedback[service.id].text}
-                        </p>
-                      ) : null}
-                      <VerificationState service={service} />
+                  <div
+                    key={service.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-2 py-4"
+                  >
+                    {/* On a phone the name and description take the row's full width;
+                        status and actions wrap beneath them, aligned with the text. */}
+                    <div className="flex min-w-0 basis-full items-center gap-3 sm:flex-1 sm:basis-0">
+                      <ManagedServiceLogo service={service} />
+                      <div className="min-w-0 flex-1">
+                        <button
+                          className="font-medium hover:underline underline-offset-4"
+                          onClick={manage}
+                        >
+                          {service.label}
+                        </button>
+                        <p className="text-xs text-muted-foreground">{service.description}</p>
+                        {status.reason ? (
+                          <p className="text-xs text-warning-foreground">{status.reason}</p>
+                        ) : null}
+                        {feedback[service.id]?.error ? (
+                          <p role="alert" className="text-xs text-destructive">
+                            {feedback[service.id].text}
+                          </p>
+                        ) : null}
+                        <VerificationState service={service} />
+                      </div>
                     </div>
-                    <ManagedServiceState service={service} />
-                    {connection?.connected !== undefined ? (
-                      <span
-                        className="text-xs text-muted-foreground"
-                        title={`Connection makes this service available to ${vocab.agent}. Its runtime can be stopped separately.`}
-                      >
-                        {connection.connected
-                          ? `Connected to ${vocab.agent}`
-                          : `Not connected to ${vocab.agent}`}
-                      </span>
-                    ) : null}
-                    {service.id === 'searxng' ? (
-                      <span
-                        className="text-xs text-muted-foreground"
-                        title={`The local ${vocab.agent} uses its built-in SearXNG automatically. A remote SearXNG installation is not automatically selected for this agent.`}
-                      >
-                        {targetId === 'local'
-                          ? 'Built-in search engine'
-                          : `Not connected to ${vocab.agent}`}
-                      </span>
-                    ) : null}
-                    {connection?.to ? (
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={connection.to}>{connection.label}</Link>
-                      </Button>
-                    ) : connection?.onSelect ? (
+                    <div className="flex flex-wrap items-center gap-2 max-sm:pl-[3.25rem]">
+                      <ManagedServiceState service={service} />
+                      {connection?.connected !== undefined ? (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          title={`Connection makes this service available to ${vocab.agent}. Its runtime can be stopped separately.`}
+                        >
+                          {connection.connected
+                            ? `Connected to ${vocab.agent}`
+                            : `Not connected to ${vocab.agent}`}
+                        </span>
+                      ) : null}
+                      {service.id === 'searxng' ? (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          title={`The local ${vocab.agent} uses its built-in SearXNG automatically. A remote SearXNG installation is not automatically selected for this agent.`}
+                        >
+                          {targetId === 'local'
+                            ? 'Built-in search engine'
+                            : `Not connected to ${vocab.agent}`}
+                        </span>
+                      ) : null}
+                      {connection?.to ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link to={connection.to}>{connection.label}</Link>
+                        </Button>
+                      ) : connection?.onSelect ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={connection.pending || Boolean(connection.blockedReason)}
+                          title={connection.blockedReason}
+                          onClick={connection.onSelect}
+                        >
+                          {connection.label}
+                        </Button>
+                      ) : null}
+                      {status.action === 'install' && !operations[service.id] ? (
+                        <Button size="sm" aria-label={`Install ${service.label}`} onClick={manage}>
+                          Install
+                        </Button>
+                      ) : onRun &&
+                        (status.kind === 'running'
+                          ? service.supports_stop
+                          : status.action === 'start') ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busyService === service.id || Boolean(operations[service.id])}
+                          onClick={() =>
+                            onRun(service, status.kind === 'running' ? 'stop' : 'start')
+                          }
+                        >
+                          {busyService === service.id
+                            ? 'Working…'
+                            : status.kind === 'running'
+                              ? 'Stop'
+                              : 'Start'}
+                        </Button>
+                      ) : null}
+                      {operations[service.id] ? (
+                        <span role="status" className="text-xs text-muted-foreground">
+                          Operation in progress
+                        </span>
+                      ) : null}
                       <Button
-                        size="sm"
                         variant="outline"
-                        disabled={connection.pending || Boolean(connection.blockedReason)}
-                        title={connection.blockedReason}
-                        onClick={connection.onSelect}
-                      >
-                        {connection.label}
-                      </Button>
-                    ) : null}
-                    {onRun &&
-                    (service.state === 'running'
-                      ? service.supports_stop
-                      : service.state === 'stopped') ? (
-                      <Button
                         size="sm"
-                        variant="outline"
-                        disabled={busyService === service.id || Boolean(operations[service.id])}
-                        onClick={() =>
-                          onRun(service, service.state === 'running' ? 'stop' : 'start')
-                        }
+                        aria-label={`Manage ${service.label}`}
+                        onClick={manage}
                       >
-                        {busyService === service.id
-                          ? 'Working…'
-                          : service.state === 'running'
-                            ? 'Stop'
-                            : 'Start'}
+                        Manage
                       </Button>
-                    ) : null}
-                    {operations[service.id] ? (
-                      <span role="status" className="text-xs text-muted-foreground">
-                        Operation in progress
-                      </span>
-                    ) : null}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      aria-label={`Manage ${service.label}`}
-                      onClick={() => {
-                        onDeploying(false);
-                        onSelected(service.id);
-                      }}
-                    >
-                      Manage
-                    </Button>
+                    </div>
                   </div>
                 );
               })}

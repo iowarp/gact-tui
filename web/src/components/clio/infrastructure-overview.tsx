@@ -13,7 +13,9 @@ import { displayHostPath } from '@/lib/host-path-display';
 import { vocab } from '@/lib/brand-vocabulary';
 import { InfrastructureTopology } from './infrastructure-topology';
 import { remoteUrlFromSpec } from './web-search-configuration';
-import { ClioStatus } from './status';
+import { infrastructureServiceName } from '@/lib/infrastructure-service-labels';
+import { ClioStatus, type ClioStatusValue } from './status';
+import { managedServiceStatus } from '@/lib/managed-service-status';
 import { TechnicalDetails } from './technical-details';
 
 /** Read actual capabilities from the same inspection/cache used by Services. */
@@ -96,7 +98,18 @@ export function InfrastructureOverview({
   const { settings } = useConnectionSettings();
   const { servers } = useSavedServers();
   const [inspectionOpen, setInspectionOpen] = useState(false);
-  const rows = [
+  const research = webResearchRow(data, webSearch, webSearchConnected);
+  const rows: {
+    label: string;
+    icon: typeof BotIcon;
+    detail: string;
+    description: string;
+    action: string;
+    status?: string;
+    state: ClioStatusValue;
+    to?: string;
+    onClick?: () => void;
+  }[] = [
     {
       label: 'Agent',
       icon: BotIcon,
@@ -104,7 +117,7 @@ export function InfrastructureOverview({
       description: 'Sessions and tools run here.',
       action: 'Inspect agent',
       status: 'Connected',
-      state: 'healthy' as const,
+      state: 'healthy',
       to: '/infrastructure/agent',
     },
     {
@@ -116,31 +129,15 @@ export function InfrastructureOverview({
       description: 'Connect an API or a model server on any host.',
       action: 'Model providers',
       status: undefined,
-      state: 'unavailable' as const,
+      state: 'unavailable',
       to: '/settings/providers',
     },
     {
       label: 'Web research',
       icon: GlobeIcon,
-      detail: webSearchConnected
-        ? remoteUrlFromSpec(webSearch?.spec) || 'Connected'
-        : webSearch?.configured
-          ? 'Needs attention'
-          : 'No research service connected',
-      description: 'Add source reading and research tools to your agent.',
-      action: webSearch?.configured ? 'Manage web research' : 'Connect web research',
-      status: webSearchConnected
-        ? 'Connected'
-        : webSearch?.configured
-          ? 'Needs attention'
-          : 'Not connected',
-      state: webSearchConnected
-        ? ('healthy' as const)
-        : webSearch?.configured
-          ? ('degraded' as const)
-          : ('unavailable' as const),
-      onClick: onManageWebSearch,
-      to: onManageWebSearch ? undefined : '/infrastructure/services',
+      ...research,
+      onClick: research.to ? undefined : onManageWebSearch,
+      to: research.to ?? (onManageWebSearch ? undefined : '/infrastructure/services'),
     },
   ];
   return (
@@ -262,4 +259,66 @@ export function InfrastructureOverview({
       </div>
     </div>
   );
+}
+
+/**
+ * Web research reads the same records as Services: a connected research service
+ * first, then the agent's built-in search engine and what its record says it is.
+ */
+function webResearchRow(
+  data: InfrastructureInventory,
+  webSearch: McpUserConfiguration | undefined,
+  connected: boolean,
+): {
+  detail: string;
+  description: string;
+  action: string;
+  status: string;
+  state: ClioStatusValue;
+  to?: string;
+} {
+  const description = 'Add source reading and research tools to your agent.';
+  if (connected)
+    return {
+      detail: remoteUrlFromSpec(webSearch?.spec) || 'Connected',
+      description,
+      action: 'Manage web research',
+      status: 'Connected',
+      state: 'healthy',
+    };
+  if (webSearch?.configured)
+    return {
+      detail: 'Needs attention',
+      description,
+      action: 'Manage web research',
+      status: 'Needs attention',
+      state: 'degraded',
+    };
+  const builtIn = data.services.find(
+    (row) => row.target_id === 'local' && row.service_id === 'searxng',
+  );
+  if (builtIn) {
+    const status = managedServiceStatus(builtIn);
+    const name = infrastructureServiceName(builtIn.service_id);
+    return {
+      detail: `Built-in search engine · ${name}`,
+      description: status.reason ?? description,
+      action:
+        status.action === 'install'
+          ? `Install ${name}`
+          : status.action === 'start'
+            ? `Start ${name}`
+            : 'Manage web research',
+      status: status.label,
+      state: status.value,
+      to: status.action ? '/infrastructure/services?target=local&service=searxng' : undefined,
+    };
+  }
+  return {
+    detail: 'No research service connected',
+    description,
+    action: 'Connect web research',
+    status: 'Not connected',
+    state: 'unavailable',
+  };
 }

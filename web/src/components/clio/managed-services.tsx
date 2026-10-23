@@ -276,6 +276,26 @@ export function ManagedServices({
     setDeploying,
     setConfiguration,
   ]);
+  // `?service=<id>` (Overview's Install / Start links) opens that service's panel once.
+  const requestedService = searchParams.get('service');
+  const appliedServiceLink = useRef('');
+  useEffect(() => {
+    const key = `${settings.endpoint}:${targetId}:${requestedService}`;
+    if (!requestedService || (requestedTarget ?? 'local') !== targetId) return;
+    if (appliedServiceLink.current === key) return;
+    if (!catalog.data?.services.some((row) => row.id === requestedService)) return;
+    appliedServiceLink.current = key;
+    setDeploying(false);
+    setSelectedProvider(requestedService);
+  }, [
+    catalog.data,
+    requestedService,
+    requestedTarget,
+    settings.endpoint,
+    targetId,
+    setSelectedProvider,
+    setDeploying,
+  ]);
   const services = catalog.data?.services ?? [];
   // The installer banner follows observed installation state across navigation.
   const llamaCppService = services.find((service) => service.id === 'llama_cpp');

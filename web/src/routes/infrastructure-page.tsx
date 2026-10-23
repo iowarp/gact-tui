@@ -139,11 +139,15 @@ export function InfrastructurePage() {
     : (tools.data ?? []);
   const toolsPending =
     tools.isPending || servers.isPending || (sessionToolScope && effectiveToolset.isPending);
-  const foundationIssues =
-    health.data?.integrations.filter(
+  // Every integration in /v1/health belongs to the connected agent's own computer,
+  // so its row is where the attention it raises is shown.
+  const foundationAttention = (health.data?.integrations ?? [])
+    .filter(
       (integration) =>
         integration.required !== false && integrationStatus(integration.status) !== 'healthy',
-    ).length ?? 0;
+    )
+    .map((integration) => foundationTitle(integration.name));
+  const foundationIssues = foundationAttention.length;
   const webSearch = servers.data?.find(isWebSearchServer);
   const webSearchReady =
     webSearchConfiguration.data?.status === 'ready' || webSearch?.status === 'ready';
@@ -256,7 +260,7 @@ export function InfrastructurePage() {
               </div>
               <p className="mt-2 max-w-3xl text-muted-foreground">
                 {currentSection === 'agent'
-                  ? clioServiceDescription(health.data, foundationIssues)
+                  ? clioServiceDescription(health.data, foundationAttention)
                   : sectionDefinition.description}
               </p>
             </div>
@@ -435,7 +439,7 @@ export function InfrastructurePage() {
 
           {currentSection === 'agent' ? (
             <>
-              <InfrastructureInventory section="hosts">
+              <InfrastructureInventory section="hosts" localAttention={foundationAttention}>
                 <InfrastructureFoundationGroups
                   integrations={health.data?.integrations ?? []}
                   renderRow={(integration) => (
@@ -624,12 +628,13 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
 
 function clioServiceDescription(
   health: { healthy: boolean } | undefined,
-  foundationIssues: number,
+  attention: string[],
 ): string {
   if (!health) return `Checking ${vocab.agent}.`;
   if (!health.healthy) return `${vocab.agent} needs attention.`;
-  if (foundationIssues > 0)
-    return 'Running. Review the errors and warnings for each computer below.';
+  if (attention.length === 1) return `Running. ${attention[0]} on Local needs attention.`;
+  if (attention.length > 1)
+    return `Running. ${attention.length} supporting services on Local need attention.`;
   return `${vocab.agent} is running. Open a computer’s details for health and repair actions.`;
 }
 

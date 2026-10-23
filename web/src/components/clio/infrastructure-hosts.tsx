@@ -1,7 +1,7 @@
 import type { InfrastructureInventory } from '@clio/core/v3';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDownIcon, LaptopIcon, ServerIcon } from 'lucide-react';
+import { ChevronDownIcon, CircleAlertIcon, LaptopIcon, ServerIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -21,8 +21,11 @@ export function InfrastructureHosts({
   onConnectComputer,
   pending = false,
   error,
+  localAttention = [],
 }: {
   data: InfrastructureInventory;
+  /** Supporting services on the local computer that need attention, by name. */
+  localAttention?: string[];
   children?: ReactNode;
   onSelect: (id: string) => void;
   onConnectComputer?: (host: SshHost) => Promise<unknown>;
@@ -65,6 +68,7 @@ export function InfrastructureHosts({
               status={
                 host.kind === 'local' ? 'Connected' : computerConnectionLabel(host.transport_state)
               }
+              attention={host.kind === 'local' ? localAttention : []}
               onInspect={() => onSelect(host.id)}
               onReconnect={
                 host.ssh && onConnectComputer && host.transport_state !== 'connected'
@@ -118,6 +122,7 @@ function ComputerRow({
   local,
   address,
   status,
+  attention,
   children,
   onInspect,
   onReconnect,
@@ -128,6 +133,7 @@ function ComputerRow({
   local: boolean;
   address: string;
   status: string;
+  attention: string[];
   children: ReactNode;
   onInspect: () => void;
   onReconnect?: () => Promise<unknown>;
@@ -142,6 +148,12 @@ function ComputerRow({
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold">{label}</h2>
           <p className="truncate text-xs text-muted-foreground">{address}</p>
+          {attention.length ? (
+            <p className="mt-1 flex items-start gap-1.5 text-xs text-warning-foreground">
+              <CircleAlertIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              <span>Needs attention: {attention.join(', ')}. Open Details for what to do.</span>
+            </p>
+          ) : null}
         </div>
         <Badge
           variant="outline"
