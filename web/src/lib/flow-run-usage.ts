@@ -1,6 +1,7 @@
 import type { FlowRunUsage } from '@clio/core/v3';
 
-const SOURCE: Record<string, string> = {
+/** Why a child runs on its model, by `model_choice.source`. */
+export const MODEL_CHOICE_SOURCE: Record<string, string> = {
   explicit: `named for this call`,
   prefers: 'its preference',
   inherited: 'the caller’s model',
@@ -16,6 +17,6 @@ export function callModel(usage: FlowRunUsage | undefined, handle: string | unde
   const row = handle ? usage?.calls[handle] : undefined;
   if (!row?.model) return undefined;
   const source = row.choice?.source ?? '';
-  const why = SOURCE[source] ?? source;
+  const why = MODEL_CHOICE_SOURCE[source] ?? source;
   return `${shortModel(row.model)}${why ? ` (${why})` : ''}`;
 }

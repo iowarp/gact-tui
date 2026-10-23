@@ -31,6 +31,8 @@ export interface TheoSubAgentRun {
   task: string;
   state: SubAgentState;
   duration?: string;
+  /** The model the run uses, shown beside its name. */
+  model?: ReactNode;
   lastEvent?: string;
   result?: ReactNode;
 }
@@ -110,6 +112,7 @@ const SubAgentDispatch = forwardRef<HTMLElement, SubAgentDispatchProps>(
                 {run.duration}
               </span>
             ) : null}
+            {run.model}
           </div>
           <span
             className={cn(

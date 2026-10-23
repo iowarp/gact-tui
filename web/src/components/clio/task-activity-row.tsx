@@ -17,6 +17,7 @@ import type { ClioEvidenceViewProps } from './observability-evidence';
 import type { TaskActivity } from './task-activity';
 import { flowLabel } from './flow-tool-presentation';
 import { taskProgressLabel } from './task-progress-label';
+import { SubagentModel } from './subagent-model';
 import { subagentOpenTarget, SUBAGENT_OPEN_HINT } from './subagent-navigation';
 
 const settled = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
@@ -94,7 +95,12 @@ export function TaskActivityRow({
               className={`size-4 shrink-0 ${running ? 'animate-spin text-primary motion-reduce:animate-none' : status === 'completed' ? 'text-success' : settled.has(status) && status !== 'cancelled' ? 'text-destructive' : 'text-muted-foreground'}`}
             />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{title}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-sm font-medium">{title}</span>
+                {conversation?.model_choice ? (
+                  <SubagentModel choice={conversation.model_choice} />
+                ) : null}
+              </span>
               <span className="block truncate text-xs text-muted-foreground">
                 {flowRun ?? kind} · {label}
                 {progress && progress !== label ? ` — ${progress}` : ''}

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { agentTaskRecordSchema, type AgentTaskRecord } from './agent-task-domain.js';
 import type { AsyncProcess, ContextFile, ContextFrame, SessionDiff } from './domain.js';
 import { ExecutionProvenanceRepository } from './execution-provenance-repository.js';
-import { operationalRunStateSchema } from './schemas.js';
+import { modelChoiceSchema, operationalRunStateSchema } from './schemas.js';
 import { variantRunsFromRecords, type VariantRuns } from './variant-reducer.js';
 import { variantRunListSchema } from './variant-schemas.js';
 import { cursorPageMetadataSchema } from './repository-decoders.js';
@@ -100,6 +100,8 @@ const asyncProcessSchema = z
       .object({ id: z.string() })
       .nullish()
       .transform((value) => value ?? undefined),
+    /** The model the child conversation runs on and why. */
+    model_choice: modelChoiceSchema.nullish().transform((value) => value ?? undefined),
     result: z
       .object({
         answer: z.string().optional(),

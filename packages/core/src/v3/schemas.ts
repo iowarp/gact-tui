@@ -521,6 +521,16 @@ export const taskSchema = z.object({
   detail: z.string().optional(),
 });
 
+export const modelChoiceSchema = z.object({
+  asked: z.string().default(''),
+  ran: z
+    .object({ provider_id: z.string().optional(), model_id: z.string().optional() })
+    .default({}),
+  source: z.string().default(''),
+  reasons: z.array(z.string()).default([]),
+  effort: z.string().default(''),
+});
+
 export const subagentSchema = z.object({
   id: z.string(),
   session_id: z.string(),
@@ -536,6 +546,7 @@ export const subagentSchema = z.object({
   task: z.string().optional(),
   result: z.string().optional(),
   duration_ms: z.number().optional(),
+  model_choice: modelChoiceSchema.optional(),
 });
 
 export const artifactSchema = z.object({

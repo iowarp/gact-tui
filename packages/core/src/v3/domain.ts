@@ -281,6 +281,15 @@ export interface Task {
   detail?: string;
 }
 
+/** The model a child session runs on and why (the server's `model_choice`). */
+export interface ModelChoice {
+  asked: string;
+  ran: { provider_id?: string; model_id?: string };
+  source: string;
+  reasons: string[];
+  effort: string;
+}
+
 export interface SubagentRun {
   id: string;
   session_id: string;
@@ -293,6 +302,7 @@ export interface SubagentRun {
   task?: string;
   result?: string;
   duration_ms?: number;
+  model_choice?: ModelChoice;
   origin?: {
     kind: 'skill';
     name: string;
@@ -538,6 +548,8 @@ export interface AsyncProcess {
   error_reason?: string;
   /** Set when the task's child conversation runs a flow (a workflow, council, arena...). */
   flow?: { id: string };
+  /** The model the child conversation runs on and why. */
+  model_choice?: ModelChoice;
   result?: {
     answer?: string;
     answer_excerpt?: string;
