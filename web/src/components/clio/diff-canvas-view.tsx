@@ -117,7 +117,12 @@ function UndoChange({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep the change</AlertDialogCancel>
-          <AlertDialogAction onClick={() => void onConfirm()} variant="destructive">
+          <AlertDialogAction
+            // A refusal is shown in the "The change was not undone" alert, from the
+            // undo mutation's error state; the rejected promise needs no second report.
+            onClick={() => void onConfirm().catch(() => undefined)}
+            variant="destructive"
+          >
             Undo
           </AlertDialogAction>
         </AlertDialogFooter>
