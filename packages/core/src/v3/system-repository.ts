@@ -7,6 +7,14 @@ export const fleetSettingsSchema = z.object({
     goals: z.object({ provider_id: z.string(), model_id: z.string() }).nullable(),
     variants: z.object({ provider_id: z.string(), model_id: z.string() }).nullable(),
     permissions: z.object({ provider_id: z.string(), model_id: z.string() }).nullable(),
+    memory_extract: z
+      .object({ provider_id: z.string(), model_id: z.string() })
+      .nullable()
+      .optional(),
+    memory_consolidate: z
+      .object({ provider_id: z.string(), model_id: z.string() })
+      .nullable()
+      .optional(),
   }),
 });
 import { InfrastructureRepository } from './infrastructure-repository.js';

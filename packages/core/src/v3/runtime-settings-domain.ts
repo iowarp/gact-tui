@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const settingValue = z.union([z.boolean(), z.number().finite()]);
+const settingValue = z.union([z.boolean(), z.number().finite(), z.string()]);
 
 /** Curated preferences and provenance supplied by the connected service. */
 export const runtimeSettingsSchema = z.object({
@@ -14,7 +14,7 @@ export const runtimeSettingsSchema = z.object({
       group: z.string(),
       value: settingValue,
       default_value: settingValue,
-      kind: z.enum(['boolean', 'number', 'integer']),
+      kind: z.enum(['boolean', 'number', 'integer', 'choice']),
       minimum: z.number().nullable(),
       maximum: z.number().nullable(),
       unit: z.string().nullable(),
@@ -24,6 +24,7 @@ export const runtimeSettingsSchema = z.object({
       editable: z.boolean(),
       reason: z.string().nullable(),
       unlimited_value: z.literal(0).nullable().optional(),
+      choices: z.array(z.object({ value: z.string(), label: z.string() })).default([]),
     }),
   ),
 });
@@ -32,5 +33,5 @@ export type RuntimeSettings = z.infer<typeof runtimeSettingsSchema>;
 export type RuntimeSetting = RuntimeSettings['settings'][number];
 export interface UpdateRuntimeSettings {
   revision: string;
-  changes: Record<string, boolean | number | null>;
+  changes: Record<string, boolean | number | string | null>;
 }

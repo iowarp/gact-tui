@@ -39,6 +39,7 @@ import { GeneralSettings } from '@/components/clio/settings-general';
 import { AboutSettings } from '@/components/clio/settings-about';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
+import { ContextHistorySettings } from '@/components/clio/settings-context-history';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
 import {
   Frame,
@@ -476,7 +477,13 @@ function SettingsSection({
   if (section === 'connections') return <ConnectionsSettings />;
   if (section === 'data-sources') return <DataSourceSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
-  if (section === 'runtime') return <RuntimeSettingsPanel />;
+  if (section === 'runtime')
+    return (
+      <div className="grid gap-10">
+        <RuntimeSettingsPanel exclude={['Memory']} />
+        <ContextHistorySettings initialSessionId={sessionId} />
+      </div>
+    );
   if (section === 'fleet') return <FleetSettingsPanel />;
   if (section === 'providers') return <ProvidersSettings />;
   if (section === 'models') return <ModelsSettings />;
@@ -501,6 +508,14 @@ export function SettingsPage() {
   const location = useLocation();
   const { settings } = useConnectionSettings();
   const destinations = settingsDestinations(inTauri());
+  const repository = useRepository();
+  const memory = useQuery({
+    queryKey: ['memory', 'summary'],
+    queryFn: ({ signal }) => repository.memorySummary(signal),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const inbox = memory.data?.inbox ?? 0;
   const content = useRef<HTMLElement>(null);
   useEffect(() => {
     content.current?.scrollTo({ left: 0, top: 0 });
@@ -518,6 +533,9 @@ export function SettingsPage() {
         section={section}
         endpoint={settings.endpoint}
         workspaceRoute={workspaceRoute}
+        badges={{
+          memory: { count: inbox, label: `${inbox} memory changes waiting for review` },
+        }}
       />
       <section
         ref={content}

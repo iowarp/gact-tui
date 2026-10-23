@@ -2695,7 +2695,7 @@ const server = createServer(async (request, response) => {
       memory_scope: 'session',
       writable_scope: 'session',
       cross_session_read_available: true,
-      cross_session_read_endpoint: `/v1/sessions/${sessionId}/memory/tools/search-sessions`,
+      cross_session_read_endpoint: `/v1/sessions/${sessionId}/session-recall/search`,
       requires_user_consent: true,
       notes: [
         'Conversation retrieval and writes are scoped to the active session.',

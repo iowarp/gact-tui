@@ -157,7 +157,7 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     label: 'Memory',
     icon: BrainCircuitIcon,
     group: 'Access & system',
-    keywords: 'context search recall compaction',
+    keywords: 'remember facts preferences profile inbox review import export past sessions',
   },
   {
     id: 'system',

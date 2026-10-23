@@ -36,7 +36,7 @@ type MemoryStats struct {
 }
 
 // MemorySearchHit is one provenance-heavy transcript memory match returned by
-// CLIO's /v1/memory/search endpoint.
+// CLIO's /v1/session-recall/search endpoint.
 type MemorySearchHit struct {
 	SessionID    string         `json:"session_id"`
 	SessionTitle string         `json:"session_title,omitempty"`
@@ -52,7 +52,7 @@ type MemorySearchHit struct {
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
-// MemorySearchResponse is returned by GET /v1/memory/search.
+// MemorySearchResponse is returned by GET /v1/session-recall/search.
 type MemorySearchResponse struct {
 	Query               string            `json:"query"`
 	IncludeCrossSession bool              `json:"include_cross_session"`

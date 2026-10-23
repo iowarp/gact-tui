@@ -447,6 +447,7 @@ function contextItemTitle(item: ContextFrame['items'][number]): string {
   if (item.display_path || item.path) return item.display_path ?? item.path ?? 'File';
   if (item.role === 'user') return 'User request';
   if (item.role === 'assistant') return 'Assistant response';
+  if (item.kind === 'injection' && item.source_id === 'memory') return 'Memory';
   return item.kind.replaceAll('_', ' ');
 }
 

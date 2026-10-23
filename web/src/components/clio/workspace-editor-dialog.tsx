@@ -1,7 +1,7 @@
 import type { Workspace } from '@clio/core/v3';
 import { FolderIcon } from 'lucide-react';
 import { AddIcon, RemoveIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { vocab } from '@/lib/brand-vocabulary';
 import { InfoTip } from './info-tip';
 import { ClioPathPicker } from './path-picker';
@@ -24,6 +25,9 @@ export interface WorkspaceEditorActions {
   ) => Promise<void>;
   grantWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
   revokeWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
+  /** Whether conversations here read account memory (absent: the switch is hidden). */
+  workspaceMemory?: (workspaceId: string) => Promise<{ use_account_memory: boolean }>;
+  setWorkspaceMemory?: (workspaceId: string, useAccountMemory: boolean) => Promise<void>;
 }
 
 export function WorkspaceEditorDialog({
@@ -49,6 +53,22 @@ export function WorkspaceEditorDialog({
   const [newFolder, setNewFolder] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [accountMemory, setAccountMemory] = useState<boolean>();
+  const [savedAccountMemory, setSavedAccountMemory] = useState<boolean>();
+  useEffect(() => {
+    let live = true;
+    void actions
+      .workspaceMemory?.(workspace.id)
+      .then((value) => {
+        if (!live) return;
+        setAccountMemory(value.use_account_memory);
+        setSavedAccountMemory(value.use_account_memory);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [actions, workspace.id]);
   const originalAdditional = initialFolders
     .filter((folder) => !folder.primary)
     .map((folder) => folder.path);
@@ -85,6 +105,9 @@ export function WorkspaceEditorDialog({
       }
       for (const path of originalAdditional.filter((path) => !folders.includes(path))) {
         await actions.revokeWorkspaceFolder(workspace.id, path);
+      }
+      if (accountMemory !== undefined && accountMemory !== savedAccountMemory) {
+        await actions.setWorkspaceMemory?.(workspace.id, accountMemory);
       }
       onClose();
     } catch (reason) {
@@ -187,6 +210,21 @@ export function WorkspaceEditorDialog({
               </Button>
             </div>
           </Field>
+          {accountMemory !== undefined ? (
+            <Field className="min-w-0" orientation="horizontal">
+              <Switch
+                checked={accountMemory}
+                disabled={pending}
+                id="workspace-editor-account-memory"
+                onCheckedChange={setAccountMemory}
+              />
+              <FieldLabel htmlFor="workspace-editor-account-memory">Use account memory</FieldLabel>
+              <InfoTip label="About account memory">
+                On: conversations here also read what is remembered about you across workspaces.
+                Off: they see only this workspace&apos;s memory.
+              </InfoTip>
+            </Field>
+          ) : null}
           {error ? (
             <p className="text-sm text-destructive" role="alert">
               {error}

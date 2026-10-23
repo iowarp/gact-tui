@@ -119,7 +119,7 @@ export class SearchRepository extends PromptRepository {
     params.set('limit', String(options.limit ?? MEMORY_SEARCH_LIMIT));
     return this.transport.request({
       method: 'GET',
-      path: `/v1/memory/search?${params.toString()}`,
+      path: `/v1/session-recall/search?${params.toString()}`,
       decode: (value) => memorySearchSchema.parse(value),
       signal,
     });

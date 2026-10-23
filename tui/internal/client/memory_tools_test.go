@@ -14,27 +14,27 @@ func TestMemoryToolClientMethodsUseSessionEndpoints(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.Method+" "+r.URL.EscapedPath())
 		switch r.URL.Path {
-		case "/v1/sessions/s1/memory/tools/search-sessions":
+		case "/v1/sessions/s1/session-recall/search":
 			var req gact.MemoryToolSearchSessionsRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Query != "pressure dataset" {
 				t.Fatalf("search request = %#v err=%v", req, err)
 			}
 			_ = json.NewEncoder(w).Encode(gact.MemoryToolSearchSessionsResponse{
-				Tool: "memory_search_sessions", Query: req.Query,
+				Tool: "session_search", Query: req.Query,
 				Metadata: map[string]any{"policy_decision": "allow_same_session"},
 			})
-		case "/v1/sessions/s1/memory/tools/read-session-summary":
+		case "/v1/sessions/s1/session-recall/read-summary":
 			_ = json.NewEncoder(w).Encode(gact.MemoryToolReadSessionSummaryResponse{
-				Tool:    "memory_read_session_summary",
+				Tool:    "session_read_summary",
 				Summary: map[string]any{"message_count": 2},
 			})
-		case "/v1/sessions/s1/memory/tools/read-context-frame":
+		case "/v1/sessions/s1/session-recall/read-context-frame":
 			var req gact.MemoryToolReadContextFrameRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.FrameID != "ctx_1" {
 				t.Fatalf("frame request = %#v err=%v", req, err)
 			}
 			_ = json.NewEncoder(w).Encode(gact.MemoryToolReadContextFrameResponse{
-				Tool:  "memory_read_context_frame",
+				Tool:  "session_read_context_frame",
 				Frame: map[string]any{"id": req.FrameID},
 			})
 		default:
@@ -55,9 +55,9 @@ func TestMemoryToolClientMethodsUseSessionEndpoints(t *testing.T) {
 	}
 
 	want := []string{
-		"POST /v1/sessions/s1/memory/tools/search-sessions",
-		"POST /v1/sessions/s1/memory/tools/read-session-summary",
-		"POST /v1/sessions/s1/memory/tools/read-context-frame",
+		"POST /v1/sessions/s1/session-recall/search",
+		"POST /v1/sessions/s1/session-recall/read-summary",
+		"POST /v1/sessions/s1/session-recall/read-context-frame",
 	}
 	if len(paths) != len(want) {
 		t.Fatalf("paths = %v, want %v", paths, want)

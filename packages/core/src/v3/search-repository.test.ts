@@ -74,7 +74,7 @@ describe('SearchRepository', () => {
 
     expect(transport.requests.map(({ path }) => path)).toEqual([
       '/v1/sessions/sess%2F1/messages/search?q=immutable%20evidence',
-      '/v1/memory/search?query=immutable+evidence&workspace_id=ws_science&include_cross_session=true&limit=12',
+      '/v1/session-recall/search?query=immutable+evidence&workspace_id=ws_science&include_cross_session=true&limit=12',
       '/v1/sessions/sess_1/context/search?q=station&k=8',
     ]);
   });

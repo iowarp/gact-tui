@@ -124,6 +124,16 @@ export function PresentationLink({
         {text}
       </Link>,
     );
+  if (block.target === 'memory' && uri && hasRouter)
+    return withTooltip(
+      <Link
+        className={cn(className, 'underline')}
+        aria-label={iconOnly ? `Open ${label} in memory` : undefined}
+        to={`/settings/memory?${new URLSearchParams({ doc: uri })}`}
+      >
+        {text}
+      </Link>,
+    );
   if (iconOnly) return null;
   return withTooltip(
     <span className={className} tabIndex={compact ? 0 : undefined}>

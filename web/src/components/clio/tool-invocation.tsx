@@ -351,15 +351,20 @@ export function ClioToolInvocation({
   );
 }
 
+const MEMORY_ACTIONS: Record<string, string> = {
+  session_search: 'Search past sessions',
+  session_read_summary: 'Read session summary',
+  session_read_context_frame: 'Read retained context',
+  memory_search: 'Search memory',
+  memory_read: 'Read memory',
+  create_memory: 'Remember',
+  update_memory: 'Correct memory',
+  forget_memory: 'Forget',
+  propose_memory_change: 'Propose memory change',
+};
+
 function withMemoryPresentation(tool: ToolInvocation): ToolInvocation {
-  const action =
-    tool.name === 'memory_search_sessions'
-      ? 'Search session memory'
-      : tool.name === 'memory_read_session_summary'
-        ? 'Read session summary'
-        : tool.name === 'memory_read_context_frame'
-          ? 'Read retained context'
-          : undefined;
+  const action = MEMORY_ACTIONS[tool.name];
   if (!action || !tool.presentation) return tool;
   return {
     ...tool,

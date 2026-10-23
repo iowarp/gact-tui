@@ -112,6 +112,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
     delivery: MessageDelivery | 'queued';
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
+    /** A new conversation that neither reads nor writes long-term memory. */
+    memoryOff?: boolean;
   }) => Promise<void>;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
   onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
@@ -269,6 +271,7 @@ export function ClioComposer({
   // though the service had asked for it.
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
+  const [memoryOff, setMemoryOff] = useState(false);
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
   const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
     [],
@@ -581,6 +584,7 @@ export function ClioComposer({
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
                 },
+                ...(variant === 'welcome' && memoryOff ? { memoryOff } : {}),
               });
             } catch (error) {
               setUploadProgress(undefined);
@@ -677,6 +681,7 @@ export function ClioComposer({
             ) : null}
             <ClioComposerBehaviorControls
               behavior={messageBehavior}
+              {...(variant === 'welcome' ? { memoryOff, onMemoryOffChange: setMemoryOff } : {})}
               spotterAvailability={spotterAvailability}
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
               defaultEffortLabel={defaultReasoningLabel(

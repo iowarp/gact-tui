@@ -1870,12 +1870,12 @@ The TUI uses this to surface a cache hit-rate indicator and show per-session con
 >
 > | Method | Path | Response |
 > |---|---|---|
-> | GET | `/v1/memory/search` (query `q`, `include_cross_session?`) | `MemorySearchResponse` `{query, include_cross_session, searched_sessions[], hits[]}` |
+> | GET | `/v1/session-recall/search` (query `q`, `include_cross_session?`) | `MemorySearchResponse` `{query, include_cross_session, searched_sessions[], hits[]}` |
 > | GET | `/v1/sessions/{id}/memory/events` (query `limit?`) | per-session memory event log |
 > | GET | `/v1/sessions/{id}/memory/events/{event_id}` | one memory event |
-> | POST | `/v1/sessions/{id}/memory/tools/search-sessions` | agent-facing cross-session search tool |
-> | POST | `/v1/sessions/{id}/memory/tools/read-session-summary` | agent-facing summary read tool |
-> | POST | `/v1/sessions/{id}/memory/tools/read-context-frame` | agent-facing context-frame read tool |
+> | POST | `/v1/sessions/{id}/session-recall/search` | agent-facing cross-session search tool |
+> | POST | `/v1/sessions/{id}/session-recall/read-summary` | agent-facing summary read tool |
+> | POST | `/v1/sessions/{id}/session-recall/read-context-frame` | agent-facing context-frame read tool |
 
 ---
 
@@ -2322,7 +2322,7 @@ sketch; the rest reflect clio's resource model.
 | `file.diff.applied` / `file.diff.rejected` | diff apply lifecycle (§6.10) | `{session_id, path, part_id, message_id}` |
 | `file.diff.write_failed` | diff write failed (§6.10) | `{session_id, path, part_id, message_id, error}` |
 | `memory.search.completed` | memory search served | vendor |
-| `memory_search_sessions.completed` / `.denied`, `memory_read_session_summary.completed` / `.denied`, `memory_read_context_frame.completed` / `.denied` | memory-tool audit events (§6.19 tools) | vendor |
+| `session_search.completed` / `.denied`, `session_read_summary.completed` / `.denied`, `session_read_context_frame.completed` / `.denied` | memory-tool audit events (§6.19 tools) | vendor |
 | `arc.op` | context mutations (allow-listed ids/kinds/token_count only) | vendor |
 | `agent.reasoning.delta` | throttled (≥1 s) liveness ping while the model reasons | `{stream_source: "reasoning"}` — carries NO text; vendor |
 | `lm.provider.changed` / `lm.provider.failed` | `/v1/providers/lm` config result | global (`session_id: ""`, broadcast to all streams) |
@@ -2612,12 +2612,12 @@ mcp_task.completed implemented
 mcp_task.failed implemented
 mcp_task.updated implemented
 memory.search.completed implemented
-memory_read_context_frame.completed implemented
-memory_read_context_frame.denied implemented
-memory_read_session_summary.completed implemented
-memory_read_session_summary.denied implemented
-memory_search_sessions.completed implemented
-memory_search_sessions.denied implemented
+session_read_context_frame.completed implemented
+session_read_context_frame.denied implemented
+session_read_summary.completed implemented
+session_read_summary.denied implemented
+session_search.completed implemented
+session_search.denied implemented
 message.completed implemented
 message.created implemented
 message.deleted implemented
@@ -3169,7 +3169,7 @@ behavior above, not drift**.
 - User questions `/v1/sessions/{id}/questions*` (§6.23)
 - Turn retry/attempts `/v1/sessions/{id}/attempts`, `.../retry` (§6.24)
 - Context frames/policy/state `/v1/sessions/{id}/context/frames*`, `/context/policy`, `/context/state`, `/context/compact` (§6.9)
-- Memory search/events/tools `/v1/memory/search`, `/v1/sessions/{id}/memory/*` (§6.19)
+- Memory search/events/tools `/v1/session-recall/search`, `/v1/sessions/{id}/memory/*` (§6.19)
 - Capability gaps `/v1/capability-gaps` (§3.3.1)
 - Scheduled sessions + sharing (§6.15, §6.15b)
 - `DELETE /v1/messages/{id}` session-less alias (§6.3)

@@ -283,7 +283,7 @@ describe('ClioRepository session operation contracts', () => {
               session_id: 'sess 1',
               tools: [
                 {
-                  name: 'memory_search_sessions',
+                  name: 'session_search',
                   title: 'Search memory',
                   source: 'native',
                   representation: 'row',
@@ -307,7 +307,7 @@ describe('ClioRepository session operation contracts', () => {
       recordedAt: '2026-09-10T11:53:16-05:00',
       tools: [
         {
-          name: 'memory_search_sessions',
+          name: 'session_search',
           title: 'Search memory',
           source: 'native',
           representation: 'row',

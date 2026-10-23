@@ -58,8 +58,8 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
 }
 
 function injectionLabel(source: string): string {
-  if (['task_completion', 'task_results', 'memory_search'].includes(source))
-    return 'received results';
+  if (['task_completion', 'task_results'].includes(source)) return 'received results';
+  if (source === 'memory') return 'received memory';
   if (source === 'goal_judgment') return 'received goal judgment';
   if (source === 'loop_wake') return 'received loop wake';
   if (source === 'scheduled_wake') return 'received scheduled wake';

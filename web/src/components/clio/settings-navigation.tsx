@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { ApplicationDestination } from '@/lib/application-destinations';
 import { Link } from 'react-router-dom';
 import { ChevronDownIcon, ChevronLeftIcon, SearchIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,11 +20,14 @@ export function SettingsNavigation({
   section,
   endpoint,
   workspaceRoute,
+  badges = {},
 }: {
   sections: SettingsDestination[];
   section: string;
   endpoint: string;
   workspaceRoute: string;
+  /** Items waiting on a section (e.g. memory changes to review), shown as a count. */
+  badges?: Record<string, { count: number; label: string }>;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const openingSearch = useRef(false);
@@ -103,6 +107,7 @@ export function SettingsNavigation({
                       >
                         <Icon aria-hidden="true" />
                         {label}
+                        <NavBadge badge={badges[id]} />
                       </Link>
                     </DropdownMenuItem>
                   ))}
@@ -150,6 +155,7 @@ export function SettingsNavigation({
                   >
                     <Icon aria-hidden="true" className="size-3.5 shrink-0" />
                     <span className="truncate">{label}</span>
+                    <NavBadge badge={badges[id]} />
                   </Link>
                 </Button>
               ))}
@@ -162,5 +168,14 @@ export function SettingsNavigation({
         ) : null}
       </nav>
     </aside>
+  );
+}
+
+function NavBadge({ badge }: { badge?: { count: number; label: string } }) {
+  if (!badge?.count) return null;
+  return (
+    <Badge aria-label={badge.label} className="ml-auto h-5 min-w-5 px-1.5 tabular-nums">
+      {badge.count}
+    </Badge>
   );
 }
