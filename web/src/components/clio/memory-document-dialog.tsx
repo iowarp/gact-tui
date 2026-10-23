@@ -25,10 +25,12 @@ function FactRow({
   document,
   fact,
   sessionHref,
+  onRemoved,
 }: {
   document: MemoryDocument;
   fact: MemoryFact;
   sessionHref: SessionHref;
+  onRemoved: () => void;
 }) {
   const repository = useRepository();
   const client = useQueryClient();
@@ -49,9 +51,12 @@ function FactRow({
   });
   const forget = useMutation({
     mutationFn: () => repository.forgetMemoryFact(document.name, fact.id, document.sha),
-    onSuccess: () => {
+    onSuccess: (result) => {
       refresh();
-      toast.success('Fact forgotten');
+      if ('removed' in result) {
+        toast.success('Forgotten. That was its last fact, so the document is gone too.');
+        onRemoved();
+      } else toast.success('Fact forgotten');
     },
   });
   return (
@@ -165,6 +170,7 @@ export function MemoryDocumentDialog({
                     document={document.data}
                     fact={fact}
                     key={fact.id}
+                    onRemoved={() => onOpenChange(false)}
                     sessionHref={sessionHref}
                   />
                 ))}

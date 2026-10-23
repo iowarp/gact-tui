@@ -14,6 +14,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
@@ -71,26 +81,46 @@ function DocumentActions({
     onError: (error) => toast.error(error.message),
   });
   const exportOne = useMutation({
-    mutationFn: () => repository.exportMemory(document.name),
+    mutationFn: () => repository.exportMemory({ name: document.name }),
     onSuccess: (bytes) => saveArchive(bytes, document.name),
     onError: (error) => toast.error(error.message),
   });
+  const [confirming, setConfirming] = useState(false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button aria-label={`Actions for ${document.slug}`} size="icon" variant="ghost">
-          <MoreIcon aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={onOpen}>Open</DropdownMenuItem>
-        <DropdownMenuItem onSelect={onHistory}>History</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => exportOne.mutate()}>Export</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => remove.mutate()} variant="destructive">
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button aria-label={`Actions for ${document.slug}`} size="icon" variant="ghost">
+            <MoreIcon aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onOpen}>Open</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onHistory}>History</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => exportOne.mutate()}>Export</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setConfirming(true)} variant="destructive">
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialog onOpenChange={setConfirming} open={confirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {document.slug}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The agent forgets its {document.facts.filter((fact) => fact.live).length} facts and
+              will not learn them again from past conversations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction onClick={() => remove.mutate()} variant="destructive">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -193,7 +223,7 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
   const exportAll = useMutation({
-    mutationFn: () => repository.exportMemory('all'),
+    mutationFn: () => repository.exportMemory({ scope: 'all' }),
     onSuccess: (bytes) => saveArchive(bytes, 'all'),
     onError: (error) => toast.error(error.message),
   });

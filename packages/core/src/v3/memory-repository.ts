@@ -173,12 +173,23 @@ export class MemoryRepository extends ResponseFeedbackRepository {
     });
   }
 
+  /** Forget a fact and the earlier values it replaced; its last fact removes the document. */
   public forgetMemoryFact(name: string, factId: string, expectedSha: string, signal?: AbortSignal) {
     return this.transport.request({
       method: 'DELETE',
       path: `${documentPath(name)}/facts/${encodeURIComponent(factId)}?${new URLSearchParams({ expected_sha: expectedSha })}`,
       signal,
-      decode: (value) => memoryDocumentSchema.parse(value),
+      decode: (value) =>
+        z
+          .union([
+            z.object({
+              name: z.string(),
+              removed: z.literal(true),
+              forgotten: z.array(z.string()),
+            }),
+            memoryDocumentSchema.extend({ forgotten: z.array(z.string()) }),
+          ])
+          .parse(value),
     });
   }
 
@@ -220,10 +231,15 @@ export class MemoryRepository extends ResponseFeedbackRepository {
     });
   }
 
-  public exportMemory(scope = 'all', signal?: AbortSignal): Promise<Uint8Array> {
+  /** An export of a scope (`all`, `user`, `project/<id>`), or of one document by `name`. */
+  public exportMemory(
+    target: { scope?: string; name?: string } = {},
+    signal?: AbortSignal,
+  ): Promise<Uint8Array> {
+    const query = target.name ? { name: target.name } : { scope: target.scope ?? 'all' };
     return this.transport.request({
       method: 'GET',
-      path: `/v1/memory/export?${new URLSearchParams({ scope })}`,
+      path: `/v1/memory/export?${new URLSearchParams(query)}`,
       responseType: 'bytes',
       signal,
       decode: (value) => value as Uint8Array,
