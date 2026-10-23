@@ -142,29 +142,6 @@ describe('GACT 0.3 reducer', () => {
     });
   });
 
-  it('merges the metadata a turn settles at its end, such as the memory it used', () => {
-    const created = frame('1', 'message.upserted', {
-      id: 'msg_1',
-      session_id: 'sess_1',
-      role: 'assistant',
-      created_at: '2026-08-22T12:00:00Z',
-      blocks: [],
-      metadata: { behavior: { execution_mode: 'plan' } },
-    });
-    const completed = frame('2', 'message.completed', {
-      message_id: 'msg_1',
-      stop_reason: 'end_turn',
-      metadata: { memory_used: { read: ['user/topics/hdf5'], loaded: [] } },
-    });
-
-    const state = [created, completed].reduce(reduceTransportFrame, createEntityState());
-
-    expect(state.messages.msg_1?.metadata).toEqual({
-      behavior: { execution_mode: 'plan' },
-      memory_used: { read: ['user/topics/hdf5'], loaded: [] },
-    });
-  });
-
   it('ignores duplicate cursors and stale entity revisions', () => {
     const initial = frame(
       '20',

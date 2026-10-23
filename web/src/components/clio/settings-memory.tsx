@@ -86,6 +86,7 @@ function DocumentActions({
     onError: (error) => toast.error(error.message),
   });
   const [confirming, setConfirming] = useState(false);
+  const live = document.facts.filter((fact) => fact.live).length;
   return (
     <>
       <DropdownMenu>
@@ -108,8 +109,9 @@ function DocumentActions({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {document.slug}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The agent forgets its {document.facts.filter((fact) => fact.live).length} facts and
-              will not learn them again from past conversations.
+              {live === 1
+                ? 'The agent forgets its fact and will not learn it again from past conversations.'
+                : `The agent forgets its ${live} facts and will not learn them again from past conversations.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
