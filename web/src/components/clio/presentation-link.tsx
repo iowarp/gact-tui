@@ -129,7 +129,7 @@ export function PresentationLink({
       <Link
         className={cn(className, 'underline')}
         aria-label={iconOnly ? `Open ${label} in memory` : undefined}
-        to={`/settings/memory?${new URLSearchParams({ doc: uri })}`}
+        to={`/settings/memory?${memoryLinkParams(uri)}`}
       >
         {text}
       </Link>,
@@ -140,4 +140,10 @@ export function PresentationLink({
       {text}
     </span>,
   );
+}
+
+/** ``<document>#<fact id>`` opens the memory page on that fact; a bare name on the document. */
+function memoryLinkParams(uri: string): URLSearchParams {
+  const [doc = uri, fact] = uri.split('#', 2);
+  return new URLSearchParams(fact ? { doc, fact } : { doc });
 }

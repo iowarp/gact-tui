@@ -2,7 +2,7 @@ import type { MemoryDocument, MemoryFact, MemoryVersion } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckIcon, HistoryIcon } from 'lucide-react';
 import { CloseIcon, DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
+import { cn } from '@/lib/utils';
 import { MemorySourceIcon } from './memory-source';
 
 type SessionHref = (sessionId: string) => string | undefined;
@@ -26,12 +27,19 @@ function FactRow({
   fact,
   sessionHref,
   onRemoved,
+  highlighted = false,
 }: {
   document: MemoryDocument;
   fact: MemoryFact;
   sessionHref: SessionHref;
   onRemoved: () => void;
+  /** Opened from a conversation's memory notice: scrolled to and marked. */
+  highlighted?: boolean;
 }) {
+  const row = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (highlighted) row.current?.scrollIntoView?.({ block: 'center' });
+  }, [highlighted]);
   const repository = useRepository();
   const client = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -60,7 +68,14 @@ function FactRow({
     },
   });
   return (
-    <li className="flex items-start gap-2 py-1.5">
+    <li
+      aria-current={highlighted ? 'true' : undefined}
+      className={cn(
+        'flex items-start gap-2 py-1.5',
+        highlighted && '-mx-2 rounded-md bg-accent px-2 ring-1 ring-primary/60',
+      )}
+      ref={row}
+    >
       <MemorySourceIcon fact={fact} sessionHref={sessionHref(fact.session)} />
       {editing ? (
         <form
@@ -125,11 +140,14 @@ export function MemoryDocumentDialog({
   open,
   onOpenChange,
   sessionHref,
+  highlight = '',
 }: {
   name: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionHref: SessionHref;
+  /** A fact id to scroll to and mark (from a memory notice's "Edit in memory"). */
+  highlight?: string;
 }) {
   const repository = useRepository();
   const document = useQuery({
@@ -169,6 +187,7 @@ export function MemoryDocumentDialog({
                   <FactRow
                     document={document.data}
                     fact={fact}
+                    highlighted={fact.id === highlight}
                     key={fact.id}
                     onRemoved={() => onOpenChange(false)}
                     sessionHref={sessionHref}

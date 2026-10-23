@@ -25,6 +25,25 @@ describe('presentation navigation', () => {
     expect(screen.queryByRole('link')).toBeNull();
     expect(screen.queryByRole('button')).toBeNull();
   });
+  it('opens the memory page on the fact a memory notice names', () => {
+    render(
+      <MemoryRouter>
+        <PresentationLink
+          block={{
+            id: 'memory',
+            type: 'link',
+            target: 'memory',
+            uri: 'user/preferences/preferences#f42z3al',
+            label: 'Edit in memory',
+          }}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'Edit in memory' })).toHaveAttribute(
+      'href',
+      '/settings/memory?doc=user%2Fpreferences%2Fpreferences&fact=f42z3al',
+    );
+  });
   it('preserves normal session navigation when the live router is present', () => {
     render(
       <MemoryRouter initialEntries={['/workspaces/work/sessions/current']}>

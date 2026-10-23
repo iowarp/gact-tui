@@ -160,6 +160,16 @@ describe('memory page', () => {
     expect(repository.acceptMemoryProposal.mock.calls[0]?.slice(0, 2)).toEqual(['mp_1', undefined]);
   });
 
+  it('marks the fact named in the address, as a memory notice opens it', async () => {
+    renderPage(
+      <MemorySettings />,
+      `/settings/memory?doc=${encodeURIComponent(document.name)}&fact=${fact.id}`,
+    );
+    const dialog = await screen.findByRole('dialog');
+    const row = (await within(dialog).findByText(fact.text)).closest('li');
+    expect(row).toHaveAttribute('aria-current', 'true');
+  });
+
   it('opens the document named in the address and hides past-session search when off', async () => {
     renderPage(<MemorySettings />, `/settings/memory?doc=${encodeURIComponent(document.name)}`);
     const dialog = await screen.findByRole('dialog');

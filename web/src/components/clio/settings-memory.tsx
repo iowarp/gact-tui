@@ -202,6 +202,7 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
       const next = new URLSearchParams(current);
       if (name) next.set('doc', name);
       else next.delete('doc');
+      next.delete('fact');
       return next;
     });
   const summary = useQuery({
@@ -335,6 +336,7 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
       ) : null}
       {opened ? (
         <MemoryDocumentDialog
+          highlight={params.get('fact') ?? ''}
           name={opened}
           onOpenChange={(next) => (next ? undefined : open(''))}
           open
