@@ -31,6 +31,7 @@ export * from './execution-provenance-schemas.js';
 export * from './event-types.js';
 export * from './document-repository.js';
 export * from './mcp-repository.js';
+export * from './fleet-repository.js';
 export * from './prompt-repository.js';
 export * from './provider-repository.js';
 export * from './provider-components.js';

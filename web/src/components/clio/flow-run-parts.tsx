@@ -1,4 +1,4 @@
-import type { FlowOutcome, FlowRun, WorkflowView } from '@clio/core/v3';
+import type { FlowOutcome, FlowRun, FlowRunUsage, WorkflowView } from '@clio/core/v3';
 import { ChevronRightIcon, CopyIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useState, type ReactNode } from 'react';
@@ -19,6 +19,7 @@ import {
   type FlowTone,
   type FlowVerdict,
 } from './flow-run-presentation';
+import { callModel } from '@/lib/flow-run-usage';
 import { FlowName } from './flow-name';
 import type { FlowPick } from './flow-railroad';
 import { ClioStatus } from './status';
@@ -102,11 +103,14 @@ export function FlowPickDetails({
   pick,
   elapsed,
   flows,
+  usage,
   onOpenHandle,
   onClose,
 }: {
   pick: FlowPick;
   elapsed: ReadonlyMap<string, number>;
+  /** The run's usage, for the model each call's child runs on. */
+  usage?: FlowRunUsage;
   /** What each flow the agent can run is, so a flow's name opens it. */
   flows?: ReadonlyMap<string, FlowInfo>;
   onOpenHandle: (handle: string) => void;
@@ -133,6 +137,7 @@ export function FlowPickDetails({
         elapsed={elapsed.get(pick.member.key)}
         flows={flows}
         member={pick.member}
+        model={callModel(usage, pick.member.handle)}
         onClose={onClose}
         onOpenHandle={onOpenHandle}
       />
@@ -169,6 +174,9 @@ export function FlowPickDetails({
       <Fact label="Waits on">
         {step.after.length ? step.after.join(', ') : 'nothing; starts first'}
       </Fact>
+      {callModel(usage, step.handle) ? (
+        <Fact label="Model">{callModel(usage, step.handle)}</Fact>
+      ) : null}
       {step.attempts > 1 ? <Fact label="Attempts">{step.attempts}</Fact> : null}
       {step.addedBy ? (
         <Fact label={step.kind === 'proposal' ? 'Proposed by' : 'Added by'}>
@@ -252,10 +260,12 @@ function MemberDetails({
   member,
   elapsed,
   flows,
+  model,
   onOpenHandle,
   onClose,
 }: {
   member: FlowMember;
+  model?: string;
   elapsed?: number;
   flows?: ReadonlyMap<string, FlowInfo>;
   onOpenHandle: (handle: string) => void;
@@ -276,6 +286,7 @@ function MemberDetails({
       <Fact label="Runs">
         <FlowName info={flows?.get(member.target)} name={member.targetLabel} />
       </Fact>
+      {model ? <Fact label="Model">{model}</Fact> : null}
       {member.perspective ? <Fact label="Asked to answer as">{member.perspective}</Fact> : null}
       <div className="grid min-w-0 gap-1">
         <p className="text-muted-foreground">Answer</p>

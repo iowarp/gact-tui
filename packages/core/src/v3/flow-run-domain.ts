@@ -128,9 +128,52 @@ export const flowRunSchema = z.object({
     })
     .nullable(),
   result: z.unknown().optional(),
+  /** Which models the run used, with token shares, account windows and each call's model. */
+  usage: z
+    .object({
+      models: z
+        .array(
+          z.object({
+            model: z.string(),
+            tokens: z.number(),
+            share: z.number(),
+            cost_usd: z.number(),
+          }),
+        )
+        .default([]),
+      windows: z
+        .array(
+          z.object({
+            account: z.string(),
+            label: z.string().default(''),
+            window: z.string(),
+            used_percent: z.number(),
+          }),
+        )
+        .default([]),
+      calls: z
+        .record(
+          z.string(),
+          z.object({
+            model: z.string().default(''),
+            choice: z
+              .object({
+                asked: z.string().default(''),
+                source: z.string().default(''),
+                reasons: z.array(z.string()).default([]),
+              })
+              .passthrough()
+              .nullable()
+              .default(null),
+          }),
+        )
+        .default({}),
+    })
+    .optional(),
 });
 
 export type FlowRun = z.infer<typeof flowRunSchema>;
+export type FlowRunUsage = NonNullable<FlowRun['usage']>;
 
 /** A run is live until it completes or ends on a typed outcome. */
 export function flowRunActive(run: Pick<FlowRun, 'status'>): boolean {

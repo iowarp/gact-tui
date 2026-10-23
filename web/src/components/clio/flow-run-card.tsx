@@ -17,6 +17,7 @@ import {
 } from '@/hooks/use-flow-presentation';
 import { FlowScript, FlowStall, FlowVerdictView } from './flow-run-parts';
 import { flowRunStatus, stepTally } from './flow-run-presentation';
+import { FlowUsageSummary } from './flow-run-usage';
 import { FlowRunDetails, FlowRunFullScreen } from './flow-run-view';
 import { FlowTrack } from './flow-track';
 import type { FlowToolDescriptor } from './flow-tool-presentation';
@@ -118,7 +119,9 @@ export function FlowRunCard({
             fontSize={12}
             onOpenHandle={openHandle}
             presentation={presentation}
+            usage={data.usage}
           />
+          <FlowUsageSummary usage={data.usage} />
           {data.outcome ? (
             <FlowStall
               cancelled={data.status === 'cancelled'}

@@ -24,6 +24,7 @@ import {
 import { flowRunStatus, stepTally } from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
 import { FlowTrack } from './flow-track';
+import { FlowUsageSummary } from './flow-run-usage';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -211,6 +212,7 @@ export function FlowRunDetails({
           </Button>
         </div>
       </div>
+      <FlowUsageSummary usage={run.usage} />
       {workflow ? <WorkflowBounds view={workflow} /> : null}
       {openError ? (
         <p className="text-sm text-destructive" role="alert">
@@ -227,6 +229,7 @@ export function FlowRunDetails({
       onOpenHandle={onOpenHandle}
       presentation={presentation}
       scale={wide ? 1.5 : 1}
+      usage={run.usage}
     />
   );
   const after = (

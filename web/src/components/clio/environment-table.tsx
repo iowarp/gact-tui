@@ -1,9 +1,9 @@
-import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { AddIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 
 type Row = { name: string; value: string };
 
@@ -132,7 +132,7 @@ export function EnvironmentTable({
                     type="button"
                     variant="ghost"
                   >
-                    <Trash2Icon aria-hidden="true" />
+                    <RemoveIcon aria-hidden="true" />
                   </Button>
                 </td>
               </tr>
@@ -148,7 +148,7 @@ export function EnvironmentTable({
           type="button"
           variant="outline"
         >
-          <PlusIcon aria-hidden="true" /> Add variable
+          <AddIcon aria-hidden="true" /> Add variable
         </Button>
       )}
     </div>

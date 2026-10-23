@@ -1,3 +1,4 @@
+import type { FlowRunUsage } from '@clio/core/v3';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { FlowPresentation } from '@/hooks/use-flow-presentation';
@@ -18,9 +19,12 @@ export function FlowTrack({
   fontSize,
   scale,
   className,
+  usage,
 }: {
   flow: string;
   presentation: FlowPresentation;
+  /** The run's usage, for the model each selected call's child runs on. */
+  usage?: FlowRunUsage;
   onOpenHandle: (handle: string) => void;
   fontSize?: number;
   scale?: number;
@@ -90,6 +94,7 @@ export function FlowTrack({
           onClose={() => setSelected(undefined)}
           onOpenHandle={onOpenHandle}
           pick={pick}
+          usage={usage}
         />
       ) : null}
     </div>

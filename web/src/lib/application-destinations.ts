@@ -8,6 +8,7 @@ import {
   CalendarClockIcon,
   CpuIcon,
   DatabaseIcon,
+  GaugeIcon,
   HeartPulseIcon,
   HistoryIcon,
   HardDriveIcon,
@@ -73,6 +74,13 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     icon: CpuIcon,
     group: 'Connections',
     keywords: 'default reasoning response parameters',
+  },
+  {
+    id: 'usage',
+    label: 'Usage',
+    icon: GaugeIcon,
+    group: 'Connections',
+    keywords: 'usage limits quota credit balance tokens cost reset subscription spend',
   },
   {
     id: 'data-sources',
