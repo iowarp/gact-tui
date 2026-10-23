@@ -45,7 +45,10 @@ afterEach(cleanup);
 
 describe('About panel version rows', () => {
   it('reports build/runtime version rows as unreported, honestly, when the connected service predates versions', async () => {
-    repository.capabilities.mockResolvedValue({ ...baseCapabilities, service: { name: 'clio-agent', version: '0.9.4' } });
+    repository.capabilities.mockResolvedValue({
+      ...baseCapabilities,
+      service: { name: 'clio-agent', version: '0.9.4' },
+    });
 
     renderAbout();
 

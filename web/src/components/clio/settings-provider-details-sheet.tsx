@@ -8,10 +8,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import {
-  providerConnectionLabel,
-  providerCredentialStateLabel,
-} from '@/lib/provider-availability';
+import { providerConnectionLabel, providerCredentialStateLabel } from '@/lib/provider-availability';
 import { formatFreshness, type ProviderGroup } from './model-picker-model';
 
 interface SettingsProviderDetailsSheetProps {
@@ -35,7 +32,10 @@ export function SettingsProviderDetailsSheet({
     ['Endpoint', catalogEntry?.endpoint || group?.endpoint || preset.api_base],
     ['Catalog health', catalogEntry?.health],
     ['Connection', catalogEntry ? providerConnectionLabel(catalogEntry.connectivity) : undefined],
-    ['Credentials', catalogEntry ? providerCredentialStateLabel(preset, catalogEntry.auth) : undefined],
+    [
+      'Credentials',
+      catalogEntry ? providerCredentialStateLabel(preset, catalogEntry.auth) : undefined,
+    ],
     ['Configuration state', preset.status],
     ['Last checked', group?.freshness ? formatFreshness(group.freshness) : undefined],
     ['Catalog source', catalogEntry?.freshness.source],
@@ -57,7 +57,9 @@ export function SettingsProviderDetailsSheet({
       <SheetContent className="w-full sm:max-w-md" data-slot="provider-details-sheet">
         <SheetHeader>
           <SheetTitle>{preset.label}: technical details</SheetTitle>
-          <SheetDescription>What the connected service last reported, for troubleshooting.</SheetDescription>
+          <SheetDescription>
+            What the connected service last reported, for troubleshooting.
+          </SheetDescription>
         </SheetHeader>
         <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 text-sm">
           {facts
