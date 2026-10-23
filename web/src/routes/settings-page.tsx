@@ -32,6 +32,7 @@ import { ScheduleSettings } from '@/components/clio/settings-schedules';
 import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
 import { RuntimeSettingsPanel } from '@/components/clio/settings-runtime';
 import { FleetSettingsPanel } from '@/components/clio/settings-fleet';
+import { UsageSettings } from '@/components/clio/settings-usage';
 import { ModelsSettings } from '@/components/clio/settings-models';
 import { ProvidersSettings } from '@/components/clio/settings-providers';
 import { DataSourceSettings } from '@/components/clio/settings-data-sources';
@@ -487,6 +488,7 @@ function SettingsSection({
   if (section === 'fleet') return <FleetSettingsPanel />;
   if (section === 'providers') return <ProvidersSettings />;
   if (section === 'models') return <ModelsSettings />;
+  if (section === 'usage') return <UsageSettings />;
   if (section === 'agents') return <AgentSettings />;
   if (section === 'plugins') return <PluginSettings />;
   if (section === 'tools') return <ToolsSettings initialWorkspaceId={workspaceId} />;

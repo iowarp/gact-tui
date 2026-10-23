@@ -2,6 +2,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { EnvironmentTable } from './environment-table';
+import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
 import { SavedMcpServices } from './settings-saved-mcp';
 import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -108,14 +109,15 @@ function parseProcessSettings(value: string): Record<string, string> {
   const settings: Record<string, string> = {};
   for (const [index, rawLine] of value.split('\n').entries()) {
     const line = rawLine.trim();
-    if (!line) continue;
+    if (!line || isEnvironmentComment(line)) continue;
     const separator = line.indexOf('=');
     if (separator < 1) {
       throw new Error(`Process setting on line ${index + 1} must use NAME=value.`);
     }
     const name = line.slice(0, separator).trim();
     const settingValue = line.slice(separator + 1).trim();
-    if (!name) throw new Error(`Process setting on line ${index + 1} needs a name.`);
+    const problem = environmentNameProblem(name);
+    if (problem) throw new Error(`Process setting "${name}" on line ${index + 1} ${problem}.`);
     settings[name] = settingValue;
   }
   return settings;
@@ -739,8 +741,8 @@ function ToolCatalogRow({ tool }: { tool: ToolCatalogItem }) {
 function catalogToolSummary(tool: ToolCatalogItem): string {
   const known: Record<string, string> = {
     fs_read_file: 'Reads a file that this workspace has granted the agent access to.',
-    fs_propose_edit: 'Prepares a reviewable file change without writing it to disk.',
-    fs_apply_edit_write: 'Applies an approved file change to the workspace.',
+    fs_write_file: 'Creates a file or replaces its content in the workspace; each change can be undone.',
+    fs_edit_file: 'Replaces exact text in a workspace file; each change can be undone.',
     shell_bash: 'Runs a command inside the workspace’s permitted folders.',
   };
   if (known[tool.name]) return known[tool.name];

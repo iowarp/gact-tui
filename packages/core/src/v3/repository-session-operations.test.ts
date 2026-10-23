@@ -159,9 +159,11 @@ describe('ClioRepository session operation contracts', () => {
       {
         diffs: [
           {
+            id: 'chg_1',
             path: 'src/analysis.py',
-            status: 'pending',
-            applied: false,
+            status: 'applied',
+            created: false,
+            undo_available: true,
             unified_diff: '@@ -1 +1 @@',
           },
         ],
@@ -228,7 +230,12 @@ describe('ClioRepository session operation contracts', () => {
       '/v1/sessions/sess%201/context/frames',
       '/v1/sessions/sess%201/async-processes',
     ]);
-    expect(diffs[0]).toMatchObject({ path: 'src/analysis.py', status: 'pending' });
+    expect(diffs[0]).toMatchObject({
+      id: 'chg_1',
+      path: 'src/analysis.py',
+      status: 'applied',
+      undo_available: true,
+    });
     expect(files[0]).toMatchObject({ display_path: 'notes.md', mode: 'pin' });
     expect(frames[0]).toMatchObject({ status: 'completed', tokens_estimated: 11 });
     expect(processes[0]).toMatchObject({

@@ -63,9 +63,8 @@ export interface WorkbenchTabContentProps {
   diffActionPending?: boolean;
   sessionView: ReactNode;
   maximized: boolean;
-  onApplyDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  onRejectDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
+  onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   onOpenTab: (tab: WorkbenchTab) => void;
   onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
   onSelectFilesPath: (tabId: string, path: string) => void;
@@ -99,9 +98,8 @@ export function WorkbenchTabContent({
   diffActionPending,
   sessionView,
   maximized,
-  onApplyDiff,
   onOpenSubagent,
-  onRejectDiff,
+  onUndoDiff,
   onOpenTab,
   onReplaceTab,
   onSelectFilesPath,
@@ -209,11 +207,10 @@ export function WorkbenchTabContent({
         <DiffCanvasView
           diff={
             tab.sessionId === sessionId
-              ? (diffs.find((candidate) => candidate.path === tab.diff.path) ?? tab.diff)
+              ? (diffs.find((candidate) => candidate.id === tab.diff.id) ?? tab.diff)
               : tab.diff
           }
           error={diffActionError}
-          onApply={(path) => onApplyDiff(tab.sessionId, tab.workspaceId, path)}
           onOpenFile={(path) =>
             onOpenTab({
               id: `workspace-file:${tab.workspaceId}:${path}`,
@@ -223,7 +220,7 @@ export function WorkbenchTabContent({
               workspaceId: tab.workspaceId,
             })
           }
-          onReject={(path) => onRejectDiff(tab.sessionId, tab.workspaceId, path)}
+          onUndo={(changeId) => onUndoDiff(tab.sessionId, tab.workspaceId, changeId)}
           pending={diffActionPending}
         />
       );

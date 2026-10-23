@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { ModelChoice } from './domain.js';
+import { modelChoiceSchema } from './schemas.js';
 
 /**
  * Shipped compatibility view of a Core task snapshot: a finite session/child
@@ -24,6 +26,7 @@ export interface AgentTaskRecord {
   created_at: string;
   updated_at: string;
   answer_excerpt: string;
+  model_choice?: ModelChoice;
 }
 
 export const agentTaskRecordSchema = z
@@ -41,6 +44,7 @@ export const agentTaskRecordSchema = z
     created_at: z.string().nullish(),
     updated_at: z.string().nullish(),
     result: z.record(z.unknown()).nullish(),
+    model_choice: modelChoiceSchema.nullish(),
   })
   .passthrough()
   .transform(
@@ -59,5 +63,6 @@ export const agentTaskRecordSchema = z
       updated_at: task.updated_at ?? '',
       answer_excerpt:
         typeof task.result?.answer_excerpt === 'string' ? task.result.answer_excerpt : '',
+      ...(task.model_choice ? { model_choice: task.model_choice } : {}),
     }),
   );

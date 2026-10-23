@@ -4,8 +4,8 @@ import { TechnicalDetails } from './technical-details';
 
 const OPERATIONS: Record<string, string> = {
   fs_read_file: 'Read file',
-  fs_propose_edit: 'Prepare a file edit for review',
-  fs_apply_edit_write: 'Write file',
+  fs_write_file: 'Write file',
+  fs_edit_file: 'Edit file',
   shell_bash: 'Run command',
   'workspace.read': 'Read file',
   'workspace.write': 'Write file',

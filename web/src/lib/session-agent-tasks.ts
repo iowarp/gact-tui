@@ -38,6 +38,7 @@ export function agentTaskToSubagent(task: AgentTaskRecord): SubagentRun {
     state: operationalRunStateSchema.parse(rawState),
     ...(summary ? { summary } : {}),
     ...(task.answer_excerpt ? { result: task.answer_excerpt } : {}),
+    ...(task.model_choice ? { model_choice: task.model_choice } : {}),
   };
 }
 
@@ -67,6 +68,7 @@ export function mergeSessionSubagents(
       title: fromLive?.title || task.title,
       state: operationalRunStateSchema.parse(task.live_state || task.status),
       task: task.description ?? fromLive?.task,
+      model_choice: task.model_choice ?? fromLive?.model_choice,
       ...(task.error_reason ? { summary: task.error_reason } : {}),
     };
   });

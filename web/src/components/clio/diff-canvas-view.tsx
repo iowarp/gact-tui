@@ -1,5 +1,5 @@
 import type { SessionDiff } from '@clio/core/v3';
-import { FileCode2Icon, FileDiffIcon } from 'lucide-react';
+import { FileCode2Icon, FileDiffIcon, Undo2Icon } from 'lucide-react';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -28,21 +28,12 @@ export interface DiffCanvasViewProps {
   diff: SessionDiff;
   error?: string;
   pending?: boolean;
-  onApply: (path: string) => Promise<unknown>;
   onOpenFile: (path: string) => void;
-  onReject: (path: string) => Promise<unknown>;
+  onUndo: (changeId: string) => Promise<unknown>;
 }
 
-/** Review surface for an authoritative server-owned file diff. */
-export function DiffCanvasView({
-  diff,
-  error,
-  pending,
-  onApply,
-  onOpenFile,
-  onReject,
-}: DiffCanvasViewProps) {
-  const reviewable = diff.status === 'pending';
+/** The record of one file change the agent made, with the person's Undo. */
+export function DiffCanvasView({ diff, error, pending, onOpenFile, onUndo }: DiffCanvasViewProps) {
   return (
     <ScrollArea className="h-full p-3">
       <div className="grid gap-3">
@@ -50,16 +41,16 @@ export function DiffCanvasView({
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <FileDiffIcon aria-hidden="true" className="size-4 text-primary" />
-              Review file change
+              {diff.created ? 'File created by the agent' : 'File changed by the agent'}
             </p>
             <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{diff.path}</p>
           </div>
-          <ClioStatus label={diffStatusLabel(diff.status)} value={diffStatusValue(diff)} />
+          <ClioStatus label={diffStatusLabel(diff)} value={diffStatusValue(diff)} />
         </div>
 
         {error ? (
           <Alert variant="destructive">
-            <AlertTitle>File change was not updated</AlertTitle>
+            <AlertTitle>The change was not undone</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
@@ -85,66 +76,54 @@ export function DiffCanvasView({
           </CodeBlockHeader>
         </CodeBlock>
 
-        {reviewable ? (
+        {diff.status === 'applied' && diff.undo_available ? (
           <div className="flex flex-wrap justify-end gap-2 border-t pt-3">
-            <DiffDecision
-              action="reject"
-              disabled={pending}
-              onConfirm={() => onReject(diff.path)}
-              path={diff.path}
-            />
-            <DiffDecision
-              action="apply"
-              disabled={pending}
-              onConfirm={() => onApply(diff.path)}
-              path={diff.path}
-            />
+            <UndoChange diff={diff} disabled={pending} onConfirm={() => onUndo(diff.id)} />
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">
-            This review is settled. The source file remains available as a separate canvas tab.
-          </p>
+          <p className="text-xs text-muted-foreground">{undoNote(diff)}</p>
         )}
       </div>
     </ScrollArea>
   );
 }
 
-function DiffDecision({
-  action,
+function UndoChange({
+  diff,
   disabled,
   onConfirm,
-  path,
 }: {
-  action: 'apply' | 'reject';
+  diff: SessionDiff;
   disabled?: boolean;
   onConfirm: () => Promise<unknown>;
-  path: string;
 }) {
-  const applying = action === 'apply';
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button disabled={disabled} variant={applying ? 'default' : 'outline'}>
-          {applying ? 'Apply change' : 'Reject change'}
+        <Button disabled={disabled} variant="outline">
+          <Undo2Icon aria-hidden="true" />
+          Undo
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{applying ? 'Apply this file change?' : 'Reject this file change?'}</AlertDialogTitle>
+          <AlertDialogTitle>Undo this file change?</AlertDialogTitle>
           <AlertDialogDescription>
-            {applying
-              ? `The service will write the reviewed change to ${path} through the workspace permission boundary.`
-              : `The proposed change to ${path} will be marked rejected and will not be written.`}
+            {diff.created
+              ? `The service will delete ${diff.path}, which the agent created.`
+              : `The service will put ${diff.path} back as it was before this change.`}{' '}
+            It refuses if the file changed after the agent wrote it.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Keep reviewing</AlertDialogCancel>
+          <AlertDialogCancel>Keep the change</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => void onConfirm()}
-            variant={applying ? 'default' : 'destructive'}
+            // A refusal is shown in the "The change was not undone" alert, from the
+            // undo mutation's error state; the rejected promise needs no second report.
+            onClick={() => void onConfirm().catch(() => undefined)}
+            variant="destructive"
           >
-            {applying ? 'Apply change' : 'Reject change'}
+            Undo
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -152,13 +131,28 @@ function DiffDecision({
   );
 }
 
-function diffStatusValue(diff: SessionDiff): 'pending' | 'succeeded' | 'cancelled' | 'failed' {
-  if (diff.applied || diff.status === 'applied') return 'succeeded';
-  if (diff.status === 'rejected') return 'cancelled';
-  if (diff.status === 'pending') return 'pending';
-  return 'failed';
+const UNDO_UNAVAILABLE_NOTES: Record<string, string> = {
+  previous_content_too_large: 'Undo is not available: the file was over 256 KiB before this change.',
+  previous_content_not_text: 'Undo is not available: the file was not UTF-8 text before this change.',
+  previous_content_unreadable: 'Undo is not available: the file could not be read before this change.',
+  file_changed_before_write:
+    'Undo is not available: the file changed while the write waited for approval.',
+  previous_content_not_captured: 'Undo is not available: the previous content was not captured.',
+  not_on_server_record:
+    'Undo is not available: this change is no longer on the service record (for example, after a restart).',
+};
+
+function undoNote(diff: SessionDiff): string {
+  if (diff.status === 'reverted') return 'This change was undone.';
+  const reason = diff.undo_unavailable_reason ?? '';
+  return UNDO_UNAVAILABLE_NOTES[reason] ?? `Undo is not available${reason ? ` (${reason})` : ''}.`;
 }
 
-function diffStatusLabel(status: string): string {
-  return status.replaceAll('_', ' ').replace(/\b\w/gu, (letter) => letter.toUpperCase());
+function diffStatusValue(diff: SessionDiff): 'succeeded' | 'cancelled' {
+  return diff.status === 'reverted' ? 'cancelled' : 'succeeded';
+}
+
+function diffStatusLabel(diff: SessionDiff): string {
+  if (diff.status === 'reverted') return 'Undone';
+  return diff.created ? 'Created' : 'Changed';
 }

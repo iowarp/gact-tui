@@ -44,6 +44,7 @@ import {
 import { Accordion } from '@/components/ui/accordion';
 import { useEvidenceSections } from '@/hooks/use-evidence-disclosures';
 import { EvidenceSection } from './observability-evidence-section';
+import { EvidenceRecord } from './observability-evidence-record';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -63,7 +64,7 @@ import {
   type EvidenceFile,
   type EvidencePlan,
 } from './session-evidence-projection';
-import { ClioStatus, type ClioStatusValue } from './status';
+import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 import { AsyncTaskList, type TaskPageControls } from './async-task-list';
@@ -129,7 +130,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
     ? sessionFiles(props.contextFiles, props.tools ?? [], props.executionProvenance)
     : [];
   const diffs = showData
-    ? sessionDiffs(props.diffs, props.tools ?? [], props.executionProvenance)
+    ? sessionDiffs(props.diffs, props.tools ?? [])
     : [];
   const plans = showActivity
     ? sessionPlans(props.messages, props.interactions ?? [], props.artifacts)
@@ -236,7 +237,13 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             value="child-agents"
             count={separateSubagents.length}
           >
-            <SubagentEvidence onOpenSubagent={props.onOpenSubagent} subagents={separateSubagents} />
+            <SubagentEvidence
+              onOpenSubagent={props.onOpenSubagent}
+              subagents={separateSubagents}
+              listedWithTasks={Boolean(
+                taskSubagents.length || props.workPages?.hasMore || props.workPages?.history,
+              )}
+            />
           </EvidenceSection>
         ) : null}
         {tools.length ? (
@@ -362,14 +369,19 @@ function TaskEvidence({ tasks }: { tasks: readonly Task[] }) {
 function SubagentEvidence({
   onOpenSubagent,
   subagents,
+  listedWithTasks,
 }: {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: readonly SubagentRun[];
+  /** Child agents that have a task row are shown there, not here. */
+  listedWithTasks: boolean;
 }) {
   if (!subagents.length) {
     return (
       <p className="px-2 py-1 text-xs text-muted-foreground">
-        No child agents in this session yet.
+        {listedWithTasks
+          ? 'Child agents are listed with their tasks under Background tasks; finished ones under Show completed work.'
+          : 'No child agents in this session yet.'}
       </p>
     );
   }
@@ -456,35 +468,6 @@ function ToolEvidence({ tools }: { tools: readonly ToolInvocation[] }) {
   );
 }
 
-function EvidenceRecord({
-  detail,
-  icon: Icon,
-  label,
-  state,
-}: {
-  detail?: string;
-  icon: typeof ActivityIcon;
-  label: string;
-  state: ClioStatusValue;
-}) {
-  return (
-    <div className="flex min-w-0 items-start gap-3">
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
-            {label}
-          </p>
-          <ClioStatus className="shrink-0 py-0.5" value={state} />
-        </div>
-        {detail ? (
-          <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{detail}</p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 function DiffEvidence({
   diffs,
   onOpenDiff,
@@ -498,7 +481,7 @@ function DiffEvidence({
   return diffs.map((diff) => (
     <CodeBlock
       code={diff.unified_diff || 'Diff content unavailable.'}
-      key={diff.path}
+      key={diff.id}
       language="diff"
     >
       <CodeBlockHeader>
@@ -510,10 +493,10 @@ function DiffEvidence({
         <CodeBlockActions>
           {onOpenDiff ? (
             <Button
-              aria-label={`Review diff for ${diff.path} in canvas`}
+              aria-label={`Open the change to ${diff.path} in canvas`}
               onClick={() => onOpenDiff(diff)}
               size="icon-xs"
-              title="Open review tab"
+              title="Open change tab"
               variant="ghost"
             >
               <PanelsTopLeftIcon aria-hidden="true" />

@@ -599,8 +599,8 @@ export function WorkspacePage() {
               artifactsError={sessionArtifacts.error?.message}
               artifactsPending={sessionArtifacts.isPending}
               artifactsTruncated={sessionArtifacts.data?.truncated}
-              diffActionError={(diffActions.apply.error ?? diffActions.reject.error)?.message}
-              diffActionPending={diffActions.apply.isPending || diffActions.reject.isPending}
+              diffActionError={diffActions.undo.error?.message}
+              diffActionPending={diffActions.undo.isPending}
               diffs={sessionObservability.diffs.data ?? []}
               files={workspaceFiles.data?.entries ?? []}
               filesError={workspaceFiles.error?.message}
@@ -613,21 +613,14 @@ export function WorkspacePage() {
               resources={workspaceResources.data ?? []}
               resourcesError={workspaceResources.error?.message}
               resourcesPending={workspaceResources.isPending}
-              onApplyDiff={(targetSessionId, targetWorkspaceId, path) =>
-                diffActions.apply.mutateAsync({
-                  sessionId: targetSessionId,
-                  workspaceId: targetWorkspaceId,
-                  path,
-                })
-              }
               onOpenTerminal={terminalActions.onOpenTerminal}
               onOpenSubagent={openSubagent}
               subagents={subagents}
-              onRejectDiff={(targetSessionId, targetWorkspaceId, path) =>
-                diffActions.reject.mutateAsync({
+              onUndoDiff={(targetSessionId, targetWorkspaceId, changeId) =>
+                diffActions.undo.mutateAsync({
                   sessionId: targetSessionId,
                   workspaceId: targetWorkspaceId,
-                  path,
+                  changeId,
                 })
               }
               key={settings.endpoint}

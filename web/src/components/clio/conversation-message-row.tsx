@@ -35,6 +35,8 @@ import { ClioCompactionProgress } from './conversation-summarization';
 import { useConversationTurn } from './use-conversation-turn';
 import { useMessageAttentionIndex } from './use-message-attention-index';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
+import { turnModelExhausted } from '@/lib/turn-model-exhausted';
+import { TurnModelExhausted } from './turn-model-exhausted';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
@@ -86,6 +88,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     emptyResponseErrorCode === 'cancelled' ||
     emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
   const signInProvider = turnSignInProvider(message.error_info);
+  const modelExhausted = turnModelExhausted(message.error_info);
   const canRetry =
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
@@ -374,6 +377,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                           <TurnProviderSignIn
                             providerId={signInProvider.id}
                             providerLabel={signInProvider.label}
+                          />
+                        ) : null}
+                        {modelExhausted ? (
+                          <TurnModelExhausted
+                            exhausted={modelExhausted}
+                            messageId={message.id}
+                            sessionId={message.session_id}
                           />
                         ) : null}
                       </AlertDescription>

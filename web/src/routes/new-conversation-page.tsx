@@ -243,14 +243,11 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               Session activity appears after you send your first message.
             </p>
           }
-          onApplyDiff={(sessionId, workspaceId, path) =>
-            diffActions.apply.mutateAsync({ sessionId, workspaceId, path })
+          onUndoDiff={(sessionId, workspaceId, changeId) =>
+            diffActions.undo.mutateAsync({ sessionId, workspaceId, changeId })
           }
-          onRejectDiff={(sessionId, workspaceId, path) =>
-            diffActions.reject.mutateAsync({ sessionId, workspaceId, path })
-          }
-          diffActionError={(diffActions.apply.error ?? diffActions.reject.error)?.message}
-          diffActionPending={diffActions.apply.isPending || diffActions.reject.isPending}
+          diffActionError={diffActions.undo.error?.message}
+          diffActionPending={diffActions.undo.isPending}
           onOpenSubagent={openSubagent}
           onOpenTerminal={terminalActions.onOpenTerminal}
           requestedOpen={activeRequest}

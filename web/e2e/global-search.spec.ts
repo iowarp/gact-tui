@@ -29,14 +29,21 @@ test('global search applies themes from Settings and opens settings, hosts and e
 }) => {
   await installSearchFixture(page, endpoint);
   const reviewer = {
+    ref: 'user/global-reviewer',
     id: 'global-reviewer',
-    title: 'Global Search Reviewer',
+    name: 'Global Search Reviewer',
     description: 'Review global search evidence.',
-    source: 'user',
-    enabled: true,
-    keywords: ['search-proof'],
+    role: 'search-proof reviewer',
+    kind: 'user',
   };
   await page.route('**/v1/agents', (route) => route.fulfill({ json: { agents: [reviewer] } }));
+  // Agents are listed only on a service that composes them from plugins.
+  await page.route('**/v1/capabilities', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.capabilities = { ...body.capabilities, x_clio_agent_plugins: true };
+    await route.fulfill({ response, json: body });
+  });
   await page.goto('/settings/appearance');
   await page.getByRole('button', { name: 'Search everywhere', exact: true }).click();
   const input = page.getByPlaceholder(placeholder);
@@ -61,8 +68,8 @@ test('global search applies themes from Settings and opens settings, hosts and e
   await page.keyboard.press('Control+k');
   await input.fill('search-proof');
   await page.getByRole('option', { name: /Global Search Reviewer/u }).click();
-  await expect(page).toHaveURL(/\/settings\/agents#agent-global-reviewer$/u);
-  await expect(page.locator('[id="agent-global-reviewer"]')).toBeFocused();
+  await expect(page).toHaveURL(/\/settings\/agents#agent-user%2Fglobal-reviewer$/u);
+  await expect(page.locator('[id="agent-user%2Fglobal-reviewer"]')).toBeFocused();
 });
 
 test('a file found from Settings opens in the remembered workspace canvas', async ({ page }) => {

@@ -33,6 +33,7 @@ export type ClioQueryNamespace =
   | 'mcp-configuration'
   | 'mcp-server-inventory'
   | 'mcp-configurations'
+  | 'fleet'
   | 'mcp-servers'
   | 'memory-events'
   | 'session-recall-search'

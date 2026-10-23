@@ -32,6 +32,7 @@ import {
 import { ComposerSubmitControls } from './composer-submit-controls';
 import { composerDelivery } from '@/hooks/use-composer-delivery';
 import { ClioModelPicker } from './model-picker';
+import { ModelFitNotice } from './model-fit-notice';
 import { useComposerModelSelection } from './use-composer-model-selection';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { cn } from '@/lib/utils';
@@ -638,6 +639,13 @@ export function ClioComposer({
               ? `${Math.round((uploadProgress.loaded / uploadProgress.total) * 100)}%`
               : ''}
           </div>
+        ) : null}
+        {sessionId ? (
+          <ModelFitNotice
+            modelId={selectedOption?.id}
+            providerId={selectedOption?.providerId}
+            sessionId={sessionId}
+          />
         ) : null}
         <ClioComposerAnnotations
           annotations={annotations.filter((annotation) => annotation.kind !== 'region-capture')}

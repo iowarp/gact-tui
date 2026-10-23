@@ -281,6 +281,15 @@ export interface Task {
   detail?: string;
 }
 
+/** The model a child session runs on and why (the server's `model_choice`). */
+export interface ModelChoice {
+  asked: string;
+  ran: { provider_id?: string; model_id?: string };
+  source: string;
+  reasons: string[];
+  effort: string;
+}
+
 export interface SubagentRun {
   id: string;
   session_id: string;
@@ -293,6 +302,7 @@ export interface SubagentRun {
   task?: string;
   result?: string;
   duration_ms?: number;
+  model_choice?: ModelChoice;
   origin?: {
     kind: 'skill';
     name: string;
@@ -435,13 +445,29 @@ export interface WorkspaceFileListing {
   next_offset?: number | null;
 }
 
+/**
+ * One file the agent changed (``fs_write_file`` / ``fs_edit_file``), as the
+ * session's change ledger records it. ``status`` is ``applied`` until the
+ * person's Undo (``POST /v1/sessions/{sid}/diffs/revert``) makes it ``reverted``.
+ * ``undo_unavailable_reason`` names why Undo cannot restore it when
+ * ``undo_available`` is false.
+ */
 export interface SessionDiff {
+  id: string;
   path: string;
-  status: string;
-  applied: boolean;
+  status: 'applied' | 'reverted';
+  created: boolean;
   unified_diff?: string;
+  lines_added?: number;
+  lines_removed?: number;
+  undo_available: boolean;
+  undo_unavailable_reason?: string;
   message_id?: string;
   part_id?: string;
+  call_id?: string;
+  tool_name?: string;
+  recorded_at?: string;
+  reverted_at?: string;
 }
 
 export interface ContextFile {
@@ -522,6 +548,8 @@ export interface AsyncProcess {
   error_reason?: string;
   /** Set when the task's child conversation runs a flow (a workflow, council, arena...). */
   flow?: { id: string };
+  /** The model the child conversation runs on and why. */
+  model_choice?: ModelChoice;
   result?: {
     answer?: string;
     answer_excerpt?: string;

@@ -36,9 +36,8 @@ it.each(['desktop', 'sheet'] as const)(
           artifacts={[]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           ref={handle}
           requestedOpen={{ key: 'earlier-open', request: { kind: 'session' } }}
           sessionId="session_parent"
@@ -124,9 +123,8 @@ it.each(['desktop', 'sheet'] as const)(
         artifacts={[]}
         diffs={[]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         requestedOpen={{ key: 'session', request: { kind: 'session' } }}
         sessionId="escape_session"
         sessionView={<DiagramPreview />}
