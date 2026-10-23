@@ -58,13 +58,13 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
 }
 
 function injectionLabel(source: string): string {
-  if (['task_completion', 'task_results', 'memory_search'].includes(source))
+  if (['task_completion', 'task_result', 'task_results', 'memory_search'].includes(source))
     return 'received results';
   if (source === 'goal_judgment') return 'received goal judgment';
   if (source === 'loop_wake') return 'received loop wake';
   if (source === 'scheduled_wake') return 'received scheduled wake';
   if (source === 'summarization' || source === 'earlier_turns') return 'received context';
-  if (['plan_mode', 'todos', 'path_hint', 'replan', 'circuit_breaker'].includes(source))
+  if (['plan_mode', 'todos', 'path_hint', 'replan', 'circuit_breaker', 'tool_use'].includes(source))
     return 'received reminder';
   return 'received injection';
 }
