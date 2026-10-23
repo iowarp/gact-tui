@@ -86,6 +86,8 @@ export interface ClioWorkbenchProps {
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   subagents?: readonly SubagentRun[];
+  /** Finished child agents are not loaded yet (they sit behind Show completed work). */
+  finishedWorkHidden?: boolean;
   requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
 }
 
@@ -237,6 +239,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       onOpenSubagent,
       onUndoDiff,
       subagents = [],
+      finishedWorkHidden = false,
       requestedOpen,
     },
     ref,
@@ -598,6 +601,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               onOpenSubagent={openSubagentTab}
               onOpenTerminal={onOpenTerminal}
               subagents={subagents}
+              finishedWorkHidden={finishedWorkHidden}
             />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}

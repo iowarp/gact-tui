@@ -164,3 +164,10 @@ it('identifies streamed reasoning after a read has finished without claiming the
     ]),
   ).toEqual({ label: 'Read files, running searches', running: true });
 });
+
+it('does not say files were edited when the write was refused', () => {
+  const refused = { id: 'w', session_id: 's', name: 'fs_write_file', state: 'failed' as const };
+  const written = { ...refused, id: 'w2', state: 'succeeded' as const };
+  expect(transcriptActivitySummary([iteration([refused])]).label).toBe('Tried to edit files');
+  expect(transcriptActivitySummary([iteration([written])]).label).toBe('Edited files');
+});

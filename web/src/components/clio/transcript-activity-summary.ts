@@ -33,7 +33,11 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
     const category = activityCategory(tool);
     if (category === 'search') return active ? 'running searches' : 'searched';
     if (category === 'read') return active ? 'reading files' : 'read files';
-    if (category === 'edit') return active ? 'editing files' : 'edited files';
+    if (category === 'edit') {
+      if (active) return 'editing files';
+      // A refused or failed write changed nothing; do not say it edited.
+      return tool.state === 'succeeded' ? 'edited files' : 'tried to edit files';
+    }
     if (category === 'command') return active ? 'running commands' : 'ran commands';
     return active ? 'using tools' : 'used tools';
   };

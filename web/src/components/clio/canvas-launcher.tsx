@@ -30,12 +30,15 @@ export function CanvasLauncher({
   onOpenSubagent,
   onOpenTerminal,
   subagents = [],
+  finishedWorkHidden = false,
 }: {
   onOpen: (kind: CanvasResourceKind) => void;
   /** Opens one child agent of this session as a canvas tab beside the conversation. */
   onOpenSubagent?: (subagent: SubagentRun) => void;
   onOpenTerminal?: () => void;
   subagents?: readonly SubagentRun[];
+  /** Finished children are not loaded yet, so an empty list does not mean none ran. */
+  finishedWorkHidden?: boolean;
 }) {
   const openableSubagents = subagents.filter((subagent) => subagent.child_session_id);
   return (
@@ -94,7 +97,9 @@ export function CanvasLauncher({
         ) : (
           <DropdownMenuItem disabled>
             <BotIcon aria-hidden="true" /> Child agent
-            <span className="ml-auto text-[10px] text-muted-foreground">None yet</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {finishedWorkHidden ? 'None running' : 'None yet'}
+            </span>
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
