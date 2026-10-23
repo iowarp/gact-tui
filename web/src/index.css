@@ -734,9 +734,10 @@ html[data-clio-motion='reduced'] *::after {
   background: transparent !important;
 }
 /* A long identifier in inline code (a task handle, a path) wraps instead of
-   running past a phone-width message. */
+   running past a phone-width message; inside a table it stays whole and the
+   table scrolls in its frame. */
 [data-streamdown='inline-code'] {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 [data-diff-line='addition'] {
   background: color-mix(in srgb, var(--success) 16%, transparent);
