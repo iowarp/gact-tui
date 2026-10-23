@@ -155,4 +155,9 @@ it('names memory work so a folded turn shows that memory changed', () => {
   expect(transcriptActivitySummary([iteration([tool('c', 'forget_memory')])]).label).toBe(
     'Forgot from memory',
   );
+  const held: ToolInvocation = {
+    ...tool('d', 'create_memory'),
+    output: { tool: 'create_memory', memory: { action: 'already_remembered' } },
+  };
+  expect(transcriptActivitySummary([iteration([held])]).label).toBe('Checked memory');
 });

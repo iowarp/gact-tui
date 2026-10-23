@@ -75,6 +75,8 @@ function injectionLabel(source: string): string {
 function activityCategory(
   tool: ToolInvocation,
 ): 'search' | 'read' | 'edit' | 'command' | 'remember' | 'forget' | 'recall' | 'other' {
+  if (tool.name === 'create_memory' && memoryAction(tool.output) === 'already_remembered')
+    return 'recall';
   if (['create_memory', 'update_memory'].includes(tool.name)) return 'remember';
   if (tool.name === 'forget_memory') return 'forget';
   if (['memory_search', 'memory_read'].includes(tool.name)) return 'recall';
@@ -85,4 +87,16 @@ function activityCategory(
   if (['web_search', 'search', 'workspace_resource_search', 'fs_search'].includes(tool.name))
     return 'search';
   return 'other';
+}
+
+/** The memory notice's action in a write's result (`already_remembered`: nothing changed). */
+function memoryAction(output: unknown): string {
+  const record = (value: unknown) =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : undefined;
+  const top = record(output);
+  const result = record(top?.structuredContent) ?? record(top?.result) ?? top;
+  const action = record(result?.memory)?.action;
+  return typeof action === 'string' ? action : '';
 }
