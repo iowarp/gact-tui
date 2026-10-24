@@ -13,7 +13,7 @@ type Navigation = Pick<
   | 'onOpenFileReference'
   | 'onOpenWork'
   | 'onOpenSubagent'
-  | 'onOpenWorkflow'
+  | 'onOpenFlow'
 > &
   Partial<
     Pick<

@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { ResponseFeedbackRepository } from './response-feedback-repository.js';
+import { flowRunSchema, type FlowRun } from './flow-run-domain.js';
+import { MemoryRepository } from './memory-repository.js';
+import { TransportError } from './transport.js';
 
 const coreReferenceSchema = z.object({
   session_id: z.string(),
@@ -91,7 +93,7 @@ export type SessionCoordinationGrant = z.infer<typeof coordinationGrant>;
 export type SessionCoordinationRight = SessionCoordinationGrant['rights'][number];
 
 /** Shared task controls use their original owner and report per-handle failures. */
-export class TaskRepository extends ResponseFeedbackRepository {
+export class TaskRepository extends MemoryRepository {
   /** One paginated Core snapshot of the authenticated human's work across sessions. */
   public queryTasks(
     options: {
@@ -175,6 +177,29 @@ export class TaskRepository extends ResponseFeedbackRepository {
         z.object({ handle: z.string(), session_id: z.string(), status: z.string() }).parse(value),
       signal,
     });
+  }
+
+  /**
+   * The flow run checkpointed under a task, or `null` when that task runs no
+   * flow. A workflow run carries its live steps, proposals awaiting approval and
+   * any typed stall.
+   */
+  public async taskFlow(
+    sessionId: string,
+    handle: string,
+    signal?: AbortSignal,
+  ): Promise<FlowRun | null> {
+    try {
+      return await this.transport.request({
+        method: 'GET',
+        path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/${encodeURIComponent(handle)}/flow`,
+        decode: (value) => flowRunSchema.parse(value),
+        signal,
+      });
+    } catch (error) {
+      if (error instanceof TransportError && error.status === 404) return null;
+      throw error;
+    }
   }
 
   public async cancelTasks(

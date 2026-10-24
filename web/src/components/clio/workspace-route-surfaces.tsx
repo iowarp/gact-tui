@@ -5,13 +5,13 @@ import { forwardRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { LiveConnectionIndicator } from './live-connection-indicator';
 import { SystemVersionStatus } from './navigation-version-status';
 import { ClioStatus } from './status';
+import { SessionUsageReadout } from './session-usage-readout';
 import { SessionWorkStatus } from './session-work';
 
 /**
@@ -240,22 +240,7 @@ export function WorkspaceStatusStrip({
         <span>{activeWorkLabel}</span>
       )}
       <SystemVersionStatus />
-      <span className="ml-auto hidden font-mono sm:inline">Tokens: {tokens ?? 0}</span>
-      <span className="hidden items-center gap-1 font-mono sm:inline-flex">
-        Cost:{' '}
-        {cost === undefined ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="cursor-default text-muted-foreground/70" tabIndex={0}>
-                &mdash;
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top">This provider doesn't report cost.</TooltipContent>
-          </Tooltip>
-        ) : (
-          `$${cost.toFixed(4)}`
-        )}
-      </span>
+      <SessionUsageReadout cost={cost} sessionId={sessionId} tokens={tokens} />
     </div>
   );
 }

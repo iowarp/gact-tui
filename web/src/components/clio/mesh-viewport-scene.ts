@@ -140,6 +140,12 @@ export class MeshViewportScene {
     this.setView(this.view);
   }
 
+  /** Recolor the feature edges, e.g. after a theme change. */
+  public setEdgeColor(edgeColor: string): void {
+    this.edgeMaterial.color.set(edgeColor);
+    this.requestRender();
+  }
+
   /** Apply coloring, threshold, and frame; rebuilds the visible triangles and colors. */
   public setView(view: MeshViewState): MeshSelection | undefined {
     this.view = view;

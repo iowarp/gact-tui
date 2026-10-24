@@ -146,12 +146,12 @@ export class A2uiRepository extends PresentationRepository {
   /**
    * The client's registry source (`docs/gact/a2ui-binding.md`, S2/S6): every
    * installed catalog, with `producible`/`file`/`instructions` scoped to this
-   * session's active blueprint.
+   * session's agent.
    *
    * Decodes ROW BY ROW (`decodeA2uiCatalogRows`, S1 adversarial follow-up):
-   * one malformed row (a marketplace pack catalog with a schema drift) is
+   * one malformed row (a plugin catalog with a schema drift) is
    * recorded in `rejected` and dropped, never thrown — the two BUILTIN
-   * catalogs, and every other valid pack row, still load. Only the
+   * catalogs, and every other valid plugin row, still load. Only the
    * top-level shape itself failing to decode throws (a genuine
    * `decode_failed`, `web/src/lib/a2ui/registry-failure.ts`'s
    * classification).
@@ -171,7 +171,7 @@ export class A2uiRepository extends PresentationRepository {
   /**
    * The negotiation the server itself uses to pick a catalog
    * (`docs/gact/a2ui-binding.md`): `agent.v0.9.supportedCatalogIds` is the
-   * producible set, preference-ordered — the active blueprint's own pack
+   * producible set, preference-ordered — the session agent's plugin
    * catalogs first, then the builtins — used to order the client's own
    * `a2uiClientCapabilities` advertisement the same way.
    */

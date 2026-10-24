@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { ModelChoice } from './domain.js';
+import { modelChoiceSchema } from './schemas.js';
 
 /**
  * Shipped compatibility view of a Core task snapshot: a finite session/child
@@ -14,7 +16,6 @@ export interface AgentTaskRecord {
   child_session_id: string;
   parent_turn_id: string;
   expert_id: string;
-  blueprint_id: string;
   run_index: number;
   run_label: string;
   /** Effective status supplied by the conversation owner. */
@@ -25,6 +26,7 @@ export interface AgentTaskRecord {
   created_at: string;
   updated_at: string;
   answer_excerpt: string;
+  model_choice?: ModelChoice;
 }
 
 export const agentTaskRecordSchema = z
@@ -42,6 +44,7 @@ export const agentTaskRecordSchema = z
     created_at: z.string().nullish(),
     updated_at: z.string().nullish(),
     result: z.record(z.unknown()).nullish(),
+    model_choice: modelChoiceSchema.nullish(),
   })
   .passthrough()
   .transform(
@@ -51,8 +54,6 @@ export const agentTaskRecordSchema = z
       child_session_id: task.child_session_id,
       parent_turn_id: task.parent_turn_id ?? '',
       expert_id: typeof task.agent_ref?.expert_id === 'string' ? task.agent_ref.expert_id : '',
-      blueprint_id:
-        typeof task.agent_ref?.blueprint_id === 'string' ? task.agent_ref.blueprint_id : '',
       run_index: task.run_index ?? 0,
       run_label: task.run_label ?? '',
       status: task.status ?? '',
@@ -62,5 +63,6 @@ export const agentTaskRecordSchema = z
       updated_at: task.updated_at ?? '',
       answer_excerpt:
         typeof task.result?.answer_excerpt === 'string' ? task.result.answer_excerpt : '',
+      ...(task.model_choice ? { model_choice: task.model_choice } : {}),
     }),
   );

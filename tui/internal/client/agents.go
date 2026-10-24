@@ -12,51 +12,42 @@ func (c *Client) ListAgents(ctx context.Context) ([]gact.AgentDef, error) {
 	return c.ListAgentsScoped(ctx, RuntimeScope{})
 }
 
+// ListAgentsScoped lists the installed agents as catalog definitions: each
+// row's ID is the agent ref a session names to run it.
 func (c *Client) ListAgentsScoped(ctx context.Context, scope RuntimeScope) ([]gact.AgentDef, error) {
 	var out struct {
-		Agents []gact.AgentDef `json:"agents"`
+		Agents []gact.PluginAgent `json:"agents"`
 	}
 	q := url.Values{}
 	scope.appendTo(q)
 	err := c.do(ctx, http.MethodGet, "/v1/agents"+queryString(q), nil, &out)
+	defs := make([]gact.AgentDef, 0, len(out.Agents))
+	for _, agent := range out.Agents {
+		defs = append(defs, agent.Definition())
+	}
+	return defs, err
+}
+
+// ListPluginAgents lists installed agents and user agents on a backend that
+// composes agents from plugins (x_clio_agent_plugins): each carries the ref a
+// new session names to run it.
+func (c *Client) ListPluginAgents(ctx context.Context) ([]gact.PluginAgent, error) {
+	var out struct {
+		Agents []gact.PluginAgent `json:"agents"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/agents", nil, &out)
 	return out.Agents, err
 }
 
-// GetAgent fetches one agent definition by id (full def incl.
-// system_prompt and parameters) via /v1/agents/{id}. Used by
-// `gact agent show` for shell scripting symmetric to `gact tool show`.
-func (c *Client) GetAgent(ctx context.Context, id string) (gact.AgentDef, error) {
-	return c.GetAgentScoped(ctx, id, RuntimeScope{})
-}
-
-func (c *Client) GetAgentScoped(ctx context.Context, id string, scope RuntimeScope) (gact.AgentDef, error) {
-	var out gact.AgentDef
-	q := url.Values{}
-	scope.appendTo(q)
-	err := c.do(ctx, http.MethodGet, "/v1/agents/"+url.PathEscape(id)+queryString(q), nil, &out)
-	return out, err
-}
-
-func (c *Client) CreateAgent(ctx context.Context, agent gact.AgentDef) (gact.AgentDef, error) {
-	var out gact.AgentDef
-	err := c.do(ctx, http.MethodPost, "/v1/agents", agent, &out)
-	return out, err
-}
-
-func (c *Client) UpdateAgent(ctx context.Context, agentID string, agent gact.AgentDef) (gact.AgentDef, error) {
-	var out gact.AgentDef
-	err := c.do(ctx, http.MethodPut, "/v1/agents/"+url.PathEscape(agentID), agent, &out)
-	return out, err
-}
-
-func (c *Client) DeleteAgent(ctx context.Context, agentID string) error {
-	return c.do(ctx, http.MethodDelete, "/v1/agents/"+url.PathEscape(agentID), nil, nil)
-}
-
-func (c *Client) ExtractAgent(ctx context.Context, req gact.AgentExtractRequest) (gact.AgentDef, error) {
-	var out gact.AgentDef
-	err := c.do(ctx, http.MethodPost, "/v1/agents/extract", req, &out)
-	return out, err
+// SessionAgentSkills lists the skills the session agent's plugins bring.
+func (c *Client) SessionAgentSkills(ctx context.Context, sessionID string) ([]gact.PluginSkill, error) {
+	var out struct {
+		Resolution struct {
+			Skills []gact.PluginSkill `json:"skills"`
+		} `json:"resolution"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(sessionID)+"/agent", nil, &out)
+	return out.Resolution.Skills, err
 }
 
 func (c *Client) ListTools(ctx context.Context) ([]gact.Tool, error) {

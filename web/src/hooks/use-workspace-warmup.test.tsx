@@ -42,18 +42,18 @@ it('waits for advertised support and a resolved workspace', async () => {
   expect(mocks.warmWorkspace.mock.calls).toEqual([['ws1']]);
 });
 
-it('prepares each workspace, connection and changed blueprint independently', async () => {
+it('prepares each workspace, connection and changed agent independently', async () => {
   const { result, rerender } = renderHook(
-    ({ workspaceId, blueprint }) => useWorkspaceWarmup(workspaceId, true, blueprint),
-    { initialProps: { workspaceId: 'ws1', blueprint: 'first' }, wrapper },
+    ({ workspaceId, agent }) => useWorkspaceWarmup(workspaceId, true, agent),
+    { initialProps: { workspaceId: 'ws1', agent: 'clio/standard' }, wrapper },
   );
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
-  rerender({ workspaceId: 'ws2', blueprint: 'first' });
+  rerender({ workspaceId: 'ws2', agent: 'clio/standard' });
   await waitFor(() => expect(mocks.warmWorkspace).toHaveBeenCalledTimes(2));
   mocks.settings = { endpoint: 'https://remote.example' };
-  rerender({ workspaceId: 'ws2', blueprint: 'first' });
+  rerender({ workspaceId: 'ws2', agent: 'clio/standard' });
   await waitFor(() => expect(mocks.warmWorkspace).toHaveBeenCalledTimes(3));
-  rerender({ workspaceId: 'ws2', blueprint: 'second' });
+  rerender({ workspaceId: 'ws2', agent: 'user/mine' });
   await waitFor(() => expect(mocks.warmWorkspace).toHaveBeenCalledTimes(4));
 });
 

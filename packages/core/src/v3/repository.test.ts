@@ -153,7 +153,6 @@ describe('ClioRepository interaction contracts', () => {
 
   it('decodes service-owned administrative catalogs and diagnostics', async () => {
     const transport = new RecordingTransport([
-      { expert_packs: [] },
       { policies: [{ scope: 'workspace', action: 'allow', tool_name_pattern: '*' }] },
       { policies: [{ scope: 'workspace', action: 'ask', tool_name_pattern: 'shell_*' }] },
       { backend: 'declarative', enabled: true, hooks: [], recent_invocations: [] },
@@ -181,7 +180,6 @@ describe('ClioRepository interaction contracts', () => {
     ]);
     const repository = new ClioRepository(transport);
 
-    expect(await repository.expertPacks()).toEqual([]);
     expect((await repository.policies())[0]?.action).toBe('allow');
     await repository.updatePolicies([
       {
@@ -198,10 +196,9 @@ describe('ClioRepository interaction contracts', () => {
     expect(serviceHealth.tool_hooks_installed).toBeUndefined();
     expect((await repository.runtimeMetrics()).tokens.cache_read_total).toBe(0);
 
-    expect(transport.requests[5]?.acceptStatuses).toEqual([503]);
+    expect(transport.requests[4]?.acceptStatuses).toEqual([503]);
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
-      { method: 'GET', path: '/v1/expert-packs' },
       { method: 'GET', path: '/v1/policies' },
       { method: 'PUT', path: '/v1/policies' },
       { method: 'GET', path: '/v1/hooks' },
@@ -209,7 +206,7 @@ describe('ClioRepository interaction contracts', () => {
       { method: 'GET', path: '/v1/health' },
       { method: 'GET', path: '/v1/metrics' },
     ]);
-    expect(transport.requests[2]?.body).toEqual({
+    expect(transport.requests[1]?.body).toEqual({
       policies: [{ scope: 'workspace', action: 'ask', tool_name_pattern: 'shell_*' }],
     });
   });
@@ -254,7 +251,8 @@ describe('ClioRepository interaction contracts', () => {
       workspace_id: 'ws_1',
       title: 'Evidence review',
       pinned: true,
-      blueprint_id: 'workspace::src_lab::research',
+      agent_ref: 'user/research',
+      agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
       mode: 'plan',
       routing_mode: 'experts',
       approval_mode: 'spotter-ai',
@@ -280,7 +278,11 @@ describe('ClioRepository interaction contracts', () => {
         body: {
           workspace_id: 'ws_1',
           title: 'Evidence review',
-          metadata: { pinned: true, active_agent_blueprint_id: 'workspace::src_lab::research' },
+          metadata: {
+            pinned: true,
+            agent_ref: 'user/research',
+            agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
+          },
           mode: 'plan',
           routing_mode: 'experts',
           approval_mode: 'spotter-ai',
@@ -366,7 +368,8 @@ describe('ClioRepository interaction contracts', () => {
       edit_mode: 'diff',
       routing_mode: 'experts',
       approval_mode: 'ai-review',
-      blueprint_id: 'earthscope-review',
+      agent_ref: 'clio/earthscope-flat',
+      default_agent_ref: 'clio/standard',
     };
     const transport = new RecordingTransport([defaults, { ...defaults, mode: 'edit' }]);
     const repository = new ClioRepository(transport);

@@ -26,11 +26,13 @@ export function ToolTerminalResult({
   const renderOutput = (item: ToolPresentationBlock, text: string) => (
     <div className="min-w-0">
       {item.id !== block.id && item.detail ? (
-        <p className="border-t border-zinc-800 px-3 pt-2 text-xs text-zinc-400">{item.detail}</p>
+        <p className="border-t border-terminal-border px-3 pt-2 text-xs text-terminal-muted">
+          {item.detail}
+        </p>
       ) : null}
       <TerminalContent
         output={text}
-        className="max-h-none overflow-visible bg-zinc-950 px-3 py-2 text-zinc-100 [&>pre]:p-0"
+        className="max-h-none overflow-visible bg-terminal px-3 py-2 text-terminal-foreground [&>pre]:p-0"
       />
     </div>
   );
@@ -38,21 +40,23 @@ export function ToolTerminalResult({
     <Terminal output={block.text ?? ''} autoScroll={false} isStreaming={running}>
       {block.command ? (
         <section aria-label="Input command" data-slot="run-command">
-          <TerminalHeader className="border-b-0 px-3 py-1.5 text-xs text-zinc-400">
+          <TerminalHeader className="border-b-0 px-3 py-1.5 text-xs text-terminal-muted">
             Command
           </TerminalHeader>
           <BoundedResult lines={Math.min(lines, 3)} title="Command">
             <TerminalCommand command={block.command} className="border-b-0 px-3" />
           </BoundedResult>
-          {block.detail ? <p className="px-3 pb-2 text-xs text-zinc-400">{block.detail}</p> : null}
+          {block.detail ? (
+            <p className="px-3 pb-2 text-xs text-terminal-muted">{block.detail}</p>
+          ) : null}
         </section>
       ) : null}
       <section
         aria-label="Command output"
-        className={block.command ? 'border-t border-zinc-800' : ''}
+        className={block.command ? 'border-t border-terminal-border' : ''}
         data-slot="run-output"
       >
-        <TerminalHeader className="border-b-0 px-3 py-1.5 text-xs text-zinc-400">
+        <TerminalHeader className="border-b-0 px-3 py-1.5 text-xs text-terminal-muted">
           Output
         </TerminalHeader>
         {outputBlocks.some((item) => item.content_ref) && !running ? (
@@ -65,7 +69,9 @@ export function ToolTerminalResult({
         ) : (
           <BoundedResult lines={lines} running={running} title="Output">
             {!running && !outputBlocks.some((item) => item.text) ? (
-              <p className="px-3 py-2 text-xs text-zinc-400">No stdout or stderr was recorded.</p>
+              <p className="px-3 py-2 text-xs text-terminal-muted">
+                No stdout or stderr was recorded.
+              </p>
             ) : null}
             {outputBlocks.map((item) => (
               <div key={item.id}>{renderOutput(item, item.text ?? '')}</div>
@@ -74,7 +80,7 @@ export function ToolTerminalResult({
         )}
         {running ? null : saved.map((item) => <SavedTerminalOutput key={item.id} block={item} />)}
         {!running && (block.timed_out || block.exit_code !== undefined) ? (
-          <p className="border-t border-zinc-800 px-3 py-2 text-xs text-zinc-400">
+          <p className="border-t border-terminal-border px-3 py-2 text-xs text-terminal-muted">
             {block.timed_out
               ? 'Process timed out.'
               : `Process exited with code ${block.exit_code}.`}

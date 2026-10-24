@@ -1,17 +1,30 @@
-import { CATEGORY_COLORS } from './category-colors';
+import { readThemeColor, readThemeFont } from '@/theme/runtime';
+import { categoryPalette } from './category-colors';
 import { isJsonObject } from './chart-spec-guard';
 
-/** Quiet, readable defaults shared by presets, authored charts and offline dashboards. */
-export function chartPresentationConfig(dark: boolean) {
-  const ink = dark ? '#e2e8f0' : '#172033';
-  const muted = dark ? '#a8b4c6' : '#526174';
-  const grid = dark ? '#334155' : '#e2e8f0';
+/**
+ * Quiet, readable defaults shared by presets, authored charts and offline
+ * dashboards, in the active theme's colors and interface typeface. A single
+ * series takes the first chart token (the theme's accent); categories take
+ * the shared category palette; continuous color takes the value scale.
+ */
+export function chartPresentationConfig() {
+  const ink = readThemeColor('foreground');
+  const muted = readThemeColor('muted-foreground');
+  const grid = readThemeColor('border');
+  const ramp = [
+    readThemeColor('scale-low'),
+    readThemeColor('scale-mid'),
+    readThemeColor('scale-high'),
+  ];
   return {
     background: 'transparent',
-    font: 'Inter, system-ui, sans-serif',
+    font: readThemeFont('typeface-ui'),
     numberFormat: '~r',
     tooltipFormat: { numberFormat: '.8~r' },
-    range: { category: [...CATEGORY_COLORS] },
+    range: { category: categoryPalette(), ramp, heatmap: ramp },
+    mark: { color: readThemeColor('chart-1') },
+    style: { 'guide-label': { fill: muted }, 'guide-title': { fill: ink } },
     view: { stroke: null },
     scale: { continuousPadding: 12 },
     axis: {
@@ -42,6 +55,7 @@ export function chartPresentationConfig(dark: boolean) {
     },
     title: {
       color: ink,
+      subtitleColor: muted,
       fontSize: 16,
       fontWeight: 600 as const,
       anchor: 'start' as const,

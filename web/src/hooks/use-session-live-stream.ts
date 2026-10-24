@@ -31,6 +31,7 @@ export function useSessionLiveStream({
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const streamState = useLiveStore((state) => state.entities.stream);
+  const gapCount = useLiveStore((state) => state.entities.streamGaps ?? 0);
   const streamError = useLiveStore((state) => state.error);
   const applyFrames = useLiveStore((state) => state.applyFrames);
   const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
@@ -246,6 +247,7 @@ export function useSessionLiveStream({
     setStreamState,
     settings.endpoint,
     streamState,
+    gapCount, // a later gap restarts the reconcile with a fresh snapshot
     workspaceId,
   ]);
 
@@ -364,26 +366,6 @@ export function queryInvalidationKeysForEvent({
   workspaceId,
 }: QueryInvalidationEvent): QueryKey[] {
   const keys: QueryKey[] = [];
-  if (eventName === 'blueprint.operation.changed') {
-    keys.push(queryKeys.key('blueprint-operations', endpoint));
-  }
-  if (eventName === 'blueprint.authoring.changed' || eventName === 'blueprint.revision.changed') {
-    keys.push(
-      queryKeys.key('blueprint-authoring', endpoint),
-      queryKeys.key('blueprint-file', endpoint),
-    );
-  }
-  if (eventName === 'blueprint.revision.changed') {
-    keys.push(
-      queryKeys.agentBlueprints(endpoint),
-      queryKeys.key('agent-blueprint-sources', endpoint),
-      queryKeys.key('blueprint-files', endpoint),
-      queryKeys.key('blueprint-file', endpoint),
-      queryKeys.key('agents', endpoint),
-      queryKeys.key('sessions', endpoint),
-      queryKeys.capabilities(endpoint),
-    );
-  }
   if (isPendingInteractionEvent(eventName)) {
     // Approvals and questions are both read unscoped now (a descendant
     // session can raise either), so the invalidation must be the

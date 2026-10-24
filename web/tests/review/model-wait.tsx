@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import type { Message, ToolInvocation } from '@clio/core/v3';
 import '../../src/index.css';
 import { ArchiveConnectionProvider } from '../../src/providers/connection-provider';
@@ -13,7 +13,9 @@ import { ClioMotionProvider } from '../../src/components/clio/motion';
 import { Button } from '../../src/components/ui/button';
 import { ClioComposer } from '../../src/components/clio/composer';
 
-const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+const client = new QueryClient({
+  defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+});
 
 function Review() {
   const [phase, setPhase] = useState<
@@ -21,11 +23,18 @@ function Review() {
   >('wait');
   const changePhase = (next: typeof phase) => {
     client.setQueryData(['session-work', 'https://archive.invalid', 'model-wait', 0], {
-      goal: next === 'judging' ? {
-        state: 'active', phase: 'judging', title: 'Verify the four Collatz phases',
-        details: { judge_started_at: new Date().toISOString() },
-      } : null,
-      loop: null, todos: [], schedules: [],
+      goal:
+        next === 'judging'
+          ? {
+              state: 'active',
+              phase: 'judging',
+              title: 'Verify the four Collatz phases',
+              details: { judge_started_at: new Date().toISOString() },
+            }
+          : null,
+      loop: null,
+      todos: [],
+      schedules: [],
     });
     setPhase(next);
   };
@@ -140,7 +149,7 @@ function Review() {
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <ArchiveConnectionProvider>
-      <ThemeProvider attribute="class" forcedTheme="light" enableSystem={false}>
+      <ForcedTheme theme="light">
         <AppearanceProvider>
           <ClioMotionProvider>
             <ConversationDisplayProvider>
@@ -148,7 +157,7 @@ createRoot(document.getElementById('root')!).render(
             </ConversationDisplayProvider>
           </ClioMotionProvider>
         </AppearanceProvider>
-      </ThemeProvider>
+      </ForcedTheme>
     </ArchiveConnectionProvider>
   </QueryClientProvider>,
 );

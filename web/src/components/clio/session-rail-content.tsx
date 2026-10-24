@@ -46,7 +46,7 @@ export function SessionRailContent({
       (artifact) => artifact.session_relation !== 'used',
     ),
     files: sessionFiles(evidence.contextFiles, evidence.tools, evidence.executionProvenance),
-    diffs: sessionDiffs(evidence.diffs, evidence.tools, evidence.executionProvenance),
+    diffs: sessionDiffs(evidence.diffs, evidence.tools),
     plans: sessionPlans(evidence.messages, evidence.interactions ?? [], evidence.artifacts),
     sources: sessionSources(
       evidence.messages,

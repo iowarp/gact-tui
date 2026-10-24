@@ -349,7 +349,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
             <FrameHeader>
               <FrameTitle>Commands</FrameTitle>
               <FrameDescription>
-                Commands are supplied by the service, installed agents, blueprints, and skills.
+                Commands are supplied by the service, installed plugins, and skills.
               </FrameDescription>
             </FrameHeader>
             <FramePanel className="grid gap-1 p-2">

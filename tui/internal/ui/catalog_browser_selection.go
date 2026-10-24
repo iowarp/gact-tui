@@ -3,8 +3,6 @@ package ui
 // catalog_browser_selection.go manages catalog-browser selection/offset clamping and content-index navigation.
 
 import (
-	"strings"
-
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -22,26 +20,10 @@ func catalogBrowserClampOffsetForKind(kind catalogBrowserKind, sel, offset, item
 
 func catalogBrowserContentIndexes(kind catalogBrowserKind, items []catalogItem) []int {
 	indexes := make([]int, 0, len(items))
-	for i, item := range items {
-		if catalogBrowserItemIsInlineAction(kind, item) {
-			continue
-		}
+	for i := range items {
 		indexes = append(indexes, i)
 	}
 	return indexes
-}
-
-func catalogBrowserItemIsInlineAction(kind catalogBrowserKind, item catalogItem) bool {
-	switch kind {
-	case catalogKindAgentDetail:
-		return strings.HasPrefix(item.id, "agent-action/")
-	case catalogKindExpertPackDetail:
-		return item.id == "activate" || strings.HasPrefix(item.id, "expert-pack-action/")
-	case catalogKindAgentBlueprintDetail:
-		return item.id == "activate" || strings.HasPrefix(item.id, "blueprint-action/")
-	default:
-		return false
-	}
 }
 
 func catalogBrowserSelectionPosition(indexes []int, sel int) int {
@@ -93,41 +75,11 @@ func catalogBrowserMoveSelection(cb *catalogBrowserState, delta int) {
 	cb.offset = catalogBrowserClampOffsetForKind(cb.kind, pos, cb.offset, len(indexes))
 }
 
-func (c *catalogComponent) cancelPendingDeletesOutsideSelection() {
-	cb := c.current
-	if cb == nil {
-		return
-	}
-	cleared := false
-	if cb.pendingDeleteAgentID != "" && !catalogBrowserKeyConfirmsAgentDelete(cb, "enter") {
-		cb.pendingDeleteAgentID = ""
-		cleared = true
-	}
-	if cb.pendingDeleteBlueprintID != "" && !catalogBrowserKeyConfirmsBlueprintDelete(cb, "enter") {
-		cb.pendingDeleteBlueprintID = ""
-		cleared = true
-	}
-	if cb.pendingDeleteExpertPackID != "" && !catalogBrowserKeyConfirmsExpertPackDelete(cb, "enter") {
-		cb.pendingDeleteExpertPackID = ""
-		cleared = true
-	}
-	if cb.pendingDeleteSourceID != "" && !catalogBrowserKeyConfirmsSourceDelete(cb, "d") {
-		cb.pendingDeleteSourceID = ""
-		cleared = true
-	}
-	if cleared {
-		c.app.setHint("")
-	}
-}
-
 func catalogBrowserVisibleItemBudget(kind catalogBrowserKind) int {
 	if kind == catalogKindTools {
 		return catalogBrowserBodyRows
 	}
 	if kind == catalogKindPrompts {
-		return catalogBrowserBodyRows
-	}
-	if kind == catalogKindAgentBlueprintSources {
 		return catalogBrowserBodyRows
 	}
 	return catalogBrowserRowBudget
@@ -169,9 +121,6 @@ func catalogBrowserBodyRowsForContent(renderedRows int, itemCount int, itemBudge
 func (c *catalogComponent) runItemAction(itemID string) tea.Cmd {
 	if c.current == nil {
 		return nil
-	}
-	if c.current.kind == catalogKindAgentDetail && strings.HasPrefix(itemID, "agent-action/") {
-		return c.app.agent.runAgentDetailAction(itemID)
 	}
 	for i, item := range c.current.items {
 		if item.id == itemID {

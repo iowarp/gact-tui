@@ -259,8 +259,6 @@ function WorkspaceBinaryView({
   );
 }
 
-export { BlueprintFileEditor } from './blueprint-file-editor';
-
 export function ArtifactView({
   artifact,
   workspaceId,

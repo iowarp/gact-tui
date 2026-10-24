@@ -61,7 +61,9 @@ export type MessageBlock = MessageBlockContext &
          * A service notice recorded in the transcript. `source:
          * "compaction_failed"` is the durable record of a failed compaction:
          * `text` says why, `code` is its typed reason, `trigger` who started it,
-         * and `compaction_id` matches its `compaction.*` events.
+         * and `compaction_id` matches its `compaction.*` events. `source:
+         * "answer_hook"` is what an answer hook did: `metadata.hook` names it and
+         * a `revised` notice's `metadata.revises` names the answer it replaces.
          */
         id: string;
         type: 'notice';
@@ -70,6 +72,7 @@ export type MessageBlock = MessageBlockContext &
         code?: string;
         trigger?: 'auto' | 'manual';
         compaction_id?: string;
+        metadata?: { hook?: string; revises?: string; [key: string]: unknown };
       }
     | { id: string; type: 'task'; task_id: string }
     | { id: string; type: 'subagent'; subagent_id: string; stage?: string; task?: string }

@@ -114,7 +114,9 @@ export function ClioContextCanvasPanel({
                           ? 'User request'
                           : item.role === 'assistant'
                             ? 'Assistant response'
-                            : humanizeProtocolValue(item.kind)}
+                            : item.kind === 'injection' && item.source_id === 'memory'
+                              ? 'Memory'
+                              : humanizeProtocolValue(item.kind)}
                       </p>
                     )}
                     <p className="text-muted-foreground">

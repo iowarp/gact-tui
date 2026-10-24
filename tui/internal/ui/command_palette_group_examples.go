@@ -73,7 +73,7 @@ func paletteCommandGroupExampleRank(group string, id string) int {
 		"Session":            {"/clear", "/copy", "/new"},
 		"Workspace":          {"/diff", "/add", "/drop"},
 		"Runtime":            {"/tools", "/mcp", "/prompts"},
-		"Experts":            {"/agent-blueprints", "/experts", "/expert-packs"},
+		"Experts":            {"/experts"},
 		"Settings":           {"/theme", "/agent", "/model"},
 		"Diagnostics":        {"/doctor", "/permissions", "/metrics"},
 		"Workflow Commands":  {"/validate-dataset"},

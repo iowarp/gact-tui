@@ -201,10 +201,6 @@ export const sessionSchema = z.object({
   parent_session_id: z.string().optional(),
   session_kind: forwardCompatibleEnum(['conversation', 'branch', 'agent', 'lookup']).optional(),
   agent_id: z.string().optional(),
-  active_blueprint_id: z.string().optional(),
-  active_blueprint_name: z.string().optional(),
-  active_blueprint_version: z.string().optional(),
-  active_blueprint_scope: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   mode: forwardCompatibleEnum(['plan', 'edit', 'architect']).default('edit'),
   edit_mode: forwardCompatibleEnum(['diff', 'whole', 'patch']).default('diff'),
@@ -249,7 +245,9 @@ export const sessionDefaultsSchema = z.object({
     'ai-review',
     'spotter-ai',
   ]).default('ask'),
-  blueprint_id: z.string().default(''),
+  agent_ref: z.string().default(''),
+  /** The agent a new session runs when it names none (`agent_ref` or the service default). */
+  default_agent_ref: z.string().default(''),
 });
 
 export const scheduledTurnSchema = z.object({
@@ -328,103 +326,6 @@ export const workspaceFileEntrySchema = z.object({
   redacted: z.string().optional(),
 });
 
-export const agentBlueprintSchema = z
-  .object({
-    id: z.string(),
-    identity: z.string().optional(),
-    source_id: z.string().optional(),
-    registry_id: z.string().optional(),
-    materialized: z.boolean().optional(),
-    version: z.string().default(''),
-    title: z.string(),
-    display_name: z.string().optional(),
-    name: z.string().optional(),
-    description: z.string().optional(),
-    scope: z.string().default('unknown'),
-    enabled: z.boolean().default(false),
-    validation_errors: z.array(z.string()).default([]),
-    kind: forwardCompatibleEnum(['blueprint', 'pack']).default('blueprint'),
-    metadata: z.record(z.unknown()).default({}),
-  })
-  .transform((value) => ({
-    ...value,
-    blueprint_id: value.id,
-    id: value.identity ?? value.id,
-    display_name: value.display_name ?? value.name ?? value.title,
-  }));
-
-export const agentBlueprintSourceSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  source: z.string(),
-  ref: z.string().optional(),
-  commit: z.string().optional(),
-  pinned_commit: z.string().optional(),
-  working_checkout: z.string().optional(),
-  is_default: z.boolean().optional(),
-  reload_required: z.boolean().optional(),
-  source_kind: z.string().optional(),
-  status: z.string(),
-  error: z.string().optional(),
-  added_at: z.string().optional(),
-  updated_at: z.string().optional(),
-  install_scope: z.string().optional(),
-  workspace_id: z.string().optional(),
-  installed_blueprints: z
-    .array(
-      z.object({
-        id: z.string(),
-        identity: z.string().optional(),
-        version: z.string().optional(),
-        scope: z.string().optional(),
-      }),
-    )
-    .optional(),
-  skipped_blueprints: z.array(z.object({ id: z.string(), reason: z.string() })).optional(),
-  available_blueprints: z
-    .array(
-      z.object({
-        id: z.string(),
-        title: z.string(),
-        description: z.string().optional(),
-        version: z.string().optional(),
-        kind: forwardCompatibleEnum(['blueprint', 'pack']).default('blueprint'),
-        enabled: z.boolean().default(false),
-        validation_errors: z.array(z.string()).default([]),
-      }),
-    )
-    .default([]),
-});
-
-/**
- * One marketplace source's update check, as reported by
- * `GET /v1/agent-blueprints/sources/updates` (list) and
- * `GET /v1/agent-blueprints/sources/{id}/updates` (single row). `reason` is
- * the typed outcome the UI renders honestly instead of inferring from
- * `update_available` alone — a server-added reason decodes to `'unknown'`
- * rather than failing the parse.
- */
-export const agentBlueprintSourceUpdateSchema = z.object({
-  source_id: z.string(),
-  source: z.string(),
-  ref: z.string().optional(),
-  installed_commit: z.string().optional(),
-  remote_commit: z.string().optional(),
-  update_available: z.boolean().nullable(),
-  reason: forwardCompatibleEnum([
-    'up_to_date',
-    'update_available',
-    'source_not_found',
-    'installed_commit_unknown',
-    'git_unavailable',
-    'ls_remote_failed',
-    'ref_not_found',
-    'timeout',
-    'path_source_not_git',
-  ]),
-  detail: z.string().optional(),
-});
-
 export const relayStatusSchema = z.object({
   configured: z.boolean(),
   mcp_url: z
@@ -495,41 +396,10 @@ export const mcpServerDefinitionSchema = z.object({
   error: z.string().optional(),
   source: z.string().optional(),
   enabled: z.boolean().optional(),
-  agent_blueprint_id: z.string().optional(),
-  agent_blueprint_name: z.string().optional(),
+  plugin: z.string().optional(),
+  agent_ref: z.string().optional(),
   session_id: z.string().optional(),
   spec: z.record(z.string(), z.unknown()).default({}),
-});
-
-export const agentDefinitionSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  description: z.string().default(''),
-  source: z.string().default('unknown'),
-  enabled: z.boolean().default(true),
-  validation_errors: z.array(z.string()).default([]),
-  parent_id: z.string().default(''),
-  system_prompt: z.string().default(''),
-  prompt_id: z.string().default(''),
-  prompt_profile: z.string().default(''),
-  default_provider: z.string().default(''),
-  default_model: z.string().default(''),
-  api_base: z.string().default(''),
-  credential_ref: z.string().default(''),
-  transport: z.string().default(''),
-  parameters: z.record(z.string(), z.unknown()).default({}),
-  module: z.record(z.string(), z.unknown()).default({}),
-  signature: z.record(z.string(), z.unknown()).default({}),
-  structured_outputs: z.record(z.string(), z.unknown()).default({}),
-  fanout: z.record(z.string(), z.unknown()).default({}),
-  tools: z.array(z.string()).default([]),
-  skills: z.array(z.string()).default([]),
-  commands: z.array(z.string()).default([]),
-  capability_refs: z.array(z.record(z.string(), z.unknown())).default([]),
-  metadata: z.record(z.string(), z.unknown()).default({}),
-  tier: z.number().int().nonnegative().default(0),
-  specialization: z.string().default(''),
-  keywords: z.array(z.string()).default([]),
 });
 
 export const promptProfileDefinitionSchema = z.object({
@@ -672,6 +542,16 @@ export const taskSchema = z.object({
   detail: z.string().optional(),
 });
 
+export const modelChoiceSchema = z.object({
+  asked: z.string().default(''),
+  ran: z
+    .object({ provider_id: z.string().optional(), model_id: z.string().optional() })
+    .default({}),
+  source: z.string().default(''),
+  reasons: z.array(z.string()).default([]),
+  effort: z.string().default(''),
+});
+
 export const subagentSchema = z.object({
   id: z.string(),
   session_id: z.string(),
@@ -687,6 +567,7 @@ export const subagentSchema = z.object({
   task: z.string().optional(),
   result: z.string().optional(),
   duration_ms: z.number().optional(),
+  model_choice: modelChoiceSchema.optional(),
 });
 
 export const artifactSchema = z.object({

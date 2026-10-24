@@ -10,11 +10,8 @@ import (
 )
 
 func applyStartupPreferences(app *ui.App, cfg config.Config, noIntro bool, introFile string) {
-	if cfg.DefaultBlueprint != nil {
-		app.DefaultAgentBlueprintID = strings.TrimSpace(*cfg.DefaultBlueprint)
-	}
-	if cfg.DefaultExpertPack != nil {
-		app.DefaultExpertPackID = strings.TrimSpace(*cfg.DefaultExpertPack)
+	if cfg.DefaultAgent != nil {
+		app.DefaultAgentRef = strings.TrimSpace(*cfg.DefaultAgent)
 	}
 	if cfg.CollapseThreshold != nil && *cfg.CollapseThreshold > 0 {
 		app.Theme.CollapseThreshold = *cfg.CollapseThreshold

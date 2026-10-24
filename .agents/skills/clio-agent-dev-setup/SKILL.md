@@ -77,7 +77,7 @@ A qualification retry is product data lifecycle, not deployment lifecycle:
 1. Keep the active UI, backend, and node-wide core running.
 2. Delete only the disposable session through `DELETE /v1/sessions/{id}`.
 3. Delete or clean only its explicitly designated disposable workspace through the workspace API when the case requires a fresh workspace.
-4. Create the replacement session on the same backend and installed blueprint.
+4. Create the replacement session on the same backend and installed agent.
 5. Preserve failed sessions when the user needs to inspect them; never replace the generation to hide or clear them.
 
 Do not run `Reset-ClioDev.ps1`, create a generation, clone repositories, synchronize Python/Node dependencies, or provision a CTE store for a session retry.
@@ -98,28 +98,28 @@ Containment fails when generated paths escape the owned root or a legacy runtime
 - the API is not `ready`;
 - ARC is not backed by the live clio-core/CTE daemon;
 - provider, model, or SDK transport differs from the requested values;
-- bundled marketplace blueprints are absent, invalid, or merely advertised rather than installed;
+- bundled marketplace agents are absent, or the default marketplace is untrusted or reports errors;
 - SPOTTER's implementation or native-provider configuration is missing;
 - an ARC sentinel cannot be written, read, and deleted through CTE;
 - a CLIO port has zero or multiple owners; or
 - the UI is unreachable.
 
-The default preflight deliberately does not warm MCP namespaces. A selected session must exercise its blueprint-declared dependencies through the product readiness path so cold-start failures, retries, and progress remain visible. `Test-ClioDevPreflight.ps1 -RequiredMcpNamespaces ...` remains an opt-in diagnostic for a specific session; it is not part of ordinary startup or acceptance evidence.
+The default preflight deliberately does not warm MCP namespaces. A selected session must exercise its plugin-declared dependencies through the product readiness path so cold-start failures, retries, and progress remain visible. `Test-ClioDevPreflight.ps1 -RequiredMcpNamespaces ...` remains an opt-in diagnostic for a specific session; it is not part of ordinary startup or acceptance evidence.
 
 ## MCP lifecycle
 
-Do not describe blueprint MCP declarations as four independent installations:
+Do not describe plugin MCP declarations as four independent installations:
 
 1. `uv sync` installs `clio-agent`; it does not install the EarthScope MCP namespaces.
 2. Setup installs one pinned `clio-kit` tool before backend launch. Its executable already provides the `ndp`, `geo`, `pandas`, and `plot` server subcommands.
-3. Installing the marketplace blueprint copies its `mcp_servers` declarations. It starts no server process.
-4. Backend launch uses a blueprintless default gateway and starts none of those four servers.
-5. Activating an EarthScope session mounts only that blueprint's declared specs, still without eagerly spawning them.
+3. Installing the marketplace records each plugin's `mcp.json` declarations. It starts no server process.
+4. Backend launch starts none of those four servers.
+5. An EarthScope session mounts only its agent's plugin servers, still without eagerly spawning them.
 6. When a session first needs a declared namespace, CLIO single-flights discovery, shows launch/connect/retry state above that session's composer, and establishes a persistent workspace-scoped client before releasing the tool call.
 7. Later sessions in that workspace reuse the persistent namespace client. Another workspace reuses installed packages and process-wide discovery results but establishes its own live client because cwd and filesystem scope differ.
 8. `GET /v1/mcp/handshake` is a throwaway diagnostic for the selected session's declarations. It lists tools and closes; it does not prove the workspace's persistent connection and must not be used to hide first-session readiness.
 
-Never add domain-specific namespace warming to generic dev setup. The installed marketplace defines what a blueprint declares; the selected session owns preparation and the UI owns its session-scoped projection.
+Never add domain-specific namespace warming to generic dev setup. The installed marketplace defines what a plugin declares; the selected session owns preparation and the UI owns its session-scoped projection.
 
 Warnings remain warnings only when the service reports an explicit degraded capability. Never reinterpret a sparse CTE file's logical size as allocated disk usage; capacity and disk diagnostics must use physical allocation evidence.
 
@@ -142,7 +142,7 @@ Open `http://127.0.0.1:5174/?intent=connect` through the visible connection flow
 2. Confirm the service reports ready.
 3. Create one empty disposable session.
 4. Confirm the empty-session welcome and requested provider/model.
-5. Confirm the bundled blueprint catalog is installed and usable.
+5. Confirm the bundled agents are installed and the default marketplace is trusted.
 6. Stop setup without submitting a demo prompt.
 
 A dead remembered endpoint, mismatched picker/backend provider, missing implementation, or delayed MCP install is a failed setup—not a reason to switch demos or providers.

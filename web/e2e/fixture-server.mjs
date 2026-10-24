@@ -1998,6 +1998,10 @@ const server = createServer(async (request, response) => {
     sendJson(response, { commands: [] });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/memory/summary') {
+    sendJson(response, { enabled: true, inbox: 0, documents: 0 });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/provenance/providers') {
     sendJson(response, {
       schema_version: '1.0',
@@ -2267,6 +2271,18 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && url.pathname === '/v1/provider-catalog') {
     sendJson(response, providerCatalog);
+    return;
+  }
+  // The model fleet: no connected account reports usage here, so the composer
+  // shows no usage readout and no model-fit notice (the baselines predate both).
+  if (request.method === 'GET' && url.pathname === '/v1/fleet') {
+    sendJson(response, {
+      observed_at: '2026-01-01T00:00:00+00:00',
+      accounts: [],
+      entries: [],
+      spend_by_model: {},
+      estimated_sessions: 0,
+    });
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
@@ -2695,7 +2711,7 @@ const server = createServer(async (request, response) => {
       memory_scope: 'session',
       writable_scope: 'session',
       cross_session_read_available: true,
-      cross_session_read_endpoint: `/v1/sessions/${sessionId}/memory/tools/search-sessions`,
+      cross_session_read_endpoint: `/v1/sessions/${sessionId}/session-recall/search`,
       requires_user_consent: true,
       notes: [
         'Conversation retrieval and writes are scoped to the active session.',
@@ -2792,7 +2808,7 @@ const server = createServer(async (request, response) => {
       reason: '',
       message: '',
       remedy: '',
-      agent_blueprint_id: 'spotter-ai',
+      agent_ref: 'clio/spotter-ai',
       details: {},
     });
     return;
@@ -2807,12 +2823,39 @@ const server = createServer(async (request, response) => {
       edit_mode: 'diff',
       routing_mode: 'auto',
       approval_mode: 'ask',
-      blueprint_id: '',
+      agent_ref: '',
     });
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/agent-blueprints') {
-    sendJson(response, { agent_blueprints: [] });
+  if (request.method === 'GET' && url.pathname === '/v1/agents') {
+    sendJson(response, {
+      agents: [{ ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' }],
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/plugins') {
+    sendJson(response, { plugins: [], default_marketplace_error: null });
+    return;
+  }
+  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/agent$/u.test(url.pathname)) {
+    sendJson(response, {
+      session_id: url.pathname.split('/')[3],
+      delta: { add: [], remove: [] },
+      subagent: false,
+      resolution: {
+        agent: { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent' },
+        plugins: [
+          {
+            id: 'core',
+            kind: 'plugin',
+            marketplace: 'clio-builtin',
+            provenance: { source: 'core', via: 'core', label: 'core' },
+            removable: false,
+          },
+        ],
+        prompt: { sections: [] },
+      },
+    });
     return;
   }
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/cancel`) {

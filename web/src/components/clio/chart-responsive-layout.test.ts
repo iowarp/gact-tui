@@ -29,7 +29,7 @@ async function chart(
 ): Promise<{ view: View; compiled: ReturnType<typeof compile>['spec'] }> {
   const prepared = prepareChartSpec(spec, { width: 640, height: 320, rows });
   const compiled = compile(prepared as unknown as Parameters<typeof compile>[0], {
-    config: chartPresentationConfig(true),
+    config: chartPresentationConfig(),
   }).spec;
   const view = new View(parse(compiled), { renderer: 'none' });
   await view.runAsync();

@@ -23,6 +23,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ClioMessageHistoryActions } from './message-history-actions';
+import { answerRevisions } from './answer-revisions';
 import { MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
 import { VariantRunsForMessage } from './variant-runs-for-message';
@@ -34,11 +35,14 @@ import { ClioCompactionProgress } from './conversation-summarization';
 import { useConversationTurn } from './use-conversation-turn';
 import { useMessageAttentionIndex } from './use-message-attention-index';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
+import { turnModelExhausted } from '@/lib/turn-model-exhausted';
+import { TurnModelExhausted } from './turn-model-exhausted';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { MessageCompletionFooter } from './message-completion-footer';
+import { MemoryUsedAction } from './memory-used-action';
 import { ResponseRating } from './response-rating';
 import { MessageMarkButton } from './message-mark-button';
 import { messageToolCallCounts } from './message-tool-call-counts';
@@ -84,6 +88,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     emptyResponseErrorCode === 'cancelled' ||
     emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
   const signInProvider = turnSignInProvider(message.error_info);
+  const modelExhausted = turnModelExhausted(message.error_info);
   const canRetry =
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
@@ -184,6 +189,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       {message.role === 'assistant' ? (
         <TranscriptContentPicker sessionId={message.session_id} messageId={message.id} />
       ) : null}
+      {message.role === 'assistant' ? <MemoryUsedAction metadata={message.metadata} /> : null}
       <ResponseRating message={message} active={active} />
       {entities.onMarkMessage ? (
         <MessageMarkButton
@@ -206,14 +212,17 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       ) : null}
       <MessageAction
         label="Copy message"
-        onClick={() =>
+        onClick={() => {
+          // A hook's revision replaces the answer it revised; copy what is shown.
+          const revised = answerRevisions(message.blocks);
           void copyText(
             message.blocks
-              .filter((block) => block.type === 'text')
-              .map((block) => block.text)
+              .flatMap((block) =>
+                block.type === 'text' && !revised.has(block.id) ? [block.text] : [],
+              )
               .join('\n'),
-          )
-        }
+          );
+        }}
         tooltip="Copy message"
       >
         <CopyIcon aria-hidden="true" className="size-3.5" />
@@ -370,6 +379,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                             providerLabel={signInProvider.label}
                           />
                         ) : null}
+                        {modelExhausted ? (
+                          <TurnModelExhausted
+                            exhausted={modelExhausted}
+                            messageId={message.id}
+                            sessionId={message.session_id}
+                          />
+                        ) : null}
                       </AlertDescription>
                     ) : null}
                   </Alert>
@@ -407,6 +423,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                         ) : segment.kind === 'block' ? (
                           <MessageBlockSequence
                             blocks={[segment.block]}
+                            messageBlocks={message.blocks}
                             key={segment.block.id}
                             messageId={message.id}
                             messageAttentionIndex={messageAttentionIndex}

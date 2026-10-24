@@ -18,8 +18,7 @@ func TestClioRuntimeCapabilityFlagsDecode(t *testing.T) {
 			"x_clio_stream_fallback_reasons": {"provider": {"reason": "batch"}},
 			"x_clio_direct_delete_permissions": true,
 			"x_clio_prompt_registry": true,
-			"x_clio_expert_packs": true,
-			"x_clio_agent_blueprints": true,
+			"x_clio_agent_plugins": true,
 			"x_clio_user_questions": true,
 			"x_clio_retry_attempts": true,
 			"x_clio_context_frames": true,
@@ -38,7 +37,7 @@ func TestClioRuntimeCapabilityFlagsDecode(t *testing.T) {
 		!caps.Capabilities.SessionSummary ||
 		!caps.Capabilities.AttachmentsUpload ||
 		!caps.Capabilities.MultimodalImageParts ||
-		!caps.Capabilities.XClioAgentBlueprints ||
+		!caps.Capabilities.XClioAgentPlugins ||
 		!caps.Capabilities.XClioSemanticEvents ||
 		!caps.Capabilities.XClioFilesContent ||
 		caps.Capabilities.XClioSemanticTraceBackend != "file" ||
@@ -56,7 +55,7 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{
 		"id": "analysis",
 		"title": "Analysis Expert",
-		"source": "expert_pack",
+		"source": "plugin",
 		"parent_id": "main",
 		"prompt_id": "clio.expert.analysis",
 		"prompt_profile": "heavy",
@@ -64,7 +63,7 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 		"default_model": "gpt-5",
 		"skills": ["stats"],
 		"commands": ["/analyze"],
-		"capability_refs": [{"kind": "tool", "id": "memory_search_sessions"}],
+		"capability_refs": [{"kind": "tool", "id": "session_search"}],
 		"module": {"kind": "react", "max_iters": 6},
 		"signature": {"inputs": {"question": "str"}, "outputs": {"answer": "str"}},
 		"structured_outputs": {"answer": {"type": "str"}},
@@ -90,11 +89,10 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 		"agent_invocable": true,
 		"planner_visible": true,
 		"agent_id": "analysis",
-		"command_source": "agent_blueprint",
-		"command_scope": "agent_blueprint",
-		"command_path": "/tmp/work/.clio/agent-blueprints/qc/commands/analyze.md",
-		"agent_blueprint_id": "qc-agent",
-		"agent_blueprint_root": "/tmp/work/.clio/agent-blueprints/qc",
+		"command_source": "plugin",
+		"command_scope": "plugin",
+		"command_path": "/tmp/plugins/qc/ai.iowarp.clio/commands/analyze.md",
+		"plugin": "qc",
 		"argument_hint": "dataset"
 	}`), &cmd); err != nil {
 		t.Fatalf("decode command: %v", err)
@@ -102,11 +100,10 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 	if cmd.UserInvocable == nil || *cmd.UserInvocable ||
 		cmd.AgentInvocable == nil || !*cmd.AgentInvocable ||
 		cmd.PlannerVisible == nil || !*cmd.PlannerVisible ||
-		cmd.CommandSource != "agent_blueprint" ||
-		cmd.CommandScope != "agent_blueprint" ||
+		cmd.CommandSource != "plugin" ||
+		cmd.CommandScope != "plugin" ||
 		cmd.CommandPath == "" ||
-		cmd.AgentBlueprintID != "qc-agent" ||
-		cmd.AgentBlueprintRoot == "" ||
+		cmd.Plugin != "qc" ||
 		cmd.ArgumentHint != "dataset" {
 		t.Fatalf("command = %+v", cmd)
 	}

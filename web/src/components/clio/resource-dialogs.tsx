@@ -1,5 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { AgentBlueprint, SessionDefaults, Workspace } from '@clio/core/v3';
+import type { AgentEntry, SessionDefaults, Workspace } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDownIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -56,7 +56,8 @@ export interface ResourceActions {
   createSession: (input: {
     title: string;
     workspaceId: string;
-    blueprintId?: string;
+    /** The agent the session runs (`<marketplace>/<id>`); omitted uses the default. */
+    agentRef?: string;
     mode: 'plan' | 'edit' | 'architect';
     routingMode: 'auto' | 'chat' | 'experts' | 'reasoning_only';
     approvalMode: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
@@ -68,6 +69,8 @@ export interface ResourceActions {
   ) => Promise<void>;
   grantWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
   revokeWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
+  workspaceMemory?: (workspaceId: string) => Promise<{ use_account_memory: boolean }>;
+  setWorkspaceMemory?: (workspaceId: string, useAccountMemory: boolean) => Promise<void>;
   renameSession: (sessionId: string, title: string) => Promise<void>;
   setWorkspacePinned: (workspaceId: string, pinned: boolean) => Promise<void>;
   setSessionPinned: (sessionId: string, pinned: boolean) => Promise<void>;
@@ -85,7 +88,7 @@ export interface ResourceActions {
 interface ClioResourceDialogsProps {
   actions: ResourceActions;
   activeWorkspaceId: string;
-  blueprints: readonly AgentBlueprint[];
+  agents: readonly AgentEntry[];
   createKind: 'workspace' | 'session' | null;
   deleteTarget: ResourceTarget | null;
   onCreateKindChange: (kind: 'workspace' | 'session' | null) => void;
@@ -102,7 +105,7 @@ export function ClioResourceDialogs(props: ClioResourceDialogsProps) {
         <CreateResourceDialog
           actions={props.actions}
           activeWorkspaceId={props.activeWorkspaceId}
-          blueprints={props.blueprints}
+          agents={props.agents}
           createKind={props.createKind}
           onCreateKindChange={props.onCreateKindChange}
           workspaces={props.workspaces}
@@ -131,13 +134,13 @@ export function ClioResourceDialogs(props: ClioResourceDialogsProps) {
 function CreateResourceDialog({
   actions,
   activeWorkspaceId,
-  blueprints,
+  agents,
   createKind,
   onCreateKindChange,
   workspaces,
 }: Pick<
   ClioResourceDialogsProps,
-  'actions' | 'activeWorkspaceId' | 'blueprints' | 'onCreateKindChange' | 'workspaces'
+  'actions' | 'activeWorkspaceId' | 'agents' | 'onCreateKindChange' | 'workspaces'
 > & { createKind: 'workspace' | 'session' }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -155,7 +158,7 @@ function CreateResourceDialog({
   const selectedWorkspaceId = workspaces.some((workspace) => workspace.id === workspaceId)
     ? workspaceId
     : activeWorkspaceId || workspaces[0]?.id || '';
-  const blueprintId = behavior.blueprint_id || sessionDefaults.data?.blueprint_id || 'none';
+  const agentRef = behavior.agent_ref || sessionDefaults.data?.agent_ref || 'default';
   const decodedMode = behavior.mode || sessionDefaults.data?.mode;
   const decodedRoutingMode = behavior.routing_mode || sessionDefaults.data?.routing_mode;
   const decodedApprovalMode = behavior.approval_mode || sessionDefaults.data?.approval_mode;
@@ -184,7 +187,7 @@ function CreateResourceDialog({
         await actions.createSession({
           title: title.trim(),
           workspaceId: selectedWorkspaceId,
-          blueprintId: blueprintId === 'none' ? undefined : blueprintId,
+          agentRef: agentRef === 'default' ? undefined : agentRef,
           mode,
           routingMode,
           approvalMode,
@@ -232,11 +235,11 @@ function CreateResourceDialog({
             <TabsContent className="mt-0 data-[state=inactive]:hidden" forceMount value="session">
               <SessionFields
                 approvalMode={approvalMode}
-                blueprints={blueprints}
-                blueprintId={blueprintId}
+                agents={agents}
+                agentRef={agentRef}
                 mode={mode}
                 onApprovalModeChange={(value) => updateBehavior('approval_mode', value)}
-                onBlueprintIdChange={(value) => updateBehavior('blueprint_id', value)}
+                onAgentRefChange={(value) => updateBehavior('agent_ref', value)}
                 onModeChange={(value) => updateBehavior('mode', value)}
                 onRoutingModeChange={(value) => updateBehavior('routing_mode', value)}
                 onTitleChange={setTitle}
@@ -337,11 +340,11 @@ function WorkspaceFields({
 
 type SessionFieldsProps = {
   approvalMode: SessionDefaults['approval_mode'];
-  blueprints: readonly AgentBlueprint[];
-  blueprintId: string;
+  agents: readonly AgentEntry[];
+  agentRef: string;
   mode: SessionDefaults['mode'];
   onApprovalModeChange: (value: SessionDefaults['approval_mode']) => void;
-  onBlueprintIdChange: (value: string) => void;
+  onAgentRefChange: (value: string) => void;
   onModeChange: (value: SessionDefaults['mode']) => void;
   onRoutingModeChange: (value: SessionDefaults['routing_mode']) => void;
   onTitleChange: (value: string) => void;
@@ -385,25 +388,24 @@ function SessionFields(props: SessionFieldsProps) {
         </Select>
       </Field>
       <Field>
-        <FieldLabel htmlFor="new-session-blueprint">Agent blueprint</FieldLabel>
-        <Select onValueChange={props.onBlueprintIdChange} value={props.blueprintId}>
-          <SelectTrigger id="new-session-blueprint">
+        <FieldLabel htmlFor="new-session-agent">Agent</FieldLabel>
+        <Select onValueChange={props.onAgentRefChange} value={props.agentRef}>
+          <SelectTrigger id="new-session-agent">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">Standard agent</SelectItem>
-            {props.blueprints
-              .filter((blueprint) => blueprint.enabled)
-              .map((blueprint) => (
-                <SelectItem key={blueprint.id} value={blueprint.id}>
-                  {blueprint.display_name}
-                  {blueprint.materialized === false ? ' · Installs on selection' : ''}
-                </SelectItem>
-              ))}
+            <SelectItem value="default">Default agent</SelectItem>
+            {props.agents.map((agent) => (
+              <SelectItem key={agent.ref} value={agent.ref}>
+                {agent.name || agent.id}
+                {agent.kind === 'user' ? ' · yours' : ''}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <FieldDescription>
-          A blueprint adds domain experts, tools, and instructions to this session.
+          The agent&apos;s plugins bring its tools, skills and guidance. You can add or remove
+          plugins in the conversation.
         </FieldDescription>
       </Field>
       <Collapsible className="border-t pt-2">

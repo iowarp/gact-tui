@@ -485,9 +485,11 @@ describe('ClioObservabilityView', () => {
         ]}
         diffs={[
           {
+            id: 'chg_1',
             path: 'src/analysis.py',
-            status: 'pending',
-            applied: false,
+            status: 'applied',
+            created: false,
+            undo_available: true,
             unified_diff: '@@ -1 +1 @@\n-old\n+new',
           },
         ]}
@@ -619,10 +621,10 @@ describe('ClioObservabilityView', () => {
     expect(openResource).toHaveBeenCalledWith(expect.objectContaining({ id: 'resource_pdf' }));
 
     await user.click(
-      screen.getByRole('button', { name: 'Review diff for src/analysis.py in canvas' }),
+      screen.getByRole('button', { name: 'Open the change to src/analysis.py in canvas' }),
     );
     expect(openDiff).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'src/analysis.py', status: 'pending' }),
+      expect.objectContaining({ id: 'chg_1', path: 'src/analysis.py', status: 'applied' }),
     );
   });
 

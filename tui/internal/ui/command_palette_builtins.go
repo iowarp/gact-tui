@@ -33,8 +33,6 @@ func (c *commandPaletteComponent) builtinCommands() []gact.Command {
 		localCmd("/diff", "command.diff.title", "command.diff.desc"),
 		localCmd("/compact", "command.compact.title", "command.compact.desc"),
 		{ID: "/prompts", Title: "Prompts", Description: "Browse prompt profiles", Source: "builtin"},
-		{ID: "/expert-packs", Title: "Expert Packs", Description: "Browse expert packs", Source: "builtin"},
-		{ID: "/agent-blueprints", Title: "Agent Blueprints", Description: "Manage agent blueprints", Source: "builtin"},
 		localCmd("/doctor", "command.doctor.title", "command.doctor.desc"),
 	}
 }
@@ -103,12 +101,6 @@ func (c *commandPaletteComponent) normalizeBuiltinCommandCopy(commands []gact.Co
 		case "/prompts":
 			out[i].Title = "Prompts"
 			out[i].Description = "Browse prompt profiles"
-		case "/expert-packs":
-			out[i].Title = "Expert Packs"
-			out[i].Description = "Browse expert packs"
-		case "/agent-blueprints":
-			out[i].Title = "Agent Blueprints"
-			out[i].Description = "Manage agent blueprints"
 		}
 	}
 	return out

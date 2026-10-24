@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { ObservabilityWork } from './observability-work';
-import { ClioWorkflowExecutionGraph } from './workflow-graph';
 
 afterEach(() => {
   cleanup();
@@ -99,40 +98,5 @@ describe('Gantt and Relationships switch', () => {
       'aria-pressed',
       'true',
     );
-  });
-});
-
-describe('workflow child navigation', () => {
-  it('opens a workspace tab by default and the center with Shift for pointer and keyboard', () => {
-    const onOpenSubagent = vi.fn();
-    const child = {
-      id: 'task_inventory',
-      session_id: 'root',
-      child_session_id: 'agent',
-      title: 'inventory #1',
-      state: 'completed' as const,
-    };
-    render(
-      <ClioWorkflowExecutionGraph
-        tool={{
-          id: 'call_workflow',
-          session_id: 'root',
-          name: 'run_workflow',
-          state: 'succeeded',
-          output: { steps: [{ child: 'inventory', task_id: child.id }] },
-        }}
-        subagents={[child]}
-        onOpenSubagent={onOpenSubagent}
-      />,
-    );
-    const row = screen.getByRole('button', { name: 'Open inventory in a workspace tab' });
-    fireEvent.click(row);
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
-    fireEvent.click(row, { shiftKey: true });
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
-    fireEvent.keyDown(row, { key: 'Enter' });
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
-    fireEvent.keyDown(row, { key: 'Enter', shiftKey: true });
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
   });
 });

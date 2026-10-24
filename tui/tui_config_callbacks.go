@@ -23,15 +23,10 @@ func wireConfigCallbacks(app *ui.App, startBackend string, backendFlag, themeFla
 		danger := app.Theme.CostDangerTokens
 		cur.CostWarnTokens = &warn
 		cur.CostDangerTokens = &danger
-		if bp := strings.TrimSpace(app.DefaultAgentBlueprintID); bp != "" {
-			cur.DefaultBlueprint = &bp
+		if agent := strings.TrimSpace(app.DefaultAgentRef); agent != "" {
+			cur.DefaultAgent = &agent
 		} else {
-			cur.DefaultBlueprint = nil
-		}
-		if pack := strings.TrimSpace(app.DefaultExpertPackID); pack != "" {
-			cur.DefaultExpertPack = &pack
-		} else {
-			cur.DefaultExpertPack = nil
+			cur.DefaultAgent = nil
 		}
 		paste := app.Theme.PasteCompressThreshold
 		cur.PasteCompressThreshold = &paste

@@ -65,7 +65,7 @@
 >
 > - **Vendor extensions** — every `x_clio_*` capability flag, the
 >   `semantic.event` SSE spine, and the clio-only endpoints (prompts,
->   agent-blueprints, expert-packs, context frames, user-questions,
+>   agent plugins, context frames, user-questions,
 >   turn-retry, memory tools, schedules, sharing) are **optional
 >   vendor surface**. A generic GACT client MUST run without them; a
 >   generic GACT backend need not implement them. They are catalogued
@@ -226,8 +226,8 @@ consumers have an authority for the values.
     "edit_modes": true,               // Aider-style multi-mode (Session.edit_mode: diff/whole/patch)
     "plan_mode": true,                // read-only plan mode (Session.mode: chat/plan/edit/architect)
     "search_messages": true,          // §6.3 — full-text search across messages
-    "agent_write": true,              // §6.5 — POST/PUT/DELETE on /v1/agents
-    "skills_extraction": true,        // §6.5 — POST /v1/agents/extract
+    "agent_write": false,             // §6.5 — POST/PUT/DELETE on /v1/agents (clio: false; user agents via §6.21)
+    "skills_extraction": false,       // §6.5 — POST /v1/agents/extract (clio: false)
 
     // --- v0.2 generic additions ---
     "agent_routing": true,            // §4.3.1 — multi-tier agents + routing decisions
@@ -245,8 +245,7 @@ consumers have an authority for the values.
     "x_clio_stream_fallback_reasons": { /* map<reason, row> — see note below */ },
     "x_clio_direct_delete_permissions": true,
     "x_clio_prompt_registry": true,                // §6.20 — /v1/prompts
-    "x_clio_expert_packs": true,                   // §6.22 — /v1/expert-packs
-    "x_clio_agent_blueprints": true,               // §6.21 — /v1/agent-blueprints
+    "x_clio_agent_plugins": true,                  // §6.21 — /v1/plugins, /v1/agents (plugin agents)
     "x_clio_user_questions": true,                 // §6.23 — /v1/sessions/{id}/questions
     "x_clio_retry_attempts": true,                 // §6.24 — /v1/sessions/{id}/messages/{id}/retry
     "x_clio_context_frames": true,                 // §6.9 — /v1/sessions/{id}/context/frames + /context/state + /context/compact
@@ -511,7 +510,7 @@ Extended `AgentDef` shape (all new fields optional; see §6.5 for the base shape
 
 Backends with `agent_routing = true` SHOULD emit a `routing_decision` part (§4.5) as the first part of an assistant message that was routed. The decision references `AgentDef.id`. **[NOT IMPLEMENTED in clio 3527143: the companion `session.agent_routed` SSE event is NOT emitted.]** clio surfaces routing two ways instead: the `routing_decision` part (which additionally carries an `execution_path` field, see §4.5) and the `semantic.event` spine (§7.6, e.g. `agent.invocation.started`). A client wanting live routing badges from clio listens to `semantic.event`, not `session.agent_routed`.
 
-The implemented `AgentDef` (clio `types.py:AgentDef`) carries more than the sketch above — including `parent_id`, `prompt_id`/`prompt_profile`, `default_provider`/`default_model`, `skills[]`, `commands[]`, `capability_refs[]`, `enabled`, `validation_errors[]`, and a `source` value of `"expert_pack"` in addition to the v0.1 set. See §6.5 for the full shape.
+The implemented `AgentDef` (clio `types.py:AgentDef`) carries more than the sketch above — including `parent_id`, `prompt_id`/`prompt_profile`, `default_provider`/`default_model`, `skills[]`, `commands[]`, `capability_refs[]`, `enabled`, `validation_errors[]`, and a `source` value of `"plugin"` in addition to the v0.1 set. See §6.5 for the full shape. A backend advertising `x_clio_agent_plugins` serves the plugin agent catalog of §6.21 at `GET /v1/agents` instead.
 
 Discovery: `GET /v1/agents?tier=2` lists tier-2 specialists; the base `/v1/agents` query returns all tiers. clio tier values: `0` untagged, `1` orchestrator, `2` specialist, `3` nanoagent (ephemeral).
 
@@ -1137,6 +1136,14 @@ A backend that does NOT support subagents reports `capabilities.subagents = fals
 
 Lists the agent personas / recipes the backend can spawn. Reads always work; writes are gated by `capabilities.agent_write`.
 
+> **clio.** A backend advertising `x_clio_agent_plugins` (§6.21) reports
+> `agent_write = false` and `skills_extraction = false`: it serves none of the
+> write or extraction routes below, and `GET /v1/agents` returns the plugin agent
+> catalog of §6.21 instead of `AgentDef` rows. User agents (a parent agent plus a
+> plugin delta) are saved with `POST /v1/agents/user` and removed with
+> `DELETE /v1/agents/user/{id}`; clients gate that UI on `x_clio_agent_plugins`,
+> not on `agent_write`.
+
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/v1/agents` | query: `workspace_id?, source?, tier?` | `{agents: AgentDef[]}` |
@@ -1150,7 +1157,7 @@ Lists the agent personas / recipes the backend can spawn. Reads always work; wri
 // AgentDef — implemented shape (clio types.py:AgentDef)
 {
   "id": "code_expert",
-  "source": "builtin",               // "builtin"|"user"|"recipe"|"skill"|"expert_pack"
+  "source": "builtin",               // "builtin"|"user"|"recipe"|"skill"|"plugin"
   "title": "Code Expert",
   "description": "...",
   "parent_id": "",                   // hierarchy link (multi-tier / overlay parent)
@@ -1183,7 +1190,7 @@ Lists the agent personas / recipes the backend can spawn. Reads always work; wri
 - `user`: created via the write API by the end user.
 - `recipe`: loaded from a recipe file (Goose-style), may live on disk.
 - `skill`: extracted from past sessions (Gemini-style automated derivation).
-- `expert_pack`: contributed by an installed expert pack (§6.22, clio).
+- `plugin`: an agent or defined subagent composed from installed plugins (§6.21, clio).
 
 > **Drift note.** The implemented `AgentDef` differs from the v0.1
 > sketch: `default_provider`/`default_model` are **flat strings** (not a
@@ -1194,7 +1201,7 @@ Lists the agent personas / recipes the backend can spawn. Reads always work; wri
 > `skills`/`commands`/`capability_refs`, `enabled`, and
 > `validation_errors`. `?tier=N` filters by tier.
 
-The extraction endpoint analyzes a completed session and synthesizes a reusable agent definition. Backends that don't implement this report `capabilities.skills_extraction = false` and return `501`.
+The extraction endpoint analyzes a completed session and synthesizes a reusable agent definition. Backends that don't implement this report `capabilities.skills_extraction = false` and return `501` (clio does not implement it; its skills come from plugins, §6.21).
 
 ### §6.6 Tools
 
@@ -1863,12 +1870,12 @@ The TUI uses this to surface a cache hit-rate indicator and show per-session con
 >
 > | Method | Path | Response |
 > |---|---|---|
-> | GET | `/v1/memory/search` (query `q`, `include_cross_session?`) | `MemorySearchResponse` `{query, include_cross_session, searched_sessions[], hits[]}` |
+> | GET | `/v1/session-recall/search` (query `q`, `include_cross_session?`) | `MemorySearchResponse` `{query, include_cross_session, searched_sessions[], hits[]}` |
 > | GET | `/v1/sessions/{id}/memory/events` (query `limit?`) | per-session memory event log |
 > | GET | `/v1/sessions/{id}/memory/events/{event_id}` | one memory event |
-> | POST | `/v1/sessions/{id}/memory/tools/search-sessions` | agent-facing cross-session search tool |
-> | POST | `/v1/sessions/{id}/memory/tools/read-session-summary` | agent-facing summary read tool |
-> | POST | `/v1/sessions/{id}/memory/tools/read-context-frame` | agent-facing context-frame read tool |
+> | POST | `/v1/sessions/{id}/session-recall/search` | agent-facing cross-session search tool |
+> | POST | `/v1/sessions/{id}/session-recall/read-summary` | agent-facing summary read tool |
+> | POST | `/v1/sessions/{id}/session-recall/read-context-frame` | agent-facing context-frame read tool |
 
 ---
 
@@ -1886,40 +1893,39 @@ and writes. Optional vendor surface; generic clients ignore it.
 | PUT | `/v1/prompts/{prompt_id}` | prompt body | saved prompt |
 | POST | `/v1/prompts/reload` | — | reload from disk |
 
-## §6.21 Agent blueprints (vendor — `x_clio_agent_blueprints`)
+## §6.21 Agent plugins (vendor — `x_clio_agent_plugins`)
 
-Blueprints are declarative agent definitions loaded from installable
-**sources**; they materialise into the `/v1/agents` catalog. Optional.
-
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/v1/agent-blueprints/sources` | list blueprint sources |
-| POST | `/v1/agent-blueprints/sources` | add a source (`201`) |
-| POST | `/v1/agent-blueprints/sources/{source_id}/refresh` | re-pull a source |
-| DELETE | `/v1/agent-blueprints/sources/{source_id}` | remove a source |
-| GET | `/v1/agent-blueprints` (query `workspace_id?`) | list blueprints |
-| GET | `/v1/agent-blueprints/{blueprint_id}` | one blueprint (`{id:path}`) |
-| POST | `/v1/agent-blueprints/validate` | validate a candidate |
-| POST | `/v1/agent-blueprints/install` | install (`201`) |
-| POST | `/v1/agent-blueprints/{blueprint_id}/update` | update installed |
-| DELETE | `/v1/agent-blueprints/{blueprint_id}` | uninstall |
-| POST | `/v1/agent-blueprints/{blueprint_id}/mcp/{descriptor_id}/enable` | enable a blueprint-bundled MCP descriptor |
-| GET / POST | `/v1/sessions/{id}/agent-blueprint` | get / set the session's active blueprint |
-| GET / PUT | `/v1/sessions/{id}/agent-overlay` | get / set a per-session overlay on the active blueprint |
-| POST | `/v1/sessions/{id}/agent-overlay/export` | export the overlay as a reusable artifact (`201`) |
-
-## §6.22 Expert packs (vendor — `x_clio_expert_packs`)
-
-An expert pack bundles tier-2 specialist agents + their tools/prompts.
-Installed packs contribute `AgentDef` rows with `source:"expert_pack"`.
-Optional.
+A plugin (Agent Plugins 1.0.0 plus the `ai.iowarp.clio` namespace)
+contributes tools, skills, MCP servers, hooks, subagents, flows, commands,
+A2UI catalogs and prompt fragments. A **pack** is a plugin whose content is
+only membership in other plugins. An **agent** is a flow, an identity and a
+set of plugins; a **user agent** is a parent agent plus a delta (`add`,
+`remove`). A session pins one resolution of its agent; the session's delta
+changes it. Every failure is a typed error envelope carrying the resolver's
+diagnostics. Optional.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/v1/expert-packs` (query `workspace_id?`) | list packs |
-| GET | `/v1/expert-packs/{pack_id}` | one pack (`{id:path}`) |
-| POST | `/v1/expert-packs/validate` | validate a candidate pack |
-| GET / POST | `/v1/sessions/{id}/expert-pack` | get / set the session's active pack |
+| GET | `/v1/plugins` | `{plugins: [PluginEntry], default_marketplace_error}`; plugins whose update waits for trust carry `pending_trust: true` |
+| GET | `/v1/plugins/marketplaces` | `{marketplaces: [{name, source, commit, format, trusted, trust_reason, default, parent, installed_at, diagnostics}]}` |
+| POST | `/v1/plugins/marketplaces` | `{source, ref?, commit?, name?}` → install summary (`201`); non-default sources wait for the trust step |
+| POST | `/v1/plugins/marketplaces/{name}/trust` | the explicit trust step for the current executable parts |
+| POST | `/v1/plugins/marketplaces/{name}/update` | re-fetch; changed executable parts wait for trust again |
+| DELETE | `/v1/plugins/marketplaces/{name}` | uninstall |
+| POST | `/v1/plugins/check` | `{installed}` or `{path}` → `{source, ok, targets, diagnostics, text}` |
+| GET | `/v1/agents` | `{agents: [AgentEntry]}` — installed agents and user agents (`kind: "user"`, `extends`, `delta`) |
+| GET | `/v1/agents/resolve` | query `ref`, repeatable `add`/`remove` → resolution preview (plugins with `provenance`, `removed`, tools, composed `prompt.sections[].fragments[]` attributed by `plugin`); pins nothing |
+| POST | `/v1/agents/preview-removal` | `{ref, plugin, delta}` → `{plugin, removes: [{id, reason}], tools_removed}` (the cascade of dependents) |
+| POST | `/v1/agents/user` | `{id, extends, add, remove, name?, description?}` → saved `AgentEntry` (`user/<id>`, `201`) |
+| DELETE | `/v1/agents/user/{id}` | delete a user agent |
+| GET | `/v1/sessions/{id}/agent` | `{session_id, delta, subagent, resolution}` |
+| PATCH | `/v1/sessions/{id}/agent` | `{ref?, add?, remove?}`; `add`/`remove` replace the whole session delta; pins and returns the new resolution |
+| GET | `/v1/sessions/{id}/tasks/{handle}/flow` | the flow run checkpointed under a task (`plan` runs publish `view.nodes`, `view.awaiting_approval`; typed stalls in `outcome`); `404` when the task runs no flow |
+
+`provenance.source` is `core`, `agent` (`via` names the agent layer),
+`pack` (`via` names the pack), `required` (`via` names the plugin that
+requires it) or `user`. Sessions choose an agent with
+`metadata.agent_ref = "<marketplace>/<id>"` at creation.
 
 ## §6.23 User questions (vendor — `x_clio_user_questions`)
 
@@ -2316,7 +2322,7 @@ sketch; the rest reflect clio's resource model.
 | `file.diff.applied` / `file.diff.rejected` | diff apply lifecycle (§6.10) | `{session_id, path, part_id, message_id}` |
 | `file.diff.write_failed` | diff write failed (§6.10) | `{session_id, path, part_id, message_id, error}` |
 | `memory.search.completed` | memory search served | vendor |
-| `memory_search_sessions.completed` / `.denied`, `memory_read_session_summary.completed` / `.denied`, `memory_read_context_frame.completed` / `.denied` | memory-tool audit events (§6.19 tools) | vendor |
+| `session_search.completed` / `.denied`, `session_read_summary.completed` / `.denied`, `session_read_context_frame.completed` / `.denied` | memory-tool audit events (§6.19 tools) | vendor |
 | `arc.op` | context mutations (allow-listed ids/kinds/token_count only) | vendor |
 | `agent.reasoning.delta` | throttled (≥1 s) liveness ping while the model reasons | `{stream_source: "reasoning"}` — carries NO text; vendor |
 | `lm.provider.changed` / `lm.provider.failed` | `/v1/providers/lm` config result | global (`session_id: ""`, broadcast to all streams) |
@@ -2330,8 +2336,7 @@ publish them on the bus (they are read via REST or ride
 `semantic.event` / synthetic system `message.created` frames):
 `tool.started`, `agent.invocation.started/completed`,
 `context.frame.created/completed`, `memory.compacted`,
-`memory.policy_summary`, `session.active_pack`,
-`session.active_agent_blueprint`.
+`memory.policy_summary`.
 
 There is no `file.diff.proposed` event — a diff proposal arrives as a
 batch `message.part.added` (`file_diff` part) plus a `semantic.event`
@@ -2492,7 +2497,7 @@ Envelope (clio `semantic_events.py:SemanticEvent.to_dict`):
   "trace_id": "...", "turn_id": "...", "span_id": "...", "parent_span_id": "",
   "status": "completed",            // started | completed | failed | ...
   "summary": "human-readable one-liner",
-  "actor": {}, "subject": {}, "blueprint": {}, "provider": {},
+  "actor": {}, "subject": {}, "provider": {},
   "payload": {},                    // redacted per detail level (see below)
   "live_observed": true,
   "detail_level": "semantic",       // off | metadata | semantic | full_debug
@@ -2504,7 +2509,7 @@ Envelope (clio `semantic_events.py:SemanticEvent.to_dict`):
 serves. Only these `event_type` values reach the SSE wire:
 `react.step.completed`, `expert.extract.completed`,
 `expert.response.completed`, `expert.lifecycle.started`,
-`(blueprint.)delegation.started` / `.completed` / `.parent_resumed` /
+`delegation.started` / `.completed` / `.parent_resumed` /
 `.failed`, `memory.search.completed`, **the artifact `created` family
 (`artifact.created` / `artifact.version.added` / `artifact.alias.moved`,
 vendor `x_clio_artifacts`, §6.26)**, **the grant/boundary family (B5 #979):
@@ -2607,12 +2612,12 @@ mcp_task.completed implemented
 mcp_task.failed implemented
 mcp_task.updated implemented
 memory.search.completed implemented
-memory_read_context_frame.completed implemented
-memory_read_context_frame.denied implemented
-memory_read_session_summary.completed implemented
-memory_read_session_summary.denied implemented
-memory_search_sessions.completed implemented
-memory_search_sessions.denied implemented
+session_read_context_frame.completed implemented
+session_read_context_frame.denied implemented
+session_read_summary.completed implemented
+session_read_summary.denied implemented
+session_search.completed implemented
+session_search.denied implemented
 message.completed implemented
 message.created implemented
 message.deleted implemented
@@ -2784,7 +2789,7 @@ known entity.
 #### Variant runs (Phase 9)
 
 A BestOfN / Refine run (the agent drafting alternatives, origin
-`draft_alternatives`, or a blueprint/subagent module run as variants, origin
+`draft_alternatives`, or a plugin agent or subagent module run as variants, origin
 `module_variant`) is projected as one run keyed by `variants_id`:
 
 - `variant.try.upserted` (entity `<variants_id>:<try_index>`) — a try started
@@ -3002,9 +3007,9 @@ The 10 questions raised during design review are decided here. Several are expli
 
 7. **WebSocket events: out of v0.1.** Bidirectional WS gives no advantage over our REST-POST + SSE pairing for the TUI use case. *Trigger to revisit:* features needing client-pushed real-time events upstream (e.g. mouse-share for pair programming).
 
-8. **Agent write API: yes** (§6.5). `POST/PUT/DELETE /v1/agents/{id}` gated by `capabilities.agent_write`. Goose-style recipes are a primary user-extension surface; without a write API the contract can't expose them.
+8. **Agent write API: yes** (§6.5). `POST/PUT/DELETE /v1/agents/{id}` gated by `capabilities.agent_write`. Goose-style recipes are a primary user-extension surface; without a write API the contract can't expose them. clio advertises `agent_write = false` and saves user agents through the plugin routes instead (§6.21).
 
-9. **Skills are agents** with `source: "skill"` (§6.5). Backends doing automated extraction from past sessions (Gemini-style) expose `POST /v1/agents/extract?session_id=...`, gated by `capabilities.skills_extraction`. No dedicated namespace — that would fragment the agent picker UI.
+9. **Skills are agents** with `source: "skill"` (§6.5). Backends doing automated extraction from past sessions (Gemini-style) expose `POST /v1/agents/extract?session_id=...`, gated by `capabilities.skills_extraction`. No dedicated namespace — that would fragment the agent picker UI. clio advertises `skills_extraction = false`; its skills come from plugins (§6.21).
 
 10. **Telemetry: yes, `GET /v1/metrics`** (§6.16). Standard counters (sessions, messages, tokens, cost, by-provider), gated by `capabilities.metrics`. Vendor-specific counters go under `x_<vendor>_<key>`.
 
@@ -3160,12 +3165,11 @@ behavior above, not drift**.
 
 ### 15.3 Endpoints — clio adds (vendor or minor, gated by `x_clio_*`)
 - Prompt registry `/v1/prompts*` (§6.20)
-- Agent blueprints `/v1/agent-blueprints*` + session blueprint/overlay (§6.21)
-- Expert packs `/v1/expert-packs*` + session pack (§6.22)
+- Agent plugins `/v1/plugins*`, plugin agents `/v1/agents*`, session agent `/v1/sessions/{id}/agent`, flow runs `/v1/sessions/{id}/tasks/{handle}/flow` (§6.21)
 - User questions `/v1/sessions/{id}/questions*` (§6.23)
 - Turn retry/attempts `/v1/sessions/{id}/attempts`, `.../retry` (§6.24)
 - Context frames/policy/state `/v1/sessions/{id}/context/frames*`, `/context/policy`, `/context/state`, `/context/compact` (§6.9)
-- Memory search/events/tools `/v1/memory/search`, `/v1/sessions/{id}/memory/*` (§6.19)
+- Memory search/events/tools `/v1/session-recall/search`, `/v1/sessions/{id}/memory/*` (§6.19)
 - Capability gaps `/v1/capability-gaps` (§3.3.1)
 - Scheduled sessions + sharing (§6.15, §6.15b)
 - `DELETE /v1/messages/{id}` session-less alias (§6.3)
@@ -3185,7 +3189,7 @@ behavior above, not drift**.
 - `PermissionRequest`: thin row + lifecycle fields; no
   `subsession_id`/`call_id`/`server_id`/`annotations` (§4.7).
 - `AgentDef`: flat `default_provider`/`default_model`; `parameters` is an
-  object; adds many fields incl. `capability_refs`, `source:"expert_pack"`
+  object; adds many fields incl. `capability_refs`, `source:"plugin"`
   (§6.5).
 - Error body wraps `ErrorInfo` (`error`/`message`/`details`/`recoverable`/
   `retry_after_s` — the latter never emitted) (§6.0/§14).

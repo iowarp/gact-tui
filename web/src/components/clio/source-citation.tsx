@@ -27,7 +27,7 @@ export function SourceCitation({
         <InlineCitationCardTrigger
           asChild
           sources={[href]}
-          className="ml-0 h-auto max-w-full min-w-0 align-baseline whitespace-normal no-underline"
+          className="ml-0 h-auto max-w-full min-w-0 align-baseline whitespace-normal [overflow-wrap:anywhere] no-underline"
         >
           {children}
         </InlineCitationCardTrigger>

@@ -1,4 +1,10 @@
-import type { Message, MessageBlock, Task, ToolInvocation } from '@clio/core/v3';
+import {
+  PLUGIN_CHANGE_INJECTION_SOURCE,
+  type Message,
+  type MessageBlock,
+  type Task,
+  type ToolInvocation,
+} from '@clio/core/v3';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import type { ThoughtSource } from './transcript-reasoning';
@@ -182,6 +188,14 @@ function fallbackIterations(
     if (block.type === 'notice' && block.source === 'compaction_failed') {
       flush();
       compactionRecords.push({ afterIteration: iterations.length, block });
+      consumed.add(block.id);
+      segments.push({ kind: 'block', block });
+      continue;
+    }
+    // A plugin change the agent was told about stays visible at its step as a
+    // chip, rather than folded into the turn's activity.
+    if (block.type === 'injection' && block.source === PLUGIN_CHANGE_INJECTION_SOURCE) {
+      flush();
       consumed.add(block.id);
       segments.push({ kind: 'block', block });
       continue;

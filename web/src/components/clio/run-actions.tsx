@@ -50,13 +50,13 @@ export function RunActions({
           {row.workspaceId && row.targetSessionId ? (
             <DropdownMenuItem asChild>
               <Link
-                to={`${`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}${row.workflow ? `?workflow=${encodeURIComponent(row.workflow.id)}` : ''}`}
+                to={`${`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}${row.flowHandle ? `?flow=${encodeURIComponent(row.flowHandle)}` : ''}`}
               >
-                {row.workflow ? 'Open workflow graph' : 'Open conversation'}
+                {row.flowHandle ? 'Open flow run' : 'Open conversation'}
               </Link>
             </DropdownMenuItem>
           ) : null}
-          {row.workflow && row.workspaceId && row.targetSessionId ? (
+          {row.flowHandle && row.workspaceId && row.targetSessionId ? (
             <DropdownMenuItem asChild>
               <Link
                 to={`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}

@@ -4,11 +4,11 @@ import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 /** Keep the draft workspace ready while visible, with no session identity. */
-export function useWorkspaceWarmup(workspaceId: string, enabled: boolean, blueprintId?: string) {
+export function useWorkspaceWarmup(workspaceId: string, enabled: boolean, agentRef?: string) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   return useQuery({
-    queryKey: queryKeys.key('workspace-warmup', settings.endpoint, workspaceId, blueprintId ?? ''),
+    queryKey: queryKeys.key('workspace-warmup', settings.endpoint, workspaceId, agentRef ?? ''),
     queryFn: () => repository.warmWorkspace(workspaceId),
     enabled: Boolean(workspaceId) && enabled,
     // The operation coalesces on the server. Do not cancel/restart a request

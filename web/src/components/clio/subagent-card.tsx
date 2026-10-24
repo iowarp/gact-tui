@@ -10,6 +10,7 @@ import { getChildAgentAssignment } from './child-agent-presentation';
 import { ActivityRow } from './activity-row';
 import { ClioToolInvocation } from './tool-invocation';
 import { ClioStatus } from './status';
+import { SubagentModel } from './subagent-model';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -226,6 +227,7 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
           state: toTheoState(subagent.state),
           duration:
             subagent.duration_ms === undefined ? undefined : formatDuration(subagent.duration_ms),
+          model: subagent.model_choice ? <SubagentModel choice={subagent.model_choice} /> : undefined,
           result: subagent.result
             ? compactText(subagent.result, SUBAGENT_RESULT_TRUNCATE_CHARS)
             : undefined,

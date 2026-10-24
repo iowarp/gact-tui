@@ -55,13 +55,13 @@ func TestProjectExecutionTimelineDedupsRepeatedHandoffAndOverlappedText(t *testi
 	events := []executionTimelineEvent{
 		deltaEvent(1, "The"),
 		deltaEvent(2, "The workflow has identified the target region."),
-		semanticEventWithTurn(3, "turn-one", "blueprint.delegation.started", "main", "synthesis", map[string]any{
+		semanticEventWithTurn(3, "turn-one", "delegation.started", "main", "synthesis", map[string]any{
 			"parent_id":   "main",
 			"delegate_to": "synthesis",
 			"question":    "Synthesize the final answer.",
 			"status":      "running",
 		}),
-		semanticEventWithTurn(4, "turn-one", "blueprint.delegation.started", "main", "synthesis", map[string]any{
+		semanticEventWithTurn(4, "turn-one", "delegation.started", "main", "synthesis", map[string]any{
 			"parent_id":   "main",
 			"delegate_to": "synthesis",
 			"question":    "Synthesize the final answer.",
@@ -83,7 +83,7 @@ func TestProjectExecutionTimelineDedupsDuplicateAssistantTextAcrossHandoff(t *te
 	textGood := "I am initiating the process to find the nearest GNSS station to San Diego and generate a plot of its data. First, I will resolve the geographic coordinates for San Diego."
 	events := []executionTimelineEvent{
 		deltaEvent(1, textBad),
-		semanticEventWithTurn(2, "turn-one", "blueprint.delegation.started", "main", "geospatial", map[string]any{
+		semanticEventWithTurn(2, "turn-one", "delegation.started", "main", "geospatial", map[string]any{
 			"parent_id":   "main",
 			"delegate_to": "geospatial",
 			"question":    "Resolve San Diego.",
@@ -148,7 +148,7 @@ func TestRecordExecutionSSESkipsLiveTextPartAdded(t *testing.T) {
 func TestProjectExecutionTimelineSuppressesNoAnswerPlaceholder(t *testing.T) {
 	events := []executionTimelineEvent{
 		deltaEvent(1, "*No answer yet – awaiting geospatial resolution of “San Diego”.*"),
-		semanticEventWithTurn(2, "turn-one", "blueprint.delegation.started", "main", "geospatial", map[string]any{
+		semanticEventWithTurn(2, "turn-one", "delegation.started", "main", "geospatial", map[string]any{
 			"parent_id":   "main",
 			"delegate_to": "geospatial",
 			"question":    "Resolve San Diego.",
@@ -167,7 +167,7 @@ func TestProjectExecutionTimelineSuppressesNoAnswerPlaceholder(t *testing.T) {
 
 func TestProjectExecutionTimelineExtractReplacesPriorDelegationReport(t *testing.T) {
 	events := []executionTimelineEvent{
-		semanticEvent(1, "blueprint.delegation.completed", "visualization", "main", map[string]any{
+		semanticEvent(1, "delegation.completed", "visualization", "main", map[string]any{
 			"delegate_to":    "visualization",
 			"return_to":      "main",
 			"output_summary": "workflow_state map[artifact:map[path:/tmp/plot.png]]",
@@ -211,7 +211,7 @@ func TestProjectExecutionTimelineExtractReplacesPriorDelegationReport(t *testing
 func executionTimelineFixtureMainGeoDataNDP() []executionTimelineEvent {
 	return []executionTimelineEvent{
 		deltaEvent(1, "I am initiating the workflow to locate the nearest EarthScope station to San Diego, stage its data, perform an analysis, and generate a visualization. I will start by resolving the geographic coordinates for San Diego."),
-		semanticEvent(2, "blueprint.delegation.started", "main", "geospatial", map[string]any{
+		semanticEvent(2, "delegation.started", "main", "geospatial", map[string]any{
 			"parent_id":   "main",
 			"delegate_to": "geospatial",
 			"question":    "[redacted]:123 chars",
@@ -234,7 +234,7 @@ func executionTimelineFixtureMainGeoDataNDP() []executionTimelineEvent {
 			"is_finish":   true,
 			"observation": "Completed.",
 		}),
-		semanticEvent(6, "blueprint.delegation.completed", "geospatial", "main", map[string]any{
+		semanticEvent(6, "delegation.completed", "geospatial", "main", map[string]any{
 			"parent_id":      "main",
 			"delegate_to":    "geospatial",
 			"return_to":      "main",
@@ -242,7 +242,7 @@ func executionTimelineFixtureMainGeoDataNDP() []executionTimelineEvent {
 			"output_summary": "resolved region · center 32.72, -117.2 · radius 100 km · confidence high",
 		}),
 		deltaEvent(7, "The region for San Diego has been resolved. I am now proceeding to discover the nearest EarthScope GNSS station and stage its time-series data for analysis."),
-		semanticEvent(8, "blueprint.delegation.started", "main", "data", map[string]any{
+		semanticEvent(8, "delegation.started", "main", "data", map[string]any{
 			"parent_id":   "main",
 			"delegate_to": "data",
 			"question":    "[redacted]:226 chars",
@@ -250,7 +250,7 @@ func executionTimelineFixtureMainGeoDataNDP() []executionTimelineEvent {
 		}),
 		handoffPartEvent(9, "main", "data", "Using the resolved coordinates for San Diego (32.7174202, -117.162772) and the 100km radius, discover the nearest EarthScope/NDP GNSS station, rank candidates by distance, and stage the time-series CSV for the nearest station."),
 		deltaEvent(10, "I am initiating the data acquisition process for San Diego. The first step is to discover and stage the EarthScope station metadata catalog from the NDP."),
-		semanticEvent(11, "blueprint.delegation.started", "data", "ndp_dataset_discovery", map[string]any{
+		semanticEvent(11, "delegation.started", "data", "ndp_dataset_discovery", map[string]any{
 			"parent_id":   "data",
 			"delegate_to": "ndp_dataset_discovery",
 			"question":    "[redacted]:160 chars",
@@ -273,7 +273,7 @@ func executionTimelineFixtureMainGeoDataNDP() []executionTimelineEvent {
 			"tool_args":   map[string]any{"url": "earthscope_converted_data.csv"},
 			"observation": `{"ok":true,"local_path":"/tmp/gact-tui-audit/earthscope_converted_data.csv","size_bytes":153082}`,
 		}),
-		semanticEvent(15, "blueprint.delegation.completed", "ndp_dataset_discovery", "data", map[string]any{
+		semanticEvent(15, "delegation.completed", "ndp_dataset_discovery", "data", map[string]any{
 			"parent_id":      "data",
 			"delegate_to":    "ndp_dataset_discovery",
 			"return_to":      "data",
@@ -331,9 +331,9 @@ func semanticEventWithTurn(sequence int, turnID string, eventType string, actor 
 
 func semanticTestSummary(eventType string, actor string, subject string) string {
 	switch eventType {
-	case "blueprint.delegation.started":
+	case "delegation.started":
 		return actor + " delegated sync work to " + subject + "."
-	case "blueprint.delegation.completed":
+	case "delegation.completed":
 		return actor + " returned a compact result to " + subject + "."
 	default:
 		return eventType
@@ -362,55 +362,13 @@ func assertNodeTextContains(t *testing.T, node executionTimelineNode, want strin
 	}
 }
 
-// TestProjectExecutionTimelinePlainDelegationPrefixMatchesBlueprint pins #233
-// allow-list parity: the delegation atom rides TWO prefixes depending on the
-// runtime (“blueprint.delegation.*“ vs plain “delegation.*“ — SPEC.md
-// §7.6) and both must project to the SAME rows.
-func TestProjectExecutionTimelinePlainDelegationPrefixMatchesBlueprint(t *testing.T) {
-	eventsFor := func(prefix string) []executionTimelineEvent {
-		return []executionTimelineEvent{
-			semanticEventWithTurn(1, "turn-one", prefix+".started", "main", "geospatial", map[string]any{
-				"parent_id":   "main",
-				"delegate_to": "geospatial",
-				"question":    "Resolve San Diego to coordinates.",
-				"status":      "running",
-			}),
-			semanticEventWithTurn(2, "turn-one", prefix+".completed", "geospatial", "main", map[string]any{
-				"agent_id":       "geospatial",
-				"parent_id":      "main",
-				"output_summary": "Region resolved to grounded coordinates.",
-				"status":         "completed",
-			}),
-		}
-	}
-	blueprint := projectExecutionTimeline(eventsFor("blueprint.delegation"))
-	plain := projectExecutionTimeline(eventsFor("delegation"))
-	signaturesOf := func(nodes []executionTimelineNode) string {
-		var got []string
-		for _, node := range nodes {
-			got = append(got, nodeSignature(node))
-		}
-		return strings.Join(got, "\n")
-	}
-	if signaturesOf(plain) != signaturesOf(blueprint) {
-		t.Fatalf("plain delegation.* projects differently from blueprint.delegation.*\nblueprint:\n%s\n\nplain:\n%s",
-			signaturesOf(blueprint), signaturesOf(plain))
-	}
-	rendered := ansi.Strip(DefaultTheme().renderExecutionTimeline(plain, 100))
-	for _, want := range []string{"→ delegates to geospatial", "Resolve San Diego to coordinates.", "Region resolved to grounded coordinates."} {
-		if !strings.Contains(rendered, want) {
-			t.Fatalf("plain-prefix delegation render missing %q:\n%s", want, rendered)
-		}
-	}
-}
-
 // TestProjectExecutionTimelineParentResumedReturnsControl pins that a
-// delegation.parent_resumed event (either prefix) hands the text stream back
+// delegation.parent_resumed event hands the text stream back
 // to the parent: deltas after the resume attribute to the parent, not the
 // child, and the resume itself adds no row (the render synthesizes ⤶ from the
 // depth drop).
 func TestProjectExecutionTimelineParentResumedReturnsControl(t *testing.T) {
-	for _, prefix := range []string{"blueprint.delegation", "delegation"} {
+	for _, prefix := range []string{"delegation"} {
 		events := []executionTimelineEvent{
 			semanticEventWithTurn(1, "turn-one", prefix+".started", "main", "geospatial", map[string]any{
 				"parent_id":   "main",
@@ -438,10 +396,10 @@ func TestProjectExecutionTimelineParentResumedReturnsControl(t *testing.T) {
 }
 
 // TestProjectExecutionTimelineDelegationFailedRendersFailureReport pins that a
-// failed delegation (either prefix) still produces the child's report row,
+// failed delegation still produces the child's report row,
 // carrying the failed status — errors are first-class (SPEC.md §7.6).
 func TestProjectExecutionTimelineDelegationFailedRendersFailureReport(t *testing.T) {
-	for _, prefix := range []string{"blueprint.delegation", "delegation"} {
+	for _, prefix := range []string{"delegation"} {
 		events := []executionTimelineEvent{
 			semanticEventWithTurn(1, "turn-one", prefix+".started", "main", "geospatial", map[string]any{
 				"parent_id":   "main",
@@ -485,7 +443,7 @@ func TestProjectExecutionTimelineExpertResponseFillsNestedGap(t *testing.T) {
 
 	// Nested expert with no extract and no streamed prose → report row.
 	nodes := projectExecutionTimeline([]executionTimelineEvent{
-		semanticEventWithTurn(1, "turn-one", "blueprint.delegation.started", "main", "station_network_analysis", map[string]any{
+		semanticEventWithTurn(1, "turn-one", "delegation.started", "main", "station_network_analysis", map[string]any{
 			"parent_id":   "main",
 			"delegate_to": "station_network_analysis",
 			"question":    "Assess suitability.",
@@ -642,7 +600,7 @@ func TestCtrlEOpensProviderThinkingThroughProductionPath(t *testing.T) {
 		}},
 	}
 	a.execution.executionEventsBySession = map[string][]executionTimelineEvent{"s1": {
-		semanticEventWithTurn(1, "msg_user_1", "blueprint.delegation.started", "main", "geospatial", map[string]any{
+		semanticEventWithTurn(1, "msg_user_1", "delegation.started", "main", "geospatial", map[string]any{
 			"parent_id":   "main",
 			"delegate_to": "geospatial",
 			"question":    "Resolve San Diego.",

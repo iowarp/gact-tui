@@ -98,26 +98,20 @@ func (c *executionComponent) recordSSE(e client.SSEEvent) {
 // semanticLedgerEventTypes mirrors the server's UI/SSE serving allow-list —
 // contract/SPEC.md §7.6 "Served allow-list" is source of truth (clio
 // semantic_events.py: SSE_UI_EVENT_TYPES): the ReAct trajectory atoms
-// (react step / extract / expert response / expert lifecycle), the delegation
-// atom on BOTH its prefixes (`blueprint.delegation.*` for Agent Blueprint
-// experts, plain `delegation.*` for expert-pack / prompt-agent delegations),
-// and memory.search.completed. Everything else (turn/agent/hook lifecycle,
+// (react step / extract / expert response / expert lifecycle), the
+// `delegation.*` atom, and memory.search.completed. Everything else (turn/agent/hook lifecycle,
 // the `tool.call.*` mirrors, `lm.token.delta`, memory bookkeeping) never
 // reaches the wire — except through the failed-status gate below.
 var semanticLedgerEventTypes = map[string]bool{
-	"react.step.completed":                true,
-	"expert.extract.completed":            true,
-	"expert.response.completed":           true,
-	"expert.lifecycle.started":            true,
-	"blueprint.delegation.started":        true,
-	"blueprint.delegation.completed":      true,
-	"blueprint.delegation.parent_resumed": true,
-	"blueprint.delegation.failed":         true,
-	"delegation.started":                  true,
-	"delegation.completed":                true,
-	"delegation.parent_resumed":           true,
-	"delegation.failed":                   true,
-	"memory.search.completed":             true,
+	"react.step.completed":      true,
+	"expert.extract.completed":  true,
+	"expert.response.completed": true,
+	"expert.lifecycle.started":  true,
+	"delegation.started":        true,
+	"delegation.completed":      true,
+	"delegation.parent_resumed": true,
+	"delegation.failed":         true,
+	"memory.search.completed":   true,
 }
 
 // semanticEventReachesLedger reports whether a semantic event belongs in the

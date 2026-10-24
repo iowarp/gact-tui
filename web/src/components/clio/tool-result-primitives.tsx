@@ -275,7 +275,7 @@ export function ExpandableDetail({ text, label }: { text: string; label: string 
       </p>
       {long ? (
         <button
-          className="font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="font-medium text-link underline-offset-2 hover:text-link/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={() => setExpanded((value) => !value)}
           type="button"
         >

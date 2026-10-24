@@ -301,7 +301,7 @@ function ToolDomainGroup({
 
 function McpOriginBadge({ server }: { server: McpServerDefinition }) {
   const label =
-    server.agent_blueprint_id || server.session_id
+    server.plugin || server.session_id
       ? 'Session'
       : isBuiltinMcp(server)
         ? 'Built in'
@@ -310,17 +310,14 @@ function McpOriginBadge({ server }: { server: McpServerDefinition }) {
 }
 
 function McpProvenance({ server }: { server: McpServerDefinition }) {
-  if (server.agent_blueprint_id) {
+  if (server.plugin) {
     return (
       <p className="px-8 pb-2 text-xs text-muted-foreground">
-        Enabled by{' '}
-        <Link
-          className="font-medium text-primary hover:underline"
-          to={`/settings/blueprints?blueprint=${encodeURIComponent(server.agent_blueprint_id)}`}
-        >
-          {server.agent_blueprint_name || server.agent_blueprint_id}
-        </Link>
-        {server.session_id ? ' for this session' : ''}.
+        From the{' '}
+        <Link className="font-medium text-primary hover:underline" to="/settings/plugins">
+          {server.plugin}
+        </Link>{' '}
+        plugin{server.session_id ? ' of this conversation’s agent' : ''}.
       </p>
     );
   }
@@ -551,7 +548,7 @@ function clioDomainForName(name: string): string | undefined {
     ],
     [/^(create_a2ui|update_a2ui|a2ui_|raise_alert_card)/u, `${PROTOCOL.a2ui} surfaces`],
     [/^(provider_|refresh_provider)/u, 'Models'],
-    [/^(workflow_|run_workflow)/u, 'Workflows'],
+    [/^(run_flow|run_workflow|workflow_add_step|workflow_cancel_step)/u, 'Flows'],
   ];
   return groups.find(([pattern]) => pattern.test(name))?.[1];
 }
@@ -568,7 +565,6 @@ function serverTitle(server: McpServerDefinition | undefined, fallback: string):
   if (!server) return humanize(fallback.replace(/^mcp_/u, ''));
   const title = server.spec.title;
   if (typeof title === 'string' && title.trim()) return title;
-  if (server.agent_blueprint_name?.trim()) return server.agent_blueprint_name;
   return humanize(server.name);
 }
 

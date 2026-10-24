@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { agentTaskRecordSchema, type AgentTaskRecord } from './agent-task-domain.js';
 import type { AsyncProcess, ContextFile, ContextFrame, SessionDiff } from './domain.js';
 import { ExecutionProvenanceRepository } from './execution-provenance-repository.js';
-import { operationalRunStateSchema } from './schemas.js';
+import { modelChoiceSchema, operationalRunStateSchema } from './schemas.js';
 import { variantRunsFromRecords, type VariantRuns } from './variant-reducer.js';
 import { variantRunListSchema } from './variant-schemas.js';
 import { cursorPageMetadataSchema } from './repository-decoders.js';
@@ -14,12 +14,21 @@ import {
 } from './transport.js';
 
 const sessionDiffSchema = z.object({
+  id: z.string(),
   path: z.string(),
-  status: z.string().default('pending'),
-  applied: z.boolean().default(false),
+  status: z.enum(['applied', 'reverted']),
+  created: z.boolean().default(false),
   unified_diff: z.string().optional(),
+  lines_added: z.number().int().nonnegative().optional(),
+  lines_removed: z.number().int().nonnegative().optional(),
+  undo_available: z.boolean(),
+  undo_unavailable_reason: z.string().optional(),
   message_id: z.string().optional(),
   part_id: z.string().optional(),
+  call_id: z.string().optional(),
+  tool_name: z.string().optional(),
+  recorded_at: z.string().optional(),
+  reverted_at: z.string().optional(),
 });
 
 const contextFileSchema = z.object({
@@ -86,6 +95,13 @@ const asyncProcessSchema = z
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
     error_reason: z.string().optional(),
+    /** Set when the task's child conversation runs a flow: its flow id. */
+    flow: z
+      .object({ id: z.string() })
+      .nullish()
+      .transform((value) => value ?? undefined),
+    /** The model the child conversation runs on and why. */
+    model_choice: modelChoiceSchema.nullish().transform((value) => value ?? undefined),
     result: z
       .object({
         answer: z.string().optional(),
@@ -183,38 +199,26 @@ export class SessionObservabilityRepository extends ExecutionProvenanceRepositor
     return value.diffs as SessionDiff[];
   }
 
-  public applySessionDiffs(
+  /**
+   * Undo one change the agent made: the service restores the previous content
+   * (or deletes a file the agent created) only while the file is still what the
+   * agent wrote. A refusal rejects typed (404 `file_change_not_found`; 409
+   * `already_reverted`, `undo_unavailable`, `file_changed_since_write`; 403
+   * `path_outside_workspace`, `file_policy`, `policy_denied`).
+   */
+  public async revertSessionDiff(
     sessionId: string,
-    paths: readonly string[],
+    changeId: string,
     signal?: AbortSignal,
-  ): Promise<{ applied: string[]; write_errors?: Record<string, string> }> {
-    return this.transport.request({
+  ): Promise<SessionDiff> {
+    const value = await this.transport.request({
       method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/apply`,
-      body: { paths: [...paths] },
-      decode: (input) =>
-        z
-          .object({
-            applied: z.array(z.string()).default([]),
-            write_errors: z.record(z.string(), z.string()).optional(),
-          })
-          .parse(input),
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/revert`,
+      body: { id: changeId },
+      decode: (input) => z.object({ reverted: sessionDiffSchema }).parse(input),
       signal,
     });
-  }
-
-  public rejectSessionDiffs(
-    sessionId: string,
-    paths: readonly string[],
-    signal?: AbortSignal,
-  ): Promise<{ rejected: string[] }> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/diffs/reject`,
-      body: { paths: [...paths] },
-      decode: (input) => z.object({ rejected: z.array(z.string()).default([]) }).parse(input),
-      signal,
-    });
+    return value.reverted as SessionDiff;
   }
 
   public async contextFiles(sessionId: string, signal?: AbortSignal): Promise<ContextFile[]> {

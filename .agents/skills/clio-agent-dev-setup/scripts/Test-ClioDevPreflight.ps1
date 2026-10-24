@@ -21,19 +21,18 @@ param(
     [int]$McpWarmupTimeoutSec = 180,
     [ValidateRange(30, 900)]
     [int]$McpWarmupDeadlineSec = 300,
-    [string[]]$RequiredBlueprints = @(
-        "base-agent",
-        "cluster-operator",
-        "data-semantics",
-        "deep-researcher",
-        "document-production",
-        "earthscope-flat",
-        "earthscope-gnss-region",
-        "earthscope-single-agent",
-        "factorio",
-        "phenotype",
-        "spotter-ai",
-        "wildfire-smoke-impact-review"
+    [string[]]$RequiredAgents = @(
+        "clio/standard",
+        "clio/data-semantics",
+        "clio/deep-researcher",
+        "clio/document-production",
+        "clio/earthscope-flat",
+        "clio/earthscope-gnss-region",
+        "clio/earthscope-single-agent",
+        "clio/factorio",
+        "clio/phenotype",
+        "clio/spotter-ai",
+        "clio/wildfire-smoke-impact-review"
     )
 )
 
@@ -81,7 +80,7 @@ $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10
 $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
-# SDK-native provider and blueprint discovery can perform real cold-start work
+# SDK-native provider and plugin discovery can perform real cold-start work
 # after the lightweight health endpoint is ready. Keep every backend readiness
 # probe within the single explicit live-preflight budget supplied by the caller.
 try {
@@ -91,10 +90,10 @@ catch {
     throw "Provider preflight failed for $backendUrl/v1/providers/lm: $($_.Exception.Message)"
 }
 $catalog = Invoke-RestMethod `
-    -Uri "$backendUrl/v1/agent-blueprints" `
+    -Uri "$backendUrl/v1/agents" `
     -TimeoutSec $HealthTimeoutSec
-$sources = Invoke-RestMethod `
-    -Uri "$backendUrl/v1/agent-blueprints/sources" `
+$marketplaces = Invoke-RestMethod `
+    -Uri "$backendUrl/v1/plugins/marketplaces" `
     -TimeoutSec $HealthTimeoutSec
 try {
     # The first full application request may still be compiling the Vite graph
@@ -218,16 +217,11 @@ if ($documentProcessorHealth.checks.docling -ne "ready") {
     throw "The contained document processor's Docling worker is '$($documentProcessorHealth.checks.docling)', not ready."
 }
 
-$blueprints = @($catalog.agent_blueprints)
-$invalidBlueprints = @($blueprints | Where-Object { -not $_.enabled -or @($_.validation_errors).Count -gt 0 })
-if ($invalidBlueprints.Count -gt 0) {
-    throw "Invalid or disabled blueprints: $($invalidBlueprints.id -join ', ')."
-}
-
-$installedIds = @($blueprints.id)
-$missingBlueprints = @($RequiredBlueprints | Where-Object { $_ -notin $installedIds })
-if ($missingBlueprints.Count -gt 0) {
-    throw "Required bundled blueprints are missing: $($missingBlueprints -join ', ')."
+$agents = @($catalog.agents)
+$installedRefs = @($agents.ref)
+$missingAgents = @($RequiredAgents | Where-Object { $_ -notin $installedRefs })
+if ($missingAgents.Count -gt 0) {
+    throw "Required bundled agents are missing: $($missingAgents -join ', ')."
 }
 
 if (-not (Test-Path -LiteralPath $spotterImplRoot -PathType Container)) {
@@ -246,26 +240,17 @@ foreach ($requiredSetting in @(
     }
 }
 
-$sourceRows = @($sources.sources)
-$bundledSource = $sourceRows | Where-Object { $_.is_default -eq $true } | Select-Object -First 1
-if ($null -eq $bundledSource) {
-    throw "The installed default marketplace is missing from /v1/agent-blueprints/sources."
+$marketplaceRows = @($marketplaces.marketplaces)
+$bundledMarketplace = $marketplaceRows | Where-Object { $_.default -eq $true } | Select-Object -First 1
+if ($null -eq $bundledMarketplace) {
+    throw "The installed default marketplace is missing from /v1/plugins/marketplaces."
 }
-if ($bundledSource.status -ne "ready") {
-    throw "The default marketplace source is '$($bundledSource.status)', not ready."
+if (-not $bundledMarketplace.trusted) {
+    throw "The default marketplace '$($bundledMarketplace.name)' is not trusted."
 }
-$sourceBlueprintIds = @($bundledSource.available_blueprints.id)
-$uninstalledSourceBlueprints = @(
-    $sourceBlueprintIds | Where-Object { $_ -notin $installedIds }
-)
-if ($uninstalledSourceBlueprints.Count -gt 0) {
-    throw "The default marketplace advertises blueprints that are not installed: $($uninstalledSourceBlueprints -join ', ')."
-}
-$missingSourceBlueprints = @(
-    $RequiredBlueprints | Where-Object { $_ -notin $sourceBlueprintIds }
-)
-if ($missingSourceBlueprints.Count -gt 0) {
-    throw "The default marketplace source omits: $($missingSourceBlueprints -join ', ')."
+$marketplaceErrors = @($bundledMarketplace.diagnostics | Where-Object { $_.severity -eq "error" })
+if ($marketplaceErrors.Count -gt 0) {
+    throw "The default marketplace reports errors: $(@($marketplaceErrors.message) -join '; ')."
 }
 
 $readyMcpServers = @()
@@ -431,10 +416,10 @@ foreach ($item in $degraded) {
     provider = $provider.provider
     model = $provider.model
     transport = $provider.transport
-    blueprint_count = $blueprints.Count
-    blueprint_ids = $installedIds
-    marketplace_source = $bundledSource.name
-    marketplace_commit = $bundledSource.commit
+    agent_count = $agents.Count
+    agent_refs = $installedRefs
+    marketplace_source = $bundledMarketplace.name
+    marketplace_commit = $bundledMarketplace.commit
     spotter_impl_dir = $spotterImplRoot
     spotter_config_path = $spotterConfigFull
     required_mcp_namespaces = $readyMcpServers

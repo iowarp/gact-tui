@@ -15,7 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { ClioEvidenceViewProps } from './observability-evidence';
 import type { TaskActivity } from './task-activity';
+import { flowLabel } from './flow-tool-presentation';
 import { taskProgressLabel } from './task-progress-label';
+import { SubagentModel } from './subagent-model';
 import { subagentOpenTarget, SUBAGENT_OPEN_HINT } from './subagent-navigation';
 
 const settled = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
@@ -26,18 +28,23 @@ export function TaskActivityRow({
   status,
   actions,
   onOpenSubagent,
+  onOpenFlow,
   compact = false,
 }: {
   entry: TaskActivity;
   status: string;
   actions?: ReactNode;
   onOpenSubagent?: ClioEvidenceViewProps['onOpenSubagent'];
+  /** A task that runs a flow opens its run view. */
+  onOpenFlow?: ClioEvidenceViewProps['onOpenFlow'];
   compact?: boolean;
 }) {
   const { process: task, subagent } = entry;
   const conversation = subagent ?? (task ? mergeSessionSubagents([], [task])[0] : undefined);
   const title = task?.title || subagent?.title || 'Task';
   const kind = task?.task_kind ?? (task?.kind === 'agent' || subagent ? 'Subagent' : 'MCP');
+  // A child conversation that runs a flow reads as that flow's run, not as a chat.
+  const flowRun = task?.flow ? `${flowLabel(task.flow.id)} run` : undefined;
   const assignment = task?.description || subagent?.task;
   const progress = taskProgressLabel(task?.progress, kind, task?.error_reason);
   const held = status === 'paused' || status === 'pause_requested';
@@ -87,18 +94,27 @@ export function TaskActivityRow({
           >
             <Icon
               aria-hidden="true"
-              className={`size-4 shrink-0 ${running ? 'animate-spin text-primary motion-reduce:animate-none' : status === 'completed' ? 'text-success' : settled.has(status) && status !== 'cancelled' ? 'text-destructive' : 'text-muted-foreground'}`}
+              className={`size-4 shrink-0 ${running ? 'animate-spin text-status-running-foreground motion-reduce:animate-none' : status === 'completed' ? 'text-status-supported-foreground' : status === 'cancelled' ? 'text-status-superseded-foreground' : settled.has(status) ? 'text-destructive' : 'text-muted-foreground'}`}
             />
             <span className={`min-w-0 flex-1 ${compact ? 'flex items-baseline gap-2' : ''}`}>
-              <span
-                className={`block truncate ${compact ? 'flex-1 text-xs' : 'text-sm font-medium'}`}
-              >
-                {title}
-              </span>
+              {compact ? (
+                <span className="block flex-1 truncate text-xs">{title}</span>
+              ) : (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-sm font-medium">{title}</span>
+                  {conversation?.model_choice ? (
+                    <SubagentModel choice={conversation.model_choice} />
+                  ) : null}
+                </span>
+              )}
               <span
                 className={`block truncate text-muted-foreground ${compact ? 'max-w-[40%] text-[10px]' : 'text-xs'}`}
               >
-                {compact ? label : `${kind} · ${label}`}
+                {compact
+                  ? flowRun
+                    ? `${flowRun} · ${label}`
+                    : label
+                  : `${flowRun ?? kind} · ${label}`}
                 {!compact && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
@@ -112,6 +128,9 @@ export function TaskActivityRow({
       </div>
       <CollapsibleContent>
         <div className="min-w-0 space-y-3 px-3 pb-3 pl-[2.125rem]">
+          {compact && conversation?.model_choice ? (
+            <SubagentModel choice={conversation.model_choice} />
+          ) : null}
           <div
             role="region"
             aria-label={`Assignment: ${title}`}
@@ -155,6 +174,17 @@ export function TaskActivityRow({
             >
               {result}
             </div>
+          ) : null}
+          {flowRun && onOpenFlow ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-8 px-0"
+              aria-label={`Open the ${flowRun.toLowerCase()}: ${title}`}
+              onClick={() => onOpenFlow(entry.key, flowRun)}
+            >
+              Open the run
+            </Button>
           ) : null}
           {conversation?.child_session_id && onOpenSubagent ? (
             <div className="flex flex-wrap items-center gap-1">

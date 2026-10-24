@@ -59,7 +59,7 @@ class TextBridge extends FakeBridge {
         status: 200,
         status_text: 'OK',
         headers: { 'content-type': 'text/plain' },
-        body: '# Blueprint\n',
+        body: '# Notes\n',
       } as T;
     }
     return super.invoke(command, args);
@@ -172,11 +172,11 @@ describe('TauriClioTransport', () => {
     await expect(
       transport.request({
         method: 'GET',
-        path: '/v1/agent-blueprints/base/files/read?path=AGENT.md',
+        path: '/v1/workspaces/ws/files/read?path=NOTES.md',
         responseType: 'text',
         decode: (value) => String(value),
       }),
-    ).resolves.toBe('# Blueprint\n');
+    ).resolves.toBe('# Notes\n');
   });
 
   it('preserves structured errors from the Rust bridge for typed recovery', async () => {

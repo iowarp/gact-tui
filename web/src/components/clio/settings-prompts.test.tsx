@@ -81,7 +81,7 @@ beforeEach(() => {
       id: '/review',
       title: 'Review evidence',
       description: 'Review the selected evidence with the active specialist.',
-      source: 'agent_blueprint',
+      source: 'plugin',
       status: 'available',
       enabled: true,
       aliases: ['/inspect'],

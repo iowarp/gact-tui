@@ -20,9 +20,12 @@ export function InfrastructureInventory({
   section,
   children,
   overview,
+  localAttention,
 }: {
   section: 'overview' | 'models' | 'activity' | 'hosts';
   children?: ReactNode;
+  /** Hosts: what on the connected agent's own computer needs attention. */
+  localAttention?: string[];
   overview?: Omit<ComponentProps<typeof InfrastructureOverview>, 'data' | 'targetId' | 'onTarget'>;
 }) {
   const repository = useRepository();
@@ -134,6 +137,7 @@ export function InfrastructureInventory({
         onConnectComputer={canConnectComputer ? connectComputer : undefined}
         pending={registerTarget.isPending}
         error={registerTarget.error?.message}
+        localAttention={localAttention}
       >
         {children}
         <InfrastructureHostInspection targetId="local" />

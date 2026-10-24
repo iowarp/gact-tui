@@ -1,6 +1,7 @@
 import type { Provenance } from './domain.js';
 
-export interface PromptSection {
+/** One section of the prompt the model receives, sized for the context breakdown. */
+export interface ContextPromptSection {
   id: string;
   label: string;
   tokens_estimated: number;
@@ -26,7 +27,7 @@ export interface ContextSnapshot {
     method: 'characters_div_4';
     tokens_estimated: number;
     media_items: number;
-    sections: PromptSection[];
+    sections: ContextPromptSection[];
   };
   usage_recorded_at?: string;
   autocompact_enabled?: boolean;

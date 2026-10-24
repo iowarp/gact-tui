@@ -86,6 +86,7 @@ export function ClioObservabilityView({
   onOpenFile,
   onOpenResource,
   onOpenSubagent,
+  onOpenFlow,
   onCancelTask,
   onControlTask,
   executionProvenance,
@@ -168,8 +169,11 @@ export function ClioObservabilityView({
         // event and can sort it away from the delegation it caused.
         if (
           !turnContext &&
-          (tool.name === 'spawn_agent_task' || tool.name === 'spawn_agents_parallel') &&
-          processes.some((candidate) => candidate.kind === 'agent')
+          (((tool.name === 'spawn_agent_task' || tool.name === 'spawn_agents_parallel') &&
+            processes.some((candidate) => candidate.kind === 'agent')) ||
+            // A started flow is its process row, labelled as the flow's run.
+            ((tool.name === 'run_flow' || tool.name === 'run_workflow') &&
+              processes.some((candidate) => candidate.flow)))
         ) {
           return [];
         }
@@ -368,6 +372,7 @@ export function ClioObservabilityView({
               onOpenDiff={onOpenDiff}
               onOpenFile={onOpenFile}
               onOpenResource={onOpenResource}
+              onOpenFlow={onOpenFlow}
               onOpenSubagent={onOpenSubagent}
               processes={processes}
               workPages={workPages}

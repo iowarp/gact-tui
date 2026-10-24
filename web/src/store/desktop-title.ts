@@ -3,15 +3,10 @@ import { create } from 'zustand';
 export interface DesktopTitleContext {
   workspace?: string;
   session?: string;
-  blueprint?: string;
-  /** Mirrors `showsBaseAgent` (`@/lib/session-state`) for the current route's
-   * session/blueprint, so the badge can show the "Base agent" fallback the
-   * same way the in-page session context bar does. */
-  showsBaseAgent?: boolean;
-  /** Opens the active blueprint the same way the in-page session context
-   * bar's blueprint button does; undefined when there is none to open
-   * (`blueprint` unset, or the route never wires this in). */
-  onOpenBlueprint?: () => void;
+  /** The name of the agent the current conversation runs. */
+  agent?: string;
+  /** Opens the conversation's agent panel, as the in-page agent button does. */
+  onOpenAgent?: () => void;
 }
 
 interface DesktopTitleStore {
@@ -24,10 +19,10 @@ const EMPTY_CONTEXT: DesktopTitleContext = {};
 
 /**
  * The desktop title bar's centre context (`workspace › session`, with the
- * active blueprint as a badge) lives here so the title bar — mounted once
+ * conversation's agent as a badge) lives here so the title bar — mounted once
  * in App.tsx, outside every route — can show it without a prop threaded
  * through each route. The workspace route writes it via `setTitleContext`
- * as workspace/session/blueprint resolve; every other route (connection,
+ * as workspace, session and agent resolve; every other route (connection,
  * runs, infrastructure, settings) never calls it, so `DesktopTitleContext`
  * falls back to the product name on its own. `clearTitleContext` is called
  * on the workspace route's unmount so a stale session title never lingers

@@ -181,14 +181,14 @@ export function ToolResultPresentation({
       </div>
     );
   }
-  if (tool.name === 'memory_search_sessions') {
+  if (tool.name === 'session_search') {
     return (
       <div className="ml-7 min-w-0" data-slot="tool-human-result">
         <MemorySearchResults blocks={blocks} summary={summary} />
       </div>
     );
   }
-  if (tool.name === 'memory_read_session_summary' && tool.state === 'succeeded') {
+  if (tool.name === 'session_read_summary' && tool.state === 'succeeded') {
     return (
       <div className="ml-7 min-w-0" data-slot="tool-human-result">
         <MemorySessionSummary blocks={blocks} summary={summary} />

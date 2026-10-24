@@ -282,13 +282,8 @@ function collectWorkflowSources(
   }
 }
 
-export function diffStatus(
-  diff: SessionDiff,
-): 'pending' | 'succeeded' | 'cancelled' | 'unavailable' {
-  if (diff.applied || diff.status === 'applied') return 'succeeded';
-  if (diff.status === 'rejected') return 'cancelled';
-  if (diff.status === 'pending') return 'pending';
-  return 'unavailable';
+export function diffStatus(diff: SessionDiff): 'succeeded' | 'cancelled' {
+  return diff.status === 'reverted' ? 'cancelled' : 'succeeded';
 }
 
 export function friendlyStatus(value: string): string {

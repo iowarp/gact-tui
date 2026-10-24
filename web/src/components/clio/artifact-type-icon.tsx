@@ -15,15 +15,9 @@ export function ArtifactTypeIcon({
   badge?: boolean;
 }) {
   return isDashboardArtifact(artifact) ? (
-    <LayoutDashboardIcon
-      aria-hidden="true"
-      className={`text-indigo-600 dark:text-indigo-400 ${className ?? ''}`}
-    />
+    <LayoutDashboardIcon aria-hidden="true" className={`text-category-8 ${className ?? ''}`} />
   ) : artifactCategory(artifact) === 'plans' ? (
-    <ListTreeIcon
-      aria-hidden="true"
-      className={`text-teal-600 dark:text-teal-400 ${className ?? ''}`}
-    />
+    <ListTreeIcon aria-hidden="true" className={`text-category-10 ${className ?? ''}`} />
   ) : (
     <FileTypeIcon
       name={artifact.name}

@@ -86,6 +86,8 @@ export interface ClioObservabilityDockProps {
     autocompact_pct?: number;
   }) => Promise<unknown>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  /** Open a flow run's view: a task that runs a flow opens its run, not a chat. */
+  onOpenFlow?: (handle: string, title: string) => void;
   onOpenCanvas?: (view?: ObservabilityView) => void;
   requestedView?: { key: string; view: ObservabilityView };
   onOpenWork?: () => void;

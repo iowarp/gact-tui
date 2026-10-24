@@ -2,7 +2,8 @@ import { queryKeys } from '@/lib/query-keys';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
-import { resolveActiveBlueprint } from '@/lib/active-blueprint';
+import { sessionAgentLabel } from '@/lib/plugin-presentation';
+import { useInstalledAgents } from '@/hooks/use-session-agent';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
@@ -453,11 +454,7 @@ export function useWorkspaceData({
         ? ACTIVE_SESSION_POLL_MS
         : false,
   });
-  const agentBlueprints = useQuery({
-    queryKey: queryKeys.key('agent-blueprints', settings.endpoint, workspaceId),
-    queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
-    enabled: Boolean(workspaceId),
-  });
+  const installedAgents = useInstalledAgents(Boolean(workspaceId));
   const tasks = Object.values(entities.tasks).filter((task) => task.session_id === sessionId);
   const tools = Object.values(entities.tools).filter((tool) => tool.session_id === sessionId);
   const transcriptArtifacts = useMemo(
@@ -553,9 +550,8 @@ export function useWorkspaceData({
     modelConfiguration.data?.thinking_level_source === 'user'
       ? modelConfiguration.data.thinking_level
       : undefined;
-  const activeBlueprint = resolveActiveBlueprint(session, agentBlueprints.data);
-  const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
-  const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
+  const agentLabel = sessionAgentLabel(session, installedAgents.data);
+  const contextTargetOptions = buildContextTargets(sessionId, agentLabel, subagents);
   const activePreset = modelConfiguration.data?.presets.find(
     (preset) => preset.id === activeProvider,
   );
@@ -600,13 +596,13 @@ export function useWorkspaceData({
         : 'ready';
 
   return {
-    activeBlueprint,
+    agentLabel,
     activeEffort,
     configuredEffort,
     activeModel,
     activeProvider,
     attentionInteractions,
-    agentBlueprints,
+    installedAgents,
     allSessions,
     approvals,
     artifacts,

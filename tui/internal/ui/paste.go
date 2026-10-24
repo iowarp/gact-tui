@@ -37,22 +37,6 @@ func (c *inputComposerComponent) handlePaste(m tea.PasteMsg) (tea.Model, tea.Cmd
 		a.promptEdit.insert(compactSingleLinePaste(m.Content))
 		return a, nil
 	}
-	if a.agentWrite.open {
-		a.agentWrite.insert(compactSingleLinePaste(m.Content))
-		return a, nil
-	}
-	if a.agentEdit.open {
-		a.agentEdit.insert(m.Content)
-		return a, nil
-	}
-	if a.agentBlueprintManage.open {
-		a.agentBlueprintManage.insert(compactPathLikePaste(m.Content))
-		return a, nil
-	}
-	if a.expertPackInstall.open {
-		a.expertPackInstall.insert(compactPathLikePaste(m.Content))
-		return a, nil
-	}
 	if a.workspace.switchOpen && a.workspace.create.open {
 		a.workspace.insertCreateText(compactSingleLinePaste(m.Content))
 		return a, nil

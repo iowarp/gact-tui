@@ -31,9 +31,16 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
     if (tool.name === 'ask_user')
       return tool.state === 'running' ? 'asking questions' : 'asked questions';
     const category = activityCategory(tool);
+    if (category === 'remember') return active ? 'updating memory' : 'updated memory';
+    if (category === 'forget') return active ? 'forgetting' : 'forgot from memory';
+    if (category === 'recall') return active ? 'checking memory' : 'checked memory';
     if (category === 'search') return active ? 'running searches' : 'searched';
     if (category === 'read') return active ? 'reading files' : 'read files';
-    if (category === 'edit') return active ? 'editing files' : 'edited files';
+    if (category === 'edit') {
+      if (active) return 'editing files';
+      // A refused or failed write changed nothing; do not say it edited.
+      return tool.state === 'succeeded' ? 'edited files' : 'tried to edit files';
+    }
     if (category === 'command') return active ? 'running commands' : 'ran commands';
     return active ? 'using tools' : 'used tools';
   };
@@ -58,18 +65,26 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
 }
 
 function injectionLabel(source: string): string {
-  if (['task_completion', 'task_results', 'memory_search'].includes(source))
+  if (['task_completion', 'task_result', 'task_results', 'memory_search'].includes(source))
     return 'received results';
+  if (source === 'memory') return 'received memory';
   if (source === 'goal_judgment') return 'received goal judgment';
   if (source === 'loop_wake') return 'received loop wake';
   if (source === 'scheduled_wake') return 'received scheduled wake';
   if (source === 'summarization' || source === 'earlier_turns') return 'received context';
-  if (['plan_mode', 'todos', 'path_hint', 'replan', 'circuit_breaker'].includes(source))
+  if (['plan_mode', 'todos', 'path_hint', 'replan', 'circuit_breaker', 'tool_use'].includes(source))
     return 'received reminder';
   return 'received injection';
 }
 
-function activityCategory(tool: ToolInvocation): 'search' | 'read' | 'edit' | 'command' | 'other' {
+function activityCategory(
+  tool: ToolInvocation,
+): 'search' | 'read' | 'edit' | 'command' | 'remember' | 'forget' | 'recall' | 'other' {
+  if (tool.name === 'create_memory' && memoryAction(tool.output) === 'already_remembered')
+    return 'recall';
+  if (['create_memory', 'update_memory'].includes(tool.name)) return 'remember';
+  if (tool.name === 'forget_memory') return 'forget';
+  if (['memory_search', 'memory_read'].includes(tool.name)) return 'recall';
   if (['shell_bash', 'shell_run', 'exec_command'].includes(tool.name)) return 'command';
   if (['fs_read_file', 'fs_read_text_file', 'workspace_resource_read'].includes(tool.name))
     return 'read';
@@ -77,4 +92,16 @@ function activityCategory(tool: ToolInvocation): 'search' | 'read' | 'edit' | 'c
   if (['web_search', 'search', 'workspace_resource_search', 'fs_search'].includes(tool.name))
     return 'search';
   return 'other';
+}
+
+/** The memory notice's action in a write's result (`already_remembered`: nothing changed). */
+function memoryAction(output: unknown): string {
+  const record = (value: unknown) =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : undefined;
+  const top = record(output);
+  const result = record(top?.structuredContent) ?? record(top?.result) ?? top;
+  const action = record(result?.memory)?.action;
+  return typeof action === 'string' ? action : '';
 }

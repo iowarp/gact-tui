@@ -3,8 +3,8 @@ type QueryKeyPart = string | number | boolean | null | undefined;
 export type ClioQueryNamespace =
   | 'a2ui-reference'
   | 'a2ui-reference-bytes'
-  | 'agent-blueprint-sources'
-  | 'agent-blueprints'
+  | 'agent-resolution'
+  | 'agent-draft'
   | 'agents'
   | 'all-sessions'
   | 'artifact-attachment-image'
@@ -19,10 +19,6 @@ export type ClioQueryNamespace =
   | 'artifact-table-preview'
   | 'artifact-table-query'
   | 'artifact-text'
-  | 'blueprint-files'
-  | 'blueprint-file'
-  | 'blueprint-authoring'
-  | 'blueprint-operations'
   | 'capabilities'
   | 'commands'
   | 'connection-availability'
@@ -30,8 +26,6 @@ export type ClioQueryNamespace =
   | 'document-editor-health'
   | 'document-manifest'
   | 'document-pdf'
-  | 'expert-pack'
-  | 'expert-packs'
   | 'execution-provenance'
   | 'hook-inspection'
   | 'language-model-configuration'
@@ -39,9 +33,11 @@ export type ClioQueryNamespace =
   | 'mcp-server'
   | 'mcp-configuration'
   | 'mcp-server-inventory'
+  | 'mcp-configurations'
+  | 'fleet'
   | 'mcp-servers'
   | 'memory-events'
-  | 'memory-search'
+  | 'session-recall-search'
   | 'memory-statistics'
   | 'pending-approvals'
   | 'pending-interactions'
@@ -58,6 +54,9 @@ export type ClioQueryNamespace =
   | 'provenance-providers'
   | 'providers'
   | 'relay-status'
+  | 'task-flow'
+  | 'flow-task-time'
+  | 'flow-task-answer'
   | 'tasks'
   | 'runtime-metrics'
   | 'runtime-settings'
@@ -65,6 +64,7 @@ export type ClioQueryNamespace =
   | 'sandbox-status'
   | 'saved-servers'
   | 'service-health'
+  | 'session-agent'
   | 'session-artifacts'
   | 'session-context'
   | 'session-defaults'
@@ -74,6 +74,8 @@ export type ClioQueryNamespace =
   | 'sessions'
   | 'spotter-availability'
   | 'pending-steers'
+  | 'plugin-marketplaces'
+  | 'plugins'
   | 'queued-messages'
   | 'tools'
   | 'transcript'
@@ -102,10 +104,6 @@ export const queryKeys = {
     namespace: ClioQueryNamespace,
     ...parts: Parts
   ) => [namespace, ...parts] as const,
-  agentBlueprints: (endpoint: string, scope?: string) =>
-    scope
-      ? (['agent-blueprints', endpoint, scope] as const)
-      : (['agent-blueprints', endpoint] as const),
   capabilities: (endpoint: string) => ['capabilities', endpoint] as const,
   languageModelConfiguration: (endpoint: string) =>
     ['language-model-configuration', endpoint] as const,

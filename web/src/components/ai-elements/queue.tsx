@@ -149,7 +149,7 @@ export type QueueProps = ComponentProps<'div'>;
 export const Queue = ({ className, ...props }: QueueProps) => (
   <div
     className={cn(
-      'flex flex-col overflow-hidden rounded-xl border border-border/30 bg-card/70 p-1 shadow-[0_-14px_38px_-28px_rgba(15,23,42,0.5)] backdrop-blur-xl dark:bg-card/60 dark:shadow-[0_-14px_38px_-24px_rgba(0,0,0,0.8)]',
+      'flex flex-col overflow-hidden rounded-xl border border-border/30 bg-card/70 p-1 shadow-[0_-14px_38px_-28px_var(--shadow-color)] backdrop-blur-xl dark:bg-card/60',
       className,
     )}
     {...props}

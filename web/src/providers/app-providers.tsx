@@ -1,5 +1,4 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from 'next-themes';
 import { useState, type PropsWithChildren } from 'react';
 import { ClioMotionProvider } from '@/components/clio/motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -21,20 +20,18 @@ export function AppProviders({ children }: PropsWithChildren) {
   );
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-      <QueryClientProvider client={queryClient}>
-        <ConnectionProvider>
-          <AppearanceProvider>
-            <NotificationPreferencesProvider>
-              <ConversationDisplayProvider>
-                <ClioMotionProvider>
-                  <TooltipProvider delayDuration={450}>{children}</TooltipProvider>
-                </ClioMotionProvider>
-              </ConversationDisplayProvider>
-            </NotificationPreferencesProvider>
-          </AppearanceProvider>
-        </ConnectionProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ConnectionProvider>
+        <AppearanceProvider>
+          <NotificationPreferencesProvider>
+            <ConversationDisplayProvider>
+              <ClioMotionProvider>
+                <TooltipProvider delayDuration={450}>{children}</TooltipProvider>
+              </ClioMotionProvider>
+            </ConversationDisplayProvider>
+          </NotificationPreferencesProvider>
+        </AppearanceProvider>
+      </ConnectionProvider>
+    </QueryClientProvider>
   );
 }

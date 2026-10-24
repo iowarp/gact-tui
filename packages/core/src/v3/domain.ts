@@ -1,6 +1,5 @@
 import type { ContextSnapshot } from './context-domain.js';
-export type { ContextSnapshot, PromptSection } from './context-domain.js';
-export type { AgentBlueprintSource } from './blueprint-domain.js';
+export type { ContextSnapshot, ContextPromptSection } from './context-domain.js';
 import type { A2UIActionLifecycle } from './a2ui/lifecycle.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
@@ -106,10 +105,6 @@ export interface Session {
   /** Conversation ownership is distinct from provenance parentage. */
   session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup'>;
   agent_id?: string;
-  active_blueprint_id?: string;
-  active_blueprint_name?: string;
-  active_blueprint_version?: string;
-  active_blueprint_scope?: string;
   metadata?: Record<string, unknown>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
@@ -128,7 +123,10 @@ export interface SessionDefaults {
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
   routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;
   approval_mode: WireValue<'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai'>;
-  blueprint_id: string;
+  /** The agent new sessions run (`<marketplace>/<id>`); empty means the service default. */
+  agent_ref: string;
+  /** The agent a new session runs when it names none: `agent_ref` or the service default. */
+  default_agent_ref?: string;
 }
 
 /** A server-owned instruction that will be submitted to one session at a future time. */
@@ -287,6 +285,15 @@ export interface Task {
   detail?: string;
 }
 
+/** The model a child session runs on and why (the server's `model_choice`). */
+export interface ModelChoice {
+  asked: string;
+  ran: { provider_id?: string; model_id?: string };
+  source: string;
+  reasons: string[];
+  effort: string;
+}
+
 export interface SubagentRun {
   id: string;
   session_id: string;
@@ -299,6 +306,7 @@ export interface SubagentRun {
   task?: string;
   result?: string;
   duration_ms?: number;
+  model_choice?: ModelChoice;
   origin?: {
     kind: 'skill';
     name: string;
@@ -418,13 +426,29 @@ export interface WorkspaceFileListing {
   next_offset?: number | null;
 }
 
+/**
+ * One file the agent changed (``fs_write_file`` / ``fs_edit_file``), as the
+ * session's change ledger records it. ``status`` is ``applied`` until the
+ * person's Undo (``POST /v1/sessions/{sid}/diffs/revert``) makes it ``reverted``.
+ * ``undo_unavailable_reason`` names why Undo cannot restore it when
+ * ``undo_available`` is false.
+ */
 export interface SessionDiff {
+  id: string;
   path: string;
-  status: string;
-  applied: boolean;
+  status: 'applied' | 'reverted';
+  created: boolean;
   unified_diff?: string;
+  lines_added?: number;
+  lines_removed?: number;
+  undo_available: boolean;
+  undo_unavailable_reason?: string;
   message_id?: string;
   part_id?: string;
+  call_id?: string;
+  tool_name?: string;
+  recorded_at?: string;
+  reverted_at?: string;
 }
 
 export interface ContextFile {
@@ -503,30 +527,16 @@ export interface AsyncProcess {
   created_at?: string;
   updated_at?: string;
   error_reason?: string;
+  /** Set when the task's child conversation runs a flow (a workflow, council, arena...). */
+  flow?: { id: string };
+  /** The model the child conversation runs on and why. */
+  model_choice?: ModelChoice;
   result?: {
     answer?: string;
     answer_excerpt?: string;
     message_ref?: string;
     workflow_state?: Record<string, unknown>;
   };
-  metadata: Record<string, unknown>;
-}
-
-export interface AgentBlueprint {
-  materialized?: boolean;
-  registry_id?: string;
-  id: string;
-  identity?: string;
-  source_id?: string;
-  blueprint_id?: string;
-  version: string;
-  title: string;
-  display_name: string;
-  description?: string;
-  scope: string;
-  enabled: boolean;
-  validation_errors: string[];
-  kind: WireValue<'blueprint' | 'pack'>;
   metadata: Record<string, unknown>;
 }
 
@@ -584,8 +594,9 @@ export interface McpServerDefinition {
   error?: string;
   source?: string;
   enabled?: boolean;
-  agent_blueprint_id?: string;
-  agent_blueprint_name?: string;
+  /** The plugin that declares this server, for servers the session's agent brings. */
+  plugin?: string;
+  agent_ref?: string;
   session_id?: string;
   spec: Record<string, unknown>;
 }
@@ -602,24 +613,6 @@ export interface McpUserConfiguration {
   error?: string;
   retryable: boolean;
   removed?: boolean;
-}
-
-export interface ExpertPackDefinition {
-  id: string;
-  version: string;
-  title: string;
-  display_name?: string;
-  description: string;
-  scope: string;
-  enabled: boolean;
-  validation_errors: string[];
-  kind: 'pack';
-  root?: string;
-  root_path?: string;
-  manifest_path?: string;
-  definition_path?: string;
-  defaults: Record<string, unknown>;
-  metadata: Record<string, unknown>;
 }
 
 export interface PermissionPolicy {
@@ -726,6 +719,8 @@ export interface EntityState {
   connection?: Connection;
   capabilities?: CapabilityNegotiation;
   stream: StreamState;
+  /** How many `stream.gap` frames this stream reported; each one asks for a reconcile. */
+  streamGaps?: number;
   cursor?: string;
   workspaces: Record<string, Workspace>;
   sessions: Record<string, Session>;

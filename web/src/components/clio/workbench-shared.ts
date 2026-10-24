@@ -1,9 +1,7 @@
 import type {
-  AgentBlueprintReference,
   Artifact as ArtifactEntity,
   SessionDiff,
   SubagentRun,
-  ToolInvocation,
   WorkspaceResource,
 } from '@clio/core/v3';
 
@@ -20,7 +18,7 @@ export type WorkbenchTab =
       workspaceId?: string;
     }
   | { id: 'artifacts'; kind: 'artifacts'; label: 'Artifacts' }
-  | { id: 'blueprints'; kind: 'blueprints'; label: 'Blueprints' }
+  | { id: 'agent'; kind: 'agent'; label: 'Agent' }
   | { id: 'resources'; kind: 'resources'; label: 'Resources' }
   | {
       id: string;
@@ -41,15 +39,6 @@ export type WorkbenchTab =
     }
   | {
       id: string;
-      kind: 'blueprint-file';
-      label: string;
-      path: string;
-      blueprintId: string;
-      sessionId: string;
-      workspaceId: string;
-    }
-  | {
-      id: string;
       kind: 'artifact';
       label: string;
       artifact: ArtifactEntity;
@@ -65,14 +54,6 @@ export type WorkbenchTab =
     }
   | {
       id: string;
-      kind: 'blueprint';
-      label: string;
-      blueprint: AgentBlueprintReference;
-      sessionId: string;
-      workspaceId: string;
-    }
-  | {
-      id: string;
       kind: 'subagent';
       label: string;
       subagent: SubagentRun;
@@ -80,9 +61,10 @@ export type WorkbenchTab =
     }
   | {
       id: string;
-      kind: 'workflow';
+      kind: 'flow';
       label: string;
-      tool: ToolInvocation;
+      handle: string;
+      sessionId: string;
       workspaceId: string;
     }
   | {

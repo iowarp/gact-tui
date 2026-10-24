@@ -7,7 +7,7 @@ import {
   ZoomOutIcon,
 } from 'lucide-react';
 import { useContext, useMemo, useState } from 'react';
-import { useTheme } from 'next-themes';
+import { isDarkTheme, readThemeColor, readThemeFont, useThemeKey } from '@/theme/runtime';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { RetryIcon } from '@/lib/icon-vocabulary';
@@ -42,24 +42,27 @@ type MermaidView = 'render' | 'source';
 const actionReveal =
   'opacity-60 transition-opacity duration-150 [@media(hover:hover)]:pointer-events-none [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:pointer-events-auto [@media(hover:hover)]:group-focus-within:opacity-100';
 
-const legacyConfig: MermaidConfig = {
-  theme: 'base',
-  darkMode: true,
-  htmlLabels: false,
-  fontFamily: 'Inter Variable, Segoe UI, sans-serif',
-  fontSize: 16,
-  flowchart: { curve: 'linear', htmlLabels: false, padding: 14 },
-  themeVariables: {
-    background: 'transparent',
-    primaryColor: '#17343b',
-    primaryBorderColor: '#55c9db',
-    primaryTextColor: '#e8f7f8',
-    lineColor: '#6e8d94',
-    secondaryColor: '#2b261d',
-    tertiaryColor: '#17232a',
-    textColor: '#e8f7f8',
-  },
-};
+/** Mermaid parses colors itself, so it gets the active theme's tokens resolved to sRGB. */
+function themedMermaidConfig(): MermaidConfig {
+  return {
+    theme: 'base',
+    darkMode: isDarkTheme(),
+    htmlLabels: false,
+    fontFamily: readThemeFont('typeface-ui'),
+    fontSize: 16,
+    flowchart: { curve: 'linear', htmlLabels: false, padding: 14 },
+    themeVariables: {
+      background: 'transparent',
+      primaryColor: readThemeColor('accent'),
+      primaryBorderColor: readThemeColor('primary'),
+      primaryTextColor: readThemeColor('foreground'),
+      lineColor: readThemeColor('muted-foreground'),
+      secondaryColor: readThemeColor('muted'),
+      tertiaryColor: readThemeColor('card'),
+      textColor: readThemeColor('foreground'),
+    },
+  };
+}
 
 /** A Pele-backed diagram with source, G0 download/copy/reference/full-screen, and an auto-fit canvas. */
 export function ClioMermaidDiagram({
@@ -87,25 +90,9 @@ export function ClioMermaidDiagram({
   ) => void;
   referenceOverride?: () => DataZoneReference;
 }) {
-  const { resolvedTheme } = useTheme();
-  const config = useMemo(
-    () =>
-      resolvedTheme === 'dark'
-        ? legacyConfig
-        : {
-            ...legacyConfig,
-            darkMode: false,
-            themeVariables: {
-              background: 'transparent',
-              primaryColor: '#edf7f8',
-              primaryBorderColor: '#4b8992',
-              primaryTextColor: '#15282d',
-              lineColor: '#526e76',
-              textColor: '#15282d',
-            },
-          },
-    [resolvedTheme],
-  );
+  const theme = useThemeKey();
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- the theme key is the input the resolved colors depend on
+  const config = useMemo(() => themedMermaidConfig(), [theme]);
   const [view, setView] = useState<MermaidView>('render');
   const [renderedSvg, setRenderedSvg] = useState('');
   const [renderedSource, setRenderedSource] = useState(source);

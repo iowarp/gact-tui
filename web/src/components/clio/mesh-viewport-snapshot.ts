@@ -1,5 +1,6 @@
 import { formatFieldValue, legendTicks, turbo } from './mesh-viewport-colormap';
 import type { MeshLegendState } from './mesh-viewport-legend';
+import { readThemeColor, readThemeFont } from '@/theme/runtime';
 
 /**
  * Compose a report-ready PNG: the rendered view on a white ground, the
@@ -22,20 +23,24 @@ export function composeSnapshot(
   canvas.height = header + view.height + legendHeight + pad;
   const ctx = canvas.getContext('2d');
   if (!ctx) return Promise.reject(new Error('This browser cannot create an image.'));
-  ctx.fillStyle = '#ffffff';
+  // The snapshot is drawn in the active theme, as the viewer shows it.
+  const ink = readThemeColor('foreground');
+  const muted = readThemeColor('muted-foreground');
+  const ui = readThemeFont('typeface-ui');
+  ctx.fillStyle = readThemeColor('background');
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#0f172a';
-  ctx.font = `600 ${titleSize}px system-ui, sans-serif`;
+  ctx.fillStyle = ink;
+  ctx.font = `600 ${titleSize}px ${ui}`;
   ctx.fillText(heading, pad, pad + titleSize);
-  ctx.fillStyle = '#475569';
-  ctx.font = `${textSize}px system-ui, sans-serif`;
+  ctx.fillStyle = muted;
+  ctx.font = `${textSize}px ${ui}`;
   ctx.fillText(detail, pad, pad + titleSize + textSize + Math.round(4 * scale));
   ctx.drawImage(view, 0, header);
   if (legend) {
     const top = header + view.height + Math.round(8 * scale);
     const width = canvas.width - pad * 2;
-    ctx.fillStyle = '#0f172a';
-    ctx.font = `500 ${textSize}px system-ui, sans-serif`;
+    ctx.fillStyle = ink;
+    ctx.font = `500 ${textSize}px ${ui}`;
     ctx.fillText(
       `${legend.field.label}${legend.field.unit ? ` (${legend.field.unit})` : ''}`,
       pad,
@@ -48,8 +53,8 @@ export function composeSnapshot(
       ctx.fillStyle = `rgb(${Math.round(r * 255)} ${Math.round(g * 255)} ${Math.round(b * 255)})`;
       ctx.fillRect(pad + x, barTop, 1, barHeight);
     }
-    ctx.fillStyle = '#475569';
-    ctx.font = `${textSize}px ui-monospace, monospace`;
+    ctx.fillStyle = muted;
+    ctx.font = `${textSize}px ${readThemeFont('typeface-mono')}`;
     const ticks = legendTicks(legend.min, legend.max);
     ticks.forEach((tick, index) => {
       const label = formatFieldValue(tick);

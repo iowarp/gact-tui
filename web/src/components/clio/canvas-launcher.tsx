@@ -2,7 +2,6 @@ import type { SubagentRun } from '@clio/core/v3';
 import {
   ActivityIcon,
   BotIcon,
-  BoxesIcon,
   BoxIcon,
   FolderIcon,
   PaperclipIcon,
@@ -23,13 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ClioStatus } from './status';
 
-export type CanvasResourceKind =
-  | 'session'
-  | 'work'
-  | 'files'
-  | 'resources'
-  | 'artifacts'
-  | 'blueprints';
+export type CanvasResourceKind = 'session' | 'work' | 'files' | 'resources' | 'artifacts' | 'agent';
 
 /** Opens one peer canvas tab instead of nesting unrelated resource types. */
 export function CanvasLauncher({
@@ -37,12 +30,15 @@ export function CanvasLauncher({
   onOpenSubagent,
   onOpenTerminal,
   subagents = [],
+  finishedWorkHidden = false,
 }: {
   onOpen: (kind: CanvasResourceKind) => void;
   /** Opens one child agent of this session as a canvas tab beside the conversation. */
   onOpenSubagent?: (subagent: SubagentRun) => void;
   onOpenTerminal?: () => void;
   subagents?: readonly SubagentRun[];
+  /** Finished children are not loaded yet, so an empty list does not mean none ran. */
+  finishedWorkHidden?: boolean;
 }) {
   const openableSubagents = subagents.filter((subagent) => subagent.child_session_id);
   return (
@@ -76,8 +72,8 @@ export function CanvasLauncher({
         <DropdownMenuItem onSelect={() => onOpen('artifacts')}>
           <BoxIcon aria-hidden="true" /> Session artifacts
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('blueprints')}>
-          <BoxesIcon aria-hidden="true" /> Agent blueprints
+        <DropdownMenuItem onSelect={() => onOpen('agent')}>
+          <BotIcon aria-hidden="true" /> Conversation agent
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {openableSubagents.length && onOpenSubagent ? (
@@ -101,7 +97,9 @@ export function CanvasLauncher({
         ) : (
           <DropdownMenuItem disabled>
             <BotIcon aria-hidden="true" /> Child agent
-            <span className="ml-auto text-[10px] text-muted-foreground">None yet</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {finishedWorkHidden ? 'None running' : 'None yet'}
+            </span>
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

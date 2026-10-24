@@ -50,7 +50,7 @@ vi.mock('@/hooks/use-known-connections', () => ({
 vi.mock('@/hooks/use-switch-connection', () => ({
   useSwitchConnection: () => repository.switchConnection,
 }));
-vi.mock('next-themes', () => ({
+vi.mock('@/providers/appearance-provider', () => ({
   useTheme: () => ({ theme: 'light', setTheme: repository.setTheme }),
 }));
 
@@ -105,12 +105,13 @@ beforeEach(() => {
   repository.credentialsReady = true;
   repository.agents.mockResolvedValue([
     {
+      ref: 'lab/reviewer',
       id: 'reviewer',
-      title: 'Station Reviewer',
+      name: 'Station Reviewer',
       description: 'Review station measurements.',
-      specialization: 'Science',
-      keywords: ['evidence'],
-      enabled: true,
+      role: 'a science reviewer',
+      kind: 'agent',
+      plugins: [],
     },
   ]);
   repository.infrastructureTargets.mockResolvedValue([{ id: 'delta', label: 'Delta GPU host' }]);
@@ -213,7 +214,7 @@ describe('ClioCommandMenu workspace search', () => {
 
   it.each([
     ['drive', 'Data sources', '/settings/data-sources'],
-    ['reviewer', /Station Reviewer/u, '/settings/agents#agent-reviewer'],
+    ['reviewer', /Station Reviewer/u, '/settings/agents#agent-lab%2Freviewer'],
     ['delta', /Delta GPU host/u, '/infrastructure/services?target=delta'],
   ])(
     'opens a global result for %s while retaining workspace return context',

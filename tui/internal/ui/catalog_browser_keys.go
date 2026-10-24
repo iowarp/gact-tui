@@ -19,7 +19,6 @@ func (c *catalogComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	cb := c.current
 	key := k.String()
-	c.cancelDeleteConfirmationsOnKey(cb, key)
 	switch key {
 	case "esc", "escape", "ctrl+c":
 		// LLL2: in MCP detail, esc pops back to parent server list
@@ -58,48 +57,17 @@ func (c *catalogComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindPromptDetail {
 			return c.app, c.app.catalog.validatePromptDefaultProfile()
 		}
-		if cb.kind == catalogKindAgentBlueprints {
-			c.app.agentBlueprintManage.openModal(agentBlueprintManageValidate)
-			return c.app, nil
-		}
 	case "u":
 		if cb.kind == catalogKindPromptDetail {
 			return c.app, c.app.catalog.reloadPromptRegistry()
 		}
-		if cb.kind == catalogKindExpertPackDetail {
-			return c.app, c.runItemAction("expert-pack-action/update")
-		}
-		if cb.kind == catalogKindAgentBlueprintDetail {
-			return c.app, c.runItemAction("blueprint-action/update")
-		}
-	case "c":
-		if cb.kind == catalogKindAgents {
-			return c.app, c.app.agent.openAgentCreateFromCatalog()
-		}
-		if cb.kind == catalogKindAgentDetail {
-			return c.app, c.app.agent.runAgentDetailAction("agent-action/clone")
-		}
 	case "s":
-		if cb.kind == catalogKindAgentBlueprints {
-			return c.app, c.openSourceBrowser()
-		}
-		if cb.kind == catalogKindAgentBlueprintSources && cb.sel >= 0 && cb.sel < len(cb.items) {
-			it := cb.items[cb.sel]
-			if strings.HasPrefix(it.id, "source/") {
-				c.app.catalog.openDetail(it.title, it.desc)
-				return c.app, nil
-			}
-		}
 		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
 			if strings.HasPrefix(it.id, "profile/") {
 				profile := strings.TrimPrefix(it.id, "profile/")
 				return c.app, savePromptProfileCmd(c.app.c, c.app.session.runtimeScope(), cb.promptID, profile, "codex")
 			}
-		}
-	case "x":
-		if cb.kind == catalogKindAgents {
-			return c.app, c.app.agent.openAgentExtractFromCatalog()
 		}
 	case "o":
 		if cb.kind == catalogKindAgents && cb.sel >= 0 && cb.sel < len(cb.items) {
@@ -111,15 +79,7 @@ func (c *catalogComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			c.close()
 			return c.app, scheduleHintExpire(c.app.transientHint)
 		}
-		if cb.kind == catalogKindAgentDetail && cb.agentID != "" {
-			c.app.agent.setNextTurnAgent(cb.agentID, stripAgentHierarchyRolePrefix(cb.title))
-			c.close()
-			return c.app, scheduleHintExpire(c.app.transientHint)
-		}
 	case "e":
-		if cb.kind == catalogKindAgentDetail {
-			return c.app, c.app.agent.runAgentDetailAction("agent-action/edit")
-		}
 		if cb.kind == catalogKindPromptDetail && cb.sel >= 0 && cb.sel < len(cb.items) {
 			it := cb.items[cb.sel]
 			if strings.HasPrefix(it.id, "profile/") {
@@ -140,33 +100,7 @@ func (c *catalogComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			c.app.mcpInstall.openModal()
 			return c.app, nil
 		}
-		if cb.kind == catalogKindAgentBlueprints {
-			c.app.agentBlueprintManage.openModal(agentBlueprintManageInstall)
-			return c.app, nil
-		}
-		if cb.kind == catalogKindExpertPacks {
-			c.app.expertPackInstall.openModal()
-			return c.app, nil
-		}
-		if cb.kind == catalogKindAgentBlueprintSources && cb.sel >= 0 && cb.sel < len(cb.items) {
-			it := cb.items[cb.sel]
-			if strings.HasPrefix(it.id, "source-blueprint/") {
-				sourceID, blueprintID, ok := parseSourceBlueprintItemID(it.id)
-				if ok {
-					return c.app, installAgentBlueprintFromSourceCmd(c.app.c, c.app.session.runtimeScope(), sourceID, blueprintID)
-				}
-			}
-		}
 	case "d":
-		if cb.kind == catalogKindAgentDetail {
-			return c.app, c.app.agent.runAgentDetailAction("agent-action/delete")
-		}
-		if cb.kind == catalogKindExpertPackDetail {
-			return c.app, c.runItemAction("expert-pack-action/delete")
-		}
-		if cb.kind == catalogKindAgentBlueprintDetail {
-			return c.app, c.runItemAction("blueprint-action/delete")
-		}
 		// Delete the highlighted MCP server. Bundled in_process
 		// servers are non-removable; the existing remove flow already
 		// filters those out and reports the "no third-party MCPs" toast.
@@ -177,12 +111,6 @@ func (c *catalogComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cb.kind == catalogKindTools && selectedCatalogMcpServerID(cb) != "" {
 			c.close()
 			return c.app, c.app.mcpRemove.openPicker()
-		}
-		if cb.kind == catalogKindAgentBlueprintSources && cb.sel >= 0 && cb.sel < len(cb.items) {
-			it := cb.items[cb.sel]
-			if strings.HasPrefix(it.id, "source/") {
-				return c.app, c.app.agent.confirmOrDeleteAgentBlueprintSource(strings.TrimPrefix(it.id, "source/"))
-			}
 		}
 	case "r":
 		if cb.kind == catalogKindPromptDetail {
@@ -195,34 +123,6 @@ func (c *catalogComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if serverID := selectedCatalogMcpServerID(cb); serverID != "" {
 				return c.app, mcpReconnectCmd(c.app.c, serverID)
 			}
-		}
-		if cb.kind == catalogKindAgentBlueprintSources && cb.sel >= 0 && cb.sel < len(cb.items) {
-			it := cb.items[cb.sel]
-			sourceID := ""
-			if strings.HasPrefix(it.id, "source/") {
-				sourceID = strings.TrimPrefix(it.id, "source/")
-			} else if strings.HasPrefix(it.id, "source-blueprint/") {
-				var ok bool
-				sourceID, _, ok = parseSourceBlueprintItemID(it.id)
-				if !ok {
-					sourceID = ""
-				}
-			}
-			if sourceID != "" {
-				return c.app, refreshAgentBlueprintSourceCmd(c.app.c, sourceID)
-			}
-		}
-	case "a":
-		if cb.kind == catalogKindAgentBlueprintSources {
-			c.app.agentBlueprintManage.openModal(agentBlueprintManageSource)
-			return c.app, nil
-		}
-		if cb.kind == catalogKindAgentBlueprintDetail {
-			if catalogItemStatusTag(cb.items, "activate") == "active" {
-				c.app.setHint("Blueprint already active for this session")
-				return c.app, scheduleHintExpire(c.app.transientHint)
-			}
-			return c.app, c.runItemAction("activate")
 		}
 	}
 	return c.app, nil

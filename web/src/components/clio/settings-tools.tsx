@@ -1,28 +1,21 @@
 import { queryKeys } from '@/lib/query-keys';
-import { truncate } from '@/lib/format';
-import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
-import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
+import { EnvironmentTable } from './environment-table';
+import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
+import { RemoveSavedMcpDialog } from './settings-saved-mcp';
+import { McpServiceList } from './settings-mcp-services';
+import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
+import { mcpServiceEntries } from '@/lib/mcp-service-entries';
+import type { McpServerDefinition, SavedMcpService, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  BlocksIcon,
   BookOpenIcon,
   ChevronDownIcon,
   PackagePlusIcon,
-  PlugZapIcon,
   ScrollTextIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { RefreshIndicator } from './refresh-button';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/clio/settings-frame';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +29,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
@@ -45,13 +39,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
@@ -88,7 +75,8 @@ function serverTitle(server: McpServerDefinition) {
 
 function connectionLabel(server: McpServerDefinition) {
   if (server.transport === 'in_process') return 'Built in';
-  if (server.source === 'agent_blueprint') return 'Provided by blueprint';
+  if (server.source === 'plugin')
+    return server.plugin ? `From plugin ${server.plugin}` : 'From a plugin';
   if (server.transport === 'stdio') return 'Local command';
   if (server.transport === 'http' || server.transport === 'streamable-http') {
     return 'Remote service';
@@ -96,22 +84,19 @@ function connectionLabel(server: McpServerDefinition) {
   return server.transport ? humanizeToolName(server.transport) : 'Connection unavailable';
 }
 
-function isRuntimeConnection(server: McpServerDefinition) {
-  return server.id.startsWith('mcp_ext_');
-}
-
 function parseProcessSettings(value: string): Record<string, string> {
   const settings: Record<string, string> = {};
   for (const [index, rawLine] of value.split('\n').entries()) {
     const line = rawLine.trim();
-    if (!line) continue;
+    if (!line || isEnvironmentComment(line)) continue;
     const separator = line.indexOf('=');
     if (separator < 1) {
       throw new Error(`Process setting on line ${index + 1} must use NAME=value.`);
     }
     const name = line.slice(0, separator).trim();
     const settingValue = line.slice(separator + 1).trim();
-    if (!name) throw new Error(`Process setting on line ${index + 1} needs a name.`);
+    const problem = environmentNameProblem(name);
+    if (problem) throw new Error(`Process setting "${name}" on line ${index + 1} ${problem}.`);
     settings[name] = settingValue;
   }
   return settings;
@@ -145,8 +130,11 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
   const [command, setCommand] = useState('');
   const [argumentsText, setArgumentsText] = useState('');
   const [environmentText, setEnvironmentText] = useState('');
+  const [everyConversation, setEveryConversation] = useState(true);
   const [detailServer, setDetailServer] = useState<McpServerDefinition>();
   const [deleteServer, setDeleteServer] = useState<McpServerDefinition>();
+  const [removingSaved, setRemovingSaved] = useState<SavedMcpService>();
+  const saved = useSavedMcpServices();
 
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint, 'tool-settings'),
@@ -199,11 +187,19 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
     );
   }, [detailServer, tools.data]);
 
+  const entries = useMemo(
+    () => mcpServiceEntries(servers.data ?? [], saved.data ?? [], tools.data ?? []),
+    [servers.data, saved.data, tools.data],
+  );
+
   const invalidate = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.key('mcp-servers', settings.endpoint) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('mcp-configurations', settings.endpoint),
+      }),
     ]);
   };
   const resetInstallForm = () => {
@@ -213,19 +209,21 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
     setArgumentsText('');
     setEnvironmentText('');
     setConnectionKind('http');
+    setEveryConversation(true);
   };
+  // Saved, not only connected: it survives a restart and reaches conversations.
   const install = useMutation({
     mutationFn: () => {
       if (connectionKind === 'http') {
-        return repository.installMcpServer({
-          name: name.trim(),
+        return repository.configureMcpServer(name.trim(), {
           transport: 'http',
           url: url.trim(),
+          always_load: everyConversation,
         });
       }
       const env = parseProcessSettings(environmentText);
-      return repository.installMcpServer({
-        name: name.trim(),
+      return repository.configureMcpServer(name.trim(), {
+        always_load: everyConversation,
         transport: 'stdio',
         command: command.trim(),
         args: argumentsText
@@ -235,11 +233,13 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         ...(Object.keys(env).length ? { env } : {}),
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (saved) => {
       setInstallOpen(false);
       resetInstallForm();
       await invalidate();
-      toast.success('Tool provider connected');
+      if (saved.status === 'ready') toast.success(`Connected ${saved.name}`);
+      else
+        toast.warning(`Saved ${saved.name}, but it did not answer`, { description: saved.error });
     },
     onError: (error) => toast.error(error.message),
   });
@@ -269,19 +269,21 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         description="MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage."
         title="MCP tools"
       />
-      <Frame spacing="lg">
-        <FrameHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <FrameTitle>Connected MCP services</FrameTitle>
-            <FrameDescription className="mt-1">
-              The selected workspace includes its blueprint MCPs alongside the agent’s built-in and
-              external services.
-            </FrameDescription>
+      <section aria-labelledby="mcp-services-heading" className="grid gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold" id="mcp-services-heading">
+              Services and their tools
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              What a new conversation in this workspace gets: the built-in services, the services
+              its agent&apos;s plugins bring, and yours.
+            </p>
           </div>
-          <div className="flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-end">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end md:w-auto">
             {workspaces.data?.length ? (
               <Field className="w-full sm:w-56">
-                <FieldLabel htmlFor="tools-workspace">Workspace view</FieldLabel>
+                <FieldLabel htmlFor="tools-workspace">Workspace</FieldLabel>
                 <Select onValueChange={setWorkspacePreference} value={workspaceId}>
                   <SelectTrigger id="tools-workspace">
                     <SelectValue placeholder="Choose a workspace" />
@@ -300,117 +302,37 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
               <PackagePlusIcon aria-hidden="true" /> Connect MCP
             </Button>
           </div>
-        </FrameHeader>
-        <FramePanel className="grid gap-2 p-2 sm:grid-cols-2">
-          {servers.data?.map((server) => (
-            <ClioInteractiveRow key={server.id}>
-              <div className="flex items-start gap-3">
-                <PlugZapIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{serverTitle(server)}</p>
-                    <ClioStatus
-                      label={server.status === 'ready' ? 'Ready' : humanizeToolName(server.status)}
-                      value={server.status === 'ready' ? 'healthy' : 'degraded'}
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {connectionLabel(server)}, {server.tools_count}{' '}
-                    {server.tools_count === 1 ? 'tool' : 'tools'}
-                  </p>
-                  {server.error ? (
-                    <p className="mt-2 line-clamp-2 text-xs text-destructive">{server.error}</p>
-                  ) : null}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      aria-label={`Actions for ${serverTitle(server)}`}
-                      aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
-                      disabled={reconnect.isPending && reconnect.variables?.id === server.id}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      {reconnect.isPending && reconnect.variables?.id === server.id ? (
-                        <RefreshIndicator refreshing />
-                      ) : (
-                        <MoreIcon aria-hidden="true" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
-                    <DropdownMenuItem onSelect={() => setDetailServer(server)}>
-                      <BlocksIcon aria-hidden="true" /> View contents
-                    </DropdownMenuItem>
-                    {isRuntimeConnection(server) ? (
-                      <>
-                        <DropdownMenuItem
-                          aria-busy={reconnect.isPending && reconnect.variables?.id === server.id}
-                          disabled={reconnect.isPending}
-                          onSelect={() => reconnect.mutate(server)}
-                        >
-                          <RefreshIndicator
-                            refreshing={
-                              reconnect.isPending && reconnect.variables?.id === server.id
-                            }
-                          />{' '}
-                          Reconnect
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={() => setDeleteServer(server)}
-                          variant="destructive"
-                        >
-                          <DeleteIcon aria-hidden="true" /> Disconnect
-                        </DropdownMenuItem>
-                      </>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </ClioInteractiveRow>
-          ))}
-          {!servers.isPending && !servers.data?.length ? (
-            <p className="p-5 text-sm text-muted-foreground">No MCP services were reported.</p>
-          ) : null}
-          {servers.error ? (
-            <Alert className="sm:col-span-2" variant="destructive">
-              <AlertTitle>MCP services unavailable</AlertTitle>
-              <AlertDescription>{servers.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-        </FramePanel>
-      </Frame>
+        </div>
+        {servers.isPending || tools.isPending ? <ToolCatalogLoading /> : null}
+        {servers.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>MCP services unavailable</AlertTitle>
+            <AlertDescription>{servers.error.message}</AlertDescription>
+          </Alert>
+        ) : null}
+        {tools.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Tool descriptions could not be loaded</AlertTitle>
+            <AlertDescription>{tools.error.message}</AlertDescription>
+          </Alert>
+        ) : null}
+        {servers.data ? (
+          entries.length ? (
+            <McpServiceList
+              entries={entries}
+              onDetails={setDetailServer}
+              onDisconnect={setDeleteServer}
+              onReconnect={(server) => reconnect.mutate(server)}
+              onRemoveSaved={setRemovingSaved}
+              reconnecting={reconnect.isPending ? reconnect.variables?.id : undefined}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">No MCP services were reported.</p>
+          )
+        ) : null}
+      </section>
 
-      <Frame spacing="lg">
-        <FrameHeader>
-          <FrameTitle>Available tools</FrameTitle>
-          <FrameDescription>
-            Tools available in this workspace. Expand a tool to inspect its inputs and actions.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel className="grid gap-2 p-2">
-          {tools.isPending ? <ToolCatalogLoading /> : null}
-          {tools.data?.map((tool) => (
-            <ToolCatalogRow key={`${tool.server_id}:${tool.id}`} tool={tool} />
-          ))}
-          {!tools.isPending && !tools.error && !tools.data?.length ? (
-            <Alert>
-              <WrenchIcon aria-hidden="true" />
-              <AlertTitle>No tools reported</AlertTitle>
-              <AlertDescription>
-                The connected agent did not advertise any tools for this configuration.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          {tools.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>Available tools could not be loaded</AlertTitle>
-              <AlertDescription>{tools.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-        </FramePanel>
-      </Frame>
+      <RemoveSavedMcpDialog onClose={() => setRemovingSaved(undefined)} service={removingSaved} />
 
       <Dialog
         onOpenChange={(open) => {
@@ -419,7 +341,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
         }}
         open={installOpen}
       >
-        <DialogContent className="grid max-h-[min(720px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
+        <DialogContent className="grid max-h-[min(720px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Connect an MCP service</DialogTitle>
             <DialogDescription>
@@ -497,15 +419,14 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                         <FieldLabel htmlFor="tool-provider-environment">
                           Process settings
                         </FieldLabel>
-                        <Textarea
+                        <EnvironmentTable
                           id="tool-provider-environment"
-                          onChange={(event) => setEnvironmentText(event.target.value)}
-                          placeholder={'NAME=value\nSECOND_NAME=value'}
+                          onChange={setEnvironmentText}
                           value={environmentText}
                         />
                         <FieldDescription>
-                          Enter one NAME=value setting per line. Values stay with the connected
-                          service and are hidden when the provider is read back.
+                          Environment variables for the service&apos;s process. Values stay with the
+                          connected service and are hidden when it is read back.
                         </FieldDescription>
                       </Field>
                     </CollapsibleContent>
@@ -513,6 +434,13 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                 </>
               )}
             </FieldGroup>
+            <label className="mt-4 flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={everyConversation}
+                onCheckedChange={(checked) => setEveryConversation(checked === true)}
+              />
+              Available in every conversation
+            </label>
             {install.error ? (
               <Alert className="mt-4" variant="destructive">
                 <AlertTitle>Connection failed</AlertTitle>
@@ -667,67 +595,6 @@ function ToolCatalogLoading() {
       ))}
     </div>
   );
-}
-
-function ToolCatalogRow({ tool }: { tool: ToolCatalogItem }) {
-  const [open, setOpen] = useState(false);
-  const title = tool.title?.trim() || humanizeToolName(tool.name);
-  const summary = catalogToolSummary(tool);
-  return (
-    <ClioInteractiveRow>
-      <Collapsible onOpenChange={setOpen} open={open}>
-        <div className="flex items-start gap-3">
-          <WrenchIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-          <div className="min-w-0 flex-1">
-            <p className="font-medium">{title}</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">{summary}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <ClioStatus
-              label={tool.enabled === false ? 'Unavailable' : 'Ready'}
-              value={tool.enabled === false ? 'unavailable' : 'healthy'}
-            />
-            <CollapsibleTrigger asChild>
-              <Button
-                aria-label={`${open ? 'Hide' : 'Show'} details for ${title}`}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-                />
-              </Button>
-            </CollapsibleTrigger>
-          </div>
-        </div>
-        <CollapsibleContent className="ml-7 mt-3 grid gap-2 border-t pt-3 text-xs text-muted-foreground">
-          <p>
-            Exact identifier <code className="font-mono text-foreground">{tool.name}</code>
-          </p>
-          {tool.description ? (
-            <p className="max-w-3xl whitespace-pre-line leading-5">{tool.description}</p>
-          ) : (
-            <p>The provider did not supply additional documentation.</p>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-    </ClioInteractiveRow>
-  );
-}
-
-function catalogToolSummary(tool: ToolCatalogItem): string {
-  const known: Record<string, string> = {
-    fs_read_file: 'Reads a file that this workspace has granted the agent access to.',
-    fs_propose_edit: 'Prepares a reviewable file change without writing it to disk.',
-    fs_apply_edit_write: 'Applies an approved file change to the workspace.',
-    shell_bash: 'Runs a command inside the workspace’s permitted folders.',
-  };
-  if (known[tool.name]) return known[tool.name];
-  const description = tool.description?.replace(/\s+/gu, ' ').trim();
-  if (!description) return 'The provider did not describe this tool.';
-  const firstSentence = description.match(/^.*?[.!?](?:\s|$)/u)?.[0]?.trim() ?? description;
-  return truncate(firstSentence, SUMMARY_TRUNCATE_CHARS);
 }
 
 function InventoryList({

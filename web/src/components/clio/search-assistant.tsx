@@ -127,7 +127,7 @@ export function ClioSearchAssistant({
         >
           <ArrowLeftIcon />
         </Button>
-        <SparklesIcon aria-hidden="true" className="size-4 text-blue-500" />
+        <SparklesIcon aria-hidden="true" className="size-4 text-info" />
         <span className="text-sm font-semibold">{vocab.agent} Search</span>
         <ClioModelPicker
           title={`Choose ${vocab.agent} Search model`}

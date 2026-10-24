@@ -35,11 +35,11 @@ func TestSemanticSummaryIsPlumbing(t *testing.T) {
 		"main delegated sync work to data.",
 		"analysis returned a compact result to main.",
 	} {
-		if !semanticSummaryIsPlumbing(input, "blueprint.delegation.completed") {
+		if !semanticSummaryIsPlumbing(input, "delegation.completed") {
 			t.Fatalf("%q should be classified as plumbing", input)
 		}
 	}
-	if semanticSummaryIsPlumbing("Resolved San Diego center 32.7174202, -117.162772.", "blueprint.delegation.completed") {
+	if semanticSummaryIsPlumbing("Resolved San Diego center 32.7174202, -117.162772.", "delegation.completed") {
 		t.Fatal("useful region evidence should not be classified as plumbing")
 	}
 }

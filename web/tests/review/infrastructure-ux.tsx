@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ClioRepository } from '@clio/core/v3';
@@ -132,7 +132,7 @@ const repo = {
 } as unknown as ClioRepository;
 const section = new URLSearchParams(window.location.search).get('section') || 'overview';
 createRoot(document.getElementById('root')!).render(
-  <ThemeProvider attribute="class" forcedTheme="dark">
+  <ForcedTheme theme="dark">
     <ArchiveConnectionProvider>
       <RepositoryOverride.Provider value={repo}>
         <QueryClientProvider client={new QueryClient()}>
@@ -150,5 +150,5 @@ createRoot(document.getElementById('root')!).render(
         </QueryClientProvider>
       </RepositoryOverride.Provider>
     </ArchiveConnectionProvider>
-  </ThemeProvider>,
+  </ForcedTheme>,
 );

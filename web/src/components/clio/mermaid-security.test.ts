@@ -64,3 +64,18 @@ describe('guarded diagram folder links', () => {
     ).toThrow('repeats');
   });
 });
+
+describe('sanitizeMermaidSvg', () => {
+  it('drops animations, external CSS and handlers, and keeps the drawing styles', async () => {
+    const { sanitizeMermaidSvg } = await import('./mermaid-security');
+    const svg = sanitizeMermaidSvg(
+      '<svg xmlns="http://www.w3.org/2000/svg"><style>.n{fill:red;marker-end:url(#arrow)}</style>' +
+        '<style>@import "https://evil.example/x.css";</style>' +
+        '<a><set attributeName="href" to="javascript:alert(1)"/><text>x</text></a>' +
+        '<rect style="background:url(https://evil.example/p)" onclick="alert(1)"/></svg>',
+    );
+    const text = new XMLSerializer().serializeToString(svg);
+    expect(text).toContain('url(#arrow)');
+    expect(text).not.toMatch(/@import|<set|javascript:|evil\.example|onclick/u);
+  });
+});

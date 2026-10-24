@@ -218,7 +218,7 @@ if ($startSource -notmatch '\$providerInfo\s*=\s*Invoke-RestMethod[\s\S]{0,160}?
 if ($preflightSource -notmatch 'HealthTimeoutSec[\s\S]{0,2500}?/v1/health[^\r\n]*-TimeoutSec\s+\$HealthTimeoutSec') {
     throw "Test-ClioDevPreflight must use the configured health timeout for preserved ledger rehydration."
 }
-foreach ($backendReadinessPath in @('/v1/providers/lm', '/v1/agent-blueprints"', '/v1/agent-blueprints/sources')) {
+foreach ($backendReadinessPath in @('/v1/providers/lm', '/v1/agents"', '/v1/plugins/marketplaces')) {
     $escapedReadinessPath = [regex]::Escape($backendReadinessPath)
     if ($preflightSource -notmatch "$escapedReadinessPath[\s\S]{0,160}?-TimeoutSec\s+\`$HealthTimeoutSec") {
         throw "Test-ClioDevPreflight must apply the explicit readiness budget to $backendReadinessPath."

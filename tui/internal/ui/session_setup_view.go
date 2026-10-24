@@ -18,14 +18,12 @@ func (c *sessionComponent) viewSetup() string {
 	contentW := modalBodyContentWidth(w)
 	rows := []string{}
 	if s.loading {
-		rows = append(rows, t.HintLabel.Render("loading workflows…"))
+		rows = append(rows, t.HintLabel.Render("loading agents…"))
 	} else {
 		if s.errText != "" {
 			rows = append(rows, lipgloss.NewStyle().Foreground(t.Warning).Render(s.errText), "")
 		}
-		blueprintRows, blueprintList := c.renderSetupBlueprints(contentW)
-		packRows, packList := c.renderSetupPacks(contentW)
-		sectionRows, blueprintStart, packStart, packCol, sectionW := joinSessionSetupSections(blueprintRows, packRows, contentW)
+		sectionRows, agentList := c.renderSetupAgents(contentW)
 		sectionStart := len(rows)
 		rows = append(rows, sectionRows...)
 		if !s.defaultsOnly {
@@ -34,7 +32,7 @@ func (c *sessionComponent) viewSetup() string {
 			if s.saveDefault {
 				check = "■"
 			}
-			rows = append(rows, t.HintKey.Render(check)+" "+t.HintLabel.Render("Use these choices as the default for future sessions"))
+			rows = append(rows, t.HintKey.Render(check)+" "+t.HintLabel.Render("Use this agent as the default for future sessions"))
 		}
 		rows = append(rows, "")
 		primary := "start session"
@@ -63,7 +61,7 @@ func (c *sessionComponent) viewSetup() string {
 		actionText, actionCol := c.app.modals.renderCenteredModalButtons(contentW, actionButtons, -1)
 		rows = append(rows, actionText)
 		rows = append(rows, "")
-		rows = append(rows, t.HintLabel.Italic(true).Render("↑/↓ choose · ←/→ switch section · f future default · Enter apply · Esc close"))
+		rows = append(rows, t.HintLabel.Italic(true).Render("↑/↓ choose · f future default · Enter apply · Esc close"))
 
 		title := "New Session"
 		if s.defaultsOnly {
@@ -77,16 +75,9 @@ func (c *sessionComponent) viewSetup() string {
 			body:    padModalBody(lipgloss.JoinVertical(lipgloss.Left, rows...), valuefmt.MinInt(18, maxInt(12, len(rows)))),
 			footer:  t.HintLabel.Render("Ctrl+B opens session defaults"),
 		})
-		c.app.interaction.registerModalListRegion(rendered.modal, rendered.bodyRow+sectionStart+blueprintStart, 0, sectionW, blueprintList, "session-setup:blueprints:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
+		c.app.interaction.registerModalListRegion(rendered.modal, rendered.bodyRow+sectionStart+1, 0, contentW, agentList, "session-setup:agents:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
 			app.session.setup = app.session.ensureSetup()
-			app.session.setup.row = 0
-			app.session.setup.blueprintSel = moveSelectionByWheel(app.session.setup.blueprintSel, len(app.session.setup.blueprints)+1, button)
-			return nil
-		})
-		c.app.interaction.registerModalListRegion(rendered.modal, rendered.bodyRow+sectionStart+packStart, packCol, sectionW, packList, "session-setup:packs:wheel", func(app *App, button tea.MouseButton) tea.Cmd {
-			app.session.setup = app.session.ensureSetup()
-			app.session.setup.row = 1
-			app.session.setup.packSel = moveSelectionByWheel(app.session.setup.packSel, len(app.session.setup.packs)+1, button)
+			app.session.setup.agentSel = moveSelectionByWheel(app.session.setup.agentSel, len(app.session.setup.agents)+1, button)
 			return nil
 		})
 		if !s.defaultsOnly {

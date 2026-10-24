@@ -39,6 +39,7 @@ export type SessionEvidenceSummaryProps = Pick<
   | 'onOpenDiff'
   | 'onOpenResource'
   | 'onOpenSubagent'
+  | 'onOpenFlow'
   | 'onOpenWork'
   | 'onOpenActivity'
   | 'onCancelTask'
@@ -92,6 +93,8 @@ export function sessionEvidenceItems({
     hasMore: false,
     history: history && { ...history, items: childHistory },
   };
+  // Finished work sits behind Show completed work: a count of 0 would read as none ever ran.
+  const finishedWorkHidden = Boolean(actions.workPages?.hasMore || history);
   return [
     ...(runs.length
       ? [
@@ -151,6 +154,7 @@ export function sessionEvidenceItems({
             id: 'child-agents' as const,
             icon: BoxesIcon,
             count: childCount,
+            summary: childCount ? undefined : 'none running',
             defaultOpen: true,
             content: (
               <>
@@ -159,6 +163,7 @@ export function sessionEvidenceItems({
                   processes={childProcesses}
                   subagents={subagents}
                   onOpenSubagent={actions.onOpenSubagent}
+                  onOpenFlow={actions.onOpenFlow}
                   onCancelTask={actions.onCancelTask}
                   onControlTask={actions.onControlTask}
                   pagination={childPages}
@@ -191,6 +196,7 @@ export function sessionEvidenceItems({
             id: 'background' as const,
             icon: ServerIcon,
             count: processes.length,
+            summary: !processes.length && finishedWorkHidden ? 'none running' : undefined,
             defaultOpen: true,
             content: (
               <>
@@ -198,6 +204,7 @@ export function sessionEvidenceItems({
                   compact
                   processes={processes}
                   onOpenSubagent={actions.onOpenSubagent}
+                  onOpenFlow={actions.onOpenFlow}
                   onCancelTask={actions.onCancelTask}
                   onControlTask={actions.onControlTask}
                   pagination={backgroundPages}
@@ -242,7 +249,7 @@ export function sessionEvidenceItems({
               <>
                 {diffs.map((diff) => (
                   <SessionSummaryRow
-                    key={diff.path}
+                    key={diff.id}
                     icon={<FileDiffIcon />}
                     label={diff.path}
                     metadata={friendlyStatus(diff.status) || clioStatusLabel(diffStatus(diff))}

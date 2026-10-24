@@ -17,15 +17,11 @@ import (
 // entry, sets GACT_BACKEND, and runs the TUI.
 func runAgent(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: gact agent show|deploy|list|stop|rm|connect …")
+		fmt.Fprintln(os.Stderr, "usage: gact agent deploy|list|stop|rm|connect …")
 		return 2
 	}
 	verb, rest := args[0], args[1:]
 	switch verb {
-	case "show":
-		// Backend-side agent metadata lookup — the older behaviour from
-		// before the local agent process manager existed.
-		return runAgentShow(rest)
 	case "deploy":
 		return runAgentDeploy(rest)
 	case "list", "ls":
@@ -37,7 +33,7 @@ func runAgent(args []string) int {
 	case "connect":
 		return runAgentConnect(rest)
 	}
-	fmt.Fprintf(os.Stderr, "gact agent: unknown verb %q (want show|deploy|list|stop|rm|connect)\n", verb)
+	fmt.Fprintf(os.Stderr, "gact agent: unknown verb %q (want deploy|list|stop|rm|connect)\n", verb)
 	return 2
 }
 

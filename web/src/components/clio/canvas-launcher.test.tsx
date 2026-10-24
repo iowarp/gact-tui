@@ -47,4 +47,21 @@ describe('CanvasLauncher child agents', () => {
     expect(entry).toHaveAttribute('aria-disabled', 'true');
     expect(entry).toHaveTextContent('None yet');
   });
+
+  it('says none running, not none yet, while finished children are not loaded', async () => {
+    const user = userEvent.setup();
+    render(
+      <CanvasLauncher
+        finishedWorkHidden
+        onOpen={vi.fn()}
+        onOpenSubagent={vi.fn()}
+        subagents={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+    const entry = await screen.findByRole('menuitem', { name: /Child agent/ });
+    expect(entry).toHaveAttribute('aria-disabled', 'true');
+    expect(entry).toHaveTextContent('None running');
+  });
 });

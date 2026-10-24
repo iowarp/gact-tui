@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { CommandDefinition, PromptDefinition, ResolvedPromptDefinition } from './domain.js';
-import { McpRepository } from './mcp-repository.js';
+import { FleetRepository } from './fleet-repository.js';
 import { commandListSchema, promptListSchema } from './repository-decoders.js';
 import { promptDefinitionSchema, resolvedPromptDefinitionSchema } from './schemas.js';
 
@@ -28,7 +28,7 @@ function contextQuery(context: PromptContext = {}): string {
 }
 
 /** Prompt-family inspection, rendering, validation, and scoped override routes. */
-export class PromptRepository extends McpRepository {
+export class PromptRepository extends FleetRepository {
   public async prompts(
     signal?: AbortSignal,
     context: PromptContext = {},

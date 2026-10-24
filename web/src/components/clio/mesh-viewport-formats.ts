@@ -9,6 +9,7 @@ import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { VTKLoader } from 'three/examples/jsm/loaders/VTKLoader.js';
 import { parseFeaMesh, type ParsedFeaMesh } from './mesh-viewport-mesh';
+import { resolveThemeColor } from '@/theme/runtime';
 
 export type MeshFormat = 'glb' | 'gltf' | 'obj' | 'stl' | 'ply' | 'fbx' | '3mf' | 'vtk' | 'vtp' | 'drc';
 
@@ -133,7 +134,7 @@ function flattenGeometry(root: THREE.Object3D, format: MeshFormat): ParsedFeaMes
     const offset = positions.length / 3;
     const point = new THREE.Vector3();
     const material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial | undefined;
-    const tint = material?.color ?? new THREE.Color('#9db5ca');
+    const tint = material?.color ?? new THREE.Color(resolveThemeColor('color-mix(in oklab, var(--muted-foreground) 45%, var(--background))'));
     const vertexColor = source.getAttribute('color');
     textured ||= Boolean(material?.map);
     for (let i = 0; i < position.count; i += 1) {

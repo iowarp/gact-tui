@@ -116,7 +116,6 @@ export function canvasAvailable(): boolean {
 }
 
 export interface ChartEmbedOptions {
-  dark: boolean;
   renderer: ChartRenderer;
 }
 
@@ -124,25 +123,25 @@ export interface ChartEmbedOptions {
 export function embedChart(
   element: HTMLElement,
   spec: Record<string, unknown>,
-  { dark, renderer }: ChartEmbedOptions,
+  { renderer }: ChartEmbedOptions,
 ): Promise<Result> {
   const tooltip = new Handler({
     formatTooltip: (value) => formatChartTooltip(value),
     sanitize: escapeHtml,
-    theme: dark ? 'dark' : 'light',
+    // Styled from theme tokens in index.css (`#vg-tooltip-element.custom-theme`).
+    theme: 'custom',
   });
   // A producer's top-level background overrides embed config. Keep the entire
   // plot on the same surface as the theme-aware labels, including custom specs.
   return embed(element, { ...spec, background: 'transparent' } as VisualizationSpec, {
     actions: false,
     ast: true,
-    config: chartPresentationConfig(dark),
+    config: chartPresentationConfig(),
     defaultStyle: false,
     expr: expressionInterpreter,
     loader: refusingLoader(),
     mode: 'vega-lite',
     renderer,
-    ...(dark ? { theme: 'dark' as const } : {}),
     tooltip: tooltip.call,
   });
 }

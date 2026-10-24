@@ -62,16 +62,12 @@ func (m *helpModal) commandSupported(id string) bool {
 	switch strings.ToLower(strings.TrimSpace(id)) {
 	case "/prompts":
 		return a.session.caps.Capabilities.XClioPromptRegistry
-	case "/expert-packs":
-		return a.session.caps.Capabilities.XClioExpertPacks
-	case "/agent-blueprints":
-		return a.session.caps.Capabilities.XClioAgentBlueprints
 	case "/doctor":
 		return a.session.caps.Capabilities.IntegrationHealth
 	case "/memory":
 		return a.session.caps.Capabilities.Memory
 	case "/skills":
-		return a.session.caps.Capabilities.SkillsExtraction
+		return a.session.caps.Capabilities.XClioAgentPlugins
 	default:
 		return true
 	}

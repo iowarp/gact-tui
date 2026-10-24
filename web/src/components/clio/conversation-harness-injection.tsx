@@ -1,4 +1,4 @@
-import type { MessageBlock } from '@clio/core/v3';
+import { PLUGIN_CHANGE_INJECTION_SOURCE, type MessageBlock } from '@clio/core/v3';
 import { ChevronRightIcon, MessageSquareIcon, SyringeIcon, TerminalIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { BoundedResult } from './bounded-result';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { ToolTerminalResult } from './tool-terminal-result';
 import { ToolDetailsContent } from './tool-details-content';
+import { PluginChangeInjection } from './conversation-plugin-change';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -24,10 +25,11 @@ const INJECTION_LABELS: Record<string, string> = {
   todos: 'Todo list reminder',
   plan_mode: 'Plan reminder',
   replan: 'Replanning suggestion',
-  memory_search: 'Memory search results',
+  memory: 'Memory',
   task_results: 'Results from background tasks',
   task_result: 'Task result',
   peer: 'Agent message',
+  plugin_change: 'Plugins changed',
   path_hint: 'Path suggestion',
   circuit_breaker: 'Repeated-failure warning',
   result_spilled: 'Large result saved to a file',
@@ -45,6 +47,14 @@ export function HarnessInjection({
   block: InjectionBlock;
   compact?: boolean;
 }) {
+  return block.source === PLUGIN_CHANGE_INJECTION_SOURCE ? (
+    <PluginChangeInjection block={block} />
+  ) : (
+    <RecordedInjection block={block} compact={compact} />
+  );
+}
+
+function RecordedInjection({ block, compact }: { block: InjectionBlock; compact: boolean }) {
   const [expanded, setExpanded] = useTranscriptDisclosure(`injection:${block.id}`);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const presentation = useMemo(

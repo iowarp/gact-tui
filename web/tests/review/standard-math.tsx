@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import '../../src/index.css';
 import { MarkdownText } from '../../src/components/ai-elements/markdown';
 import { ContentMarkdown } from '../../src/components/clio/content-markdown';
@@ -22,7 +22,7 @@ function Review() {
   const [complete, setComplete] = useState(false);
   const theme = new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light';
   return (
-    <ThemeProvider attribute="class" forcedTheme={theme}>
+    <ForcedTheme theme={theme}>
       <main className="min-h-dvh bg-background px-6 py-6 text-foreground">
         <div className="mx-auto max-w-3xl space-y-6">
           <header className="border-b pb-4">
@@ -76,7 +76,7 @@ y &= 2
           </section>
         </div>
       </main>
-    </ThemeProvider>
+    </ForcedTheme>
   );
 }
 

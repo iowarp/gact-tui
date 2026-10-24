@@ -6,14 +6,7 @@ import {
   RUN_REASON_TRUNCATE_CHARS,
   RUNS_POLL_MS,
 } from '@/lib/runtime-limits';
-import type {
-  TaskSnapshot,
-  RunState,
-  Session,
-  ToolInvocation,
-  TranscriptSnapshot,
-  Workspace,
-} from '@clio/core/v3';
+import type { TaskSnapshot, RunState, Session, TranscriptSnapshot, Workspace } from '@clio/core/v3';
 import { operationalRunStateSchema } from '@clio/core/v3';
 import {
   useInfiniteQuery,
@@ -76,12 +69,12 @@ import {
 } from '@/lib/workspace-labels';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { returnRouteFromState, sessionIdFromRoute } from '@/lib/workspace-route-memory';
-import { workflowDescriptor } from '@/components/clio/workflow-tool-presentation';
+import { flowToolDescriptor } from '@/components/clio/flow-tool-presentation';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import { matchesRunState } from '@/lib/session-agent-tasks';
 
-type RunSource = 'agent_task' | 'mcp_task' | 'unknown' | 'workflow';
-const WORKFLOW_SCAN_BATCH = 4;
+type RunSource = 'agent_task' | 'mcp_task' | 'unknown' | 'flow';
+const FLOW_SCAN_BATCH = 4;
 
 export interface RunRow {
   progress?: Record<string, unknown>;
@@ -105,7 +98,8 @@ export interface RunRow {
   workspaceId?: string;
   targetSessionId?: string;
   updatedAt: string;
-  workflow?: ToolInvocation;
+  /** The task handle of a flow run, opened in its conversation with `?flow=`. */
+  flowHandle?: string;
 }
 
 type ConfirmedRunAction = { kind: 'cancel'; row: RunRow };
@@ -114,7 +108,7 @@ const sourceLabels: Record<RunSource, string> = {
   agent_task: 'Agent',
   mcp_task: 'Tool',
   unknown: 'Unknown source',
-  workflow: 'Workflow',
+  flow: 'Flow',
 };
 
 function conciseReason(reason: string | undefined): string | undefined {
@@ -208,9 +202,9 @@ function taskState(task: TaskSnapshot): RunState {
   return operationalRunStateSchema.parse(activity[task.activity] ?? (task.activity || task.status));
 }
 
-// Pure indexing keeps transcript-derived workflow identity deterministic and testable.
+// Pure indexing keeps transcript-derived flow identity deterministic and testable.
 // oxlint-disable-next-line react/only-export-components
-export function buildWorkflowRows(
+export function buildFlowRows(
   transcripts: readonly TranscriptSnapshot[],
   sessions: readonly Session[],
   workspaces: readonly Workspace[],
@@ -220,48 +214,20 @@ export function buildWorkflowRows(
   const sessionsById = new Map(sessions.map((session) => [session.id, session]));
   return transcripts.flatMap((transcript) =>
     Object.values(transcript.tools).flatMap((tool): RunRow[] => {
-      const descriptor = workflowDescriptor(tool);
-      if (!descriptor) return [];
+      const flow = flowToolDescriptor(tool);
+      if (!flow) return [];
       const session = sessionsById.get(tool.session_id);
       const workspaceId = session?.workspace_id;
-      const launched = descriptor.steps.filter(
-        (step) => step.launchState !== 'not_started' && step.launchState !== 'not_launched',
-      );
-      const steps = launched.map((step) => tasks.find((task) => task.handle === step.taskId));
-      const recordedFailure = [
-        'workflow_child_failed',
-        'workflow_step_timeout',
-        'workflow_spawn_refused',
-      ].includes(descriptor.status ?? '');
-      const recordedYield = ['workflow_predicate_unsatisfied', 'workflow_step_stalled'].includes(
-        descriptor.status ?? '',
-      );
-      const allStepsLaunched = launched.length === descriptor.steps.length;
-      const failedStep = descriptor.steps.find((step) => step.stepId === descriptor.failedStep);
-      const unlaunched = descriptor.steps.filter((step) => step.launchState === 'not_launched');
-      const completeVisibility = steps.every((task) => task !== undefined);
-      const active = steps.some((task) => task && !task.terminal_at);
-      const state: RunState =
-        descriptor.status === 'task_state_uncertain' ||
-        steps.some((task) => task?.status === 'task_state_uncertain')
-          ? 'task_state_uncertain'
-          : recordedFailure
-            ? 'failed'
-            : recordedYield
-              ? 'yielded'
-              : !steps.length || !completeVisibility
-                ? 'unknown'
-                : active
-                  ? 'running'
-                  : steps.some((task) => task?.status === 'failed')
-                    ? 'failed'
-                    : steps.some((task) => task?.status === 'cancelled')
-                      ? 'cancelled'
-                      : !allStepsLaunched
-                        ? 'yielded'
-                        : steps.every((task) => task?.status === 'completed')
-                          ? 'completed'
-                          : 'interrupted';
+      const task = flow.handle ? tasks.find((row) => row.handle === flow.handle) : undefined;
+      const state: RunState = flow.refusal
+        ? 'failed'
+        : task
+          ? taskState(task)
+          : flow.handle
+            ? 'unknown'
+            : tool.state === 'failed'
+              ? 'failed'
+              : 'queued';
       const workspaceLabelFields = workspaceId
         ? (labels.get(workspaceId) ?? {
             name: `${capitalize(vocab.workspace)} unavailable`,
@@ -270,36 +236,31 @@ export function buildWorkflowRows(
         : { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] };
       return [
         {
-          handleId: tool.id,
-          taskId: tool.id,
-          label: descriptor.label,
+          handleId: flow.handle ?? tool.id,
+          taskId: flow.handle ?? tool.id,
+          taskKind: task?.kind,
+          label: `${flow.label} run`,
           state,
-          reportedStatus: descriptor.status ?? state,
-          statusReason: recordedFailure
-            ? conciseReason(
-                `Workflow failed${failedStep ? ` at ${failedStep.name}` : ''}.${unlaunched.length ? ` ${unlaunched.length} ${unlaunched.length === 1 ? 'step was' : 'steps were'} not launched.` : ''}`,
-              )
-            : recordedYield || !allStepsLaunched
-              ? 'The declared workflow has an uncompleted step.'
-              : completeVisibility && steps.length
-                ? undefined
-                : !launched.length && descriptor.steps.length
-                  ? 'Steps have not launched.'
-                  : 'Accepted step statuses are not loaded.',
-          progress: {
-            completed: completeVisibility ? steps.filter((task) => task?.terminal_at).length : null,
-            total: descriptor.steps.length,
-            unit: 'steps',
-          },
-          source: 'workflow',
-          host: 'Ordered execution',
-          placement: `${descriptor.steps.length} ordered ${descriptor.steps.length === 1 ? 'step' : 'steps'}`,
+          reportedStatus: task ? task.raw_status || task.status : (flow.refusal?.reason ?? state),
+          statusReason: flow.refusal
+            ? conciseReason(flow.refusal.message)
+            : flow.handle && !task
+              ? 'The flow task status is not loaded.'
+              : !flow.handle
+                ? 'The flow has not been accepted yet.'
+                : undefined,
+          source: 'flow',
+          host: 'Flow',
+          placement: flow.flow,
           workspaceLabel: workspaceLabelText(workspaceLabelFields),
           workspaceLabelFields,
           workspaceId,
           targetSessionId: tool.session_id,
-          updatedAt: tool.completed_at || tool.started_at || session?.updated_at || '',
-          workflow: tool,
+          updatedAt:
+            task?.updated_at || tool.completed_at || tool.started_at || session?.updated_at || '',
+          flowHandle: flow.handle,
+          cancellable: task?.supported_actions.includes('cancel'),
+          ownerSessionId: task?.owner.session_id,
         },
       ];
     }),
@@ -318,9 +279,9 @@ export function RunsPage() {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const [category, setCategory] = useState<'executions' | 'workflows'>('executions');
+  const [category, setCategory] = useState<'executions' | 'flows'>('executions');
   const [requestedCancellation, setRequestedCancellation] = useState<Set<string>>(new Set());
-  const [workflowScanLimit, setWorkflowScanLimit] = useState(WORKFLOW_SCAN_BATCH);
+  const [flowScanLimit, setFlowScanLimit] = useState(FLOW_SCAN_BATCH);
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState('active');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -356,7 +317,7 @@ export function RunsPage() {
     ],
     [runs.data],
   );
-  const orderedWorkflowSessions = useMemo(() => {
+  const orderedFlowSessions = useMemo(() => {
     const current = sessionIdFromRoute(returnRouteFromState(location.state, settings.endpoint));
     const values = sessions.data ?? [];
     return current
@@ -365,9 +326,9 @@ export function RunsPage() {
         )
       : values;
   }, [location.state, sessions.data, settings.endpoint]);
-  const workflowTranscripts = useQueries({
-    queries: orderedWorkflowSessions.map((session, index) => ({
-      enabled: category === 'workflows' && index < workflowScanLimit,
+  const flowTranscripts = useQueries({
+    queries: orderedFlowSessions.map((session, index) => ({
+      enabled: category === 'flows' && index < flowScanLimit,
       queryKey: queryKeys.key('transcript', settings.endpoint, session.id),
       queryFn: ({ signal }: { signal: AbortSignal }) => repository.transcript(session.id, signal),
       staleTime: RUNS_POLL_MS,
@@ -399,23 +360,23 @@ export function RunsPage() {
     () => buildRows(tasks, sessions.data ?? [], workspaces.data ?? []),
     [tasks, sessions.data, workspaces.data],
   );
-  const workflowRows = useMemo(
+  const flowRows = useMemo(
     () =>
-      buildWorkflowRows(
-        workflowTranscripts.flatMap((query) => (query.data ? [query.data] : [])),
+      buildFlowRows(
+        flowTranscripts.flatMap((query) => (query.data ? [query.data] : [])),
         sessions.data ?? [],
         workspaces.data ?? [],
         tasks,
       ),
-    [sessions.data, workflowTranscripts, workspaces.data, tasks],
+    [sessions.data, flowTranscripts, workspaces.data, tasks],
   );
-  const rows = category === 'workflows' ? workflowRows : executionRows;
+  const rows = category === 'flows' ? flowRows : executionRows;
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
     return rows.filter((row) => {
       const stateMatches = matchesRunState(row.state, stateFilter);
       const sourceMatches =
-        category === 'workflows' || sourceFilter === 'all' || row.source === sourceFilter;
+        category === 'flows' || sourceFilter === 'all' || row.source === sourceFilter;
       const searchMatches =
         !query ||
         [
@@ -443,7 +404,7 @@ export function RunsPage() {
             {row.original.workspaceId && row.original.targetSessionId ? (
               <Link
                 className="inline-flex items-center gap-1.5 font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                to={`${`/workspaces/${encodeURIComponent(row.original.workspaceId)}/sessions/${encodeURIComponent(row.original.targetSessionId)}`}${row.original.workflow ? `?workflow=${encodeURIComponent(row.original.workflow.id)}` : ''}`}
+                to={`${`/workspaces/${encodeURIComponent(row.original.workspaceId)}/sessions/${encodeURIComponent(row.original.targetSessionId)}`}${row.original.flowHandle ? `?flow=${encodeURIComponent(row.original.flowHandle)}` : ''}`}
               >
                 {truncate(row.original.label, 80)}
                 <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
@@ -517,7 +478,7 @@ export function RunsPage() {
           <div className="max-w-52 py-0.5">
             <p className="text-sm">{sourceLabels[row.original.source]}</p>
             <p className="truncate text-xs text-muted-foreground" title={row.original.placement}>
-              {row.original.workflow
+              {row.original.source === 'flow'
                 ? row.original.placement
                 : row.original.host || 'Host unavailable'}
             </p>
@@ -575,19 +536,17 @@ export function RunsPage() {
     [cancel.isPending, cancel.variables, requestedCancellation],
   );
   const table = useTable({ columns, data: filteredRows, features: dataGridFeatures });
-  const workflowError = workflowTranscripts.find((query) => query.error)?.error;
+  const flowError = flowTranscripts.find((query) => query.error)?.error;
   const error =
-    category === 'workflows'
-      ? (sessions.error ?? workspaces.error ?? (workflowRows.length === 0 ? workflowError : null))
+    category === 'flows'
+      ? (sessions.error ?? workspaces.error ?? (flowRows.length === 0 ? flowError : null))
       : (runs.error ?? sessions.error ?? workspaces.error);
-  const workflowsIndexed = workflowTranscripts.filter(
+  const flowsIndexed = flowTranscripts.filter(
     (query) => query.data !== undefined || query.isError,
   ).length;
-  const workflowsRemaining = Math.max(0, orderedWorkflowSessions.length - workflowsIndexed);
-  const workflowsIndexing = workflowTranscripts
-    .slice(0, workflowScanLimit)
-    .some((query) => query.isFetching);
-  const workflowFailures = workflowTranscripts.filter((query) => query.isError).length;
+  const flowsRemaining = Math.max(0, orderedFlowSessions.length - flowsIndexed);
+  const flowsIndexing = flowTranscripts.slice(0, flowScanLimit).some((query) => query.isFetching);
+  const flowFailures = flowTranscripts.filter((query) => query.isError).length;
 
   return (
     <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
@@ -599,7 +558,7 @@ export function RunsPage() {
             </p>
             <h1 className="mt-2 text-4xl font-semibold tracking-tight">Runs</h1>
             <p className="mt-2 text-muted-foreground">
-              Track operational handles and recorded multi-step workflow executions.
+              Track operational handles and the flows agents started (workflows, councils and more).
             </p>
           </div>
           <Button asChild variant="outline">
@@ -610,7 +569,7 @@ export function RunsPage() {
         </div>
         <Tabs
           className="mt-8"
-          onValueChange={(value) => setCategory(value as 'executions' | 'workflows')}
+          onValueChange={(value) => setCategory(value as 'executions' | 'flows')}
           value={category}
         >
           <TabsList aria-label="Run categories">
@@ -620,10 +579,10 @@ export function RunsPage() {
                 {executionRows.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="workflows">
-              <WorkflowIcon aria-hidden="true" /> Workflows
+            <TabsTrigger value="flows">
+              <WorkflowIcon aria-hidden="true" /> Flows
               <Badge className="ml-1" variant="secondary">
-                {workflowRows.length}
+                {flowRows.length}
               </Badge>
             </TabsTrigger>
           </TabsList>
@@ -639,8 +598,8 @@ export function RunsPage() {
               className="pl-9"
               onChange={(event) => setSearch(event.target.value)}
               placeholder={
-                category === 'workflows'
-                  ? 'Search workflow, step, workspace, or state'
+                category === 'flows'
+                  ? 'Search flow, workspace, or state'
                   : 'Search run, workspace, state, host, or task'
               }
               value={search}
@@ -671,37 +630,36 @@ export function RunsPage() {
             </Select>
           ) : null}
           <Badge variant="secondary">
-            {filteredRows.length} {category === 'workflows' ? 'workflows' : 'runs'}
+            {filteredRows.length} {category === 'flows' ? 'flows' : 'runs'}
           </Badge>
         </div>
-        {category === 'workflows' ? (
+        {category === 'flows' ? (
           <Alert className="mt-6">
             <WorkflowIcon aria-hidden="true" />
-            <AlertTitle>Recorded workflow executions</AlertTitle>
+            <AlertTitle>Flow runs</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
               <span>
-                Each row is reconstructed from a recorded run_workflow call and its authoritative
-                ordered step task IDs. Open one to inspect its execution graph in the workspace
-                canvas.
-                {workflowsRemaining > 0
-                  ? ` ${workflowsIndexed} of ${orderedWorkflowSessions.length} sessions indexed.`
+                Each row is a flow an agent started in a conversation, with its task&apos;s current
+                state. Open one to see its steps and any stall in the workspace canvas.
+                {flowsRemaining > 0
+                  ? ` ${flowsIndexed} of ${orderedFlowSessions.length} sessions indexed.`
                   : ''}
-                {workflowFailures > 0
-                  ? ` ${workflowFailures} session${workflowFailures === 1 ? '' : 's'} could not be indexed.`
+                {flowFailures > 0
+                  ? ` ${flowFailures} session${flowFailures === 1 ? '' : 's'} could not be indexed.`
                   : ''}
               </span>
-              {workflowScanLimit < orderedWorkflowSessions.length ? (
+              {flowScanLimit < orderedFlowSessions.length ? (
                 <Button
-                  disabled={workflowsIndexing}
+                  disabled={flowsIndexing}
                   onClick={() =>
-                    setWorkflowScanLimit((current) =>
-                      Math.min(current + WORKFLOW_SCAN_BATCH, orderedWorkflowSessions.length),
+                    setFlowScanLimit((current) =>
+                      Math.min(current + FLOW_SCAN_BATCH, orderedFlowSessions.length),
                     )
                   }
                   size="sm"
                   variant="outline"
                 >
-                  {workflowsIndexing ? 'Indexing…' : 'Index more sessions'}
+                  {flowsIndexing ? 'Indexing…' : 'Index more sessions'}
                 </Button>
               ) : null}
             </AlertDescription>
@@ -719,9 +677,7 @@ export function RunsPage() {
             isLoading={
               sessions.isPending ||
               workspaces.isPending ||
-              (category === 'executions'
-                ? runs.isPending
-                : workflowRows.length === 0 && workflowsIndexing)
+              (category === 'executions' ? runs.isPending : flowRows.length === 0 && flowsIndexing)
             }
             recordCount={filteredRows.length}
             table={table}

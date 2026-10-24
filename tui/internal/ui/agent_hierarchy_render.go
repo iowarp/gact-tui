@@ -1,6 +1,6 @@
 package ui
 
-// agent_hierarchy_render.go renders the agent-hierarchy rows and active-blueprint summary line.
+// agent_hierarchy_render.go renders the agent-hierarchy rows.
 
 import (
 	"strings"
@@ -9,34 +9,6 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
-
-func (c *agentComponent) agentHierarchyActiveBlueprintSummary(rows []agentHierarchyRow, width int) string {
-	if width < 8 || c.activeAgentBlueprintID() == "" {
-		return ""
-	}
-	workflow := false
-	for _, row := range rows {
-		if isWorkflowAgent(row.agent) {
-			workflow = true
-			break
-		}
-	}
-	if !workflow {
-		return ""
-	}
-	budget := maxInt(1, width-8)
-	summary := activeAgentBlueprintIndicator(c.activeAgentBlueprintID(), c.activeAgentBlueprintScope(), budget)
-	return lipgloss.NewStyle().Foreground(c.app.Theme.FgMuted).Italic(true).Render(textutil.Truncate(summary, budget))
-}
-
-func agentHierarchyModuleTitle(rows []agentHierarchyRow, fallback string) string {
-	for _, row := range rows {
-		if isWorkflowAgent(row.agent) {
-			return "WORKFLOW"
-		}
-	}
-	return fallback
-}
 
 func (c *agentComponent) renderAgentHierarchyRow(row agentHierarchyRow, width int, selected bool) string {
 	t := c.app.Theme

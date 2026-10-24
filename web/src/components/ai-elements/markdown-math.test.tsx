@@ -163,6 +163,14 @@ y &= 2
     expect(container.querySelector('table .katex')).not.toBeNull();
   });
 
+  it('keeps dollar references across lines as prose instead of breaking the parser', async () => {
+    const text = 'Run the plan: $task\nReview this draft: $draft, then report.';
+    const { container } = render(<MarkdownText>{text}</MarkdownText>);
+    await waitFor(() => expect(container.textContent).toContain('$draft'));
+    expect(container.querySelector('.katex')).toBeNull();
+    expect(container.textContent).toContain('$task');
+  });
+
   it('leaves unmatched and empty delimiters as ordinary text', () => {
     const { container } = render(
       <MarkdownText mode="static">{String.raw`\(\) \[ \] \(unfinished and \[also unfinished`}</MarkdownText>,

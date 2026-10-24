@@ -288,7 +288,7 @@ function PdfPage({
 
   return (
     <div
-      className="mx-auto w-fit overflow-hidden rounded-lg border bg-white shadow-sm"
+      className="mx-auto w-fit overflow-hidden rounded-lg border bg-card shadow-sm"
       data-page={pageNumber - 1}
       onMouseUp={onMouseUp}
       ref={pageRef}

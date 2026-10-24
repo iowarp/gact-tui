@@ -1,4 +1,4 @@
-import type { ContextSnapshot, Message, PromptSection } from '@clio/core/v3';
+import type { ContextPromptSection, ContextSnapshot, Message } from '@clio/core/v3';
 import { humanizeProtocolValue } from './presentation-labels';
 
 const LABELS: Record<string, string> = {
@@ -31,7 +31,7 @@ export function contextComposition(
   const used = context?.used_tokens ?? (context?.live_tokens || summaryEstimate);
   const limit = context?.limit_tokens ?? 0;
   const breakdown = context?.prompt_breakdown;
-  const sections: PromptSection[] =
+  const sections: ContextPromptSection[] =
     (breakdown ? [...breakdown.sections] : undefined) ??
     Object.entries(context?.categories ?? {})
       .filter(([, tokens]) => tokens > 0)

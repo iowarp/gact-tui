@@ -1,4 +1,4 @@
-import type { AgentBlueprint, Session, Workspace } from '@clio/core/v3';
+import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -23,7 +23,7 @@ import {
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
-import { resolveActiveBlueprint } from '@/lib/active-blueprint';
+import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import {
   isPrimarySession,
   sessionInteractionAt,
@@ -43,7 +43,8 @@ import { SessionNavigationRow } from './workspace-navigation-session-row';
 interface WorkspaceNavigationProps {
   workspaces: readonly Workspace[];
   sessions: readonly Session[];
-  blueprints: readonly AgentBlueprint[];
+  /** Installed agents, to name the agent each conversation runs. */
+  agents: readonly AgentEntry[];
   activeWorkspaceId: string;
   activeSessionId: string;
   actions: ResourceActions;
@@ -83,7 +84,7 @@ function WorkspaceLabelFields({
 export function WorkspaceNavigation({
   workspaces,
   sessions,
-  blueprints,
+  agents,
   activeWorkspaceId,
   activeSessionId,
   actions,
@@ -158,7 +159,7 @@ export function WorkspaceNavigation({
               attentions={attentions}
               activeSessionId={activeSessionId}
               activeWorkspaceId={activeWorkspaceId}
-              blueprints={blueprints}
+              agents={agents}
               expanded={expanded}
               key={workspace.id}
               label={labels.get(workspace.id) ?? { name: workspace.display_name, qualifiers: [] }}
@@ -211,7 +212,8 @@ export function WorkspaceNavigation({
 interface WorkspaceTreeItemProps {
   workspace: Workspace;
   sessions: readonly Session[];
-  blueprints: readonly AgentBlueprint[];
+  /** Installed agents, to name the agent each conversation runs. */
+  agents: readonly AgentEntry[];
   label: WorkspaceDisplayLabel;
   expanded: boolean;
   sessionLimitExpanded: boolean;
@@ -239,7 +241,7 @@ interface WorkspaceTreeItemProps {
 function WorkspaceTreeItem({
   workspace,
   sessions,
-  blueprints,
+  agents,
   label,
   expanded,
   sessionLimitExpanded,
@@ -320,7 +322,7 @@ function WorkspaceTreeItem({
               actions={actions}
               activeSessionId={activeSessionId}
               attention={attentions[session.id]}
-              blueprint={resolveActiveBlueprint(session, blueprints)}
+              agentLabel={sessionAgentLabel(session, agents)}
               key={session.id}
               onAction={onAction}
               onDelete={onDelete}

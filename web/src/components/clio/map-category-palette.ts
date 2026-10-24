@@ -1,10 +1,10 @@
-import { CATEGORY_COLORS, categoryColor } from './category-colors';
-export { CATEGORY_COLORS } from './category-colors';
+import { readThemeColor } from '@/theme/runtime';
+import { categoryColor, categoryPalette } from './category-colors';
 
-export const UNCATEGORIZED_COLOR = '#64748b';
-export const CONTINUOUS_LOW_COLOR = '#0ea5e9';
-export const CONTINUOUS_MID_COLOR = '#f59e0b';
-export const CONTINUOUS_HIGH_COLOR = '#be123c';
+/** Map colours come from the active theme; maps redraw when the theme changes. */
+export const uncategorizedColor = () => readThemeColor('muted-foreground');
+export const continuousScaleColors = () =>
+  [readThemeColor('scale-low'), readThemeColor('scale-mid'), readThemeColor('scale-high')] as const;
 
 export function mapValueExtent(
   points: readonly { value?: number }[],
@@ -16,6 +16,7 @@ export function mapValueExtent(
 }
 
 function mixHex(left: string, right: string, fraction: number): string {
+  if (!left.startsWith('#') || !right.startsWith('#')) return fraction < 0.5 ? left : right;
   const channel = (offset: number) => {
     const from = Number.parseInt(left.slice(offset, offset + 2), 16);
     const to = Number.parseInt(right.slice(offset, offset + 2), 16);
@@ -31,9 +32,10 @@ export function mapValueColor(value: number, extent: [number, number]): string {
     extent[0] === extent[1]
       ? 0.5
       : Math.max(0, Math.min(1, (value - extent[0]) / (extent[1] - extent[0])));
+  const [low, mid, high] = continuousScaleColors();
   return normalized < 0.5
-    ? mixHex(CONTINUOUS_LOW_COLOR, CONTINUOUS_MID_COLOR, normalized * 2)
-    : mixHex(CONTINUOUS_MID_COLOR, CONTINUOUS_HIGH_COLOR, (normalized - 0.5) * 2);
+    ? mixHex(low, mid, normalized * 2)
+    : mixHex(mid, high, (normalized - 0.5) * 2);
 }
 
 export function mapCategoryColors(points: readonly { category?: string }[]): Map<string, string> {
@@ -53,7 +55,9 @@ export function mapPointColor(
   if (extent)
     return typeof point.value === 'number' && Number.isFinite(point.value)
       ? mapValueColor(point.value, extent)
-      : UNCATEGORIZED_COLOR;
-  if (colors.size === 0) return CATEGORY_COLORS[0];
-  return point.category ? (colors.get(point.category) ?? UNCATEGORIZED_COLOR) : UNCATEGORIZED_COLOR;
+      : uncategorizedColor();
+  if (colors.size === 0) return categoryPalette()[0]!;
+  return point.category
+    ? (colors.get(point.category) ?? uncategorizedColor())
+    : uncategorizedColor();
 }

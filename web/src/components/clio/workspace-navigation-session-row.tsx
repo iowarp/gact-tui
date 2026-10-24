@@ -1,4 +1,4 @@
-import type { AgentBlueprintReference, Session, SessionExportMode } from '@clio/core/v3';
+import type { Session, SessionExportMode } from '@clio/core/v3';
 import { BellRingIcon, GitForkIcon, LoaderCircleIcon, PinIcon, PinOffIcon } from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link } from 'react-router-dom';
@@ -28,7 +28,8 @@ interface SessionNavigationRowProps {
   workspaceId: string;
   activeSessionId: string;
   seenRevision?: string;
-  blueprint?: AgentBlueprintReference;
+  /** The name of the agent the conversation runs. */
+  agentLabel?: string;
   actions: ResourceActions;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
@@ -43,7 +44,7 @@ export function SessionNavigationRow({
   workspaceId,
   activeSessionId,
   seenRevision,
-  blueprint,
+  agentLabel,
   actions,
   onRename,
   onDelete,
@@ -202,9 +203,7 @@ export function SessionNavigationRow({
               </>
             ) : null}
             <span className="text-muted-foreground">Agent</span>
-            <span className="truncate">
-              {blueprint?.display_name || session.agent_id || 'Agent unavailable'}
-            </span>
+            <span className="truncate">{agentLabel || 'Agent unavailable'}</span>
             <span className="text-muted-foreground">Model</span>
             <span className="truncate">{session.model_id || 'Inherited workspace default'}</span>
             <span className="text-muted-foreground">Last interaction</span>

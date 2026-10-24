@@ -142,25 +142,15 @@ export function GallerySkillDialog({
   useEffect(() => {
     if (name !== 'general' || agent) return;
     const controller = new AbortController();
-    const paths = ['base-agent/AGENT.md', 'base-agent/experts/base.md'];
-    Promise.all(
-      paths.map(async (path) => {
-        const response = await fetch(new URL(`gallery-skills/${path}`, window.location.href), {
-          signal: controller.signal,
-        });
+    fetch(new URL('gallery-skills/standard-agent.md', window.location.href), {
+      signal: controller.signal,
+    })
+      .then((response) => {
         if (!response.ok || response.headers.get('content-type')?.includes('text/html'))
           throw new Error(`Standard agent unavailable (${response.status})`);
         return response.text();
-      }),
-    )
-      .then(([definition, instructions]) =>
-        setAgent(
-          [
-            withoutFrontmatter(definition, 'Standard agent'),
-            withoutFrontmatter(instructions, 'Base expert instructions'),
-          ].join('\n\n'),
-        ),
-      )
+      })
+      .then((body) => setAgent(withoutFrontmatter(body, 'Standard agent')))
       .catch((error: unknown) => {
         if (!controller.signal.aborted)
           setLoadError(error instanceof Error ? error.message : 'Standard agent unavailable');
@@ -188,7 +178,7 @@ export function GallerySkillDialog({
         <DialogHeader>
           <DialogTitle>{name === 'general' ? 'Agent guidance' : `${name} contract`}</DialogTitle>
           <DialogDescription>
-            {name === 'general' ? `The standard marketplace agent, ${vocab.agent} presentation skill, and component catalogs.` : 'Fields and validation for this component.'}
+            {name === 'general' ? `The standard agent's composed prompt, the ${vocab.agent} presentation skill, and component catalogs.` : 'Fields and validation for this component.'}
           </DialogDescription>
         </DialogHeader>
         <div

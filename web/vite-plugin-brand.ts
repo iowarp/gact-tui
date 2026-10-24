@@ -211,8 +211,28 @@ export function brandPlugin(brandingRoot: string, profile: string, inlineAssets 
     // its own any more; both come from here, for both dev and build.
     transformIndexHtml() {
       const brand = getBrand();
+      // A brand restyles the default Light and Dark themes; Notebook and Debug
+      // keep their own values. `html:root` outranks the theme blocks in
+      // web/src/theme/themes.css, and the rule is in place before first paint.
+      const brandTokens = {
+        ...brand.themeTokens,
+        ...(brand.accent ? { '--action': brand.accent } : {}),
+      };
+      const declarations = Object.entries(brandTokens)
+        .map(([token, value]) => `${token}: ${value};`)
+        .join(' ');
       return [
         { tag: 'title', children: brand.name, injectTo: 'head' },
+        ...(declarations
+          ? [
+              {
+                tag: 'style',
+                attrs: { 'data-brand-tokens': '' },
+                children: `html:root:is([data-theme='light'], [data-theme='dark']) { ${declarations} }`,
+                injectTo: 'head' as const,
+              },
+            ]
+          : []),
         {
           tag: 'link',
           attrs: {

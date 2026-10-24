@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { ScenegraphEvent, View } from 'vega';
 import type { ChartRow } from './chart-data';
 import { embedChart, prepareChartSpec, type ChartRenderer } from './chart-embed';
+import { useThemeKey } from '@/theme/runtime';
 import { withDefaultProjectionFit } from './chart-projection-fit';
 import { withSeriesLegend } from './chart-series-legend';
 import {
@@ -57,10 +58,6 @@ interface ChartViewOptions {
   fullscreen: boolean;
 }
 
-function isDarkTheme(): boolean {
-  return document.documentElement.classList.contains('dark');
-}
-
 /** Owns the Vega view lifecycle, row updates, and linked selection bindings. */
 export function useChartView({
   containerRef,
@@ -109,7 +106,8 @@ export function useChartView({
   const additiveBrushRef = useRef(false);
   const setSelectionRef = useRef(setSelection);
   const [embedError, setEmbedError] = useState('');
-  const [darkTheme, setDarkTheme] = useState(isDarkTheme);
+  // Colors are resolved from the theme at embed time, so a theme change re-embeds.
+  const theme = useThemeKey();
   // Use the unfiltered source domain: hiding a category must not recolour the rest
   // or rebuild the view and lose the person's zoom/selection. New categories can
   // extend the domain, retaining the identities of those already present.
@@ -121,13 +119,9 @@ export function useChartView({
     () =>
       embedSpec &&
       withChartCategoryColors(embedSpec, JSON.parse(categoryDomainKey) as ChartCategoryDomains),
-    [embedSpec, categoryDomainKey],
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [embedSpec, categoryDomainKey, theme],
   );
-  useEffect(() => {
-    const observer = new MutationObserver(() => setDarkTheme(isDarkTheme()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
   const [zoomActive, setZoomActive] = useState(false);
   const [linkable, setLinkable] = useState(true);
   const [boxReady, setBoxReady] = useState(false);
@@ -201,7 +195,7 @@ export function useChartView({
       }),
       embeddedRows ?? [],
     );
-    embedChart(node, prepared, { dark: darkTheme, renderer })
+    embedChart(node, prepared, { renderer })
       .then(async (result) => {
         if (cancelled) {
           result.finalize();
@@ -447,7 +441,7 @@ export function useChartView({
     colorField,
     preset,
     componentId,
-    darkTheme,
+    theme,
     categoricalSpec,
     entityField,
     fullscreen,

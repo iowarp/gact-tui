@@ -18,24 +18,11 @@ type agentHierarchyRow struct {
 
 func (c *agentComponent) visibleAgentHierarchyRows() []agentHierarchyRow {
 	agents := make([]gact.AgentDef, 0, len(c.hierarchyAgents))
-	hasWorkflowAgents := false
 	for _, agent := range c.hierarchyAgents {
 		if agent.Source == "skill" {
 			continue
 		}
-		if isWorkflowAgent(agent) {
-			hasWorkflowAgents = true
-		}
 		agents = append(agents, agent)
-	}
-	if hasWorkflowAgents {
-		filtered := agents[:0]
-		for _, agent := range agents {
-			if isWorkflowAgent(agent) {
-				filtered = append(filtered, agent)
-			}
-		}
-		agents = filtered
 	}
 	byParent := map[string][]gact.AgentDef{}
 	topLevel := make([]gact.AgentDef, 0)
@@ -76,11 +63,6 @@ func (c *agentComponent) visibleAgentHierarchyRows() []agentHierarchyRow {
 		appendAgent(agent, 0, "u"+itoa2(idx+1))
 	}
 	return rows
-}
-
-func isWorkflowAgent(agent gact.AgentDef) bool {
-	return strings.TrimSpace(agent.Source) == "agent_blueprint" ||
-		strings.EqualFold(strings.TrimSpace(agent.Specialization), "workflow")
 }
 
 func agentHierarchyRowMeta(row agentHierarchyRow, runtimeState agentHierarchyRuntimeState) string {
@@ -127,8 +109,8 @@ func agentHierarchyTierLabel(row agentHierarchyRow) string {
 func agentHierarchySourceLabel(source string) string {
 	source = strings.TrimSpace(source)
 	switch source {
-	case "agent_blueprint":
-		return "workflow"
+	case "plugin":
+		return "plugin"
 	case "builtin":
 		return "built-in"
 	case "":

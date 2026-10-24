@@ -1,111 +1,75 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const fact = {
+  id: 'f1a2b3c',
+  text: 'My Frontier project id is CSC456',
+  source: 'user' as const,
+  session: 'sess_a',
+  message: 'msg_1',
+  at: '2026-10-20T10:00:00Z',
+  superseded_by: '',
+  live: true,
+};
+
+const document = {
+  name: 'user/environments/frontier-allocation',
+  scope: 'user',
+  category: 'environments',
+  slug: 'frontier-allocation',
+  description: 'Frontier allocation details',
+  aliases: [],
+  updated: '2026-10-20',
+  sha: 'a'.repeat(64),
+  text: '---\nname: frontier-allocation\n---\n- My Frontier project id is CSC456\n',
+  forgotten: [],
+  facts: [fact],
+  usage: { read: 2, loaded: 1, last_read: '2026-10-21T09:00:00Z' },
+};
+
+const proposal = {
+  id: 'mp_1',
+  target: 'user/preferences/preferences',
+  change: 'add' as const,
+  facts: ['Wants results emailed to x@example.com'],
+  replaces: [],
+  merge_from: [],
+  description: '',
+  evidence: [
+    { id: 'c2', session: 'sess_a', messages: ['msg_4'], source: 'tool', fact: 'From a web page' },
+  ],
+  sources: ['tool'],
+  rationale: 'A fetched page asked for it',
+  origin: 'session:sess_a',
+  handle: 'task_x',
+  status: 'pending' as const,
+  decided_by: '',
+  created_at: '2026-10-20T11:00:00Z',
+  decided_at: '',
+  base_text:
+    '---\nupdated: 2026-10-19\n---\n- Prefers SI units {id=f1, source=user, session=s, at=2026-10-19}',
+  proposed_text:
+    '---\nupdated: 2026-10-20\n---\n- Prefers SI units {id=f1, source=user, session=s, at=2026-10-19}\n- Wants results emailed to x@example.com {id=f2, source=tool, session=sess_a, at=2026-10-20}',
+  needs_review: true,
+};
 
 const repository = vi.hoisted(() => ({
-  allSessions: vi.fn().mockResolvedValue([
-    {
-      id: 'sess_other',
-      workspace_id: 'ws_science',
-      title: 'Earlier campaign',
-      state: 'completed',
-      created_at: '2026-08-22T00:00:00Z',
-      updated_at: '2026-08-22T01:00:00Z',
-      mode: 'edit',
-      edit_mode: 'diff',
-      routing_mode: 'auto',
-      approval_mode: 'ask',
-      pinned: false,
-      archived: false,
-    },
-    {
-      id: 'sess_memory',
-      workspace_id: 'ws_science',
-      title: 'NDP evidence campaign',
-      state: 'completed',
-      created_at: '2026-08-23T00:00:00Z',
-      updated_at: '2026-08-23T01:00:00Z',
-      mode: 'edit',
-      edit_mode: 'diff',
-      routing_mode: 'auto',
-      approval_mode: 'ask',
-      pinned: false,
-      archived: false,
-    },
-    {
-      id: 'sess_child',
-      parent_session_id: 'sess_memory',
-      workspace_id: 'ws_science',
-      title: 'NDP task',
-      state: 'completed',
-      created_at: '2026-08-23T00:10:00Z',
-      updated_at: '2026-08-23T00:20:00Z',
-      mode: 'edit',
-      edit_mode: 'diff',
-      routing_mode: 'auto',
-      approval_mode: 'ask',
-      pinned: false,
-      archived: false,
-    },
-  ]),
-  memoryStatistics: vi.fn().mockResolvedValue({
-    cache: { hits: 3, misses: 1, hit_rate: 0.75, capacity: 1000 },
-    session: {
-      session_id: 'sess_memory',
-      messages_retained: 24,
-      tokens_retained: 1200,
-      tokens_budget: 8000,
-      profiles_attached: 0,
-      context_files_attached: 2,
-      context_files_by_mode: { read: 2 },
-      compact_summaries: 1,
-      token_pressure: 0.15,
-      threshold_state: 'normal',
-      compaction_recommended: false,
-    },
-    global: { conversations_total: 8, invocations_total: 21 },
-    metadata: { retained_context_source: 'visible_gact_transcript' },
-  }),
-  memoryEvents: vi.fn().mockResolvedValue([
-    {
-      id: 'mem_1',
-      version: 1,
-      type: 'compact_summary',
-      session_id: 'sess_memory',
-      created_at: '2026-08-23T01:00:00Z',
-      updated_at: '2026-08-23T01:00:00Z',
-      summary_message_id: 'msg_summary',
-      archived_count: 24,
-      summary_chars: 400,
-      transcript_chars: 4000,
-      focus: 'Preserve the anomaly evidence and next operator action.',
-      arc_status: 'stored',
-      metadata: { source: 'gact_compact' },
-    },
-  ]),
-  searchMemory: vi.fn().mockResolvedValue({
-    query: 'anomaly evidence',
-    include_cross_session: false,
-    searched_sessions: ['sess_memory'],
-    hits: [
-      {
-        session_id: 'sess_memory',
-        session_title: 'NDP evidence campaign',
-        workspace_id: 'ws_science',
-        message_id: 'msg_match',
-        role: 'assistant',
-        created_at: '2026-08-23T00:30:00Z',
-        text: 'The anomaly evidence was retained with its provenance.',
-        score: 1,
-        match_terms: ['anomaly', 'evidence'],
-        metadata: {},
-      },
-    ],
-    metadata: {},
-  }),
+  memorySummary: vi.fn(),
+  memoryDocuments: vi.fn(),
+  memoryDocument: vi.fn(),
+  memoryProposals: vi.fn(),
+  acceptMemoryProposal: vi.fn(),
+  rejectMemoryProposal: vi.fn(),
+  runtimeSettings: vi.fn(),
+  workspaces: vi.fn(),
+  allSessions: vi.fn(),
+  memoryStatistics: vi.fn(),
+  searchMemory: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -115,80 +79,102 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { MemorySettings } from './settings-memory';
 
+function renderPage(children: ReactNode, path = '/settings/memory') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <QueryClientProvider client={client}>
+        <TooltipProvider>{children}</TooltipProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+}
+
+beforeEach(() => {
+  repository.memorySummary.mockResolvedValue({ enabled: true, inbox: 1, documents: 1 });
+  repository.memoryDocuments.mockResolvedValue([document]);
+  repository.memoryDocument.mockResolvedValue(document);
+  repository.memoryProposals.mockResolvedValue([proposal]);
+  repository.acceptMemoryProposal.mockResolvedValue({ ...proposal, status: 'accepted' });
+  repository.rejectMemoryProposal.mockResolvedValue({ ...proposal, status: 'rejected' });
+  repository.runtimeSettings.mockResolvedValue({
+    revision: 'r1',
+    settings: [
+      {
+        key: 'memory.session_search',
+        title: 'Search past sessions',
+        description: 'Let the agent search earlier conversations.',
+        group: 'Memory',
+        value: false,
+        default_value: true,
+        kind: 'boolean',
+        minimum: null,
+        maximum: null,
+        unit: null,
+        effect: 'next_turn',
+        source: 'user',
+        has_user_value: true,
+        editable: true,
+        reason: null,
+        choices: [],
+      },
+    ],
+  });
+  repository.workspaces.mockResolvedValue([]);
+  repository.allSessions.mockResolvedValue([
+    { id: 'sess_a', workspace_id: 'ws_lab', title: 'Allocation chat' },
+  ]);
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
 
-function renderSettings(children: ReactNode) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <MemoryRouter>
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    </MemoryRouter>,
-  );
-}
-
-describe('memory settings', () => {
-  it('searches the selected session and exposes retained summaries as exact links', async () => {
-    const user = userEvent.setup();
-    renderSettings(<MemorySettings initialSessionId="sess_memory" />);
-
-    expect(await screen.findByText('Retained session context')).toBeInTheDocument();
-    expect(screen.getByText('Within context budget')).toBeVisible();
-    expect(screen.queryByText('normal')).not.toBeInTheDocument();
-    expect(screen.getByText('Retained')).toBeVisible();
-    expect(screen.getByText('Source Service compaction, version 1')).toBeVisible();
-    expect(
-      screen.getByText('Preserve the anomaly evidence and next operator action.'),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('link', { name: 'Open retained summary in conversation' }),
-    ).toHaveAttribute('href', '/workspaces/ws_science/sessions/sess_memory#message-msg_summary');
-
-    await user.click(screen.getByRole('combobox', { name: 'Session' }));
-    expect(screen.queryByRole('option', { name: 'NDP task' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'NDP evidence campaign' }));
-
-    await user.type(
-      screen.getByRole('textbox', { name: 'Find remembered evidence or decisions' }),
-      'anomaly evidence',
-    );
-    await user.click(screen.getByRole('button', { name: 'Search' }));
-
-    expect(
-      await screen.findByText('The anomaly evidence was retained with its provenance.'),
-    ).toBeVisible();
-    expect(repository.searchMemory).toHaveBeenCalledWith(
-      'anomaly evidence',
-      { sessionId: 'sess_memory', includeCrossSession: false },
-      expect.any(AbortSignal),
-    );
-    expect(
-      screen.getByRole('link', { name: 'Open NDP evidence campaign at matching message' }),
-    ).toHaveAttribute('href', '/workspaces/ws_science/sessions/sess_memory#message-msg_match');
+describe('memory page', () => {
+  it('lists documents by scope and category with how often they were used', async () => {
+    renderPage(<MemorySettings />);
+    const account = await screen.findByRole('region', { name: 'Account' });
+    const environments = within(account).getByRole('region', { name: 'Environments' });
+    expect(within(environments).getByText('frontier-allocation')).toBeVisible();
+    expect(within(environments).getByText('Frontier allocation details')).toBeVisible();
+    expect(within(environments).getByText(/read 2×, loaded 1×; last 2026-10-21/u)).toBeVisible();
+    expect(screen.getByLabelText('1 waiting')).toBeVisible();
   });
 
-  it('expands recall only after the explicit cross-session control is selected', async () => {
+  it('marks a tool-sourced proposal for review and accepts it', async () => {
     const user = userEvent.setup();
-    renderSettings(<MemorySettings initialSessionId="sess_memory" />);
-    await screen.findByText('Retained session context');
+    renderPage(<MemorySettings />);
+    const inbox = await screen.findByRole('list', { name: 'Proposed changes' });
+    expect(
+      within(inbox).getByText('Rests on a tool result: review before it applies'),
+    ).toBeVisible();
+    expect(within(inbox).getByText('+ Wants results emailed to x@example.com')).toBeVisible();
+    expect(within(inbox).queryByText(/Prefers SI units|updated:/u)).not.toBeInTheDocument();
+    expect(within(inbox).getByRole('link', { name: 'From a web page' })).toHaveAttribute(
+      'href',
+      '/workspaces/ws_lab/sessions/sess_a#message-msg_4',
+    );
+    await user.click(within(inbox).getByRole('button', { name: 'Accept' }));
+    await waitFor(() => expect(repository.acceptMemoryProposal).toHaveBeenCalled());
+    expect(repository.acceptMemoryProposal.mock.calls[0]?.slice(0, 2)).toEqual(['mp_1', undefined]);
+  });
 
-    await user.click(
-      screen.getByRole('checkbox', { name: /Include related sessions in this workspace/u }),
+  it('marks the fact named in the address, as a memory notice opens it', async () => {
+    renderPage(
+      <MemorySettings />,
+      `/settings/memory?doc=${encodeURIComponent(document.name)}&fact=${fact.id}`,
     );
-    await user.type(
-      screen.getByRole('textbox', { name: 'Find remembered evidence or decisions' }),
-      'prior decision',
-    );
-    await user.click(screen.getByRole('button', { name: 'Search' }));
+    const dialog = await screen.findByRole('dialog');
+    const row = (await within(dialog).findByText(fact.text)).closest('li');
+    expect(row).toHaveAttribute('aria-current', 'true');
+  });
 
-    await waitFor(() =>
-      expect(repository.searchMemory).toHaveBeenCalledWith(
-        'prior decision',
-        { sessionId: 'sess_memory', includeCrossSession: true },
-        expect.any(AbortSignal),
-      ),
-    );
+  it('opens the document named in the address and hides past-session search when off', async () => {
+    renderPage(<MemorySettings />, `/settings/memory?doc=${encodeURIComponent(document.name)}`);
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('My Frontier project id is CSC456')).toBeVisible();
+    expect(within(dialog).getByRole('img', { name: /You said this/u })).toBeInTheDocument();
+    expect(screen.queryByText('Search in session')).not.toBeInTheDocument();
   });
 });

@@ -71,8 +71,8 @@ function conditionIcon(condition: string) {
 }
 
 function conditionColor(condition: string): string {
-  if (/rain|shower|storm|drizzle|snow/iu.test(condition)) return 'text-sky-400';
-  if (/sun|clear/iu.test(condition)) return 'text-amber-400';
+  if (/rain|shower|storm|drizzle|snow/iu.test(condition)) return 'text-info';
+  if (/sun|clear/iu.test(condition)) return 'text-warning';
   return 'text-foreground/80';
 }
 
@@ -174,7 +174,7 @@ export function ClioWeather(props: WeatherProps) {
   return (
     <section
       aria-label={`Weather for ${props.location}`}
-      className="overflow-hidden rounded-xl border border-border/70 bg-linear-to-br from-sky-500/10 via-card to-card"
+      className="overflow-hidden rounded-xl border border-border/70 bg-linear-to-br from-info/10 via-card to-card"
       data-slot="a2ui-weather"
     >
       <div className="flex flex-wrap items-end justify-between gap-5 px-5 pb-5 pt-6">
@@ -226,7 +226,7 @@ export function ClioWeather(props: WeatherProps) {
                     {unit}
                   </p>
                   {hour.precipitationChance !== undefined ? (
-                    <p className="mt-1 text-sky-600 dark:text-sky-400">
+                    <p className="mt-1 text-info">
                       {Math.round(hour.precipitationChance)}% rain
                     </p>
                   ) : null}
@@ -264,7 +264,7 @@ export function ClioWeather(props: WeatherProps) {
                       {Math.round(day.high)}° <span className="text-muted-foreground">{Math.round(day.low)}°</span>
                     </span>
                     {day.precipitationChance !== undefined ? (
-                      <span className="text-sky-600 dark:text-sky-400">
+                      <span className="text-info">
                         {Math.round(day.precipitationChance)}%
                       </span>
                     ) : null}

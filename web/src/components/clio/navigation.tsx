@@ -1,4 +1,4 @@
-import type { AgentBlueprint, Session, Workspace } from '@clio/core/v3';
+import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
 import { ActivityIcon } from 'lucide-react';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -39,7 +39,8 @@ export interface ClioNavigationProps {
   activeWorkspaceId: string;
   activeSessionId: string;
   actions: ResourceActions;
-  blueprints: readonly AgentBlueprint[];
+  /** Installed agents, to name the agent each conversation runs. */
+  agents: readonly AgentEntry[];
   onOpenWorkspaceFiles?: () => void;
   attentions: Readonly<Record<string, SessionAttention>>;
 }
@@ -51,7 +52,7 @@ export function ClioNavigation({
   activeWorkspaceId,
   activeSessionId,
   actions,
-  blueprints,
+  agents,
   onOpenWorkspaceFiles,
   attentions,
 }: ClioNavigationProps) {
@@ -155,7 +156,7 @@ export function ClioNavigation({
               attentions={attentions}
               activeSessionId={activeSessionId}
               activeWorkspaceId={activeWorkspaceId}
-              blueprints={blueprints}
+              agents={agents}
               onAction={runNavigationAction}
               onCreateSession={openNewSession}
               onDelete={setDeleteTarget}
@@ -219,7 +220,7 @@ export function ClioNavigation({
       <ClioResourceDialogs
         actions={actions}
         activeWorkspaceId={createWorkspaceId || activeWorkspaceId}
-        blueprints={blueprints}
+        agents={agents}
         createKind={createKind}
         deleteTarget={deleteTarget}
         onCreateKindChange={setCreateKind}

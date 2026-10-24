@@ -11,21 +11,21 @@ import {
   CheckCircle2Icon,
   CircleAlertIcon,
   KeyRoundIcon,
+  BugIcon,
   MonitorCogIcon,
   MoonIcon,
+  NotebookPenIcon,
   SunIcon,
   Volume2Icon,
 } from 'lucide-react';
 import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { useTheme } from 'next-themes';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ComponentType, type SVGProps } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
-import { BlueprintSettings } from '@/components/clio/settings-catalogs';
+import { PluginSettings } from '@/components/clio/settings-plugins';
 import { RelaySettings } from '@/components/clio/relay-settings';
 import { AgentSettings } from '@/components/clio/settings-agents';
-import { ExpertPackSettings } from '@/components/clio/settings-expert-packs';
 import { SystemSettings } from '@/components/clio/settings-operations';
 import { PermissionPoliciesPanel } from '@/components/clio/settings-permissions';
 import { ToolsSettings } from '@/components/clio/settings-tools';
@@ -33,6 +33,7 @@ import { ScheduleSettings } from '@/components/clio/settings-schedules';
 import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
 import { RuntimeSettingsPanel } from '@/components/clio/settings-runtime';
 import { FleetSettingsPanel } from '@/components/clio/settings-fleet';
+import { UsageSettings } from '@/components/clio/settings-usage';
 import { ModelsSettings } from '@/components/clio/settings-models';
 import { ProvidersSettings } from '@/components/clio/settings-providers';
 import { DataSourceSettings } from '@/components/clio/settings-data-sources';
@@ -40,6 +41,7 @@ import { GeneralSettings } from '@/components/clio/settings-general';
 import { AboutSettings } from '@/components/clio/settings-about';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
+import { ContextHistorySettings } from '@/components/clio/settings-context-history';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
 import {
   Frame,
@@ -74,7 +76,9 @@ import {
   type InterfaceSize,
   type MotionPreference,
   useAppearancePreferences,
+  useTheme,
 } from '@/providers/appearance-provider';
+import { THEMES, type ThemeId, type ThemePreference } from '@/theme/contract';
 import {
   returnRouteFromState,
   sessionIdFromRoute,
@@ -301,6 +305,28 @@ function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
   );
 }
 
+const THEME_ICONS: Record<ThemeId, ComponentType<SVGProps<SVGSVGElement>>> = {
+  light: SunIcon,
+  dark: MoonIcon,
+  notebook: NotebookPenIcon,
+  debug: BugIcon,
+};
+
+const THEME_DESCRIPTIONS: Partial<Record<ThemeId, string>> = {
+  notebook: 'Paper, ink and verdigris. Follows your system light or dark setting.',
+  debug: 'Development only: every color is red, so anything else skips the theme.',
+};
+
+const themeOptions = [
+  { value: 'system', label: 'System', icon: MonitorCogIcon },
+  ...THEMES.filter((theme) => !theme.development || import.meta.env.DEV).map((theme) => ({
+    value: theme.id,
+    label: theme.label,
+    description: THEME_DESCRIPTIONS[theme.id],
+    icon: THEME_ICONS[theme.id],
+  })),
+];
+
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();
   const {
@@ -318,17 +344,20 @@ function AppearanceSettings() {
         description={`Choose how ${vocab.agent} looks and presents your conversations.`}
       />
       <div>
-        <SettingsRow title="Theme" description={`System currently uses ${resolvedTheme}.`}>
+        <SettingsRow
+          title="Theme"
+          description={
+            theme === 'system' || THEMES.find(({ id }) => id === theme)?.scheme === 'system'
+              ? `Following your system, now ${resolvedTheme.dark ? 'dark' : 'light'}.`
+              : 'Choose a theme, or follow your system setting.'
+          }
+        >
           <SettingsChoice
             id="theme"
             label="Theme"
-            value={theme ?? 'system'}
-            onChange={setTheme}
-            options={[
-              { value: 'system', label: 'System', icon: MonitorCogIcon },
-              { value: 'light', label: 'Light', icon: SunIcon },
-              { value: 'dark', label: 'Dark', icon: MoonIcon },
-            ]}
+            value={theme}
+            onChange={(value) => setTheme(value as ThemePreference)}
+            options={themeOptions}
           />
         </SettingsRow>
         <SettingsRow
@@ -466,12 +495,10 @@ function NotificationSettings() {
 }
 
 function SettingsSection({
-  blueprintId,
   section,
   sessionId,
   workspaceId,
 }: {
-  blueprintId?: string;
   section: string;
   sessionId?: string;
   workspaceId?: string;
@@ -479,13 +506,19 @@ function SettingsSection({
   if (section === 'connections') return <ConnectionsSettings />;
   if (section === 'data-sources') return <DataSourceSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
-  if (section === 'runtime') return <RuntimeSettingsPanel />;
+  if (section === 'runtime')
+    return (
+      <div className="grid gap-10">
+        <RuntimeSettingsPanel exclude={['Memory']} />
+        <ContextHistorySettings initialSessionId={sessionId} />
+      </div>
+    );
   if (section === 'fleet') return <FleetSettingsPanel />;
   if (section === 'providers') return <ProvidersSettings />;
   if (section === 'models') return <ModelsSettings />;
+  if (section === 'usage') return <UsageSettings />;
   if (section === 'agents') return <AgentSettings />;
-  if (section === 'blueprints') return <BlueprintSettings initialBlueprintId={blueprintId} />;
-  if (section === 'expert-packs') return <ExpertPackSettings initialWorkspaceId={workspaceId} />;
+  if (section === 'plugins') return <PluginSettings />;
   if (section === 'tools') return <ToolsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
@@ -505,6 +538,14 @@ export function SettingsPage() {
   const location = useLocation();
   const { settings } = useConnectionSettings();
   const destinations = settingsDestinations(inTauri());
+  const repository = useRepository();
+  const memory = useQuery({
+    queryKey: ['memory', 'summary'],
+    queryFn: ({ signal }) => repository.memorySummary(signal),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const inbox = memory.data?.inbox ?? 0;
   const content = useRef<HTMLElement>(null);
   useEffect(() => {
     content.current?.scrollTo({ left: 0, top: 0 });
@@ -512,7 +553,6 @@ export function SettingsPage() {
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
-  const blueprintId = new URLSearchParams(location.search).get('blueprint') || undefined;
   if (section === 'desktop') {
     return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
   }
@@ -523,6 +563,9 @@ export function SettingsPage() {
         section={section}
         endpoint={settings.endpoint}
         workspaceRoute={workspaceRoute}
+        badges={{
+          memory: { count: inbox, label: `${inbox} memory changes waiting for review` },
+        }}
       />
       <section
         ref={content}
@@ -532,7 +575,6 @@ export function SettingsPage() {
         <div className="mx-auto max-w-4xl pb-12">
           <SettingsSection
             key={connectionScope(settings)}
-            blueprintId={blueprintId}
             section={section}
             sessionId={sessionId}
             workspaceId={workspaceId}

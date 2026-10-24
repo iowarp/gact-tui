@@ -148,10 +148,3 @@ export function groupSessionServices(
     sharedServers: allServers.filter((server) => server.session_id !== sessionId),
   };
 }
-
-/** The agent blueprint a session's services came from, when they name one. */
-export function sessionAgentName(
-  sessionServers: readonly McpServerDefinition[],
-): string | undefined {
-  return sessionServers.find((server) => server.agent_blueprint_name)?.agent_blueprint_name;
-}

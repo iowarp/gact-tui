@@ -3,49 +3,6 @@ import { RecordingTransport } from './recording-transport.test-helper.js';
 import { ClioRepository } from './repository.js';
 
 describe('ClioRepository session operation contracts', () => {
-  it('activates a blueprint explicitly after session creation', async () => {
-    const transport = new RecordingTransport([{ session_id: 'sess_1', blueprint_id: 'earth' }]);
-    const repository = new ClioRepository(transport);
-
-    await repository.setSessionAgentBlueprint('sess 1', 'earth');
-
-    expect(transport.requests.map(({ method, path, body }) => ({ method, path, body }))).toEqual([
-      {
-        method: 'POST',
-        path: '/v1/sessions/sess%201/agent-blueprint',
-        body: { blueprint_id: 'earth' },
-      },
-    ]);
-  });
-
-  it('persists an explicit blueprint source edit in its resolved scope', async () => {
-    const transport = new RecordingTransport([
-      {
-        entry: { path: 'experts/operator.md', type: 'file', size: 22 },
-        validation: { validation_errors: [], validation_warnings: ['Review tool access'] },
-      },
-    ]);
-    const repository = new ClioRepository(transport);
-
-    await expect(
-      repository.writeAgentBlueprintFile(
-        'operator pack',
-        'experts/operator.md',
-        '# Cluster operator',
-        { workspaceId: 'workspace 1', sessionId: 'session 1' },
-      ),
-    ).resolves.toEqual({
-      entry: { path: 'experts/operator.md', type: 'file', size: 22 },
-      validation_errors: [],
-      validation_warnings: ['Review tool access'],
-    });
-    expect(transport.requests[0]).toMatchObject({
-      method: 'PUT',
-      path: '/v1/agent-blueprints/operator%20pack/files/write?path=experts%2Foperator.md&workspace_id=workspace+1&session_id=session+1',
-      body: { content: '# Cluster operator' },
-    });
-  });
-
   it('uses authoritative branching and history mutation routes', async () => {
     const forked = {
       id: 'sess_fork',
@@ -202,9 +159,11 @@ describe('ClioRepository session operation contracts', () => {
       {
         diffs: [
           {
+            id: 'chg_1',
             path: 'src/analysis.py',
-            status: 'pending',
-            applied: false,
+            status: 'applied',
+            created: false,
+            undo_available: true,
             unified_diff: '@@ -1 +1 @@',
           },
         ],
@@ -271,7 +230,12 @@ describe('ClioRepository session operation contracts', () => {
       '/v1/sessions/sess%201/context/frames',
       '/v1/sessions/sess%201/async-processes',
     ]);
-    expect(diffs[0]).toMatchObject({ path: 'src/analysis.py', status: 'pending' });
+    expect(diffs[0]).toMatchObject({
+      id: 'chg_1',
+      path: 'src/analysis.py',
+      status: 'applied',
+      undo_available: true,
+    });
     expect(files[0]).toMatchObject({ display_path: 'notes.md', mode: 'pin' });
     expect(frames[0]).toMatchObject({ status: 'completed', tokens_estimated: 11 });
     expect(processes[0]).toMatchObject({
@@ -326,7 +290,7 @@ describe('ClioRepository session operation contracts', () => {
               session_id: 'sess 1',
               tools: [
                 {
-                  name: 'memory_search_sessions',
+                  name: 'session_search',
                   title: 'Search memory',
                   source: 'native',
                   representation: 'row',
@@ -350,7 +314,7 @@ describe('ClioRepository session operation contracts', () => {
       recordedAt: '2026-09-10T11:53:16-05:00',
       tools: [
         {
-          name: 'memory_search_sessions',
+          name: 'session_search',
           title: 'Search memory',
           source: 'native',
           representation: 'row',

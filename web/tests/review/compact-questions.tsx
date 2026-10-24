@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { QuestionResponse } from '../../src/components/clio/pending-interaction-question-response';
 import '../../src/index.css';
@@ -40,7 +40,7 @@ function Review() {
   const [response, setResponse] = useState<PendingInteractionResponse>();
   const theme = new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light';
   return (
-    <ThemeProvider attribute="class" forcedTheme={theme}>
+    <ForcedTheme theme={theme}>
       <main className="min-h-dvh bg-background p-4 text-foreground">
         <div className="mx-auto max-w-3xl space-y-4">
           <header>
@@ -80,7 +80,7 @@ function Review() {
           ) : null}
         </div>
       </main>
-    </ThemeProvider>
+    </ForcedTheme>
   );
 }
 

@@ -80,7 +80,8 @@ export interface ClioConversationProps {
   ) => void;
   onOpenReference?: (reference: WorkspaceReference) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  onOpenWorkflow?: (tool: ToolInvocation) => void;
+  /** Open the flow run recorded under a task handle (a workflow, a council, ...). */
+  onOpenFlow?: (handle: string, label?: string) => void;
   pendingMessageIds?: ReadonlySet<string>;
   cancellablePendingMessageIds?: ReadonlySet<string>;
   cancellingPendingMessageId?: string;

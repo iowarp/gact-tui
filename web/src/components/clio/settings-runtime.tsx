@@ -9,6 +9,13 @@ import { NumberLimitInput } from './number-limit-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
@@ -25,7 +32,7 @@ const sourceLabels = {
 };
 
 function displayValue(setting: RuntimeSetting): string | boolean {
-  if (typeof setting.value === 'boolean') return setting.value;
+  if (typeof setting.value === 'boolean' || typeof setting.value === 'string') return setting.value;
   return String(setting.unit === 'percent' ? setting.value * 100 : setting.value);
 }
 
@@ -34,7 +41,7 @@ function patchFor(draft: Draft): UpdateRuntimeSettings | undefined {
   for (const [key, value] of Object.entries(draft.changes)) {
     const setting = draft.source.settings.find((item) => item.key === key);
     if (!setting) return;
-    if (value === null || typeof value === 'boolean') {
+    if (value === null || typeof value === 'boolean' || setting.kind === 'choice') {
       changes[key] = value;
       continue;
     }
@@ -54,7 +61,19 @@ function patchFor(draft: Draft): UpdateRuntimeSettings | undefined {
 }
 
 /** Edit supported global defaults through the same configuration owner as CLIO. */
-export function RuntimeSettingsPanel() {
+export function RuntimeSettingsPanel({
+  only,
+  exclude = [],
+  title = 'Execution & history',
+  description,
+}: {
+  /** Show only this settings group (the memory page shows ``Memory``). */
+  only?: string;
+  /** Hide these settings groups. */
+  exclude?: string[];
+  title?: string;
+  description?: string;
+} = {}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const client = useQueryClient();
@@ -70,7 +89,7 @@ export function RuntimeSettingsPanel() {
     onSuccess: (value) => {
       client.setQueryData(key, value);
       setDraft(undefined);
-      toast.success('Execution and history defaults saved');
+      toast.success(`${title} settings saved`);
     },
   });
   const update = (setting: RuntimeSetting, value: string | boolean | null) => {
@@ -91,8 +110,11 @@ export function RuntimeSettingsPanel() {
   const patch = draft ? patchFor(draft) : undefined;
   const heading = (
     <SettingsSectionHeading
-      title="Execution & history"
-      description={`Global defaults for the connected ${vocab.agent} service. Session and workspace overrides take precedence.`}
+      title={title}
+      description={
+        description ??
+        `Global defaults for the connected ${vocab.agent} service. Session and workspace overrides take precedence.`
+      }
     />
   );
   if (current.isError && !source)
@@ -115,20 +137,28 @@ export function RuntimeSettingsPanel() {
         <p className="text-sm text-muted-foreground">Loading configuration…</p>
       </div>
     );
-  const groups = [...new Set(source.settings.map((setting) => setting.group))];
+  const groups = [...new Set(source.settings.map((setting) => setting.group))].filter((group) =>
+    only ? group === only : !exclude.includes(group),
+  );
   return (
     <div className="grid gap-6">
-      {heading}
+      {only ? null : heading}
       {groups.map((group) => (
         <ClioSettingsSection
           key={group}
-          title={group}
+          title={only ? title : group}
           description={
-            group === 'Execution'
-              ? 'Choose request budgets and recovery behavior.'
-              : group === 'Subagents'
-                ? `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`
-                : 'Choose how context and response history are saved.'
+            only && description
+              ? description
+              : group === 'Execution'
+                ? 'Choose request budgets and recovery behavior.'
+                : group === 'Subagents'
+                  ? `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`
+                  : group === 'Workflows'
+                    ? 'Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.'
+                    : group === 'Memory'
+                      ? `Choose what ${vocab.agent} remembers about you and how it learns.`
+                      : 'Choose how context and response history are saved.'
           }
         >
           {source.settings
@@ -167,7 +197,24 @@ export function RuntimeSettingsPanel() {
                   }
                 >
                   <div className="grid w-full justify-items-center gap-2">
-                    {setting.kind === 'boolean' ? (
+                    {setting.kind === 'choice' ? (
+                      <Select
+                        value={String(value)}
+                        disabled={!setting.editable || resetting || save.isPending}
+                        onValueChange={(next) => update(setting, next)}
+                      >
+                        <SelectTrigger className="w-56" id={id}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {setting.choices.map((choice) => (
+                            <SelectItem key={choice.value} value={choice.value}>
+                              {choice.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : setting.kind === 'boolean' ? (
                       <Switch
                         id={id}
                         checked={Boolean(value)}

@@ -26,6 +26,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({ open: native }));
 vi.mock('@/tauri/managed-backend', () => ({ restartClio: vi.fn() }));
 import { HostPathPicker } from './host-path-picker';
 import { InfrastructureOverview } from './infrastructure-overview';
+import { InfrastructureHosts } from './infrastructure-hosts';
 import { CatalogToolset } from './catalog-toolset';
 import { displayHostPath } from '@/lib/host-path-display';
 import { InfrastructureFoundationGroups } from '@/routes/infrastructure-foundation-groups';
@@ -205,7 +206,7 @@ it('shows saved provider servers and preserves actual host facts in the topology
       onTarget={vi.fn()}
     />,
   );
-  expect(screen.getByRole('img', { name: /Connections from this client/u })).toBeInTheDocument();
+  expect(screen.getByRole('list', { name: /Connections from this client/u })).toBeInTheDocument();
   expect(repository.managedServiceCatalog).not.toHaveBeenCalled();
   await userEvent.click(await screen.findByText('Saved model servers · 1'));
   expect(await screen.findByText('My running server')).toBeVisible();
@@ -227,6 +228,109 @@ it('shows saved provider servers and preserves actual host facts in the topology
     'href',
     '/infrastructure/agent',
   );
+});
+
+const failedInstallInventory = {
+  targets: [],
+  services: [
+    {
+      id: 'local:searxng',
+      target_id: 'local',
+      service_id: 'searxng',
+      // What the agent records after an install that exited 1 and was stopped.
+      state: 'unknown',
+      updated_at: '2026-10-23T19:16:35Z',
+      configuration: {},
+      observation: {
+        definition_version: 'searxng-native-2',
+        configuration_revision: 'abc',
+        phase: 'stopped',
+        installed: false,
+        running: false,
+        serving: false,
+        worker_alive: false,
+        provenance_ingesting: false,
+        attention_verified: false,
+        evidence_directory: '',
+        error: 'install exited with code 1; inspect its logs',
+        observed_at: 1,
+      },
+    },
+  ],
+  connections: [],
+  operations: [],
+  model_acquisitions: [],
+} as InfrastructureInventory;
+
+it('says the built-in search engine is not installed, with Install, in the map and the web research row', async () => {
+  show(
+    <InfrastructureOverview
+      data={failedInstallInventory}
+      targetId="local"
+      onTarget={vi.fn()}
+      onManageWebSearch={vi.fn()}
+    />,
+  );
+  const map = screen.getByLabelText('Connection map');
+  expect(within(map).getByText('SearXNG')).toBeVisible();
+  expect(within(map).getByText('Not installed')).toBeVisible();
+  expect(within(map).queryByText('Not checked')).not.toBeInTheDocument();
+  expect(screen.queryByText('No research service connected')).not.toBeInTheDocument();
+  expect(screen.getByText('Built-in search engine · SearXNG')).toBeVisible();
+  expect(
+    screen.getByText('The last installation did not finish. Install it to use it.'),
+  ).toBeVisible();
+  expect(screen.getByRole('link', { name: /Install SearXNG/u })).toHaveAttribute(
+    'href',
+    '/infrastructure/services?target=local&service=searxng',
+  );
+});
+
+it('lays the setup map out flat: no framed card inside a framed box', () => {
+  show(
+    <InfrastructureOverview data={failedInstallInventory} targetId="local" onTarget={vi.fn()} />,
+  );
+  const map = screen.getByRole('list', { name: /Connections from this client/u });
+  // This client → connected agent → remote computers, as three sibling steps.
+  expect(map.querySelectorAll(':scope > [role="listitem"]')).toHaveLength(3);
+  expect(map.querySelectorAll('[class*="rounded-xl"], [class*="bg-muted"]')).toHaveLength(0);
+  expect(screen.getByRole('link', { name: /Manage services on connected/u }).className).not.toMatch(
+    /\bborder\b/u,
+  );
+});
+
+it('shows what needs attention on the computer it belongs to', () => {
+  show(
+    <InfrastructureHosts
+      data={
+        {
+          targets: [
+            {
+              id: 'local',
+              label: 'Local',
+              kind: 'local',
+              install_root: '',
+              transport_state: 'connected',
+              auto_reconnect: true,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+          services: [],
+          connections: [],
+          operations: [],
+          model_acquisitions: [],
+        } as unknown as InfrastructureInventory
+      }
+      onSelect={vi.fn()}
+      localAttention={['Memory service process']}
+    />,
+  );
+  expect(
+    within(screen.getByRole('region', { name: 'Local computer' })).getByText(
+      /Needs attention: Memory service process/u,
+    ),
+  ).toBeVisible();
 });
 
 it('keeps the tool-list action outside the selected tool contract', async () => {

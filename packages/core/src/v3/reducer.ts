@@ -414,6 +414,9 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
             cost_usd: payload.cost_usd ?? message.cost_usd,
             stop_reason: payload.stop_reason ?? message.stop_reason,
             error_info: payload.error_info ?? message.error_info,
+            metadata: payload.metadata
+              ? { ...message.metadata, ...payload.metadata }
+              : message.metadata,
             blocks: message.blocks.map((block) =>
               block.type === 'text' || block.type === 'reasoning'
                 ? { ...block, streaming: false }
@@ -691,7 +694,9 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         compactions: reduceCompactionFailed(base, envelope.payload, envelope.occurred_at),
       };
     case 'stream.gap':
-      return { ...base, revisions, stream: 'gapped' };
+      // Counted, not just flagged: a gap that arrives while an earlier one is
+      // still being reconciled must start another reconcile.
+      return { ...base, revisions, stream: 'gapped', streamGaps: (base.streamGaps ?? 0) + 1 };
     case 'stream.live':
       return { ...base, revisions, stream: 'live' };
     default:

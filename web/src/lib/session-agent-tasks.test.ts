@@ -19,7 +19,6 @@ function task(overrides: Partial<AgentTaskRecord>): AgentTaskRecord {
     child_session_id: 'sess_child',
     parent_turn_id: '',
     expert_id: 'researcher',
-    blueprint_id: '',
     run_index: 0,
     run_label: '',
     status: 'completed',

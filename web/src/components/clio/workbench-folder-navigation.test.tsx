@@ -41,10 +41,8 @@ it.each(['workspace_1', 'workspace_other'])(
           sessionId=""
           files={[{ path: 'wrong-root.txt', type: 'file', internal: false }]}
           artifacts={[]}
-          blueprints={[]}
           diffs={[]}
-          onApplyDiff={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
           sessionView={<p>Session</p>}
         />

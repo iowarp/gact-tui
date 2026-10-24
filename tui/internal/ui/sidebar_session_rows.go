@@ -3,8 +3,10 @@ package ui
 // sidebar_session_rows.go computes per-session sidebar row counts and summary/activation text.
 
 import (
-	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 	"strings"
+
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
 func (c *sidebarComponent) sessionRowCount(sessionIndex int) int {
@@ -19,7 +21,7 @@ func (c *sidebarComponent) sessionRowCount(sessionIndex int) int {
 	if c.sessionSummaryText(sessionIndex) != "" {
 		rows++
 	}
-	if c.sessionActiveBlueprintID(sessionIndex) != "" {
+	if c.sessionAgentRef(sessionIndex) != "" {
 		rows++
 	}
 	if !c.showChildSessions && c.childSessionCount(s.ID) > 0 {
@@ -39,7 +41,8 @@ func (c *sidebarComponent) sessionSummaryText(sessionIndex int) string {
 	return strings.TrimSpace(strings.Join(strings.Fields(s.Summary), " "))
 }
 
-func (c *sidebarComponent) sessionActiveBlueprintID(sessionIndex int) string {
+// sessionAgentRef is the agent the selected root session runs (its pinned `agent_ref`).
+func (c *sidebarComponent) sessionAgentRef(sessionIndex int) string {
 	if sessionIndex < 0 || sessionIndex >= len(c.app.session.sessions) || sessionIndex != c.app.session.selected {
 		return ""
 	}
@@ -47,23 +50,13 @@ func (c *sidebarComponent) sessionActiveBlueprintID(sessionIndex int) string {
 	if isChildSession(s) {
 		return ""
 	}
-	meta := valuefmt.MapValue(s.Metadata)
-	blueprintID := valuefmt.FirstNonEmpty(
-		valuefmt.StringValue(meta["active_agent_blueprint_id"]),
-		valuefmt.StringValue(meta["agent_blueprint_id"]),
-	)
-	if blueprintID == "" {
-		return ""
-	}
-	return blueprintID
+	return strings.TrimSpace(valuefmt.StringValue(valuefmt.MapValue(s.Metadata)["agent_ref"]))
 }
 
 func (c *sidebarComponent) sessionActivationText(sessionIndex int, budget int) string {
-	blueprintID := c.sessionActiveBlueprintID(sessionIndex)
-	if blueprintID == "" {
+	ref := c.sessionAgentRef(sessionIndex)
+	if ref == "" || budget < 3 {
 		return ""
 	}
-	meta := valuefmt.MapValue(c.app.session.sessions[sessionIndex].Metadata)
-	scope := valuefmt.StringValue(meta["active_agent_blueprint_scope"])
-	return activeAgentBlueprintIndicator(blueprintID, scope, budget)
+	return textutil.Truncate("agent "+ref, budget)
 }

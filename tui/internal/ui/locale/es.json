@@ -279,8 +279,6 @@
   "help.commands.skills": "listar habilidades disponibles",
   "help.commands.agents": "explorar jerarquia de expertos",
   "help.commands.prompts": "explorar perfiles de prompts",
-  "help.commands.expert_packs": "explorar paquetes de expertos",
-  "help.commands.agent_blueprints": "gestionar blueprints",
   "help.commands.sessions": "abrir vista de sesiones",
   "help.commands.theme": "abrir selector de tema",
   "help.commands.agent": "elegir experto de sesión",

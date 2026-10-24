@@ -34,10 +34,10 @@ func paletteCommandSubtitle(c gact.Command) string {
 		return c.Status
 	}
 	policy := make([]string, 0, 8)
-	if c.CommandSource == "agent_blueprint" {
-		label := "from workflow"
-		if c.AgentBlueprintID != "" {
-			label += " " + c.AgentBlueprintID
+	if c.CommandSource == "plugin" {
+		label := "from plugin"
+		if c.Plugin != "" {
+			label += " " + c.Plugin
 		}
 		policy = append(policy, label)
 	} else if c.CommandSource != "" && c.CommandSource != c.Source {
@@ -59,13 +59,11 @@ func paletteCommandSubtitle(c gact.Command) string {
 	if c.ArgumentHint != "" {
 		policy = append(policy, "input "+c.ArgumentHint)
 	}
-	if c.CommandSource != "agent_blueprint" {
-		if c.AgentInvocable != nil && *c.AgentInvocable {
-			policy = append(policy, "agent callable")
-		}
-		if c.PlannerVisible != nil && *c.PlannerVisible {
-			policy = append(policy, "planner visible")
-		}
+	if c.AgentInvocable != nil && *c.AgentInvocable {
+		policy = append(policy, "agent callable")
+	}
+	if c.PlannerVisible != nil && *c.PlannerVisible {
+		policy = append(policy, "planner visible")
 	}
 	if len(policy) > 0 {
 		return strings.Join(policy, " · ")
@@ -88,8 +86,6 @@ func paletteCommandSubtitle(c gact.Command) string {
 func operatorCommandSourceLabel(source string) string {
 	source = strings.TrimSpace(source)
 	switch source {
-	case "agent_blueprint":
-		return "from workflow"
 	case "mcp_prompt":
 		return "from MCP prompt template"
 	case "":
@@ -102,8 +98,6 @@ func operatorCommandSourceLabel(source string) string {
 func operatorCommandScopeLabel(scope string) string {
 	scope = strings.TrimSpace(scope)
 	switch scope {
-	case "agent_blueprint":
-		return "workflow scoped"
 	case "mcp_prompt":
 		return "prompt-template scoped"
 	case "":
@@ -121,10 +115,6 @@ func samePaletteCommandText(a, b string) bool {
 
 func paletteCommandAliasTarget(id string) string {
 	switch strings.ToLower(strings.TrimSpace(id)) {
-	case "/blueprints":
-		return "/agent-blueprints"
-	case "/expertpacks":
-		return "/expert-packs"
 	case "/agents-list":
 		return "/experts"
 	default:

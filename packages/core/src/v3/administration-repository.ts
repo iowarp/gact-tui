@@ -1,15 +1,8 @@
 import { z } from 'zod';
-import type {
-  ExpertPackDefinition,
-  HookInspection,
-  PermissionPolicy,
-  RuntimeMetrics,
-} from './domain.js';
+import type { HookInspection, PermissionPolicy, RuntimeMetrics } from './domain.js';
 import type { ServiceHealth } from './service-health-domain.js';
 import type { SandboxSetupResult, SandboxStatus } from './sandbox-domain.js';
 import type { MemoryEvent, MemoryStatistics } from './memory-domain.js';
-import type { AgentDefinition } from './agent-domain.js';
-import { agentDefinitionSchema } from './schemas.js';
 import { AttentionRepository } from './attention-repository.js';
 
 /**
@@ -30,33 +23,6 @@ const MEMORY_EVENT_PAGE_SIZE = 50;
 const SANDBOX_SETUP_TIMEOUT_MS = 600_000;
 
 const recordSchema = z.record(z.string(), z.unknown());
-const expertPackSchema = z.object({
-  id: z.string(),
-  version: z.string().default(''),
-  title: z.string(),
-  display_name: z.string().optional(),
-  description: z.string().default(''),
-  scope: z.string().default('unknown'),
-  enabled: z.boolean().default(false),
-  validation_errors: z.array(z.string()).default([]),
-  kind: z.literal('pack').default('pack'),
-  root: z.string().optional(),
-  root_path: z.string().optional(),
-  manifest_path: z.string().optional(),
-  definition_path: z.string().optional(),
-  defaults: recordSchema.default({}),
-  metadata: recordSchema.default({}),
-});
-const expertPackDetailSchema = z.object({
-  expert_pack: expertPackSchema,
-  agents: z.array(agentDefinitionSchema).default([]),
-});
-const expertPackValidationSchema = z.object({
-  pack: expertPackSchema,
-  agents: z.array(agentDefinitionSchema).default([]),
-  enabled: z.boolean(),
-  validation_errors: z.array(z.string()).default([]),
-});
 const policySchema = z
   .object({
     scope: z.string(),
@@ -260,154 +226,6 @@ const runtimeMetricsSchema = z.object({
 
 /** Administrative catalogs and diagnostics owned by the connected service. */
 export class AdministrationRepository extends AttentionRepository {
-  public agent(agentId: string, signal?: AbortSignal): Promise<AgentDefinition> {
-    return this.transport.request({
-      method: 'GET',
-      path: `/v1/agents/${encodeURIComponent(agentId)}`,
-      decode: (input) => agentDefinitionSchema.parse(input),
-      signal,
-    });
-  }
-
-  public createAgent(input: AgentDefinition, signal?: AbortSignal): Promise<AgentDefinition> {
-    return this.transport.request({
-      method: 'POST',
-      path: '/v1/agents',
-      body: input,
-      decode: (value) => agentDefinitionSchema.parse(value),
-      signal,
-    });
-  }
-
-  public updateAgent(
-    agentId: string,
-    input: AgentDefinition,
-    signal?: AbortSignal,
-  ): Promise<AgentDefinition> {
-    return this.transport.request({
-      method: 'PUT',
-      path: `/v1/agents/${encodeURIComponent(agentId)}`,
-      body: input,
-      decode: (value) => agentDefinitionSchema.parse(value),
-      signal,
-    });
-  }
-
-  public deleteAgent(agentId: string, signal?: AbortSignal): Promise<void> {
-    return this.transport.request({
-      method: 'DELETE',
-      path: `/v1/agents/${encodeURIComponent(agentId)}`,
-      decode: () => undefined,
-      signal,
-    });
-  }
-
-  public async expertPacks(
-    workspaceId?: string,
-    signal?: AbortSignal,
-  ): Promise<ExpertPackDefinition[]> {
-    const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
-    const value = await this.transport.request({
-      method: 'GET',
-      path: `/v1/expert-packs${query}`,
-      decode: (input) => z.object({ expert_packs: z.array(expertPackSchema) }).parse(input),
-      signal,
-    });
-    return value.expert_packs as ExpertPackDefinition[];
-  }
-
-  public expertPack(
-    packId: string,
-    workspaceId?: string,
-    signal?: AbortSignal,
-  ): Promise<{ expert_pack: ExpertPackDefinition; agents: AgentDefinition[] }> {
-    const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
-    return this.transport.request({
-      method: 'GET',
-      path: `/v1/expert-packs/${encodeURIComponent(packId)}${query}`,
-      decode: (value) =>
-        expertPackDetailSchema.parse(value) as {
-          expert_pack: ExpertPackDefinition;
-          agents: AgentDefinition[];
-        },
-      signal,
-    });
-  }
-
-  public validateExpertPack(
-    input: { path: string; scope: 'global' | 'workspace' | 'session' },
-    signal?: AbortSignal,
-  ): Promise<{
-    pack: ExpertPackDefinition;
-    agents: AgentDefinition[];
-    enabled: boolean;
-    validation_errors: string[];
-  }> {
-    return this.transport.request({
-      method: 'POST',
-      path: '/v1/expert-packs/validate',
-      body: input,
-      decode: (value) => expertPackValidationSchema.parse(value),
-      signal,
-    }) as Promise<{
-      pack: ExpertPackDefinition;
-      agents: AgentDefinition[];
-      enabled: boolean;
-      validation_errors: string[];
-    }>;
-  }
-
-  public installExpertPack(
-    input: {
-      source_id?: string;
-      source?: string;
-      pack_id?: string;
-      ref?: string;
-      pinned_commit?: string;
-      scope: 'global' | 'workspace';
-      workspace_id?: string;
-    },
-    signal?: AbortSignal,
-  ): Promise<unknown> {
-    const { pack_id, ...rest } = input;
-    return this.transport.request({
-      method: 'POST',
-      path: '/v1/expert-packs/install',
-      body: { ...rest, blueprint_id: pack_id },
-      decode: (value) => value,
-      signal,
-    });
-  }
-
-  public updateExpertPack(
-    packId: string,
-    input: { scope: 'global' | 'workspace'; workspace_id?: string },
-    signal?: AbortSignal,
-  ): Promise<unknown> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/expert-packs/${encodeURIComponent(packId)}/update`,
-      body: input,
-      decode: (value) => value,
-      signal,
-    });
-  }
-
-  public deleteExpertPack(
-    packId: string,
-    input: { scope: 'global' | 'workspace'; workspace_id?: string },
-    signal?: AbortSignal,
-  ): Promise<void> {
-    const query = new URLSearchParams({ scope: input.scope });
-    if (input.workspace_id) query.set('workspace_id', input.workspace_id);
-    return this.transport.request({
-      method: 'DELETE',
-      path: `/v1/expert-packs/${encodeURIComponent(packId)}?${query.toString()}`,
-      decode: () => undefined,
-      signal,
-    });
-  }
-
   public policies(signal?: AbortSignal): Promise<PermissionPolicy[]> {
     return this.transport.request({
       method: 'GET',

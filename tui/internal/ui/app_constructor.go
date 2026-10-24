@@ -111,11 +111,8 @@ func (a *App) wireComponents() {
 	a.cmdPalette.app = a
 	a.doctor.app = a
 	a.help.app = a
-	a.expertPackInstall.app = a
 	a.mcpInstall.app = a
 	a.mcpRemove.app = a
-	a.agentBlueprintManage.app = a
-	a.agentEdit.app = a
 	a.askUser.app = a
 	a.rename.app = a
 	a.execution.app = a
@@ -132,7 +129,6 @@ func (a *App) wireComponents() {
 	a.sidebar.app = a
 	a.sidebarLayout.app = a
 	a.promptEdit.app = a
-	a.agentWrite.app = a
 	a.retryNotes.app = a
 	a.retryModel.app = a
 	a.workspace.app = a

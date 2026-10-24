@@ -26,7 +26,7 @@ export default defineConfig(async () => {
     },
   });
   const workerChunk = (Array.isArray(worker) ? worker : [worker])
-    .flatMap((result) => 'output' in result ? result.output : [])
+    .flatMap((result) => ('output' in result ? result.output : []))
     .find((output) => output.type === 'chunk');
   if (!workerChunk || workerChunk.type !== 'chunk')
     throw new Error('Offline map worker is missing.');
@@ -46,7 +46,9 @@ export default defineConfig(async () => {
             plugin &&
             typeof plugin === 'object' &&
             'name' in plugin &&
-            !['workspace-brand', 'maplibre-worker-passthrough'].includes(plugin.name),
+            !['workspace-brand', 'maplibre-worker-passthrough', 'clio-theme-boot'].includes(
+              plugin.name,
+            ),
         ),
     ],
     build: {

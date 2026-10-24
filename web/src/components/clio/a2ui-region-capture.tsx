@@ -32,6 +32,8 @@ import { imageAttentionRegion } from '@/lib/a2ui/attention-selection-coordinates
 import { InfoTip } from './info-tip';
 import { mapPngBlob } from './map-export';
 import type { MapDebugSurface } from './scientific-map-view';
+import { readThemeColor, readThemeFont } from '@/theme/runtime';
+import { isTransparentColor } from './surface-export';
 
 interface CaptureContext {
   allowed: boolean;
@@ -61,10 +63,10 @@ async function labelledPng(
   pixelRatio = Math.min(window.devicePixelRatio || 1, 2),
 ): Promise<Blob> {
   let background: Element | null = target;
-  let backgroundColor = 'white';
+  let backgroundColor = readThemeColor('background');
   while (background) {
     const color = getComputedStyle(background).backgroundColor;
-    if (color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)') {
+    if (!isTransparentColor(color)) {
       backgroundColor = color;
       break;
     }
@@ -166,20 +168,22 @@ async function labelledPng(
     }
   }
   context.lineWidth = Math.max(2, 2 * scaleX);
-  context.font = `bold ${Math.round(14 * scaleX)}px sans-serif`;
+  context.font = `bold ${Math.round(14 * scaleX)}px ${readThemeFont('typeface-ui')}`;
+  const accent = readThemeColor('primary');
+  const onAccent = readThemeColor('primary-foreground');
   for (const region of regions) {
     const shown = displayedRegion(target, region);
     const x = shown.x * canvas.width;
     const y = shown.y * canvas.height;
     const width = shown.width * canvas.width;
     const height = shown.height * canvas.height;
-    context.strokeStyle = '#2563eb';
+    context.strokeStyle = accent;
     context.strokeRect(x, y, width, height);
     const badgeWidth = Math.max(34 * scaleX, context.measureText(region.id).width + 14 * scaleX);
     const badgeHeight = 24 * scaleY;
-    context.fillStyle = '#1d4ed8';
+    context.fillStyle = accent;
     context.fillRect(x, Math.max(0, y - badgeHeight), badgeWidth, badgeHeight);
-    context.fillStyle = '#ffffff';
+    context.fillStyle = onAccent;
     context.fillText(region.id, x + 7 * scaleX, Math.max(17 * scaleY, y - 7 * scaleY));
   }
   return new Promise<Blob>((resolve, reject) => {
@@ -480,7 +484,7 @@ export function A2uiRegionCaptureProvider({
               return (
                 <button
                   aria-label={`Edit ${region.id} region${region.comment ? `: ${region.comment}` : ''}`}
-                  className="absolute border-2 border-blue-600 bg-blue-500/10 text-left"
+                  className="absolute border-2 border-primary bg-primary/10 text-left"
                   key={region.id}
                   onClick={() => {
                     setEditingId(region.id);
@@ -491,7 +495,7 @@ export function A2uiRegionCaptureProvider({
                   type="button"
                 >
                   <span
-                    className="absolute rounded-t bg-blue-700 px-1.5 py-0.5 text-xs font-bold text-white"
+                    className="absolute rounded-t bg-primary px-1.5 py-0.5 text-xs font-bold text-primary-foreground"
                     style={{ left: Math.max(0, -left), top: top >= 24 ? -24 : Math.max(0, -top) }}
                   >
                     {region.id}
