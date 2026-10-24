@@ -137,6 +137,26 @@ export function nestedFlowExpr(run: FlowRun, agentRef: string): RailroadExpr | u
 }
 
 /** Everything the card, the panel and the full-screen view present for one run. */
+/**
+ * How long a flow run took (or has taken): its root task's span. A run with a root task
+ * waits for that task's time, because the members load one by one and their partial span
+ * reads as a much shorter run; a run without one spans its members.
+ */
+export function flowRunElapsed(
+  run: FlowRun | null | undefined,
+  rootHandle: string,
+  times: ReadonlyMap<string, { startedAt: number; settledAt?: number }>,
+  now: number,
+): number | undefined {
+  if (!run) return undefined;
+  const root = rootHandle ? times.get(rootHandle) : undefined;
+  if (root) return (run.status === 'running' ? now : (root.settledAt ?? now)) - root.startedAt;
+  if (rootHandle || !times.size) return undefined;
+  const starts = [...times.values()].map((time) => time.startedAt);
+  const ends = [...times.values()].map((time) => time.settledAt ?? now);
+  return (run.status === 'running' ? now : Math.max(...ends)) - Math.min(...starts);
+}
+
 export function useFlowPresentation(
   run: FlowRun | null | undefined,
   agentRef: string,
@@ -198,14 +218,7 @@ export function useFlowPresentation(
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [run, model, agentRef, nestedKey],
   );
-  const root = rootHandle ? times.get(rootHandle) : undefined;
-  const starts = [...times.values()].map((time) => time.startedAt);
-  const ends = [...times.values()].map((time) => time.settledAt ?? now);
-  const runElapsed = root
-    ? (run?.status === 'running' ? now : (root.settledAt ?? now)) - root.startedAt
-    : starts.length && run
-      ? (run.status === 'running' ? now : Math.max(...ends)) - Math.min(...starts)
-      : undefined;
+  const runElapsed = flowRunElapsed(run, rootHandle, times, now);
   return { ...model, ...diagrams, elapsed, runElapsed, flows };
 }
 

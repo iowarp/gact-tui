@@ -1,6 +1,6 @@
 import { flowRunSchema, type FlowRun } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { flowDiagrams, NOT_SERIES_PARALLEL_NOTE } from '@/hooks/use-flow-presentation';
+import { flowDiagrams, flowRunElapsed, NOT_SERIES_PARALLEL_NOTE } from '@/hooks/use-flow-presentation';
 import { boxName, markRailroad } from './flow-railroad-marks';
 import { seriesParallel } from './flow-diagram-source';
 import { railroadDiagram } from './flow-railroad';
@@ -330,6 +330,17 @@ describe('flow railroad', () => {
       'researcher 2',
       'critic',
     ]);
+  });
+
+  it('times a run by its root task, and waits for that time instead of a partial span', () => {
+    const run = flowRunSchema.parse({ flow: 'deep-research', status: 'completed', view: null, calls: [] });
+    // One member loaded so far: five minutes of a run that took thirty-eight.
+    const member = new Map([['m1', { startedAt: 0, settledAt: 300_000 }]]);
+    expect(flowRunElapsed(run, 'root', member, 10_000_000)).toBeUndefined();
+    const loaded = new Map([...member, ['root', { startedAt: 0, settledAt: 2_280_000 }]]);
+    expect(flowRunElapsed(run, 'root', loaded, 10_000_000)).toBe(2_280_000);
+    // Without a root task, the members' span is the run.
+    expect(flowRunElapsed(run, '', member, 10_000_000)).toBe(300_000);
   });
 
   it('draws a workflow step that runs any flow inline, from that flow\'s calls', () => {
