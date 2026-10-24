@@ -138,6 +138,13 @@ for (const width of [1920, 390]) {
     const customize = page.getByRole('dialog', { name: 'Customize session rail', exact: true });
     const source = customize.getByRole('button', { name: 'Drag Context in layout', exact: true });
     const target = customize.getByRole('button', { name: 'Drag Files in layout', exact: true });
+    // boundingBox() does not wait: on the popover's first frame Radix still parks
+    // it off-screen and the enter animation scales it, so the press would land
+    // outside the handle. Read the geometry once the popover is placed and the
+    // handle is stable, as a person would only grab it then.
+    await expect(source).toBeInViewport();
+    await expect(target).toBeInViewport();
+    await source.hover();
     const from = (await source.boundingBox())!;
     const to = (await target.boundingBox())!;
     expect(from.width).toBeGreaterThan(180);
