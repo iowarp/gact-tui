@@ -92,7 +92,7 @@ describe('responsive chart embedding', () => {
     async (width, height) => {
       const prepared = prepareChartSpec(authored, { width, height, rows });
       const compiled = compile(prepared as unknown as Parameters<typeof compile>[0], {
-        config: chartPresentationConfig(true),
+        config: chartPresentationConfig(),
       }).spec;
       const view = new View(parse(compiled), { renderer: 'none' });
       try {

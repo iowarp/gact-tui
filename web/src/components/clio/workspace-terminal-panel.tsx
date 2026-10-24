@@ -69,7 +69,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
   }, [tabId]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-zinc-950">
+    <div className="flex h-full min-h-0 flex-col bg-terminal">
       <div
         aria-label="Embedded terminal"
         className="min-h-0 flex-1 overflow-hidden p-2"
@@ -77,7 +77,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
         role="region"
       />
       {status.kind === 'exited' ? (
-        <div className="flex items-center justify-between gap-2 border-t border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-300">
+        <div className="flex items-center justify-between gap-2 border-t border-terminal-border bg-terminal-border/40 px-3 py-2 text-xs text-terminal-foreground/80">
           <span>Shell exited{status.code !== null ? ` (code ${status.code})` : ''}</span>
           <Button
             onClick={() => restartEmbeddedTerminalTab(tabId)}
@@ -90,7 +90,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
         </div>
       ) : null}
       {status.kind === 'error' ? (
-        <div className="flex items-center gap-2 border-t border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-destructive">
+        <div className="flex items-center gap-2 border-t border-terminal-border bg-terminal-border/40 px-3 py-2 text-xs text-destructive">
           <AlertCircleIcon aria-hidden="true" className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{status.message}</span>
           <Button

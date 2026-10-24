@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { isMacOS } from '@/lib/platform';
 import { AlertTriangleIcon, Loader2 } from 'lucide-react';
 import { updateTextLayerGeometry, type TextLayerGeometry } from './text-layer-geometry';
+import { readThemeColor, resolveThemeColor } from '@/theme/runtime';
 
 /**
  * #1549 G9 #27 follow-up (adversarial review of #514): the wheel listener
@@ -178,8 +179,8 @@ export function ZoomPan({
     const selected = new Set(selectedRegionIdsRef.current);
     for (const region of hitRegionsRef.current ?? []) {
       if (!selected.has(region.id)) continue;
-      ctx.fillStyle = 'rgba(6, 182, 212, 0.18)';
-      ctx.strokeStyle = '#06b6d4';
+      ctx.fillStyle = resolveThemeColor('color-mix(in oklab, var(--primary) 18%, transparent)');
+      ctx.strokeStyle = readThemeColor('primary');
       ctx.lineWidth = 3 / scale;
       ctx.fillRect(region.x, region.y, region.width, region.height);
       ctx.strokeRect(region.x, region.y, region.width, region.height);

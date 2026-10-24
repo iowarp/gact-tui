@@ -35,7 +35,7 @@ export function MarkdownContentLink({
   const navigation = useContext(PresentationNavigation);
   const inRouter = useInRouterContext();
   const style = cn(
-    presentation === 'citation' && 'wrap-anywhere font-medium text-primary no-underline',
+    presentation === 'citation' && 'wrap-anywhere font-medium text-link no-underline',
     className,
   );
   const parts = Array.isArray(children) ? children : [children];

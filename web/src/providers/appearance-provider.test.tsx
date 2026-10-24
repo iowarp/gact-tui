@@ -1,14 +1,41 @@
 import { act, renderHook } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { AppearanceProvider, useAppearancePreferences } from './appearance-provider';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AppearanceProvider, useAppearancePreferences, useTheme } from './appearance-provider';
 
 function wrapper({ children }: PropsWithChildren) {
   return <AppearanceProvider>{children}</AppearanceProvider>;
 }
 
+function systemScheme(dark: boolean) {
+  let listener: (() => void) | undefined;
+  const query = { dark };
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (media: string) =>
+      ({
+        get matches() {
+          return query.dark;
+        },
+        media,
+        addEventListener: (_type: string, callback: () => void) => {
+          listener = callback;
+        },
+        removeEventListener: () => {
+          listener = undefined;
+        },
+      }) as unknown as MediaQueryList,
+  );
+  return (next: boolean) => {
+    query.dark = next;
+    listener?.();
+  };
+}
+
 afterEach(() => {
+  vi.restoreAllMocks();
   window.localStorage.clear();
+  delete document.documentElement.dataset.theme;
+  document.documentElement.classList.remove('dark');
   delete document.documentElement.dataset.clioMotion;
   delete document.documentElement.dataset.clioInterfaceSize;
 });
@@ -59,6 +86,7 @@ describe('appearance preferences', () => {
     expect(result.current.conversationWidth).toBe('wide');
     expect(document.documentElement.dataset.clioMotion).toBe('reduced');
     expect(JSON.parse(window.localStorage.getItem('clio.appearance.v1') ?? '{}')).toEqual({
+      theme: 'dark',
       motion: 'reduced',
       conversationWidth: 'wide',
       collapseThreshold: 5,
@@ -145,5 +173,47 @@ describe('appearance preferences', () => {
     );
     expect(result.current.interfaceSize).toBe(100);
     expect(result.current.hideDotFiles).toBe(true);
+  });
+
+  it('stores the theme with the other preferences and applies it to the page', () => {
+    systemScheme(false);
+    const { result, unmount } = renderHook(() => useTheme(), { wrapper });
+    expect(result.current.theme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+
+    act(() => result.current.setTheme('light'));
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(JSON.parse(window.localStorage.getItem('clio.appearance.v1') ?? '{}').theme).toBe(
+      'light',
+    );
+    unmount();
+    expect(renderHook(() => useTheme(), { wrapper }).result.current.theme).toBe('light');
+  });
+
+  it('gives Notebook the variant the system prefers, and follows a later change', () => {
+    const setSystemDark = systemScheme(false);
+    const { result } = renderHook(() => useTheme(), { wrapper });
+    act(() => result.current.setTheme('notebook'));
+    expect(result.current.resolvedTheme).toEqual({ id: 'notebook', dark: false });
+    expect(document.documentElement.dataset.theme).toBe('notebook');
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+
+    act(() => setSystemDark(true));
+    expect(result.current.resolvedTheme).toEqual({ id: 'notebook', dark: true });
+    expect(document.documentElement.dataset.theme).toBe('notebook');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+  });
+
+  it('keeps an earlier theme choice and ignores themes this build does not offer', () => {
+    systemScheme(true);
+    window.localStorage.setItem('theme', 'system');
+    expect(renderHook(() => useTheme(), { wrapper }).result.current.resolvedTheme).toEqual({
+      id: 'dark',
+      dark: true,
+    });
+    window.localStorage.setItem('clio.appearance.v1', JSON.stringify({ theme: 'sepia' }));
+    expect(renderHook(() => useTheme(), { wrapper }).result.current.theme).toBe('dark');
   });
 });

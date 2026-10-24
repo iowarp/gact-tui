@@ -1,3 +1,4 @@
+import { DATA_SCALE_EXEMPTION } from '@/theme/data-scales';
 import { formatFieldValue, legendTicks, turboGradientCss } from './mesh-viewport-colormap';
 import type { MeshField } from './mesh-viewport-mesh';
 
@@ -28,6 +29,7 @@ export function MeshLegend({ legend }: { legend: MeshLegendState }) {
         aria-hidden="true"
         className="h-2.5 rounded-sm"
         style={{ background: turboGradientCss() }}
+        {...DATA_SCALE_EXEMPTION}
       />
       <div className="mt-1 flex justify-between font-mono text-xs text-muted-foreground">
         {ticks.map((tick) => (

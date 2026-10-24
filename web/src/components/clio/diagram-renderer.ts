@@ -1,3 +1,4 @@
+import { readThemeFont } from '@/theme/runtime';
 import { sanitizeMermaidSvg } from './mermaid-security';
 
 export interface PeleRenderOptions {
@@ -30,7 +31,7 @@ export async function renderPeleDiagram(
         maxWidth,
         links: false,
         images: false,
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: readThemeFont('typeface-ui'),
         fontSize: options.fontSize ?? 15,
         ...(options.autoDirection ? { autoDirection: true } : {}),
       })
@@ -59,6 +60,6 @@ export async function renderPeleDiagram(
   }
   // Exports and the shared image canvas have their own SVG document. Retain
   // resolved palette values there rather than depending on parent CSS variables.
-  svg.style.setProperty('--pele-font', 'system-ui, sans-serif');
+  svg.style.setProperty('--pele-font', readThemeFont('typeface-ui'));
   return new XMLSerializer().serializeToString(svg);
 }

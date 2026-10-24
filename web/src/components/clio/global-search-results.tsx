@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { BotIcon, CableIcon, ServerIcon } from 'lucide-react';
-import { useTheme } from 'next-themes';
 import { CommandGroup, CommandItem, CommandShortcut } from '@/components/ui/command';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
@@ -15,6 +14,7 @@ import {
   matchesGlobalSearch,
 } from '@/lib/global-search-commands';
 import { SearchHighlight } from './search-highlight';
+import { useTheme } from '@/providers/appearance-provider';
 
 /** Global navigation and actions are mounted only while the normal palette is open. */
 export function GlobalSearchResults({

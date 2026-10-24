@@ -18,7 +18,7 @@ function WindowBar({ window, mode }: { window: AccountUsageWindow; mode: UsageMo
       </div>
       <Progress
         aria-label={label}
-        className={cn('h-1.5', used >= 80 && '[&>[data-slot=progress-indicator]]:bg-amber-500')}
+        className={cn('h-1.5', used >= 80 && '[&>[data-slot=progress-indicator]]:bg-warning')}
         value={shown}
       />
     </div>

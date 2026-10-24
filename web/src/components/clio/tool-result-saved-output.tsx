@@ -16,7 +16,7 @@ export function SavedTerminalOutput({ block }: { block: ToolPresentationBlock })
   const canOpen = Boolean(uri && onOpenFile);
   const action = block.action_label ? (
     <Button
-      className="shrink-0 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-60"
+      className="shrink-0 text-terminal-foreground/80 hover:bg-terminal-border hover:text-terminal-foreground disabled:opacity-60"
       disabled={!canOpen}
       onClick={canOpen ? () => onOpenFile?.(uri) : undefined}
       size="sm"
@@ -30,11 +30,11 @@ export function SavedTerminalOutput({ block }: { block: ToolPresentationBlock })
   return (
     <section
       aria-label={block.label}
-      className="border-t border-zinc-800 pt-2"
+      className="border-t border-terminal-border pt-2"
       data-slot="terminal-saved-output"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 px-3">
-        <p className="min-w-0 text-sm text-zinc-300">{block.label}</p>
+        <p className="min-w-0 text-sm text-terminal-foreground/80">{block.label}</p>
         {action && !canOpen ? (
           <TooltipProvider>
             <Tooltip>

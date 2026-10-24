@@ -25,7 +25,7 @@ function MarkdownLink({
   return (
     <ExternalLink
       {...props}
-      className={cn('wrap-anywhere font-medium text-primary underline', className)}
+      className={cn('wrap-anywhere font-medium text-link underline', className)}
       href={href}
     />
   );

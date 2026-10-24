@@ -281,9 +281,7 @@ export function ClioSteps({
                       <p className="mt-1 text-sm text-muted-foreground">{step.detail}</p>
                     ) : null}
                     {step.warning ? (
-                      <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                        {step.warning}
-                      </p>
+                      <p className="mt-2 text-xs text-warning-foreground">{step.warning}</p>
                     ) : null}
                     {step.durationSeconds ? (
                       <div className="mt-2 flex items-center gap-2 text-xs">

@@ -21,7 +21,7 @@ export function SearchHighlight({
         return (
           <Fragment key={start}>
             {before}
-            <mark className="rounded-sm bg-blue-200 px-0.5 text-blue-950 dark:bg-blue-800 dark:text-blue-50">
+            <mark className="rounded-sm bg-highlight px-0.5 text-highlight-foreground">
               {text.slice(start, end)}
             </mark>
           </Fragment>

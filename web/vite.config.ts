@@ -7,6 +7,7 @@ import { resolveBrandConfig } from '../branding/brand-config.mjs';
 import { brandPlugin } from './vite-plugin-brand.js';
 import { maplibreWorkerPlugin } from './vite-plugin-maplibre-worker.js';
 import { offlineReviewPlugin } from './vite-plugin-offline-review.js';
+import { themeBootPlugin } from './vite-plugin-theme.js';
 
 const brandConfig = resolveBrandConfig();
 const remoteDevelopmentTarget = process.env.CLIO_DEV_REMOTE_ENDPOINT;
@@ -29,6 +30,7 @@ export default defineConfig({
   },
   plugins: [
     brandPlugin(brandConfig.brandingRoot, brandConfig.profile),
+    themeBootPlugin(),
     react(),
     tailwindcss(),
     maplibreWorkerPlugin(),

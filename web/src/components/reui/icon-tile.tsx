@@ -36,7 +36,7 @@ const iconTileVariants = cva(
         outline: 'border border-border bg-background dark:bg-input/32',
         /** Raised muted fill with a background-colored ring. Reads as a physical chip. */
         elevated:
-          'border-2 border-background bg-muted text-accent-foreground shadow-[0_1px_3px_0_rgb(0_0_0/0.14)] dark:border',
+          'border-2 border-background bg-muted text-accent-foreground shadow-[0_1px_3px_0_color-mix(in_oklab,var(--shadow-color)_30%,transparent)] dark:border',
         /**
          * Tinted double container: an opacity-filled outer ring with no border
          * around a bordered inner card, all derived from `currentColor`. The

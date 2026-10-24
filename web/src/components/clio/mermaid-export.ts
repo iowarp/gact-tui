@@ -14,6 +14,8 @@
  * always sets one, but a hand-authored or future SVG source might not).
  */
 
+import { readThemeColor } from '@/theme/runtime';
+
 /** Output pixels per SVG unit — a crisper raster than the SVG's own CSS size. */
 const PNG_EXPORT_SCALE = 2;
 
@@ -50,7 +52,7 @@ export async function svgToPngBlob(svgMarkup: string, width: number, height: num
   canvas.height = Math.max(1, Math.round(height * PNG_EXPORT_SCALE));
   const context = canvas.getContext('2d');
   if (!context) throw new Error('canvas 2D context is unavailable in this browser.');
-  context.fillStyle = '#ffffff';
+  context.fillStyle = readThemeColor('background');
   context.fillRect(0, 0, canvas.width, canvas.height);
 
   const image = await loadSvgImage(svgMarkup);

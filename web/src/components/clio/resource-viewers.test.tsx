@@ -20,7 +20,6 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
-vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'dark' }) }));
 vi.mock('ace-builds/src-noconflict/mode-json', () => ({}));
 vi.mock('ace-builds/src-noconflict/mode-markdown', () => ({}));
 vi.mock('ace-builds/src-noconflict/mode-python', () => ({}));

@@ -224,7 +224,10 @@ describe('ClioChart', () => {
     expect(embedded.views.at(-1)!.scale('color')('Hill')).toBe(hill);
   });
 
-  it('uses readable theme defaults while retaining a deliberate authored label size', async () => {
+  it('uses the theme tokens while retaining a deliberate authored label size', async () => {
+    const root = document.documentElement.style;
+    root.setProperty('--muted-foreground', '#526174');
+    root.setProperty('--typeface-ui', "'Inter Variable', sans-serif");
     render(
       wrap(
         <ClioChart
@@ -245,7 +248,9 @@ describe('ClioChart', () => {
     const svg = await view.toSVG();
     expect(svg).toContain('font-size="17px"');
     expect(svg).toContain('#526174');
-    expect(svg).toContain('Inter');
+    expect(svg).toContain('Inter Variable');
+    root.removeProperty('--muted-foreground');
+    root.removeProperty('--typeface-ui');
   });
 
   it('keeps a producer white background transparent across a live theme change', async () => {

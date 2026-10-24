@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import type { PendingInteraction } from '@clio/core/v3';
 import '../../src/index.css';
 import { ClioPendingInteractions } from '../../src/components/clio/pending-interactions';
@@ -123,15 +123,13 @@ function Review() {
 }
 
 createRoot(document.getElementById('root')!).render(
-  <ThemeProvider
-    attribute="class"
-    forcedTheme={new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'}
-    enableSystem={false}
+  <ForcedTheme
+    theme={new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'}
   >
     {new URLSearchParams(location.search).get('view') === 'workspace' ? (
       <WorkspaceEditorReview />
     ) : (
       <Review />
     )}
-  </ThemeProvider>,
+  </ForcedTheme>,
 );

@@ -560,9 +560,9 @@ export function ConnectedSourceDetail({
                           key={index}
                           className={
                             line.startsWith('+') && !line.startsWith('+++')
-                              ? 'block text-emerald-600 dark:text-emerald-400'
+                              ? 'block text-success'
                               : line.startsWith('-') && !line.startsWith('---')
-                                ? 'block text-red-600 dark:text-red-400'
+                                ? 'block text-destructive'
                                 : 'block text-muted-foreground'
                           }
                         >

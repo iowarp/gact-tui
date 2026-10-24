@@ -256,9 +256,7 @@ export function MemoryDiff({ before, after }: { before: string; after: string })
       {rows.map((row, index) => (
         <div
           className={
-            row.kind === 'added'
-              ? 'text-emerald-700 dark:text-emerald-400'
-              : 'text-red-700 dark:text-red-400'
+            row.kind === 'added' ? 'text-success-foreground' : 'text-destructive-foreground'
           }
           key={`${row.kind}-${index}`}
         >

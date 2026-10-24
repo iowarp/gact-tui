@@ -92,16 +92,16 @@ export function OperationLogTerminal({
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-md border bg-zinc-950" data-slot="operation-log">
+    <div className="overflow-hidden rounded-md border bg-terminal" data-slot="operation-log">
       {gap ? (
-        <p className="border-b border-zinc-800 px-3 py-1.5 text-xs text-zinc-400">
+        <p className="border-b border-terminal-border px-3 py-1.5 text-xs text-terminal-muted">
           Earlier output is no longer kept by the service.
         </p>
       ) : null}
       {failure ? (
         <pre
           aria-label={label}
-          className="clio-scrollbar max-h-80 overflow-auto whitespace-pre-wrap p-3 font-mono text-xs leading-5 text-zinc-200"
+          className="clio-scrollbar max-h-80 overflow-auto whitespace-pre-wrap p-3 font-mono text-xs leading-5 text-terminal-foreground"
           role="log"
         >
           {lines.map((entry) => entry.line).join('\n')}
