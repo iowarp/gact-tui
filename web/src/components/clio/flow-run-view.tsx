@@ -308,7 +308,7 @@ function FlowResult({ result }: { result: unknown }) {
         // A workflow's result is its final steps' answers; each earlier step's answer is
         // on that step in the diagram, not repeated here.
         finals.map(([step, text]) => (
-          <div className="grid min-w-0 gap-1" key={step}>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1" key={step}>
             {finals.length > 1 ? <p className="text-xs font-medium">{step}</p> : null}
             <ContentMarkdown className="text-sm leading-6">{text}</ContentMarkdown>
           </div>

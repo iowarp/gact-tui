@@ -180,6 +180,9 @@ describe('FlowRunView', () => {
     expect(result).toHaveTextContent('Looks right.');
     expect(result).not.toHaveTextContent('on claude_code');
     expect(result).not.toHaveTextContent('Earlier steps');
+    // Live: a final answer with a wide table widened its implicit column, and full screen
+    // on a phone cut every line of the answer off at the right edge.
+    expect(result.querySelector(':scope > div')).toHaveClass('grid-cols-[minmax(0,1fr)]');
   });
 
   it('says when no limit is set on what the editors may add', async () => {
