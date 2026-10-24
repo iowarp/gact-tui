@@ -162,13 +162,18 @@ export function useFlowPresentation(
       ),
     [catalog],
   );
+  const rootHandle = run?.root_handle ?? '';
+  const rootSettled = run !== null && run !== undefined && run.status !== 'running';
   const tasks = useMemo(
-    () =>
-      [...model.steps, ...model.members].map((row) => ({
+    () => [
+      ...[...model.steps, ...model.members].map((row) => ({
         handle: row.handle,
         settled: !['running', 'waiting'].includes(row.status.tone),
       })),
-    [model],
+      // The flow's own task bounds the run; its members load one by one.
+      ...(rootHandle ? [{ handle: rootHandle, settled: rootSettled }] : []),
+    ],
+    [model, rootHandle, rootSettled],
   );
   const times = useFlowTaskTimes(tasks);
   const ticking = tasks.some((task) => task.handle && !task.settled);
@@ -193,10 +198,12 @@ export function useFlowPresentation(
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [run, model, agentRef, nestedKey],
   );
+  const root = rootHandle ? times.get(rootHandle) : undefined;
   const starts = [...times.values()].map((time) => time.startedAt);
   const ends = [...times.values()].map((time) => time.settledAt ?? now);
-  const runElapsed =
-    starts.length && run
+  const runElapsed = root
+    ? (run?.status === 'running' ? now : (root.settledAt ?? now)) - root.startedAt
+    : starts.length && run
       ? (run.status === 'running' ? now : Math.max(...ends)) - Math.min(...starts)
       : undefined;
   return { ...model, ...diagrams, elapsed, runElapsed, flows };

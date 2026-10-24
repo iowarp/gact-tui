@@ -280,13 +280,25 @@ export function flowMembers(
     : [];
   const verdict = flowVerdict(run);
   const calls = memberCalls(run, run.calls.filter((call) => call.kind !== 'ask'));
+  // Any other flow names a call by the agent it ran, numbered among that agent's calls.
+  const named = (call: FlowCall) =>
+    call.target !== '' && call.target !== 'self' && call.target !== agentRef;
+  const perTarget = new Map<string, number>();
+  for (const call of calls) perTarget.set(call.target, (perTarget.get(call.target) ?? 0) + 1);
+  const seen = new Map<string, number>();
   return calls.map((call: FlowCall, index): FlowMember => {
+    const nth = (seen.get(call.target) ?? 0) + 1;
+    seen.set(call.target, nth);
     const label =
       run.flow === 'council'
         ? `Member ${index + 1}`
         : run.flow === 'arena'
           ? `Entry ${index + 1}`
-          : `Call ${index + 1}`;
+          : named(call)
+            ? (perTarget.get(call.target) ?? 0) > 1
+              ? `${call.target} ${nth}`
+              : call.target
+            : `Call ${index + 1}`;
     const perspective =
       run.flow === 'council' && perspectives.length
         ? perspectives[index % perspectives.length]

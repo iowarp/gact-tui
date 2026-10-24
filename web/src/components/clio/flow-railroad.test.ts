@@ -313,6 +313,25 @@ describe('flow railroad', () => {
     expect(diagram.label).toMatch(/^The debate flow's 5 calls as they ran: Call 1, done/u);
   });
 
+  it('names any other flow\'s calls by the agent each ran', () => {
+    // A research flow: two researchers together, then one critic.
+    const run = flowRunSchema.parse({
+      flow: 'deep-research',
+      status: 'completed',
+      view: null,
+      calls: [
+        { invocation: 'a', kind: 'subagent', target: 'researcher', status: 'completed', together: 'a' },
+        { invocation: 'b', kind: 'subagent', target: 'researcher', status: 'completed', together: 'a' },
+        { invocation: 'c', kind: 'subagent', target: 'critic', status: 'completed' },
+      ],
+    });
+    expect(flowMembers(run, 'clio/deep-researcher').map((member) => member.label)).toEqual([
+      'researcher 1',
+      'researcher 2',
+      'critic',
+    ]);
+  });
+
   it('draws a workflow step that runs any flow inline, from that flow\'s calls', () => {
     const run = workflow(
       [
