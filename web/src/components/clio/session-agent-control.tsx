@@ -40,7 +40,7 @@ export function SessionAgentControl({
       >
         <span className="truncate">{label}</span>
         {changes ? (
-          <span className="shrink-0 text-[0.625rem] text-muted-foreground max-sm:hidden">
+          <span className="shrink-0 text-[0.625rem] text-muted-foreground">
             ({changes === 1 ? '1 change' : `${changes} changes`})
           </span>
         ) : null}

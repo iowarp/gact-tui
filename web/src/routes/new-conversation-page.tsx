@@ -258,6 +258,12 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               <span className="max-sm:sr-only">
                 {draftChanges ? `Customized (${draftChanges})` : 'Customize'}
               </span>
+              {/* Narrow screens keep the count visible beside the icon; the label is above. */}
+              {draftChanges ? (
+                <span aria-hidden="true" className="text-xs sm:hidden">
+                  {draftChanges}
+                </span>
+              ) : null}
             </Button>
           ) : null}
           <ClioDraftActions
