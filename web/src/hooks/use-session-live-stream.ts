@@ -31,6 +31,7 @@ export function useSessionLiveStream({
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const streamState = useLiveStore((state) => state.entities.stream);
+  const gapCount = useLiveStore((state) => state.entities.streamGaps ?? 0);
   const streamError = useLiveStore((state) => state.error);
   const applyFrames = useLiveStore((state) => state.applyFrames);
   const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
@@ -246,6 +247,7 @@ export function useSessionLiveStream({
     setStreamState,
     settings.endpoint,
     streamState,
+    gapCount, // a later gap restarts the reconcile with a fresh snapshot
     workspaceId,
   ]);
 

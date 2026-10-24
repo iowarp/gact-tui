@@ -64,7 +64,15 @@ export interface ObservabilityActivityItem {
   onOpen?: (target: SubagentOpenTarget) => void;
 }
 
-const CAUSAL_COLORS = ['#22d3ee', '#60a5fa', '#a78bfa', '#34d399', '#fb7185', '#facc15'];
+/** Lane colors read the theme's chart and category tokens, so they follow theme changes. */
+const CAUSAL_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-4)',
+  'var(--category-2)',
+  'var(--chart-3)',
+  'var(--chart-5)',
+  'var(--chart-2)',
+];
 
 const PROJECTED_COORDINATION_TOOLS = new Set([
   'spawn_agent_task',
@@ -487,7 +495,7 @@ function CausalActivityRow({
             return (
               <line
                 key={candidate.id}
-                stroke={candidate.color}
+                style={{ stroke: candidate.color }}
                 strokeOpacity="0.32"
                 strokeWidth="2"
                 x1={lineX}
@@ -502,7 +510,7 @@ function CausalActivityRow({
             <path
               d={`M ${parentX} 0 C ${parentX} 35, ${x} 35, ${x} 50`}
               fill="none"
-              stroke={lane.color}
+              style={{ stroke: lane.color }}
               strokeWidth="2.5"
               vectorEffect="non-scaling-stroke"
             />
@@ -511,7 +519,7 @@ function CausalActivityRow({
             <path
               d={`M ${x} 50 C ${x} 65, ${parentX} 65, ${parentX} 100`}
               fill="none"
-              stroke={lane.color}
+              style={{ stroke: lane.color }}
               strokeWidth="2.5"
               vectorEffect="non-scaling-stroke"
             />

@@ -63,7 +63,7 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 		"default_model": "gpt-5",
 		"skills": ["stats"],
 		"commands": ["/analyze"],
-		"capability_refs": [{"kind": "tool", "id": "memory_search_sessions"}],
+		"capability_refs": [{"kind": "tool", "id": "session_search"}],
 		"module": {"kind": "react", "max_iters": 6},
 		"signature": {"inputs": {"question": "str"}, "outputs": {"answer": "str"}},
 		"structured_outputs": {"answer": {"type": "str"}},

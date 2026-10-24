@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { flowRunSchema, type FlowRun } from './flow-run-domain.js';
-import { ResponseFeedbackRepository } from './response-feedback-repository.js';
+import { MemoryRepository } from './memory-repository.js';
 import { TransportError } from './transport.js';
 
 const coreReferenceSchema = z.object({
@@ -93,7 +93,7 @@ export type SessionCoordinationGrant = z.infer<typeof coordinationGrant>;
 export type SessionCoordinationRight = SessionCoordinationGrant['rights'][number];
 
 /** Shared task controls use their original owner and report per-handle failures. */
-export class TaskRepository extends ResponseFeedbackRepository {
+export class TaskRepository extends MemoryRepository {
   /** One paginated Core snapshot of the authenticated human's work across sessions. */
   public queryTasks(
     options: {

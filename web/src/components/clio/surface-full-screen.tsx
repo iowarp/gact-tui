@@ -103,7 +103,7 @@ export function SurfaceFullScreenHost({
           tabIndex={-1}
           className={
             layout === 'media'
-              ? 'group fixed inset-0 h-dvh max-h-none w-screen max-w-none translate-x-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-none bg-black p-0 text-white ring-0 sm:max-w-none'
+              ? 'group fixed inset-0 h-dvh max-h-none w-screen max-w-none translate-x-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-none bg-media-backdrop p-0 text-media-foreground ring-0 sm:max-w-none'
               : 'grid h-[calc(100dvh-2rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none'
           }
           onCloseAutoFocus={(event) => {
@@ -144,7 +144,7 @@ export function SurfaceFullScreenHost({
                       aria-label="Exit full screen"
                       className={
                         layout === 'media'
-                          ? 'absolute right-4 top-4 rounded-full border border-white/30 bg-black/70 text-white hover:bg-white/15 hover:text-white'
+                          ? 'absolute right-4 top-4 rounded-full border border-media-foreground/30 bg-media-backdrop/70 text-media-foreground hover:bg-media-foreground/15 hover:text-media-foreground'
                           : undefined
                       }
                       onClick={() => onOpenChange(false)}

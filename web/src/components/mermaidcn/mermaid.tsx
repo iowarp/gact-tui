@@ -2,17 +2,13 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { mermaidThemes, type MermaidCustomTheme } from '@/lib/mermaid-themes';
 import { renderPeleDiagram } from '@/components/clio/diagram-renderer';
 
 /* -------------------------------------------------------------------------------------------------
  * Types
  * -----------------------------------------------------------------------------------------------*/
 
-export type MermaidBuiltinTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
-export type MermaidTheme = MermaidBuiltinTheme | MermaidCustomTheme;
-
-const BUILTIN_THEMES = new Set<string>(['default', 'dark', 'forest', 'neutral', 'base']);
+export type MermaidTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
 
 export interface MermaidConfig {
   maxWidth?: number;
@@ -113,19 +109,10 @@ function useMermaid({
 
         if (isCancelled) return;
 
-        // Resolve Theme
-        const isCustomTheme = parsedConfig.theme && !BUILTIN_THEMES.has(parsedConfig.theme);
-        const resolvedThemeVars = isCustomTheme
-          ? {
-              ...mermaidThemes[parsedConfig.theme as MermaidCustomTheme],
-              ...parsedConfig.themeVariables,
-            }
-          : parsedConfig.themeVariables;
-
-        const explicitTheme = parsedConfig.theme as MermaidBuiltinTheme;
-        const resolvedMermaidTheme = isCustomTheme
-          ? 'base'
-          : (!explicitTheme || explicitTheme === 'default') && parsedConfig.darkMode
+        // The caller passes the app theme's colors as themeVariables on `base`.
+        const explicitTheme = parsedConfig.theme;
+        const resolvedMermaidTheme =
+          (!explicitTheme || explicitTheme === 'default') && parsedConfig.darkMode
             ? 'dark'
             : (explicitTheme ?? 'default');
 
@@ -134,7 +121,7 @@ function useMermaid({
         mermaid.initialize({
           startOnLoad: false,
           theme: resolvedMermaidTheme,
-          themeVariables: resolvedThemeVars,
+          themeVariables: parsedConfig.themeVariables,
           look: parsedConfig.look === 'handdrawn' ? 'handDrawn' : 'classic',
           // Mermaid 11 gives this root-level setting precedence over the
           // deprecated flowchart option. SVG text labels also rasterize

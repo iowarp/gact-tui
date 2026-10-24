@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import '../../src/index.css';
 import { SshHostsManagerDialog } from '../../src/components/clio/ssh-hosts-manager-dialog';
 import { SshHostPicker } from '../../src/components/clio/ssh-host-picker';
@@ -54,8 +54,8 @@ function Review() {
 }
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
-    <ThemeProvider attribute="class" forcedTheme="light" enableSystem={false}>
+    <ForcedTheme theme="light">
       <Review />
-    </ThemeProvider>
+    </ForcedTheme>
   </QueryClientProvider>,
 );

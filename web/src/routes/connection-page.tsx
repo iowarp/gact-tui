@@ -244,7 +244,7 @@ function DesktopBoot({
             (label, index) => (
               <li className="flex min-w-0 items-center gap-1.5 text-[11px]" key={label}>
                 <span
-                  className="grid size-4 shrink-0 place-items-center rounded-full border border-border bg-background text-muted-foreground data-[active=true]:border-primary data-[active=true]:text-primary data-[done=true]:border-emerald-500/50 data-[done=true]:bg-emerald-500/10 data-[done=true]:text-emerald-500"
+                  className="grid size-4 shrink-0 place-items-center rounded-full border border-border bg-background text-muted-foreground data-[active=true]:border-primary data-[active=true]:text-primary data-[done=true]:border-success/50 data-[done=true]:bg-success/10 data-[done=true]:text-success"
                   data-active={index === activeStep}
                   data-done={index < activeStep}
                 >
@@ -523,7 +523,7 @@ export function ConnectionPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card/85 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
+        <div className="rounded-2xl border border-border/80 bg-card/85 p-6 shadow-2xl shadow-(color:--shadow-color) backdrop-blur-xl sm:p-8">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <p className="font-heading text-xl font-semibold">
@@ -769,7 +769,7 @@ export function ConnectionPage() {
               ) : null}
 
               <Button
-                className="h-11 justify-between bg-action text-white hover:bg-action/90"
+                className="h-11 justify-between bg-action text-background hover:bg-action/90"
                 disabled={mutation.isPending || (!showManualForm && !selectedConnection)}
                 type="submit"
               >

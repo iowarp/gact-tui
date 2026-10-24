@@ -50,7 +50,7 @@ vi.mock('@/hooks/use-known-connections', () => ({
 vi.mock('@/hooks/use-switch-connection', () => ({
   useSwitchConnection: () => repository.switchConnection,
 }));
-vi.mock('next-themes', () => ({
+vi.mock('@/providers/appearance-provider', () => ({
   useTheme: () => ({ theme: 'light', setTheme: repository.setTheme }),
 }));
 

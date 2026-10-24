@@ -335,6 +335,8 @@ describe('GACT 0.3 reducer', () => {
 
     expect(state.stream).toBe('gapped');
     expect(state.cursor).toBe('91');
+    // A second gap is counted, so a reconcile already in flight is restarted.
+    expect(reduceTransportFrame(state, frame('92', 'stream.gap', {})).streamGaps).toBe(2);
   });
 
   it('keeps a deleted A2UI tombstone so transcript history remains causal', () => {

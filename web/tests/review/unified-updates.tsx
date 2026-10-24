@@ -1,7 +1,7 @@
 /** Browser review of real update components with simulated native metadata. No software is installed. */
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import { AppUpdateSettings } from '../../src/components/clio/settings-app-updates';
 import { SystemVersionStatus } from '../../src/components/clio/navigation-version-status';
 import { UpdateRestartRecovery } from '../../src/components/clio/update-restart-recovery';
@@ -93,10 +93,7 @@ Object.defineProperty(window, '__TAURI_INTERNALS__', {
 function Review() {
   const step = useUpdateFlowStore((state) => state.step);
   return (
-    <ThemeProvider
-      attribute="class"
-      forcedTheme={params.get('theme') === 'dark' ? 'dark' : 'light'}
-    >
+    <ForcedTheme theme={params.get('theme') === 'dark' ? 'dark' : 'light'}>
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
@@ -120,7 +117,7 @@ function Review() {
           </SidebarProvider>
         </ArchiveConnectionProvider>
       </QueryClientProvider>
-    </ThemeProvider>
+    </ForcedTheme>
   );
 }
 createRoot(document.getElementById('root')!).render(<Review />);

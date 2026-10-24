@@ -37,8 +37,8 @@ export function WebSearchServiceConnection({
     webSearchConnectionMatchesTarget(true, connection, targetUrl)
   ) {
     return (
-      <div className="border-l-2 border-emerald-500 py-1 pl-4 text-sm">
-        <p className="font-medium text-emerald-500">Connected to {vocab.agent}</p>
+      <div className="border-l-2 border-success py-1 pl-4 text-sm">
+        <p className="font-medium text-success">Connected to {vocab.agent}</p>
         <p className="mt-1 text-xs text-muted-foreground">
           {connection.tools_count} tool{connection.tools_count === 1 ? '' : 's'} available
           {connection.tools.length ? `: ${connection.tools.join(', ')}` : '.'}
@@ -49,8 +49,8 @@ export function WebSearchServiceConnection({
   const connectedUrl = remoteUrlFromSpec(connection?.spec);
   if (connection?.status === 'ready' && connectedUrl) {
     return (
-      <div className="border-l-2 border-amber-500 py-1 pl-4 text-sm">
-        <p className="font-medium text-amber-500">Another Web Search deployment is connected</p>
+      <div className="border-l-2 border-warning py-1 pl-4 text-sm">
+        <p className="font-medium text-warning">Another Web Search deployment is connected</p>
         <p className="mt-1 break-all text-xs text-muted-foreground">
           {connectedUrl} is connected to {vocab.agent}. Connect this deployment to switch targets.
         </p>

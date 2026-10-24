@@ -165,6 +165,27 @@ it('identifies streamed reasoning after a read has finished without claiming the
   ).toEqual({ label: 'Read files, running searches', running: true });
 });
 
+it('names memory work so a folded turn shows that memory changed', () => {
+  const tool = (id: string, name: string): ToolInvocation => ({
+    id,
+    session_id: 's',
+    name,
+    state: 'succeeded',
+  });
+  expect(
+    transcriptActivitySummary([iteration([tool('a', 'memory_search'), tool('b', 'create_memory')])])
+      .label,
+  ).toBe('Checked memory, updated memory');
+  expect(transcriptActivitySummary([iteration([tool('c', 'forget_memory')])]).label).toBe(
+    'Forgot from memory',
+  );
+  const held: ToolInvocation = {
+    ...tool('d', 'create_memory'),
+    output: { tool: 'create_memory', memory: { action: 'already_remembered' } },
+  };
+  expect(transcriptActivitySummary([iteration([held])]).label).toBe('Checked memory');
+});
+
 it('does not say files were edited when the write was refused', () => {
   const refused = { id: 'w', session_id: 's', name: 'fs_write_file', state: 'failed' as const };
   const written = { ...refused, id: 'w2', state: 'succeeded' as const };

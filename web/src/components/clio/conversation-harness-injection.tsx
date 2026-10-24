@@ -25,7 +25,7 @@ const INJECTION_LABELS: Record<string, string> = {
   todos: 'Todo list reminder',
   plan_mode: 'Plan reminder',
   replan: 'Replanning suggestion',
-  memory_search: 'Memory search results',
+  memory: 'Memory',
   task_results: 'Results from background tasks',
   task_result: 'Task result',
   peer: 'Agent message',

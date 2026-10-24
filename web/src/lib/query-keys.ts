@@ -37,7 +37,7 @@ export type ClioQueryNamespace =
   | 'fleet'
   | 'mcp-servers'
   | 'memory-events'
-  | 'memory-search'
+  | 'session-recall-search'
   | 'memory-statistics'
   | 'pending-approvals'
   | 'pending-interactions'

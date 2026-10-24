@@ -31,6 +31,7 @@ const initial: RuntimeSettings = {
       has_user_value: true,
       editable: true,
       reason: null,
+      choices: [],
     },
     {
       key: 'runtime.capture_reasoning',
@@ -47,6 +48,7 @@ const initial: RuntimeSettings = {
       source: 'workspace',
       has_user_value: false,
       editable: false,
+      choices: [],
       reason: 'Set by workspace configuration.',
     },
   ],

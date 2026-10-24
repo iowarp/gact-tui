@@ -50,24 +50,24 @@ func (c *Client) MemorySearch(ctx context.Context, req MemorySearchRequest) (gac
 		q.Set("limit", strconv.Itoa(req.Limit))
 	}
 	var out gact.MemorySearchResponse
-	err := c.do(ctx, http.MethodGet, "/v1/memory/search?"+q.Encode(), nil, &out)
+	err := c.do(ctx, http.MethodGet, "/v1/session-recall/search?"+q.Encode(), nil, &out)
 	return out, err
 }
 
 func (c *Client) MemoryToolSearchSessions(ctx context.Context, sessionID string, req gact.MemoryToolSearchSessionsRequest) (gact.MemoryToolSearchSessionsResponse, error) {
 	var out gact.MemoryToolSearchSessionsResponse
-	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/search-sessions", req, &out)
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/session-recall/search", req, &out)
 	return out, err
 }
 
 func (c *Client) MemoryToolReadSessionSummary(ctx context.Context, sessionID string, req gact.MemoryToolReadSessionSummaryRequest) (gact.MemoryToolReadSessionSummaryResponse, error) {
 	var out gact.MemoryToolReadSessionSummaryResponse
-	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/read-session-summary", req, &out)
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/session-recall/read-summary", req, &out)
 	return out, err
 }
 
 func (c *Client) MemoryToolReadContextFrame(ctx context.Context, sessionID string, req gact.MemoryToolReadContextFrameRequest) (gact.MemoryToolReadContextFrameResponse, error) {
 	var out gact.MemoryToolReadContextFrameResponse
-	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/memory/tools/read-context-frame", req, &out)
+	err := c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(sessionID)+"/session-recall/read-context-frame", req, &out)
 	return out, err
 }

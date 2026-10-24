@@ -53,6 +53,7 @@ export const toolPresentationSchema = z.object({
           'work',
           'surface',
           'connected_data',
+          'memory',
         ])
         .optional(),
       state: z.enum(['pending', 'in_progress', 'completed']).optional(),

@@ -42,6 +42,7 @@ import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { MessageCompletionFooter } from './message-completion-footer';
+import { MemoryUsedAction } from './memory-used-action';
 import { ResponseRating } from './response-rating';
 import { MessageMarkButton } from './message-mark-button';
 import { messageToolCallCounts } from './message-tool-call-counts';
@@ -188,6 +189,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       {message.role === 'assistant' ? (
         <TranscriptContentPicker sessionId={message.session_id} messageId={message.id} />
       ) : null}
+      {message.role === 'assistant' ? <MemoryUsedAction metadata={message.metadata} /> : null}
       <ResponseRating message={message} active={active} />
       {entities.onMarkMessage ? (
         <MessageMarkButton

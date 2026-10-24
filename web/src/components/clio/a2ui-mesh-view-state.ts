@@ -1,4 +1,5 @@
 import { formatFieldValue } from './mesh-viewport-colormap';
+import { readThemeColor } from '@/theme/runtime';
 import type { MeshField, ParsedFeaMesh } from './mesh-viewport-mesh';
 import type { MeshCameraState } from './mesh-viewport-sync';
 
@@ -58,9 +59,9 @@ export function slug(text: string): string {
   );
 }
 
-/** Feature-edge color; three.js cannot parse the theme's oklch() tokens. */
+/** Feature-edge color: the theme's ink, resolved to sRGB because three.js cannot parse oklch(). */
 export function edgeColorForTheme(): string {
-  return document.documentElement.classList.contains('dark') ? '#cbd5e1' : '#1e293b';
+  return readThemeColor('foreground');
 }
 
 export function supportsWebGL(): boolean {

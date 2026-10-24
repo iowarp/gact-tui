@@ -123,6 +123,10 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await repository.revokeWorkspaceFolder(targetWorkspaceId, path);
         await refreshWorkspaceFolders(targetWorkspaceId);
       },
+      workspaceMemory: (targetWorkspaceId) => repository.workspaceMemory(targetWorkspaceId),
+      setWorkspaceMemory: async (targetWorkspaceId, useAccountMemory) => {
+        await repository.setWorkspaceMemory(targetWorkspaceId, useAccountMemory);
+      },
       renameSession: async (targetSessionId, title) => {
         await updateSessionIdentity(targetSessionId, { title });
         await refreshNavigation();

@@ -17,6 +17,7 @@ import { refinedStrictObject } from './a2ui-refined-schema';
 import { useArtifactText } from './artifact-text-query';
 import { ClioMermaidDiagram } from './mermaid-diagram';
 import { buildZoneReference } from './data-zone-reference';
+import { readThemeColor, useThemeKey } from '@/theme/runtime';
 
 const workflowNode = z
   .object({
@@ -49,6 +50,36 @@ function mermaidLabel(value: string): string {
   return truncate(line, DIAGRAM_LABEL_TRUNCATE_CHARS);
 }
 
+/** A node's free-text state, read as a science state or a failure, for its color. */
+type StateTone = 'supported' | 'running' | 'refuted' | 'superseded' | 'failed';
+const STATE_TONES: Record<string, StateTone> = {
+  completed: 'supported',
+  complete: 'supported',
+  done: 'supported',
+  succeeded: 'supported',
+  supported: 'supported',
+  running: 'running',
+  active: 'running',
+  in_progress: 'running',
+  refuted: 'refuted',
+  cancelled: 'superseded',
+  canceled: 'superseded',
+  skipped: 'superseded',
+  superseded: 'superseded',
+  failed: 'failed',
+  error: 'failed',
+};
+
+/** Pele and Mermaid parse these colors themselves, so they get the theme's resolved values. */
+function toneClassDef(tone: StateTone): string {
+  if (tone === 'failed') {
+    const color = readThemeColor('destructive');
+    return `  classDef failed fill:${readThemeColor('card')},stroke:${color},color:${color}`;
+  }
+  const text = readThemeColor(`status-${tone}-foreground`);
+  return `  classDef ${tone} fill:${readThemeColor(`status-${tone}`)},stroke:${text},color:${text}`;
+}
+
 function workflowSource(
   nodes: readonly WorkflowNode[],
   edges: readonly WorkflowEdge[],
@@ -71,9 +102,21 @@ function workflowSource(
         : `  ${source} --> ${target}`,
     );
   }
+  // The label already says the state in words; the color repeats it.
+  const tones = new Map<StateTone, string[]>();
+  for (const node of nodes) {
+    const tone = node.state ? STATE_TONES[node.state.toLowerCase()] : undefined;
+    if (tone) tones.set(tone, [...(tones.get(tone) ?? []), identifiers.get(node.id)!]);
+  }
+  for (const [tone, ids] of tones) {
+    lines.push(toneClassDef(tone));
+    lines.push(`  class ${ids.join(',')} ${tone}`);
+  }
   const selectedId = selected ? identifiers.get(selected) : undefined;
   if (selectedId) {
-    lines.push('  classDef selected fill:#2d2418,stroke:#f39a55,stroke-width:3px');
+    lines.push(
+      `  classDef selected fill:${readThemeColor('accent')},stroke:${readThemeColor('action')},stroke-width:3px`,
+    );
     lines.push(`  class ${selectedId} selected`);
   }
   return lines.join('\n');
@@ -99,6 +142,8 @@ function ClioWorkflowDiagram({
   selected,
 }: ClioWorkflowDiagramProps) {
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  // The source carries resolved theme colors; re-render it when the theme changes.
+  useThemeKey();
   const interactiveNodes = useMemo(() => nodes.map(({ id, label }) => ({ id, label })), [nodes]);
   const selectNode = (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
     setSelectedNodeIds((previous) => {

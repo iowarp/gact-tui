@@ -270,6 +270,8 @@ export const messageCompletionSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   error_info: z.record(z.string(), z.unknown()).optional(),
+  /** Public metadata the turn settled at its end (e.g. `memory_used`). */
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const messageSchema = z

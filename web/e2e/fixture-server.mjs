@@ -1998,6 +1998,10 @@ const server = createServer(async (request, response) => {
     sendJson(response, { commands: [] });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/memory/summary') {
+    sendJson(response, { enabled: true, inbox: 0, documents: 0 });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/provenance/providers') {
     sendJson(response, {
       schema_version: '1.0',
@@ -2707,7 +2711,7 @@ const server = createServer(async (request, response) => {
       memory_scope: 'session',
       writable_scope: 'session',
       cross_session_read_available: true,
-      cross_session_read_endpoint: `/v1/sessions/${sessionId}/memory/tools/search-sessions`,
+      cross_session_read_endpoint: `/v1/sessions/${sessionId}/session-recall/search`,
       requires_user_consent: true,
       notes: [
         'Conversation retrieval and writes are scoped to the active session.',

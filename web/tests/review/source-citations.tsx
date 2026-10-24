@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { ClioRepository, type SessionReviewSnapshot } from '@clio/core/v3';
 import '../../src/index.css';
@@ -93,11 +93,8 @@ createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <ArchiveConnectionProvider>
       <RepositoryOverrideProvider repository={repository}>
-        <ThemeProvider
-          attribute="class"
-          forcedTheme={
-            new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'
-          }
+        <ForcedTheme
+          theme={new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'}
         >
           <AppearanceProvider>
             <MemoryRouter
@@ -106,7 +103,7 @@ createRoot(document.getElementById('root')!).render(
               <Review />
             </MemoryRouter>
           </AppearanceProvider>
-        </ThemeProvider>
+        </ForcedTheme>
       </RepositoryOverrideProvider>
     </ArchiveConnectionProvider>
   </QueryClientProvider>,

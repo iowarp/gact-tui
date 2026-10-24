@@ -882,7 +882,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await page.addInitScript(() => localStorage.setItem('theme', 'light'));
   await page.goto(workspaceUrl);
 
-  await expect(page.locator('html')).toHaveClass(/light/);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.getByRole('button', { name: 'Open workspace canvas' })).toBeVisible();
   await waitForArtifactPreview(page);
   // Capture a settled transcript. Without this the shot races the scroll to the

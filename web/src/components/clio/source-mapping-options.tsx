@@ -120,7 +120,7 @@ export function SourceMappingOptions({
               <p className="text-xs leading-relaxed">{explanations[linkAccess]}</p>
             ) : null}
             {linkAccess === 'write_through' && (
-              <label className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs leading-relaxed">
+              <label className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs leading-relaxed">
                 <input
                   type="checkbox"
                   aria-label="Allow changes to original files"

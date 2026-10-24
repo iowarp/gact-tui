@@ -62,7 +62,7 @@ export function FileSearchPassage({
           <div
             key={index}
             data-source-line={index + firstLine}
-            className={`flex min-w-max ${index + firstLine === location.line ? 'bg-blue-50 dark:bg-blue-950' : ''}`}
+            className={`flex min-w-max ${index + firstLine === location.line ? 'bg-highlight/35' : ''}`}
           >
             <span
               aria-hidden="true"

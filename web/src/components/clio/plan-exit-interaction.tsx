@@ -92,7 +92,7 @@ export function PlanExitResponse({
 
   return (
     <Frame
-      className="min-w-0 self-stretch border-sky-500/25 bg-sky-500/[0.035]"
+      className="min-w-0 self-stretch border-info/25 bg-info/[0.035]"
       data-interaction-kind="plan_exit"
       dense
       spacing="sm"

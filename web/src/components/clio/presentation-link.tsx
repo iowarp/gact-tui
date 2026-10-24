@@ -124,10 +124,26 @@ export function PresentationLink({
         {text}
       </Link>,
     );
+  if (block.target === 'memory' && uri && hasRouter)
+    return withTooltip(
+      <Link
+        className={cn(className, 'underline')}
+        aria-label={iconOnly ? `Open ${label} in memory` : undefined}
+        to={`/settings/memory?${memoryLinkParams(uri)}`}
+      >
+        {text}
+      </Link>,
+    );
   if (iconOnly) return null;
   return withTooltip(
     <span className={className} tabIndex={compact ? 0 : undefined}>
       {text}
     </span>,
   );
+}
+
+/** ``<document>#<fact id>`` opens the memory page on that fact; a bare name on the document. */
+function memoryLinkParams(uri: string): URLSearchParams {
+  const [doc = uri, fact] = uri.split('#', 2);
+  return new URLSearchParams(fact ? { doc, fact } : { doc });
 }

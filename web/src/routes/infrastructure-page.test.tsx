@@ -105,7 +105,7 @@ beforeEach(() => {
         representation: 'row',
       },
       {
-        name: 'memory_search_sessions',
+        name: 'session_search',
         title: 'Search memory',
         source: 'native',
         representation: 'row',
@@ -138,8 +138,8 @@ beforeEach(() => {
       },
     },
     {
-      id: 'memory_search_sessions',
-      name: 'memory_search_sessions',
+      id: 'session_search',
+      name: 'session_search',
       title: 'Search memory',
       source: 'builtin',
       tags: [],
@@ -161,8 +161,8 @@ beforeEach(() => {
       output_schema: {},
     },
     {
-      id: 'memory_search_sessions',
-      name: 'memory_search_sessions',
+      id: 'session_search',
+      name: 'session_search',
       title: 'Search memory',
       source: 'builtin',
       tags: [],

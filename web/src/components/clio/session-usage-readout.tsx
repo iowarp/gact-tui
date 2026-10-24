@@ -12,7 +12,7 @@ function Readout({ tokens, cost, marker }: { tokens?: number; cost?: number; mar
   return (
     <span className="ml-auto hidden items-center gap-3 font-mono sm:inline-flex">
       {marker ? (
-        <span className="rounded border border-amber-500/50 px-1 text-amber-700 dark:text-amber-300">
+        <span className="rounded border border-warning/50 px-1 text-warning-foreground">
           {marker.name} {Math.round(marker.used_percent)}%
         </span>
       ) : null}

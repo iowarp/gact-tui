@@ -32,7 +32,8 @@ export interface ToolPresentationBlock {
     | 'file'
     | 'work'
     | 'surface'
-    | 'connected_data';
+    | 'connected_data'
+    | 'memory';
   state?: 'pending' | 'in_progress' | 'completed';
   previous_state?: 'pending' | 'in_progress' | 'completed';
   change?: 'added' | 'removed' | 'status_changed' | 'unchanged';

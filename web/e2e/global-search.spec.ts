@@ -52,11 +52,14 @@ test('global search applies themes from Settings and opens settings, hosts and e
   await page.getByRole('option', { name: 'Switch to dark mode', exact: true }).click();
   await expect(page).toHaveURL(/\/settings\/appearance$/u);
   await expect(page.locator('html')).toHaveClass(/dark/u);
-  expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('dark');
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('clio.appearance.v1') ?? '{}').theme),
+  ).toBe('dark');
   await page.keyboard.press('Control+k');
   await input.fill('light mode');
   await page.getByRole('option', { name: 'Switch to light mode', exact: true }).click();
-  await expect(page.locator('html')).toHaveClass(/light/u);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.locator('html')).not.toHaveClass(/dark/u);
   await page.keyboard.press('Control+k');
   await input.fill('drive');
   await page.getByRole('option', { name: 'Data sources', exact: true }).click();

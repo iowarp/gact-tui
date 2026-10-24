@@ -65,6 +65,8 @@ export interface SessionSendInput {
   answersQuestionId?: string;
   /** Task questions deliver their answer directly, including authorized resources. */
   answersQuestionTask?: boolean;
+  /** Turn long-term memory off for the conversation this send creates. */
+  memoryOff?: boolean;
 }
 
 function sessionModeForExecution(
@@ -277,6 +279,7 @@ export function useSessionMutations({
             throw error;
           });
         target = await draftSession.current;
+        if (value.memoryOff) await repository.turnMemoryOff(target.id);
       }
       const targetId = sessionId || target?.id;
       if (!targetId) throw new Error('Open a conversation before sending.');

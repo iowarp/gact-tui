@@ -11,26 +11,16 @@ import { buildZoneReference, type DataZoneReference } from './data-zone-referenc
 import { downloadBlob, filenameStemFromTitle } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
+import { COLORMAP_STOPS, DATA_SCALE_EXEMPTION, type Colormap } from '@/theme/data-scales';
 
 type Extent = [number, number, number, number];
 type Box = { x0: number; y0: number; x1: number; y1: number };
-type Colormap = 'viridis' | 'magma' | 'plasma' | 'cividis' | 'turbo' | 'grayscale';
-
-const STOPS: Record<Colormap, readonly [string, string, string, string, string]> = {
-  viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
-  magma: ['#000004', '#51127c', '#b73779', '#fc8961', '#fcfdbf'],
-  plasma: ['#0d0887', '#7e03a8', '#cb4679', '#f89441', '#f0f921'],
-  cividis: ['#00204c', '#424e6c', '#7c7b78', '#bba774', '#ffea46'],
-  turbo: ['#30123b', '#3e9eca', '#9cd93b', '#f99b21', '#7a0403'],
-  grayscale: ['#161616', '#4d4d4d', '#858585', '#bdbdbd', '#f5f5f5'],
-};
-
 function colorAt(map: Colormap, fraction: number): [number, number, number] {
   const scaled = Math.max(0, Math.min(0.9999, fraction)) * 4;
   const index = Math.floor(scaled);
   const position = scaled - index;
-  const from = STOPS[map][index]!;
-  const to = STOPS[map][index + 1]!;
+  const from = COLORMAP_STOPS[map][index]!;
+  const to = COLORMAP_STOPS[map][index + 1]!;
   return [1, 3, 5].map((offset) => {
     const a = Number.parseInt(from.slice(offset, offset + 2), 16);
     const b = Number.parseInt(to.slice(offset, offset + 2), 16);
@@ -213,7 +203,7 @@ export function ClioRasterViewport({
     width: `${Math.abs(selection.x1 - selection.x0) * 100}%`,
     height: `${Math.abs(selection.y1 - selection.y0) * 100}%`,
   } : undefined;
-  const legend = useMemo(() => `linear-gradient(to right, ${STOPS[colormap].join(', ')})`, [colormap]);
+  const legend = useMemo(() => `linear-gradient(to right, ${COLORMAP_STOPS[colormap].join(', ')})`, [colormap]);
   const controls = (insideDialog: boolean) => <>
     <Button aria-label="Box select raster region" aria-pressed={boxMode} className={`size-7 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 ${boxMode ? 'opacity-100' : ''}`} onClick={() => setBoxMode(!boxMode)} size="icon" title="Box select. Drag a rectangle to select a region." variant={boxMode ? 'secondary' : 'ghost'}><MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" /></Button>
     {selectedExtent ? <Button aria-label="Zoom to selection" className="size-7" onClick={() => { setExtent(selectedExtent); setSelectedExtent(undefined); setBoxMode(false); }} size="icon" title="Zoom to selection" variant="ghost"><ZoomInIcon className="size-3.5" /></Button> : null}
@@ -232,7 +222,7 @@ export function ClioRasterViewport({
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={() => setHover(undefined)} onWheel={onWheel}
           style={{ cursor: boxMode ? 'crosshair' : undefined }}>
           <canvas aria-label={`${heading} raster image`} className="size-full" ref={canvasRef} role="img" style={{ imageRendering: 'pixelated' }} />
-          {overlay ? <div className="pointer-events-none absolute border-2 border-cyan-400 bg-cyan-400/10" style={overlay} /> : null}
+          {overlay ? <div className="pointer-events-none absolute border-2 border-primary bg-primary/10" style={overlay} /> : null}
           {sample.isFetching ? <span className="absolute left-2 top-2 rounded bg-background/80 px-2 py-1 text-xs">Sampling…</span> : null}
           {hover && data ? <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/85 px-2 py-1 font-mono text-xs">{hover.value === null ? 'No data' : `${hover.value.toPrecision(5)} ${unit}`}</span> : null}
           <div className="absolute right-2 top-2 flex flex-col rounded bg-background/80">
@@ -241,7 +231,7 @@ export function ClioRasterViewport({
           </div>
         </div>
         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{data?.min?.toPrecision(4) ?? '—'}</span><span aria-label={`${colormap} colour scale`} className="h-2 flex-1 rounded" style={{ background: legend }} /><span>{data?.max?.toPrecision(4) ?? '—'} {unit}</span>
+          <span>{data?.min?.toPrecision(4) ?? '—'}</span><span aria-label={`${colormap} colour scale`} className="h-2 flex-1 rounded" style={{ background: legend }} {...DATA_SCALE_EXEMPTION} /><span>{data?.max?.toPrecision(4) ?? '—'} {unit}</span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{selectedExtent ? 'Region selected · Zoom to selection or Reference this' : 'Drag to pan · Ctrl + wheel to zoom'}</p>
       </div>

@@ -94,7 +94,7 @@ export function TaskActivityRow({
           >
             <Icon
               aria-hidden="true"
-              className={`size-4 shrink-0 ${running ? 'animate-spin text-primary motion-reduce:animate-none' : status === 'completed' ? 'text-success' : settled.has(status) && status !== 'cancelled' ? 'text-destructive' : 'text-muted-foreground'}`}
+              className={`size-4 shrink-0 ${running ? 'animate-spin text-status-running-foreground motion-reduce:animate-none' : status === 'completed' ? 'text-status-supported-foreground' : status === 'cancelled' ? 'text-status-superseded-foreground' : settled.has(status) ? 'text-destructive' : 'text-muted-foreground'}`}
             />
             <span className={`min-w-0 flex-1 ${compact ? 'flex items-baseline gap-2' : ''}`}>
               {compact ? (
