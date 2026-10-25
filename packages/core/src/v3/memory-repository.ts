@@ -106,11 +106,98 @@ export type MemoryVersion = z.infer<typeof memoryVersionSchema>;
 export type MemoryProposal = z.infer<typeof memoryProposalSchema>;
 export type MemorySummary = z.infer<typeof memorySummarySchema>;
 
+const memoryRunModelSchema = z.object({
+  provider_id: z.string(),
+  model_id: z.string(),
+  source: z.string().optional(),
+});
+export const memoryCreationRunSchema = z.object({
+  id: z.string(),
+  origin: z.string(),
+  source_session: z.string(),
+  workspace_id: z.string().default(''),
+  curator_session: z.string(),
+  handle: z.string(),
+  state: z.string(),
+  reason: z.string(),
+  started_at: z.string(),
+  completed_at: z.string(),
+  models: z.object({
+    extract: memoryRunModelSchema.nullable(),
+    curator: memoryRunModelSchema.nullable(),
+  }),
+  usage: z.object({
+    input_tokens: z.number().nullable(),
+    output_tokens: z.number().nullable(),
+    cost_usd: z.number().nullable(),
+    cost_known: z.boolean(),
+  }),
+  extract: z
+    .object({
+      returned: z.number().int(),
+      kept: z.number().int(),
+      dropped: z.record(z.string(), z.number()),
+    })
+    .nullable(),
+  proposal_counts: z.object({
+    accepted: z.number().int(),
+    pending: z.number().int(),
+    rejected: z.number().int(),
+  }),
+  targets: z.array(z.string()).default([]),
+});
+export const memoryCreationLogSchema = z.object({
+  runs: z.array(memoryCreationRunSchema),
+  next_cursor: z.string().nullable(),
+  background: z
+    .object({
+      last_tick: z.string().optional(),
+      in_flight: z.number().optional(),
+      started: z.number().optional(),
+      skipped: z.record(z.string(), z.number()).optional(),
+      off: z.boolean().optional(),
+    })
+    .nullish(),
+});
+export type MemoryCreationRun = z.infer<typeof memoryCreationRunSchema>;
+
 const documentPath = (name: string) =>
   `/v1/memory/documents/${name.split('/').map(encodeURIComponent).join('/')}`;
 
 /** Long-term memory: what the agent keeps about the user, their projects and their work. */
 export class MemoryRepository extends ResponseFeedbackRepository {
+  /** Create explicitly supplied facts without invoking a model or replacing existing memory. */
+  public createMemoryDocument(
+    input: {
+      scope: string;
+      category: (typeof MEMORY_CATEGORIES)[number];
+      slug: string;
+      description: string;
+      facts: string[];
+    },
+    signal?: AbortSignal,
+  ): Promise<MemoryDocument> {
+    return this.transport.request({
+      method: 'POST',
+      path: '/v1/memory/documents',
+      body: input,
+      signal,
+      decode: (value) => memoryDocumentSchema.parse(value),
+    });
+  }
+
+  /** Recorded background extraction/curation attempts, including runs with no candidates. */
+  public memoryCreationRuns(cursor?: string, signal?: AbortSignal) {
+    const query = new URLSearchParams({ limit: '50' });
+    if (cursor) query.set('cursor', cursor);
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/memory/creation-runs?${query}`,
+      signal,
+      decode: (value) => memoryCreationLogSchema.parse(value),
+    });
+  }
+
   public memorySummary(signal?: AbortSignal): Promise<MemorySummary> {
     return this.transport.request({
       method: 'GET',

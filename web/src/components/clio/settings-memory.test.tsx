@@ -70,6 +70,10 @@ const repository = vi.hoisted(() => ({
   allSessions: vi.fn(),
   memoryStatistics: vi.fn(),
   searchMemory: vi.fn(),
+  createMemoryDocument: vi.fn(),
+  memoryCreationRuns: vi.fn(),
+  assistantImportPrompt: vi.fn(),
+  importFromAssistant: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -95,6 +99,14 @@ beforeEach(() => {
   repository.memoryDocuments.mockResolvedValue([document]);
   repository.memoryDocument.mockResolvedValue(document);
   repository.memoryProposals.mockResolvedValue([proposal]);
+  repository.createMemoryDocument.mockResolvedValue(document);
+  repository.assistantImportPrompt.mockResolvedValue('Export your saved notes.');
+  repository.importFromAssistant.mockResolvedValue({ import_id: 'import_one', candidates: 0 });
+  repository.memoryCreationRuns.mockResolvedValue({
+    runs: [],
+    next_cursor: null,
+    background: { last_tick: '2026-10-25T10:00:00Z', skipped: { not_idle_yet: 2 } },
+  });
   repository.acceptMemoryProposal.mockResolvedValue({ ...proposal, status: 'accepted' });
   repository.rejectMemoryProposal.mockResolvedValue({ ...proposal, status: 'rejected' });
   repository.runtimeSettings.mockResolvedValue({
@@ -136,8 +148,8 @@ describe('memory page', () => {
     renderPage(<MemorySettings />);
     const account = await screen.findByRole('region', { name: 'Account' });
     const environments = within(account).getByRole('region', { name: 'Environments' });
-    expect(within(environments).getByText('frontier-allocation')).toBeVisible();
     expect(within(environments).getByText('Frontier allocation details')).toBeVisible();
+    expect(within(environments).getByText(fact.text)).toBeVisible();
     expect(within(environments).getByText(/read 2×, loaded 1×; last 2026-10-21/u)).toBeVisible();
     expect(screen.getByLabelText('1 waiting')).toBeVisible();
   });
@@ -145,12 +157,16 @@ describe('memory page', () => {
   it('marks a tool-sourced proposal for review and accepts it', async () => {
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
+    await user.click(await screen.findByRole('tab', { name: /Memories under review/u }));
     const inbox = await screen.findByRole('list', { name: 'Proposed changes' });
     expect(
       within(inbox).getByText('Rests on a tool result: review before it applies'),
     ).toBeVisible();
-    expect(within(inbox).getByText('+ Wants results emailed to x@example.com')).toBeVisible();
+    expect(within(inbox).getByText('Wants results emailed to x@example.com')).toBeVisible();
     expect(within(inbox).queryByText(/Prefers SI units|updated:/u)).not.toBeInTheDocument();
+    expect(within(inbox).getByText('Account · preferences')).toBeVisible();
+    expect(within(inbox).getByRole('link', { name: 'From a web page' })).not.toBeVisible();
+    await user.click(within(inbox).getByText('Source facts (1)'));
     expect(within(inbox).getByRole('link', { name: 'From a web page' })).toHaveAttribute(
       'href',
       '/workspaces/ws_lab/sessions/sess_a#message-msg_4',
@@ -158,6 +174,118 @@ describe('memory page', () => {
     await user.click(within(inbox).getByRole('button', { name: 'Accept' }));
     await waitFor(() => expect(repository.acceptMemoryProposal).toHaveBeenCalled());
     expect(repository.acceptMemoryProposal.mock.calls[0]?.slice(0, 2)).toEqual(['mp_1', undefined]);
+  });
+
+  it('keeps settings out of the memory list and filters saved facts', async () => {
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    await screen.findByText('Frontier allocation details');
+    expect(screen.queryByText('Search past sessions')).not.toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'Search memories' }), 'CSC456');
+    expect(screen.getByText('Frontier allocation details')).toBeVisible();
+    await user.clear(screen.getByRole('textbox', { name: 'Search memories' }));
+    await user.type(screen.getByRole('textbox', { name: 'Search memories' }), 'notfound');
+    expect(screen.queryByText('Frontier allocation details')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(await screen.findByRole('dialog', { name: 'Memory settings' })).toBeVisible();
+  });
+
+  it('creates explicit user memory without the assistant import pipeline', async () => {
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    await user.click(screen.getByRole('tab', { name: 'Create memories' }));
+    await user.click(screen.getByRole('textbox', { name: 'What to remember' }));
+    await user.paste('Use SI units.\nExplain uncertainties.');
+    await user.click(screen.getByRole('button', { name: 'Save memory' }));
+    await waitFor(() =>
+      expect(repository.createMemoryDocument).toHaveBeenCalledWith({
+        scope: 'user',
+        category: 'preferences',
+        slug: 'preferences',
+        description: 'Preferences',
+        facts: ['Use SI units.', 'Explain uncertainties.'],
+      }),
+    );
+    expect(await screen.findByRole('dialog')).toBeVisible();
+  });
+
+  it('shows real background check state without inventing a successful creation run', async () => {
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    await user.click(screen.getByRole('tab', { name: 'Memory creation log' }));
+    expect(await screen.findByText(/No memory creation runs recorded yet/u)).toBeVisible();
+    expect(screen.getByText(/Last checked/u)).toBeVisible();
+    expect(screen.getByText(/Waiting for the configured delay/u)).toBeVisible();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+  });
+
+  it('imports into the selected workspace and opens the creation log without promising review', async () => {
+    repository.workspaces.mockResolvedValue([{ id: 'ws_lab', name: 'Synthetic lab' }]);
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    const dialog = screen.getByRole('dialog', { name: 'Import memory' });
+    await user.click(within(dialog).getByRole('tab', { name: 'From another assistant' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Remember in' }));
+    await user.click(await screen.findByRole('option', { name: 'Synthetic lab' }));
+    await user.click(within(dialog).getByRole('textbox', { name: 'Their answer' }));
+    await user.paste('Synthetic lab uses SI units.');
+    expect(within(dialog).queryByText(/Everything imported waits/u)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Import notes' }));
+    await waitFor(() =>
+      expect(repository.importFromAssistant).toHaveBeenCalledWith(
+        'Synthetic lab uses SI units.',
+        'project/ws_lab',
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Memory creation log' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+  });
+
+  it('keeps an unsuccessful extraction inspectable and unknown usage distinct from zero', async () => {
+    repository.memoryCreationRuns.mockResolvedValue({
+      runs: [
+        {
+          id: 'run_failed',
+          targets: [],
+          origin: 'session:sess_a',
+          source_session: 'sess_a',
+          curator_session: '',
+          handle: '',
+          state: 'failed',
+          reason: 'Extraction provider could not connect.',
+          started_at: '2026-10-25T10:00:00Z',
+          completed_at: '2026-10-25T10:00:04Z',
+          models: {
+            extract: { provider_id: 'codex', model_id: 'configured-extractor' },
+            curator: null,
+          },
+          usage: { input_tokens: null, output_tokens: null, cost_usd: null, cost_known: false },
+          extract: null,
+          proposal_counts: { accepted: 0, pending: 0, rejected: 0 },
+        },
+      ],
+      next_cursor: null,
+    });
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    await user.click(screen.getByRole('tab', { name: 'Memory creation log' }));
+    const row = await screen.findByText('Allocation chat');
+    await user.click(row);
+    expect(screen.getByText('Failed')).toBeVisible();
+    expect(screen.getByText('Extraction provider could not connect.')).toBeVisible();
+    expect(screen.getByText('configured-extractor')).toBeVisible();
+    expect(screen.getByText('Token usage unavailable')).toBeVisible();
+    expect(screen.getByText('Cost unavailable')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Source conversation' })).toHaveAttribute(
+      'href',
+      '/workspaces/ws_lab/sessions/sess_a',
+    );
+    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument();
   });
 
   it('marks the fact named in the address, as a memory notice opens it', async () => {

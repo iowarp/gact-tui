@@ -38,6 +38,8 @@ export function MemorySourceIcon({
           <Link className="underline" to={sessionHref}>
             Open the conversation
           </Link>
+        ) : fact.source === 'imported' ? (
+          <span>Imported notes</span>
         ) : fact.session && fact.session !== 'memory_page' ? (
           <span>Conversation {fact.session}</span>
         ) : (

@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { cn } from '@/lib/utils';
 import { MemorySourceIcon } from './memory-source';
+import { MEMORY_CATEGORY_LABELS } from './memory-presentation';
 
 type SessionHref = (sessionId: string) => string | undefined;
 
@@ -62,7 +63,7 @@ function FactRow({
     onSuccess: (result) => {
       refresh();
       if ('removed' in result) {
-        toast.success('Forgotten. That was its last fact, so the document is gone too.');
+        toast.success('Memory forgotten');
         onRemoved();
       } else toast.success('Fact forgotten');
     },
@@ -141,6 +142,7 @@ export function MemoryDocumentDialog({
   onOpenChange,
   sessionHref,
   highlight = '',
+  scopeLabel,
 }: {
   name: string;
   open: boolean;
@@ -148,6 +150,7 @@ export function MemoryDocumentDialog({
   sessionHref: SessionHref;
   /** A fact id to scroll to and mark (from a memory notice's "Edit in memory"). */
   highlight?: string;
+  scopeLabel?: string;
 }) {
   const repository = useRepository();
   const document = useQuery({
@@ -161,20 +164,32 @@ export function MemoryDocumentDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{document.data?.slug ?? name}</DialogTitle>
-          <DialogDescription>{document.data?.description ?? 'Loading…'}</DialogDescription>
+          <DialogTitle>{document.data?.description || document.data?.slug || 'Memory'}</DialogTitle>
+          <DialogDescription>
+            {document.data
+              ? (scopeLabel ??
+                (document.data.scope === 'user'
+                  ? 'Account memory'
+                  : `Workspace memory · ${document.data.scope.replace('project/', '')}`))
+              : 'Loading…'}
+          </DialogDescription>
         </DialogHeader>
         {document.isPending ? <Skeleton className="h-24 w-full" /> : null}
         {document.error ? (
           <Alert variant="destructive">
-            <AlertTitle>Document unavailable</AlertTitle>
+            <AlertTitle>Memory unavailable</AlertTitle>
             <AlertDescription>{document.error.message}</AlertDescription>
           </Alert>
         ) : null}
         {document.data ? (
           <div className="grid gap-3">
             <div className="flex flex-wrap gap-1.5">
-              <Badge variant="outline">{document.data.category}</Badge>
+              {(document.data.description || document.data.slug) !==
+              (MEMORY_CATEGORY_LABELS[document.data.category] ?? document.data.category) ? (
+                <Badge variant="outline">
+                  {MEMORY_CATEGORY_LABELS[document.data.category] ?? document.data.category}
+                </Badge>
+              ) : null}
               {document.data.aliases.map((alias) => (
                 <Badge key={alias} variant="secondary">
                   {alias}
@@ -247,23 +262,31 @@ function lineDiff(before: string, after: string) {
   ];
 }
 
-/** A diff of two document texts, one line per changed line. */
+/** Readable changed facts shared by proposal review and memory history. */
 export function MemoryDiff({ before, after }: { before: string; after: string }) {
   const rows = useMemo(() => lineDiff(before, after), [before, after]);
   if (!rows.length) return <p className="text-sm text-muted-foreground">No differences.</p>;
   return (
-    <pre className="max-h-72 overflow-auto rounded-md border bg-muted/40 p-2 text-xs leading-5 whitespace-pre-wrap">
+    <ul
+      aria-label="Memory changes"
+      className="grid gap-2 rounded-md bg-muted/40 p-3 text-sm leading-6"
+    >
       {rows.map((row, index) => (
-        <div
-          className={
-            row.kind === 'added' ? 'text-success-foreground' : 'text-destructive-foreground'
-          }
-          key={`${row.kind}-${index}`}
-        >
-          {`${row.kind === 'added' ? '+' : '−'} ${row.line}`}
-        </div>
+        <li className="flex items-start gap-2" key={`${row.kind}-${index}`}>
+          <span
+            aria-label={row.kind === 'added' ? 'Added' : 'Removed'}
+            className={
+              row.kind === 'added'
+                ? 'font-medium text-success-foreground'
+                : 'font-medium text-destructive-foreground'
+            }
+          >
+            {row.kind === 'added' ? '+' : '−'}
+          </span>
+          <span className="min-w-0 break-words">{row.line}</span>
+        </li>
       ))}
-    </pre>
+    </ul>
   );
 }
 

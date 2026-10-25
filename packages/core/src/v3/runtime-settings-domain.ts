@@ -25,6 +25,7 @@ export const runtimeSettingsSchema = z.object({
       reason: z.string().nullable(),
       unlimited_value: z.literal(0).nullable().optional(),
       choices: z.array(z.object({ value: z.string(), label: z.string() })).default([]),
+      presets: z.array(z.object({ label: z.string(), value: z.number().finite() })).optional(),
     }),
   ),
 });

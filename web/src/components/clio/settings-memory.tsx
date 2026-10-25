@@ -1,6 +1,6 @@
 import { MEMORY_CATEGORIES, type MemoryDocument, type Session } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DownloadIcon, UploadIcon } from 'lucide-react';
+import { DownloadIcon, UploadIcon, SettingsIcon, SearchIcon } from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -25,6 +25,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { queryKeys } from '@/lib/query-keys';
@@ -32,20 +41,15 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { MemoryDocumentDialog, MemoryHistoryDialog } from './memory-document-dialog';
 import { MemoryImportDialog } from './memory-import-dialog';
 import { MemoryInbox } from './memory-inbox';
+import { MemoryCreate } from './memory-create';
+import { MEMORY_CATEGORY_LABELS } from './memory-presentation';
+import { MemoryCreationLog } from './memory-creation-log';
 import { RuntimeSettingsPanel } from './settings-runtime';
 import { PastSessionsSearch } from './settings-past-sessions';
-import { ClioSettingsSection } from './settings-section';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { downloadBlob } from './surface-export';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  profile: 'Profile',
-  preferences: 'Preferences',
-  topics: 'Topics',
-  areas: 'Areas of work',
-  people: 'People',
-  environments: 'Environments',
-};
+const CATEGORY_LABELS = MEMORY_CATEGORY_LABELS;
 
 function usageLabel(document: MemoryDocument) {
   const usage = document.usage;
@@ -142,9 +146,11 @@ function ScopeTable({
     <div className="grid gap-4">
       {categories.map((category) => (
         <section aria-label={CATEGORY_LABELS[category]} className="grid gap-1" key={category}>
-          <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {CATEGORY_LABELS[category]}
-          </h3>
+          {!['profile', 'preferences'].includes(category) ? (
+            <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {CATEGORY_LABELS[category]}
+            </h3>
+          ) : null}
           <ul className="divide-y rounded-lg border">
             {documents
               .filter((document) => document.category === category)
@@ -157,9 +163,11 @@ function ScopeTable({
                       onClick={() => onOpen(document.name)}
                       type="button"
                     >
-                      <span className="truncate text-sm font-medium">{document.slug}</span>
+                      <span className="truncate text-sm font-medium">
+                        {document.description || document.slug.replaceAll('-', ' ')}
+                      </span>
                       <span className="truncate text-xs text-muted-foreground">
-                        {document.description}
+                        {document.facts.find((fact) => fact.live)?.text}
                       </span>
                     </button>
                     <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
@@ -196,18 +204,32 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
   const [params, setParams] = useSearchParams();
   const [history, setHistory] = useState<string>();
   const [importing, setImporting] = useState(false);
+  const [filter, setFilter] = useState('');
+  const requestedTab = params.get('view') ?? 'memories';
+  const tab = ['memories', 'review', 'create', 'log'].includes(requestedTab)
+    ? requestedTab
+    : 'memories';
+  const setTab = (value: string) =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value === 'memories') next.delete('view');
+      else next.set('view', value);
+      return next;
+    });
   const opened = params.get('doc') ?? '';
-  const open = (name: string) =>
+  const open = (name: string, view?: string) =>
     setParams((current) => {
       const next = new URLSearchParams(current);
       if (name) next.set('doc', name);
       else next.delete('doc');
       next.delete('fact');
+      if (view) next.set('view', view);
       return next;
     });
   const summary = useQuery({
     queryKey: ['memory', 'summary'],
     queryFn: ({ signal }) => repository.memorySummary(signal),
+    refetchInterval: 15_000,
   });
   const documents = useQuery({
     queryKey: ['memory', 'documents', 'all'],
@@ -240,6 +262,11 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
   const workspaceNames = new Map(
     (workspaces.data ?? []).map((workspace) => [workspace.id, workspace.name]),
   );
+  const memoryScope = (name: string) =>
+    scopeTitle(
+      name.startsWith('user/') ? 'user' : name.split('/').slice(0, 2).join('/'),
+      workspaceNames,
+    );
   const sessionSearch =
     runtime.data?.settings.find((setting) => setting.key === 'memory.session_search')?.value !==
     false;
@@ -247,14 +274,44 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
     (a, b) => (a === 'user' ? -1 : b === 'user' ? 1 : a.localeCompare(b)),
   );
   const inbox = summary.data?.inbox ?? 0;
+  const needle = filter.trim().toLowerCase();
+  const filtered = (documents.data ?? []).filter(
+    (document) =>
+      !needle ||
+      [
+        document.slug,
+        document.description,
+        ...document.facts.filter((fact) => fact.live).map((fact) => fact.text),
+      ].some((text) => text.toLowerCase().includes(needle)),
+  );
   return (
-    <div className="grid gap-8">
+    <div className="grid min-w-0 gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <SettingsSectionHeading
-          info="What the agent remembers about you, your projects and your work, across conversations. Facts you state are kept; facts learned from tool results or imports wait for your review."
+          info="Saved facts and preferences the agent can use in later conversations. Background creation and review are controlled in Memory settings."
           title="Memory"
         />
         <div className="flex flex-wrap gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <SettingsIcon aria-hidden="true" /> Settings
+              </Button>
+            </DialogTrigger>
+            <DialogContent
+              className="sm:max-w-4xl"
+              onOpenAutoFocus={(event) => {
+                event.preventDefault();
+                if (event.target instanceof HTMLElement) event.target.focus();
+              }}
+            >
+              <DialogTitle className="sr-only">Memory settings</DialogTitle>
+              <DialogDescription className="sr-only">
+                Configure memory creation, review, conversation recall and retention.
+              </DialogDescription>
+              <RuntimeSettingsPanel only="Memory" title="Memory settings" description="" />
+            </DialogContent>
+          </Dialog>
           <Button onClick={() => setImporting(true)} variant="outline">
             <UploadIcon aria-hidden="true" /> Import
           </Button>
@@ -271,72 +328,153 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
         <Alert>
           <AlertTitle>Memory is off</AlertTitle>
           <AlertDescription>
-            Conversations neither read nor write memory. Turn it on below.
+            Saved memories are kept. Open Settings to enable their use.
           </AlertDescription>
         </Alert>
       ) : null}
-      <RuntimeSettingsPanel
-        description="What the agent remembers, how it learns, and what waits for you."
-        only="Memory"
-        title="Settings"
-      />
-      <ClioSettingsSection
-        description="Changes learned in the background or imported, waiting for your decision."
-        title={
-          <>
-            Review{' '}
-            <Badge aria-label={`${inbox} waiting`} variant={inbox ? 'default' : 'secondary'}>
-              {inbox} waiting
-            </Badge>
-          </>
-        }
-      >
-        <MemoryInbox sessionHref={sessionHref} />
-      </ClioSettingsSection>
-      <ClioSettingsSection
-        description="Account memory follows you into every workspace that uses it; workspace memory stays with its project."
-        title="What is remembered"
-      >
-        {documents.isPending ? <Skeleton className="h-32 w-full" /> : null}
-        {documents.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Memory unavailable</AlertTitle>
-            <AlertDescription>{documents.error.message}</AlertDescription>
-          </Alert>
-        ) : null}
-        {documents.data && !documents.data.length ? (
-          <p className="text-sm text-muted-foreground">
-            Nothing yet. Tell the agent to remember something in a conversation, or import.
-          </p>
-        ) : null}
-        <div className="grid gap-6">
-          {scopes.map((scope) => (
-            <section
-              aria-label={scopeTitle(scope, workspaceNames)}
-              className="grid gap-2"
-              key={scope}
-            >
-              <h2 className="text-sm font-semibold">{scopeTitle(scope, workspaceNames)}</h2>
-              <ScopeTable
-                documents={(documents.data ?? []).filter((document) => document.scope === scope)}
-                onHistory={setHistory}
-                onOpen={open}
-              />
-            </section>
-          ))}
-        </div>
-      </ClioSettingsSection>
-      {sessionSearch ? (
-        <ClioSettingsSection
-          description="Search what was said in earlier conversations. The agent can do the same when it needs to."
-          title="Past sessions"
+      <Tabs value={tab} onValueChange={setTab} className="min-w-0 gap-4">
+        <TabsList
+          style={{ height: 'auto' }}
+          aria-label="Memory views"
+          variant="line"
+          className="grid h-auto w-full grid-cols-2 gap-y-2 border-b pb-2 sm:flex sm:justify-start"
         >
-          <PastSessionsSearch initialSessionId={initialSessionId} />
-        </ClioSettingsSection>
-      ) : null}
+          <TabsTrigger
+            value="memories"
+            className="h-auto min-h-9 min-w-0 flex-none px-2 py-2 whitespace-normal sm:whitespace-nowrap"
+          >
+            Memories
+          </TabsTrigger>
+          <TabsTrigger
+            value="review"
+            className="h-auto min-h-9 min-w-0 flex-none px-2 py-2 whitespace-normal sm:whitespace-nowrap"
+          >
+            Memories under review{' '}
+            <Badge aria-label={`${inbox} waiting`} variant="secondary">
+              {inbox}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger
+            value="create"
+            className="h-auto min-h-9 min-w-0 flex-none px-2 py-2 whitespace-normal sm:whitespace-nowrap"
+          >
+            Create memories
+          </TabsTrigger>
+          <TabsTrigger
+            value="log"
+            className="h-auto min-h-9 min-w-0 flex-none px-2 py-2 whitespace-normal sm:whitespace-nowrap"
+          >
+            Memory creation log
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="memories" className="grid gap-4 data-[state=inactive]:hidden">
+          <div className="relative max-w-md">
+            <SearchIcon
+              aria-hidden="true"
+              className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              aria-label="Search memories"
+              placeholder="Search memories"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              className="pl-8"
+            />
+          </div>
+          {documents.isPending ? <Skeleton className="h-32 w-full" /> : null}
+          {documents.error ? (
+            <Alert variant="destructive">
+              <AlertTitle>Memory unavailable</AlertTitle>
+              <AlertDescription>{documents.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
+          {documents.data && !documents.data.length ? (
+            <p className="text-sm text-muted-foreground">
+              No memories saved yet.{' '}
+              <button
+                type="button"
+                className="text-primary hover:underline"
+                onClick={() => setTab('create')}
+              >
+                Create a memory
+              </button>{' '}
+              or ask the agent to remember something in a conversation.
+            </p>
+          ) : null}
+          <div className="grid gap-6">
+            {scopes
+              .filter((scope) => filtered.some((document) => document.scope === scope))
+              .map((scope) => (
+                <section
+                  aria-label={scopeTitle(scope, workspaceNames)}
+                  className="grid gap-2"
+                  key={scope}
+                >
+                  <h2 className="text-sm font-semibold">{scopeTitle(scope, workspaceNames)}</h2>
+                  <ScopeTable
+                    documents={filtered.filter((document) => document.scope === scope)}
+                    onHistory={setHistory}
+                    onOpen={open}
+                  />
+                </section>
+              ))}
+          </div>
+          {needle && documents.data?.length && !filtered.length ? (
+            <p className="text-sm text-muted-foreground">No memories match “{filter.trim()}”.</p>
+          ) : null}
+          {sessionSearch ? (
+            <details className="border-t pt-3">
+              <summary className="cursor-pointer text-sm font-medium">
+                Search conversation history
+              </summary>
+              <div className="grid gap-3 pt-3">
+                <p className="text-sm text-muted-foreground">
+                  Find the original messages in retained conversations. These transcripts are
+                  separate from saved memories; searching here does not create a memory or start a
+                  model run.
+                </p>
+                <PastSessionsSearch initialSessionId={initialSessionId} />
+              </div>
+            </details>
+          ) : null}
+        </TabsContent>
+        <TabsContent value="review">
+          <MemoryInbox
+            sessionHref={sessionHref}
+            targetLabel={(name) =>
+              `${memoryScope(name)} · ${name.split('/').at(-1)?.replaceAll('-', ' ')}`
+            }
+          />
+        </TabsContent>
+        <TabsContent value="create">
+          <MemoryCreate
+            workspaces={workspaces.data ?? []}
+            workspacesLoading={workspaces.isPending}
+            workspacesError={workspaces.error?.message}
+            onRetryWorkspaces={() => void workspaces.refetch()}
+            onCreated={(name) => {
+              open(name, 'memories');
+            }}
+          />
+        </TabsContent>
+        <TabsContent value="log">
+          <MemoryCreationLog
+            sessionHref={sessionHref}
+            sessionTitle={(id) => bySession.get(id)?.title || 'Conversation not loaded'}
+            targetLabel={(name) =>
+              `${memoryScope(name)} · ${name.split('/').at(-1)?.replaceAll('-', ' ')}`
+            }
+          />
+        </TabsContent>
+      </Tabs>
       {opened ? (
         <MemoryDocumentDialog
           highlight={params.get('fact') ?? ''}
+          scopeLabel={
+            opened.startsWith('user/')
+              ? 'Account memory'
+              : `Workspace memory · ${memoryScope(opened)}`
+          }
           name={opened}
           onOpenChange={(next) => (next ? undefined : open(''))}
           open
@@ -350,7 +488,15 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
           open
         />
       ) : null}
-      <MemoryImportDialog onOpenChange={setImporting} open={importing} />
+      <MemoryImportDialog
+        onOpenChange={setImporting}
+        open={importing}
+        onStarted={() => setTab('log')}
+        workspaces={workspaces.data ?? []}
+        workspacesLoading={workspaces.isPending}
+        workspacesError={workspaces.error?.message}
+        onRetryWorkspaces={() => void workspaces.refetch()}
+      />
     </div>
   );
 }

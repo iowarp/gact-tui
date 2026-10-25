@@ -1,11 +1,13 @@
 import type { RuntimeSetting, RuntimeSettings, UpdateRuntimeSettings } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CopyIcon, RotateCcwIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioSettingsSection } from './settings-section';
 import { SettingsRow } from './settings-row';
 import { NumberLimitInput } from './number-limit-input';
+import { NumericPresetInput } from './numeric-preset-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -107,6 +109,14 @@ export function RuntimeSettingsPanel({
       save.reset();
     }
   };
+  const copyConfigPath = async () => {
+    try {
+      await navigator.clipboard.writeText(source?.config_path ?? '');
+      toast.success('Configuration path copied');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not copy configuration path');
+    }
+  };
   const patch = draft ? patchFor(draft) : undefined;
   const heading = (
     <SettingsSectionHeading
@@ -119,7 +129,7 @@ export function RuntimeSettingsPanel({
   );
   if (current.isError && !source)
     return (
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         {heading}
         <Alert variant="destructive">
           <AlertTitle>Configuration unavailable</AlertTitle>
@@ -132,7 +142,7 @@ export function RuntimeSettingsPanel({
     );
   if (!source)
     return (
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         {heading}
         <p className="text-sm text-muted-foreground">Loading configuration…</p>
       </div>
@@ -141,14 +151,14 @@ export function RuntimeSettingsPanel({
     only ? group === only : !exclude.includes(group),
   );
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-4">
       {only ? null : heading}
       {groups.map((group) => (
         <ClioSettingsSection
           key={group}
           title={only ? title : group}
           description={
-            only && description
+            only && description !== undefined
               ? description
               : group === 'Execution'
                 ? 'Choose request budgets and recovery behavior.'
@@ -161,107 +171,146 @@ export function RuntimeSettingsPanel({
                       : 'Choose how context and response history are saved.'
           }
         >
-          {source.settings
-            .filter((setting) => setting.group === group)
-            .map((setting) => {
-              const value = draft?.changes[setting.key] ?? displayValue(setting);
-              const resetting = draft?.changes[setting.key] === null;
-              const id = `runtime-${setting.key}`;
-              return (
-                <SettingsRow
-                  key={setting.key}
-                  title={setting.title}
-                  htmlFor={id}
-                  description={
-                    <>
-                      <p>{setting.description}</p>
-                      <p className="mt-1 text-xs">{setting.effect}</p>
-                      <p className="mt-1 text-xs">
-                        {setting.reason ?? sourceLabels[setting.source]}
+          <div className="[&_[data-slot=settings-row]]:py-2">
+            {source.settings
+              .filter((setting) => setting.group === group)
+              .map((setting) => {
+                const value = draft?.changes[setting.key] ?? displayValue(setting);
+                const resetting = draft?.changes[setting.key] === null;
+                const id = `runtime-${setting.key}`;
+                const unitFactor = setting.unit === 'percent' ? 100 : 1;
+                const info = (
+                  <div className="grid gap-1">
+                    <p>
+                      <span className="font-medium">Source:</span> {sourceLabels[setting.source]}
+                    </p>
+                    <p>
+                      <span className="font-medium">Effect:</span> {setting.effect}
+                    </p>
+                    {setting.has_user_value ? (
+                      <p>
+                        <span className="font-medium">Reset:</span> removes your saved override and
+                        uses the current inherited value.
                       </p>
-                      {resetting ? (
-                        <p className="mt-1 text-xs">Will inherit after saving</p>
-                      ) : setting.editable && setting.has_user_value ? (
+                    ) : null}
+                  </div>
+                );
+                const disabled = !setting.editable || resetting || save.isPending;
+                return (
+                  <SettingsRow
+                    key={setting.key}
+                    title={setting.title}
+                    htmlFor={id}
+                    inlineControl={setting.kind === 'boolean'}
+                    info={info}
+                    description={
+                      <div className="grid gap-0.5">
+                        <p>{setting.description}</p>
+                        {setting.reason ? (
+                          <p className="text-xs text-muted-foreground">{setting.reason}</p>
+                        ) : null}
+                        {resetting ? (
+                          <p className="text-xs text-muted-foreground">Will inherit after saving</p>
+                        ) : null}
+                      </div>
+                    }
+                  >
+                    <div className="flex w-full min-w-0 items-center justify-end gap-2">
+                      {setting.kind === 'choice' ? (
+                        <Select
+                          value={String(value)}
+                          disabled={disabled}
+                          onValueChange={(next) => update(setting, next)}
+                        >
+                          <SelectTrigger className="w-full max-w-80" id={id}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {setting.choices.map((choice) => (
+                              <SelectItem key={choice.value} value={choice.value}>
+                                {choice.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : setting.kind === 'boolean' ? (
+                        <Switch
+                          id={id}
+                          checked={Boolean(value)}
+                          disabled={disabled}
+                          onCheckedChange={(next) => update(setting, next)}
+                        />
+                      ) : setting.presets?.length ? (
+                        <NumericPresetInput
+                          id={id}
+                          label={setting.title}
+                          value={String(value)}
+                          presets={setting.presets.map((preset) => ({
+                            label: preset.label,
+                            value: preset.value * unitFactor,
+                          }))}
+                          minimum={
+                            setting.minimum === null ? undefined : setting.minimum * unitFactor
+                          }
+                          maximum={
+                            setting.maximum === null ? undefined : setting.maximum * unitFactor
+                          }
+                          step={setting.kind === 'integer' ? 1 : 'any'}
+                          unit={setting.unit === 'percent' ? '%' : (setting.unit ?? undefined)}
+                          disabled={disabled}
+                          onChange={(next) => update(setting, next)}
+                        />
+                      ) : setting.unlimited_value === 0 ? (
+                        <NumberLimitInput
+                          id={id}
+                          label={setting.title}
+                          value={String(value)}
+                          defaultValue={Number(setting.default_value)}
+                          disabled={disabled}
+                          onChange={(next) => update(setting, next)}
+                        />
+                      ) : (
+                        <div className="flex w-full min-w-0 items-center gap-2">
+                          <Input
+                            className="w-28 text-center"
+                            id={id}
+                            aria-label={setting.title}
+                            type="number"
+                            value={String(value)}
+                            min={
+                              setting.minimum === null ? undefined : setting.minimum * unitFactor
+                            }
+                            max={
+                              setting.maximum === null ? undefined : setting.maximum * unitFactor
+                            }
+                            step={setting.kind === 'integer' ? 1 : 'any'}
+                            disabled={disabled}
+                            onChange={(event) => update(setting, event.target.value)}
+                          />
+                          {setting.unit ? (
+                            <span className="text-xs text-muted-foreground">
+                              {setting.unit === 'percent' ? '%' : setting.unit}
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+                      {!resetting && setting.editable && setting.has_user_value ? (
                         <Button
                           variant="ghost"
-                          size="sm"
-                          className="mt-1 h-auto px-0 py-1 text-xs"
+                          size="icon-sm"
+                          title="Use inherited value"
                           disabled={save.isPending}
                           aria-label={`Use inherited ${setting.title.toLowerCase()}`}
                           onClick={() => update(setting, null)}
                         >
-                          Use inherited value
+                          <RotateCcwIcon aria-hidden="true" />
                         </Button>
                       ) : null}
-                    </>
-                  }
-                >
-                  <div className="grid w-full justify-items-center gap-2">
-                    {setting.kind === 'choice' ? (
-                      <Select
-                        value={String(value)}
-                        disabled={!setting.editable || resetting || save.isPending}
-                        onValueChange={(next) => update(setting, next)}
-                      >
-                        <SelectTrigger className="w-56" id={id}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {setting.choices.map((choice) => (
-                            <SelectItem key={choice.value} value={choice.value}>
-                              {choice.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : setting.kind === 'boolean' ? (
-                      <Switch
-                        id={id}
-                        checked={Boolean(value)}
-                        disabled={!setting.editable || resetting || save.isPending}
-                        onCheckedChange={(next) => update(setting, next)}
-                      />
-                    ) : setting.unlimited_value === 0 ? (
-                      <NumberLimitInput
-                        id={id}
-                        label={setting.title}
-                        value={String(value)}
-                        defaultValue={Number(setting.default_value)}
-                        disabled={!setting.editable || resetting || save.isPending}
-                        onChange={(next) => update(setting, next)}
-                      />
-                    ) : (
-                      <div className="relative flex w-full justify-center">
-                        <Input
-                          className="w-28 text-center"
-                          id={id}
-                          type="number"
-                          value={String(value)}
-                          min={
-                            setting.minimum === null
-                              ? undefined
-                              : setting.minimum * (setting.unit === 'percent' ? 100 : 1)
-                          }
-                          max={
-                            setting.maximum === null
-                              ? undefined
-                              : setting.maximum * (setting.unit === 'percent' ? 100 : 1)
-                          }
-                          step={setting.kind === 'integer' ? 1 : 'any'}
-                          disabled={!setting.editable || resetting || save.isPending}
-                          onChange={(event) => update(setting, event.target.value)}
-                        />
-                        {setting.unit ? (
-                          <span className="absolute left-[calc(50%+4rem)] top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                            {setting.unit === 'percent' ? '%' : setting.unit}
-                          </span>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                </SettingsRow>
-              );
-            })}
+                    </div>
+                  </SettingsRow>
+                );
+              })}
+          </div>
         </ClioSettingsSection>
       ))}
       {save.error ? (
@@ -292,14 +341,20 @@ export function RuntimeSettingsPanel({
           </p>
         ) : null}
       </div>
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer">Configuration file</summary>
-        <p className="mt-2 break-all font-mono">{source.config_path}</p>
-        <p className="mt-2">
-          Edits save only these preferences. Inherited values come from the environment or{' '}
-          {vocab.agent} defaults.
-        </p>
-      </details>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>Configuration file</span>
+        <Button
+          aria-label="Copy configuration path"
+          className="h-7 min-w-0 max-w-full justify-start gap-1 px-1 font-mono text-xs font-normal"
+          title={source.config_path}
+          type="button"
+          variant="ghost"
+          onClick={() => void copyConfigPath()}
+        >
+          <span className="min-w-0 truncate">{source.config_path}</span>
+          <CopyIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        </Button>
+      </div>
     </div>
   );
 }

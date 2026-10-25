@@ -1,18 +1,11 @@
 import type { MemoryProposal } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { InboxIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
@@ -37,36 +30,48 @@ function Evidence({
 }) {
   if (!proposal.evidence.length) return null;
   return (
-    <ul aria-label="Evidence" className="grid gap-1 text-xs text-muted-foreground">
-      {proposal.evidence.map((item) => {
-        const href = sessionHref(item.session);
-        const label = item.fact || `${item.messages.length} message(s)`;
-        return (
-          <li key={item.id}>
-            <span className="font-medium">{item.source}</span>:{' '}
-            {href ? (
-              <a
-                className="underline"
-                href={item.messages[0] ? `${href}#message-${item.messages[0]}` : href}
-              >
-                {label}
-              </a>
-            ) : (
-              label
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <details className="text-sm text-muted-foreground">
+      <summary className="w-fit cursor-pointer">Source facts ({proposal.evidence.length})</summary>
+      <ul aria-label="Evidence" className="mt-2 grid gap-2 leading-6">
+        {proposal.evidence.map((item) => {
+          const href = sessionHref(item.session);
+          const label = item.fact || `${item.messages.length} message(s)`;
+          return (
+            <li key={item.id}>
+              <span className="font-medium">
+                {item.source === 'imported'
+                  ? 'Imported notes'
+                  : item.source === 'user'
+                    ? 'User message'
+                    : item.source}
+              </span>
+              :{' '}
+              {href ? (
+                <a
+                  className="underline"
+                  href={item.messages[0] ? `${href}#message-${item.messages[0]}` : href}
+                >
+                  {label}
+                </a>
+              ) : (
+                label
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </details>
   );
 }
 
 function ProposalCard({
   proposal,
   sessionHref,
+  targetLabel,
 }: {
   proposal: MemoryProposal;
   sessionHref: SessionHref;
+  targetLabel: (name: string) => string;
 }) {
   const repository = useRepository();
   const client = useQueryClient();
@@ -93,7 +98,9 @@ function ProposalCard({
     <li className="grid gap-3 rounded-lg border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline">{CHANGE_LABELS[proposal.change]}</Badge>
-        <span className="min-w-0 truncate text-sm font-medium">{proposal.target}</span>
+        <span className="min-w-0 text-sm font-medium break-words" title={proposal.target}>
+          {targetLabel(proposal.target)}
+        </span>
         <ReviewMarker sources={proposal.sources} />
       </div>
       {proposal.rationale ? <p className="text-sm">{proposal.rationale}</p> : null}
@@ -155,7 +162,13 @@ function ProposalCard({
 }
 
 /** Proposed changes waiting for a decision: accept, edit and accept, or reject. */
-export function MemoryInbox({ sessionHref }: { sessionHref: SessionHref }) {
+export function MemoryInbox({
+  sessionHref,
+  targetLabel,
+}: {
+  sessionHref: SessionHref;
+  targetLabel: (name: string) => string;
+}) {
   const repository = useRepository();
   const proposals = useQuery({
     queryKey: ['memory', 'proposals', 'pending'],
@@ -171,14 +184,11 @@ export function MemoryInbox({ sessionHref }: { sessionHref: SessionHref }) {
     );
   if (!proposals.data.length)
     return (
-      <Empty className="border">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <InboxIcon aria-hidden="true" />
-          </EmptyMedia>
+      <Empty className="items-start border-0 px-0 py-4">
+        <EmptyHeader className="max-w-none items-start text-left">
           <EmptyTitle>Nothing to review</EmptyTitle>
           <EmptyDescription>
-            Changes learned from conversations or imports appear here when they need your decision.
+            Proposed changes appear here when your review policy requires a decision.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -186,7 +196,12 @@ export function MemoryInbox({ sessionHref }: { sessionHref: SessionHref }) {
   return (
     <ul aria-label="Proposed changes" className="grid gap-3">
       {proposals.data.map((proposal) => (
-        <ProposalCard key={proposal.id} proposal={proposal} sessionHref={sessionHref} />
+        <ProposalCard
+          key={proposal.id}
+          proposal={proposal}
+          sessionHref={sessionHref}
+          targetLabel={targetLabel}
+        />
       ))}
     </ul>
   );

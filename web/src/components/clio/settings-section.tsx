@@ -23,10 +23,10 @@ export function ClioSettingsSection({
   title,
 }: ClioSettingsSectionProps) {
   return (
-    <Frame className="gap-3 bg-transparent p-0" spacing="lg" variant="ghost">
+    <Frame className="gap-0 bg-transparent p-0" spacing="lg" variant="ghost">
       <FrameHeader className="px-0 py-0">
         <FrameTitle className="flex items-center gap-2">{title}</FrameTitle>
-        <FrameDescription>{description}</FrameDescription>
+        {description ? <FrameDescription>{description}</FrameDescription> : null}
       </FrameHeader>
       <FramePanel className="border-0 bg-transparent p-0 shadow-none before:hidden">
         {children}
