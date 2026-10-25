@@ -1,18 +1,7 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { TechnicalDetails } from './technical-details';
-
-const OPERATIONS: Record<string, string> = {
-  fs_read_file: 'Read file',
-  fs_write_file: 'Write file',
-  fs_edit_file: 'Edit file',
-  shell_bash: 'Run command',
-  'workspace.read': 'Read file',
-  'workspace.write': 'Write file',
-  'workspace.move': 'Move file',
-  connected_data_connect: 'Connect source',
-  connected_data_download: 'Download source',
-};
+import { permissionOperationLabel } from './permission-operation-labels';
 
 /** Show the human decision before the optional protocol payload. */
 export function PermissionOperationDetails({ interaction }: { interaction: PendingInteraction }) {
@@ -25,6 +14,7 @@ export function PermissionOperationDetails({ interaction }: { interaction: Pendi
   const command = access?.command || text('command');
   const path = text('filepath') || text('path') || text('output_path');
   const cwd = access?.cwd || interaction.payload?.execution?.cwd || text('cwd');
+  const isWebRequest = name === 'web_fetch' || name === 'web_search';
   const isSourceConnection = name === 'connected_data_connect';
   const sourceAccess: Record<string, string> = {
     read_only: 'Read only',
@@ -40,9 +30,12 @@ export function PermissionOperationDetails({ interaction }: { interaction: Pendi
       access?.reason ||
         text('reason') ||
         text('access_reason') ||
+        text('_clio_task_description') ||
         (interaction.prompt !== interaction.title ? interaction.prompt : ''),
     ],
-    ['Action', OPERATIONS[name] ?? name],
+    ['Action', permissionOperationLabel(name, input) ?? name],
+    ...(name === 'web_fetch' ? [['Source', text('target') || text('url')]] : []),
+    ...(name === 'web_search' ? [['Query', text('query')]] : []),
     ...(isSourceConnection
       ? [
           ['Source', text('label')],
@@ -53,7 +46,11 @@ export function PermissionOperationDetails({ interaction }: { interaction: Pendi
         ]
       : []),
     ['Computer', access?.computer || interaction.payload?.execution?.computer],
-    ['Working folder', cwd],
+    ['Working folder', isWebRequest ? '' : cwd],
+    [
+      'Output folder',
+      name === 'web_fetch' && input.to_file === true ? text('output_dir') || cwd : '',
+    ],
     ['File', path],
   ].filter(([, value]) => value);
   return (

@@ -15,6 +15,7 @@ import { pendingInteractionDomId, respondFromControl } from './interaction-contr
 import { OwnerAttribution, ResponseErrorNotice } from './pending-interaction-notices';
 import { TechnicalDetails } from './technical-details';
 import { PermissionOperationDetails } from './permission-operation-details';
+import { permissionOperationLabel } from './permission-operation-labels';
 import { FlowTrustDetails } from './flow-trust-details';
 import { flowTrustRequest } from '@/lib/plugin-review';
 
@@ -59,7 +60,8 @@ export function PermissionResponse({
       : {};
   const legacyTitle =
     interaction.title === `destructive tool call: ${toolName}` ||
-    interaction.title === `tool call: ${toolName}`;
+    interaction.title === `tool call: ${toolName}` ||
+    interaction.title === `external MCP tool call: ${toolName}`;
   const title = flowTrust
     ? `Running flow ${flowTrust.flow}`
     : legacyTitle && toolName === 'connected_data_connect'
@@ -68,7 +70,9 @@ export function PermissionResponse({
         : 'Connect source'
       : legacyTitle && toolName === 'connected_data_download'
         ? 'Download source'
-        : interaction.title;
+        : legacyTitle
+          ? (permissionOperationLabel(toolName ?? '', input) ?? interaction.title)
+          : interaction.title;
   return (
     <section
       className="min-w-0 px-3 pb-3"
@@ -100,6 +104,10 @@ export function PermissionResponse({
       {toolName || toolCall?.input !== undefined ? (
         <TechnicalDetails className="mt-3 text-xs text-muted-foreground" title="Technical details">
           {toolName ? <p className="font-mono">{toolName}</p> : null}
+          {(toolName === 'web_fetch' || toolName === 'web_search') &&
+          interaction.payload?.execution?.cwd ? (
+            <p className="my-2 break-all">Working folder: {interaction.payload.execution.cwd}</p>
+          ) : null}
           {toolCall?.input === undefined ? null : (
             <CodeBlock
               className="mt-2 max-h-40"
@@ -112,7 +120,7 @@ export function PermissionResponse({
         </TechnicalDetails>
       ) : null}
       <ResponseErrorNotice error={responseError} />
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+      <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 bg-background/95 py-2 backdrop-blur-sm">
         {!interaction.actions || interaction.actions.includes('deny') ? (
           <Button
             size="sm"
