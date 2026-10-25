@@ -1,6 +1,6 @@
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { parseMathMarkdownBlocks } from '@/lib/remark-standard-math';
+import { normalizeMathMarkdown, parseMathMarkdownBlocks } from '@/lib/remark-standard-math';
 import { MarkdownText } from './markdown';
 
 afterEach(cleanup);
@@ -139,6 +139,52 @@ y &= 2
     await waitFor(() => expect(container.querySelectorAll('.katex-display')).toHaveLength(1));
     expect(container.querySelector('.katex-error')).toBeNull();
     expect(container.textContent).toContain('After.');
+  });
+
+  it('keeps unmatched double-dollar guidance literal beside valid formulas', async () => {
+    const source =
+      'Math: inline LaTeX uses $$x^2$$ on one line; display LaTeX uses $$ on separate\n' +
+      'lines. Single-dollar text stays literal. For example:\n$$\n\\bar{x}=1\n$$';
+    const { container } = render(<MarkdownText mode="static">{source}</MarkdownText>);
+
+    await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(2));
+    expect(source).toContain('display LaTeX uses $$ on separate');
+    expect(container.textContent).toContain('display LaTeX uses $$ on separate');
+    expect(container.querySelectorAll('annotation')[0]?.textContent).toBe('x^2');
+    expect(container.querySelectorAll('annotation')[1]?.textContent).toBe(String.raw`\bar{x}=1`);
+    expect(container.querySelector('.katex-error')).toBeNull();
+  });
+
+  it('does not rewrite double-dollar literals in inline or fenced code', () => {
+    const source =
+      'Inline `$$literal$$` stays exact.\n\n~~~text\n$$block literal$$\n~~~\n\n' +
+      '> ```text\n> $$quoted literal$$\n> ```\n\n' +
+      '- Nested code:\n  ```text\n  $$nested literal$$\n  ```\n\n' +
+      'Outside the list:\n\n    echo $$';
+    const { container } = render(<MarkdownText mode="static">{source}</MarkdownText>);
+
+    expect(container.querySelector('code')?.textContent).toBe('$$literal$$');
+    expect(container.textContent).toContain('$$quoted literal$$');
+    expect(container.textContent).toContain('$$nested literal$$');
+    expect(container.textContent).toContain('echo $$');
+    expect(container.querySelectorAll('pre code')).toHaveLength(4);
+    expect(container.querySelector('pre code')?.textContent).toBe('$$block literal$$');
+    expect(container.querySelector('.katex')).toBeNull();
+  });
+
+  it('does not escape paired double-dollar math around inline code spans', () => {
+    const inlineCodeFormula = '$$\\text{`foo`}$$';
+    expect(normalizeMathMarkdown(inlineCodeFormula)).toBe(inlineCodeFormula);
+  });
+
+  it('preserves display math fences nested in block quotes and lists', async () => {
+    const source =
+      '> Guidance: inline $$x^2$$; display uses $$ on separate lines.\n>\n> $$\n> x=1\n> $$' +
+      '\n\n- $$\n  y=2\n  $$';
+    const { container } = render(<MarkdownText mode="static">{source}</MarkdownText>);
+
+    await waitFor(() => expect(container.querySelectorAll('.katex-display')).toHaveLength(2));
+    expect(container.querySelectorAll('.katex')).toHaveLength(3);
   });
 
   it('renders math in lists, quotes, links and tables without changing their structure', async () => {
