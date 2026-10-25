@@ -9,6 +9,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
 import { displayHostPath } from '@/lib/host-path-display';
+import { toast } from 'sonner';
 
 const labels: Record<keyof HostStorageLocations, string> = {
   root: 'Storage root',
@@ -70,8 +71,10 @@ function StorageForm({ data }: { data: Settings }) {
   } as HostStorageLocations;
   const save = useMutation({
     mutationFn: () => repository.saveHostStorageSettings(data.target_id, draft),
-    onSuccess: (next) =>
-      queryClient.setQueryData(['host-storage', settings.endpoint, data.target_id], next),
+    onSuccess: (next) => {
+      queryClient.setQueryData(['host-storage', settings.endpoint, data.target_id], next);
+      toast.success('Locations saved for new deployments.');
+    },
   });
   const change = (name: keyof HostStorageLocations, value: string) => {
     save.reset();
@@ -105,17 +108,15 @@ function StorageForm({ data }: { data: Settings }) {
     </Field>
   );
   return (
-    <section className="space-y-4 border-t pt-5" aria-label={`Storage on ${data.host_label}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="font-medium">Storage locations</h3>
+    <section className="space-y-4" aria-label={`Storage on ${data.host_label}`}>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">{field('root')}</div>
         <InfoTip label="About storage locations">
           Paths are on the selected host. New deployments inherit these locations; existing
           deployments keep their recorded paths. Docker and Podman image storage is configured
           separately in the container engine.
         </InfoTip>
-        <span className="ml-auto text-sm text-muted-foreground">{data.host_label}</span>
       </div>
-      {field('root')}
       <details>
         <summary className="cursor-pointer text-sm">Override individual folders</summary>
         <div className="mt-4 space-y-4">
@@ -123,28 +124,25 @@ function StorageForm({ data }: { data: Settings }) {
         </div>
       </details>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span role="status" className="text-sm text-muted-foreground">
-          {check.data
-            ? `${(check.data.free_bytes / 1024 ** 3).toFixed(1)} GiB available, ${check.data.writable ? 'writable' : 'not writable'}`
-            : check.isFetching
-              ? 'Checking capacity…'
-              : ''}
-        </span>
-        <Button
-          disabled={save.isPending || !check.data?.writable || check.isFetching}
-          onClick={() => save.mutate()}
-        >
-          {save.isPending ? 'Checking and saving…' : 'Save locations'}
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <InfoTip label="Folder capacity and permissions">
+            {check.data
+              ? `${(check.data.free_bytes / 1024 ** 3).toFixed(1)} GiB available; ${check.data.writable ? 'writable' : 'not writable'}.`
+              : 'Folder capacity is being checked.'}
+          </InfoTip>
+          <Button
+            className="min-w-32"
+            aria-busy={save.isPending || check.isFetching}
+            disabled={save.isPending || !check.data?.writable || check.isFetching}
+            onClick={() => save.mutate()}
+          >
+            {save.isPending ? 'Saving…' : check.isFetching ? 'Checking folder…' : 'Save locations'}
+          </Button>
+        </div>
       </div>
       {check.error || save.error ? (
         <p role="alert" className="text-sm text-destructive">
           {check.error?.message || save.error?.message}
-        </p>
-      ) : null}
-      {save.isSuccess ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Locations saved for new deployments.
         </p>
       ) : null}
     </section>

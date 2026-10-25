@@ -92,13 +92,18 @@ it('filters failure history and offers a way back without losing the operation l
   await userEvent.click(screen.getByRole('button', { name: 'Failed 1' }));
   expect(screen.queryByText('Stop SearXNG')).not.toBeInTheDocument();
   await userEvent.click(screen.getByText('Install SearXNG'));
-  expect(screen.getByText('Disk full')).toBeVisible();
-  await userEvent.click(screen.getByText('Technical details & logs'));
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('Disk full')).toBeVisible();
+  expect(within(dialog).queryByText('Install could not continue.')).not.toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole('tab', { name: 'Log' }));
   expect(screen.getByText('Install could not continue.')).toBeVisible();
-  expect(screen.getByRole('link', { name: 'Open services' })).toHaveAttribute(
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Actions for Install SearXNG' }));
+  expect(screen.getByRole('menuitem', { name: 'Go to service' })).toHaveAttribute(
     'href',
     '/infrastructure/services?target=homelab',
   );
+  await userEvent.keyboard('{Escape}');
   await userEvent.type(screen.getByRole('textbox', { name: 'Search activity' }), 'missing');
   expect(screen.getByText('No matching activity.')).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
@@ -114,12 +119,13 @@ it('keeps a long failure reason behind technical details without losing its orig
     />,
   );
   await userEvent.click(screen.getByText('Install SearXNG'));
-  expect(screen.getByText('Installation stopped before it answered.')).toBeVisible();
+  expect(
+    within(screen.getByRole('dialog')).getByText('Installation stopped before it answered.'),
+  ).toBeVisible();
   const rawMatch = (_: string, node: Element | null) =>
     node?.tagName === 'PRE' && node.textContent === error;
   expect(screen.queryByText(rawMatch)).not.toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Open services' })).toBeVisible();
-  await userEvent.click(screen.getByText('Technical details & logs'));
+  await userEvent.click(screen.getByRole('tab', { name: 'Log' }));
   const raw = screen.getByText(rawMatch);
   expect(raw).toBeVisible();
   expect(raw.textContent).toBe(error);
@@ -131,7 +137,7 @@ it('shows byte progress before opening an active download and searches the visib
   const progress = screen.getByRole('progressbar', { name: 'Downloaded bytes for org/model' });
   expect(progress).toBeVisible();
   expect(progress).toHaveAttribute('value', '50');
-  expect(progress.closest('details')).not.toHaveAttribute('open');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'All 3' }));
   await userEvent.type(screen.getByRole('textbox', { name: 'Search activity' }), 'completed');
   expect(screen.getByText('Stop SearXNG')).toBeVisible();

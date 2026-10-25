@@ -81,6 +81,61 @@ afterEach(() => {
 });
 
 describe('tool provider settings', () => {
+  it('inspects a declared on-demand connection without querying nonexistent installed-server routes', async () => {
+    repository.mcpServers.mockResolvedValue([
+      { ...external, id: 'draft_mcp_science', status: 'available' },
+    ]);
+    renderSettings(<ToolsSettings embedded />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Science tools' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Service details' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Connection' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Starts when used');
+    expect(screen.getByText('https://mcp.example.test')).toBeVisible();
+    expect(repository.mcpServer).not.toHaveBeenCalled();
+    expect(repository.mcpServerInventory).not.toHaveBeenCalled();
+  });
+  it('keeps inspectable connection fields in the service dialog and hides environment values', async () => {
+    repository.mcpServers.mockResolvedValue([external]);
+    repository.mcpServer.mockResolvedValue({
+      ...external,
+      spec: { ...external.spec, env: { PRIVATE_TOKEN: 'never-render-this-value' } },
+    });
+    renderSettings(<ToolsSettings embedded />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Science tools' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Service details' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Connection' }));
+    expect(await screen.findByText('https://mcp.example.test')).toBeVisible();
+    expect(screen.getByText('PRIVATE_TOKEN. Values are hidden.')).toBeVisible();
+    expect(screen.queryByText('never-render-this-value')).not.toBeInTheDocument();
+  });
+  it('explains invalid service names before attempting installation', async () => {
+    renderSettings(<ToolsSettings embedded />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Add MCP' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Research Tools');
+    await userEvent.type(within(dialog).getByLabelText('Package'), 'mcp-server-fetch');
+    expect(within(dialog).getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true');
+    expect(within(dialog).getByText(/Use lowercase letters, numbers, and hyphens/)).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Install and connect' })).toBeDisabled();
+    expect(repository.configureMcpServer).not.toHaveBeenCalled();
+  });
+  it('installs a package from Services using explicit argv and the chosen conversation scope', async () => {
+    renderSettings(<ToolsSettings embedded />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Add MCP' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'fetch-qualification');
+    await userEvent.type(within(dialog).getByLabelText('Package'), 'mcp-server-fetch');
+    await userEvent.click(within(dialog).getByLabelText('Available in every conversation'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Install and connect' }));
+    await waitFor(() =>
+      expect(repository.configureMcpServer).toHaveBeenCalledWith('fetch-qualification', {
+        transport: 'stdio',
+        command: 'uvx',
+        args: ['mcp-server-fetch'],
+        always_load: false,
+      }),
+    );
+  });
   it('shows catalog loading instead of an unexplained empty frame', () => {
     repository.tools.mockReturnValue(new Promise(() => undefined));
     renderSettings(<ToolsSettings />);
@@ -127,7 +182,7 @@ describe('tool provider settings', () => {
     await user.click(await screen.findByRole('button', { name: 'Actions for Workspace files' }));
     expect(screen.queryByRole('menuitem', { name: 'Reconnect' })).not.toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Disconnect' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('menuitem', { name: 'Resources and prompts' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Service details' }));
     expect(await screen.findByText('Read file')).toBeVisible();
     expect(screen.getByText('Read a workspace file.')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Resources' }));
@@ -140,12 +195,12 @@ describe('tool provider settings', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
     const dialog = screen.getByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Name'), 'Science tools');
+    await user.type(within(dialog).getByLabelText('Name'), 'science-tools');
     await user.type(within(dialog).getByLabelText('Service address'), 'https://mcp.example.test');
     await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
 
     // Saved, so it survives a restart and reaches every conversation by default.
-    expect(repository.configureMcpServer).toHaveBeenCalledWith('Science tools', {
+    expect(repository.configureMcpServer).toHaveBeenCalledWith('science-tools', {
       transport: 'http',
       url: 'https://mcp.example.test',
       always_load: true,
@@ -164,7 +219,7 @@ describe('tool provider settings', () => {
       await user.click(within(dialog).getByLabelText(label));
       await user.paste(text);
     };
-    await fill('Name', 'Web search');
+    await fill('Name', 'web-search');
     await user.click(within(dialog).getByLabelText('Connection type'));
     await user.click(screen.getByRole('option', { name: 'Local command' }));
     await fill('Executable', 'web-tools');
@@ -180,7 +235,7 @@ describe('tool provider settings', () => {
     await fill('Value 2', 'a=b');
     await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
 
-    expect(repository.configureMcpServer).toHaveBeenCalledWith('Web search', {
+    expect(repository.configureMcpServer).toHaveBeenCalledWith('web-search', {
       always_load: true,
       transport: 'stdio',
       command: 'web-tools',

@@ -1,7 +1,7 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import type { ModelDownloadInput } from '@clio/core/v3';
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DownloadIcon, PackageCheckIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
@@ -88,9 +88,20 @@ export function ModelAcquisitions({
     queryFn: ({ signal }) => repository.hostStorageSettings(targetId, signal),
     retry: false,
   });
-  const found = useQuery({
-    queryKey: ['model-search', settings.endpoint, submittedSearch],
-    queryFn: ({ signal }) => repository.searchModels(submittedSearch, signal),
+  const [searchFilters, setSearchFilters] = useInfrastructureState<string[]>(
+    settings.endpoint,
+    `${targetId}:model-search-filters`,
+    [],
+  );
+  const found = useInfiniteQuery({
+    queryKey: ['model-search', settings.endpoint, submittedSearch, searchFilters],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ signal, pageParam }) =>
+      repository.searchModelsPage(
+        { query: submittedSearch, cursor: pageParam, filters: searchFilters },
+        signal,
+      ),
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
     enabled: open,
     retry: false,
   });
@@ -118,7 +129,9 @@ export function ModelAcquisitions({
       repository.modelAcquisitionAction(targetId, id, action),
     onSuccess: refresh,
   });
-  const chosen = found.data?.models.find((model) => model.repository === draft.repository.trim());
+  const chosen = found.data?.pages
+    .flatMap((page) => page.models)
+    .find((model) => model.repository === draft.repository.trim());
   const error = inventory.error ?? acquire.error ?? action.error;
   const unavailable = inventory.data?.unavailable_reason;
   return (
@@ -236,22 +249,41 @@ export function ModelAcquisitions({
             >
               <div className="grid min-h-0 gap-6 overflow-y-auto pr-1 md:grid-cols-2 md:overflow-hidden">
                 <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    {submittedSearch ? 'Search results' : 'Popular text models on Hugging Face'}
-                  </p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <p>
+                      {submittedSearch
+                        ? `Results for “${submittedSearch}”`
+                        : searchFilters.length
+                          ? 'Models on Hugging Face'
+                          : 'Popular text models on Hugging Face'}
+                    </p>
+                    <InfoTip label="About model search">
+                      Search uses Hugging Face tags. Capability filters also check the evidence in
+                      loaded results; unknown capabilities are not assumed. Counts refer to loaded
+                      results. Load more to continue searching.
+                    </InfoTip>
+                  </div>
                   <ModelDownloadSearch
+                    tokens={searchFilters}
+                    onTokensChange={setSearchFilters}
                     query={search}
                     onQuery={setSearch}
                     onSearch={() => setSubmittedSearch(search.trim())}
-                    models={found.data?.models.map((model) =>
-                      selectedDetails.data?.repository === model.repository
-                        ? {
-                            ...model,
-                            capability_tags: selectedDetails.data.capability_tags,
-                            model_facts: selectedDetails.data.model_facts,
-                          }
-                        : model,
-                    )}
+                    models={found.data?.pages
+                      .flatMap((page) => page.models)
+                      .filter(
+                        (model, index, all) =>
+                          all.findIndex((other) => other.repository === model.repository) === index,
+                      )
+                      .map((model) =>
+                        selectedDetails.data?.repository === model.repository
+                          ? {
+                              ...model,
+                              capability_tags: selectedDetails.data.capability_tags,
+                              model_facts: selectedDetails.data.model_facts,
+                            }
+                          : model,
+                      )}
                     searching={found.isFetching}
                     error={found.error}
                     selected={draft.repository}
@@ -263,6 +295,17 @@ export function ModelAcquisitions({
                       }))
                     }
                   />
+                  {found.hasNextPage ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={found.isFetchingNextPage}
+                      onClick={() => void found.fetchNextPage()}
+                    >
+                      {found.isFetchingNextPage ? 'Loading…' : 'Load more models'}
+                    </Button>
+                  ) : null}
                 </div>
                 <div className="min-h-0 space-y-4 md:max-h-[65dvh] md:overflow-y-auto md:border-l md:pl-6">
                   {draft.repository ? (

@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import type { UIMessage } from 'ai';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
-import type { ComponentProps, HTMLAttributes, ReactElement } from 'react';
+import type { ComponentProps, HTMLAttributes, ReactElement, ReactNode } from 'react';
 import {
   createContext,
   lazy,
@@ -277,11 +277,15 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
   );
 };
 
-export type MessageResponseProps = ComponentProps<typeof MarkdownText>;
+export type MessageResponseProps = ComponentProps<typeof MarkdownText> & {
+  loadingFallback?: ReactNode;
+};
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Suspense fallback={<p className={className}>{String(props.children ?? '')}</p>}>
+  ({ className, loadingFallback, ...props }: MessageResponseProps) => (
+    <Suspense
+      fallback={loadingFallback ?? <p className={className}>{String(props.children ?? '')}</p>}
+    >
       <MarkdownText
         className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
         {...props}

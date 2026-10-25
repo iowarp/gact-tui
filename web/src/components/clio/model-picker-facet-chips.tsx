@@ -23,12 +23,18 @@ interface FacetChipClusterProps {
  * what it would list and swaps that default out when pressed (its tooltip
  * says so); a chip that would list nothing reads muted and cannot be pressed.
  */
-export function FacetChipCluster({ chips, onToggle, more = 0, onMore, moreLabel }: FacetChipClusterProps) {
+export function FacetChipCluster({
+  chips,
+  onToggle,
+  more = 0,
+  onMore,
+  moreLabel,
+}: FacetChipClusterProps) {
   return (
     <div className="flex flex-wrap items-center gap-1.5" data-slot="facet-chips">
       {chips.map((chip) => {
         const Icon = chip.icon.kind === 'tag' ? tagIcon(chip.icon.tag) : undefined;
-        const empty = !chip.active && chip.count === 0;
+        const empty = !chip.remote && !chip.active && chip.count === 0;
         const swap = chip.replaces.length ? ` (replaces ${chip.replaces.join(', ')})` : '';
         return (
           <Badge
@@ -39,12 +45,17 @@ export function FacetChipCluster({ chips, onToggle, more = 0, onMore, moreLabel 
             variant={chip.active ? 'primary-light' : 'outline'}
           >
             <button
-              aria-label={`${chip.label}: ${chip.count} ${chip.count === 1 ? 'model' : 'models'}${swap}`}
+              aria-label={
+                chip.remote
+                  ? `${chip.label}: search Hugging Face${swap}`
+                  : `${chip.label}: ${chip.count} ${chip.count === 1 ? 'model' : 'models'}${swap}`
+              }
               aria-pressed={chip.active}
               className={cn(
                 'cursor-pointer gap-1.5 font-normal hover:border-primary/40 hover:text-foreground',
                 !chip.active && 'text-foreground/85',
-                empty && 'cursor-not-allowed opacity-55 hover:border-border hover:text-foreground/85',
+                empty &&
+                  'cursor-not-allowed opacity-55 hover:border-border hover:text-foreground/85',
               )}
               data-slot="facet-chip"
               data-token={chip.token}
@@ -57,15 +68,23 @@ export function FacetChipCluster({ chips, onToggle, more = 0, onMore, moreLabel 
               {Icon ? (
                 <Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
               ) : chip.icon.kind === 'provider' ? (
-                <ModelSelectorLogo className="size-3.5" provider={providerLogoId(chip.icon.providerId)} />
+                <ModelSelectorLogo
+                  className="size-3.5"
+                  provider={providerLogoId(chip.icon.providerId)}
+                />
               ) : null}
               <span>{chip.label}</span>
-              <span
-                className={cn('text-xs tabular-nums', chip.active ? 'text-primary/80' : 'text-muted-foreground')}
-                data-slot="facet-chip-count"
-              >
-                {chip.count}
-              </span>
+              {!chip.remote ? (
+                <span
+                  className={cn(
+                    'text-xs tabular-nums',
+                    chip.active ? 'text-primary/80' : 'text-muted-foreground',
+                  )}
+                  data-slot="facet-chip-count"
+                >
+                  {chip.count}
+                </span>
+              ) : null}
             </button>
           </Badge>
         );

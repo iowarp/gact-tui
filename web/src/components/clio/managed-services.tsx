@@ -22,7 +22,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { AgentServicesOverview } from './agent-services-overview';
+import { ToolsSettings } from './settings-tools';
 import {
   ManagedServiceCard,
   type ServiceAction,
@@ -50,11 +50,9 @@ export function ManagedServices({
   webSearchConnection,
   webSearchConnecting = false,
   webSearchDisconnecting = false,
-  connectedAgentLabel,
   connectedAgentLocation,
   onConnectExistingService,
   onConnectProvenance,
-  onManageWebSearch,
 }: {
   onConnectWebSearch?: (remoteUrl: string) => void;
   onDisconnectWebSearch?: () => void;
@@ -454,13 +452,17 @@ export function ManagedServices({
 
   return (
     <section aria-label="Services" className="mt-6 space-y-4">
-      <AgentServicesOverview
-        agentLabel={connectedAgentLabel}
-        agentLocation={connectedAgentLocation}
-        webSearch={webSearchConnection}
-        webSearchConnected={webSearchConnected}
-        onManageWebSearch={onManageWebSearch}
-      />
+      <section
+        aria-label="MCP services on the connected computer"
+        className="rounded-lg border p-4"
+      >
+        <ToolsSettings
+          embedded
+          computerLabel={
+            connectedAgentLocation || targets.data?.find((item) => item.kind === 'local')?.label
+          }
+        />
+      </section>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ManagedServiceHostSelector
           targets={targets.data ?? []}

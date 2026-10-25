@@ -15,6 +15,7 @@ import { registryModelTags } from '@/lib/registry-model-tags';
 import { modelFactSummary } from '@/lib/model-facts';
 import { ModelCapabilityTags } from './model-capability-tags';
 import { ModelPickerSearch } from './model-picker-search';
+import { hubSearchFacets } from '@/lib/hub-search-facets';
 
 type RepositoryModel = Pick<
   RegistryModel,
@@ -31,6 +32,8 @@ export function ModelDownloadSearch({
   onSelect,
   searching,
   error,
+  tokens: controlledTokens,
+  onTokensChange,
 }: {
   query: string;
   onQuery: (query: string) => void;
@@ -40,8 +43,16 @@ export function ModelDownloadSearch({
   onSelect: (model: RepositoryModel) => void;
   searching: boolean;
   error?: Error | null;
+  tokens?: string[];
+  onTokensChange?: (tokens: string[]) => void;
 }) {
-  const [tokens, setTokens] = useState<string[]>([]);
+  const [localTokens, setLocalTokens] = useState<string[]>([]);
+  const tokens = controlledTokens ?? localTokens;
+  const setTokens = (next: string[] | ((current: string[]) => string[])) => {
+    const value = typeof next === 'function' ? next(tokens) : next;
+    if (onTokensChange) onTokensChange(value);
+    else setLocalTokens(value);
+  };
   const [facetsOpen, setFacetsOpen] = useState(false);
   const entries = (models ?? []).map((model): FacetEntry => {
     const organization = model.repository.split('/')[0];
@@ -71,9 +82,10 @@ export function ModelDownloadSearch({
   const visible = (models ?? []).filter((_, index) =>
     matchesFilterTokens(entries[index].tokens, tokens),
   );
-  const facets = buildModelFacets(entries, tokens)
+  const loadedFacets = buildModelFacets(entries, tokens)
     .filter((tab) => tab.chipCount > 0)
     .map((tab) => (tab.id === 'providers' ? { ...tab, label: 'Organizations' } : tab));
+  const facets = onTokensChange ? hubSearchFacets(loadedFacets, tokens) : loadedFacets;
   return (
     <div
       className="space-y-3"
@@ -98,9 +110,17 @@ export function ModelDownloadSearch({
             onSearch={onSearch}
             tokens={tokens}
             onTokensChange={setTokens}
-            availableTokens={new Set(entries.flatMap((entry) => [...entry.tokens]))}
+            availableTokens={
+              new Set([
+                ...entries.flatMap((entry) => [...entry.tokens]),
+                ...facets.flatMap((tab) =>
+                  tab.groups.flatMap((group) => group.chips.map((chip) => chip.token)),
+                ),
+              ])
+            }
             shown={visible.length}
             total={models?.length ?? 0}
+            countScope="loaded"
             facetTabs={facets}
             facetsOpen={facetsOpen}
             onFacetsOpenChange={setFacetsOpen}

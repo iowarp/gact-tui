@@ -30,6 +30,8 @@ export function McpServiceList({
   onReconnect,
   onDisconnect,
   onRemoveSaved,
+  defaultOpen = true,
+  showConnection = true,
 }: {
   entries: McpServiceEntry[];
   reconnecting?: string;
@@ -37,6 +39,8 @@ export function McpServiceList({
   onReconnect: (server: McpServerDefinition) => void;
   onDisconnect: (server: McpServerDefinition) => void;
   onRemoveSaved: (service: SavedMcpService) => void;
+  defaultOpen?: boolean;
+  showConnection?: boolean;
 }) {
   return (
     <ul
@@ -52,6 +56,8 @@ export function McpServiceList({
           onReconnect={onReconnect}
           onRemoveSaved={onRemoveSaved}
           reconnecting={Boolean(entry.server && reconnecting === entry.server.id)}
+          defaultOpen={defaultOpen}
+          showConnection={showConnection}
         />
       ))}
     </ul>
@@ -65,6 +71,8 @@ function McpServiceItem({
   onReconnect,
   onDisconnect,
   onRemoveSaved,
+  defaultOpen,
+  showConnection,
 }: {
   entry: McpServiceEntry;
   reconnecting: boolean;
@@ -72,8 +80,10 @@ function McpServiceItem({
   onReconnect: (server: McpServerDefinition) => void;
   onDisconnect: (server: McpServerDefinition) => void;
   onRemoveSaved: (service: SavedMcpService) => void;
+  defaultOpen: boolean;
+  showConnection: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   const { server, saved } = entry;
   const state = serviceState(entry);
   const toolNames = entry.tools.length
@@ -104,7 +114,7 @@ function McpServiceItem({
                 {origin(entry)} · {countLabel(toolNames.length, state.known)}
               </span>
             </div>
-            {saved ? (
+            {saved && showConnection ? (
               <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
                 {savedTarget(saved)}
               </p>
@@ -211,7 +221,7 @@ function ServiceActions({
       <DropdownMenuContent align="end" className="min-w-48">
         {onDetails ? (
           <DropdownMenuItem onSelect={onDetails}>
-            <BlocksIcon aria-hidden="true" /> Resources and prompts
+            <BlocksIcon aria-hidden="true" /> Service details
           </DropdownMenuItem>
         ) : null}
         {onReconnect ? (

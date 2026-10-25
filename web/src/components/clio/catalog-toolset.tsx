@@ -73,8 +73,8 @@ export function CatalogToolset({
           Choose from {tools.length} available tool{tools.length === 1 ? '' : 's'}.
         </p>
       </div>
-      <div className="border-y bg-card lg:grid lg:h-[min(42rem,calc(100dvh-16rem))] lg:min-h-[22rem] lg:grid-cols-[minmax(13rem,17rem)_minmax(0,1fr)]">
-        <aside className="hidden min-h-0 min-w-0 overflow-hidden border-r lg:flex">
+      <div className="border-y bg-card lg:grid lg:items-start lg:grid-cols-[minmax(13rem,17rem)_minmax(0,1fr)]">
+        <aside className="hidden min-h-0 min-w-0 overflow-hidden border-r lg:sticky lg:top-0 lg:flex lg:max-h-[calc(100dvh-4rem)]">
           <ToolBrowser
             bundles={bundles}
             catalog={catalog}
@@ -85,7 +85,7 @@ export function CatalogToolset({
             selected={selected}
           />
         </aside>
-        <div className="clio-scrollbar min-h-0 min-w-0 lg:overflow-y-auto">
+        <div className="min-h-0 min-w-0">
           {selected ? (
             <ToolContract key={toolKey(selected)} tool={selected} />
           ) : (
