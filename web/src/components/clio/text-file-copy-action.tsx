@@ -11,7 +11,7 @@ export function TextFileCopyAction({
   disabled = false,
 }: {
   name: string;
-  readText: () => string | undefined;
+  readText: () => string | undefined | Promise<string | undefined>;
   disabled?: boolean;
 }) {
   const [pending, setPending] = useState(false);
@@ -24,7 +24,7 @@ export function TextFileCopyAction({
   const copy = async () => {
     setPending(true);
     try {
-      const text = readText();
+      const text = await readText();
       if (text === undefined) throw new Error('The file text is not available yet.');
       await copyText(text);
       setCopied(true);

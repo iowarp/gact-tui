@@ -1,6 +1,12 @@
 import { themeVariablesCss, type HtmlPreviewTheme } from './html-preview-theme';
 import { nanoid } from 'nanoid';
 
+export const MAX_HTML_PREVIEW_TEXT_CHARS = 1_000_000;
+export const HTML_PREVIEW_TEXT_TIMEOUT_MS = 5_000;
+
+export type HtmlPreviewTextReader = () => Promise<string>;
+export type HtmlPreviewTextReaderChange = (reader?: HtmlPreviewTextReader) => void;
+
 /** Add a presentation-only bridge after authored static HTML has been sanitized. */
 export function htmlPreviewHostDocument(
   html: string,
@@ -44,6 +50,7 @@ export function htmlPreviewHostDocument(
 function bridgeScript(channel: string): string {
   return `(() => {
     const channel = ${JSON.stringify(channel).replace(/</gu, '\\u003c')};
+    const maxTextChars = ${MAX_HTML_PREVIEW_TEXT_CHARS};
     let queued = false, previous = 0, lastViewport = 0, lastBody = 0, viewportLayout = false;
     const measure = () => {
       queued = false;
@@ -70,6 +77,14 @@ function bridgeScript(channel: string): string {
     const schedule = () => { if (!queued) { queued = true; requestAnimationFrame(measure); } };
     addEventListener('message', event => {
       const data = event.data;
+      if (event.source === parent && data?.channel === channel &&
+          data.type === 'clio.html-preview.read-text' && typeof data.requestId === 'string') {
+        const text = document.body?.innerText ?? '';
+        parent.postMessage(text.length <= maxTextChars
+          ? {type: 'clio.html-preview.text', channel, requestId: data.requestId, text}
+          : {type: 'clio.html-preview.text-error', channel, requestId: data.requestId, code: 'too-large'}, '*');
+        return;
+      }
       if (event.source !== parent || data?.type !== 'clio.html-preview.theme' || data.channel !== channel ||
           !['light', 'dark'].includes(data.theme?.mode) || !data.theme.variables || typeof data.theme.variables !== 'object') return;
       for (const [key, value] of Object.entries(data.theme.variables)) {

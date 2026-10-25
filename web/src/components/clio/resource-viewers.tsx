@@ -10,40 +10,36 @@ import {
   GitBranchIcon,
   FileCode2Icon,
 } from 'lucide-react';
-import { useContext, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block';
-import { ContentMarkdown } from './content-markdown';
-import { DOCUMENT_MARKDOWN_CLASS_NAME, normalizeConvertedMarkdown } from '@/lib/document-markdown';
+
+import { FileTextView } from './file-text-view';
+import { textFileFormat } from '@/lib/file-presentation';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { formatBytes } from '@/lib/format';
-import { languageForPath } from '@/lib/code-language';
 import { isTextMediaType } from '@/lib/media-types';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
-import { ClioCsvView } from './csv-view';
+
 import { ArtifactProvenance } from './artifact-provenance';
-import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
-import { ClioJsonResourceView } from './json-resource-view';
+import {
+  ArtifactRecoveryError,
+  isMissingArtifactPayload,
+  uniqueWorkspaceArtifactFile,
+  verifyArtifactRecovery,
+} from './artifact-custody';
+
 import { ClioDocumentWorkspace } from './document-workspace';
-import { MarkdownFilePreview } from './markdown-file-preview';
-import { HtmlFilePreview } from './html-file-preview';
+
 import { isHtmlFile } from './html-preview-policy';
+import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { FileViewerShell } from './file-viewer-shell';
-import { FileViewerInformationHost } from './file-viewer-context';
-import { ViewerToolbarContent } from './viewer-toolbar';
+
 import { ImageResourceView } from './image-resource-view';
 import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
@@ -75,13 +71,7 @@ export function WorkspaceFileView({
     ) : detected.startsWith('image/') ? (
       <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
     ) : isTextMediaType(detected) || html ? (
-      <WorkspaceTextView
-        path={path}
-        size={size}
-        workspaceId={workspaceId}
-        mediaType={detected}
-        htmlView={html ? 'preview' : undefined}
-      />
+      <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
     ) : (
       <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
     );
@@ -89,27 +79,7 @@ export function WorkspaceFileView({
     <FileViewerShell
       source={{ kind: 'workspace', workspaceId, path, mediaType: detected, size }}
       showIdentity={!embedded}
-      tabs={[
-        { value: 'preview', label: 'Preview', icon: EyeIcon, content: preview },
-        ...(html
-          ? [
-              {
-                value: 'source',
-                label: 'Source',
-                icon: FileCode2Icon,
-                content: (
-                  <WorkspaceTextView
-                    path={path}
-                    size={size}
-                    workspaceId={workspaceId}
-                    mediaType={detected}
-                    htmlView="source"
-                  />
-                ),
-              },
-            ]
-          : []),
-      ]}
+      tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
     />
   );
 }
@@ -264,11 +234,13 @@ export function ArtifactView({
   workspaceId,
   files,
   onOpenArtifact,
+  onOpenWorkspaceFile,
 }: {
   artifact: Artifact;
   workspaceId: string;
   files: readonly WorkspaceFileEntry[];
   onOpenArtifact?: (artifact: Artifact) => void;
+  onOpenWorkspaceFile?: (path: string) => void;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -300,9 +272,12 @@ export function ArtifactView({
               .entries,
           )?.path;
         if (!recoveredPath) throw error;
+        const bytes = await repository.readWorkspaceFileBytes(workspaceId, recoveredPath, signal);
+        await verifyArtifactRecovery(artifact, bytes, recoveredPath);
         return {
-          content: await repository.readWorkspaceFile(workspaceId, recoveredPath, signal),
+          content: new TextDecoder('utf-8', { ignoreBOM: true, fatal: true }).decode(bytes),
           recovered: true,
+          recoveredPath,
         };
       }
     },
@@ -324,14 +299,30 @@ export function ArtifactView({
               .entries,
           )?.path;
         if (!recoveredPath) throw error;
+        const bytes = await repository.readWorkspaceFileBytes(workspaceId, recoveredPath, signal);
+        await verifyArtifactRecovery(artifact, bytes, recoveredPath);
         return {
-          bytes: await repository.readWorkspaceFileBytes(workspaceId, recoveredPath, signal),
+          bytes,
           recovered: true,
+          recoveredPath,
         };
       }
     },
     enabled: canPreviewImage && canLoadInline,
   });
+  const payloadError = text.error ?? image.error;
+  const currentFile =
+    payloadError instanceof ArtifactRecoveryError ? payloadError.workspacePath : fallbackPath;
+  const currentFileAction =
+    payloadError && currentFile && onOpenWorkspaceFile ? (
+      <Button
+        className="m-4 w-fit"
+        variant="outline"
+        onClick={() => onOpenWorkspaceFile(currentFile)}
+      >
+        Open current workspace file
+      </Button>
+    ) : null;
   const preview = canPreviewText ? (
     !canLoadInline ? (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
@@ -340,27 +331,23 @@ export function ArtifactView({
       artifact.name.endsWith('.dashboard.json') ? (
         <DashboardResourceView content={text.data.content} artifactId={artifact.id} />
       ) : isHtmlFile(artifact.name, artifact.media_type) ? (
-        <HtmlFilePreview name={artifact.name} content={text.data.content} />
+        <FileReadView name={artifact.name} content={text.data.content} format="html" />
       ) : isMarkdownArtifact(artifact.media_type, artifact.name) ? (
-        <article className="min-w-0 overflow-hidden rounded-lg border bg-background px-5 py-4">
-          <ContentMarkdown className={DOCUMENT_MARKDOWN_CLASS_NAME}>
-            {normalizeConvertedMarkdown(text.data.content)}
-          </ContentMarkdown>
-        </article>
-      ) : isCsvPath(artifact.name) || artifact.media_type === 'text/csv' ? (
-        <ClioCsvView content={text.data.content} title={artifact.name} />
-      ) : isJsonPath(artifact.name) || artifact.media_type === 'application/json' ? (
-        <ClioJsonResourceView content={text.data.content} title={artifact.name} />
+        <FileReadView name={artifact.name} content={text.data.content} format="markdown" />
       ) : (
-        <CodeBlock
-          code={text.data.content}
-          language={languageForPath(artifact.name)}
-          showLineNumbers
+        <FileTextView
+          name={artifact.name}
+          content={text.data.content}
+          mediaType={artifact.media_type}
         />
       )
     ) : text.error ? (
       <ResourceUnavailable
-        detail="The service remembers this result, but its saved content is no longer available. Custody and provenance remain visible below."
+        detail={
+          text.error instanceof ArtifactRecoveryError
+            ? text.error.message
+            : 'The service remembers this result, but its saved content is no longer available. Custody and provenance remain visible below.'
+        }
         label="Saved content unavailable"
       />
     ) : (
@@ -385,7 +372,18 @@ export function ArtifactView({
   );
   return (
     <FileViewerShell
-      source={{ kind: 'artifact', artifact, workspaceId }}
+      source={{
+        kind: 'artifact',
+        artifact,
+        workspaceId,
+        verifiedWorkspacePath: text.data?.recovered
+          ? text.data.recoveredPath
+          : image.data?.recovered
+            ? image.data.recoveredPath
+            : undefined,
+        unavailable:
+          payloadError instanceof ArtifactRecoveryError || isMissingArtifactPayload(payloadError),
+      }}
       hasDocumentActions={
         !canPreviewImage && isDocumentArtifact(artifact.media_type, artifact.name)
       }
@@ -397,6 +395,7 @@ export function ArtifactView({
           icon: EyeIcon,
           content: (
             <>
+              {currentFileAction}
               {canPreviewImage ? (
                 <div className="flex h-full min-h-0 flex-col gap-2">
                   <div className="min-h-0 flex-1">{preview}</div>
@@ -410,17 +409,18 @@ export function ArtifactView({
                 <ClioDocumentWorkspace
                   artifact={artifact}
                   fallbackPreview={preview}
+                  fallbackSource={text.data?.content}
                   key={artifact.id}
                 />
               ) : (
-                <ScrollArea className="h-full min-w-0 p-3">
-                  {preview}
+                <div className="flex h-full min-h-0 min-w-0 flex-col">
+                  <div className="min-h-0 flex-1">{preview}</div>
                   {text.data?.recovered ? (
                     <p className="mt-3 text-xs text-muted-foreground">
                       Recovered from the matching workspace file.
                     </p>
                   ) : null}
-                </ScrollArea>
+                </div>
               )}
             </>
           ),
@@ -469,7 +469,6 @@ export function TextResourceView({
   mediaType?: string;
   htmlView?: 'preview' | 'source';
 }) {
-  const sharedHeader = useContext(FileViewerInformationHost) !== undefined;
   if (content === undefined && !error)
     return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
   if (error)
@@ -478,51 +477,15 @@ export function TextResourceView({
         <ResourceUnavailable detail={error} label="File preview unavailable" />
       </div>
     );
-  if (isHtmlFile(path, mediaType)) {
-    return <HtmlFilePreview name={fileName(path)} content={content ?? ''} view={htmlView} />;
-  }
-  if (isMarkdownArtifact('', path)) {
-    return <MarkdownFilePreview name={fileName(path)} content={content ?? ''} />;
-  }
-  if (isCsvPath(path) || isJsonPath(path)) {
-    return (
-      <ScrollArea className="h-full p-3">
-        {isCsvPath(path) ? (
-          <ClioCsvView content={content ?? ''} title={fileName(path)} />
-        ) : (
-          <ClioJsonResourceView content={content ?? ''} title={fileName(path)} />
-        )}
-      </ScrollArea>
-    );
-  }
   return (
-    <div className="h-full min-w-0 p-3">
-      <CodeBlock
-        className="h-full min-w-0"
-        code={content ?? ''}
-        language={languageForPath(path)}
-        showLineNumbers
-      >
-        {sharedHeader ? (
-          <ViewerToolbarContent>
-            <CodeBlockCopyButton aria-label={`Copy ${fileName(path)}`} size="icon-xs" />
-          </ViewerToolbarContent>
-        ) : (
-          <CodeBlockHeader>
-            <CodeBlockTitle>
-              <FileCode2Icon aria-hidden="true" className="size-4 shrink-0" />
-              <CodeBlockFilename>{path}</CodeBlockFilename>
-            </CodeBlockTitle>
-            <CodeBlockActions>
-              <CodeBlockCopyButton aria-label={`Copy ${fileName(path)}`} size="icon-xs" />
-            </CodeBlockActions>
-          </CodeBlockHeader>
-        )}
-      </CodeBlock>
-    </div>
+    <FileTextView
+      name={fileName(path)}
+      content={content ?? ''}
+      mediaType={mediaType}
+      view={htmlView}
+    />
   );
 }
-
 function fileName(path: string): string {
   return (
     path
@@ -576,19 +539,8 @@ function isImagePath(path: string): boolean {
   );
 }
 
-function isCsvPath(path: string): boolean {
-  return path.split('.').at(-1)?.toLowerCase() === 'csv';
-}
-
-function isJsonPath(path: string): boolean {
-  return path.toLowerCase().endsWith('.json');
-}
-
 function isMarkdownArtifact(mediaType: string, name: string): boolean {
-  return (
-    ['text/markdown', 'text/x-markdown'].includes(mediaType) ||
-    ['md', 'markdown'].includes(name.split('.').at(-1)?.toLowerCase() ?? '')
-  );
+  return textFileFormat(name, mediaType) === 'markdown';
 }
 
 function isDocumentArtifact(mediaType: string, name: string): boolean {

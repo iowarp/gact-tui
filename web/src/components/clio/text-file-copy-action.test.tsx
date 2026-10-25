@@ -38,3 +38,31 @@ it('never copies an unavailable representation or enables loading source', async
   expect(copyText).not.toHaveBeenCalled();
   expect(toast.error).toHaveBeenCalledWith('The file text is not available yet.');
 });
+
+it('awaits an asynchronous rendered-text reader before copying', async () => {
+  const user = userEvent.setup();
+  render(<TextFileCopyAction name="rendered.html" readText={async () => 'Visible page text'} />);
+
+  await user.click(screen.getByRole('button', { name: 'Copy rendered.html' }));
+
+  await waitFor(() => expect(copyText).toHaveBeenCalledWith('Visible page text'));
+});
+
+it('reports an asynchronous text-reader failure without copying', async () => {
+  const user = userEvent.setup();
+  render(
+    <TextFileCopyAction
+      name="rendered.html"
+      readText={async () => {
+        throw new Error('Rendered preview text is too large to copy.');
+      }}
+    />,
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Copy rendered.html' }));
+
+  await waitFor(() =>
+    expect(toast.error).toHaveBeenCalledWith('Rendered preview text is too large to copy.'),
+  );
+  expect(copyText).not.toHaveBeenCalled();
+});

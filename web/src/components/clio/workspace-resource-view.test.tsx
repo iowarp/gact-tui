@@ -112,7 +112,7 @@ describe('WorkspaceResourceView', () => {
     expect(screen.queryByText(/Static preview ·/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
     expect(container.querySelector('[data-language="html"]')).toHaveTextContent('originalSource()');
-    await userEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'HTML preview' }));
     expect(screen.getByTitle('HTML preview of report.txt')).toBeVisible();
     expect(repository.resourcePreview).toHaveBeenCalledTimes(1);
   });

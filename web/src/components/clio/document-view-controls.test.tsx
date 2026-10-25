@@ -23,12 +23,12 @@ function DocumentViews({ markdown }: { markdown: boolean }) {
 it('keeps the selected view and every document detail available through the compact menu', async () => {
   const user = userEvent.setup();
   render(<DocumentViews markdown />);
-  await user.click(screen.getByRole('button', { name: 'Document views' }));
+  await user.click(screen.getByRole('button', { name: 'File representations' }));
   expect(screen.getByRole('menuitemradio', { name: 'Read document' })).toBeChecked();
-  await user.click(screen.getByRole('menuitemradio', { name: 'Read raw' }));
+  await user.click(screen.getByRole('menuitemradio', { name: 'Source' }));
   expect(screen.getByText('Original Markdown')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Document views' }));
-  expect(screen.getByRole('menuitemradio', { name: 'Read raw' })).toBeChecked();
+  await user.click(screen.getByRole('button', { name: 'File representations' }));
+  expect(screen.getByRole('menuitemradio', { name: 'Source' })).toBeChecked();
   expect(screen.queryByRole('menuitemradio', { name: 'Reviews, 2' })).toBeNull();
   await user.keyboard('{Escape}');
   await user.click(screen.getByRole('button', { name: 'Document actions' }));
@@ -40,8 +40,8 @@ it('keeps the selected view and every document detail available through the comp
 it('offers only applicable views for an Office document', async () => {
   const user = userEvent.setup();
   render(<DocumentViews markdown={false} />);
-  expect(screen.queryByRole('button', { name: 'Document views' })).toBeNull();
-  expect(screen.queryByRole('menuitemradio', { name: 'Read raw' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'File representations' })).toBeNull();
+  expect(screen.queryByRole('menuitemradio', { name: 'Source' })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Document actions' }));
   await user.click(screen.getByRole('menuitemcheckbox', { name: 'Reviews, 2' }));
   expect(screen.getByText('Document reviews')).toBeVisible();

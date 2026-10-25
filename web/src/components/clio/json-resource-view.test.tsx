@@ -10,7 +10,6 @@ afterEach(cleanup);
 describe('JSON resource view', () => {
   it('discovers a homogeneous record collection without dropping its source', async () => {
     const content = JSON.stringify({
-      campaign: 'phenotype-2026',
       runs: [
         { mean_biomass: 113.82832450388318, run_id: 'run-021' },
         { mean_biomass: 113.01571430822567, run_id: 'run-022' },
@@ -27,16 +26,15 @@ describe('JSON resource view', () => {
     render(<ClioJsonResourceView content={content} title="batch-005.json" />);
 
     expect(screen.getByRole('tab', { name: 'Data' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('heading', { name: 'runs' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'More' }));
-    expect(screen.getByRole('menuitem', { name: '2 rows' })).toBeVisible();
-    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('heading', { name: 'runs' })).not.toBeInTheDocument();
     expect(screen.getByText('run-021')).toBeVisible();
     expect(screen.getByText('113.828325')).toHaveAttribute('title', '113.82832450388318');
 
     await user.click(screen.getByRole('tab', { name: 'Source' }));
     expect(screen.getByRole('button', { name: 'Copy batch-005.json' })).toBeVisible();
-    expect(screen.getByText(/phenotype-2026/u)).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Source of batch-005.json' })).toHaveTextContent(
+      'mean_biomass',
+    );
   });
 
   it('falls back to source when JSON has no tabular record collection', async () => {
@@ -50,6 +48,21 @@ describe('JSON resource view', () => {
 
   it('does not discard mixed array entries to fabricate a table', () => {
     expect(tabularJsonDataset('[{"run_id":"run-021"},"unavailable"]', 'runs.json')).toBeUndefined();
+  });
+
+  it('keeps configuration and metadata in source rather than hiding them behind a table', () => {
+    expect(
+      tabularJsonDataset(
+        JSON.stringify({ campaign: 'important', runs: [{ id: 1 }] }),
+        'config.json',
+      ),
+    ).toBeUndefined();
+    expect(
+      tabularJsonDataset(
+        JSON.stringify([{ id: 'root', children: ['title'], properties: { title: 'Agenda' } }]),
+        'components.json',
+      ),
+    ).toBeUndefined();
   });
 });
 

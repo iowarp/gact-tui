@@ -80,7 +80,7 @@ it('keeps one place for secondary actions while retaining primary read/source co
     expect(screen.queryByRole('button', { name })).toBeNull();
   for (const name of ['Versions', 'Lineage', 'Reviews, 2', 'Document safety'])
     expect(screen.queryByRole('tab', { name })).toBeNull();
-  expect(screen.getByRole('tab', { name: 'Read raw' })).toBeVisible();
+  expect(screen.getByRole('tab', { name: 'Source' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'File actions' }));
   for (const name of ['Versions', 'Lineage', 'Reviews, 2', 'Document safety'])
     expect(screen.getAllByRole('menuitemcheckbox', { name })).toHaveLength(1);

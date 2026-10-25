@@ -1,8 +1,15 @@
 import type { Artifact, ClioRepository, WorkspaceResource } from '@clio/core/v3';
+import { verifyArtifactRecovery } from './artifact-custody';
 
 /** File custody determines reads and copy behavior; the format only determines rendering. */
 export type FileViewerSource =
-  | { kind: 'artifact'; artifact: Artifact; workspaceId: string }
+  | {
+      kind: 'artifact';
+      artifact: Artifact;
+      workspaceId: string;
+      verifiedWorkspacePath?: string;
+      unavailable?: boolean;
+    }
   | { kind: 'resource'; resource: WorkspaceResource; workspaceId: string }
   | { kind: 'workspace'; path: string; mediaType: string; size?: number; workspaceId: string };
 
@@ -13,7 +20,7 @@ export function fileViewerIdentity(source: FileViewerSource) {
       mediaType: source.artifact.media_type,
       size: source.artifact.size,
       origin: 'Generated output',
-      available: true,
+      available: !source.unavailable,
     };
   }
   if (source.kind === 'resource') {
@@ -35,8 +42,16 @@ export function fileViewerIdentity(source: FileViewerSource) {
 }
 
 /** Reads original bytes through the connected agent's transport, never a derivative URL. */
-export function readFileViewerBytes(repository: ClioRepository, source: FileViewerSource) {
-  if (source.kind === 'artifact') return repository.readArtifactBytesFor(source.artifact);
+export async function readFileViewerBytes(repository: ClioRepository, source: FileViewerSource) {
+  if (source.kind === 'artifact') {
+    if (!source.verifiedWorkspacePath) return repository.readArtifactBytesFor(source.artifact);
+    const bytes = await repository.readWorkspaceFileBytes(
+      source.workspaceId,
+      source.verifiedWorkspacePath,
+    );
+    await verifyArtifactRecovery(source.artifact, bytes, source.verifiedWorkspacePath);
+    return bytes;
+  }
   if (source.kind === 'resource')
     return repository.resourceContent(source.workspaceId, source.resource.id);
   return repository.readWorkspaceFileBytes(source.workspaceId, source.path);

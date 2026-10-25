@@ -119,7 +119,7 @@ describe('ClioDocumentWorkspace', () => {
     await user.click(copy);
     await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.'));
     vi.mocked(copyText).mockClear();
-    await user.click(screen.getByRole('tab', { name: 'Read raw' }));
+    await user.click(screen.getByRole('tab', { name: 'Source' }));
     const raw = screen.getByRole('region', { name: 'Raw Markdown for evidence.md' });
     expect(raw.querySelector('button')).toBeNull();
     expect(raw).not.toHaveTextContent('evidence.md');
@@ -386,8 +386,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
   it.each([
-    ['notes.md', 'markdown', 'Read raw', 'Raw Markdown for notes.md'],
-    ['article.tex', 'latex', 'LaTeX source', 'LaTeX source for article.tex'],
+    ['notes.md', 'markdown', 'Source', 'Raw Markdown for notes.md'],
+    ['article.tex', 'latex', 'Source', 'LaTeX source for article.tex'],
   ] as const)(
     'opens the original source from the %s menu',
     async (name, profile, action, region) => {
@@ -420,7 +420,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
     expect(frame).toHaveAttribute('src', 'http://127.0.0.1:8790/v1/html-renderer');
     const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: 'HTML source' }));
+    await user.click(screen.getByRole('tab', { name: 'Source' }));
     expect(container.querySelector('[data-language="html"]')).toHaveTextContent(
       'window.original = true;',
     );
@@ -491,7 +491,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     await user.click(screen.getByRole('button', { name: 'Document information' }));
     expect(screen.getByText(`Version 3, ${manifest.sha256}`)).toBeVisible();
     await user.keyboard('{Escape}');
-    expect(screen.getByRole('tablist', { name: 'Document details' })).toBeVisible();
+    expect(screen.getByRole('tablist', { name: 'File representations' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Preview' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Document actions' }));
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Document safety' }));
@@ -539,7 +539,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(await screen.findByText('Groups')).toBeVisible();
     expect(screen.queryByText(/\uF0B7 Groups/u)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'Read raw' }));
+    await user.click(screen.getByRole('tab', { name: 'Source' }));
     expect(screen.getByRole('region', { name: 'Raw Markdown for evidence.md' })).toHaveTextContent(
       '\uF0B7 Groups',
     );

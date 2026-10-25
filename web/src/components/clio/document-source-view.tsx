@@ -1,4 +1,4 @@
-import { CodeBlock } from '@/components/ai-elements/code-block';
+import { FileSourceView } from './file-source-view';
 
 import type { DocumentSourceProfile } from './document-open-policy';
 const formats = {
@@ -21,13 +21,11 @@ export function DocumentSourceView({
     return <p className="p-4 text-sm text-muted-foreground">Loading source…</p>;
   const format = formats[profile];
   return (
-    <CodeBlock
-      aria-label={`${format.label} for ${name}`}
-      className="h-full min-h-0"
-      code={content}
+    <FileSourceView
+      name={name}
+      label={`${format.label} for ${name}`}
+      content={content}
       language={format.language}
-      role="region"
-      showLineNumbers
     />
   );
 }

@@ -21,7 +21,7 @@ export function tabularJsonDataset(content: string, title: string): TabularJsonD
   let records: ClioDataRow[] | undefined;
   if (isTabularRecordArray(value)) {
     records = value;
-  } else if (isRecord(value)) {
+  } else if (isRecord(value) && Object.keys(value).length === 1) {
     const entry = Object.entries(value).find(([, candidate]) => isTabularRecordArray(candidate));
     if (entry && isTabularRecordArray(entry[1])) {
       label = entry[0];
@@ -59,5 +59,15 @@ function isRecord(value: unknown): value is ClioDataRow {
 }
 
 function isTabularRecordArray(value: unknown): value is ClioDataRow[] {
-  return Array.isArray(value) && value.length > 0 && value.every(isRecord);
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (row) =>
+        isRecord(row) &&
+        Object.values(row).every(
+          (cell) => cell === null || ['string', 'number', 'boolean'].includes(typeof cell),
+        ),
+    )
+  );
 }

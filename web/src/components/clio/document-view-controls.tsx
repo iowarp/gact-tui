@@ -2,19 +2,16 @@ import { BookOpenIcon, FileCode2Icon, MessageSquareTextIcon, ShieldCheckIcon } f
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useContext, useMemo } from 'react';
 import { FileViewerActionRegistry, useFileViewerActions } from './file-viewer-action-context';
-import { TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FileModeControls } from './file-mode-controls';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ToolbarAction } from './viewer-toolbar';
 
-/** The same document views as direct tabs or a menu, selected by the actual pane width. */
+/** Documents contribute their capabilities to the same representation control as other files. */
 export function DocumentViewControls({
   markdown,
   html = false,
@@ -31,16 +28,10 @@ export function DocumentViewControls({
   onChange: (view: string) => void;
 }) {
   const views = [
-    { value: 'preview', label: html ? 'HTML preview' : 'Read document', icon: BookOpenIcon },
-    ...(markdown || html || latex
-      ? [
-          {
-            value: 'raw',
-            label: html ? 'HTML source' : latex ? 'LaTeX source' : 'Read raw',
-            icon: FileCode2Icon,
-          },
-        ]
+    ...(!latex
+      ? [{ value: 'preview', label: html ? 'HTML preview' : 'Read document', icon: BookOpenIcon }]
       : []),
+    ...(markdown || html || latex ? [{ value: 'raw', label: 'Source', icon: FileCode2Icon }] : []),
   ];
   const registry = useContext(FileViewerActionRegistry);
   const secondary = useMemo(
@@ -63,53 +54,20 @@ export function DocumentViewControls({
     [reviewCount, value, onChange],
   );
   useFileViewerActions(secondary);
-  const ActiveIcon = views.find((view) => view.value === value)?.icon ?? BookOpenIcon;
+  const OnlyIcon = views[0].icon;
   return (
     <>
-      {views.length === 1 ? (
-        value !== 'preview' ? (
-          <ToolbarAction label={views[0].label} onClick={() => onChange('preview')}>
-            <BookOpenIcon aria-hidden="true" />
-          </ToolbarAction>
-        ) : null
+      {views.length === 1 && value !== views[0].value ? (
+        <ToolbarAction label={views[0].label} onClick={() => onChange(views[0].value)}>
+          <OnlyIcon aria-hidden="true" />
+        </ToolbarAction>
       ) : (
-        <>
-          <TooltipProvider delayDuration={200}>
-            <TabsList
-              aria-label="Document details"
-              className="h-7 shrink-0 gap-0.5 bg-transparent p-0 @max-[480px]/viewer:hidden"
-            >
-              {views.map(({ value, label, icon: Icon }) => (
-                <Tooltip key={value}>
-                  <TooltipTrigger asChild>
-                    <TabsTrigger aria-label={label} className="size-7 flex-none p-0" value={value}>
-                      <Icon aria-hidden="true" />
-                      <span className="sr-only">{label}</span>
-                    </TabsTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">{label}</TooltipContent>
-                </Tooltip>
-              ))}
-            </TabsList>
-          </TooltipProvider>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <ToolbarAction label="Document views" className="@min-[480px]/viewer:hidden">
-                <ActiveIcon aria-hidden="true" />
-              </ToolbarAction>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48">
-              <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-                {views.map(({ value: view, label, icon: Icon }) => (
-                  <DropdownMenuRadioItem key={view} value={view}>
-                    <Icon aria-hidden="true" />
-                    {label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
+        <FileModeControls
+          modes={views}
+          value={value}
+          onChange={onChange}
+          label="File representations"
+        />
       )}
       {!registry ? (
         <DropdownMenu>
