@@ -42,7 +42,17 @@ function toolInput(tool: ToolInvocation): Record<string, unknown> | undefined {
 export function getToolActionLabel(tool: ToolInvocation): string {
   if (tool.name === 'ask_user') return 'Ask you';
   if (isA2uiCatalogLookup(tool)) return 'Inspect widget catalog';
-  const action = tool.presentation?.action || tool.title || tool.name;
+  let action = tool.presentation?.action || tool.title || tool.name;
+  const title = tool.title?.trim();
+  // A family presenter must not replace a named operation (Restart agent,
+  // Observe tasks, Run flow...) with an unrelated bare verb. For matching
+  // verbs, a declared subject can supply the object without repeating it.
+  if (title && /^\S+$/u.test(action.trim()) && /\s/u.test(title)) {
+    const titleVerb = title.split(/\s/u, 1)[0].toLocaleLowerCase();
+    const subject = getToolSubject(tool);
+    if (action.toLocaleLowerCase() !== titleVerb || !(subject?.label || subject?.text))
+      action = title;
+  }
   if (tool.name === 'prepare_execution_runtime' && action === 'Prepare execution runtime')
     return 'Get execution environment';
   if (
@@ -68,10 +78,18 @@ export function getToolActionLabel(tool: ToolInvocation): string {
 /** Name the requested catalog section while preserving exact arguments in details. */
 export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | undefined {
   if (tool.name === 'ask_user') return undefined;
-  const subject = tool.presentation?.blocks.find(
+  const declared = tool.presentation?.blocks.find(
     (block) =>
       block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
   );
+  // Legacy task receipts omitted subject while returning one conversation.
+  // Attachment links, such as saved terminal output, remain result content
+  // unless the producer explicitly declares them as the operation's subject.
+  const identities =
+    tool.presentation?.blocks.filter(
+      (block) => block.type === 'link' && block.target === 'session',
+    ) ?? [];
+  const subject = declared ?? (identities.length === 1 ? identities[0] : undefined);
   if (!isA2uiCatalogLookup(tool)) return subject;
   const input = toolInput(tool);
   const paths = [input?.file, ...(Array.isArray(input?.files) ? input.files : [])].filter(
@@ -87,14 +105,59 @@ export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | un
 
 export function getToolSummary(tool: ToolInvocation): string | undefined {
   if (tool.name === 'ask_user') return questionToolSummary(tool);
-  return tool.presentation?.summary || undefined;
+  const summary = tool.presentation?.summary?.trim();
+  if (!summary) return undefined;
+  const normalize = (value: string) =>
+    value
+      .trim()
+      .replace(/[.:]+$/u, '')
+      .toLocaleLowerCase();
+  const label = normalize(summary);
+  // Retained task-family receipts used their category as the outcome. A
+  // structured task identity/result supplies the useful facts instead.
+  if (
+    label === 'tasks' &&
+    (tool.presentation?.action === 'Inspect' ||
+      tool.presentation?.blocks.some((block) => block.id.startsWith('task-')))
+  )
+    return undefined;
+  const action = normalize(getToolActionLabel(tool));
+  const subject = getToolSubject(tool);
+  if (
+    label === action ||
+    label === normalize(subject?.label || subject?.text || '') ||
+    action.endsWith(` ${label}`)
+  )
+    return undefined;
+  return summary;
+}
+
+/** A result entity owns its name once; field headings and recorded bodies stay distinct. */
+export function getToolResultBlocks(
+  tool: ToolInvocation,
+  subjectId?: string,
+): ToolPresentationBlock[] {
+  const subject = getToolSubject(tool);
+  let entityLabel = subjectId === subject?.id ? subject?.label || subject?.text : undefined;
+  return (tool.presentation?.blocks ?? [])
+    .filter((block) => block.id !== subjectId)
+    .map((block) => {
+      if (
+        block.type === 'link' &&
+        ['session', 'file', 'artifact', 'resource', 'work', 'surface'].includes(block.target ?? '')
+      ) {
+        entityLabel = block.label || block.text;
+        return block;
+      }
+      return block.label && entityLabel && block.label.trim() === entityLabel.trim()
+        ? { ...block, label: undefined }
+        : block;
+    });
 }
 
 /** Move compact file facts into the shared trailing header cluster. */
 export function getToolHeaderMetadata(tool: ToolInvocation): string | undefined {
-  const subject = tool.presentation?.blocks.find(
-    (block) => block.id === tool.presentation?.subject,
-  );
+  const subject = getToolSubject(tool);
   const summary = tool.presentation?.summary?.trim() ?? '';
   if (tool.name === 'workspace_resource_search') {
     const input =

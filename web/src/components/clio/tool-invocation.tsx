@@ -183,6 +183,7 @@ export function ClioToolInvocation({
                 }
               />
               {surface !== 'evidence' &&
+              !resultOpen &&
               subject?.type === 'link' &&
               ['file', 'resource', 'artifact', 'session', 'url'].includes(subject.target ?? '') ? (
                 <PresentationLink block={subject} compact iconOnly />

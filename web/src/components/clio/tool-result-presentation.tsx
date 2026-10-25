@@ -28,7 +28,12 @@ import { ToolTerminalResult } from './tool-terminal-result';
 import { TodoList } from './todo-list';
 import { SkillToolResult } from './skill-tool-result';
 import { belongsToTerminal, savedOutputsAfter } from './tool-result-saved-output-blocks';
-import { getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
+import {
+  getToolStatus,
+  getToolSummary,
+  getToolResultBlocks,
+  isA2uiCatalogLookup,
+} from './tool-presentation';
 import { withQuestionPresentation } from './question-tool-presentation';
 import { useQuestionAnswer } from './question-answer-context';
 
@@ -54,11 +59,10 @@ export function ToolResultPresentation({
       : subject?.target === 'resource'
         ? subject.label || subject.uri || ''
         : '';
-  const blocks = (tool.presentation?.blocks ?? [])
+  const blocks = getToolResultBlocks(tool, subjectId)
     .filter(
       (block) =>
-        block.id !== subjectId &&
-        (!['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref),
+        !['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref,
     )
     .map((block) => {
       if (resourceDocument && block.type === 'text')
@@ -67,7 +71,7 @@ export function ToolResultPresentation({
         ? { ...block, language: languageForPath(subjectPath) }
         : block;
     });
-  const summary = summaryInHeader ? '' : (tool.presentation?.summary?.trim() ?? '');
+  const summary = summaryInHeader ? '' : (getToolSummary(tool) ?? '');
   // The schema itself is useful to the agent, but it overwhelms the human
   // activity lane. The info button on the tool row retains the exact result.
   if (isA2uiCatalogLookup(tool) && getToolStatus(tool) === 'succeeded') return null;

@@ -51,6 +51,7 @@ export function ToolCompactRow({
   const subject = getToolSubject(tool);
   const terminal = tool.presentation?.blocks.find((block) => block.type === 'terminal');
   const detail = subject?.label || subject?.text || terminal?.command;
+  const showDetail = !(expanded && subject?.type === 'link');
   const metadata = getToolCompactMetadata(tool);
   const failure = getToolFailureDetail(tool);
   const [tooltip, setTooltip] = useState({ failure, open: false });
@@ -86,11 +87,13 @@ export function ToolCompactRow({
             <span className="truncate text-sm font-medium @min-[640px]/evidence-tools:max-w-[45%] @min-[640px]/evidence-tools:shrink-0">
               {action}
             </span>
-            {detail || metadata ? (
+            {(detail && showDetail) || metadata ? (
               <span className="flex min-w-0 gap-2 text-xs text-muted-foreground @min-[640px]/evidence-tools:flex-1">
-                {detail ? <span className="min-w-0 flex-1 truncate">{detail}</span> : null}
+                {detail && showDetail ? (
+                  <span className="min-w-0 flex-1 truncate">{detail}</span>
+                ) : null}
                 {metadata ? (
-                  <span className={cn('truncate', detail && 'max-w-[45%] shrink-0')}>
+                  <span className={cn('truncate', detail && showDetail && 'max-w-[45%] shrink-0')}>
                     {metadata}
                   </span>
                 ) : null}
@@ -102,7 +105,7 @@ export function ToolCompactRow({
             <span className="min-w-0 max-w-[48%] shrink truncate font-medium max-sm:max-w-[40%]">
               {action}
             </span>
-            {detail ? (
+            {detail && showDetail ? (
               <span
                 className={cn(
                   'min-w-0 flex-1 truncate text-left',

@@ -16,6 +16,72 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation content and subject rendering', () => {
+  it('names an inspected task once across the row and expanded result, with one working opener', async () => {
+    const open = vi.fn();
+    render(
+      <PresentationNavigation.Provider
+        value={{
+          workspaceId: 'w',
+          sessionId: 's',
+          artifacts: {},
+          subagents: {
+            child: {
+              id: 'child',
+              session_id: 's',
+              child_session_id: 'child_session',
+              title: 'Deep Researcher',
+              state: 'failed',
+            },
+          },
+          onOpenSubagent: open,
+        }}
+      >
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'observe',
+            session_id: 's',
+            name: 'observe_tasks',
+            title: 'Observe tasks',
+            state: 'succeeded',
+            presentation: {
+              action: 'Inspect',
+              summary: 'Tasks',
+              blocks: [
+                {
+                  id: 'owner',
+                  type: 'link',
+                  target: 'session',
+                  uri: 'child_session',
+                  label: 'Deep Researcher',
+                },
+                {
+                  id: 'assignment',
+                  type: 'text',
+                  label: 'Deep Researcher',
+                  text: 'Investigate the storage decision.',
+                },
+                {
+                  id: 'state',
+                  type: 'text',
+                  label: 'Deep Researcher',
+                  text: 'failed',
+                  severity: 'error',
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    expect(screen.getAllByText('Deep Researcher', { exact: true })).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Show result for Observe tasks' }));
+    expect(screen.getAllByText('Deep Researcher', { exact: true })).toHaveLength(1);
+    expect(screen.queryByText('Tasks', { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByText('Investigate the storage decision.')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Deep Researcher' }));
+    expect(open).toHaveBeenCalledOnce();
+  });
   it('keeps Evidence kind/status glyphs scoped and gives its copied invocation a distinct DOM identity', () => {
     const tool = {
       id: 'scoped-read',
