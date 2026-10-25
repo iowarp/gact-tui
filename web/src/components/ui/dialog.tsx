@@ -3,6 +3,7 @@ import { OverlayContainer } from './overlay-container';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
+import { DismissToastsOnOpen } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { XIcon } from 'lucide-react';
 
@@ -59,6 +60,7 @@ function DialogContent({
         )}
         {...props}
       >
+        <DismissToastsOnOpen />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>

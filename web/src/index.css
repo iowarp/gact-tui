@@ -59,8 +59,9 @@
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: color-mix(in oklab, var(--background) 88%, transparent);
-    backdrop-filter: blur(4px);
+    /* Opaque below the fade: at 88% the transcript showed through the strip
+       between the composer and the status bar. */
+    background: var(--background);
     mask-image: linear-gradient(to bottom, transparent, black 24px);
   }
   /* The maximized canvas is at 80. Portalled controls and dialogs must remain

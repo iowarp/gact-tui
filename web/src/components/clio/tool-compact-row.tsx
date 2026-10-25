@@ -69,7 +69,9 @@ export function ToolCompactRow({
         ) : (
           <CircleAlertIcon aria-hidden="true" className={cn('size-3.5 shrink-0', outcomeColor)} />
         )}
-        <span className="min-w-0 max-w-[48%] shrink truncate font-medium">{action}</span>
+        <span className="min-w-0 max-w-[48%] shrink truncate font-medium max-sm:max-w-[40%]">
+          {action}
+        </span>
         {detail ? (
           <span
             className={cn(
@@ -86,7 +88,8 @@ export function ToolCompactRow({
           <span
             className={cn(
               'min-w-0 text-muted-foreground',
-              pendingSnapshot ? 'whitespace-normal text-right' : 'max-w-[35%] truncate',
+              // A phone keeps the call's subject readable; the outcome is in the result below.
+              pendingSnapshot ? 'whitespace-normal text-right' : 'max-w-[35%] truncate max-sm:hidden',
             )}
           >
             {metadata}

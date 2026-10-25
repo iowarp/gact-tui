@@ -375,3 +375,15 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
     ? (value as Record<string, unknown>)
     : undefined;
 }
+
+/** The person's answers to approval questions: which proposed steps they approved or declined. */
+export function approvalDecisions(run: FlowRun): { step: string; approved: boolean }[] {
+  return run.events.flatMap((event): { step: string; approved: boolean }[] => {
+    const step = event.step;
+    if (!step) return [];
+    if (event.event === 'step_added' && event.approved === true) return [{ step, approved: true }];
+    if (event.event === 'step_rejected' && event.reason === 'not_approved')
+      return [{ step, approved: false }];
+    return [];
+  });
+}

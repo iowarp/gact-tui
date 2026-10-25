@@ -38,10 +38,14 @@ export function SessionAgentControl({
         title={`Open agent ${label}`}
         variant="ghost"
       >
-        <span className="truncate">{label}</span>
+        <span className="min-w-[4ch] truncate">{label}</span>
         {changes ? (
-          <span className="shrink-0 text-[0.625rem] text-muted-foreground">
-            ({changes === 1 ? '1 change' : `${changes} changes`})
+          <span aria-hidden="true" className="shrink-0 text-[0.625rem] text-muted-foreground">
+            {/* A phone keeps the agent's name legible: the count alone, the words above. */}
+            <span className="sm:hidden">({changes})</span>
+            <span className="max-sm:hidden">
+              ({changes === 1 ? '1 change' : `${changes} changes`})
+            </span>
           </span>
         ) : null}
       </Button>
@@ -64,6 +68,7 @@ export function SessionAgentControl({
         >
           <Button
             aria-label="Add a plugin to this conversation"
+            className="max-sm:size-8"
             size="icon-xs"
             title="Add a plugin"
             variant="ghost"

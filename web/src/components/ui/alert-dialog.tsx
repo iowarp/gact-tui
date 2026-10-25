@@ -3,6 +3,7 @@ import { OverlayContainer } from './overlay-container';
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
+import { DismissToastsOnOpen } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 
 function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
@@ -41,6 +42,7 @@ function AlertDialogContent({
   layer,
   onBackdropClick,
   size = 'default',
+  children,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: 'default' | 'sm';
@@ -64,7 +66,10 @@ function AlertDialogContent({
           className,
         )}
         {...props}
-      />
+      >
+        <DismissToastsOnOpen />
+        {children}
+      </AlertDialogPrimitive.Content>
     </AlertDialogPortal>
   );
 }

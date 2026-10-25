@@ -25,9 +25,12 @@ const toggleClassName =
 export function AnswerHookNotice({
   block,
   original,
+  checkedOriginal = false,
 }: {
   block: NoticeBlock;
   original?: TextBlock;
+  /** The check ran before a later revision, so it judged the original answer. */
+  checkedOriginal?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const kind = KINDS[block.code as keyof typeof KINDS] ?? KINDS.note;
@@ -44,6 +47,7 @@ export function AnswerHookNotice({
         <Icon aria-hidden="true" className={cn('size-4 shrink-0 self-center', kind.tone)} />
         <span className={cn('font-medium', kind.tone)}>
           {kind.label} <code className="break-all font-mono text-xs">{hook || 'a hook'}</code>
+          {checkedOriginal ? ' on the original answer' : null}
           {block.text ? ': ' : null}
         </span>
         {block.text ? (

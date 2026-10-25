@@ -152,7 +152,7 @@ export function AsyncTaskList({
   return (
     <div className="min-w-0 space-y-0.5" aria-label="Background work">
       {history ? (
-        <Button variant="ghost" size="sm" aria-expanded={history.visible} onClick={history.toggle}>
+        <Button variant="outline" size="sm" aria-expanded={history.visible} onClick={history.toggle}>
           {history.visible ? 'Hide completed work' : 'Show completed work'}
         </Button>
       ) : null}

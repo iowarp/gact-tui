@@ -105,6 +105,7 @@ export function ClioSessionActions({
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Actions for ${title}`}
+            className="max-sm:size-8"
             disabled={disabled || pending}
             size="icon-xs"
             variant="ghost"

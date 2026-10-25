@@ -1,7 +1,8 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
+import { getToolStatus } from './tool-presentation';
 
-/** Keep entry disclosures about actions; numeric outcomes belong in the message footer. */
+/** Name a group's actions; outcomes belong in the footer, except that a failure is named here. */
 export function transcriptActivitySummary(iterations: readonly ConversationIteration[]): {
   label: string;
   running: boolean;
@@ -57,7 +58,14 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
     ),
   ];
   const description = actions.join(', ') || 'activity';
-  const label = description[0].toUpperCase() + description.slice(1);
+  // A collapsed group must say it holds a failure, in words, not only in the footer's count.
+  const failed = iterations
+    .flatMap((item) => item.tools)
+    .filter((tool) => getToolStatus(tool) === 'failed').length;
+  const label =
+    description[0].toUpperCase() +
+    description.slice(1) +
+    (failed ? ` (${failed} failed)` : '');
   return {
     label: iterations.some((item) => item.interrupted) ? `${label} (Interrupted)` : label,
     running,

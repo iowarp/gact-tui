@@ -62,7 +62,8 @@ export function ClioSessionContextBar({
           they still render regardless of host. */}
       {inTauri() ? null : (
         <div className="flex min-w-0 items-center gap-1.5">
-          <h1 className="truncate text-sm font-medium">
+          {/* The title gives way first, so the agent's name stays readable on a phone. */}
+          <h1 className="min-w-[4ch] shrink-[3] truncate text-sm font-medium">
             {session?.title ?? 'Session unavailable'}
           </h1>
           {session ? (
@@ -79,6 +80,8 @@ export function ClioSessionContextBar({
           ) : null}
         </div>
       )}
+      {/* A rule keeps the conversation's actions apart from the agent's + control. */}
+      <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
       <ClioSessionActions
         disabled={!session || actionsPending}
         management={management}

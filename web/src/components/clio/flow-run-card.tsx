@@ -15,7 +15,7 @@ import {
   useFlowPresentation,
   useSessionAgentRef,
 } from '@/hooks/use-flow-presentation';
-import { FlowScript, FlowStall, FlowVerdictView } from './flow-run-parts';
+import { FlowApprovalDecisions, FlowScript, FlowStall, FlowVerdictView } from './flow-run-parts';
 import { flowRunStatus, stepTally } from './flow-run-presentation';
 import { FlowUsageSummary } from './flow-run-usage';
 import { FlowRunDetails, FlowRunFullScreen } from './flow-run-view';
@@ -139,6 +139,7 @@ export function FlowRunCard({
                 : `${data.view.awaiting_approval.length} proposed steps are waiting for your approval.`}
             </p>
           ) : null}
+          <FlowApprovalDecisions run={data} />
           {closing && data.status === 'completed' ? (
             <FlowVerdictView clamp flow={data.flow} verdict={verdict} />
           ) : null}

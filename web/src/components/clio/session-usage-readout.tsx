@@ -16,7 +16,9 @@ function Readout({ tokens, cost, marker }: { tokens?: number; cost?: number; mar
           {marker.name} {Math.round(marker.used_percent)}%
         </span>
       ) : null}
-      <span>Tokens: {tokens ?? 0}</span>
+      <span title="This conversation's own input and output tokens, without cache reads">
+        Tokens: {tokens ?? 0}
+      </span>
       <span>
         Cost:{' '}
         {cost === undefined ? (
@@ -82,6 +84,11 @@ function SessionUsageHover({
         </button>
       </HoverCardTrigger>
       <HoverCardContent align="end" className="w-80 font-sans" side="top">
+        {/* Each figure names its scope, so the two token counts do not read as a contradiction. */}
+        <p className="mb-3 text-xs text-muted-foreground">
+          Under the chat box: this conversation's own input and output tokens, without cache
+          reads.
+        </p>
         {account ? (
           <div className="grid gap-3">
             <div>
@@ -103,7 +110,9 @@ function SessionUsageHover({
         )}
         {spend.length ? (
           <div className="mt-3 grid gap-1 border-t pt-3">
-            <p className="text-xs font-medium">This conversation and the work it started</p>
+            <p className="text-xs font-medium">
+              This conversation and the work it started, with cache reads
+            </p>
             {spend.map(([ref, row]) => (
               <p className="flex justify-between gap-2 text-xs" key={ref}>
                 <span className="truncate">{ref.split('/').slice(1).join('/')}</span>

@@ -48,14 +48,14 @@ it('shows the active question wait above prior operations until it settles', () 
   });
 });
 
-it('labels recorded actions without repeating counts or outcomes above the answer', () => {
+it('labels recorded actions and says when a collapsed group holds a failure', () => {
   const tools = [
     { id: 'read', session_id: 's', name: 'fs_read_file', state: 'succeeded' as const },
     { id: 'run', session_id: 's', name: 'shell_bash', state: 'failed' as const },
   ];
   const iterations = [iteration(tools), iteration([tools[0]])];
   expect(transcriptActivitySummary(iterations)).toEqual({
-    label: 'Read files, ran commands',
+    label: 'Read files, ran commands (1 failed)',
     running: false,
   });
   expect(
@@ -189,6 +189,6 @@ it('names memory work so a folded turn shows that memory changed', () => {
 it('does not say files were edited when the write was refused', () => {
   const refused = { id: 'w', session_id: 's', name: 'fs_write_file', state: 'failed' as const };
   const written = { ...refused, id: 'w2', state: 'succeeded' as const };
-  expect(transcriptActivitySummary([iteration([refused])]).label).toBe('Tried to edit files');
+  expect(transcriptActivitySummary([iteration([refused])]).label).toBe('Tried to edit files (1 failed)');
   expect(transcriptActivitySummary([iteration([written])]).label).toBe('Edited files');
 });

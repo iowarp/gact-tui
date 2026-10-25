@@ -462,8 +462,22 @@ export function MessageBlockSequence({
 
     if (block.type === 'notice' && block.source === ANSWER_HOOK_SOURCE) {
       const original = block.metadata?.revises ? revisions.get(block.metadata.revises) : undefined;
+      // A check recorded before a later revision judged the original answer, not the one shown.
+      const revisedLater = orderedBlocks
+        .slice(index + 1)
+        .some(
+          (later) =>
+            later.type === 'notice' &&
+            later.source === ANSWER_HOOK_SOURCE &&
+            later.code === 'revised',
+        );
       rendered.push(
-        <AnswerHookNotice block={block} key={`${block.id}-${keyIndex}`} original={original} />,
+        <AnswerHookNotice
+          block={block}
+          checkedOriginal={revisedLater && String(block.code ?? '').startsWith('check_')}
+          key={`${block.id}-${keyIndex}`}
+          original={original}
+        />,
       );
       index += 1;
       continue;

@@ -218,7 +218,12 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               }}
               value={agentChoice ?? defaultRef ?? ''}
             >
-              {defaultListed ? null : <option value="">Default agent</option>}
+              {/* Until the agents load, say so; once loaded the default reads "<name> (default)". */}
+              {defaultListed ? null : (
+                <option value="">
+                  {data.installedAgents.isPending ? 'Loading agents…' : 'Default agent'}
+                </option>
+              )}
               {yourAgents.length ? (
                 <optgroup label="Your agents">
                   {yourAgents.map((agent) => (

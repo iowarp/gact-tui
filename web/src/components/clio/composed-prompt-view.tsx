@@ -1,5 +1,8 @@
 import type { AgentResolution } from '@clio/core/v3';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   fragmentOwnerLabel,
   promptSectionLabel,
@@ -64,13 +67,42 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
                   </span>
                 ) : null}
               </header>
-              <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words px-3 py-2 font-sans text-sm leading-6">
-                {unwrapFragmentText(fragment.text)}
-              </pre>
+              <FragmentText text={unwrapFragmentText(fragment.text)} />
             </article>
           ))}
         </section>
       ))}
+    </div>
+  );
+}
+
+/** Lines shown before a fragment folds behind "Show all": the rest is one click away, not cut off. */
+const FOLDED_LINES = 12;
+
+function FragmentText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const lines = text.split('\n');
+  const long = lines.length > FOLDED_LINES || text.length > FOLDED_LINES * 80;
+  return (
+    <div className="px-3 py-2">
+      <pre
+        className={cn(
+          'whitespace-pre-wrap break-words font-sans text-sm leading-6',
+          long && !expanded && 'line-clamp-[12]',
+        )}
+      >
+        {text}
+      </pre>
+      {long ? (
+        <Button
+          aria-expanded={expanded}
+          className="mt-1 h-auto p-0 text-xs"
+          onClick={() => setExpanded((value) => !value)}
+          variant="link"
+        >
+          {expanded ? 'Show less' : 'Show all'}
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
 import {
+  FlowApprovalDecisions,
   FlowApprovals,
   FlowScript,
   FlowStall,
@@ -288,6 +289,7 @@ export function FlowRunDetails({
           view={workflow}
         />
       ) : null}
+      <FlowApprovalDecisions run={run} />
       {/* Full screen gives the diagram the whole width, to follow (or record) the run. */}
       {track}
       {after}

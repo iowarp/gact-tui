@@ -460,7 +460,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             data-slot="canvas-header"
           >
             <div
-              className="@container no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+              className="@container no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden data-[scrolled-start=true]:[mask-image:linear-gradient(to_right,transparent,black_2rem)]"
               ref={tabStripRef}
             >
               <Sortable

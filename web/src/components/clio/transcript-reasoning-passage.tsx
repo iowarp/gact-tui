@@ -28,7 +28,7 @@ export function TranscriptReasoningPassage({
   const timing =
     duration !== undefined ? (
       <span
-        className="shrink-0 tabular-nums text-muted-foreground"
+        className="shrink-0 tabular-nums text-muted-foreground max-sm:ml-auto"
         data-slot="reasoning-duration"
         title="Time this thinking passage was open in the conversation. Tool execution has its own timer."
         aria-label={`Reasoning phase: ${formatDuration(duration, 'tenths')}`}
@@ -68,12 +68,13 @@ export function TranscriptReasoningPassage({
       <div
         aria-busy={streaming || undefined}
         data-slot="transcript-reasoning"
-        className="flex min-h-7 w-full min-w-0 items-center gap-2 px-1 py-1 pr-7 text-xs font-normal text-foreground"
+        className="flex min-h-7 w-full min-w-0 items-center gap-2 px-1 py-1 pr-7 text-xs font-normal text-foreground max-sm:flex-wrap max-sm:pr-1"
       >
         {icon}
         <span className="shrink-0 font-medium">Thinking</span>
+        {/* On a phone the passage takes its own full-width line under the label. */}
         <div
-          className="min-w-0 flex-1 whitespace-pre-wrap break-words text-left [overflow-wrap:anywhere]"
+          className="min-w-0 flex-1 whitespace-pre-wrap break-words text-left [overflow-wrap:anywhere] max-sm:order-last max-sm:basis-full"
           data-slot="reasoning-summary"
         >
           <TranscriptReasoning text={text} source={source}>

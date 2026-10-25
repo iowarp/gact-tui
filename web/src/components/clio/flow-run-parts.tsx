@@ -11,6 +11,7 @@ import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
 import {
+  approvalDecisions,
   flowScriptJson,
   inputText,
   type FlowMember,
@@ -35,10 +36,10 @@ const TONE_WORDS: readonly (readonly [FlowTone, string])[] = [
   ['unknown', 'not reported'],
 ];
 
-/** The swatch of a state, drawn as index.css draws a node in that state. */
+/** The swatch of a state, drawn as index.css draws a node in that state (same tokens). */
 const TONE_SWATCH: Record<FlowTone, string> = {
-  running: 'border-primary bg-primary/15',
-  done: 'border-success bg-success/10',
+  running: 'border-dashed border-status-running-foreground bg-status-running',
+  done: 'border-status-supported-foreground bg-status-supported',
   failed: 'border-destructive bg-destructive/10',
   waiting: 'border-dashed border-muted-foreground',
   proposed: 'border-dashed border-warning bg-warning/10',
@@ -638,5 +639,21 @@ export function FlowApprovals({
         ) : null}
       </AlertDescription>
     </Alert>
+  );
+}
+
+/** What the person answered to each approval question, once answered. */
+export function FlowApprovalDecisions({ run }: { run: FlowRun }) {
+  const decisions = approvalDecisions(run);
+  if (!decisions.length) return null;
+  return (
+    <ul className="grid gap-1 text-xs text-muted-foreground" aria-label="Your approvals">
+      {decisions.map(({ step, approved }) => (
+        <li key={`${step}:${approved}`}>
+          You {approved ? 'approved' : 'declined'} adding the step{' '}
+          <span className="font-mono text-foreground">{step}</span>.
+        </li>
+      ))}
+    </ul>
   );
 }

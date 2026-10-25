@@ -108,7 +108,7 @@ export function TaskActivityRow({
                 </span>
               )}
               <span
-                className={`block truncate text-muted-foreground ${compact ? 'max-w-[40%] text-[10px]' : 'text-xs'}`}
+                className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-[10px]' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
                 {compact
                   ? flowRun
