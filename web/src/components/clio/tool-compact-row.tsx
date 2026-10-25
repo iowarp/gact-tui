@@ -1,14 +1,18 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { ChevronRightIcon } from 'lucide-react';
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  CircleAlertIcon,
+  Clock3Icon,
+  LoaderCircleIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { WorkKindStatus } from './work-kind-status';
-import { toolWorkPresentation, type WorkPresentation } from './tool-work-status';
 import {
   getToolActionLabel,
   getToolFailureDetail,
@@ -23,13 +27,11 @@ export function ToolCompactRow({
   attention,
   duration,
   expanded,
-  work,
 }: {
   tool: ToolInvocation;
   attention?: ReactNode;
   duration?: number;
   expanded: boolean;
-  work?: WorkPresentation;
 }) {
   const status = getToolStatus(tool);
   const active = status === 'pending' || status === 'running';
@@ -38,7 +40,6 @@ export function ToolCompactRow({
   const pendingSnapshot = tool.presentation?.blocks.some(
     (block) => block.result_kind === 'snapshot' && block.status === 'pending',
   );
-  const presentation = work ?? toolWorkPresentation(tool);
   const action = getToolActionLabel(tool);
   const subject = getToolSubject(tool);
   const terminal = tool.presentation?.blocks.find((block) => block.type === 'terminal');
@@ -56,7 +57,18 @@ export function ToolCompactRow({
         title={failure ? undefined : [action, detail, metadata].filter(Boolean).join(', ')}
         className="group/tool-trigger h-auto min-h-7 min-w-0 flex-1 shrink justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal"
       >
-        <WorkKindStatus {...presentation} />
+        {active ? (
+          <LoaderCircleIcon
+            aria-hidden="true"
+            className="size-3.5 shrink-0 animate-spin text-primary"
+          />
+        ) : pendingSnapshot ? (
+          <Clock3Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+        ) : success ? (
+          <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-success" />
+        ) : (
+          <CircleAlertIcon aria-hidden="true" className={cn('size-3.5 shrink-0', outcomeColor)} />
+        )}
         <span className="min-w-0 max-w-[48%] shrink truncate font-medium max-sm:max-w-[40%]">
           {action}
         </span>

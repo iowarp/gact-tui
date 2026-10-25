@@ -1,10 +1,9 @@
 import type { Artifact, SubagentRun } from '@clio/core/v3';
-import { ArrowUpLeftIcon } from 'lucide-react';
+import { ArrowUpLeftIcon, BotIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useLiveSessionTranscript } from '@/hooks/use-live-session-transcript';
 import { ClioConversation } from './conversation';
-import { WorkKindStatus } from './work-kind-status';
 import { SubagentModel } from './subagent-model';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -54,10 +53,11 @@ export function ClioSubagentCanvasView({
     <div className="flex h-full min-h-0 flex-col bg-background">
       <header className="shrink-0 border-b bg-card/50 px-4 py-3">
         <div className="flex items-start gap-3">
-          <WorkKindStatus kind="agent" status={subagent.state} />
+          <BotIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-sm font-medium">{subagent.title}</h2>
+              <ClioStatus value={subagent.state} />
               {subagent.agent_id ? (
                 <span className="text-xs text-muted-foreground">{subagent.agent_id}</span>
               ) : null}

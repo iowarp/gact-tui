@@ -200,8 +200,7 @@ describe('ClioSubagentProgressLine', () => {
     const onOpen = vi.fn();
     render(<ClioSubagentProgressLine subagent={child} onOpen={onOpen} />);
     expect(screen.getByText('main')).toBeVisible();
-    expect(screen.getByRole('img', { name: 'Agent: running' })).toBeVisible();
-    expect(screen.queryByText('Running')).toBeNull();
+    expect(screen.getByText('Running')).toBeVisible();
     expect(screen.getByText(child.title)).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Open subagent main' }));
     expect(onOpen).toHaveBeenLastCalledWith(child, 'canvas');

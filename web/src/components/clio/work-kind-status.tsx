@@ -20,7 +20,7 @@ const kinds = {
   workflow: { label: 'Workflow', icon: WorkflowIcon },
 };
 
-/** Preserve what the work is while separately indicating its current outcome. */
+/** Kind/state glyph for rail and Evidence/Work task lists, not transcript tool calls. */
 export function WorkKindStatus({
   kind,
   status,

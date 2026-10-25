@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ActivityRow } from './activity-row';
 import { ClioToolInvocation } from './tool-invocation';
+import { ClioStatus } from './status';
 import { SubagentModel } from './subagent-model';
-import { WorkKindStatus } from './work-kind-status';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -52,7 +52,6 @@ export function ClioSubagentLifecycleLine({
   return (
     <ClioToolInvocation
       compact
-      work={{ kind: 'agent', status: subagent?.state ?? (terminal ? 'unknown' : 'pending') }}
       tool={{
         id: `${subagent?.id ?? 'child'}:${stage}`,
         session_id: subagent?.session_id ?? '',
@@ -123,7 +122,7 @@ export function ClioSubagentProgressLine({ subagent, onOpen }: ClioSubagentCardP
       aria-label={`Open subagent ${name}`}
       onClick={(event) => onOpen?.(subagent, subagentOpenTarget(event))}
     >
-      <WorkKindStatus kind="agent" status={subagent.state} />
+      <BotIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="shrink-0 text-muted-foreground">Subagent</span>
       <span className="min-w-0 flex-1 truncate" title={subagent.title}>
         <span className="font-medium">{name}</span>
@@ -131,6 +130,7 @@ export function ClioSubagentProgressLine({ subagent, onOpen }: ClioSubagentCardP
           <span className="ml-2 text-muted-foreground">{subagent.title}</span>
         ) : null}
       </span>
+      <ClioStatus value={subagent.state} />
       {interactive ? <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0" /> : null}
     </button>
   );
