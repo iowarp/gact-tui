@@ -182,14 +182,16 @@ it('renders peer message content while retaining sender and reply metadata in ex
     '[Agent session sess_peer; peer; notification mail_example]\n' +
     JSON.stringify({ text: 'Please keep **accessibility support**.', reply_to: 'mail_original' });
   render(<HarnessInjection block={{ id: 'peer', type: 'injection', source: 'peer', text }} />);
-  await user.click(screen.getByRole('button', { name: 'Injection Agent message' }));
-  expect(screen.getByText('From session sess_peer')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Received message from an agent' }));
+  expect(screen.queryByText('From session sess_peer')).toBeNull();
   expect(await screen.findByText('accessibility support')).toHaveAttribute(
     'data-streamdown',
     'strong',
   );
   expect(screen.queryByText(/reply_to/u)).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Technical details for Agent message' }));
+  await user.click(
+    screen.getByRole('button', { name: 'Technical details for Received message from an agent' }),
+  );
   expect(screen.getByRole('dialog').querySelector('pre')?.textContent).toBe(text);
 });
 

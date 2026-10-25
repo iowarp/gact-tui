@@ -34,6 +34,12 @@ import { withStorageToolPresentation } from './storage-tool-presentation';
 import { withSkillPresentation } from './skill-tool-presentation';
 import { withQuestionPresentation } from './question-tool-presentation';
 import { useQuestionAnswer } from './question-answer-context';
+import {
+  agentMessageName,
+  sentAgentMessage,
+  withAgentMessagePresentation,
+} from './agent-message-presentation';
+import { useLiveStore } from '@/store/live-store';
 
 export function ClioToolInvocation({
   attention,
@@ -54,6 +60,10 @@ export function ClioToolInvocation({
 }) {
   const navigation = useContext(PresentationNavigation);
   const questionContext = useQuestionAnswer();
+  const sentMessage = sentAgentMessage(tool);
+  const recipientTitle = useLiveStore(
+    (state) => state.entities.sessions[sentMessage?.sessionId ?? sentMessage?.target ?? '']?.title,
+  );
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [resultOpen, setResultOpen] = useState(false);
   const duration = useToolDuration(tool);
@@ -87,16 +97,23 @@ export function ClioToolInvocation({
     flow?.handle && navigation?.onOpenFlow
       ? () => navigation.onOpenFlow?.(flow.handle!, `${flow.label} run`)
       : undefined;
-  const presentedTool = withQuestionPresentation(
-    withMemoryPresentation(
-      withResourcePresentation(
-        withSkillPresentation(
-          withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
+  const presentedTool = withAgentMessagePresentation(
+    withQuestionPresentation(
+      withMemoryPresentation(
+        withResourcePresentation(
+          withSkillPresentation(
+            withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
+          ),
+          navigation?.resources,
         ),
-        navigation?.resources,
       ),
+      questionContext?.interactions,
     ),
-    questionContext?.interactions,
+    agentMessageName(
+      sentMessage?.sessionId ?? sentMessage?.target,
+      navigation?.subagents,
+      recipientTitle,
+    ),
   );
   const subject = getToolSubject(presentedTool);
   const catalogContent = isA2uiCatalogLookup(presentedTool)

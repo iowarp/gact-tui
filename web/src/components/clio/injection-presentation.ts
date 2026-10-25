@@ -9,6 +9,7 @@ export interface InjectionPresentation {
   format?: 'markdown' | 'json' | 'text';
   notice?: string;
   attribution?: string;
+  senderSessionId?: string;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -36,8 +37,8 @@ export function injectionPresentation(
   const body = record(payload);
   if (source === 'peer' && typeof body?.text === 'string')
     return {
-      label: 'Agent message',
-      attribution: `From session ${/^\[Agent session ([^;\]\n]+);/u.exec(text)?.[1] ?? 'unknown'}`,
+      label: 'Received message from an agent',
+      senderSessionId: /^\[Agent session ([^;\]\n]+);/u.exec(text)?.[1],
       text: body.text,
       format: 'markdown',
     };

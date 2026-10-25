@@ -1,6 +1,6 @@
 import { PLUGIN_CHANGE_INJECTION_SOURCE, type MessageBlock } from '@clio/core/v3';
 import { ChevronRightIcon, MessageSquareIcon, SyringeIcon, TerminalIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { InfoIcon } from '@/lib/icon-vocabulary';
@@ -14,6 +14,10 @@ import { ToolTerminalResult } from './tool-terminal-result';
 import { ToolDetailsContent } from './tool-details-content';
 import { PluginChangeInjection } from './conversation-plugin-change';
 import { useQuestionAnswer } from './question-answer-context';
+import { PresentationNavigation } from './presentation-navigation';
+import { agentMessageName } from './agent-message-presentation';
+import { useLiveStore } from '@/store/live-store';
+import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -29,7 +33,7 @@ const INJECTION_LABELS: Record<string, string> = {
   memory: 'Memory',
   task_results: 'Results from background tasks',
   task_result: 'Task result',
-  peer: 'Agent message',
+  peer: 'Received message from an agent',
   plugin_change: 'Plugins changed',
   path_hint: 'Path suggestion',
   circuit_breaker: 'Repeated-failure warning',
@@ -57,14 +61,29 @@ export function HarnessInjection({
 
 function RecordedInjection({ block, compact }: { block: InjectionBlock; compact: boolean }) {
   const questionContext = useQuestionAnswer();
+  const navigation = useContext(PresentationNavigation);
+  const previewLines = useTranscriptPreviewLines();
   const [expanded, setExpanded] = useTranscriptDisclosure(`injection:${block.id}`);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const presentation = useMemo(
     () => injectionPresentation(block.source, block.text, questionContext?.interactions),
     [block.source, block.text, questionContext?.interactions],
   );
-  const label =
-    presentation?.label ?? INJECTION_LABELS[block.source] ?? humanizeProtocolValue(block.source);
+  const sessionTitle = useLiveStore((state) =>
+    presentation?.senderSessionId
+      ? state.entities.sessions[presentation.senderSessionId]?.title
+      : undefined,
+  );
+  const sender = agentMessageName(
+    presentation?.senderSessionId,
+    navigation?.subagents,
+    sessionTitle,
+  );
+  const label = presentation?.senderSessionId
+    ? `Received message from ${sender || 'an agent'}`
+    : (presentation?.label ??
+      INJECTION_LABELS[block.source] ??
+      humanizeProtocolValue(block.source));
   const Icon = presentation
     ? presentation.terminal
       ? TerminalIcon
@@ -86,7 +105,11 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
         <div className="flex min-w-0 items-center gap-1">
           <Button
             variant="ghost"
-            aria-label={`Injection ${label}${triggerLabel ? ` ${triggerLabel}` : ''}`}
+            aria-label={
+              block.source === 'peer'
+                ? label
+                : `Injection ${label}${triggerLabel ? ` ${triggerLabel}` : ''}`
+            }
             aria-expanded={expanded}
             onClick={() => setExpanded(!expanded)}
             type="button"
@@ -136,7 +159,7 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
                 running={false}
               />
             ) : (
-              <BoundedResult lines={8} title={label}>
+              <BoundedResult lines={block.source === 'peer' ? previewLines : 8} title={label}>
                 {presentation?.format === 'markdown' ? (
                   <GroundedMessageResponse mode="static">
                     {presentation.text}
