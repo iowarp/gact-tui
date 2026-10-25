@@ -246,6 +246,25 @@ describe('FlowRunView', () => {
     expect(screen.getByRole('button', { name: 'Open the stalled step' })).toBeVisible();
   });
 
+  it('marks empty history unavailable for a stopped run in the shared details view', async () => {
+    repository.taskFlow.mockResolvedValue(
+      flowRunSchema.parse({
+        ...workflowRun,
+        flow: 'deep-research',
+        status: 'flow_stall',
+        view: null,
+        calls: [],
+        outcome: { reason: 'flow_stall', message: 'The run stopped before its receipt was saved.' },
+      }),
+    );
+    renderRun();
+
+    expect(await screen.findByText(/Task history not recorded/u)).toBeVisible();
+    expect(screen.getByText(/Whether it started any tasks is unknown/u)).toBeVisible();
+    expect(screen.queryByText(/0 tasks/u)).toBeNull();
+    expect(screen.queryByText('The flow has not started any task yet.')).toBeNull();
+  });
+
   it('shows a cancelled run as cancelled, not as a stall', async () => {
     repository.taskFlow.mockResolvedValue(
       flowRunSchema.parse({

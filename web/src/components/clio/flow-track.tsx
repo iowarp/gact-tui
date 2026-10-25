@@ -20,6 +20,7 @@ export function FlowTrack({
   scale,
   className,
   usage,
+  historyUnavailable,
 }: {
   flow: string;
   presentation: FlowPresentation;
@@ -29,6 +30,8 @@ export function FlowTrack({
   fontSize?: number;
   scale?: number;
   className?: string;
+  /** The run stopped without recording task history; do not imply it started none. */
+  historyUnavailable?: boolean;
 }) {
   const [selected, setSelected] = useState<string>();
   const { diagram, steps, members, elapsed } = presentation;
@@ -85,7 +88,14 @@ export function FlowTrack({
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">The flow has not started any task yet.</p>
+        <p
+          className="text-xs text-muted-foreground"
+          role={historyUnavailable ? 'status' : undefined}
+        >
+          {historyUnavailable
+            ? 'Task history was not recorded for this stopped flow. Whether it started any tasks is unknown.'
+            : 'The flow has not started any task yet.'}
+        </p>
       )}
       {pick ? (
         <FlowPickDetails

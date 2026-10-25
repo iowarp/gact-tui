@@ -37,15 +37,22 @@ export function flowRunStatus(run: Pick<FlowRun, 'status' | 'outcome'>): {
   return { value: 'failed', label: `Stopped: ${run.status.replaceAll('_', ' ')}` };
 }
 
+/** Whether an empty task list is an unrecorded history rather than a live prelaunch state. */
+export function flowTaskHistoryUnavailable(
+  run: Pick<FlowRun, 'status' | 'outcome'>,
+  taskCount: number,
+): boolean {
+  if (taskCount !== 0) return false;
+  const status = flowRunStatus(run).value;
+  return status !== 'running' && status !== 'completed' && status !== 'cancelled';
+}
+
 /**
  * A workflow step's state, always with its text label. A step the workflow
  * skipped because a step it waits on failed is reported as skipped, not as
  * cancelled by someone.
  */
-export function workflowStepStatus(
-  step: Pick<WorkflowStep, 'status'>,
-  skipped = false,
-): FlowState {
+export function workflowStepStatus(step: Pick<WorkflowStep, 'status'>, skipped = false): FlowState {
   switch (step.status) {
     case 'pending':
       return { value: 'queued', label: 'Waiting', word: 'waiting', tone: 'waiting' };
@@ -279,7 +286,10 @@ export function flowMembers(
     ? options.perspectives.filter((value): value is string => typeof value === 'string')
     : [];
   const verdict = flowVerdict(run);
-  const calls = memberCalls(run, run.calls.filter((call) => call.kind !== 'ask'));
+  const calls = memberCalls(
+    run,
+    run.calls.filter((call) => call.kind !== 'ask'),
+  );
   // Any other flow names a call by the agent it ran, numbered among that agent's calls.
   const named = (call: FlowCall) =>
     call.target !== '' && call.target !== 'self' && call.target !== agentRef;

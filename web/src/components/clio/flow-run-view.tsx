@@ -22,7 +22,7 @@ import {
   FlowVerdictView,
   WorkflowBounds,
 } from './flow-run-parts';
-import { flowRunStatus, stepTally } from './flow-run-presentation';
+import { flowRunStatus, flowTaskHistoryUnavailable, stepTally } from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
 import { FlowTrack } from './flow-track';
 import { FlowUsageSummary } from './flow-run-usage';
@@ -173,10 +173,16 @@ export function FlowRunDetails({
   const status = flowRunStatus(run);
   const { steps, members, verdict, closing, runElapsed } = presentation;
   const workflow = run.view;
-  const tally = stepTally((workflow ? steps : members).map((row) => row.status));
-  const count = workflow
-    ? `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`
-    : `${members.length} ${run.flow === 'arena' ? (members.length === 1 ? 'entry' : 'entries') : run.flow === 'council' ? (members.length === 1 ? 'member' : 'members') : members.length === 1 ? 'task' : 'tasks'}`;
+  const taskCount = workflow ? steps.length : members.length;
+  const historyUnavailable = flowTaskHistoryUnavailable(run, taskCount);
+  const tally = historyUnavailable
+    ? ''
+    : stepTally((workflow ? steps : members).map((row) => row.status));
+  const count = historyUnavailable
+    ? 'Task history not recorded'
+    : workflow
+      ? `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`
+      : `${members.length} ${run.flow === 'arena' ? (members.length === 1 ? 'entry' : 'entries') : run.flow === 'council' ? (members.length === 1 ? 'member' : 'members') : members.length === 1 ? 'task' : 'tasks'}`;
   const wide = layout === 'wide';
   const header = (
     <header className="grid min-w-0 gap-1">
@@ -231,6 +237,7 @@ export function FlowRunDetails({
       presentation={presentation}
       scale={wide ? 1.5 : 1}
       usage={run.usage}
+      historyUnavailable={historyUnavailable}
     />
   );
   const after = (

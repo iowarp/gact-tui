@@ -16,7 +16,7 @@ import {
   useSessionAgentRef,
 } from '@/hooks/use-flow-presentation';
 import { FlowApprovalDecisions, FlowScript, FlowStall, FlowVerdictView } from './flow-run-parts';
-import { flowRunStatus, stepTally } from './flow-run-presentation';
+import { flowRunStatus, flowTaskHistoryUnavailable, stepTally } from './flow-run-presentation';
 import { FlowUsageSummary } from './flow-run-usage';
 import { FlowRunDetails, FlowRunFullScreen } from './flow-run-view';
 import { FlowTrack } from './flow-track';
@@ -56,6 +56,7 @@ export function FlowRunCard({
   const status = data ? flowRunStatus(data) : undefined;
   const { steps, members, verdict, closing, runElapsed } = presentation;
   const rows = data?.view ? steps : members;
+  const historyUnavailable = data ? flowTaskHistoryUnavailable(data, rows.length) : false;
   const noun = data?.view
     ? 'step'
     : data?.flow === 'arena'
@@ -66,8 +67,10 @@ export function FlowRunCard({
   const plural = noun === 'entry' ? 'entries' : `${noun}s`;
   const summary = data
     ? [
-        `${rows.length} ${rows.length === 1 ? noun : plural}`,
-        stepTally(rows.map((row) => row.status)),
+        historyUnavailable
+          ? 'Task history not recorded'
+          : `${rows.length} ${rows.length === 1 ? noun : plural}`,
+        historyUnavailable ? '' : stepTally(rows.map((row) => row.status)),
         rowDuration(runElapsed),
       ]
         .filter(Boolean)
@@ -120,6 +123,7 @@ export function FlowRunCard({
             onOpenHandle={openHandle}
             presentation={presentation}
             usage={data.usage}
+            historyUnavailable={historyUnavailable}
           />
           <FlowUsageSummary usage={data.usage} />
           {data.outcome ? (
