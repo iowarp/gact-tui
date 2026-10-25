@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { TransportFrame } from '@clio/core/v3';
+import type { ToolInvocation, TransportFrame } from '@clio/core/v3';
 import { useLiveStore } from './live-store';
 
 function workspaceFrame(
@@ -31,7 +31,7 @@ function workspaceFrame(
 
 function streamedFrame(
   cursor: string,
-  type: 'message.upserted' | 'session.upserted',
+  type: 'message.upserted' | 'session.upserted' | 'tool.upserted',
   entityId: string,
   payload: Record<string, unknown>,
 ): TransportFrame {
@@ -83,6 +83,39 @@ function restSession(
 }
 
 describe('live store snapshot merges', () => {
+  it('replaces a streamed acceptance with its authorized task outcome on refresh', () => {
+    const receipt: ToolInvocation = {
+      id: 'call_fetch',
+      session_id: 'sess_1',
+      name: 'fetch',
+      state: 'succeeded',
+      output: { accepted: true },
+    };
+    useLiveStore.getState().reset();
+    useLiveStore
+      .getState()
+      .applyFrames([streamedFrame('1', 'tool.upserted', receipt.id, { ...receipt })]);
+    const failed: ToolInvocation = {
+      ...receipt,
+      state: 'failed',
+      error: 'Source could not be fetched',
+      submission: { state: 'succeeded', output: receipt.output },
+      execution_task: {
+        handle: 'task_fetch',
+        status: 'failed',
+        activity: '',
+        updated_at: '2026-10-25T05:00:02Z',
+        accepted_at: '2026-10-25T05:00:00Z',
+        terminal_at: '2026-10-25T05:00:02Z',
+        cancellation_requested_at: null,
+        result_sha256: 'hash',
+      },
+    };
+    useLiveStore.getState().mergeSnapshots({ tools: { [receipt.id]: failed } });
+    expect(useLiveStore.getState().entities.tools[receipt.id]).toEqual(failed);
+    useLiveStore.getState().mergeSnapshots({ tools: { [receipt.id]: receipt } });
+    expect(useLiveStore.getState().entities.tools[receipt.id]).toEqual(failed);
+  });
   beforeEach(() => useLiveStore.getState().reset());
 
   it('keeps an in-flight streamed message a lagging transcript snapshot omits', () => {
@@ -118,9 +151,11 @@ describe('live store snapshot merges', () => {
   });
 
   it('settles a running stream-owned session from a newer failed REST snapshot', () => {
-    useLiveStore.getState().applyFrames([
-      streamedFrame('12', 'session.upserted', 'sess_1', restSession('sess_1', 'running')),
-    ]);
+    useLiveStore
+      .getState()
+      .applyFrames([
+        streamedFrame('12', 'session.upserted', 'sess_1', restSession('sess_1', 'running')),
+      ]);
 
     useLiveStore.getState().mergeSnapshots({
       sessions: { sess_1: restSession('sess_1', 'failed', '2026-08-27T12:00:15Z') },

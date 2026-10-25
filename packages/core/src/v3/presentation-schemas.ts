@@ -71,6 +71,7 @@ export const toolPresentationSchema = z.object({
           block_id: z.string(),
           cursor: z.number().int().nonnegative(),
           total_chars: z.number().int().nonnegative(),
+          result_sha256: z.string().optional(),
         })
         .optional(),
       status: z.string().optional(),

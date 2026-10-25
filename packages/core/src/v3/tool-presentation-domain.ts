@@ -48,6 +48,7 @@ export interface ToolPresentationBlock {
     block_id: string;
     cursor: number;
     total_chars: number;
+    result_sha256?: string;
   };
   status?: string;
   detail?: string;

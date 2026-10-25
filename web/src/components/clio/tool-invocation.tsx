@@ -347,7 +347,22 @@ export function ClioToolInvocation({
           {attentionFields?.some((entry) => entry.kind === 'tool_result') && tool.error ? (
             <p role="alert">{String(tool.error)}</p>
           ) : null}
+          {tool.execution_task && attentionFields?.some((entry) => entry.kind === 'tool_result') ? (
+            <section aria-label="Execution result">
+              <p>Execution result</p>
+              <ToolOutput output={tool.output as never} errorText={tool.error} />
+            </section>
+          ) : null}
           {tool.presentation?.diagnostic ? <p>{tool.presentation.diagnostic}</p> : null}
+          {tool.submission ? (
+            <details>
+              <summary className="cursor-pointer">Submission response</summary>
+              <ToolOutput
+                output={tool.submission.output as never}
+                errorText={tool.submission.error}
+              />
+            </details>
+          ) : null}
         </ToolDetailsContent>
       </div>
     </Dialog>

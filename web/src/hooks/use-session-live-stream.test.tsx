@@ -140,6 +140,25 @@ describe('useSessionLiveStream resume recovery', () => {
     ]);
   });
 
+  it('refreshes the transcript only for this session’s own execution task', () => {
+    const event = {
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'task.updated',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+      taskOwnerSessionId: 'sess_1',
+      taskInvocationId: 'call_1',
+    };
+    const transcript = ['transcript', event.endpoint, 'sess_1'];
+    expect(queryInvalidationKeysForEvent(event)).toContainEqual(transcript);
+    expect(
+      queryInvalidationKeysForEvent({ ...event, taskOwnerSessionId: 'child' }),
+    ).not.toContainEqual(transcript);
+    expect(
+      queryInvalidationKeysForEvent({ ...event, taskInvocationId: undefined }),
+    ).not.toContainEqual(transcript);
+  });
+
   it('does not skip unseen tool completions when a newer REST snapshot arrives', async () => {
     mocks.storeState.entities.cursor = '2578';
     const { rerender, unmount } = renderHook(

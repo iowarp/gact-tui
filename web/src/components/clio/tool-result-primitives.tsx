@@ -474,6 +474,7 @@ export function PagedBlock({
           ref.block_id,
           next,
           signal,
+          ref.result_sha256,
         );
         if (signal.aborted) return;
         if (page.cursor !== next || (page.next_cursor !== null && page.next_cursor <= next))

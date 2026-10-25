@@ -241,6 +241,25 @@ export interface ToolInvocation {
   completed_at?: string;
   duration_ms?: number;
   error?: string;
+  /** The original submission RPC remains inspectable when execution is asynchronous. */
+  submission?: {
+    state: ToolState;
+    output?: unknown;
+    error?: string;
+    completed_at?: string;
+    duration_ms?: number | null;
+  };
+  execution_task?: {
+    handle: string;
+    status: string;
+    activity: string;
+    updated_at: string;
+    accepted_at: string;
+    terminal_at: string | null;
+    cancellation_requested_at: string | null;
+    result_sha256: string | null;
+  };
+  execution_problem?: string;
 }
 
 export interface ApprovalRequest {

@@ -1,6 +1,7 @@
 import {
   createEntityState,
   mergeVariantRuns,
+  isToolExecutionSnapshot,
   type VariantRuns,
   type EntityState,
   type StreamState,
@@ -109,7 +110,11 @@ function mergeEntityMap(
       'updated_at' in entity &&
       'updated_at' in previous &&
       String(entity.updated_at) >= String(previous.updated_at);
-    merged[id] = streamOwned.has(id) && id in current && !terminalSessionSnapshot ? previous : entity;
+    const executionSnapshot = mapKey === 'tools' && isToolExecutionSnapshot(previous, entity);
+    merged[id] =
+      streamOwned.has(id) && id in current && !terminalSessionSnapshot && !executionSnapshot
+        ? previous
+        : entity;
   }
   for (const [id, entity] of Object.entries(current)) {
     if (!(id in merged) && streamOwned.has(id)) merged[id] = entity;

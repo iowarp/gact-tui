@@ -1,6 +1,7 @@
 export * from './a2ui/index.js';
 export * from './a2ui-visual-contract.js';
 export * from './domain.js';
+export * from './tool-execution.js';
 export * from './response-feedback.js';
 export * from './response-feedback-repository.js';
 export * from './memory-repository.js';

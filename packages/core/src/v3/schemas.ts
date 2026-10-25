@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { A2UI_VERSION, PROTOCOL_VERSION } from './protocol-versions.js';
 import { forwardCompatibleEnum } from './schema-utils.js';
 import { toolPresentationSchema } from './presentation-schemas.js';
+import { toolExecutionTaskSchema, toolSubmissionSchema } from './tool-execution.js';
 
 export * from './message-schemas.js';
 export * from './presentation-schemas.js';
@@ -502,6 +503,9 @@ export const contextStateSchema = z.object({
 });
 
 export const toolInvocationSchema = z.object({
+  submission: toolSubmissionSchema.optional(),
+  execution_task: toolExecutionTaskSchema.optional(),
+  execution_problem: z.string().optional(),
   id: z.string(),
   session_id: z.string(),
   run_id: z

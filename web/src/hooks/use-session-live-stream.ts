@@ -8,6 +8,7 @@ import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { streamNoticeForFrame } from '@/lib/streaming/stream-notices';
+import { taskUpdateForFrame } from '@/lib/streaming/task-updates';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
@@ -150,12 +151,15 @@ export function useSessionLiveStream({
             if (frame.eventName === 'message.completed') {
               batcher.flush();
             }
+            const taskUpdate = taskUpdateForFrame(frame);
             invalidations.push(
               ...queryInvalidationKeysForEvent({
                 endpoint: settings.endpoint,
                 eventName: frame.eventName,
                 sessionId,
                 workspaceId,
+                taskOwnerSessionId: taskUpdate?.owner_session_id,
+                taskInvocationId: taskUpdate?.invocation_id,
               }),
             );
             const notice = streamNoticeForFrame(frame);
@@ -352,6 +356,8 @@ function resourceInvalidationKeys(
 }
 
 interface QueryInvalidationEvent {
+  taskOwnerSessionId?: string;
+  taskInvocationId?: string;
   endpoint: string;
   eventName: string;
   sessionId: string;
@@ -364,8 +370,13 @@ export function queryInvalidationKeysForEvent({
   eventName,
   sessionId,
   workspaceId,
+  taskOwnerSessionId,
+  taskInvocationId,
 }: QueryInvalidationEvent): QueryKey[] {
   const keys: QueryKey[] = [];
+  if (eventName === 'task.updated' && taskOwnerSessionId === sessionId && taskInvocationId) {
+    keys.push(queryKeys.transcript(endpoint, sessionId));
+  }
   if (isPendingInteractionEvent(eventName)) {
     // Approvals and questions are both read unscoped now (a descendant
     // session can raise either), so the invalidation must be the
