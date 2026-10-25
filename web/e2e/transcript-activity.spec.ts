@@ -142,11 +142,22 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     });
     expect(Math.abs((await activity.boundingBox())!.y - before!.y)).toBeLessThanOrEqual(2);
     await expect(message.getByRole('button', { name: /^Reasoning:/ })).toHaveCount(0);
-    await expect(message.getByRole('button', { name: /^Thinking:/ })).toHaveCount(0);
     await expect(thinking).toBeVisible();
     await expect(reasoning).not.toHaveAttribute('aria-busy');
     await expect(reasoning).toContainText('Read the fixture notes before preparing the report.');
     expect(await reasoning.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    // A thought reads as one line; only a line that is cut off opens in place on click.
+    const thought = reasoning.locator('[data-slot="reasoning-summary"]');
+    const clipped = await thought.evaluate((node) => node.scrollWidth > node.clientWidth + 1);
+    const toggle = message.getByRole('button', { name: /^Thinking:/ });
+    await expect(toggle).toHaveCount(clipped ? 1 : 0);
+    if (clipped) {
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(await thought.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    }
     expect((await thinking.boundingBox())!.y).toBeLessThan(
       (await message.getByRole('button', { name: 'Technical details for Read' }).boundingBox())!.y,
     );

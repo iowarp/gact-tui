@@ -60,8 +60,10 @@
     z-index: -1;
     pointer-events: none;
     /* Opaque below the fade: at 88% the transcript showed through the strip
-       between the composer and the status bar. */
+       between the composer and the status bar. The blur still softens what the
+       mask's fade lets through above it. */
     background: var(--background);
+    backdrop-filter: blur(4px);
     mask-image: linear-gradient(to bottom, transparent, black 24px);
   }
   /* The maximized canvas is at 80. Portalled controls and dialogs must remain
