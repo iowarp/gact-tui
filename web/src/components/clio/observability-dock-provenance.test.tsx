@@ -146,58 +146,103 @@ describe('ClioObservabilityView provenance and section states', () => {
       />,
     );
 
-    await user.click(screen.getByRole('combobox', { name: 'Execution provenance provider' }));
-    await user.click(screen.getByRole('option', { name: /flowcept/u }));
+    await user.click(screen.getByRole('combobox', { name: 'Activity record source' }));
+    await user.click(screen.getByRole('option', { name: /Flowcept/u }));
     expect(onProviderChange).toHaveBeenCalledWith('flowcept');
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
     expect(screen.getByText('Evidence sources')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Evidence source details' }));
-    expect(screen.getByText('Artifacts: cmf')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'About evidence records' }));
+    expect(screen.getByText('Artifact relationships')).toBeVisible();
+    expect(screen.getByText('CMF')).toBeVisible();
   });
 
-  it('renders typed provenance degradation instead of an empty successful view', () => {
-    renderObservability(
-      <ClioObservabilityView
-        artifacts={[]}
-        contextFiles={[]}
-        contextFrames={[]}
-        diffs={[]}
-        messages={[]}
-        processes={[]}
-        provenanceDegradation={{
-          code: 'execution_provenance_partial',
-          reason: 'Partial flowcept provenance: the provider marked the snapshot incomplete.',
-          capability: 'execution_provenance',
-          recoverable: true,
-          provider: 'flowcept',
-          partial: true,
-        }}
-        provenanceProvider="flowcept"
-        provenanceProviders={[
-          {
-            name: 'flowcept',
-            configured: true,
-            queryable: true,
-            durable: false,
-            status: 'ready',
-            source: 'flowcept',
-            health: {},
-          },
-        ]}
-        runs={[]}
-        subagents={[]}
-        tasks={[]}
-        tools={[]}
-      />,
-    );
+  it.each(['native', 'flowcept'])(
+    'explains incomplete %s history in one disclosure and keeps diagnostics inspectable',
+    async (provider) => {
+      const user = userEvent.setup();
+      renderObservability(
+        <ClioObservabilityView
+          artifacts={[]}
+          contextFiles={[]}
+          contextFrames={[]}
+          diffs={[]}
+          messages={[]}
+          processes={[]}
+          provenanceDegradation={{
+            code: 'execution_provenance_partial',
+            reason: `Partial ${provider} provenance: the provider marked the snapshot incomplete.`,
+            capability: 'execution_provenance',
+            recoverable: true,
+            provider,
+            partial: true,
+          }}
+          executionProvenance={
+            provider === 'native'
+              ? {
+                  schema_version: 'clio.execution_provenance.v1',
+                  provider,
+                  session_id: 's',
+                  complete: false,
+                  truncated: false,
+                  provider_health: {},
+                  campaigns: [],
+                  workflows: [],
+                  agents: [],
+                  spans: [],
+                  nodes: [],
+                  edges: [],
+                }
+              : undefined
+          }
+          provenanceProvider={provider}
+          provenanceProviders={[
+            {
+              name: provider,
+              configured: true,
+              queryable: true,
+              durable: false,
+              status: 'ready',
+              source: provider === 'native' ? 'arc+jsonl' : 'flowcept',
+              health: {},
+            },
+          ]}
+          runs={[]}
+          subagents={[]}
+          tasks={[]}
+          tools={[]}
+        />,
+      );
 
-    expect(screen.getByText(/Partial flowcept provenance/u)).toBeVisible();
-    expect(screen.getByRole('status', { name: 'flowcept provenance degraded' })).toBeVisible();
-    expect(
-      screen.queryByRole('status', { name: 'flowcept provenance ready' }),
-    ).not.toBeInTheDocument();
-  });
+      const label = provider === 'native' ? 'Unfinished records' : 'Partial history';
+      expect(screen.getAllByRole('button', { name: label })).toHaveLength(1);
+      expect(
+        screen.queryByRole('combobox', { name: 'Activity record source' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/provider marked the snapshot incomplete/u),
+      ).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: label }));
+      expect(
+        screen.getByText(
+          provider === 'native'
+            ? 'Some activity has no recorded finish'
+            : 'Activity history is incomplete',
+        ),
+      ).toBeVisible();
+      expect(
+        screen.queryByText(/provider marked the snapshot incomplete/u),
+      ).not.toBeInTheDocument();
+      if (provider === 'native') expect(screen.queryByText('arc+jsonl')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Technical details' }));
+      expect(screen.getByText(/provider marked the snapshot incomplete/u)).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'View activity timeline' }));
+      expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+    },
+  );
 
   it('still shows process activity when session_lineage is legally empty', async () => {
     // [] means "delegated to nothing", not a missing read — must still fall back.
