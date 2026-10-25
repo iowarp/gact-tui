@@ -18,6 +18,7 @@ import {
   getToolCompactMetadata,
   getToolStatus,
   getToolFailureDetail,
+  getToolInterruptionDetail,
   isA2uiCatalogLookup,
 } from './tool-presentation';
 import { PagedBlock } from './tool-result-primitives';
@@ -273,7 +274,10 @@ export function ClioToolInvocation({
             }
             metadata={headerMetadata}
             status={status}
-            statusDetail={failure}
+            statusDetail={
+              (status === 'interrupted' ? getToolInterruptionDetail(presentedTool) : undefined) ||
+              failure
+            }
             duration={duration}
             attention={
               attention ? (
@@ -291,7 +295,7 @@ export function ClioToolInvocation({
           />
         ) : null}
         {!compact &&
-        tool.state === 'failed' &&
+        status === 'failed' &&
         tool.error &&
         !tool.presentation?.blocks.some(
           (block) => block.severity === 'error' || block.text === tool.error,

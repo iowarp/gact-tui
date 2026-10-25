@@ -11,6 +11,7 @@ import {
   ShieldQuestionIcon,
   WifiOffIcon,
   XCircleIcon,
+  OctagonIcon,
 } from 'lucide-react';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import type { ComponentType, SVGProps } from 'react';
@@ -146,7 +147,7 @@ const statusPresentation: Record<
   },
   interrupted: {
     label: 'Interrupted',
-    icon: CircleAlertIcon,
+    icon: OctagonIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   pending: {

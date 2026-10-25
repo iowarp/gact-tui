@@ -62,7 +62,13 @@ export function ActivityRow({
         </span>
       ) : null}
       {status ? (
-        <ClioStatus compact value={status} detail={statusDetail} className="shrink-0" />
+        <ClioStatus
+          compact
+          value={status}
+          label={status === 'interrupted' ? statusDetail : undefined}
+          detail={status === 'interrupted' ? undefined : statusDetail}
+          className="shrink-0"
+        />
       ) : null}
       {attention ? <span className="shrink-0">{attention}</span> : null}
       {action ? (

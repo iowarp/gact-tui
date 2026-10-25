@@ -2,6 +2,7 @@ import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { formatDuration } from '@/lib/format';
 import type { ClioStatusValue } from './status';
 import { questionToolSummary } from './question-tool-presentation';
+import { taskWaitInterruptionDetail } from './task-wait-presentation';
 
 export interface ToolPresentation {
   title: string;
@@ -194,6 +195,7 @@ export function getToolCompactMetadata(tool: ToolInvocation): string | undefined
 }
 
 const DECLARED_TOOL_STATUSES = new Set<ClioStatusValue>([
+  'interrupted',
   'succeeded',
   'failed',
   'degraded',
@@ -205,10 +207,20 @@ const DECLARED_TOOL_STATUSES = new Set<ClioStatusValue>([
 export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
   // Saved presentation metadata cannot establish an unrecorded completion.
   if (tool.state === 'unknown') return 'unknown';
+  if (getToolInterruptionDetail(tool)) return 'interrupted';
   const declared = tool.presentation?.status;
   return declared && DECLARED_TOOL_STATUSES.has(declared as ClioStatusValue)
     ? (declared as ClioStatusValue)
     : tool.state;
+}
+
+/** Explain an interruption only from authored metadata or a recognized receipt. */
+export function getToolInterruptionDetail(tool: ToolInvocation): string | undefined {
+  const declared = tool.presentation?.status === 'interrupted';
+  if (declared && tool.presentation?.diagnostic?.trim()) return tool.presentation.diagnostic.trim();
+  const receipt = taskWaitInterruptionDetail(tool);
+  if (receipt) return receipt;
+  return declared ? 'Interrupted' : undefined;
 }
 
 /** Explain an unsuccessful outcome using recorded diagnostics, never payload-status guesses. */

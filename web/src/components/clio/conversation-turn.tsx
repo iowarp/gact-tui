@@ -18,6 +18,7 @@ import type {
 } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus } from './status';
+import { getToolStatus } from './tool-presentation';
 import {
   ClioAgentMessageLine,
   ClioSubagentLifecycleLine,
@@ -495,7 +496,10 @@ function IterationDetail({
             <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />
           ) : null,
         )}
-        {iteration.interrupted ? <ClioStatus value="interrupted" /> : null}
+        {iteration.interrupted &&
+        !iteration.tools.some((tool) => getToolStatus(tool) === 'interrupted') ? (
+          <ClioStatus value="interrupted" />
+        ) : null}
       </div>
     </article>
   );

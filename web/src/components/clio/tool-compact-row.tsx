@@ -7,6 +7,7 @@ import {
   CircleAlertIcon,
   Clock3Icon,
   LoaderCircleIcon,
+  OctagonIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -21,6 +22,7 @@ import {
   getToolCompactMetadata,
   getToolStatus,
   getToolSubject,
+  getToolInterruptionDetail,
 } from './tool-presentation';
 
 /** One recorded call occupies one line; its disclosure owns the complete result. */
@@ -43,7 +45,8 @@ export function ToolCompactRow({
   const evidence = surface === 'evidence';
   const active = status === 'pending' || status === 'running';
   const success = status === 'succeeded';
-  const outcomeColor = status === 'unknown' ? 'text-warning' : 'text-destructive';
+  const interrupted = status === 'interrupted';
+  const outcomeColor = status === 'unknown' || interrupted ? 'text-warning' : 'text-destructive';
   const pendingSnapshot = tool.presentation?.blocks.some(
     (block) => block.result_kind === 'snapshot' && block.status === 'pending',
   );
@@ -53,7 +56,8 @@ export function ToolCompactRow({
   const detail = subject?.label || subject?.text || terminal?.command;
   const showDetail = !(expanded && subject);
   const metadata = getToolCompactMetadata(tool);
-  const failure = getToolFailureDetail(tool);
+  const failure =
+    (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
   const [tooltip, setTooltip] = useState({ failure, open: false });
   // Keep the trigger mounted across lifecycle changes, but discard an old reason's open state.
   if (tooltip.failure !== failure) setTooltip({ failure, open: false });
@@ -68,7 +72,13 @@ export function ToolCompactRow({
           evidence && 'min-h-11 rounded-md px-2 py-2',
         )}
       >
-        {evidence ? (
+        {interrupted ? (
+          <OctagonIcon
+            aria-hidden="true"
+            data-slot="tool-interrupted-mark"
+            className="size-3.5 shrink-0 text-warning"
+          />
+        ) : evidence ? (
           <WorkKindStatus kind={kind} status={status} />
         ) : active ? (
           <LoaderCircleIcon
@@ -132,7 +142,7 @@ export function ToolCompactRow({
             {metadata}
           </span>
         ) : null}
-        {!active && !success ? (
+        {!active && !success && !interrupted ? (
           <span className={cn('shrink-0', outcomeColor)}>
             {status === 'unknown' ? 'Unknown' : status}
           </span>
