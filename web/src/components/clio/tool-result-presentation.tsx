@@ -85,7 +85,7 @@ export function ToolResultPresentation({
     contentBlocks.length > 0 &&
     contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
   if (document) {
-    const budget = contentBlocks.some((block) => block.type === 'diff') ? lines * 2 : lines;
+    const budget = lines;
     return (
       <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
         {summary ? (
@@ -224,11 +224,7 @@ export function ToolResultPresentation({
         const collectedChildOutput =
           (tool.name === 'get_agent_task_output' || tool.presentation?.action === 'Collect') &&
           block.type === 'markdown';
-        const budget = collectedChildOutput
-          ? Math.min(lines, 2)
-          : block.type === 'diff'
-            ? lines * 2
-            : lines;
+        const budget = collectedChildOutput ? Math.min(lines, 2) : lines;
         const running = block.type === 'terminal' && tool.state === 'running';
         if (block.type === 'link') {
           if (belongsToTerminal(blocks, index)) return null;

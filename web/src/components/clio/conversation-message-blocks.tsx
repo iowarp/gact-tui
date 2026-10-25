@@ -55,6 +55,8 @@ import { SummarizationInjection, TranscriptNotice } from './conversation-summari
 import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
+import { BoundedResult } from './bounded-result';
+import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -186,6 +188,7 @@ function MessageBlockView({
   onInteractionResponse,
   compactReferences,
 }: MessageBlockViewProps) {
+  const previewLines = useTranscriptPreviewLines();
   switch (block.type) {
     case 'text': {
       return (
@@ -317,27 +320,29 @@ function MessageBlockView({
       );
     case 'diff':
       return (
-        <CodeBlock code={block.unified_diff} language="diff" showLineNumbers>
-          <CodeBlockHeader>
-            <CodeBlockTitle>
-              <FileCode2Icon aria-hidden="true" className="size-3.5" />
-              <CodeBlockFilename>{block.path}</CodeBlockFilename>
-            </CodeBlockTitle>
-            <CodeBlockActions>
-              {onOpenFile ? (
-                <Button
-                  aria-label={`Open ${block.path} in workspace`}
-                  onClick={() => onOpenFile(block.path)}
-                  size="icon-xs"
-                  variant="ghost"
-                >
-                  <PanelsTopLeftIcon aria-hidden="true" />
-                </Button>
-              ) : null}
-              <CodeBlockCopyButton aria-label={`Copy diff for ${block.path}`} />
-            </CodeBlockActions>
-          </CodeBlockHeader>
-        </CodeBlock>
+        <BoundedResult lines={previewLines} title="File changes">
+          <CodeBlock code={block.unified_diff} language="diff" showLineNumbers>
+            <CodeBlockHeader>
+              <CodeBlockTitle>
+                <FileCode2Icon aria-hidden="true" className="size-3.5" />
+                <CodeBlockFilename>{block.path}</CodeBlockFilename>
+              </CodeBlockTitle>
+              <CodeBlockActions>
+                {onOpenFile ? (
+                  <Button
+                    aria-label={`Open ${block.path} in workspace`}
+                    onClick={() => onOpenFile(block.path)}
+                    size="icon-xs"
+                    variant="ghost"
+                  >
+                    <PanelsTopLeftIcon aria-hidden="true" />
+                  </Button>
+                ) : null}
+                <CodeBlockCopyButton aria-label={`Copy diff for ${block.path}`} />
+              </CodeBlockActions>
+            </CodeBlockHeader>
+          </CodeBlock>
+        </BoundedResult>
       );
     case 'error':
       return (
