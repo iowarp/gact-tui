@@ -12,12 +12,14 @@ import {
 } from '@/tauri/documents';
 import { downloadBytes } from './surface-export';
 import { vocab } from '@/lib/brand-vocabulary';
+import { copyText } from '@/lib/clipboard';
 // Load the real lazy renderer during collection, outside the rendering test's timer.
 import '../ai-elements/markdown';
 
 const host = vi.hoisted(() => ({ native: true }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => host.native }));
 vi.mock('./surface-export', () => ({ downloadBytes: vi.fn() }));
+vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn(async () => {}) }));
 
 const manifest = {
   artifact_id: 'artifact_3',
@@ -104,6 +106,34 @@ function renderWorkspace(
 }
 
 describe('ClioDocumentWorkspace', () => {
+  it('keeps Copy in the toolbar for readable and exact source views without a second filename header', async () => {
+    const source = '# Agenda\n\nPractice **first**.\n';
+    repository.documentManifest.mockResolvedValue(manifest);
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
+    repository.artifactReviews.mockResolvedValue([]);
+    const user = userEvent.setup();
+    const { container } = renderWorkspace();
+    await screen.findByRole('heading', { name: 'Agenda' });
+    const copy = screen.getByRole('button', { name: 'Copy evidence.md' });
+    expect(copy.closest('[data-slot="document-controls"]')).not.toBeNull();
+    await user.click(copy);
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.'));
+    vi.mocked(copyText).mockClear();
+    await user.click(screen.getByRole('tab', { name: 'Read raw' }));
+    const raw = screen.getByRole('region', { name: 'Raw Markdown for evidence.md' });
+    expect(raw.querySelector('button')).toBeNull();
+    expect(raw).not.toHaveTextContent('evidence.md');
+    expect(
+      container.querySelectorAll(
+        '[data-slot="document-controls"] button[aria-label="Copy evidence.md"]',
+      ),
+    ).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Copy evidence.md' }));
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith(source));
+    await user.click(screen.getByRole('tab', { name: 'Read document' }));
+    expect(screen.getByRole('button', { name: 'Copy evidence.md' })).toBeVisible();
+  });
+
   it('renders inline dollar math in a Markdown artifact without converting it to PDF', async () => {
     repository.documentManifest.mockResolvedValue(manifest);
     repository.documentContent.mockResolvedValue(
@@ -510,7 +540,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(screen.getByRole('region', { name: 'Raw Markdown for evidence.md' })).toHaveTextContent(
       '\uF0B7 Groups',
     );
-    expect(screen.getByRole('button', { name: 'Copy raw evidence.md' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Copy evidence.md' })).toBeVisible();
   });
 
   it('settles into a readable preview-only state when the registered revision is gone', async () => {

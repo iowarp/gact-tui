@@ -1,12 +1,4 @@
-import { FileCode2Icon } from 'lucide-react';
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block';
+import { CodeBlock } from '@/components/ai-elements/code-block';
 
 import type { DocumentSourceProfile } from './document-open-policy';
 const formats = {
@@ -15,7 +7,7 @@ const formats = {
   latex: { language: 'latex', label: 'LaTeX source' },
 } as const;
 
-/** Show and copy the original source independently of a rendered display copy. */
+/** Show the exact source beneath the document's shared identity and actions. */
 export function DocumentSourceView({
   name,
   profile,
@@ -36,16 +28,6 @@ export function DocumentSourceView({
       language={format.language}
       role="region"
       showLineNumbers
-    >
-      <CodeBlockHeader>
-        <CodeBlockTitle>
-          <FileCode2Icon aria-hidden="true" />
-          <CodeBlockFilename>{name}</CodeBlockFilename>
-        </CodeBlockTitle>
-        <CodeBlockActions>
-          <CodeBlockCopyButton aria-label={`Copy raw ${name}`} />
-        </CodeBlockActions>
-      </CodeBlockHeader>
-    </CodeBlock>
+    />
   );
 }

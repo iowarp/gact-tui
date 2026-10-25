@@ -7,22 +7,10 @@ import type {
   DocumentWorkingCopy,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  CircleAlertIcon,
-  FileCheck2Icon,
-  MessageSquareTextIcon,
-  ShieldCheckIcon,
-} from 'lucide-react';
+import { CircleAlertIcon, MessageSquareTextIcon, ShieldCheckIcon } from 'lucide-react';
 import { useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block';
+import { CodeBlock } from '@/components/ai-elements/code-block';
 import { MessageResponse } from '@/components/ai-elements/message';
 import {
   Timeline,
@@ -77,6 +65,7 @@ import { DocumentSourceView } from './document-source-view';
 import { isDocumentSourceProfile } from './document-open-policy';
 import { prepareDocumentPdf } from './document-pdf';
 import { editorLabel, openDocumentTarget } from './document-launch';
+import { TextFileCopyAction } from './text-file-copy-action';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
 
@@ -347,6 +336,22 @@ export function ClioDocumentWorkspace({
                 onChange={setDocumentView}
               />
             </div>
+            {effectiveManifest &&
+            isDocumentSourceProfile(effectiveManifest.profile) &&
+            (documentView === 'raw' ||
+              (documentView === 'preview' && effectiveManifest.profile !== 'html-static')) ? (
+              <TextFileCopyAction
+                name={effectiveManifest.name}
+                disabled={textContent === undefined}
+                readText={() =>
+                  documentView === 'raw' || effectiveManifest.profile === 'latex'
+                    ? textContent
+                    : (previewRef.current?.innerText ??
+                      previewRef.current?.textContent ??
+                      undefined)
+                }
+              />
+            ) : null}
             {selection ? (
               <Button onClick={() => setReviewOpen(true)} size="sm" variant="secondary">
                 <MessageSquareTextIcon aria-hidden="true" /> Review selection
@@ -594,17 +599,7 @@ function DocumentPreview({
   }
   if (manifest.profile === 'latex' && text !== undefined) {
     return (
-      <CodeBlock className="h-full overflow-auto" code={text} language="latex" showLineNumbers>
-        <CodeBlockHeader>
-          <CodeBlockTitle>
-            <FileCheck2Icon aria-hidden="true" className="size-3.5" />
-            <CodeBlockFilename>{manifest.name}</CodeBlockFilename>
-          </CodeBlockTitle>
-          <CodeBlockActions>
-            <CodeBlockCopyButton aria-label={`Copy ${manifest.name}`} />
-          </CodeBlockActions>
-        </CodeBlockHeader>
-      </CodeBlock>
+      <CodeBlock className="h-full overflow-auto" code={text} language="latex" showLineNumbers />
     );
   }
   if (!directProfiles.has(manifest.profile)) {

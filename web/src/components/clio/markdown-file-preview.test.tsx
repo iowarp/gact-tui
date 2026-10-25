@@ -3,8 +3,26 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { PresentationNavigation } from './presentation-navigation';
 import { MarkdownFilePreview } from './markdown-file-preview';
+import { copyText } from '@/lib/clipboard';
+import '../ai-elements/markdown';
+
+vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn(async () => {}) }));
 
 afterEach(cleanup);
+it('copies the current view from one control outside the source block', async () => {
+  const source = '---\nname: Evidence\n---\n# Agenda\n\nPractice **first**.';
+  const user = userEvent.setup();
+  render(<MarkdownFilePreview name="agenda.md" content={source} />);
+  await screen.findByRole('heading', { name: 'Agenda' });
+  await user.click(screen.getByRole('button', { name: 'Copy agenda.md' }));
+  await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.'));
+  vi.mocked(copyText).mockClear();
+  await user.click(screen.getByRole('tab', { name: 'Source' }));
+  expect(screen.getAllByRole('button', { name: 'Copy agenda.md' })).toHaveLength(1);
+  expect(screen.getByRole('tabpanel', { name: 'Source' }).querySelector('button')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Copy agenda.md' }));
+  await waitFor(() => expect(copyText).toHaveBeenCalledWith(source));
+});
 it('renders inline dollar math in a saved file and retains the exact source', async () => {
   const content = String.raw`# Collatz ($1 \le n \le 1{,}000{,}000$)
 

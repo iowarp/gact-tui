@@ -1,18 +1,26 @@
-import { CodeBlock, CodeBlockCopyButton } from '@/components/ai-elements/code-block';
+import { CodeBlock } from '@/components/ai-elements/code-block';
 import { ContentMarkdown } from './content-markdown';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DOCUMENT_MARKDOWN_CLASS_NAME, normalizeConvertedMarkdown } from '@/lib/document-markdown';
-import { useContext } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { FileViewerInformationHost } from './file-viewer-context';
+import { ViewerToolbarContent } from './viewer-toolbar';
+import { TextFileCopyAction } from './text-file-copy-action';
 
 /** Render Markdown as a document by default, retaining exact source on demand. */
 export function MarkdownFilePreview({ name, content }: { name: string; content: string }) {
   const sharedHeader = useContext(FileViewerInformationHost) !== undefined;
+  const [view, setView] = useState('preview');
+  const preview = useRef<HTMLDivElement>(null);
   const frontmatter = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)(?:\r?\n|$)/.exec(content);
   const body = frontmatter ? content.slice(frontmatter[0].length) : content;
   return (
-    <Tabs defaultValue="preview" className="flex h-full min-h-0 min-w-0 flex-col gap-2 p-3">
+    <Tabs
+      value={view}
+      onValueChange={setView}
+      className="flex h-full min-h-0 min-w-0 flex-col gap-2 p-3"
+    >
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         {!sharedHeader ? (
           <span className="min-w-0 flex-1 text-sm [overflow-wrap:anywhere]">{name}</span>
@@ -21,6 +29,16 @@ export function MarkdownFilePreview({ name, content }: { name: string; content: 
           <TabsTrigger value="preview">Preview</TabsTrigger>
           <TabsTrigger value="source">Source</TabsTrigger>
         </TabsList>
+        <ViewerToolbarContent>
+          <TextFileCopyAction
+            name={name}
+            readText={() =>
+              view === 'source'
+                ? content
+                : (preview.current?.innerText ?? preview.current?.textContent ?? undefined)
+            }
+          />
+        </ViewerToolbarContent>
       </div>
       <TabsContent value="preview" className="min-h-0 min-w-0 flex-1">
         <ScrollArea
@@ -36,16 +54,16 @@ export function MarkdownFilePreview({ name, content }: { name: string; content: 
                 <CodeBlock code={frontmatter[1]} language="yaml" />
               </details>
             ) : null}
-            <ContentMarkdown className={DOCUMENT_MARKDOWN_CLASS_NAME}>
-              {normalizeConvertedMarkdown(body)}
-            </ContentMarkdown>
+            <div ref={preview}>
+              <ContentMarkdown className={DOCUMENT_MARKDOWN_CLASS_NAME}>
+                {normalizeConvertedMarkdown(body)}
+              </ContentMarkdown>
+            </div>
           </article>
         </ScrollArea>
       </TabsContent>
       <TabsContent value="source" className="min-h-0 min-w-0 flex-1">
-        <CodeBlock className="h-full" code={content} language="markdown" showLineNumbers>
-          <CodeBlockCopyButton aria-label={`Copy ${name}`} />
-        </CodeBlock>
+        <CodeBlock className="h-full" code={content} language="markdown" showLineNumbers />
       </TabsContent>
     </Tabs>
   );
