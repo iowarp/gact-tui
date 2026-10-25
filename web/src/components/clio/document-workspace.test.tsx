@@ -493,7 +493,10 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     await user.keyboard('{Escape}');
     expect(screen.getByRole('tablist', { name: 'Document details' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Preview' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Document safety' }));
+    await user.click(screen.getByRole('button', { name: 'Document actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Document safety' }));
+    expect(screen.getByRole('tabpanel', { name: 'Document safety' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Document safety' })).toBeVisible();
     expect(screen.getByText('Immutable document boundary')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Read document' }));
     const claim = screen.getByText('Bounded claim from the source.');

@@ -334,7 +334,8 @@ describe('WorkspaceFileView', () => {
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
     expect(screen.queryByText('data/run.h5')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'File information' }));
+    await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'File information' }));
     expect(await screen.findByText('data/run.h5')).toBeVisible();
   });
 

@@ -427,6 +427,7 @@ export function ArtifactView({
         },
         {
           value: 'versions',
+          secondary: true,
           label: 'Versions',
           icon: HistoryIcon,
           content: (
@@ -437,6 +438,7 @@ export function ArtifactView({
         },
         {
           value: 'lineage',
+          secondary: true,
           label: 'Lineage',
           icon: GitBranchIcon,
           content: (

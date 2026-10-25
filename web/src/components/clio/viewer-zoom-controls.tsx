@@ -1,19 +1,11 @@
-import { LocateFixedIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
-import { useContext, useMemo } from 'react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { MoreIcon } from '@/lib/icon-vocabulary';
+import { ZoomInIcon, ZoomOutIcon } from 'lucide-react';
+import { useContext } from 'react';
 import { cn } from '@/lib/utils';
 import { FileViewerInformationHost } from './file-viewer-context';
-import { useFileViewerActions } from './file-viewer-action-context';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
-/** The same zoom composition for every file renderer, with compact actions in the file menu. */
+/** Zoom controls stay in one place at every width; the percentage button resets the view. */
 export function ViewerZoomControls({
   percent,
   onIn,
@@ -35,15 +27,6 @@ export function ViewerZoomControls({
 }) {
   const shared = useContext(FileViewerInformationHost) !== undefined;
   const host = useContext(ViewerToolbarHost);
-  const actions = useMemo(
-    () => [
-      { label: labels.in, icon: ZoomInIcon, onSelect: onIn, disabled: disabledIn },
-      { label: labels.out, icon: ZoomOutIcon, onSelect: onOut, disabled: disabledOut },
-      { label: labels.fit, icon: LocateFixedIcon, onSelect: onFit },
-    ],
-    [labels.in, labels.out, labels.fit, onIn, onOut, onFit, disabledIn, disabledOut],
-  );
-  useFileViewerActions(actions);
   return (
     <ViewerToolbarContent inline={inline}>
       <div
@@ -55,12 +38,7 @@ export function ViewerZoomControls({
         role="group"
         aria-label={labels.group || 'Image zoom'}
       >
-        <ToolbarAction
-          label={labels.out}
-          disabled={disabledOut}
-          onClick={onOut}
-          className="@max-[720px]/viewer:hidden"
-        >
+        <ToolbarAction label={labels.out} disabled={disabledOut} onClick={onOut}>
           <ZoomOutIcon aria-hidden="true" />
         </ToolbarAction>
         <ToolbarAction
@@ -70,34 +48,9 @@ export function ViewerZoomControls({
         >
           {Math.round(percent)}%
         </ToolbarAction>
-        <ToolbarAction
-          label={labels.in}
-          disabled={disabledIn}
-          onClick={onIn}
-          className="@max-[720px]/viewer:hidden"
-        >
+        <ToolbarAction label={labels.in} disabled={disabledIn} onClick={onIn}>
           <ZoomInIcon aria-hidden="true" />
         </ToolbarAction>
-        <ToolbarAction label={labels.fit} onClick={onFit} className="@max-[720px]/viewer:hidden">
-          <LocateFixedIcon aria-hidden="true" />
-        </ToolbarAction>
-        {!shared ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <ToolbarAction label={labels.menu} className="@min-[720px]/viewer:hidden">
-                <MoreIcon aria-hidden="true" />
-              </ToolbarAction>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {actions.map(({ label, icon: Icon, onSelect, disabled }) => (
-                <DropdownMenuItem key={label} onSelect={onSelect} disabled={disabled}>
-                  <Icon />
-                  {label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
       </div>
     </ViewerToolbarContent>
   );

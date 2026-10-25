@@ -2,11 +2,14 @@ import { createContext, useContext, useEffect, useId, type ComponentType } from 
 
 export interface FileViewerAction {
   label: string;
+  description?: string;
   /** Alternate formats join Export to… beside the original-file download. */
-  kind?: 'download';
+  kind?: 'download' | 'view';
+  selected?: boolean;
   icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
   onSelect: () => void | Promise<void>;
   disabled?: boolean;
+  pending?: boolean;
 }
 
 export const FileViewerActionRegistry = createContext<

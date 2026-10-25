@@ -358,7 +358,8 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+    await user.click(screen.getByRole('button', { name: 'File actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Provenance' }));
 
     expect(await screen.findByText('Resource lineage')).toBeVisible();
     expect(screen.getByLabelText('Loading model delivery records')).toBeVisible();
@@ -393,7 +394,8 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+    await user.click(screen.getByRole('button', { name: 'File actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Provenance' }));
 
     expect(await screen.findByText('Resource lineage')).toBeVisible();
     expect(screen.getByText('Uploaded')).toBeVisible();
@@ -448,7 +450,8 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+    await user.click(screen.getByRole('button', { name: 'File actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Provenance' }));
 
     expect(await screen.findByText('Unknown (holographic)')).toBeVisible();
   });

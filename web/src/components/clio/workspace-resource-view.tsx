@@ -252,6 +252,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           },
           {
             value: 'derivatives',
+            secondary: true,
             label: 'Derivatives',
             icon: FilesIcon,
             title: 'Inspect converted representations',
@@ -268,6 +269,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           },
           {
             value: 'provenance',
+            secondary: true,
             label: 'Provenance',
             icon: GitBranchIcon,
             title: 'Trace upload, processing, and model delivery',

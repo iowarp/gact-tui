@@ -23,6 +23,8 @@ export interface FileViewerTab {
   title?: string;
   icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
   content: ReactNode;
+  /** Secondary inspection views live in the shared More menu. */
+  secondary?: boolean;
 }
 
 /** One layout and action vocabulary; file renderers only contribute their content and controls. */
@@ -45,6 +47,13 @@ export function FileViewerShell({
   showIdentity?: boolean;
 }) {
   const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
+  const [internalValue, setInternalValue] = useState('preview');
+  const selectedValue = value ?? internalValue;
+  const selectValue = (next: string) => {
+    setInternalValue(next);
+    onValueChange?.(next);
+  };
+  const primaryTabs = tabs.filter((tab) => !tab.secondary);
   const identity = fileViewerIdentity(source);
   const [informationHost, setInformationHost] = useState<HTMLDivElement | null>(null);
   const [formatActions, setFormatActions] = useState<
@@ -90,52 +99,53 @@ export function FileViewerShell({
             >
               <Tabs
                 className="h-full min-h-0 min-w-0 gap-0 overflow-hidden"
-                defaultValue="preview"
-                value={value}
-                onValueChange={onValueChange}
+                value={selectedValue}
+                onValueChange={selectValue}
               >
                 <div
                   className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b px-2"
                   data-slot="viewer-toolbar"
                 >
-                  {showIdentity || tabs.length > 1 ? (
+                  {showIdentity || primaryTabs.length > 1 ? (
                     <TabsList
                       aria-label={label}
                       className="h-full min-w-0 flex-1 justify-start gap-0 bg-transparent p-0 group-data-horizontal/tabs:h-full"
                       variant="line"
                     >
-                      {tabs.map(({ value: tabValue, label: tabLabel, title, icon: Icon }) => (
-                        <TabsTrigger
-                          key={tabValue}
-                          className={cn(
-                            'h-full rounded-none text-xs text-foreground dark:text-foreground after:bg-primary group-data-horizontal/tabs:after:bottom-0',
-                            tabValue === 'preview' && showIdentity
-                              ? 'min-w-7 max-w-64 flex-1 justify-start gap-2 px-1'
-                              : 'w-8 flex-none px-0',
-                          )}
-                          value={tabValue}
-                          title={
-                            tabValue === 'preview' && showIdentity
-                              ? identity.name
-                              : title || tabLabel
-                          }
-                          aria-label={tabLabel}
-                        >
-                          {tabValue === 'preview' && showIdentity ? (
-                            <>
-                              <FileTypeIcon
-                                name={identity.name}
-                                mediaType={identity.mediaType}
-                                badge
-                                className="size-6 shrink-0"
-                              />
-                              <span className="truncate">{identity.name}</span>
-                            </>
-                          ) : (
-                            <Icon aria-hidden="true" className="size-3.5" />
-                          )}
-                        </TabsTrigger>
-                      ))}
+                      {primaryTabs.map(
+                        ({ value: tabValue, label: tabLabel, title, icon: Icon }) => (
+                          <TabsTrigger
+                            key={tabValue}
+                            className={cn(
+                              'h-full rounded-none text-xs text-foreground dark:text-foreground after:bg-primary group-data-horizontal/tabs:after:bottom-0',
+                              tabValue === 'preview' && showIdentity
+                                ? 'min-w-7 max-w-64 flex-1 justify-start gap-2 px-1'
+                                : 'w-8 flex-none px-0',
+                            )}
+                            value={tabValue}
+                            title={
+                              tabValue === 'preview' && showIdentity
+                                ? identity.name
+                                : title || tabLabel
+                            }
+                            aria-label={tabLabel}
+                          >
+                            {tabValue === 'preview' && showIdentity ? (
+                              <>
+                                <FileTypeIcon
+                                  name={identity.name}
+                                  mediaType={identity.mediaType}
+                                  badge
+                                  className="size-6 shrink-0"
+                                />
+                                <span className="truncate">{identity.name}</span>
+                              </>
+                            ) : (
+                              <Icon aria-hidden="true" className="size-3.5" />
+                            )}
+                          </TabsTrigger>
+                        ),
+                      )}
                     </TabsList>
                   ) : null}
                   <div
@@ -146,7 +156,21 @@ export function FileViewerShell({
                     <FileViewerActions
                       source={source}
                       hasDocumentActions={hasDocumentActions}
-                      formatActions={[...formatActions.values()].flat()}
+                      formatActions={[
+                        ...tabs
+                          .filter((tab) => tab.secondary)
+                          .map(
+                            (tab): FileViewerAction => ({
+                              kind: 'view',
+                              label: tab.label,
+                              description: tab.title,
+                              icon: tab.icon,
+                              selected: selectedValue === tab.value,
+                              onSelect: () => selectValue(tab.value),
+                            }),
+                          ),
+                        ...[...formatActions.values()].flat(),
+                      ]}
                       fullscreen={fullscreen}
                       onFullscreen={() => void toggleFullscreen()}
                       onInformationHost={setInformationHost}
@@ -161,6 +185,9 @@ export function FileViewerShell({
                       key={tab.value}
                       className="m-0 min-h-0 overflow-hidden"
                       value={tab.value}
+                      {...(tab.secondary
+                        ? { 'aria-label': tab.label, 'aria-labelledby': undefined }
+                        : {})}
                     >
                       {tab.content}
                     </TabsContent>

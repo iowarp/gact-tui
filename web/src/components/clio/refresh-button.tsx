@@ -1,9 +1,10 @@
-import { useRef, useState, type ComponentProps } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { ToolbarAction } from './viewer-toolbar';
+import { FileViewerActionRegistry, useFileViewerActions } from './file-viewer-action-context';
 
 type RefreshProps = Omit<ComponentProps<typeof Button>, 'onClick'> & {
   label: string;
@@ -14,7 +15,7 @@ type RefreshProps = Omit<ComponentProps<typeof Button>, 'onClick'> & {
 function useRefresh(onRefresh: RefreshProps['onRefresh'], refreshing: boolean) {
   const running = useRef(false);
   const [pending, setPending] = useState(false);
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (running.current || refreshing) return;
     running.current = true;
     setPending(true);
@@ -26,7 +27,7 @@ function useRefresh(onRefresh: RefreshProps['onRefresh'], refreshing: boolean) {
       running.current = false;
       setPending(false);
     }
-  };
+  }, [onRefresh, refreshing]);
   return { busy: pending || refreshing, refresh };
 }
 
@@ -81,9 +82,28 @@ export function RefreshAction({
   onRefresh,
   refreshing = false,
   disabled,
+  secondary = false,
   ...props
-}: Omit<RefreshProps, 'children'>) {
+}: Omit<RefreshProps, 'children'> & { secondary?: boolean }) {
   const { busy, refresh } = useRefresh(onRefresh, refreshing);
+  const registry = useContext(FileViewerActionRegistry);
+  const actions = useMemo(
+    () =>
+      secondary
+        ? [
+            {
+              label: busy ? `${label} — refreshing` : label,
+              icon: RefreshIcon,
+              onSelect: refresh,
+              disabled: Boolean(disabled || busy),
+              pending: busy,
+            },
+          ]
+        : [],
+    [secondary, label, busy, refresh, disabled],
+  );
+  useFileViewerActions(actions);
+  if (secondary && registry) return null;
   return (
     <ToolbarAction
       {...props}

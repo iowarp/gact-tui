@@ -33,6 +33,10 @@ User-facing rules:
   separate export buttons. Application opening stays separate. A generated surface
   without an original file offers explicit format choices rather than inventing an
   original download.
+- File toolbars prioritize reading/source modes, copying and downloading. Secondary
+  inspection views, refresh, information, fullscreen and workspace-copy actions
+  appear once in More. Do not repeat visible controls in the menu. Menu-based views
+  retain selected state, named panels and a clear way back to reading.
 
 Primary gates:
 

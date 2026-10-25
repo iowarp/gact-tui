@@ -53,7 +53,7 @@ import { documentApplications, revealFileBytes } from '@/tauri/documents';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { downloadBytes } from './surface-export';
 import { DocumentOpenMenu, type DocumentOpenTarget } from './document-open-menu';
-import { RefreshAction } from './refresh-button';
+import { DocumentRefreshAction } from './document-refresh-action';
 import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
 import { ClioPdfPreview } from './pdf-preview';
 import { ClioStatus } from './status';
@@ -388,28 +388,15 @@ export function ClioDocumentWorkspace({
                 onDownload={downloadSource.mutateAsync}
               />
             ) : null}
-            <RefreshAction
-              label="Refresh document revision"
+            <DocumentRefreshAction
               refreshing={
                 manifest.isFetching ||
                 pdfPreview.isFetching ||
                 content.isFetching ||
                 reviews.isFetching
               }
-              onRefresh={async () => {
-                await Promise.all([
-                  queryClient.invalidateQueries({
-                    queryKey: queryKeys.key('document-manifest', settings.endpoint),
-                  }),
-                  queryClient.invalidateQueries({
-                    queryKey: queryKeys.key('document-content', settings.endpoint),
-                  }),
-                  // The PDF belongs to this immutable artifact. Refresh its
-                  // bytes/metadata without restarting a successful conversion.
-                  reviews.refetch(),
-                  editorHealth.refetch(),
-                ]);
-              }}
+              onReviews={reviews.refetch}
+              onEditorHealth={editorHealth.refetch}
             />
           </div>
         </ViewerToolbarContent>
@@ -435,7 +422,12 @@ export function ClioDocumentWorkspace({
             resolvePending={resolveConflict.isPending}
           />
         ) : null}
-        <TabsContent className="m-0 min-h-0 min-w-0 overflow-hidden" value="preview">
+        <TabsContent
+          className="m-0 min-h-0 min-w-0 overflow-hidden"
+          value="preview"
+          aria-label="Document preview"
+          aria-labelledby={undefined}
+        >
           <div
             className="h-full min-h-0 min-w-0 overflow-hidden"
             ref={previewRef}
@@ -475,10 +467,22 @@ export function ClioDocumentWorkspace({
             />
           </TabsContent>
         ) : null}
-        <TabsContent className="m-0 min-h-0 min-w-0 overflow-auto p-3" value="reviews">
+        <TabsContent
+          className="m-0 min-h-0 min-w-0 overflow-auto p-3"
+          value="reviews"
+          aria-label="Reviews"
+          aria-labelledby={undefined}
+        >
+          <h2 className="mb-3 text-base font-semibold">Reviews</h2>
           <ReviewTimeline error={reviews.error?.message} reviews={reviews.data} />
         </TabsContent>
-        <TabsContent className="m-0 min-h-0 min-w-0 overflow-auto p-3" value="policy">
+        <TabsContent
+          className="m-0 min-h-0 min-w-0 overflow-auto p-3"
+          value="policy"
+          aria-label="Document safety"
+          aria-labelledby={undefined}
+        >
+          <h2 className="mb-3 text-base font-semibold">Document safety</h2>
           <DocumentPolicy editorHealth={editorHealth.data} workingCopy={workingCopy} />
         </TabsContent>
       </Tabs>
