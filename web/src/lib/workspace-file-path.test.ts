@@ -5,6 +5,12 @@ describe('workspace file identity', () => {
   it.each([
     ['D:\\Work\\report.txt', 'D:\\Work', 'report.txt'],
     ['d:/work/reports/Report.md', 'D:\\Work\\', 'reports/Report.md'],
+    ['/D:/Work/participant-survey.csv', 'D:\\Work', 'participant-survey.csv'],
+    ['/d:/work/reports/Report.md', 'D:\\Work\\', 'reports/Report.md'],
+    ['/D:/Workspace-other/report.txt', 'D:\\Workspace', '/D:/Workspace-other/report.txt'],
+    ['/E:/Work/report.txt', 'D:\\Work', '/E:/Work/report.txt'],
+    ['/D:/Work/report.txt', '/D:/Other', '/D:/Work/report.txt'],
+    ['/D:/Work/report.txt', undefined, '/D:/Work/report.txt'],
     ['\\\\host\\share\\work\\report.txt', '\\\\host\\share\\work', 'report.txt'],
     ['/work/reports/report.md', '/work', 'reports/report.md'],
     ['reports\\report.md', 'D:\\Work', 'reports/report.md'],

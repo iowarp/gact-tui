@@ -11,6 +11,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
+import { workspaceFilePath } from '@/lib/workspace-file-path';
+import { useLiveStore } from '@/store/live-store';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import { SessionWorkView } from './session-work';
@@ -329,6 +331,7 @@ function ScopedWorkspaceFileBrowser({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const foreign = sourceWorkspaceId !== props.workspaceId;
+  const workspaceRoot = useLiveStore((state) => state.entities.workspaces[props.workspaceId]?.path);
   const listing = useQuery({
     queryKey: [
       'workspace-files',
@@ -343,6 +346,11 @@ function ScopedWorkspaceFileBrowser({
   return (
     <FileBrowser
       {...props}
+      selectedPath={
+        props.selectedPath === undefined
+          ? undefined
+          : workspaceFilePath(props.selectedPath, workspaceRoot)
+      }
       {...(foreign
         ? {
             files: listing.data?.entries ?? [],
