@@ -1,9 +1,16 @@
 import type { AgentResolution } from '@clio/core/v3';
 import { ChevronRightIcon, SearchIcon } from 'lucide-react';
-import { useDeferredValue, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useDeferredValue, useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import {
   fragmentOwnerLabel,
@@ -12,6 +19,9 @@ import {
 } from '@/lib/plugin-presentation';
 
 type Fragment = AgentResolution['prompt']['sections'][number]['fragments'][number];
+const FullPromptDocument = lazy(async () => ({
+  default: (await import('./file-text-view')).FileTextView,
+}));
 
 /**
  * The main prompt as the agent receives it: five fixed sections, each made of
@@ -26,6 +36,15 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
   const needle = useDeferredValue(query.trim().toLowerCase());
   const sections = resolution.prompt.sections;
   const all = sections.flatMap((section) => section.fragments);
+  // Prefer the server's exact assembled text. Older servers expose only the
+  // ordered fragments, composed with the same blank-line separator.
+  const fullPrompt =
+    resolution.prompt.text ??
+    all
+      .map((fragment) => fragment.text)
+      .filter(Boolean)
+      .join('\n\n');
+  const promptName = `${resolution.agent.name || resolution.agent.id} system prompt`;
   const matches = (fragment: Fragment) =>
     !needle ||
     [fragment.id, fragmentOwnerLabel(fragment.plugin), unwrapFragmentText(fragment.text)].some(
@@ -75,6 +94,29 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
           >
             {allOpen ? 'Collapse all' : 'Expand all'}
           </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button disabled={!fullPrompt} size="sm" variant="outline">
+                See all
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl [&_[data-slot=viewer-toolbar]]:pr-12 [&>[data-slot=dialog-close]]:top-1.5">
+              <DialogTitle className="sr-only">{promptName}</DialogTitle>
+              <DialogDescription className="sr-only">
+                The complete composed system prompt for{' '}
+                {resolution.agent.name || resolution.agent.id}.
+              </DialogDescription>
+              <Suspense
+                fallback={
+                  <p role="status" className="p-4">
+                    Loading prompt…
+                  </p>
+                }
+              >
+                <FullPromptDocument name={promptName} content={fullPrompt} format="markdown" />
+              </Suspense>
+            </DialogContent>
+          </Dialog>
         </div>
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {needle

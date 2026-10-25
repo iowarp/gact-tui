@@ -243,6 +243,7 @@ export const agentResolutionSchema = z.object({
     .default({}),
   prompt: z
     .object({
+      text: z.string().optional(),
       sections: z.array(promptSectionSchema).default([]),
       digest: z.string().default(''),
       warnings: strings,

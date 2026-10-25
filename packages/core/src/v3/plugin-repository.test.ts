@@ -31,6 +31,7 @@ const resolution = {
     },
   ],
   prompt: {
+    text: 'You are CLIO.\n\n# Capabilities\nServer-rendered guidance.\n',
     sections: [
       { section: 'identity', fragments: [{ id: 'standard.identity', plugin: 'agent:standard' }] },
     ],
@@ -115,6 +116,7 @@ describe('PluginRepository contracts', () => {
     ]);
     expect(preview.plugins[0]?.removable).toBe(false);
     expect(preview.prompt.sections[0]?.fragments[0]?.plugin).toBe('agent:standard');
+    expect(preview.prompt.text).toBe(resolution.prompt.text);
     const removal = await repository.previewPluginRemoval({
       ref: 'clio/standard',
       plugin: 'document-runtime',
@@ -126,6 +128,7 @@ describe('PluginRepository contracts', () => {
       apply: 'compact',
     });
     expect(pinned.delta.add).toEqual(['hdf5']);
+    expect(pinned.resolution.prompt.text).toBe(resolution.prompt.text);
     expect(pinned.prompt_basis).toMatchObject({ pending: true, added: ['hdf5'], removed: [] });
     expect(pluginChangeCompactionError(pinned.compaction)).toBe('model timed out');
     await repository.saveUserAgent({
