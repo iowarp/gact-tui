@@ -41,22 +41,25 @@ it('shows the active question wait above prior operations until it settles', () 
   expect(transcriptActivitySummary([iteration([read, wait], { streaming: true })])).toEqual({
     label: 'Waiting for your answer',
     running: true,
+    failed: 0,
   });
   expect(transcriptActivitySummary([iteration([read, { ...wait, state: 'succeeded' }])])).toEqual({
     label: 'Read files, used tools',
     running: false,
+    failed: 0,
   });
 });
 
-it('labels recorded actions and says when a collapsed group holds a failure', () => {
+it('labels recorded actions without repeating counts or outcomes above the answer', () => {
   const tools = [
     { id: 'read', session_id: 's', name: 'fs_read_file', state: 'succeeded' as const },
     { id: 'run', session_id: 's', name: 'shell_bash', state: 'failed' as const },
   ];
   const iterations = [iteration(tools), iteration([tools[0]])];
   expect(transcriptActivitySummary(iterations)).toEqual({
-    label: 'Read files, ran commands (1 failed)',
+    label: 'Read files, ran commands',
     running: false,
+    failed: 1,
   });
   expect(
     transcriptActivitySummary([
@@ -85,10 +88,12 @@ it('keeps streaming and interrupted action entries identifiable without a numeri
   expect(transcriptActivitySummary([iteration(tools, { streaming: true })])).toEqual({
     label: 'Running commands, editing files',
     running: true,
+    failed: 0,
   });
   expect(transcriptActivitySummary([iteration([], { interrupted: true })])).toEqual({
     label: 'Activity (Interrupted)',
     running: false,
+    failed: 0,
   });
 });
 
@@ -155,14 +160,14 @@ it('identifies streamed reasoning after a read has finished without claiming the
         ],
       }),
     ]),
-  ).toEqual({ label: 'Thinking', running: true });
+  ).toEqual({ label: 'Thinking', running: true, failed: 0 });
   expect(
     transcriptActivitySummary([
       iteration([read, { ...read, id: 'search', name: 'web_search', state: 'running' }], {
         streaming: true,
       }),
     ]),
-  ).toEqual({ label: 'Read files, running searches', running: true });
+  ).toEqual({ label: 'Read files, running searches', running: true, failed: 0 });
 });
 
 it('names memory work so a folded turn shows that memory changed', () => {
@@ -189,6 +194,6 @@ it('names memory work so a folded turn shows that memory changed', () => {
 it('does not say files were edited when the write was refused', () => {
   const refused = { id: 'w', session_id: 's', name: 'fs_write_file', state: 'failed' as const };
   const written = { ...refused, id: 'w2', state: 'succeeded' as const };
-  expect(transcriptActivitySummary([iteration([refused])]).label).toBe('Tried to edit files (1 failed)');
+  expect(transcriptActivitySummary([iteration([refused])]).label).toBe('Tried to edit files');
   expect(transcriptActivitySummary([iteration([written])]).label).toBe('Edited files');
 });

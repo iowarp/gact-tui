@@ -2,10 +2,12 @@ import type { ToolInvocation } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { getToolStatus } from './tool-presentation';
 
-/** Name a group's actions; outcomes belong in the footer, except that a failure is named here. */
+/** Keep entry disclosures about actions; numeric outcomes belong in the message footer. */
 export function transcriptActivitySummary(iterations: readonly ConversationIteration[]): {
   label: string;
   running: boolean;
+  /** Failed calls in the group, marked on the collapsed row by an icon (the label stays verbs). */
+  failed: number;
 } {
   const running = iterations.some((item) => item.streaming);
   const activeWait = iterations
@@ -17,7 +19,7 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
         tool.presentation?.summary?.startsWith('Waiting for '),
     );
   if (activeWait?.presentation?.summary)
-    return { label: activeWait.presentation.summary, running: true };
+    return { label: activeWait.presentation.summary, running: true, failed: 0 };
   const thinking = iterations.some((item) =>
     item.thinking.some((thought) => thought.streaming && thought.text.trim().length > 0),
   );
@@ -26,7 +28,7 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
       item.tools.some((tool) => ['pending', 'running'].includes(tool.state)) ||
       item.tasks.some((task) => ['queued', 'running'].includes(task.state)),
   );
-  if (thinking && !activeOperation) return { label: 'Thinking', running: true };
+  if (thinking && !activeOperation) return { label: 'Thinking', running: true, failed: 0 };
   const toolLabel = (tool: ToolInvocation) => {
     const active = ['pending', 'running'].includes(tool.state);
     if (tool.name === 'ask_user')
@@ -58,17 +60,13 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
     ),
   ];
   const description = actions.join(', ') || 'activity';
-  // A collapsed group must say it holds a failure, in words, not only in the footer's count.
-  const failed = iterations
-    .flatMap((item) => item.tools)
-    .filter((tool) => getToolStatus(tool) === 'failed').length;
-  const label =
-    description[0].toUpperCase() +
-    description.slice(1) +
-    (failed ? ` (${failed} failed)` : '');
+  const label = description[0].toUpperCase() + description.slice(1);
   return {
     label: iterations.some((item) => item.interrupted) ? `${label} (Interrupted)` : label,
     running,
+    failed: iterations
+      .flatMap((item) => item.tools)
+      .filter((tool) => getToolStatus(tool) === 'failed').length,
   };
 }
 

@@ -1,5 +1,5 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { ListChecksIcon, LoaderCircleIcon } from 'lucide-react';
+import { CircleAlertIcon, ListChecksIcon, LoaderCircleIcon } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import {
   ChainOfThought,
@@ -288,6 +288,15 @@ export function ConversationTurn({
                       />
                     ) : null}
                     <span className="min-w-0 truncate font-medium">{summary.label}</span>
+                    {summary.failed ? (
+                      <span
+                        className="shrink-0"
+                        data-slot="activity-failed-mark"
+                        title={summary.failed === 1 ? 'A call failed' : 'Calls failed'}
+                      >
+                        <CircleAlertIcon aria-hidden="true" className="size-3.5 text-destructive" />
+                      </span>
+                    ) : null}
                   </span>
                 </ChainOfThoughtHeader>
                 <ChainOfThoughtContent
