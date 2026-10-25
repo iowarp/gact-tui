@@ -1,4 +1,5 @@
 import type { Message } from '@clio/core/v3';
+import { isParentDelegation } from './parent-delegation';
 
 /** Group consecutive harness entries with the response immediately following them. */
 export function placeHarnessInjections(messages: readonly Message[]): {
@@ -13,6 +14,7 @@ export function placeHarnessInjections(messages: readonly Message[]): {
     if (
       message.role === 'system' &&
       message.blocks.length > 0 &&
+      !message.blocks.some(isParentDelegation) &&
       message.blocks.every((block) => block.type === 'injection')
     ) {
       pending.push(message);

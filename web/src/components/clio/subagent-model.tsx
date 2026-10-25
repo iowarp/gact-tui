@@ -19,7 +19,7 @@ export function SubagentModel({ choice }: { choice: ModelChoice }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <span
-            className="inline-flex min-w-0 shrink items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground"
+            className="inline-flex min-w-0 shrink items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
             data-slot="subagent-model"
           >
             {provider ? (

@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ActivityRow } from './activity-row';
 import { ClioToolInvocation } from './tool-invocation';
-import { ClioStatus } from './status';
 import { SubagentModel } from './subagent-model';
+import { WorkKindStatus } from './work-kind-status';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -52,6 +52,7 @@ export function ClioSubagentLifecycleLine({
   return (
     <ClioToolInvocation
       compact
+      work={{ kind: 'agent', status: subagent?.state ?? (terminal ? 'unknown' : 'pending') }}
       tool={{
         id: `${subagent?.id ?? 'child'}:${stage}`,
         session_id: subagent?.session_id ?? '',
@@ -122,7 +123,7 @@ export function ClioSubagentProgressLine({ subagent, onOpen }: ClioSubagentCardP
       aria-label={`Open subagent ${name}`}
       onClick={(event) => onOpen?.(subagent, subagentOpenTarget(event))}
     >
-      <BotIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+      <WorkKindStatus kind="agent" status={subagent.state} />
       <span className="shrink-0 text-muted-foreground">Subagent</span>
       <span className="min-w-0 flex-1 truncate" title={subagent.title}>
         <span className="font-medium">{name}</span>
@@ -130,7 +131,6 @@ export function ClioSubagentProgressLine({ subagent, onOpen }: ClioSubagentCardP
           <span className="ml-2 text-muted-foreground">{subagent.title}</span>
         ) : null}
       </span>
-      <ClioStatus value={subagent.state} />
       {interactive ? <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0" /> : null}
     </button>
   );
@@ -227,7 +227,9 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
           state: toTheoState(subagent.state),
           duration:
             subagent.duration_ms === undefined ? undefined : formatDuration(subagent.duration_ms),
-          model: subagent.model_choice ? <SubagentModel choice={subagent.model_choice} /> : undefined,
+          model: subagent.model_choice ? (
+            <SubagentModel choice={subagent.model_choice} />
+          ) : undefined,
           result: subagent.result
             ? compactText(subagent.result, SUBAGENT_RESULT_TRUNCATE_CHARS)
             : undefined,

@@ -1,5 +1,5 @@
 import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
-import { ChevronRightIcon, PauseIcon, PlayIcon } from 'lucide-react';
+import { ChevronRightIcon, EllipsisIcon, PauseIcon, PlayIcon } from 'lucide-react';
 import { CloseIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { isSettledTaskActivity, taskActivity, type TaskActivity } from './task-activity';
 import { TaskActivityRow } from './task-activity-row';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { ClioEvidenceViewProps } from './observability-evidence';
 
 const settled = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
@@ -191,36 +197,65 @@ export function AsyncTaskList({
         actions={
           <>
             {onControlTask
-              ? (['pause', 'resume', 'restart'] as const)
+              ? (['pause', 'resume'] as const)
                   .filter((action) => task.supported_actions?.includes(action))
+                  .filter((action) =>
+                    action === 'resume'
+                      ? ![
+                          'running',
+                          'working',
+                          'busy',
+                          'executing',
+                          'starting',
+                          'recovering',
+                          'stopping',
+                          'cancelling',
+                          'cancellation_requested',
+                          'resume_requested',
+                        ].includes(status)
+                      : !settled.has(status) &&
+                        !['paused', 'stopped', 'pause_requested'].includes(status),
+                  )
                   .map((action) => {
-                    const ActionIcon =
-                      action === 'pause' ? PauseIcon : action === 'resume' ? PlayIcon : RetryIcon;
+                    const ActionIcon = action === 'pause' ? PauseIcon : PlayIcon;
                     return (
                       <Button
                         key={action}
                         variant="ghost"
                         size="icon"
                         aria-label={`${action} ${kind}: ${task.title}`}
-                        title={
-                          action === 'pause'
-                            ? 'Pause agent'
-                            : action === 'resume'
-                              ? 'Resume agent'
-                              : 'Restart agent'
-                        }
+                        title={action === 'pause' ? 'Pause agent' : 'Resume agent'}
                         disabled={Boolean(
                           controlling[handle] || cancelling || status === 'pause_requested',
                         )}
-                        onClick={() =>
-                          action === 'restart' ? setRestart(task) : void control(task, action)
-                        }
+                        onClick={() => void control(task, action)}
                       >
                         <ActionIcon aria-hidden="true" className="size-4" />
                       </Button>
                     );
                   })
               : null}
+            {onControlTask && task.supported_actions?.includes('restart') ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`More actions for ${task.title}`}
+                    title="More actions"
+                    disabled={Boolean(controlling[handle] || cancelling)}
+                  >
+                    <EllipsisIcon aria-hidden="true" className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setRestart(task)}>
+                    <RetryIcon aria-hidden="true" />
+                    Restart {kind === 'Session' ? 'assignment' : 'subagent'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
             {cancellable && onCancelTask ? (
               <Button
                 variant="ghost"

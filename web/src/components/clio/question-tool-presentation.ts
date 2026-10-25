@@ -76,17 +76,7 @@ export function withQuestionPresentation(
     blocks.unshift({ id: 'question-framing', type: 'text', text: framing });
   if (typeof reason === 'string' && reason.trim())
     blocks.push({ id: 'question-reason', type: 'text', label: 'Why I’m asking', text: reason });
-  let output = tool.output;
-  if (Array.isArray(output) && output.length === 1) output = record(output[0])?.text;
-  if (typeof output === 'string') {
-    try {
-      output = JSON.parse(output);
-    } catch {
-      output = undefined;
-    }
-  }
-  const outer = record(output);
-  const receipt = record(outer?.structuredContent) ?? record(outer?.structured_content) ?? outer;
+  const receipt = questionReceipt(tool);
   const interaction = interactions.find((row) => row.task_id === receipt?.handle);
   if (receipt?.kind === 'Question' && receipt.accepted === true) {
     const status = interaction?.status;
@@ -116,4 +106,35 @@ export function withQuestionPresentation(
       blocks,
     },
   };
+}
+
+function questionReceipt(tool: ToolInvocation): Record<string, unknown> | undefined {
+  let output = tool.output;
+  if (Array.isArray(output) && output.length === 1) output = record(output[0])?.text;
+  if (typeof output === 'string') {
+    try {
+      output = JSON.parse(output);
+    } catch {
+      output = undefined;
+    }
+  }
+  const outer = record(output);
+  return record(outer?.structuredContent) ?? record(outer?.structured_content) ?? outer;
+}
+
+/** A successful question submission is complete only when its owner records an answer. */
+export function questionWorkStatus(
+  tool: ToolInvocation,
+  interactions: readonly PendingInteraction[] = [],
+): string | undefined {
+  if (tool.name !== 'ask_user') return undefined;
+  if (tool.state !== 'succeeded') return tool.state;
+  const receipt = questionReceipt(tool);
+  if (receipt?.kind !== 'Question' || receipt.accepted !== true) return 'unknown';
+  const interaction = interactions.find((row) => row.task_id === receipt.handle);
+  return interaction?.status === 'answered'
+    ? 'completed'
+    : interaction?.status === 'pending'
+      ? 'waiting_user'
+      : (interaction?.status ?? 'submitted');
 }

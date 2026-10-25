@@ -1,5 +1,4 @@
 import type { AttentionBlock, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
-import { WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { useContext, useEffect, useState } from 'react';
 import { ToolInput, ToolOutput } from '@/components/ai-elements/tool';
@@ -34,6 +33,8 @@ import { withStorageToolPresentation } from './storage-tool-presentation';
 import { withSkillPresentation } from './skill-tool-presentation';
 import { withQuestionPresentation } from './question-tool-presentation';
 import { useQuestionAnswer } from './question-answer-context';
+import { WorkKindStatus } from './work-kind-status';
+import { toolWorkPresentation, type WorkPresentation } from './tool-work-status';
 
 export function ClioToolInvocation({
   attention,
@@ -42,6 +43,7 @@ export function ClioToolInvocation({
   tool,
   defaultOpen,
   compact = false,
+  work,
 }: {
   tool?: ToolInvocation;
   defaultOpen?: boolean;
@@ -51,6 +53,8 @@ export function ClioToolInvocation({
   attention?: { share: number; bucket: number };
   attentionFields?: readonly AttentionBlock[];
   sessionId?: string;
+  /** Current owner state for a linked actor; the call receipt stays unchanged. */
+  work?: WorkPresentation;
 }) {
   const navigation = useContext(PresentationNavigation);
   const questionContext = useQuestionAnswer();
@@ -116,6 +120,8 @@ export function ClioToolInvocation({
         )
     : [];
   const status = getToolStatus(presentedTool);
+  const workPresentation =
+    work ?? toolWorkPresentation(presentedTool, questionContext?.interactions);
   const failure = getToolFailureDetail(presentedTool);
   const declaredFailure = presentedTool.presentation?.blocks.some(
     (block) => block.severity === 'error' && (block.text?.trim() || block.content_ref),
@@ -151,6 +157,7 @@ export function ClioToolInvocation({
           <Collapsible open={resultOpen} onOpenChange={setResultOpen}>
             <div className="flex min-w-0 items-center gap-1">
               <ToolCompactRow
+                work={workPresentation}
                 tool={presentedTool}
                 expanded={resultOpen}
                 duration={duration}
@@ -214,7 +221,7 @@ export function ClioToolInvocation({
           </Collapsible>
         ) : (
           <ActivityRow
-            icon={flow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />}
+            icon={<WorkKindStatus {...workPresentation} />}
             title={
               <span
                 className="flex w-full min-w-0 items-center gap-1"
@@ -248,8 +255,6 @@ export function ClioToolInvocation({
               </span>
             }
             metadata={headerMetadata}
-            status={status}
-            statusDetail={failure}
             duration={duration}
             attention={
               attention ? (

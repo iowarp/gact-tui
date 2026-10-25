@@ -1,16 +1,6 @@
 import type { ReactNode } from 'react';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
-import {
-  BanIcon,
-  CheckCircle2Icon,
-  ChevronRightIcon,
-  CircleAlertIcon,
-  CircleDashedIcon,
-  LoaderCircleIcon,
-  MessageCircleQuestionIcon,
-  PauseIcon,
-  PanelRightOpenIcon,
-} from 'lucide-react';
+import { ChevronRightIcon, PanelRightOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { ClioEvidenceViewProps } from './observability-evidence';
@@ -19,8 +9,10 @@ import { flowLabel } from './flow-tool-presentation';
 import { taskProgressLabel } from './task-progress-label';
 import { SubagentModel } from './subagent-model';
 import { subagentOpenTarget, SUBAGENT_OPEN_HINT } from './subagent-navigation';
-
-const settled = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
+import { WorkKindStatus } from './work-kind-status';
+import { taskWorkKind } from './work-kind';
+import { BoundedResult } from './bounded-result';
+import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 /** A quiet task summary with the original assignment and identity disclosed on demand. */
 export function TaskActivityRow({
@@ -40,6 +32,7 @@ export function TaskActivityRow({
   compact?: boolean;
 }) {
   const { process: task, subagent } = entry;
+  const previewLines = useTranscriptPreviewLines();
   const conversation = subagent ?? (task ? mergeSessionSubagents([], [task])[0] : undefined);
   const title = task?.title || subagent?.title || 'Task';
   const kind = task?.task_kind ?? (task?.kind === 'agent' || subagent ? 'Subagent' : 'MCP');
@@ -47,7 +40,6 @@ export function TaskActivityRow({
   const flowRun = task?.flow ? `${flowLabel(task.flow.id)} run` : undefined;
   const assignment = task?.description || subagent?.task;
   const progress = taskProgressLabel(task?.progress, kind, task?.error_reason);
-  const held = status === 'paused' || status === 'pause_requested';
   const yielded = status === 'yielded';
   const awaitingAnswer =
     kind === 'Question' && (status === 'input_required' || status === 'waiting_user');
@@ -60,19 +52,6 @@ export function TaskActivityRow({
     status === 'cancelling' ||
     status === 'cancellation_requested' ||
     status === 'resume_requested';
-  const Icon = held
-    ? PauseIcon
-    : awaitingAnswer
-      ? MessageCircleQuestionIcon
-      : yielded || status === 'queued' || status === 'stopped'
-        ? CircleDashedIcon
-        : running
-          ? LoaderCircleIcon
-          : status === 'completed'
-            ? CheckCircle2Icon
-            : status === 'cancelled'
-              ? BanIcon
-              : CircleAlertIcon;
   const label =
     status === 'task_state_uncertain'
       ? 'Needs inspection'
@@ -92,10 +71,7 @@ export function TaskActivityRow({
             title={title}
             className={`flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'min-h-9 gap-1.5 px-1 py-1' : 'min-h-14 gap-2.5 px-2 py-2'}`}
           >
-            <Icon
-              aria-hidden="true"
-              className={`size-4 shrink-0 ${running ? 'animate-spin text-status-running-foreground motion-reduce:animate-none' : status === 'completed' ? 'text-status-supported-foreground' : status === 'cancelled' ? 'text-status-superseded-foreground' : settled.has(status) ? 'text-destructive' : 'text-muted-foreground'}`}
-            />
+            <WorkKindStatus kind={task?.flow ? 'workflow' : taskWorkKind(kind)} status={status} />
             <span className={`min-w-0 flex-1 ${compact ? 'flex items-baseline gap-2' : ''}`}>
               {compact ? (
                 <span className="block flex-1 truncate text-sm">{flowRun ?? title}</span>
@@ -110,7 +86,13 @@ export function TaskActivityRow({
               <span
                 className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-xs' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
-                {compact ? label : `${kind} · ${label}`}
+                {running || status === 'completed'
+                  ? kind === 'MCP' || kind === 'Shell'
+                    ? 'Tool'
+                    : kind === 'Session'
+                      ? 'Agent'
+                      : kind
+                  : `${kind === 'MCP' || kind === 'Shell' ? 'Tool' : kind} · ${label}`}
                 {!compact && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
@@ -130,10 +112,11 @@ export function TaskActivityRow({
           <div
             role="region"
             aria-label={`Assignment: ${title}`}
-            tabIndex={0}
-            className="max-h-40 overflow-y-auto text-sm whitespace-pre-wrap [overflow-wrap:anywhere]"
+            className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]"
           >
-            {assignment || 'Description unavailable for this older task'}
+            <BoundedResult lines={previewLines} title={`Assignment: ${title}`}>
+              {assignment || 'Description unavailable for this older task'}
+            </BoundedResult>
           </div>
           {progress ? (
             <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{progress}</p>

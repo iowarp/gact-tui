@@ -731,6 +731,7 @@ export function WorkspacePage() {
                 ) : (
                   <TranscriptPresenceSurface className="min-h-0 flex-1" key="conversation">
                     <WorkspaceLiveConversation
+                      agentName={agentLabel}
                       processes={processes}
                       artifacts={artifacts}
                       attentionData={attention.heat}

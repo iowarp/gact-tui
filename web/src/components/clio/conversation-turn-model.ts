@@ -8,6 +8,7 @@ import {
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import type { ThoughtSource } from './transcript-reasoning';
+import { isParentDelegation } from './parent-delegation';
 
 /**
  * One correlated unit of work inside an iteration, carrying the kind so the
@@ -185,6 +186,12 @@ function fallbackIterations(
     previousPartId = block.id;
     // Transport-only instructions have no visible boundary to split.
     if (block.type === 'injection' && (block.source === 'tool_use' || block.variants_id)) continue;
+    if (isParentDelegation(block)) {
+      flush();
+      consumed.add(block.id);
+      segments.push({ kind: 'block', block });
+      continue;
+    }
     if (block.type === 'notice' && block.source === 'compaction_failed') {
       flush();
       compactionRecords.push({ afterIteration: iterations.length, block });

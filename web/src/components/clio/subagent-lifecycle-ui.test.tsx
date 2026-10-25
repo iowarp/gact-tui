@@ -69,7 +69,8 @@ it('requires confirmation before creating a linked successor', async () => {
   };
   const control = vi.fn(async () => {});
   render(<AsyncTaskList processes={[completed]} onControlTask={control} />);
-  await userEvent.click(screen.getByRole('button', { name: `restart Subagent: ${task.title}` }));
+  await userEvent.click(screen.getByRole('button', { name: `More actions for ${task.title}` }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Restart subagent' }));
   expect(control).not.toHaveBeenCalled();
   expect(screen.getByRole('alertdialog')).toHaveTextContent(
     'An active assignment is cancelled and settled first. The linked assignment keeps its context. Check uncertain effects before retrying operations.',
@@ -82,7 +83,8 @@ it('requires confirmation before creating a linked successor', async () => {
   );
   await userEvent.click(screen.getByRole('button', { name: 'Keep this run' }));
   expect(control).not.toHaveBeenCalled();
-  await userEvent.click(screen.getByRole('button', { name: `restart Subagent: ${task.title}` }));
+  await userEvent.click(screen.getByRole('button', { name: `More actions for ${task.title}` }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Restart subagent' }));
   await userEvent.click(screen.getByRole('button', { name: 'Restart subagent' }));
   expect(control).toHaveBeenCalledTimes(1);
   expect(control).toHaveBeenCalledWith(completed, 'restart');

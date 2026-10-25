@@ -57,6 +57,54 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation harness injection', () => {
+  it('renders the parent assignment as a normal prompt, preserves its envelope, and names the answering agent and model', async () => {
+    const prompt = 'Audit the archived observations.';
+    const raw = JSON.stringify({
+      assignment: prompt,
+      parent_session_id: 'parent',
+      launch_context: { input_task_refs: [] },
+    });
+    renderConversation(
+      <ClioConversation
+        agentName="Storage analyst"
+        artifacts={{}}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+        messages={[
+          {
+            id: 'delegation',
+            session_id: 'child',
+            role: 'assistant',
+            created_at: '2026-10-25T10:00:00Z',
+            blocks: [
+              { id: 'parent-prompt', type: 'injection', source: 'delegation', text: raw },
+              { id: 'retained', type: 'text', text: 'Preserve the read-only boundary.' },
+            ],
+          },
+          {
+            id: 'answer',
+            session_id: 'child',
+            role: 'assistant',
+            created_at: '2026-10-25T10:00:01Z',
+            model: { model_id: 'gpt-6.1-sol', provider_id: 'codex' },
+            blocks: [{ id: 'answer-text', type: 'text', text: 'I will inspect the archive.' }],
+          },
+        ]}
+      />,
+    );
+    expect(await screen.findByText(prompt)).toBeVisible();
+    expect(screen.getByText('Parent')).toBeVisible();
+    await waitFor(() => expect(screen.getAllByText('Storage analyst')[0]).toBeVisible());
+    expect(screen.getAllByText('gpt-6.1-sol').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Agent Workspace')).toBeNull();
+    expect(screen.getByText('Preserve the read-only boundary.')).toBeVisible();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    await userEvent.click(screen.getByText('Technical details'));
+    expect(screen.getByText(raw)).toBeVisible();
+    expect(screen.getAllByText(prompt)).toHaveLength(1);
+  });
   it.each(['goal_judgment', 'loop_wake', 'scheduled_wake'])(
     'continues the human prompt with a %s injection and no user controls',
     async (source) => {

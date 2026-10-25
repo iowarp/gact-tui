@@ -37,6 +37,8 @@ export interface ClioConversationProps {
    */
   workspaceId?: string;
   sessionId?: string;
+  /** Recorded/catalog-resolved agent identity for this conversation, separate from the product. */
+  agentName?: string;
   forkOrigin?: ConversationForkOrigin;
   tools: Record<string, ToolInvocation>;
   tasks: Record<string, DomainTask>;
