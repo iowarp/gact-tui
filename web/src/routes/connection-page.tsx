@@ -28,6 +28,7 @@ import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
 import { queryKeys } from '@/lib/query-keys';
 import { reportConnectionOutcome } from '@/lib/connection-outcomes';
+import { connectionCapabilities } from '@/lib/connection-capabilities';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -326,7 +327,7 @@ export function ConnectionPage() {
         endpoint: normalizeEndpoint(candidate.endpoint),
       });
       const repository = createRepository(next);
-      const capabilities = await repository.capabilities();
+      const capabilities = await connectionCapabilities(repository, next.endpoint);
       if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
         throw new Error(
           `This workspace requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}; the service offers ${capabilities.gact_versions.join(', ') || `no ${PROTOCOL.gact} versions`}.`,
@@ -670,6 +671,7 @@ export function ConnectionPage() {
                   <Field>
                     <FieldLabel htmlFor="endpoint">Connection address</FieldLabel>
                     <Input
+                      aria-describedby="endpoint-hint"
                       autoComplete="url"
                       className="h-11 font-mono text-sm"
                       id="endpoint"
@@ -678,6 +680,10 @@ export function ConnectionPage() {
                       required
                       value={endpointDraft}
                     />
+                    <FieldDescription id="endpoint-hint">
+                      Use the agent service address, for example {DEFAULT_ENDPOINT}. It can differ
+                      from this web page's address.
+                    </FieldDescription>
                   </Field>
                   <Popover>
                     <PopoverTrigger asChild>
