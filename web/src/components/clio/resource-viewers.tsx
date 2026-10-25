@@ -438,7 +438,6 @@ export function ArtifactView({
         },
         {
           value: 'lineage',
-          secondary: true,
           label: 'Lineage',
           icon: GitBranchIcon,
           content: (

@@ -96,6 +96,7 @@ describe('ArtifactView', () => {
       </QueryClientProvider>,
     );
     expect(await screen.findByText('Recovered nested result')).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Lineage' })).toBeVisible();
     expect(repository.workspaceFiles).toHaveBeenCalledWith('workspace_1', expect.any(AbortSignal), {
       excludeServiceStorage: true,
     });

@@ -123,7 +123,7 @@ export function FileViewerShell({
                               className={cn(
                                 'h-full rounded-none text-xs text-foreground dark:text-foreground after:bg-primary group-data-horizontal/tabs:after:bottom-0',
                                 tabValue === 'preview' && showIdentity
-                                  ? 'min-w-7 max-w-64 flex-1 justify-start gap-2 px-1'
+                                  ? 'min-w-7 max-w-64 flex-initial justify-start gap-2 px-1'
                                   : 'w-8 flex-none px-0',
                               )}
                               value={tabValue}

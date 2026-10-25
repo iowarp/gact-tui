@@ -59,7 +59,6 @@ function viewer(refresh = vi.fn(async () => {})) {
             value: 'lineage',
             label: 'Lineage',
             icon: GitBranchIcon,
-            secondary: true,
             content: <p>Recorded lineage</p>,
           },
         ]}
@@ -78,12 +77,14 @@ it('keeps one place for secondary actions while retaining primary read/source co
     'Document actions',
   ])
     expect(screen.queryByRole('button', { name })).toBeNull();
-  for (const name of ['Versions', 'Lineage', 'Reviews, 2', 'Document safety'])
+  for (const name of ['Versions', 'Reviews, 2', 'Document safety'])
     expect(screen.queryByRole('tab', { name })).toBeNull();
+  expect(screen.getByRole('tab', { name: 'Lineage' })).toBeVisible();
   expect(screen.getByRole('tab', { name: 'Source' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'File actions' }));
-  for (const name of ['Versions', 'Lineage', 'Reviews, 2', 'Document safety'])
+  for (const name of ['Versions', 'Reviews, 2', 'Document safety'])
     expect(screen.getAllByRole('menuitemcheckbox', { name })).toHaveLength(1);
+  expect(screen.queryByRole('menuitemcheckbox', { name: 'Lineage' })).toBeNull();
   for (const name of [
     'File information',
     'View file fullscreen',
@@ -108,7 +109,8 @@ it('opens secondary file views with accessible names and returns to the preview'
   expect(more).toHaveFocus();
   await user.click(more);
   expect(screen.getByRole('menuitemcheckbox', { name: 'Versions' })).toBeChecked();
-  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Lineage' }));
+  await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('tab', { name: 'Lineage' }));
   expect(screen.getByRole('tabpanel', { name: 'Lineage' })).toHaveTextContent('Recorded lineage');
   await user.click(screen.getByRole('tab', { name: 'Preview' }));
   expect(screen.getByText('Rendered file')).toBeVisible();
