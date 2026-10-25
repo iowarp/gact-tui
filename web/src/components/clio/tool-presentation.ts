@@ -141,7 +141,7 @@ export function getToolResultBlocks(
   let entityLabel = subjectId === subject?.id ? subject?.label || subject?.text : undefined;
   return (tool.presentation?.blocks ?? [])
     .filter((block) => block.id !== subjectId)
-    .map((block) => {
+    .flatMap((block) => {
       if (
         block.type === 'link' &&
         ['session', 'file', 'artifact', 'resource', 'work', 'surface'].includes(block.target ?? '')
@@ -149,6 +149,21 @@ export function getToolResultBlocks(
         entityLabel = block.label || block.text;
         return block;
       }
+      // Plain metadata can restate the identity as a label/value pair (for
+      // example, "Dataset: climate"). It adds no field beyond that identity.
+      if (
+        entityLabel &&
+        block.type === 'text' &&
+        block.label &&
+        block.text &&
+        !block.content_ref &&
+        !block.severity &&
+        !block.status &&
+        !block.detail &&
+        !block.result_kind &&
+        `${block.label.trim()}: ${block.text.trim()}` === entityLabel.trim()
+      )
+        return [];
       return block.label && entityLabel && block.label.trim() === entityLabel.trim()
         ? { ...block, label: undefined }
         : block;

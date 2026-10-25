@@ -90,6 +90,30 @@ describe('declared tool presentation', () => {
     expect(tool.presentation?.blocks[1].label).toBe('Deep Researcher');
     expect(getToolResultBlocks(tool)[0].id).toBe('owner');
   });
+  it('omits a plain label/value restatement of identity while retaining diagnostic fields and the raw record', () => {
+    const tool: ToolInvocation = {
+      id: 't',
+      session_id: 's',
+      name: 'opaque_tool',
+      state: 'succeeded',
+      presentation: {
+        summary: '',
+        subject: 'identity',
+        blocks: [
+          { id: 'identity', type: 'text', text: 'Dataset: climate' },
+          { id: 'same-fact', type: 'text', label: 'Dataset', text: 'climate' },
+          { id: 'warning', type: 'text', label: 'Dataset', text: 'climate', severity: 'warning' },
+          { id: 'body', type: 'markdown', text: '# Dataset: climate\n\nActual document content.' },
+        ],
+      },
+    };
+    expect(getToolResultBlocks(tool, 'identity').map((block) => block.id)).toEqual([
+      'warning',
+      'body',
+    ]);
+    expect(tool.presentation?.blocks).toHaveLength(4);
+    expect(getToolResultBlocks(tool, 'identity')[1].text).toContain('# Dataset: climate');
+  });
   it('keeps saved output attachments in the result unless explicitly declared as the subject', () => {
     const tool: ToolInvocation = {
       id: 't',

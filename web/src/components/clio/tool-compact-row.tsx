@@ -51,7 +51,7 @@ export function ToolCompactRow({
   const subject = getToolSubject(tool);
   const terminal = tool.presentation?.blocks.find((block) => block.type === 'terminal');
   const detail = subject?.label || subject?.text || terminal?.command;
-  const showDetail = !(expanded && subject?.type === 'link');
+  const showDetail = !(expanded && subject);
   const metadata = getToolCompactMetadata(tool);
   const failure = getToolFailureDetail(tool);
   const [tooltip, setTooltip] = useState({ failure, open: false });

@@ -82,6 +82,34 @@ describe('ClioToolInvocation content and subject rendering', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Deep Researcher' }));
     expect(open).toHaveBeenCalledOnce();
   });
+  it('gives text subjects the same single-owner expansion as linked subjects', async () => {
+    render(
+      <ClioToolInvocation
+        compact
+        tool={{
+          id: 'text-subject',
+          session_id: 's',
+          name: 'opaque_tool',
+          title: 'Read instructions',
+          state: 'succeeded',
+          presentation: {
+            summary: '',
+            subject: 'identity',
+            blocks: [
+              { id: 'identity', type: 'text', text: 'Planning guide' },
+              { id: 'body', type: 'text', text: 'Read these instructions before planning.' },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(screen.getAllByText('Planning guide', { exact: true })).toHaveLength(1);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show result for Read instructions' }),
+    );
+    expect(screen.getAllByText('Planning guide', { exact: true })).toHaveLength(1);
+    expect(screen.getByText('Read these instructions before planning.')).toBeVisible();
+  });
   it('keeps Evidence kind/status glyphs scoped and gives its copied invocation a distinct DOM identity', () => {
     const tool = {
       id: 'scoped-read',
