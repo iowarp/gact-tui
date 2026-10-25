@@ -9,6 +9,54 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
+it('lets Evidence disclose the formatted tool result and preserves semantic failures without repeated success badges', async () => {
+  render(
+    <ClioEvidenceView
+      artifacts={[]}
+      contextFiles={[]}
+      diffs={[]}
+      messages={[]}
+      processes={[]}
+      tools={[
+        {
+          id: 'read',
+          session_id: 's',
+          name: 'fs_read_file',
+          state: 'succeeded',
+          presentation: { action: 'Read', summary: '710 bytes', blocks: [] },
+        },
+        {
+          id: 'fetch',
+          session_id: 's',
+          name: 'fetch',
+          state: 'succeeded',
+          presentation: {
+            action: 'Fetch',
+            status: 'failed',
+            summary: 'Could not fetch',
+            blocks: [
+              {
+                id: 'failure',
+                type: 'text',
+                text: 'Resource exceeded its size limit',
+                severity: 'error',
+              },
+            ],
+          },
+        },
+      ]}
+    />,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Tool calls, 2 recorded' }));
+  expect(screen.getByRole('img', { name: 'Tool: succeeded' })).toBeVisible();
+  expect(screen.getByRole('img', { name: 'Tool: failed' })).toBeVisible();
+  expect(screen.queryByText('Succeeded')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Show result for Fetch' }));
+  expect(screen.getByRole('region', { name: 'Fetch: Result' })).toHaveTextContent(
+    'Resource exceeded its size limit',
+  );
+});
+
 it.each([false, true])(
   'keeps task history in Work and out of Data (compact=%s)',
   async (compact) => {

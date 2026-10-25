@@ -48,11 +48,14 @@ export function ClioToolInvocation({
   tool,
   defaultOpen,
   compact = false,
+  surface = 'transcript',
 }: {
   tool?: ToolInvocation;
   defaultOpen?: boolean;
   embedded?: boolean;
   compact?: boolean;
+  /** Evidence reuses the same results with its own list density and kind/status glyphs. */
+  surface?: 'transcript' | 'evidence';
   /** Attention-mode badge: this tool call's share of the selection's attention, and its intensity bucket. */
   attention?: { share: number; bucket: number };
   attentionFields?: readonly AttentionBlock[];
@@ -161,7 +164,7 @@ export function ClioToolInvocation({
       <div
         className="flex min-w-0 scroll-m-6 flex-col gap-0.5 rounded-sm focus:outline-2 focus:outline-offset-2 focus:outline-primary"
         data-slot="tool-activity"
-        id={`tool-${tool.id}`}
+        id={`${surface === 'evidence' ? 'evidence-tool' : 'tool'}-${tool.id}`}
         tabIndex={-1}
       >
         {compact ? (
@@ -171,13 +174,16 @@ export function ClioToolInvocation({
                 tool={presentedTool}
                 expanded={resultOpen}
                 duration={duration}
+                surface={surface}
+                kind={flow ? 'workflow' : tool.name === 'ask_user' ? 'question' : 'tool'}
                 attention={
                   attention ? (
                     <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
                   ) : null
                 }
               />
-              {subject?.type === 'link' &&
+              {surface !== 'evidence' &&
+              subject?.type === 'link' &&
               ['file', 'resource', 'artifact', 'session', 'url'].includes(subject.target ?? '') ? (
                 <PresentationLink block={subject} compact iconOnly />
               ) : null}

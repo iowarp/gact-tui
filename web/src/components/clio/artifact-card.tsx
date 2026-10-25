@@ -6,7 +6,7 @@ import {
 } from '@/lib/artifact-presentation';
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { DownloadIcon, TriangleAlertIcon } from 'lucide-react';
+import { DownloadIcon, GitBranchIcon, TriangleAlertIcon } from 'lucide-react';
 import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { toast } from 'sonner';
 import {
@@ -40,9 +40,14 @@ import {
 } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { describeReferenceError } from '@/lib/a2ui/reference-failure';
-import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
+import {
+  isMissingArtifactPayload,
+  uniqueWorkspaceArtifactFile,
+  verifyArtifactRecovery,
+} from './artifact-custody';
 import { downloadBytes } from './surface-export';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileRowTint } from '@/lib/file-presentation';
 import { ClioRelativeTime } from './relative-time';
@@ -56,6 +61,8 @@ export interface ClioArtifactCardProps {
   ) => void;
   preview?: boolean;
   presentation?: 'response' | 'evidence';
+  /** Recorded producer identity stays inspectable without a repeated caption below each row. */
+  ownerLabel?: string;
 }
 
 export interface ClioArtifactAttachmentsProps {
@@ -113,6 +120,7 @@ function ArtifactCardContent({
   onOpen,
   preview = true,
   presentation,
+  ownerLabel,
 }: ClioArtifactCardProps) {
   const repository = useRepository();
   const [downloading, setDownloading] = useState(false);
@@ -140,7 +148,13 @@ function ArtifactCardContent({
         });
         const fallback = uniqueWorkspaceArtifactFile(artifact, artifact.workspace_id, entries);
         if (!fallback) throw error;
-        return repository.readWorkspaceFileBytes(artifact.workspace_id, fallback.path, signal);
+        const bytes = await repository.readWorkspaceFileBytes(
+          artifact.workspace_id,
+          fallback.path,
+          signal,
+        );
+        await verifyArtifactRecovery(artifact, bytes, fallback.path);
+        return bytes;
       }
     },
     enabled: preview && image && withinBudget,
@@ -167,7 +181,13 @@ function ArtifactCardContent({
         });
         const fallback = uniqueWorkspaceArtifactFile(artifact, artifact.workspace_id, entries);
         if (!fallback) throw error;
-        return repository.readWorkspaceFile(artifact.workspace_id, fallback.path, signal);
+        const bytes = await repository.readWorkspaceFileBytes(
+          artifact.workspace_id,
+          fallback.path,
+          signal,
+        );
+        await verifyArtifactRecovery(artifact, bytes, fallback.path);
+        return new TextDecoder('utf-8', { ignoreBOM: true, fatal: true }).decode(bytes);
       }
     },
     enabled: preview && text && !tabular && textWithinBudget,
@@ -214,14 +234,29 @@ function ArtifactCardContent({
         fileRowTint(artifact.name, artifact.media_type),
         onOpen &&
           'transition-[background-color,border-color] hover:border-primary/50 hover:bg-accent/60',
+        presentation === 'evidence' &&
+          'rounded-md border-transparent bg-transparent shadow-none hover:border-transparent',
         className,
       )}
     >
       <ArtifactHeader
-        className={cn('gap-2.5 px-3 py-2', onOpen && 'group-hover/artifact:bg-accent/60')}
+        className={cn(
+          'gap-2.5 px-3 py-2',
+          onOpen && 'group-hover/artifact:bg-accent/60',
+          presentation === 'evidence' && 'border-0 bg-transparent px-2',
+        )}
       >
-        <span className="grid size-10 shrink-0 place-items-center">
-          <ArtifactTypeIcon artifact={artifact} badge className="size-9" />
+        <span
+          className={cn(
+            'grid size-10 shrink-0 place-items-center',
+            presentation === 'evidence' && 'size-6',
+          )}
+        >
+          <ArtifactTypeIcon
+            artifact={artifact}
+            badge
+            className={presentation === 'evidence' ? 'size-6' : 'size-9'}
+          />
         </span>
         <div className="min-w-0 flex-1">
           {onOpen ? (
@@ -261,7 +296,8 @@ function ArtifactCardContent({
             ) : null}
           </ArtifactDescription>
         </div>
-        {artifact.session_relation || presentation === 'evidence' ? (
+        {artifact.session_relation &&
+        (presentation !== 'evidence' || artifact.session_relation === 'used') ? (
           <Badge className="shrink-0" variant="outline">
             {presentation === 'evidence'
               ? artifactEvidenceLabel(artifact)
@@ -271,6 +307,25 @@ function ArtifactCardContent({
           </Badge>
         ) : null}
         <div className="relative z-20 shrink-0 text-foreground">
+          {ownerLabel ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Provenance for ${displayName}`}
+                  title="Artifact provenance"
+                >
+                  <GitBranchIcon aria-hidden="true" className="size-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 space-y-2 text-sm">
+                <p className="font-medium">Artifact provenance</p>
+                <p>Generated by {ownerLabel}</p>
+                <p className="break-all text-xs text-muted-foreground">{artifact.uri}</p>
+              </PopoverContent>
+            </Popover>
+          ) : null}
           <Button
             variant="ghost"
             size="icon-sm"

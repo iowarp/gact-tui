@@ -18,9 +18,9 @@ export function EvidenceRecord({
       <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
             {label}
-          </p>
+          </span>
           <ClioStatus className="shrink-0 py-0.5" value={state} />
         </div>
         {detail ? (

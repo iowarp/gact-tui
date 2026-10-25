@@ -345,7 +345,10 @@ export function ClioObservabilityView({
           <TabsContent className="m-0 p-4" value="activity">
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
-          <TabsContent className="m-0 grid gap-2 px-3 py-2" value="evidence">
+          <TabsContent
+            className="mx-auto my-0 grid w-full max-w-5xl gap-2 px-3 py-2"
+            value="evidence"
+          >
             <SectionState error={diffsError} label="File changes" pending={diffsPending} />
             <SectionState
               error={contextFilesError}

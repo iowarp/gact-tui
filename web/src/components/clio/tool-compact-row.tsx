@@ -13,6 +13,8 @@ import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { WorkKindStatus } from './work-kind-status';
+import type { WorkKind } from './work-kind';
 import {
   getToolActionLabel,
   getToolFailureDetail,
@@ -27,13 +29,18 @@ export function ToolCompactRow({
   attention,
   duration,
   expanded,
+  surface = 'transcript',
+  kind = 'tool',
 }: {
   tool: ToolInvocation;
   attention?: ReactNode;
   duration?: number;
   expanded: boolean;
+  surface?: 'transcript' | 'evidence';
+  kind?: WorkKind;
 }) {
   const status = getToolStatus(tool);
+  const evidence = surface === 'evidence';
   const active = status === 'pending' || status === 'running';
   const success = status === 'succeeded';
   const outcomeColor = status === 'unknown' ? 'text-warning' : 'text-destructive';
@@ -55,9 +62,14 @@ export function ToolCompactRow({
         variant="ghost"
         aria-label={`Show result for ${action}`}
         title={failure ? undefined : [action, detail, metadata].filter(Boolean).join(', ')}
-        className="group/tool-trigger h-auto min-h-7 min-w-0 flex-1 shrink justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal"
+        className={cn(
+          'group/tool-trigger h-auto min-h-7 min-w-0 flex-1 shrink justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal',
+          evidence && 'min-h-11 rounded-md px-2 py-2',
+        )}
       >
-        {active ? (
+        {evidence ? (
+          <WorkKindStatus kind={kind} status={status} />
+        ) : active ? (
           <LoaderCircleIcon
             aria-hidden="true"
             className="size-3.5 shrink-0 animate-spin text-primary"
@@ -69,22 +81,42 @@ export function ToolCompactRow({
         ) : (
           <CircleAlertIcon aria-hidden="true" className={cn('size-3.5 shrink-0', outcomeColor)} />
         )}
-        <span className="min-w-0 max-w-[48%] shrink truncate font-medium max-sm:max-w-[40%]">
-          {action}
-        </span>
-        {detail ? (
-          <span
-            className={cn(
-              'min-w-0 flex-1 truncate text-left',
-              (subject?.target === 'file' || terminal?.command) && 'font-mono',
-            )}
-          >
-            {detail}
+        {evidence ? (
+          <span className="grid min-w-0 flex-1 gap-0.5 text-left @min-[640px]/evidence-tools:flex @min-[640px]/evidence-tools:items-center @min-[640px]/evidence-tools:gap-4">
+            <span className="truncate text-sm font-medium @min-[640px]/evidence-tools:max-w-[45%] @min-[640px]/evidence-tools:shrink-0">
+              {action}
+            </span>
+            {detail || metadata ? (
+              <span className="flex min-w-0 gap-2 text-xs text-muted-foreground @min-[640px]/evidence-tools:flex-1">
+                {detail ? <span className="min-w-0 flex-1 truncate">{detail}</span> : null}
+                {metadata ? (
+                  <span className={cn('truncate', detail && 'max-w-[45%] shrink-0')}>
+                    {metadata}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
           </span>
         ) : (
-          <span className="min-w-0 flex-1" />
+          <>
+            <span className="min-w-0 max-w-[48%] shrink truncate font-medium max-sm:max-w-[40%]">
+              {action}
+            </span>
+            {detail ? (
+              <span
+                className={cn(
+                  'min-w-0 flex-1 truncate text-left',
+                  (subject?.target === 'file' || terminal?.command) && 'font-mono',
+                )}
+              >
+                {detail}
+              </span>
+            ) : (
+              <span className="min-w-0 flex-1" />
+            )}
+          </>
         )}
-        {metadata ? (
+        {metadata && !evidence ? (
           <span
             className={cn(
               'min-w-0 text-muted-foreground',

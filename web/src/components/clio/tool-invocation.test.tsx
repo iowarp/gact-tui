@@ -16,6 +16,28 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation content and subject rendering', () => {
+  it('keeps Evidence kind/status glyphs scoped and gives its copied invocation a distinct DOM identity', () => {
+    const tool = {
+      id: 'scoped-read',
+      session_id: 's',
+      name: 'fs_read_file',
+      state: 'succeeded' as const,
+      presentation: { action: 'Read', summary: '710 bytes', blocks: [] },
+    };
+    const view = render(
+      <>
+        <ClioToolInvocation compact tool={tool} />
+        <ClioToolInvocation compact tool={tool} surface="evidence" />
+      </>,
+    );
+    expect(
+      view.container.querySelector('#tool-scoped-read [data-slot="work-kind-status"]'),
+    ).toBeNull();
+    expect(
+      view.container.querySelector('#evidence-tool-scoped-read [data-slot="work-kind-status"]'),
+    ).not.toBeNull();
+    expect(view.container.querySelectorAll('[data-slot="work-kind-status"]')).toHaveLength(1);
+  });
   it('expands a pending wait into named snapshots without repeating header counts', async () => {
     const user = userEvent.setup();
     render(
