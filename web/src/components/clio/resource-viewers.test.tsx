@@ -218,7 +218,7 @@ describe('WorkspaceFileView', () => {
     await userEvent.click(screen.getByRole('button', { name: '2' }));
     expect(screen.getByText('11 - 20 of 25')).toBeVisible();
     expect(screen.getByText('MTA10')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Download file' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Download CSV' })).toBeEnabled();
   });
 
   it.each([

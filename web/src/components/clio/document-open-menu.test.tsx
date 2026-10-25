@@ -36,9 +36,7 @@ const manifest: DocumentManifest = {
 const editor = { id: 'os-editor', name: 'Visual Studio Code', is_default: true };
 const viewer = { id: 'os-pdf-app', name: 'Adobe Acrobat', is_default: false };
 function menu(profile: DocumentManifest['profile'] = 'markdown', overrides = {}) {
-  const onOpen = vi.fn(),
-    onPdfDownload = vi.fn(),
-    onDownload = vi.fn();
+  const onOpen = vi.fn();
   render(
     <DocumentOpenMenu
       artifact={artifact}
@@ -47,14 +45,11 @@ function menu(profile: DocumentManifest['profile'] = 'markdown', overrides = {})
       pdfApplications={[viewer]}
       openPending={false}
       pdfPending={false}
-      downloadPending={false}
       onOpen={onOpen}
-      onPdfDownload={onPdfDownload}
-      onDownload={onDownload}
       {...overrides}
     />,
   );
-  return { onOpen, onPdfDownload, onDownload };
+  return { onOpen };
 }
 it('shows real handlers and separates the PDF apps from the original apps', async () => {
   const { onOpen } = menu();
@@ -108,20 +103,14 @@ it('does not duplicate a PDF conversion section for an original PDF', async () =
 });
 it('does not show an empty Export menu when the PDF already has a shared download action', () => {
   host.native = false;
-  menu('pdf', { hideDownload: true });
+  menu('pdf');
   expect(screen.queryByRole('button')).toBeNull();
 });
-it('offers downloads in the web host without pretending to enumerate native apps', async () => {
+it('leaves web downloads and conversions to the shared file control', () => {
   host.native = false;
-  const { onPdfDownload, onDownload } = menu();
-  const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Export' }));
+  menu();
+  expect(screen.queryByRole('button')).toBeNull();
   expect(screen.queryByText(/Visual Studio Code|Adobe Acrobat|Copy path/u)).toBeNull();
-  await user.click(screen.getByRole('menuitem', { name: 'Download PDF' }));
-  expect(onPdfDownload).toHaveBeenCalledOnce();
-  await user.click(screen.getByRole('button', { name: 'Export' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Download original' }));
-  expect(onDownload).toHaveBeenCalledOnce();
 });
 it('shows empty, failed, and pending association queries explicitly', async () => {
   menu('markdown', { applications: [], pdfApplications: [], pdfApplicationsPending: true });
@@ -136,7 +125,6 @@ it('keeps the folder fallback available with no apps, downloads, or PDF renditio
   menu('binary', {
     manifest: { ...manifest, profile: 'binary', native_open: false, rendition_formats: [] },
     applications: [],
-    hideDownload: true,
     onReveal,
   });
   await userEvent.click(screen.getByRole('button', { name: 'Open in' }));

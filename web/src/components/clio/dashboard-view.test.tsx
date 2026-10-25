@@ -223,17 +223,15 @@ describe('authored dashboard', () => {
     );
     const user = userEvent.setup();
     const toolbar = document.querySelector('[data-slot="viewer-toolbar"]') as HTMLElement;
-    for (const label of [
-      'PNG image (displayed view)',
-      'HTML dashboard (all tabs and data)',
-      'Original file',
-    ]) {
-      await user.click(within(toolbar).getByRole('button', { name: 'Download file' }));
+    for (const label of ['PNG image (displayed view)', 'HTML dashboard (all tabs and data)']) {
+      await user.click(within(toolbar).getByRole('button', { name: 'Export to…' }));
       await user.click(await screen.findByRole('menuitem', { name: label }));
       await waitFor(() =>
-        expect(within(toolbar).getByRole('button', { name: 'Download file' })).toBeEnabled(),
+        expect(within(toolbar).getByRole('button', { name: 'Download JSON' })).toBeEnabled(),
       );
     }
+    await user.click(within(toolbar).getByRole('button', { name: 'Download JSON' }));
+    await waitFor(() => expect(repository.readWorkspaceFileBytes).toHaveBeenCalled());
     expect(repository.prepareDashboardImageExport).toHaveBeenCalledOnce();
     expect(repository.prepareDashboardExport).toHaveBeenCalledOnce();
     expect(repository.captureDashboard).toHaveBeenCalledWith(report.session_id, [report.surface]);

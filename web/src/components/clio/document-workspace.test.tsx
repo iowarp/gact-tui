@@ -195,8 +195,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     renderWorkspace({}, first.queryClient);
     expect(await screen.findByText('Rendering PDF preview…')).toBeVisible();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Download PDF' }));
+    await user.click(await screen.findByRole('button', { name: 'Export to…' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'PDF' }));
     expect(downloadBytes).not.toHaveBeenCalled();
     await act(async () =>
       finish({
@@ -291,8 +291,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       'pdf-app',
     );
     expect(await screen.findByText('Source stays here')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Open in' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Download PDF' }));
+    await user.click(screen.getByRole('button', { name: 'Export to…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'PDF' }));
     expect(await screen.findByText('PDF downloaded.')).toBeInTheDocument();
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
     expect(downloadBytes).toHaveBeenCalledWith(
@@ -469,8 +469,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       expect(screen.queryByText('PDF document')).not.toBeInTheDocument();
       expect(repository.documentContent).toHaveBeenCalledWith('artifact_pdf', expect.anything());
       expect(repository.createDocumentRendition).not.toHaveBeenCalled();
-      await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
-      expect(screen.getByRole('menuitem', { name: 'Download PDF' })).toBeVisible();
+      await userEvent.click(screen.getByRole('button', { name: 'Export to…' }));
+      expect(screen.getByRole('menuitem', { name: 'PDF' })).toBeVisible();
     },
   );
 

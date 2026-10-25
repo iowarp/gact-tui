@@ -8,7 +8,7 @@ import type {
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlertIcon, MessageSquareTextIcon, ShieldCheckIcon } from 'lucide-react';
-import { useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { MessageResponse } from '@/components/ai-elements/message';
@@ -39,7 +39,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { DocumentViewControls } from './document-view-controls';
 import { ViewerToolbarContent } from './viewer-toolbar';
 import { FileViewerInformation } from './file-viewer-information';
-import { FileViewerInformationHost } from './file-viewer-context';
 import {
   Popover,
   PopoverContent,
@@ -66,6 +65,7 @@ import { isDocumentSourceProfile } from './document-open-policy';
 import { prepareDocumentPdf } from './document-pdf';
 import { editorLabel, openDocumentTarget } from './document-launch';
 import { TextFileCopyAction } from './text-file-copy-action';
+import { DocumentDownloadActions } from './document-download-actions';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
 
@@ -77,7 +77,6 @@ export function ClioDocumentWorkspace({
   fallbackPreview: ReactNode;
 }) {
   const repository = useRepository();
-  const sharedFileActions = useContext(FileViewerInformationHost) !== undefined;
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
@@ -370,13 +369,23 @@ export function ClioDocumentWorkspace({
                 editorHealth={editorHealth.data}
                 openPending={createWorkingCopy.isPending}
                 pdfPending={rendition.isPending}
-                downloadPending={downloadSource.isPending}
                 onOpen={(target) => createWorkingCopy.mutate(target)}
-                onPdfDownload={() => rendition.mutate()}
-                onDownload={() => downloadSource.mutate()}
                 onReveal={() => revealSource.mutate()}
                 revealPending={revealSource.isPending}
-                hideDownload={sharedFileActions}
+              />
+            ) : null}
+            {manifest.data ? (
+              <DocumentDownloadActions
+                name={artifact.name}
+                mediaType={artifact.media_type}
+                pdf={
+                  manifest.data.profile !== 'pdf' &&
+                  (Boolean(manifest.data.pdf_rendition_artifact_id) ||
+                    manifest.data.rendition_formats.includes('pdf'))
+                }
+                pdfPending={rendition.isPending || createWorkingCopy.isPending}
+                onPdf={rendition.mutateAsync}
+                onDownload={downloadSource.mutateAsync}
               />
             ) : null}
             <RefreshAction

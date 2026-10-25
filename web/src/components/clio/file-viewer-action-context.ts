@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useId, type ComponentType } from 
 
 export interface FileViewerAction {
   label: string;
-  /** Export formats belong beside the original file in the fixed download menu. */
+  /** Alternate formats join Export to… beside the original-file download. */
   kind?: 'download';
   icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
   onSelect: () => void | Promise<void>;

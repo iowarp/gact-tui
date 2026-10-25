@@ -135,7 +135,7 @@ describe('WorkspaceFilePresentationBlock', () => {
     const viewer = await screen.findByLabelText('PDF doc.pdf');
     expect(viewer).toHaveTextContent(`${PDF_BYTES.byteLength} bytes, initialPage 2`);
     expect(screen.getByText('doc.pdf')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Download file' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Download PDF' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Preview' })).not.toBeInTheDocument();
   });
 

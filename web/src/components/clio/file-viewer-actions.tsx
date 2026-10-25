@@ -1,7 +1,5 @@
-import { useMutation } from '@tanstack/react-query';
-import { CopyPlusIcon, DownloadIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { CopyPlusIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +28,7 @@ import { downloadBytes } from './surface-export';
 import { ToolbarAction } from './viewer-toolbar';
 import { WorkspaceResourceRemoveDialog } from './workspace-resource-remove';
 import { NativeFileOpenMenu } from './native-file-open-menu';
+import { FileDownloadControl } from './file-download-control';
 
 /** Shared original-file actions for uploads, artifacts and workspace files. */
 export function FileViewerActions({
@@ -52,62 +51,27 @@ export function FileViewerActions({
   const [removeOpen, setRemoveOpen] = useState(false);
   const [informationOpen, setInformationOpen] = useState(false);
   const identity = fileViewerIdentity(source);
-  const download = useMutation({
-    mutationFn: async () =>
-      downloadBytes(
-        await readFileViewerBytes(repository, source),
-        identity.mediaType,
-        identity.name,
-      ),
-    onError: (error: Error) => toast.error(error.message),
-  });
-  const exportDownload = useMutation({
-    mutationFn: async (action: FileViewerAction) => action.onSelect(),
-    onError: (error: Error) => toast.error(error.message),
-  });
   const downloadFormats = formatActions.filter((action) => action.kind === 'download');
   const otherActions = formatActions.filter((action) => action.kind !== 'download');
-  const downloading = download.isPending || exportDownload.isPending;
-  const downloadButton = (
-    <ToolbarAction
-      label={downloading ? 'Downloading file…' : 'Download file'}
-      disabled={!identity.available || downloading}
-      aria-busy={downloading}
-      onClick={downloadFormats.length ? undefined : () => download.mutate()}
-    >
-      <DownloadIcon aria-hidden="true" />
-    </ToolbarAction>
-  );
   const canRemove =
     source.kind === 'resource' &&
     ['ready', 'failed', 'quarantined'].includes(source.resource.state);
   return (
     <>
       {!hasDocumentActions ? <NativeFileOpenMenu source={source} /> : null}
-      {downloadFormats.length ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>{downloadButton}</DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
-            {downloadFormats.map((action) => (
-              <DropdownMenuItem
-                key={action.label}
-                disabled={action.disabled || downloading}
-                onSelect={() => exportDownload.mutate(action)}
-              >
-                <action.icon />
-                {action.label}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => download.mutate()} disabled={downloading}>
-              <DownloadIcon />
-              Original file
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        downloadButton
-      )}
+      <FileDownloadControl
+        name={identity.name}
+        mediaType={identity.mediaType}
+        disabled={!identity.available}
+        formats={downloadFormats}
+        onDownload={async () =>
+          downloadBytes(
+            await readFileViewerBytes(repository, source),
+            identity.mediaType,
+            identity.name,
+          )
+        }
+      />
       <ToolbarAction
         label="File information"
         className="@max-[480px]/viewer:hidden"
