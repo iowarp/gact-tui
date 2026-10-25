@@ -42,7 +42,7 @@ it('queries the family using the selected execution provider when the user switc
   const { result } = renderHook(
     () => {
       const selected = useExecutionProvenance('branch');
-      const family = useExecutionProvenance('root', selected.provider);
+      const family = useExecutionProvenance('root', selected.provider, { includeChildren: true });
       return { selected, family };
     },
     { wrapper },
@@ -56,5 +56,10 @@ it('queries the family using the selected execution provider when the user switc
     expect.any(AbortSignal),
   );
   expect(result.current.selected.execution.data?.provider).toBe('flowcept');
+  expect(read).toHaveBeenCalledWith(
+    'branch',
+    expect.objectContaining({ includeChildren: false }),
+    expect.any(AbortSignal),
+  );
   client.clear();
 });

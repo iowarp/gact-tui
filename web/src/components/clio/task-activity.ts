@@ -6,6 +6,14 @@ export interface TaskActivity {
   subagent?: SubagentRun;
 }
 
+/** Settlement is independent of whether a row represents a tool or a child agent. */
+export function isSettledTaskActivity(entry: TaskActivity): boolean {
+  const state = entry.process
+    ? (entry.process.effective_status ?? entry.process.live_state)
+    : entry.subagent!.state;
+  return ['completed', 'failed', 'cancelled', 'interrupted'].includes(state);
+}
+
 /** Join projections by recorded identity, never by title or assignment text. */
 export function taskActivity(
   processes: readonly AsyncProcess[],

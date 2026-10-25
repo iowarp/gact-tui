@@ -1,9 +1,4 @@
-import type {
-  Artifact,
-  Message,
-  ToolInvocation,
-  WorkspaceResource,
-} from '@clio/core/v3';
+import type { Artifact, Message, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -40,12 +35,12 @@ it.each([false, true])(
       },
     };
     const view = render(<ClioEvidenceView {...props} section="data" />);
-    expect(screen.queryByRole('button', { name: 'Show completed work' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Completed work' })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Background (work|tasks),/ })).toBeNull();
     view.rerender(<ClioEvidenceView {...props} section="work" />);
     const group = screen.getByRole('button', { name: /^Background (work|tasks), none running$/ });
     if (group.getAttribute('aria-expanded') === 'false') await userEvent.click(group);
-    expect(screen.getByRole('button', { name: 'Show completed work' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Completed work' })).toBeVisible();
     expect(screen.queryByText('No session evidence or recorded activity is available.')).toBeNull();
   },
 );
@@ -644,7 +639,7 @@ describe('ClioEvidenceView child agents', () => {
     expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
   });
 
-  it('says finished child agents are under Background tasks instead of claiming there are none', () => {
+  it('uses one completed-work disclosure without claiming that no child agents ever ran', async () => {
     render(
       <ClioEvidenceView
         artifacts={[]}
@@ -670,9 +665,11 @@ describe('ClioEvidenceView child agents', () => {
       />,
     );
     expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
-    expect(screen.getByText(/listed with their tasks under Background tasks/)).toBeVisible();
-    // A zero would read as "none ever ran" while finished ones sit behind Show completed work.
-    expect(screen.getByRole('button', { name: 'Child agents, none running' })).toBeVisible();
+    // History has one owner; a second child section must not duplicate its toggle.
+    expect(screen.queryByRole('button', { name: /^Child agents,/ })).toBeNull();
+    const background = screen.getByRole('button', { name: 'Background tasks, none running' });
+    if (background.getAttribute('aria-expanded') === 'false') await userEvent.click(background);
+    expect(screen.getAllByRole('button', { name: 'Completed work' })).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Background tasks, none running' })).toBeVisible();
   });
 

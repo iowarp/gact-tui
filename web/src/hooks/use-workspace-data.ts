@@ -404,6 +404,7 @@ export function useWorkspaceData({
   const familyExecutionProvenance = useExecutionProvenance(
     family.sessions[0]?.id ?? sessionId,
     executionProvenance.provider,
+    { includeChildren: true },
   );
   const contextObservability = useSessionObservability(contextTargetId);
   const { hideDotFiles } = useAppearancePreferences();

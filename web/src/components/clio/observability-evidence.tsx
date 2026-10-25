@@ -69,7 +69,7 @@ import type { SubagentOpenTarget } from './subagent-card';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 import { AsyncTaskList, type TaskPageControls } from './async-task-list';
 import { SessionEvidenceSummary } from './session-evidence-summary';
-import { taskActivity } from './task-activity';
+import { isSettledTaskActivity, taskActivity } from './task-activity';
 import { OpenQuestionsSection } from './open-question-list';
 import { openHumanQuestions } from '@/lib/inline-question';
 
@@ -118,22 +118,23 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
   const runs = showActivity ? (props.runs ?? []) : [];
   const subagents = showActivity ? (props.subagents ?? []) : [];
   const activity = taskActivity(backgroundProcesses, subagents);
+  const activeWorkCount = props.workPages?.history
+    ? activity.filter((entry) => !isSettledTaskActivity(entry)).length
+    : backgroundProcesses.length;
   const separateSubagents = activity.flatMap((entry) =>
     !entry.process && entry.subagent ? [entry.subagent] : [],
   );
   const taskSubagents = activity.flatMap((entry) =>
     entry.process && entry.subagent ? [entry.subagent] : [],
   );
-  // Finished work sits behind Show completed work: a count of 0 would read as none ever ran.
+  // Finished work sits behind Completed work: a count of 0 would read as none ever ran.
   const finishedWorkHidden = Boolean(props.workPages?.hasMore || props.workPages?.history);
   const tasks = showActivity ? (props.tasks ?? []) : [];
   const tools = showActivity ? (props.tools ?? []) : [];
   const files = showData
     ? sessionFiles(props.contextFiles, props.tools ?? [], props.executionProvenance)
     : [];
-  const diffs = showData
-    ? sessionDiffs(props.diffs, props.tools ?? [])
-    : [];
+  const diffs = showData ? sessionDiffs(props.diffs, props.tools ?? []) : [];
   const plans = showActivity
     ? sessionPlans(props.messages, props.interactions ?? [], props.artifacts)
     : [];
@@ -232,7 +233,9 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             delegated agent, child session, and standing watcher of this
             session can be found and opened, so its absence must read as
             "none yet", never as a missing feature. */}
-        {showActivity && (!subagents.length || separateSubagents.length) ? (
+        {showActivity &&
+        !props.workPages?.history &&
+        (!subagents.length || separateSubagents.length) ? (
           <EvidenceSection
             icon={BoxesIcon}
             label="Child agents"
@@ -262,12 +265,12 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             icon={ServerIcon}
             label="Background tasks"
             value="background"
-            count={backgroundProcesses.length}
-            summary={!backgroundProcesses.length && finishedWorkHidden ? 'none running' : undefined}
+            count={activeWorkCount}
+            summary={!activeWorkCount && finishedWorkHidden ? 'none running' : undefined}
           >
             <AsyncTaskList
               processes={backgroundProcesses}
-              subagents={taskSubagents}
+              subagents={props.workPages?.history ? subagents : taskSubagents}
               onOpenSubagent={props.onOpenSubagent}
               onOpenFlow={props.onOpenFlow}
               onCancelTask={props.onCancelTask}
@@ -386,7 +389,7 @@ function SubagentEvidence({
     return (
       <p className="px-2 py-1 text-xs text-muted-foreground">
         {listedWithTasks
-          ? 'Child agents are listed with their tasks under Background tasks; finished ones under Show completed work.'
+          ? 'Child agents are listed with their tasks under Background tasks; finished ones under Completed work.'
           : 'No child agents in this session yet.'}
       </p>
     );

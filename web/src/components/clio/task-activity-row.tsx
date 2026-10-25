@@ -90,7 +90,7 @@ export function TaskActivityRow({
             type="button"
             aria-label={`Task details: ${title}`}
             title={title}
-            className={`flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'h-8 gap-1.5 px-1' : 'min-h-14 gap-2.5 px-2 py-2'}`}
+            className={`flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'min-h-9 gap-1.5 px-1 py-1' : 'min-h-14 gap-2.5 px-2 py-2'}`}
           >
             <Icon
               aria-hidden="true"
@@ -98,23 +98,19 @@ export function TaskActivityRow({
             />
             <span className={`min-w-0 flex-1 ${compact ? 'flex items-baseline gap-2' : ''}`}>
               {compact ? (
-                <span className="block flex-1 truncate text-xs">{title}</span>
+                <span className="block flex-1 truncate text-sm">{flowRun ?? title}</span>
               ) : (
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-sm font-medium">{title}</span>
+                  <span className="truncate text-sm font-medium">{flowRun ?? title}</span>
                   {conversation?.model_choice ? (
                     <SubagentModel choice={conversation.model_choice} />
                   ) : null}
                 </span>
               )}
               <span
-                className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-[10px]' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
+                className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-xs' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
-                {compact
-                  ? flowRun
-                    ? `${flowRun} · ${label}`
-                    : label
-                  : `${flowRun ?? kind} · ${label}`}
+                {compact ? label : `${kind} · ${label}`}
                 {!compact && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>

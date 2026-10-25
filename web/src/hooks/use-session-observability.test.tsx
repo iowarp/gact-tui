@@ -49,7 +49,7 @@ it('uses one bounded active-work read and retains empty-page continuation', asyn
     expect(repository.asyncProcessesPage).toHaveBeenCalledTimes(1);
     expect(repository.asyncProcessesPage).toHaveBeenLastCalledWith(
       'sess',
-      { cursor: undefined, activeOnly: true },
+      { cursor: undefined, activeOnly: true, includeDescendants: false },
       expect.any(AbortSignal),
     );
     await act(async () => {
@@ -64,7 +64,7 @@ it('uses one bounded active-work read and retains empty-page continuation', asyn
     expect(repository.asyncProcessesPage).toHaveBeenCalledTimes(2);
     expect(repository.asyncProcessesPage).toHaveBeenLastCalledWith(
       'sess',
-      { cursor: 'next', activeOnly: true },
+      { cursor: 'next', activeOnly: true, includeDescendants: false },
       expect.any(AbortSignal),
     );
     expect(repository.sessionAgentTasks).not.toHaveBeenCalled();
@@ -130,7 +130,7 @@ it('keeps current work visible independently of fifty historical rows and offers
   try {
     expect(await screen.findByText('Current analysis')).toBeVisible();
     expect(repository.asyncProcessesPage).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Show completed work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Completed work' }));
     expect(await screen.findByText('Old analysis 49')).toBeVisible();
     expect(screen.getByText('Current analysis')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Load more completed work' }));

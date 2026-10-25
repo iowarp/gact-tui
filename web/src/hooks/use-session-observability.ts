@@ -13,7 +13,8 @@ export function useSessionObservability(sessionId: string) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const enabled = Boolean(sessionId);
-  const [showHistory, setShowHistory] = useState(false);
+  const [historySession, setHistorySession] = useState<string | null>(null);
+  const showHistory = historySession === sessionId;
 
   const diffs = useQuery({
     queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'diffs'),
@@ -31,21 +32,33 @@ export function useSessionObservability(sessionId: string) {
     enabled,
   });
   const processes = useInfiniteQuery({
-    queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'processes'),
+    queryKey: [
+      ...queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'processes'),
+      'direct',
+    ],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ signal, pageParam }) =>
-      repository.asyncProcessesPage(sessionId, { cursor: pageParam, activeOnly: true }, signal),
+      repository.asyncProcessesPage(
+        sessionId,
+        { cursor: pageParam, activeOnly: true, includeDescendants: false },
+        signal,
+      ),
     getNextPageParam: (page) => page.cursor ?? undefined,
     enabled,
   });
   const history = useInfiniteQuery({
     queryKey: [
       ...queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'processes'),
+      'direct',
       'history',
     ],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ signal, pageParam }) =>
-      repository.asyncProcessesPage(sessionId, { cursor: pageParam, activeOnly: false }, signal),
+      repository.asyncProcessesPage(
+        sessionId,
+        { cursor: pageParam, activeOnly: false, includeDescendants: false },
+        signal,
+      ),
     getNextPageParam: (page) => page.cursor ?? undefined,
     enabled: enabled && showHistory,
   });
@@ -56,7 +69,7 @@ export function useSessionObservability(sessionId: string) {
     loadMore: () => processes.fetchNextPage({ throwOnError: true }),
     history: {
       visible: showHistory,
-      toggle: () => setShowHistory((value) => !value),
+      toggle: () => setHistorySession((value) => (value === sessionId ? null : sessionId)),
       items: history.data?.pages.flatMap((page) => page.items) ?? [],
       hasMore: Boolean(history.hasNextPage),
       pending: history.isFetching,

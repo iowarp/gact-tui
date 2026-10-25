@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { taskActivity } from './task-activity';
+import { isSettledTaskActivity, taskActivity, type TaskActivity } from './task-activity';
 import { TaskActivityRow } from './task-activity-row';
 import type { ClioEvidenceViewProps } from './observability-evidence';
 
@@ -149,113 +149,134 @@ export function AsyncTaskList({
       submitting.current.delete(handle);
     }
   };
+  const entries = taskActivity(visibleProcesses, subagents);
+  const currentRows = history ? entries.filter((entry) => !isSettledTaskActivity(entry)) : entries;
+  const completedRows = history ? entries.filter(isSettledTaskActivity) : [];
+  const renderEntry = (entry: TaskActivity) => {
+    const task = entry.process;
+    if (!task)
+      return (
+        <TaskActivityRow
+          compact={compact}
+          key={entry.key}
+          entry={entry}
+          status={entry.subagent!.state}
+          onOpenSubagent={onOpenSubagent}
+          onOpenFlow={onOpenFlow}
+        />
+      );
+    const handle = entry.key;
+    const status = task.effective_status ?? task.live_state;
+    const active = !settled.has(status);
+    const cancellable = task.supported_actions?.includes('cancel');
+    const cancelling =
+      status !== 'task_state_uncertain' &&
+      (active || cancellable) &&
+      (task.cancel_requested || requested.has(handle));
+    const kind = task.task_kind ?? (task.kind === 'agent' ? 'Subagent' : 'MCP');
+    return (
+      <TaskActivityRow
+        compact={compact}
+        key={handle}
+        entry={entry}
+        onOpenSubagent={onOpenSubagent}
+        onOpenFlow={onOpenFlow}
+        status={
+          cancelling
+            ? 'cancellation_requested'
+            : controlling[handle]
+              ? `${controlling[handle]}_requested`
+              : status
+        }
+        actions={
+          <>
+            {onControlTask
+              ? (['pause', 'resume', 'restart'] as const)
+                  .filter((action) => task.supported_actions?.includes(action))
+                  .map((action) => {
+                    const ActionIcon =
+                      action === 'pause' ? PauseIcon : action === 'resume' ? PlayIcon : RetryIcon;
+                    return (
+                      <Button
+                        key={action}
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${action} ${kind}: ${task.title}`}
+                        title={
+                          action === 'pause'
+                            ? 'Pause agent'
+                            : action === 'resume'
+                              ? 'Resume agent'
+                              : 'Restart agent'
+                        }
+                        disabled={Boolean(
+                          controlling[handle] || cancelling || status === 'pause_requested',
+                        )}
+                        onClick={() =>
+                          action === 'restart' ? setRestart(task) : void control(task, action)
+                        }
+                      >
+                        <ActionIcon aria-hidden="true" className="size-4" />
+                      </Button>
+                    );
+                  })
+              : null}
+            {cancellable && onCancelTask ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Cancel ${kind}: ${task.title}`}
+                title="Cancel task"
+                disabled={Boolean(cancelling)}
+                onClick={() => {
+                  setError('');
+                  setSelected(task);
+                }}
+              >
+                <CloseIcon aria-hidden="true" className="size-4" />
+              </Button>
+            ) : null}
+          </>
+        }
+      />
+    );
+  };
   return (
     <div className="min-w-0 space-y-0.5" aria-label="Background work">
-      {history ? (
-        <Button variant="outline" size="sm" aria-expanded={history.visible} onClick={history.toggle}>
-          {history.visible ? 'Hide completed work' : 'Show completed work'}
-        </Button>
-      ) : null}
-      {history?.visible && history.pending && !history.items.length ? (
-        <p role="status">Loading completed work…</p>
-      ) : null}
-      {history?.visible && history.error ? <p role="alert">{history.error}</p> : null}
-      {taskActivity(visibleProcesses, subagents).map((entry) => {
-        const task = entry.process;
-        if (!task)
-          return (
-            <TaskActivityRow
-              compact={compact}
-              key={entry.key}
-              entry={entry}
-              status={entry.subagent!.state}
-              onOpenSubagent={onOpenSubagent}
-              onOpenFlow={onOpenFlow}
-            />
-          );
-        const handle = entry.key;
-        const status = task.effective_status ?? task.live_state;
-        const active = !settled.has(status);
-        const cancellable = task.supported_actions?.includes('cancel');
-        const cancelling =
-          status !== 'task_state_uncertain' &&
-          (active || cancellable) &&
-          (task.cancel_requested || requested.has(handle));
-        const kind = task.task_kind ?? (task.kind === 'agent' ? 'Subagent' : 'MCP');
-        return (
-          <TaskActivityRow
-            compact={compact}
-            key={handle}
-            entry={entry}
-            onOpenSubagent={onOpenSubagent}
-            onOpenFlow={onOpenFlow}
-            status={
-              cancelling
-                ? 'cancellation_requested'
-                : controlling[handle]
-                  ? `${controlling[handle]}_requested`
-                  : status
-            }
-            actions={
-              <>
-                {onControlTask
-                  ? (['pause', 'resume', 'restart'] as const)
-                      .filter((action) => task.supported_actions?.includes(action))
-                      .map((action) => {
-                        const ActionIcon =
-                          action === 'pause'
-                            ? PauseIcon
-                            : action === 'resume'
-                              ? PlayIcon
-                              : RetryIcon;
-                        return (
-                          <Button
-                            key={action}
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`${action} ${kind}: ${task.title}`}
-                            title={
-                              action === 'pause'
-                                ? 'Pause agent'
-                                : action === 'resume'
-                                  ? 'Resume agent'
-                                  : 'Restart agent'
-                            }
-                            disabled={Boolean(
-                              controlling[handle] || cancelling || status === 'pause_requested',
-                            )}
-                            onClick={() =>
-                              action === 'restart' ? setRestart(task) : void control(task, action)
-                            }
-                          >
-                            <ActionIcon aria-hidden="true" className="size-4" />
-                          </Button>
-                        );
-                      })
-                  : null}
-                {cancellable && onCancelTask ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Cancel ${kind}: ${task.title}`}
-                    title="Cancel task"
-                    disabled={Boolean(cancelling)}
-                    onClick={() => {
-                      setError('');
-                      setSelected(task);
-                    }}
-                  >
-                    <CloseIcon aria-hidden="true" className="size-4" />
-                  </Button>
-                ) : null}
-              </>
-            }
-          />
-        );
-      })}
+      {currentRows.map(renderEntry)}
       <TaskPageContinuation pagination={pagination} />
-      {history?.visible ? (
-        <TaskPageContinuation pagination={history} label="Load more completed work" />
+      {history ? (
+        <Collapsible
+          open={history.visible}
+          onOpenChange={(open) => {
+            if (open !== history.visible) history.toggle();
+          }}
+          className="group/completed min-w-0"
+        >
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex min-h-8 w-full items-center gap-1.5 rounded-sm px-1 text-left text-sm hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronRightIcon
+                aria-hidden="true"
+                className="size-3.5 shrink-0 transition-transform group-data-[state=open]/completed:rotate-90"
+              />
+              Completed work
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-0.5 pl-2">
+            {history.pending && !history.items.length ? (
+              <p role="status">Loading completed work…</p>
+            ) : null}
+            {history.error ? <p role="alert">{history.error}</p> : null}
+            {completedRows.map(renderEntry)}
+            {!history.pending && !history.error && !history.hasMore && !completedRows.length ? (
+              <p className="px-1 py-1 text-sm text-muted-foreground">No completed work.</p>
+            ) : null}
+            <TaskPageContinuation pagination={history} label="Load more completed work" />
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
       {error ? (
         <p role="alert" className="text-sm text-destructive">

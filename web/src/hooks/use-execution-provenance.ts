@@ -11,7 +11,11 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
 
 /** Owns provider discovery and the selected session execution-provenance snapshot. */
-export function useExecutionProvenance(sessionId: string, inheritedProvider?: string) {
+export function useExecutionProvenance(
+  sessionId: string,
+  inheritedProvider?: string,
+  { includeChildren = false }: { includeChildren?: boolean } = {},
+) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const [requestedProvider, setRequestedProvider] = useState<string>();
@@ -27,11 +31,14 @@ export function useExecutionProvenance(sessionId: string, inheritedProvider?: st
   const providerSummary = providers.data?.providers.find((item) => item.name === provider);
   const canQuery = Boolean(sessionId && providerSummary?.configured && providerSummary.queryable);
   const execution = useQuery({
-    queryKey: queryKeys.executionProvenance(settings.endpoint, sessionId, provider),
+    queryKey: [
+      ...queryKeys.executionProvenance(settings.endpoint, sessionId, provider),
+      includeChildren ? 'family' : 'session',
+    ],
     queryFn: ({ signal }) =>
       repository.executionProvenance(
         sessionId,
-        { provider, includeChildren: true, limit: EXECUTION_PROVENANCE_LIMIT },
+        { provider, includeChildren, limit: EXECUTION_PROVENANCE_LIMIT },
         signal,
       ),
     enabled: canQuery,

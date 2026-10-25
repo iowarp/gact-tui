@@ -250,10 +250,11 @@ export class SessionObservabilityRepository extends ExecutionProvenanceRepositor
 
   public async asyncProcessesPage(
     sessionId: string,
-    options: CursorPageOptions = {},
+    options: CursorPageOptions & { includeDescendants?: boolean } = {},
     signal?: AbortSignal,
   ): Promise<CursorPage<AsyncProcess>> {
     const query = cursorPageQuery(options);
+    query.set('include_descendants', String(options.includeDescendants ?? true));
     const value = await this.transport.request({
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/async-processes${query.size ? `?${query}` : ''}`,
