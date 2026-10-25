@@ -1,6 +1,16 @@
 import type { ManagedServiceDefinition } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 
+export const localServiceFacts = {
+  target: 'local',
+  os: 'windows',
+  arch: 'x86_64',
+  accelerator: 'none',
+  docker_available: true,
+  docker_installed: true,
+  uv_available: true,
+} as const;
+
 const serviceLabels: Array<[ManagedServiceDefinition['id'], string]> = [
   ['vllm', 'vLLM'],
   ['llama_cpp', 'llama.cpp'],

@@ -62,7 +62,7 @@ vi.mock('@/tauri/ssh-credentials', () => ({
 }));
 
 import { ManagedServices } from './managed-services';
-import { services } from '@/test-fixtures/managed-services';
+import { localServiceFacts, services } from '@/test-fixtures/managed-services';
 
 function renderServices(props: ComponentProps<typeof ManagedServices> = {}) {
   return render(
@@ -80,15 +80,7 @@ beforeEach(() => {
   runtime.desktop = true;
   connection.isManagedConnection = true;
   deployment.managedServiceCatalog.mockResolvedValue({
-    facts: {
-      target: 'local',
-      os: 'windows',
-      arch: 'x86_64',
-      accelerator: 'none',
-      docker_available: true,
-      docker_installed: true,
-      uv_available: true,
-    },
+    facts: localServiceFacts,
     services,
   });
   deployment.listSshProfiles.mockResolvedValue([]);
@@ -778,15 +770,7 @@ describe('ManagedServices', () => {
   it('does not show the finish-setup banner once llama.cpp is actually installed', async () => {
     installerInfra.installerRequestedLlamaCpp.mockResolvedValue(true);
     deployment.managedServiceCatalog.mockResolvedValue({
-      facts: {
-        target: 'local',
-        os: 'windows',
-        arch: 'x86_64',
-        accelerator: 'none',
-        docker_available: true,
-        docker_installed: true,
-        uv_available: true,
-      },
+      facts: localServiceFacts,
       services: services.map((service) =>
         service.id === 'llama_cpp' ? { ...service, state: 'stopped' as const } : service,
       ),
