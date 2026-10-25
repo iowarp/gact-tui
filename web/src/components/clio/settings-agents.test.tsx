@@ -1,3 +1,5 @@
+import { agentResolutionSchema, pluginEntrySchema } from '@clio/core/v3';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -9,6 +11,8 @@ const repository = vi.hoisted(() => ({
   capabilities: vi.fn(),
   deleteUserAgent: vi.fn(),
   resolveAgent: vi.fn(),
+  plugins: vi.fn(),
+  saveUserAgent: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -46,7 +50,9 @@ function renderSettings() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <AgentSettings />
+        <TooltipProvider>
+          <AgentSettings />
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -58,6 +64,46 @@ beforeEach(() => {
     gact_versions: [],
   });
   repository.agents.mockResolvedValue([standard, mine]);
+  repository.plugins.mockResolvedValue({
+    plugins: [
+      pluginEntrySchema.parse({
+        id: 'hdf5',
+        ref: 'clio/hdf5',
+        marketplace: 'clio',
+        trusted: true,
+        description: 'Read scientific files',
+      }),
+    ],
+  });
+  repository.resolveAgent.mockImplementation(async (_ref, delta) =>
+    agentResolutionSchema.parse({
+      agent: { ref: standard.ref, id: standard.id, name: standard.name },
+      plugins: [
+        {
+          id: 'core',
+          marketplace: 'clio-builtin',
+          removable: false,
+          provenance: { source: 'core' },
+        },
+        ...(delta?.add ?? []).map((ref: string) => ({
+          id: ref.split('/').at(-1),
+          marketplace: 'clio',
+          provenance: { source: 'user' },
+        })),
+      ],
+      prompt: {
+        sections: [
+          {
+            section: 'identity',
+            fragments: [
+              { id: 'standard.identity', plugin: 'agent:standard', text: 'You are CLIO.' },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+  repository.saveUserAgent.mockResolvedValue(mine);
 });
 
 afterEach(() => {
@@ -88,4 +134,46 @@ describe('AgentSettings', () => {
     expect(await screen.findByText('Plugins are not available on this service')).toBeVisible();
     expect(repository.agents).not.toHaveBeenCalled();
   });
+});
+
+it('opens the full agent row, resolves draft changes and saves a new local variation', async () => {
+  const user = userEvent.setup();
+  renderSettings();
+  await user.click(await screen.findByRole('button', { name: 'Explore CLIO' }));
+  const explorer = await screen.findByRole('dialog', { name: 'CLIO' });
+  await user.click(await within(explorer).findByRole('button', { name: 'Add plugin' }));
+  await user.click(await screen.findByRole('option', { name: /hdf5/u }));
+  await waitFor(() =>
+    expect(repository.resolveAgent).toHaveBeenCalledWith(
+      'clio/standard',
+      { add: ['clio/hdf5'], remove: [] },
+      expect.anything(),
+    ),
+  );
+  await user.click(within(explorer).getByRole('button', { name: 'Save local variation' }));
+  const save = screen.getByRole('dialog', { name: 'Save as agent' });
+  await user.type(within(save).getByRole('textbox', { name: 'Agent name' }), 'Local analyst');
+  await user.click(within(save).getByRole('button', { name: 'Save agent' }));
+  await waitFor(() =>
+    expect(repository.saveUserAgent).toHaveBeenCalledWith({
+      id: 'local-analyst',
+      name: 'Local analyst',
+      description: '',
+      create_only: true,
+      extends: 'clio/standard',
+      add: ['clio/hdf5'],
+      remove: [],
+    }),
+  );
+});
+
+it('lets a person save an unchanged agent as a local starting point and collapse marketplaces', async () => {
+  const user = userEvent.setup();
+  renderSettings();
+  const installed = await screen.findByRole('region', { name: 'Installed agents' });
+  await user.click(within(installed).getByRole('button', { name: /clio 1/u }));
+  expect(within(installed).queryByRole('button', { name: 'Explore CLIO' })).not.toBeInTheDocument();
+  await user.click(within(installed).getByRole('button', { name: /clio 1/u }));
+  await user.click(within(installed).getByRole('button', { name: 'Explore CLIO' }));
+  expect(await screen.findByRole('button', { name: 'Save local variation' })).toBeEnabled();
 });

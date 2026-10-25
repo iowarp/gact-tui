@@ -1,9 +1,17 @@
 import type { PluginEntry } from '@clio/core/v3';
-import { BoxesIcon, PackageIcon } from 'lucide-react';
+import { BoxesIcon, PackageIcon, ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  catalogMatches,
+  catalogMember,
+  catalogOwnMatches,
+  catalogRoots,
+} from '@/lib/plugin-catalog-tree';
+import { CatalogGroup } from './catalog-group';
+import { PluginExplorer } from './plugin-explorer';
 
 function contributions(plugin: PluginEntry): string {
   const parts: string[] = [];
@@ -37,15 +45,11 @@ export function InstalledPluginList({
   onTrustUpdate?: (marketplace: string) => void;
 }) {
   const [filter, setFilter] = useState('');
+  const [inspecting, setInspecting] = useState<PluginEntry>();
   const term = filter.trim().toLocaleLowerCase();
-  const visible = plugins.filter(
-    (plugin) =>
-      !term ||
-      [plugin.id, plugin.description, plugin.marketplace, ...plugin.members].some((text) =>
-        text.toLocaleLowerCase().includes(term),
-      ),
-  );
-  const marketplaces = [...new Set(visible.map((plugin) => plugin.marketplace))];
+  const visible = plugins.filter((plugin) => catalogMatches(plugins, plugin, term));
+  const roots = catalogRoots(plugins).filter((plugin) => catalogMatches(plugins, plugin, term));
+  const marketplaces = [...new Set(plugins.map((plugin) => plugin.marketplace))];
   return (
     <section aria-label="Installed plugins" className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,84 +77,158 @@ export function InstalledPluginList({
       {!pending && !error && !visible.length ? (
         <p className="text-sm text-muted-foreground">No plugins match.</p>
       ) : null}
-      {marketplaces.map((marketplace) => (
-        <div className="grid gap-1.5" key={marketplace}>
-          <h3 className="text-xs font-medium text-muted-foreground">{marketplace}</h3>
-          <ul className="grid gap-1.5">
-            {visible
-              .filter((plugin) => plugin.marketplace === marketplace)
-              .map((plugin) => {
-                const Icon = plugin.kind === 'pack' ? BoxesIcon : PackageIcon;
-                const errors = plugin.diagnostics.filter((row) => row.severity === 'error');
-                return (
-                  <li
-                    className="flex min-w-0 items-start gap-3 rounded-lg border px-3 py-2"
-                    key={`${plugin.ref}:${plugin.pending_trust ? 'pending' : 'installed'}`}
-                  >
-                    <Icon
-                      aria-hidden="true"
-                      className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{plugin.id}</span>
-                        {plugin.kind === 'pack' ? <Badge variant="secondary">Pack</Badge> : null}
-                        {plugin.version ? (
-                          <span className="text-xs text-muted-foreground">{plugin.version}</span>
-                        ) : null}
-                        {plugin.pending_trust ? (
-                          <Badge variant="outline">Update waits for trust</Badge>
-                        ) : !plugin.trusted ? (
-                          <Badge variant="outline">Not trusted</Badge>
-                        ) : null}
-                        {plugin.format === 'claude-code' ? (
-                          <Badge variant="outline">Imported</Badge>
-                        ) : null}
-                        {errors.length ? (
-                          <Badge variant="destructive">
-                            {errors.length} {errors.length === 1 ? 'problem' : 'problems'}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {plugin.description ? (
-                        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
-                          {plugin.description}
-                        </p>
-                      ) : null}
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {plugin.kind === 'pack'
-                          ? `Brings ${plugin.members.join(', ') || 'no members'}`
-                          : contributions(plugin)}
-                        {plugin.requires.length ? ` · needs ${plugin.requires.join(', ')}` : ''}
-                      </p>
-                      {plugin.pending_trust && onTrustUpdate ? (
-                        <Button
-                          aria-label={`Trust the update of ${plugin.id}`}
-                          className="mt-1.5"
-                          disabled={busy}
-                          onClick={() => onTrustUpdate(plugin.marketplace)}
-                          size="xs"
-                          variant="outline"
-                        >
-                          Trust update
-                        </Button>
-                      ) : null}
-                      {plugin.diagnostics.length ? (
-                        <ul className="mt-1 grid gap-0.5 text-xs text-muted-foreground">
-                          {plugin.diagnostics.map((row, index) => (
-                            <li key={`${row.code}:${index}`}>
-                              {row.severity}: {row.message}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-          </ul>
-        </div>
-      ))}
+      {marketplaces.map((marketplace) => {
+        const rows = roots.filter((plugin) => plugin.marketplace === marketplace);
+        if (!rows.length) return null;
+        return (
+          <CatalogGroup
+            key={marketplace}
+            name={marketplace}
+            count={visible.filter((p) => p.marketplace === marketplace).length}
+            filter={term}
+          >
+            <ul className="grid gap-1">
+              {rows.map((plugin) => (
+                <CatalogNode
+                  key={`${plugin.ref}:${plugin.pending_trust}`}
+                  plugin={plugin}
+                  plugins={plugins}
+                  term={term}
+                  onInspect={setInspecting}
+                  onTrustUpdate={onTrustUpdate}
+                  busy={busy}
+                />
+              ))}
+            </ul>
+          </CatalogGroup>
+        );
+      })}
+      {inspecting ? (
+        <PluginExplorer
+          key={`${inspecting.ref}:${inspecting.pending_trust}`}
+          reference={inspecting.ref}
+          pending={inspecting.pending_trust}
+          onClose={() => setInspecting(undefined)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function CatalogNode({
+  plugin,
+  plugins,
+  term,
+  onInspect,
+  onTrustUpdate,
+  busy,
+  ancestors = new Set<string>(),
+}: {
+  plugin: PluginEntry;
+  plugins: readonly PluginEntry[];
+  term: string;
+  onInspect: (plugin: PluginEntry) => void;
+  onTrustUpdate?: (market: string) => void;
+  busy: boolean;
+  ancestors?: Set<string>;
+}) {
+  const [choice, setChoice] = useState({ term, open: Boolean(term) });
+  const pack = plugin.kind === 'pack';
+  const Icon = pack ? BoxesIcon : PackageIcon;
+  const errors = plugin.diagnostics.filter((row) => row.severity === 'error');
+  const open = choice.term === term ? choice.open : Boolean(term);
+  const next = new Set(ancestors).add(plugin.ref);
+  const memberTerm = catalogOwnMatches(plugin, term) ? '' : term;
+  const children = pack
+    ? plugin.members
+        .map((ref) => catalogMember(plugins, plugin, ref))
+        .filter(
+          (child): child is PluginEntry =>
+            Boolean(child) && !next.has(child!.ref) && catalogMatches(plugins, child!, memberTerm),
+        )
+    : [];
+  return (
+    <li className="min-w-0">
+      <div className="relative flex min-w-0 items-start rounded-md hover:bg-muted/50">
+        {pack ? (
+          <Button
+            aria-label={`${open ? 'Collapse' : 'Expand'} pack ${plugin.id}`}
+            aria-expanded={open}
+            size="icon-sm"
+            variant="ghost"
+            className="mt-1 shrink-0"
+            onClick={() => setChoice({ term, open: !open })}
+          >
+            <ChevronRightIcon aria-hidden="true" className={open ? 'size-4 rotate-90' : 'size-4'} />
+          </Button>
+        ) : (
+          <span className="w-8 shrink-0" />
+        )}
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-start gap-2 rounded-md px-1 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => onInspect(plugin)}
+        >
+          <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">{plugin.id}</span>
+              {pack ? <Badge variant="secondary">Pack</Badge> : null}
+              <span className="text-xs text-muted-foreground">{plugin.version}</span>
+              {plugin.pending_trust ? (
+                <Badge variant="outline">Update waits for trust</Badge>
+              ) : !plugin.trusted ? (
+                <Badge variant="outline">Not trusted</Badge>
+              ) : null}
+              {errors.length ? (
+                <Badge variant="destructive">
+                  {errors.length} {errors.length === 1 ? 'problem' : 'problems'}
+                </Badge>
+              ) : null}
+            </span>
+            {plugin.description ? (
+              <span className="mt-0.5 block line-clamp-2 text-sm text-muted-foreground">
+                {plugin.description}
+              </span>
+            ) : null}
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              {pack ? `Brings ${plugin.members.join(', ') || 'no members'}` : contributions(plugin)}
+              {plugin.requires.length ? ` · needs ${plugin.requires.join(', ')}` : ''}
+            </span>
+          </span>
+        </button>
+        {plugin.pending_trust && onTrustUpdate ? (
+          <Button
+            aria-label={`Trust the update of ${plugin.id}`}
+            className="m-2"
+            disabled={busy}
+            onClick={() => onTrustUpdate(plugin.marketplace)}
+            size="xs"
+            variant="outline"
+          >
+            Trust update
+          </Button>
+        ) : null}
+      </div>
+      {pack && open ? (
+        <ul aria-label={`Members of ${plugin.id}`} className="ml-4 grid gap-1 border-l pl-3">
+          {children.map((child) => (
+            <CatalogNode
+              key={`${child.ref}:${child.pending_trust}`}
+              plugin={child}
+              plugins={plugins}
+              term={memberTerm}
+              onInspect={onInspect}
+              onTrustUpdate={onTrustUpdate}
+              busy={busy}
+              ancestors={next}
+            />
+          ))}
+          {!children.length ? (
+            <li className="py-2 text-sm text-muted-foreground">No installed members match.</li>
+          ) : null}
+        </ul>
+      ) : null}
+    </li>
   );
 }

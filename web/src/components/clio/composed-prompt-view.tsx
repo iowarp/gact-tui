@@ -63,7 +63,7 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
       return next;
     });
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4">
       <div className="grid gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-0 flex-1">
@@ -197,18 +197,19 @@ function FragmentRow({
     >
       <button
         aria-expanded={open}
-        className="flex w-full min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={onToggle}
         type="button"
       >
         <ChevronRightIcon
           aria-hidden="true"
-          className={cn(
-            'size-3.5 shrink-0 text-muted-foreground transition-transform',
-            open && 'rotate-90',
-          )}
+          className={cn('size-3.5 shrink-0 text-muted-foreground', open && 'rotate-90')}
         />
-        <Badge className="shrink-0" variant="secondary">
+        <Badge
+          className="min-w-0 max-w-[40%] shrink truncate transition-colors"
+          title={owner}
+          variant="secondary"
+        >
           {owner}
         </Badge>
         <span className="shrink-0 font-mono text-xs text-muted-foreground max-sm:hidden">

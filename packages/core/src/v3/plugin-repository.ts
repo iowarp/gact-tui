@@ -4,6 +4,7 @@ import {
   agentResolutionSchema,
   marketplaceSummarySchema,
   pluginCatalogSchema,
+  pluginInspectionSchema,
   pluginCheckReportSchema,
   pluginMarketplaceSchema,
   removalPreviewSchema,
@@ -13,6 +14,7 @@ import {
   type AgentResolution,
   type MarketplaceSummary,
   type PluginCatalog,
+  type PluginInspection,
   type PluginCheckReport,
   type PluginMarketplace,
   type RemovalPreview,
@@ -26,6 +28,21 @@ const PLUGIN_REVIEW_PATH = /^\/v1\/plugins\/[^/?#]+\/review$/u;
 
 /** Plugins, marketplaces, agents, user agents and the session's pinned agent. */
 export class PluginRepository extends SessionObservabilityRepository {
+  /** Inspect one exact catalog reference without executing source or changing trust. */
+  public inspectPlugin(
+    ref: string,
+    pending = false,
+    signal?: AbortSignal,
+  ): Promise<PluginInspection> {
+    const params = new URLSearchParams({ ref, pending: String(pending) });
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/plugins/inspect?${params}`,
+      decode: (value) => pluginInspectionSchema.parse(value),
+      signal,
+    });
+  }
+
   /** Installed plugins and packs, plus plugins whose update waits for the trust step. */
   public plugins(signal?: AbortSignal): Promise<PluginCatalog> {
     return this.transport.request({
@@ -177,6 +194,7 @@ export class PluginRepository extends SessionObservabilityRepository {
       remove: string[];
       name?: string;
       description?: string;
+      create_only?: boolean;
     },
     signal?: AbortSignal,
   ): Promise<AgentEntry> {

@@ -260,3 +260,20 @@ describe('plugin review', () => {
     ]);
   });
 });
+
+it('inspects one exact qualified catalog entry and preserves truncated-file boundaries', async () => {
+  const transport = new RecordingTransport([
+    {
+      plugin: { id: 'notes', ref: 'lab/notes' },
+      files: [
+        { path: 'SKILL.md', text: '# Notes', bytes: 1000, truncated: true, sha256: '', error: '' },
+      ],
+      incomplete: true,
+      reason: '',
+    },
+  ]);
+  const repository = new ClioRepository(transport);
+  const result = await repository.inspectPlugin('lab/notes', true);
+  expect(transport.requests[0]?.path).toBe('/v1/plugins/inspect?ref=lab%2Fnotes&pending=true');
+  expect(result.files[0]).toMatchObject({ truncated: true, sha256: '' });
+});

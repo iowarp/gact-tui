@@ -1,6 +1,6 @@
 import type { AgentEntry } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BotIcon, UserRoundIcon } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { BotIcon, UserRoundIcon, ChevronRightIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -17,22 +17,17 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useRepository } from '@/hooks/use-repository';
 import { useAgentPluginsSupported, useInstalledAgents } from '@/hooks/use-session-agent';
 import { agentSearchTarget } from '@/lib/global-search-commands';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
-import { agentDisplayName, provenanceLabel } from '@/lib/plugin-presentation';
+import { agentDisplayName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ComposedPromptView } from './composed-prompt-view';
+import { DraftAgentCompositionView } from './agent-composition-view';
+import { CatalogGroup } from './catalog-group';
+import type { DraftAgent } from '@/hooks/use-draft-agent-change';
 import { SettingsSectionHeading } from './settings-section-heading';
 
 /** Installed agents and the person's own agents (a parent plus a delta). */
@@ -74,7 +69,7 @@ export function AgentSettings() {
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading
-        description="An agent is an identity, a flow and a set of plugins. Save your own from a conversation's agent panel."
+        description="Explore an agent’s plugins and prompt, change its composition, and save your own local variation."
         title="Agents"
       />
       {agents.error ? (
@@ -94,7 +89,7 @@ export function AgentSettings() {
             <h2 className="text-sm font-semibold">Your agents</h2>
             {!mine.length ? (
               <p className="text-sm text-muted-foreground">
-                None yet. Change a conversation&apos;s plugins, then choose Save as agent.
+                Open an installed agent to explore it and save your own variation.
               </p>
             ) : null}
             <ul className="grid gap-2">
@@ -111,16 +106,26 @@ export function AgentSettings() {
           </section>
           <section aria-label="Installed agents" className="grid gap-2">
             <h2 className="text-sm font-semibold">Installed agents</h2>
-            <ul className="grid gap-2">
-              {installed.map((agent) => (
-                <AgentRow
-                  agent={agent}
-                  agents={agents.data ?? []}
-                  key={agent.ref}
-                  onPreview={() => setPreviewing(agent)}
-                />
-              ))}
-            </ul>
+            {[...new Set(installed.map((agent) => agent.marketplace))].map((marketplace) => (
+              <CatalogGroup
+                key={marketplace}
+                name={marketplace}
+                count={installed.filter((agent) => agent.marketplace === marketplace).length}
+              >
+                <ul className="grid gap-2">
+                  {installed
+                    .filter((agent) => agent.marketplace === marketplace)
+                    .map((agent) => (
+                      <AgentRow
+                        key={agent.ref}
+                        agent={agent}
+                        agents={agents.data ?? []}
+                        onPreview={() => setPreviewing(agent)}
+                      />
+                    ))}
+                </ul>
+              </CatalogGroup>
+            ))}
           </section>
         </>
       ) : null}
@@ -156,7 +161,11 @@ export function AgentSettings() {
         </AlertDialogContent>
       </AlertDialog>
       {previewing ? (
-        <AgentPreviewDialog agent={previewing} onClose={() => setPreviewing(undefined)} />
+        <AgentPreviewDialog
+          key={previewing.ref}
+          agent={previewing}
+          onClose={() => setPreviewing(undefined)}
+        />
       ) : null}
     </div>
   );
@@ -176,41 +185,49 @@ function AgentRow({
   const Icon = agent.kind === 'user' ? UserRoundIcon : BotIcon;
   return (
     <li
-      className="flex min-w-0 items-start gap-3 rounded-lg border px-3 py-3 target:border-primary/50 target:bg-primary/10"
+      className="relative flex min-w-0 items-start gap-3 rounded-lg border px-3 py-3 hover:bg-muted/40 target:border-primary/50 target:bg-primary/10"
       id={agentSearchTarget(agent.ref)}
       tabIndex={-1}
     >
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{agent.name || agent.id}</span>
-          <span className="font-mono text-xs text-muted-foreground">{agent.ref}</span>
-          {agent.version ? (
-            <span className="text-xs text-muted-foreground">{agent.version}</span>
+      <button
+        type="button"
+        aria-label={`Explore ${agent.name || agent.id}`}
+        onClick={onPreview}
+        className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">{agent.name || agent.id}</span>
+            <span className="font-mono text-xs text-muted-foreground">{agent.ref}</span>
+            {agent.version ? (
+              <span className="text-xs text-muted-foreground">{agent.version}</span>
+            ) : null}
+            {agent.flow && agent.flow.id !== 'react' ? (
+              <Badge variant="outline">Flow {agent.flow.id}</Badge>
+            ) : null}
+          </div>
+          {agent.description ? (
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{agent.description}</p>
           ) : null}
-          {agent.flow && agent.flow.id !== 'react' ? (
-            <Badge variant="outline">Flow {agent.flow.id}</Badge>
-          ) : null}
+          {agent.kind === 'user' && agent.extends ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Starts from {agentDisplayName(agent.extends, agents)}
+              {agent.delta?.add.length ? ` · adds ${agent.delta.add.join(', ')}` : ''}
+              {agent.delta?.remove.length ? ` · removes ${agent.delta.remove.join(', ')}` : ''}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {agent.plugins.length} {agent.plugins.length === 1 ? 'plugin' : 'plugins'}
+            </p>
+          )}
         </div>
-        {agent.description ? (
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{agent.description}</p>
-        ) : null}
-        {agent.kind === 'user' && agent.extends ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Starts from {agentDisplayName(agent.extends, agents)}
-            {agent.delta?.add.length ? ` · adds ${agent.delta.add.join(', ')}` : ''}
-            {agent.delta?.remove.length ? ` · removes ${agent.delta.remove.join(', ')}` : ''}
-          </p>
-        ) : (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {agent.plugins.length} {agent.plugins.length === 1 ? 'plugin' : 'plugins'}
-          </p>
-        )}
-      </div>
-      <div className="flex items-center gap-1">
-        <Button onClick={onPreview} size="sm" variant="ghost">
-          Preview
-        </Button>
+        <ChevronRightIcon
+          aria-hidden="true"
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+        />
+      </button>
+      <div className="relative z-10 flex items-center gap-1">
         {onDelete ? (
           <Button
             aria-label={`Delete ${agent.name || agent.ref}`}
@@ -227,55 +244,23 @@ function AgentRow({
 }
 
 function AgentPreviewDialog({ agent, onClose }: { agent: AgentEntry; onClose: () => void }) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const resolution = useQuery({
-    queryKey: queryKeys.key('agent-resolution', settings.endpoint, agent.ref),
-    queryFn: ({ signal }) => repository.resolveAgent(agent.ref, undefined, signal),
+  const [draft, setDraft] = useState<DraftAgent>({
+    ref: agent.ref,
+    delta: { add: [], remove: [] },
   });
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>{agent.name || agent.ref}</DialogTitle>
-          <DialogDescription>{agent.role || agent.description || agent.ref}</DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 overflow-y-auto">
-          {resolution.isPending ? (
-            <p className="text-sm text-muted-foreground" role="status">
-              Resolving plugins…
-            </p>
-          ) : null}
-          {resolution.error ? (
-            <p className="text-sm text-destructive" role="alert">
-              This agent does not resolve: {resolution.error.message}
-            </p>
-          ) : null}
-          {resolution.data ? (
-            <Tabs defaultValue="plugins">
-              <TabsList>
-                <TabsTrigger value="plugins">
-                  Plugins ({resolution.data.plugins.length})
-                </TabsTrigger>
-                <TabsTrigger value="prompt">Prompt</TabsTrigger>
-              </TabsList>
-              <TabsContent className="mt-2" value="plugins">
-                <ul className="grid gap-1">
-                  {resolution.data.plugins.map((plugin) => (
-                    <li className="flex flex-wrap items-center gap-2 text-sm" key={plugin.id}>
-                      <span className="font-medium">{plugin.id}</span>
-                      {plugin.kind === 'pack' ? <Badge variant="secondary">Pack</Badge> : null}
-                      <Badge variant="outline">{provenanceLabel(plugin.provenance)}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              </TabsContent>
-              <TabsContent className="mt-2" value="prompt">
-                <ComposedPromptView resolution={resolution.data} />
-              </TabsContent>
-            </Tabs>
-          ) : null}
-        </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+        <DialogTitle className="sr-only">{agent.name || agent.ref}</DialogTitle>
+        <DialogDescription className="sr-only">
+          Explore this agent and save a local variation.
+        </DialogDescription>
+        <DraftAgentCompositionView draft={draft} onChange={setDraft} library />
       </DialogContent>
     </Dialog>
   );

@@ -279,9 +279,12 @@ describe('AgentCompositionView', () => {
     const user = userEvent.setup();
     renderView();
     await user.click(await screen.findByRole('button', { name: 'Expand all' }));
-    expect(screen.getAllByRole('group', { name: / details$/u })).toHaveLength(5);
+    expect(screen.getAllByRole('group', { name: / details$/u })).toHaveLength(4);
+    expect(screen.getByRole('list', { name: 'Members of documents' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Explore documents files' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Collapse all' }));
     expect(screen.queryAllByRole('group', { name: / details$/u })).toHaveLength(0);
+    expect(screen.queryByRole('list', { name: 'Members of documents' })).not.toBeInTheDocument();
   });
 
   it('says a pack left because none of its members remain', async () => {
@@ -536,6 +539,7 @@ describe('AgentCompositionView', () => {
       expect(repository.saveUserAgent).toHaveBeenCalledWith({
         id: 'my-analyst',
         name: 'My analyst',
+        create_only: true,
         description: '',
         extends: 'clio/standard',
         add: [],

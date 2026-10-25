@@ -22,6 +22,7 @@ import {
   removedPluginReason,
   type PluginContributions,
 } from '@/lib/plugin-presentation';
+import { PluginExplorer } from './plugin-explorer';
 import { PluginChangePendingNotice } from './plugin-change-pending-notice';
 
 const STILL_IN_PROMPT = 'Still in the agent’s prompt until compaction';
@@ -59,7 +60,10 @@ export function AgentPluginTree({
   const pendingChange = basis?.pending ? basis : undefined;
   const announced = new Set(pendingChange?.added);
   const inPrompt = new Set(pendingChange?.removed);
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const [inspecting, setInspecting] = useState<string>();
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
+    () => new Set(resolution.plugins.filter((p) => p.kind === 'pack').map((p) => p.id)),
+  );
   const byId = new Map(resolution.plugins.map((plugin) => [plugin.id, plugin]));
   const packIds = new Set(
     resolution.plugins.filter((plugin) => plugin.kind === 'pack').map((plugin) => plugin.id),
@@ -85,6 +89,7 @@ export function AgentPluginTree({
       announced={announced.has(plugin.id)}
       contributions={pluginContributions(resolution, plugin.id)}
       onOpenChange={(open) => toggle(plugin.id, open)}
+      onInspect={() => setInspecting(`${plugin.marketplace}/${plugin.id}`)}
       onRemove={readOnly ? undefined : onRemove}
       open={expanded.has(plugin.id)}
       pending={pending}
@@ -93,6 +98,13 @@ export function AgentPluginTree({
   );
   return (
     <div className="grid gap-4">
+      {inspecting ? (
+        <PluginExplorer
+          key={inspecting}
+          reference={inspecting}
+          onClose={() => setInspecting(undefined)}
+        />
+      ) : null}
       {pendingChange ? (
         <PluginChangePendingNotice
           basis={pendingChange}
@@ -121,7 +133,7 @@ export function AgentPluginTree({
             .map((plugin) => (
               <li key={plugin.id}>
                 {node(plugin)}
-                {plugin.kind === 'pack' ? (
+                {plugin.kind === 'pack' && expanded.has(plugin.id) ? (
                   <ul
                     aria-label={`Members of ${plugin.id}`}
                     className="ml-[0.9rem] grid grid-cols-[minmax(0,1fr)]"
@@ -211,7 +223,9 @@ function PluginNode({
   pending,
   onOpenChange,
   onRemove,
+  onInspect,
 }: {
+  onInspect: () => void;
   plugin: ResolvedPlugin;
   contributions: PluginContributions;
   /** For a pack: how many of its members are active in this conversation. */
@@ -255,7 +269,19 @@ function PluginNode({
               Announced to the agent
             </Badge>
           ) : null}
-          <span className="max-w-full text-xs text-muted-foreground">{summary}</span>
+          {plugin.kind === 'pack' ? (
+            <button
+              type="button"
+              aria-label={`Explore ${plugin.id} files`}
+              title={`Explore ${plugin.id} files`}
+              onClick={onInspect}
+              className="relative z-10 max-w-full text-left text-xs text-muted-foreground hover:underline"
+            >
+              {summary}
+            </button>
+          ) : (
+            <span className="max-w-full text-xs text-muted-foreground">{summary}</span>
+          )}
         </div>
         {onRemove && plugin.removable ? (
           <Button
@@ -272,7 +298,9 @@ function PluginNode({
         ) : null}
       </div>
       <CollapsibleContent>
-        <PluginDetails contributions={contributions} plugin={plugin} />
+        {plugin.kind !== 'pack' ? (
+          <PluginDetails contributions={contributions} plugin={plugin} onInspect={onInspect} />
+        ) : null}
       </CollapsibleContent>
     </Collapsible>
   );
@@ -282,7 +310,9 @@ function PluginNode({
 function PluginDetails({
   plugin,
   contributions,
+  onInspect,
 }: {
+  onInspect: () => void;
   plugin: ResolvedPlugin;
   contributions: PluginContributions;
 }) {
@@ -294,6 +324,9 @@ function PluginDetails({
       role="group"
     >
       {plugin.description ? <p className="text-muted-foreground">{plugin.description}</p> : null}
+      <Button onClick={onInspect} size="sm" variant="outline" className="w-fit">
+        Explore files
+      </Button>
       <dl className="grid gap-2">
         {c.tools.length ? (
           <DetailRow label={`Tools (${c.tools.length})`}>

@@ -30,7 +30,7 @@ import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-
 /** What the agent panel reads and changes: a conversation's agent, or a new conversation's draft. */
 interface AgentChangeSource {
   supported: boolean | undefined;
-  agent: { data?: SessionAgent; isPending: boolean; error: Error | null };
+  agent: { data?: SessionAgent; isPending: boolean; isFetching?: boolean; error: Error | null };
   update: { isPending: boolean; error: Error | null };
   compact: { isPending: boolean };
   propose: (change: PluginChange) => void;
@@ -71,21 +71,25 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
 export function DraftAgentCompositionView({
   draft,
   onChange,
+  library = false,
 }: {
+  library?: boolean;
   draft: DraftAgent;
   onChange: (next: DraftAgent) => void;
 }) {
   const change = useDraftAgentChange(draft, onChange);
-  return <AgentComposition change={change} draft onCompact={() => undefined} />;
+  return <AgentComposition change={change} draft library={library} onCompact={() => undefined} />;
 }
 
 function AgentComposition({
   change: source,
   draft = false,
+  library = false,
   onCompact,
 }: {
   change: AgentChangeSource;
   draft?: boolean;
+  library?: boolean;
   onCompact: () => void;
 }) {
   const repository = useRepository();
@@ -104,6 +108,7 @@ function AgentComposition({
         id: input.id,
         name: input.name,
         description: input.description,
+        create_only: true,
         extends: resolution!.agent.ref,
         add: delta.add,
         remove: delta.remove,
@@ -133,7 +138,7 @@ function AgentComposition({
   if (agent.isPending) {
     return (
       <p className="p-4 text-sm text-muted-foreground" role="status">
-        Loading this conversation&apos;s agent…
+        Loading agent…
       </p>
     );
   }
@@ -150,8 +155,8 @@ function AgentComposition({
   const parentName = agentDisplayName(resolution.agent.ref, agents.data);
   const changed = delta.add.length + delta.remove.length > 0;
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <header className="grid gap-3 border-b p-4">
+    <div className="clio-scrollbar flex h-full min-h-0 min-w-0 flex-col overflow-y-auto">
+      <header className={library ? 'grid gap-3 border-b p-4 pr-12' : 'grid gap-3 border-b p-4'}>
         <div className="flex min-w-0 items-start gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
             <BotIcon aria-hidden="true" className="size-5" />
@@ -159,21 +164,44 @@ function AgentComposition({
           <div className="min-w-0 flex-1">
             <h2 className="flex flex-wrap items-baseline gap-x-2 text-base font-semibold">
               {resolution.agent.name || resolution.agent.id}
-              <span className="font-mono text-xs font-normal text-muted-foreground">
-                {resolution.agent.ref}
-                {resolution.agent.version ? ` · ${resolution.agent.version}` : ''}
-              </span>
+              {!library ? (
+                <span className="font-mono text-xs font-normal text-muted-foreground">
+                  {resolution.agent.ref}
+                  {resolution.agent.version ? ` · ${resolution.agent.version}` : ''}
+                </span>
+              ) : null}
             </h2>
             {resolution.agent.role ? (
               <p className="mt-0.5 text-sm text-muted-foreground">{resolution.agent.role}</p>
             ) : null}
-            {resolution.agent.description &&
-            resolution.agent.description !== resolution.agent.role ? (
-              <p className="mt-1 text-sm">{resolution.agent.description}</p>
-            ) : null}
+            {library ? (
+              <details className="mt-1 text-sm">
+                <summary className="w-fit cursor-pointer text-muted-foreground">
+                  About this agent
+                </summary>
+                <div className="mt-2 grid gap-2 leading-6">
+                  {resolution.agent.description &&
+                  resolution.agent.description !== resolution.agent.role ? (
+                    <p>{resolution.agent.description}</p>
+                  ) : null}
+                  <p className="break-words text-xs text-muted-foreground">
+                    {resolution.agent.ref}
+                    {resolution.agent.version ? ` · ${resolution.agent.version}` : ''}
+                  </p>
+                </div>
+              </details>
+            ) : (
+              <>
+                {resolution.agent.description &&
+                resolution.agent.description !== resolution.agent.role ? (
+                  <p className="mt-1 text-sm">{resolution.agent.description}</p>
+                ) : null}
+              </>
+            )}
             {resolution.agent.kind === 'user' && resolution.agent.parent ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                Your agent, starting from {agentDisplayName(resolution.agent.parent, agents.data)}
+                {library ? 'Based on' : 'Your agent, starting from'}{' '}
+                {agentDisplayName(resolution.agent.parent, agents.data)}
               </p>
             ) : null}
           </div>
@@ -204,36 +232,38 @@ function AgentComposition({
                 <AddIcon aria-hidden="true" /> Add plugin
               </Button>
             </AgentPluginMenu>
-            <AgentSwitchMenu
-              agents={agents.data}
-              agentsError={agents.error?.message}
-              current={resolution.agent.ref}
-              disabled={update.isPending}
-              onSwitch={(next) => {
-                const name = next.name || next.id;
-                propose({
-                  ref: next.ref,
-                  delta: emptyAgentDelta,
-                  summary: changed
-                    ? `Switches this conversation to ${name}, without this conversation’s plugin changes.`
-                    : `Switches this conversation to ${name}.`,
-                  success: `Switched to ${name}`,
-                  failure: `The conversation was not switched to ${name}`,
-                });
-              }}
-            >
-              <Button size="sm" variant="outline">
-                <BotIcon aria-hidden="true" /> Switch agent
-              </Button>
-            </AgentSwitchMenu>
+            {!library ? (
+              <AgentSwitchMenu
+                agents={agents.data}
+                agentsError={agents.error?.message}
+                current={resolution.agent.ref}
+                disabled={update.isPending}
+                onSwitch={(next) => {
+                  const name = next.name || next.id;
+                  propose({
+                    ref: next.ref,
+                    delta: emptyAgentDelta,
+                    summary: changed
+                      ? `Switches this conversation to ${name}, without this conversation’s plugin changes.`
+                      : `Switches this conversation to ${name}.`,
+                    success: `Switched to ${name}`,
+                    failure: `The conversation was not switched to ${name}`,
+                  });
+                }}
+              >
+                <Button size="sm" variant="outline">
+                  <BotIcon aria-hidden="true" /> Switch agent
+                </Button>
+              </AgentSwitchMenu>
+            ) : null}
             <Button
-              disabled={!changed || update.isPending}
+              disabled={(!changed && !library) || update.isPending || agent.isFetching}
               onClick={() => setSaving(true)}
               size="sm"
-              title={changed ? undefined : 'Add or remove a plugin first'}
+              title={changed || library ? undefined : 'Add or remove a plugin first'}
               variant="outline"
             >
-              <SaveIcon aria-hidden="true" /> Save as agent
+              <SaveIcon aria-hidden="true" /> {library ? 'Save local variation' : 'Save as agent'}
             </Button>
             {changed ? (
               <Button
@@ -253,7 +283,9 @@ function AgentComposition({
             ) : null}
           </div>
         )}
-        {changed ? <DeltaSummary delta={delta} draft={draft} parentName={parentName} /> : null}
+        {changed ? (
+          <DeltaSummary delta={delta} draft={draft} library={library} parentName={parentName} />
+        ) : null}
         {update.error ? (
           <Alert variant="destructive">
             <AlertTitle>The agent was not changed</AlertTitle>
@@ -316,15 +348,22 @@ function AgentComposition({
 function DeltaSummary({
   delta,
   draft,
+  library = false,
   parentName,
 }: {
+  library?: boolean;
   delta: AgentDelta;
   draft: boolean;
   parentName: string;
 }) {
   return (
     <p className="text-sm text-muted-foreground">
-      {draft ? 'This new conversation will change' : 'This conversation changes'} {parentName}
+      {library
+        ? 'This local variation changes'
+        : draft
+          ? 'This new conversation will change'
+          : 'This conversation changes'}{' '}
+      {parentName}
       {delta.add.length ? `: adds ${delta.add.join(', ')}` : ''}
       {delta.add.length && delta.remove.length ? ';' : delta.remove.length ? ':' : ''}
       {delta.remove.length ? ` removes ${delta.remove.join(', ')}` : ''}.

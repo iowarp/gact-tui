@@ -53,6 +53,24 @@ export const pluginEntrySchema = z.object({
 
 export type PluginEntry = z.infer<typeof pluginEntrySchema>;
 
+/** Read-only source inspection of one exact installed or pending catalog entry. */
+export const pluginInspectionSchema = z.object({
+  plugin: pluginEntrySchema,
+  files: z.array(
+    z.object({
+      path: z.string(),
+      text: z.string(),
+      bytes: z.number(),
+      truncated: z.boolean(),
+      sha256: z.string(),
+      error: z.string(),
+    }),
+  ),
+  incomplete: z.boolean(),
+  reason: z.string(),
+});
+export type PluginInspection = z.infer<typeof pluginInspectionSchema>;
+
 /** Why the default marketplace could not be installed; other marketplaces still work. */
 export const marketplaceErrorSchema = z
   .object({ reason: z.string().default(''), source: z.string().default(''), message: z.string() })
