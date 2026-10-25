@@ -114,7 +114,11 @@ describe('session showcase inventory', () => {
       </QueryClientProvider>,
     );
     expect(screen.getByRole('region', { name: 'Tasks section' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Child agents section' })).toBeInTheDocument();
+    const background = screen.getByRole('region', { name: 'Background tasks section' });
+    expect(
+      within(background).getByRole('button', { name: 'Task details: Researcher' }),
+    ).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Child agents section' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Context section' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Artifacts section' })).not.toBeInTheDocument();
     client.clear();
