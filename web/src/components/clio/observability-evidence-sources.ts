@@ -32,6 +32,15 @@ export interface EvidenceSource {
   ownerLabel?: string;
   relation?: string;
 }
+
+/** Keep the first matching incoming relation without rescanning all edges for each node. */
+function firstIncomingRelations(provenance: ExecutionProvenanceResult, kinds: readonly string[]) {
+  const relations = new Map<string, ExecutionProvenanceResult['edges'][number]>();
+  for (const edge of provenance.edges) {
+    if (kinds.includes(edge.kind) && !relations.has(edge.target)) relations.set(edge.target, edge);
+  }
+  return relations;
+}
 /**
  * Typed execution-provenance ownership for artifacts: the `generated` edges
  * `sessionSources` deliberately excludes from the Sources section (an
@@ -44,6 +53,7 @@ export function artifactOwnerLabels(
   const labels = new Map<string, string>();
   if (!provenance) return labels;
   const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
+  const relations = firstIncomingRelations(provenance, ['generated']);
   const lineageBySession = new Map(
     provenance.session_lineage?.map((owner) => [owner.session_id, owner]) ?? [],
   );
@@ -51,9 +61,7 @@ export function artifactOwnerLabels(
     if (node.kind !== 'artifact') continue;
     const artifactId = stringAttribute(node.attributes, 'artifact_id');
     if (!artifactId) continue;
-    const relation = provenance.edges.find(
-      (edge) => edge.target === node.id && edge.kind === 'generated',
-    );
+    const relation = relations.get(node.id);
     if (!relation) continue;
     const ownerNode = nodeById.get(relation.source);
     const ownerSessionId =
@@ -144,14 +152,13 @@ function provenanceSources(
 ): EvidenceSource[] {
   const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
   const artifactsById = new Map(artifacts.map((artifact) => [artifact.id, artifact]));
+  const relations = firstIncomingRelations(provenance, ['used', 'generated']);
   const lineageBySession = new Map(
     provenance.session_lineage?.map((owner) => [owner.session_id, owner]) ?? [],
   );
   const sources: EvidenceSource[] = [];
   for (const node of provenance.nodes) {
-    const relation = provenance.edges.find(
-      (edge) => edge.target === node.id && ['used', 'generated'].includes(edge.kind),
-    );
+    const relation = relations.get(node.id);
     if (!relation) continue;
     const isTypedSource =
       node.kind === 'resource' || (node.kind === 'artifact' && relation.kind === 'used');

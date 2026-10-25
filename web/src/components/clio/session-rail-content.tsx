@@ -40,22 +40,36 @@ export function SessionRailContent({
   const todos = work.data?.todos ?? [];
   const scheduled = schedules.data?.schedules ?? [];
   const sources = connected.data?.filter((source) => source.connected) ?? [];
+  const dataVisible = kind !== 'work';
+  const workVisible = kind !== 'session';
   const items = sessionEvidenceItems({
     ...evidence,
-    outputs: artifactDeliverables(evidence.artifacts).filter(
-      (artifact) => artifact.session_relation !== 'used',
-    ),
-    files: sessionFiles(evidence.contextFiles, evidence.tools, evidence.executionProvenance),
-    diffs: sessionDiffs(evidence.diffs, evidence.tools),
-    plans: sessionPlans(evidence.messages, evidence.interactions ?? [], evidence.artifacts),
-    sources: sessionSources(
-      evidence.messages,
-      evidence.processes,
-      evidence.resources ?? [],
-      evidence.executionProvenance,
-      evidence.artifacts,
-    ),
-    backgroundProcesses: evidence.processes,
+    tools: dataVisible ? evidence.tools : [],
+    tasks: workVisible ? evidence.tasks : [],
+    runs: workVisible ? evidence.runs : [],
+    subagents: workVisible ? evidence.subagents : [],
+    outputs: dataVisible
+      ? artifactDeliverables(evidence.artifacts).filter(
+          (artifact) => artifact.session_relation !== 'used',
+        )
+      : [],
+    files: dataVisible
+      ? sessionFiles(evidence.contextFiles, evidence.tools, evidence.executionProvenance)
+      : [],
+    diffs: dataVisible ? sessionDiffs(evidence.diffs, evidence.tools) : [],
+    plans: workVisible
+      ? sessionPlans(evidence.messages, evidence.interactions ?? [], evidence.artifacts)
+      : [],
+    sources: dataVisible
+      ? sessionSources(
+          evidence.messages,
+          evidence.processes,
+          evidence.resources ?? [],
+          evidence.executionProvenance,
+          evidence.artifacts,
+        )
+      : [],
+    backgroundProcesses: workVisible ? evidence.processes : [],
   });
   const inventory: SessionRailItem[] = [
     {
