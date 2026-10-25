@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SelectionActionsProvider } from './selection-actions';
 import { hasToolbarContent, SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 
 // For the canonical-order test at the bottom of this file, which renders a
 // REAL `ClioChart` and `ClioSelectableDataTable` (#516 review item 16: it

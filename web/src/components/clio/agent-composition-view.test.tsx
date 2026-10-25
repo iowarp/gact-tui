@@ -33,7 +33,7 @@ vi.mock('@/hooks/use-session-message-count', () => ({
   useSessionMessageCount: () => transcript.messages,
 }));
 vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+  toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
 import { AgentCompositionView, DraftAgentCompositionView } from './agent-composition-view';
@@ -555,6 +555,23 @@ describe('AgentCompositionView', () => {
       screen.getByRole('article', { name: 'standard.identity from Agent standard' }),
     ).toHaveTextContent('You are CLIO.');
     expect(screen.getByRole('region', { name: 'Capabilities section' })).toBeVisible();
+  });
+
+  it('folds each prompt fragment to one line and searches them', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(await screen.findByRole('tab', { name: 'Prompt' }));
+    const shell = await screen.findByRole('article', { name: 'shell.prefer-gh from shell' });
+    const row = within(shell).getByRole('button');
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    await user.click(row);
+    expect(row).toHaveAttribute('aria-expanded', 'true');
+    await user.type(screen.getByRole('searchbox', { name: 'Search the prompt' }), 'gh');
+    expect(await screen.findByText('1 of 2 fragments match.')).toBeVisible();
+    expect(
+      screen.queryByRole('article', { name: 'standard.identity from Agent standard' }),
+    ).toBeNull();
+    expect(within(shell).getByText('gh', { selector: 'mark' })).toBeVisible();
   });
 
   it('says so instead of calling plugin routes when the service lacks agent plugins', async () => {

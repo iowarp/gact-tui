@@ -21,7 +21,7 @@ vi.mock('@/providers/connection-provider', () => ({
     readOnly: mocks.readOnly,
   }),
 }));
-vi.mock('sonner', () => ({ toast: { success: mocks.success, error: mocks.error } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: mocks.success, error: mocks.error } }));
 
 const message: Message = {
   id: 'answer',

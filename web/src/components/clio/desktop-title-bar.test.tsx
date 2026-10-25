@@ -34,7 +34,7 @@ vi.mock('@/tauri/desktop-lifecycle', () => ({
   listenForCloseFallbackHidden,
 }));
 
-vi.mock('sonner', () => ({ toast: { error: toastError } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: toastError } }));
 
 vi.mock('@/lib/platform', () => ({ isMacOS }));
 

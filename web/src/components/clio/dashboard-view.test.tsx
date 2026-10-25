@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { ChartLineIcon } from 'lucide-react';
 import { FileViewerShell } from './file-viewer-shell';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn(),

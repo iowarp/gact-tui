@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 import { RefreshAction } from './refresh-button';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn() } }));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();

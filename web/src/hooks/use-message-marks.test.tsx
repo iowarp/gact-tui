@@ -11,7 +11,7 @@ vi.mock('./use-repository', () => ({ useRepository: () => ({ updateSession: mock
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://clio:8100' } }),
 }));
-vi.mock('sonner', () => ({ toast: { error: mocks.error } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: mocks.error } }));
 const session: Session = {
   id: 'session',
   workspace_id: 'ws',

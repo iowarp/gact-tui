@@ -8,7 +8,7 @@ vi.mock('@/hooks/use-repository', () => ({
   useRepository: () => ({ readArtifactBytesFor: mocks.read }),
 }));
 vi.mock('./surface-export', () => ({ downloadBytes: mocks.download }));
-vi.mock('sonner', () => ({ toast: { error: mocks.error } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: mocks.error } }));
 
 import { ArtifactRailRow } from './artifact-rail-row';
 

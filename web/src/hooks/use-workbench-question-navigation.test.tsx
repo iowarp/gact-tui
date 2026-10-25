@@ -9,7 +9,7 @@ const fixtures = vi.hoisted(() => ({
   children: {} as Record<string, SubagentRun>,
   error: vi.fn(),
 }));
-vi.mock('sonner', () => ({ toast: { error: fixtures.error } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: fixtures.error } }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://test-service' } }),
 }));

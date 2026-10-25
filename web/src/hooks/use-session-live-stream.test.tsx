@@ -32,7 +32,7 @@ const mocks = vi.hoisted(() => {
     repository,
     resume: undefined as (() => void) | undefined,
     storeState,
-    toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
+    toast: { dismiss: vi.fn(), error: vi.fn(), info: vi.fn(), success: vi.fn() },
     useLiveStore,
   };
 });

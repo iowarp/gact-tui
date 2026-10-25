@@ -6,7 +6,7 @@ import {
   readAttentionEvidence,
 } from './attention-evidence-navigation';
 import { attentionProfileSchema } from '@clio/core/v3';
-vi.mock('sonner', () => ({ toast: { info: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), info: vi.fn(), error: vi.fn() } }));
 afterEach(() => {
   document.body.innerHTML = '';
   vi.clearAllMocks();

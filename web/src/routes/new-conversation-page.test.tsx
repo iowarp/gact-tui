@@ -45,7 +45,7 @@ vi.mock('@/components/clio/connected-source-picker', () => ({
     </div>
   ),
 }));
-vi.mock('sonner', () => ({ toast: { error: mocks.error } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: mocks.error } }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
 }));

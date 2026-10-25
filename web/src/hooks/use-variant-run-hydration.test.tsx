@@ -42,7 +42,7 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 vi.mock('./use-repository', () => ({ useRepository: () => repository }));
-vi.mock('sonner', () => ({ toast: { error: mocks.toastError } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: mocks.toastError } }));
 
 import { useVariantRunHydration } from './use-variant-run-hydration';
 

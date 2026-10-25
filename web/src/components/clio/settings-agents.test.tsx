@@ -15,7 +15,7 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
 import { AgentSettings } from './settings-agents';
 

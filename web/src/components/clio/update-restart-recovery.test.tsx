@@ -11,7 +11,7 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: mocks.useConnectionSettings,
 }));
 vi.mock('@/tauri/clio-update-verification', () => ({ verifyClioUpdate: mocks.verify }));
-vi.mock('sonner', () => ({ toast: { success: mocks.toastSuccess } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: mocks.toastSuccess } }));
 
 import {
   readPendingUpdateMarker,
