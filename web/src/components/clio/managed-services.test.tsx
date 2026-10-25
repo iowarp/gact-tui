@@ -281,6 +281,21 @@ describe('ManagedServices', () => {
     expect(screen.getByRole('button', { name: 'Install service' })).toBeVisible();
   });
 
+  it('identifies a command-backed connection on the agent without requiring a service URL', () => {
+    renderServices({
+      connectedAgentLocation: 'Ares',
+      webSearchConnected: true,
+      webSearchConnection: {
+        name: 'web', configured: true, scope: 'user', status: 'ready',
+        tools_count: 2, tools: ['fetch', 'search'], retryable: false,
+        spec: { command: 'web-mcp', args: [] },
+      },
+    });
+    expect(screen.getByText('Local MCP process')).toBeVisible();
+    expect(screen.getByText('Runs on Ares')).toBeVisible();
+    expect(screen.queryByText('No service address configured')).toBeNull();
+  });
+
   it('shows installed inventory before choosing a new runtime', async () => {
     const user = userEvent.setup();
     renderServices();
