@@ -71,6 +71,7 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
 }
 
 function injectionLabel(source: string): string {
+  if (source === 'question_answer') return 'received your answer';
   if (['task_completion', 'task_result', 'task_results', 'memory_search'].includes(source))
     return 'received results';
   if (source === 'memory') return 'received memory';

@@ -13,6 +13,7 @@ import { GroundedMessageResponse } from './grounded-message-response';
 import { ToolTerminalResult } from './tool-terminal-result';
 import { ToolDetailsContent } from './tool-details-content';
 import { PluginChangeInjection } from './conversation-plugin-change';
+import { useQuestionAnswer } from './question-answer-context';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -55,11 +56,12 @@ export function HarnessInjection({
 }
 
 function RecordedInjection({ block, compact }: { block: InjectionBlock; compact: boolean }) {
+  const questionContext = useQuestionAnswer();
   const [expanded, setExpanded] = useTranscriptDisclosure(`injection:${block.id}`);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const presentation = useMemo(
-    () => injectionPresentation(block.source, block.text),
-    [block.source, block.text],
+    () => injectionPresentation(block.source, block.text, questionContext?.interactions),
+    [block.source, block.text, questionContext?.interactions],
   );
   const label =
     presentation?.label ?? INJECTION_LABELS[block.source] ?? humanizeProtocolValue(block.source);
@@ -139,6 +141,10 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
                   <GroundedMessageResponse mode="static">
                     {presentation.text}
                   </GroundedMessageResponse>
+                ) : presentation?.format === 'text' ? (
+                  <div className="whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">
+                    {presentation.text}
+                  </div>
                 ) : (
                   <pre className="min-w-0 max-w-full whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">
                     {presentation?.text ??

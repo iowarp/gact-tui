@@ -29,10 +29,12 @@ import { TodoList } from './todo-list';
 import { SkillToolResult } from './skill-tool-result';
 import { belongsToTerminal, savedOutputsAfter } from './tool-result-saved-output-blocks';
 import { getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
+import { withQuestionPresentation } from './question-tool-presentation';
+import { useQuestionAnswer } from './question-answer-context';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
-  tool,
+  tool: recordedTool,
   subjectId,
   summaryInHeader = false,
 }: {
@@ -40,6 +42,8 @@ export function ToolResultPresentation({
   subjectId?: string;
   summaryInHeader?: boolean;
 }) {
+  const questionContext = useQuestionAnswer();
+  const tool = withQuestionPresentation(recordedTool, questionContext?.interactions);
   const lines = useTranscriptPreviewLines();
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
   const resourceDocument =

@@ -1,6 +1,7 @@
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { formatDuration } from '@/lib/format';
 import type { ClioStatusValue } from './status';
+import { questionToolSummary } from './question-tool-presentation';
 
 export interface ToolPresentation {
   title: string;
@@ -39,6 +40,7 @@ function toolInput(tool: ToolInvocation): Record<string, unknown> | undefined {
 
 /** Keep protocol identifiers in details and use the same operation label everywhere. */
 export function getToolActionLabel(tool: ToolInvocation): string {
+  if (tool.name === 'ask_user') return 'Ask you';
   if (isA2uiCatalogLookup(tool)) return 'Inspect widget catalog';
   const action = tool.presentation?.action || tool.title || tool.name;
   if (tool.name === 'prepare_execution_runtime' && action === 'Prepare execution runtime')
@@ -65,6 +67,7 @@ export function getToolActionLabel(tool: ToolInvocation): string {
 
 /** Name the requested catalog section while preserving exact arguments in details. */
 export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | undefined {
+  if (tool.name === 'ask_user') return undefined;
   const subject = tool.presentation?.blocks.find(
     (block) =>
       block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
@@ -83,6 +86,7 @@ export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | un
 }
 
 export function getToolSummary(tool: ToolInvocation): string | undefined {
+  if (tool.name === 'ask_user') return questionToolSummary(tool);
   return tool.presentation?.summary || undefined;
 }
 

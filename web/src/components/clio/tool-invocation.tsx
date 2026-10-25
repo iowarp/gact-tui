@@ -32,6 +32,8 @@ import { withTaskWaitPresentation } from './task-wait-presentation';
 import { withTodoPresentation } from './todo-tool-presentation';
 import { withStorageToolPresentation } from './storage-tool-presentation';
 import { withSkillPresentation } from './skill-tool-presentation';
+import { withQuestionPresentation } from './question-tool-presentation';
+import { useQuestionAnswer } from './question-answer-context';
 
 export function ClioToolInvocation({
   attention,
@@ -51,6 +53,7 @@ export function ClioToolInvocation({
   sessionId?: string;
 }) {
   const navigation = useContext(PresentationNavigation);
+  const questionContext = useQuestionAnswer();
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [resultOpen, setResultOpen] = useState(false);
   const duration = useToolDuration(tool);
@@ -84,13 +87,16 @@ export function ClioToolInvocation({
     flow?.handle && navigation?.onOpenFlow
       ? () => navigation.onOpenFlow?.(flow.handle!, `${flow.label} run`)
       : undefined;
-  const presentedTool = withMemoryPresentation(
-    withResourcePresentation(
-      withSkillPresentation(
-        withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
+  const presentedTool = withQuestionPresentation(
+    withMemoryPresentation(
+      withResourcePresentation(
+        withSkillPresentation(
+          withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
+        ),
+        navigation?.resources,
       ),
-      navigation?.resources,
     ),
+    questionContext?.interactions,
   );
   const subject = getToolSubject(presentedTool);
   const catalogContent = isA2uiCatalogLookup(presentedTool)
