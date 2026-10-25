@@ -24,7 +24,11 @@ export function visibleWorkspaceSessions(
 }
 
 export function isPrimarySession(session: Session): boolean {
-  return !isManagedChildSession(session);
+  return (
+    session.session_kind !== 'agent' &&
+    session.session_kind !== 'lookup' &&
+    !isManagedChildSession(session)
+  );
 }
 
 /**

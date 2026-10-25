@@ -1,3 +1,5 @@
+import { INLINE_MEMORY_TOOLS } from './memory-presentation';
+import { toolResultRecord, asRecord } from './tool-result-shared';
 import type { AttentionBlock, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
 import { WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
@@ -69,7 +71,7 @@ export function ClioToolInvocation({
     (state) => state.entities.sessions[sentMessage?.sessionId ?? sentMessage?.target ?? '']?.title,
   );
   const [open, setOpen] = useState(defaultOpen ?? false);
-  const [resultOpen, setResultOpen] = useState(false);
+  const [resultOpen, setResultOpen] = useState(() => INLINE_MEMORY_TOOLS.has(tool?.name ?? ''));
   const duration = useToolDuration(tool);
   useEffect(() => {
     let frame = 0;
@@ -418,9 +420,32 @@ const MEMORY_ACTIONS: Record<string, string> = {
 function withMemoryPresentation(tool: ToolInvocation): ToolInvocation {
   const action = MEMORY_ACTIONS[tool.name];
   if (!action || !tool.presentation) return tool;
+  const row = toolResultRecord(tool.output);
+  const notice = asRecord(row?.memory);
+  const label =
+    typeof row?.description === 'string'
+      ? row.description
+      : typeof notice?.description === 'string'
+        ? notice.description
+        : undefined;
+  const blocks = tool.presentation.blocks.map((block) =>
+    block.target === 'memory'
+      ? {
+          ...block,
+          label:
+            label ||
+            (block.label || block.uri || '').split('#')[0]!.split('/').at(-1)?.replaceAll('-', ' '),
+        }
+      : block,
+  );
   return {
     ...tool,
-    presentation: { ...tool.presentation, action },
+    presentation: {
+      ...tool.presentation,
+      action,
+      subject: blocks.some((block) => block.id === 'memory') ? 'memory' : tool.presentation.subject,
+      blocks,
+    },
   };
 }
 
@@ -499,21 +524,4 @@ function withResourcePresentation(
         }
       : tool.presentation,
   };
-}
-
-function toolResultRecord(value: unknown): Record<string, unknown> | undefined {
-  const output = asRecord(value);
-  if (!output) return undefined;
-  return (
-    asRecord(output.structuredContent) ??
-    asRecord(output.structured_content) ??
-    asRecord(output.result) ??
-    output
-  );
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
 }

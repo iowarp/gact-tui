@@ -135,3 +135,41 @@ describe('memory administration repository', () => {
     ]);
   });
 });
+
+it('retains the original proposal and actual applied correction independently', async () => {
+  const proposed = { id: 'purple', kind: 'updated', before: 'green', after: 'purple' };
+  const applied = { id: 'violet', kind: 'updated', before: 'green', after: 'violet' };
+  const row = {
+    id: 'p',
+    target: 'project/lab/topics/colors',
+    change: 'supersede',
+    facts: ['violet'],
+    replaces: ['green'],
+    merge_from: [],
+    description: 'Colors',
+    evidence: [],
+    sources: ['user'],
+    rationale: 'Correction',
+    origin: 'session:s',
+    handle: 'task',
+    status: 'accepted',
+    decided_by: 'user',
+    created_at: '2026-10-25',
+    decided_at: '2026-10-25',
+    base_text: 'green',
+    proposed_text: 'purple',
+    needs_review: false,
+    changes: [proposed],
+    applied_changes: [applied],
+    applied_before_text: 'green',
+    applied_text: 'violet',
+    target_label: 'Colors',
+  };
+  const repository = new ClioRepository(new RecordingTransport([{ proposals: [row] }]));
+  const decoded = (await repository.memoryProposals('all'))[0]!;
+  expect(decoded.changes).toEqual([proposed]);
+  expect(decoded.applied_changes).toEqual([applied]);
+  expect(decoded.proposed_text).toBe('purple');
+  expect(decoded.applied_text).toBe('violet');
+  expect(decoded.target_label).toBe('Colors');
+});

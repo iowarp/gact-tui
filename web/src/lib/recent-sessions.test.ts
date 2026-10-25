@@ -102,3 +102,17 @@ describe('visibleWorkspaceSessions', () => {
     expect(sessionInteractionAt(row)).toBe('2026-08-23T18:21:00Z');
   });
 });
+
+it('keeps parentless background curator and lookup records out of primary navigation', () => {
+  const root = session('root', 'User conversation', '2026-10-25T00:00:00Z');
+  const curator: Session = {
+    ...root,
+    id: 'curator',
+    title: 'Memory curation',
+    session_kind: 'agent',
+  };
+  const lookup: Session = { ...root, id: 'lookup', session_kind: 'lookup' };
+  expect(isPrimarySession(curator)).toBe(false);
+  expect(isPrimarySession(lookup)).toBe(false);
+  expect(visibleWorkspaceSessions([root, curator, lookup], 'ws_1', '')).toEqual([root]);
+});

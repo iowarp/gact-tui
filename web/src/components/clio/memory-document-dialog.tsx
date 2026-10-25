@@ -1,3 +1,6 @@
+import { refreshAfterMemoryRemoval } from '@/lib/memory-cache';
+import { memoryChanges } from '@/lib/memory-changes';
+import { MemoryFactChanges } from './memory-fact-changes';
 import type { MemoryDocument, MemoryFact, MemoryVersion } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckIcon, HistoryIcon } from 'lucide-react';
@@ -61,11 +64,14 @@ function FactRow({
   const forget = useMutation({
     mutationFn: () => repository.forgetMemoryFact(document.name, fact.id, document.sha),
     onSuccess: (result) => {
-      refresh();
       if ('removed' in result) {
         toast.success('Memory forgotten');
         onRemoved();
-      } else toast.success('Fact forgotten');
+        void refreshAfterMemoryRemoval(client, document.name);
+      } else {
+        refresh();
+        toast.success('Fact forgotten');
+      }
     },
   });
   return (
@@ -234,60 +240,10 @@ export function MemoryDocumentDialog({
   );
 }
 
-/** A document line as a person reads it: a fact without its annotation, no stamps. */
-function readable(line: string): string | undefined {
-  if (!line.trim() || line === '---' || /^(updated|name|category|forgotten):/u.test(line))
-    return undefined;
-  const about = /^description: (.*)$/u.exec(line);
-  if (about) return `About: ${about[1]}`;
-  const fact = /^- (.*) \{id=[^}]*\}$/u.exec(line);
-  if (!fact) return line;
-  const struck = /^~~(.*)~~$/u.exec(fact[1]);
-  return struck ? `${struck[1]} (replaced)` : fact[1];
-}
-
-function lineDiff(before: string, after: string) {
-  const lines = (text: string) =>
-    text.split('\n').flatMap((line) => {
-      const shown = readable(line);
-      return shown === undefined ? [] : [shown];
-    });
-  const old = lines(before);
-  const next = lines(after);
-  const kept = new Set(next);
-  const had = new Set(old);
-  return [
-    ...old.filter((line) => !kept.has(line)).map((line) => ({ kind: 'removed' as const, line })),
-    ...next.filter((line) => !had.has(line)).map((line) => ({ kind: 'added' as const, line })),
-  ];
-}
-
-/** Readable changed facts shared by proposal review and memory history. */
+/** Fact-level changes shared with the conversation's inline memory results. */
 export function MemoryDiff({ before, after }: { before: string; after: string }) {
-  const rows = useMemo(() => lineDiff(before, after), [before, after]);
-  if (!rows.length) return <p className="text-sm text-muted-foreground">No differences.</p>;
-  return (
-    <ul
-      aria-label="Memory changes"
-      className="grid gap-2 rounded-md bg-muted/40 p-3 text-sm leading-6"
-    >
-      {rows.map((row, index) => (
-        <li className="flex items-start gap-2" key={`${row.kind}-${index}`}>
-          <span
-            aria-label={row.kind === 'added' ? 'Added' : 'Removed'}
-            className={
-              row.kind === 'added'
-                ? 'font-medium text-success-foreground'
-                : 'font-medium text-destructive-foreground'
-            }
-          >
-            {row.kind === 'added' ? '+' : '−'}
-          </span>
-          <span className="min-w-0 break-words">{row.line}</span>
-        </li>
-      ))}
-    </ul>
-  );
+  const changes = useMemo(() => memoryChanges(before, after), [before, after]);
+  return <MemoryFactChanges changes={changes} />;
 }
 
 function authorLabel(version: MemoryVersion) {

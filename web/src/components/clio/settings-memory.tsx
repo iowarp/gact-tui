@@ -1,3 +1,4 @@
+import { refreshAfterMemoryRemoval } from '@/lib/memory-cache';
 import { MEMORY_CATEGORIES, type MemoryDocument, type Session } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DownloadIcon, UploadIcon, SettingsIcon, SearchIcon } from 'lucide-react';
@@ -79,7 +80,7 @@ function DocumentActions({
   const remove = useMutation({
     mutationFn: () => repository.forgetMemoryDocument(document.name, document.sha),
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['memory'] });
+      void refreshAfterMemoryRemoval(client, document.name);
       toast.success(`Deleted ${document.slug}`);
     },
     onError: (error) => toast.error(error.message),

@@ -50,6 +50,14 @@ export const memoryVersionSchema = z.object({
   at: z.string(),
 });
 
+export const memoryFactChangeSchema = z.object({
+  id: z.string(),
+  kind: z.enum(['added', 'updated', 'removed', 'read']),
+  before: z.string(),
+  after: z.string(),
+});
+export type MemoryFactChange = z.infer<typeof memoryFactChangeSchema>;
+
 export const memoryProposalSchema = z.object({
   id: z.string(),
   target: z.string(),
@@ -78,6 +86,11 @@ export const memoryProposalSchema = z.object({
   base_text: z.string(),
   proposed_text: z.string(),
   needs_review: z.boolean(),
+  changes: z.array(memoryFactChangeSchema).nullish(),
+  applied_changes: z.array(memoryFactChangeSchema).nullish(),
+  applied_before_text: z.string().optional(),
+  applied_text: z.string().nullish(),
+  target_label: z.string().optional(),
 });
 
 export const memorySummarySchema = z.object({

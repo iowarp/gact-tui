@@ -1,3 +1,5 @@
+import { MemoryToolResult } from './memory-tool-result';
+import { INLINE_MEMORY_TOOLS } from './memory-presentation';
 import { CircleAlertIcon, FileIcon } from 'lucide-react';
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { Shimmer } from '@/components/ai-elements/shimmer';
@@ -50,6 +52,8 @@ export function ToolResultPresentation({
   const questionContext = useQuestionAnswer();
   const tool = withQuestionPresentation(recordedTool, questionContext?.interactions);
   const lines = useTranscriptPreviewLines();
+  if (INLINE_MEMORY_TOOLS.has(tool.name) && getToolStatus(tool) === 'succeeded')
+    return <MemoryToolResult tool={tool} />;
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
   const resourceDocument =
     tool.name === 'workspace_resource_read' && subject?.target === 'resource';
