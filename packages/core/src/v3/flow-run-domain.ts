@@ -75,6 +75,8 @@ export const flowCallSchema = z.object({
   status: z.string().default(''),
   /** Calls started together (one gather) share the first one's invocation; empty alone. */
   together: z.string().default(''),
+  recovered: z.boolean().optional(),
+  returned_after_stop: z.boolean().optional(),
 });
 
 export type FlowCall = z.infer<typeof flowCallSchema>;
@@ -115,6 +117,22 @@ export const flowRunSchema = z.object({
     })
     .nullable(),
   calls: z.array(flowCallSchema).default([]),
+  /** Recorded execution stages, including the stopping point and work that did not run. */
+  execution: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        status: z.string(),
+        after: strings,
+        kind: z.string().default('action'),
+        target: z.string().default(''),
+        handle: z.string().default(''),
+        invocation: z.string().default(''),
+        detail: z.string().default(''),
+      }),
+    )
+    .optional(),
   questions: z
     .array(z.object({ handle: z.string(), question: z.string().default('') }))
     .default([]),

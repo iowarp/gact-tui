@@ -1,6 +1,10 @@
 import { flowRunSchema, type FlowRun } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { flowDiagrams, flowRunElapsed, NOT_SERIES_PARALLEL_NOTE } from '@/hooks/use-flow-presentation';
+import {
+  flowDiagrams,
+  flowRunElapsed,
+  NOT_SERIES_PARALLEL_NOTE,
+} from '@/hooks/use-flow-presentation';
 import { boxName, markRailroad } from './flow-railroad-marks';
 import { seriesParallel } from './flow-diagram-source';
 import { railroadDiagram } from './flow-railroad';
@@ -272,8 +276,22 @@ describe('flow railroad', () => {
       status: 'completed',
       view: null,
       calls: [
-        { invocation: 'a', kind: 'agent', target: 'clio/standard', handle: 'm0', status: 'completed', together: 'a' },
-        { invocation: 'b', kind: 'agent', target: 'clio/standard', handle: 'm1', status: 'completed', together: 'a' },
+        {
+          invocation: 'a',
+          kind: 'agent',
+          target: 'clio/standard',
+          handle: 'm0',
+          status: 'completed',
+          together: 'a',
+        },
+        {
+          invocation: 'b',
+          kind: 'agent',
+          target: 'clio/standard',
+          handle: 'm1',
+          status: 'completed',
+          together: 'a',
+        },
         { invocation: 'c', kind: 'agent', target: 'self', handle: 's', status: 'completed' },
       ],
       result: { answer: 'x', members: ['m0', 'm1'], synthesizer: 's' },
@@ -313,15 +331,27 @@ describe('flow railroad', () => {
     expect(diagram.label).toMatch(/^The debate flow's 5 calls as they ran: Call 1, done/u);
   });
 
-  it('names any other flow\'s calls by the agent each ran', () => {
+  it("names any other flow's calls by the agent each ran", () => {
     // A research flow: two researchers together, then one critic.
     const run = flowRunSchema.parse({
       flow: 'deep-research',
       status: 'completed',
       view: null,
       calls: [
-        { invocation: 'a', kind: 'subagent', target: 'researcher', status: 'completed', together: 'a' },
-        { invocation: 'b', kind: 'subagent', target: 'researcher', status: 'completed', together: 'a' },
+        {
+          invocation: 'a',
+          kind: 'subagent',
+          target: 'researcher',
+          status: 'completed',
+          together: 'a',
+        },
+        {
+          invocation: 'b',
+          kind: 'subagent',
+          target: 'researcher',
+          status: 'completed',
+          together: 'a',
+        },
         { invocation: 'c', kind: 'subagent', target: 'critic', status: 'completed' },
       ],
     });
@@ -333,7 +363,12 @@ describe('flow railroad', () => {
   });
 
   it('times a run by its root task, and waits for that time instead of a partial span', () => {
-    const run = flowRunSchema.parse({ flow: 'deep-research', status: 'completed', view: null, calls: [] });
+    const run = flowRunSchema.parse({
+      flow: 'deep-research',
+      status: 'completed',
+      view: null,
+      calls: [],
+    });
     // One member loaded so far: five minutes of a run that took thirty-eight.
     const member = new Map([['m1', { startedAt: 0, settledAt: 300_000 }]]);
     expect(flowRunElapsed(run, 'root', member, 10_000_000)).toBeUndefined();
@@ -343,11 +378,16 @@ describe('flow railroad', () => {
     expect(flowRunElapsed(run, '', member, 10_000_000)).toBe(300_000);
   });
 
-  it('draws a workflow step that runs any flow inline, from that flow\'s calls', () => {
+  it("draws a workflow step that runs any flow inline, from that flow's calls", () => {
     const run = workflow(
       [
-        { id: 'takes', target: 'two-takes', status: 'completed', handle: 't_takes',
-          invocation: 'flowrun_1:flow:key=step:takes:cc:0' },
+        {
+          id: 'takes',
+          target: 'two-takes',
+          status: 'completed',
+          handle: 't_takes',
+          invocation: 'flowrun_1:flow:key=step:takes:cc:0',
+        },
       ],
       { calls: [{ invocation: 'flowrun_1:flow:key=step:takes:cc:0', kind: 'flow' }] },
     );
@@ -431,5 +471,58 @@ describe('boxName', () => {
   it("reads a step's name as a title", () => {
     expect(boxName('headline')).toBe('Headline');
     expect(boxName('verify_hdf5-metadata')).toBe('Verify hdf5 metadata');
+  });
+});
+
+describe('recorded flow execution progress', () => {
+  it('keeps returned children green, review rejection red and delivery unrun', () => {
+    const run = flowRunSchema.parse({
+      flow: 'deep-research',
+      status: 'flow_stall',
+      view: null,
+      execution: [
+        { id: 'start', label: 'Started', status: 'completed', after: [] },
+        {
+          id: 'a',
+          label: 'Researcher',
+          status: 'returned',
+          after: ['start'],
+          kind: 'agent',
+          handle: 'ta',
+        },
+        {
+          id: 'r',
+          label: 'Report review',
+          status: 'rejected',
+          after: ['a'],
+          detail: 'Missing comparison',
+        },
+        { id: 's', label: 'Save report', status: 'not_run', after: ['r'] },
+      ],
+    });
+    const steps = workflowSteps(run, 'clio/deep-researcher');
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.marks.map((mark) => [mark.tone, mark.title])).toEqual([
+      ['done', 'Started: Completed.'],
+      ['done', 'Researcher: Returned.'],
+      ['failed', 'Report review: Rejected.'],
+      ['cancelled', 'Save report: Did not run.'],
+    ]);
+    expect(steps[1]?.handle).toBe('ta');
+    expect(steps[2]?.note).toBe('Missing comparison');
+  });
+  it('marks declared pending work as unrun once a workflow stops', () => {
+    const run = workflow(
+      [
+        { id: 'ran', status: 'completed' },
+        { id: 'blocked', status: 'pending', after: ['ran'] },
+      ],
+      { status: 'flow_error' },
+    );
+    expect(workflowSteps(run, '').map((step) => step.status.label)).toEqual([
+      'Completed',
+      'Did not run',
+    ]);
   });
 });

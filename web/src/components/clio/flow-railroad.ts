@@ -94,7 +94,8 @@ export function railroadDiagram(name: string, expr: RailroadExpr): RailroadDiagr
         const from = marks.length;
         const body = expr.items.map(write).join(', ');
         // A branch that is a boxed flow carries its own name; the fork itself shows the rest.
-        if (!expr.items.some(boxed)) parallels.push({ from, to: marks.length, count: expr.items.length });
+        if (!expr.items.some(boxed))
+          parallels.push({ from, to: marks.length, count: expr.items.length });
         return `choice(${body})`;
       }
       case 'optional':
@@ -156,14 +157,18 @@ export function workflowRailroadExpr(
     const attempts = step.attempts > 1 ? `, ${step.attempts} attempts` : '';
     const mark: RailroadMark = {
       tone: step.status.tone,
-      title: `${step.id}: ${step.status.label}${attempts}. Runs ${step.targetLabel}.`,
+      title: `${step.label ?? step.id}: ${step.status.label}${attempts}.${step.targetLabel ? ` Runs ${step.targetLabel}.` : ''}`,
       key: step.id,
       pick: { kind: 'step', step },
     };
     const inner = step.kind === 'flow' ? subflows.get(step.id) : undefined;
     let node: RailroadExpr = inner
-      ? { kind: 'flow', label: step.id, mark, item: prefixKeys(inner, `${step.id}/`) }
-      : { kind: step.kind === 'flow' ? 'nonterminal' : 'terminal', label: step.id, mark };
+      ? { kind: 'flow', label: step.label ?? step.id, mark, item: prefixKeys(inner, `${step.id}/`) }
+      : {
+          kind: step.kind === 'flow' ? 'nonterminal' : 'terminal',
+          label: step.label ?? step.id,
+          mark,
+        };
     if (step.attempts > 1) node = { kind: 'repeat', item: node };
     return step.kind === 'proposal' ? { kind: 'optional', item: node } : node;
   };
@@ -224,8 +229,11 @@ export function callsRailroadExpr(members: readonly FlowMember[]): RailroadExpr 
     if (member.together && last?.[0]?.together === member.together) last.push(member);
     else batches.push([member]);
   }
-  const items = batches.map((batch): RailroadExpr =>
-    batch.length > 1 ? { kind: 'parallel', items: batch.map(memberTerminal) } : memberTerminal(batch[0]!),
+  const items = batches.map(
+    (batch): RailroadExpr =>
+      batch.length > 1
+        ? { kind: 'parallel', items: batch.map(memberTerminal) }
+        : memberTerminal(batch[0]!),
   );
   if (!items.length) return undefined;
   return items.length === 1 ? items[0] : { kind: 'sequence', items };

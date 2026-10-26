@@ -55,15 +55,16 @@ export function FlowRunCard({
   const data = run.data;
   const status = data ? flowRunStatus(data) : undefined;
   const { steps, members, verdict, closing, runElapsed } = presentation;
-  const rows = data?.view ? steps : members;
+  const rows = data?.view || data?.execution?.length ? steps : members;
   const historyUnavailable = data ? flowTaskHistoryUnavailable(data, rows.length) : false;
-  const noun = data?.view
-    ? 'step'
-    : data?.flow === 'arena'
-      ? 'entry'
-      : data?.flow === 'council'
-        ? 'member'
-        : 'task';
+  const noun =
+    data?.view || data?.execution?.length
+      ? 'step'
+      : data?.flow === 'arena'
+        ? 'entry'
+        : data?.flow === 'council'
+          ? 'member'
+          : 'task';
   const plural = noun === 'entry' ? 'entries' : `${noun}s`;
   const summary = data
     ? [
@@ -85,7 +86,7 @@ export function FlowRunCard({
     : undefined;
   return (
     <Artifact className="w-full min-w-0 shadow-none" data-slot="flow-run-card">
-      <ArtifactHeader className="gap-2.5 px-3 py-2">
+      <ArtifactHeader className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 px-3 py-2 sm:flex">
         <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted/60 text-primary">
           <WorkflowIcon aria-hidden="true" className="size-4" />
         </span>
@@ -94,9 +95,13 @@ export function FlowRunCard({
           <ArtifactDescription className="line-clamp-2 text-xs">{summary}</ArtifactDescription>
         </div>
         {status ? (
-          <ClioStatus className="shrink-0" label={status.label} value={status.value} />
+          <ClioStatus
+            className="col-start-2 row-start-2 shrink-0 justify-self-start"
+            label={status.label}
+            value={status.value}
+          />
         ) : null}
-        <ArtifactActions className="shrink-0 gap-0">
+        <ArtifactActions className="col-start-3 row-span-2 row-start-1 shrink-0 gap-0">
           {data ? (
             <ArtifactAction
               icon={Maximize2Icon}

@@ -117,7 +117,7 @@ function useNestedFlowRuns(sessionId: string, steps: readonly FlowStep[]) {
 
 /** A nested run as its inline track; its own nested flows are drawn as steps. */
 export function nestedFlowExpr(run: FlowRun, agentRef: string): RailroadExpr | undefined {
-  if (run.view) {
+  if (run.view || run.execution?.length) {
     const steps = workflowSteps(run, agentRef).map((step) =>
       step.kind === 'flow' ? { ...step, kind: 'agent' as const } : step,
     );
@@ -166,7 +166,7 @@ export function useFlowPresentation(
   const model = useMemo(() => {
     if (!run) return { steps: [], members: [], verdict: {} as FlowVerdict };
     const steps = workflowSteps(run, agentRef);
-    const members = run.view ? [] : flowMembers(run, agentRef, args);
+    const members = run.view || run.execution?.length ? [] : flowMembers(run, agentRef, args);
     return { steps, members, verdict: flowVerdict(run) };
   }, [agentRef, args, run]);
   const nested = useNestedFlowRuns(sessionId, model.steps);
@@ -233,7 +233,7 @@ export function flowDiagrams(
   agentRef = '',
 ): Pick<FlowPresentation, 'diagram' | 'closing'> {
   if (!run) return {};
-  if (run.view) {
+  if (run.view || run.execution?.length) {
     const steps = model.steps;
     if (!steps.length) return {};
     const shape = seriesParallel(steps);
@@ -253,10 +253,13 @@ export function flowDiagrams(
         return expr ? [[id, expr] as const] : [];
       }),
     );
+    const railroad = railroadDiagram('workflow', workflowRailroadExpr(steps, shape, subflows));
+    // Recovered launches establish ownership, not the original gather structure.
+    if (run.calls.some((call) => call.recovered)) railroad.parallels = [];
     return {
       diagram: {
         kind: 'railroad',
-        railroad: railroadDiagram('workflow', workflowRailroadExpr(steps, shape, subflows)),
+        railroad,
         label: `The workflow's ${steps.length} steps in order: ${steps
           .map((step) => `${step.id}, ${step.status.word}`)
           .join('; ')}`,

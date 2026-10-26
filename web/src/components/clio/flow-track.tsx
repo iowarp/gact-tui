@@ -44,7 +44,8 @@ export function FlowTrack({
         ])
       : [
           ...steps.map(
-            (step) => [step.id, { name: step.id, pick: { kind: 'step', step } }] as const,
+            (step) =>
+              [step.id, { name: step.label ?? step.id, pick: { kind: 'step', step } }] as const,
           ),
           ...members.map(
             (member) =>

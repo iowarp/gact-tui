@@ -28,11 +28,11 @@ import { ClioStatus } from './status';
 /** Each state's word in the legend, in the order the legend lists them. */
 const TONE_WORDS: readonly (readonly [FlowTone, string])[] = [
   ['running', 'running'],
-  ['done', 'done'],
-  ['failed', 'failed'],
+  ['done', 'ran'],
+  ['failed', 'stopped or rejected'],
   ['waiting', 'waiting'],
   ['proposed', 'awaiting approval'],
-  ['cancelled', 'cancelled or skipped'],
+  ['cancelled', 'did not run or cancelled'],
   ['unknown', 'not reported'],
 ];
 
@@ -159,22 +159,28 @@ export function FlowPickDetails({
               : undefined
       }
       handle={step.handle}
-      name={step.id}
+      name={step.label ?? step.id}
       onClose={onClose}
       onOpenHandle={onOpenHandle}
       status={step.status}
       time={rowDuration(elapsed.get(step.id))}
     >
-      <Fact label="Runs">
-        {step.kind === 'flow' ? (
-          <FlowName info={flows?.get(step.target)} name={step.targetLabel} />
-        ) : (
-          step.targetLabel
-        )}
-      </Fact>
-      <Fact label="Waits on">
-        {step.after.length ? step.after.join(', ') : 'nothing; starts first'}
-      </Fact>
+      {step.targetLabel ? (
+        <Fact label="Runs">
+          {step.kind === 'flow' ? (
+            <FlowName info={flows?.get(step.target)} name={step.targetLabel} />
+          ) : (
+            step.targetLabel
+          )}
+        </Fact>
+      ) : null}
+      {!step.label ? (
+        <Fact label="Waits on">
+          {step.after.length
+            ? step.after.map((id) => (id.startsWith('run:') ? id.slice(4) : id)).join(', ')
+            : 'nothing; starts first'}
+        </Fact>
+      ) : null}
       {callModel(usage, step.handle) ? (
         <Fact label="Model">{callModel(usage, step.handle)}</Fact>
       ) : null}
@@ -187,7 +193,9 @@ export function FlowPickDetails({
       ) : step.note ? (
         <Fact label="Description">{step.note}</Fact>
       ) : null}
-      <Instructions input={step.input} />
+      {step.kind !== 'action' && (!step.label || step.input !== undefined) ? (
+        <Instructions input={step.input} />
+      ) : null}
     </PickFrame>
   );
 }

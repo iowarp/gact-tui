@@ -133,7 +133,7 @@ describe('FlowRunCard', () => {
     );
     // The track's colours are explained once, in words; no row repeats each step.
     expect(screen.getByText('Select a step to see it')).toBeVisible();
-    for (const word of ['done', 'running', 'waiting']) expect(screen.getByText(word)).toBeVisible();
+    for (const word of ['ran', 'running', 'waiting']) expect(screen.getByText(word)).toBeVisible();
     expect(screen.queryByRole('list', { name: 'Workflow steps' })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'clean: Completed. Runs this agent.' }));

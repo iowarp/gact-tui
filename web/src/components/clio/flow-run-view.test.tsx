@@ -126,7 +126,7 @@ describe('FlowRunView', () => {
       'title',
       'Editors critic may add up to 2 steps over at most 1 editing round (0 added, 1 round so far). Added steps need your approval.',
     );
-    for (const word of ['done', 'running', 'awaiting approval']) {
+    for (const word of ['ran', 'running', 'awaiting approval']) {
       expect(screen.getByText(word)).toBeVisible();
     }
     await user.click(screen.getByRole('button', { name: /^review: Running\./u }));

@@ -173,14 +173,14 @@ export function FlowRunDetails({
   const status = flowRunStatus(run);
   const { steps, members, verdict, closing, runElapsed } = presentation;
   const workflow = run.view;
-  const taskCount = workflow ? steps.length : members.length;
+  const taskCount = workflow || run.execution?.length ? steps.length : members.length;
   const historyUnavailable = flowTaskHistoryUnavailable(run, taskCount);
   const tally = historyUnavailable
     ? ''
-    : stepTally((workflow ? steps : members).map((row) => row.status));
+    : stepTally((workflow || run.execution?.length ? steps : members).map((row) => row.status));
   const count = historyUnavailable
     ? 'Task history not recorded'
-    : workflow
+    : workflow || run.execution?.length
       ? `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`
       : `${members.length} ${run.flow === 'arena' ? (members.length === 1 ? 'entry' : 'entries') : run.flow === 'council' ? (members.length === 1 ? 'member' : 'members') : members.length === 1 ? 'task' : 'tasks'}`;
   const wide = layout === 'wide';
