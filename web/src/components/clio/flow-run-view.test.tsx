@@ -2,9 +2,13 @@ import { flowRunSchema } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const repository = vi.hoisted(() => ({ taskFlow: vi.fn(), agentTask: vi.fn() }));
+const repository = vi.hoisted(() => ({
+  taskFlow: vi.fn(),
+  agentTask: vi.fn(),
+  transcript: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -95,6 +99,10 @@ function renderRun(onOpenSubagent = vi.fn()) {
   );
   return onOpenSubagent;
 }
+
+beforeEach(() => {
+  repository.transcript.mockResolvedValue({ messages: [] });
+});
 
 afterEach(() => {
   cleanup();
@@ -202,6 +210,39 @@ describe('FlowRunView', () => {
     // Live: a final answer with a wide table widened its implicit column, and full screen
     // on a phone cut every line of the answer off at the right edge.
     expect(result.querySelector(':scope > div')).toHaveClass('grid-cols-[minmax(0,1fr)]');
+  });
+
+  it('loads the selected workflow child answer without loading every child transcript', async () => {
+    repository.taskFlow.mockResolvedValue(workflowRun);
+    repository.agentTask.mockImplementation(async (handle) => ({
+      task_id: handle,
+      child_session_id: `session-${handle}`,
+      created_at: '',
+      updated_at: '',
+    }));
+    repository.transcript.mockResolvedValue({
+      messages: [
+        {
+          role: 'assistant',
+          blocks: [
+            { type: 'text', text: 'Independent integrity findings: 54 records quarantined.' },
+          ],
+        },
+      ],
+    });
+    renderRun();
+    await screen.findByRole('img', { name: /The workflow's 3 steps in order/u });
+    expect(repository.transcript).not.toHaveBeenCalled();
+    await userEvent.setup().click(screen.getByRole('button', { name: /^draft: Completed\./u }));
+    const details = screen.getByRole('region', { name: 'draft: Completed' });
+    expect(
+      await within(details).findByText('Independent integrity findings: 54 records quarantined.'),
+    ).toBeVisible();
+    expect(repository.transcript).toHaveBeenCalledTimes(1);
+    expect(repository.transcript).toHaveBeenCalledWith(
+      'session-task_draft',
+      expect.any(AbortSignal),
+    );
   });
 
   it('says when no limit is set on what the editors may add', async () => {

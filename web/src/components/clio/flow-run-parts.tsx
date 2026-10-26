@@ -196,6 +196,7 @@ export function FlowPickDetails({
       {step.kind !== 'action' && (!step.label || step.input !== undefined) ? (
         <Instructions input={step.input} />
       ) : null}
+      {step.handle ? <TaskAnswer handle={step.handle} status={step.status} /> : null}
     </PickFrame>
   );
 }
@@ -280,8 +281,6 @@ function MemberDetails({
   onOpenHandle: (handle: string) => void;
   onClose: () => void;
 }) {
-  const settled = !['running', 'waiting'].includes(member.status.tone);
-  const answer = useFlowTaskAnswer(member.handle, true, settled);
   return (
     <PickFrame
       badge={member.chosen ? 'Chosen' : undefined}
@@ -297,25 +296,34 @@ function MemberDetails({
       </Fact>
       {model ? <Fact label="Model">{model}</Fact> : null}
       {member.perspective ? <Fact label="Asked to answer as">{member.perspective}</Fact> : null}
-      <div className="grid min-w-0 gap-1">
-        <p className="text-muted-foreground">Answer</p>
-        {!member.handle ? (
-          <p>Not started yet.</p>
-        ) : answer.isPending ? (
-          <p role="status">Loading the answer…</p>
-        ) : answer.error ? (
-          <p className="text-destructive" role="alert">
-            The answer could not be loaded: {answer.error.message}
-          </p>
-        ) : answer.data ? (
-          <ContentMarkdown className="max-h-72 overflow-auto rounded-md bg-muted/40 p-2 text-xs leading-5 [&_:is(h1,h2,h3,h4)]:mt-2 [&_:is(h1,h2,h3,h4)]:text-sm [&_:is(h1,h2,h3,h4)]:font-semibold">
-            {answer.data}
-          </ContentMarkdown>
-        ) : (
-          <p>{settled ? 'No answer was recorded.' : 'Still working.'}</p>
-        )}
-      </div>
+      <TaskAnswer handle={member.handle} status={member.status} />
     </PickFrame>
+  );
+}
+
+/** Fetch only the selected child's answer, shared by workflow steps and flow members. */
+function TaskAnswer({ handle, status }: { handle?: string; status: FlowState }) {
+  const settled = !['running', 'waiting', 'proposed'].includes(status.tone);
+  const answer = useFlowTaskAnswer(handle, true, settled);
+  return (
+    <div className="grid min-w-0 gap-1">
+      <p className="text-muted-foreground">Answer</p>
+      {!handle ? (
+        <p>Not started yet.</p>
+      ) : answer.isPending ? (
+        <p role="status">Loading the answer…</p>
+      ) : answer.error ? (
+        <p className="text-destructive" role="alert">
+          The answer could not be loaded: {answer.error.message}
+        </p>
+      ) : answer.data ? (
+        <ContentMarkdown className="max-h-72 overflow-auto rounded-md bg-muted/40 p-2 text-xs leading-5 [&_:is(h1,h2,h3,h4)]:mt-2 [&_:is(h1,h2,h3,h4)]:text-sm [&_:is(h1,h2,h3,h4)]:font-semibold">
+          {answer.data}
+        </ContentMarkdown>
+      ) : (
+        <p>{settled ? 'No answer was recorded.' : 'Still working.'}</p>
+      )}
+    </div>
   );
 }
 
