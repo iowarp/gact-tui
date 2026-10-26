@@ -32,8 +32,10 @@ export function FlowDiagram({
   className,
   selected,
   onSelect,
+  active = true,
 }: {
   spec: FlowDiagramSpec;
+  active?: boolean;
   fontSize?: number;
   /** Draw larger than natural size, up to the available width (full screen). */
   scale?: number;
@@ -46,11 +48,25 @@ export function FlowDiagram({
   const id = useId().replaceAll(':', '');
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [svg, setSvg] = useState<string | null>(null);
+  const [geometry, setGeometry] = useState<{ key: string; svg: string } | null>(null);
   const [failed, setFailed] = useState(false);
   const source = spec.kind === 'railroad' ? spec.railroad.source : spec.source;
   const railroad = spec.kind === 'railroad' ? spec.railroad : undefined;
   const selectable = Boolean(railroad && onSelect);
+  const isRailroad = Boolean(railroad);
+  const measured = width > 0;
+  const renderWidth = isRailroad ? undefined : Math.floor(width / scale);
+  const renderKey = JSON.stringify([source, fontSize, renderWidth]);
+  // Status/selection changes mark a cheap SVG clone. They do not lay out the
+  // same railroad again whenever a usage or timer update changes its object.
+  const svg = useMemo(() => {
+    if (!geometry || geometry.key !== renderKey) return null;
+    const element = new DOMParser().parseFromString(geometry.svg, 'image/svg+xml')
+      .documentElement as unknown as SVGElement;
+    if (railroad) markRailroad(element, railroad, selectable);
+    if (scale !== 1) scaleSvg(element, scale, width);
+    return new XMLSerializer().serializeToString(element);
+  }, [geometry, renderKey, railroad, selectable, scale, width]);
 
   useEffect(() => {
     const element = ref.current;
@@ -66,27 +82,23 @@ export function FlowDiagram({
   }, []);
 
   useEffect(() => {
-    if (!width) return;
+    if (!measured || !active || geometry?.key === renderKey) return;
     let cancelled = false;
     // A railroad is drawn at its natural width, never wrapped onto a second line (a wrapped
     // track crosses itself); a narrow screen scrolls it sideways. A graph fits the width.
-    renderPeleDiagram(source, `flow-${id}`, railroad ? undefined : Math.floor(width / scale), {
+    renderPeleDiagram(source, `flow-${id}`, renderWidth, {
       fontSize,
-      autoDirection: !railroad,
+      autoDirection: !isRailroad,
       inheritTheme: true,
       transform: (element) => {
         element.removeAttribute('role');
-        if (railroad) {
-          element.style.maxWidth = 'none';
-          markRailroad(element, railroad, selectable);
-        }
-        if (scale !== 1) scaleSvg(element, scale, width);
+        if (isRailroad) element.style.maxWidth = 'none';
       },
     })
       .then((html) => {
         if (cancelled) return;
         if (html) {
-          setSvg(html);
+          setGeometry({ key: renderKey, svg: html });
           setFailed(false);
         } else setFailed(true);
       })
@@ -96,7 +108,7 @@ export function FlowDiagram({
     return () => {
       cancelled = true;
     };
-  }, [fontSize, id, railroad, scale, selectable, source, width]);
+  }, [active, measured, fontSize, id, isRailroad, renderWidth, renderKey, source, geometry?.key]);
 
   // The selection is a class on the drawn node, so selecting never redraws.
   useEffect(() => {

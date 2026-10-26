@@ -117,6 +117,17 @@ export const flowRunSchema = z.object({
     })
     .nullable(),
   calls: z.array(flowCallSchema).default([]),
+  /** Canonical task timestamps supplied with the flow; no per-node detail fetch required. */
+  timings: z
+    .record(
+      z.string(),
+      z.object({
+        created_at: z.string(),
+        updated_at: z.string(),
+        terminal_at: z.string().nullish(),
+      }),
+    )
+    .optional(),
   /** Recorded execution stages, including the stopping point and work that did not run. */
   execution: z
     .array(

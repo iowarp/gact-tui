@@ -52,6 +52,7 @@ export interface ClioObservabilityDockProps {
   sessions?: readonly Session[];
   familyProvenance?: ExecutionProvenanceResult;
   familyProvenancePending?: boolean;
+  onLoadFamilyProvenance?: () => void;
   artifacts: readonly Artifact[];
   contextFiles: readonly ContextFile[];
   contextFrames: readonly ContextFrame[];

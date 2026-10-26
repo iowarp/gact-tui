@@ -21,6 +21,7 @@ export function FlowTrack({
   className,
   usage,
   historyUnavailable,
+  active = true,
 }: {
   flow: string;
   presentation: FlowPresentation;
@@ -32,6 +33,7 @@ export function FlowTrack({
   className?: string;
   /** The run stopped without recording task history; do not imply it started none. */
   historyUnavailable?: boolean;
+  active?: boolean;
 }) {
   const [selected, setSelected] = useState<string>();
   const { diagram, steps, members, elapsed } = presentation;
@@ -60,6 +62,7 @@ export function FlowTrack({
     <div className="grid min-w-0 gap-2">
       {diagram ? (
         <FlowDiagram
+          active={active}
           className={className}
           fontSize={fontSize}
           onSelect={select}

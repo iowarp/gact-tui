@@ -1,6 +1,9 @@
+import { useSessionCacheRetention } from './use-session-cache-retention';
+import { useSessionResourceLoading } from './use-session-resource-loading';
+import { loadSessionResource } from '@/lib/session-resource-loading';
 import { queryKeys } from '@/lib/query-keys';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import { useInstalledAgents } from '@/hooks/use-session-agent';
@@ -65,6 +68,7 @@ export function useWorkspaceData({
   sessionId,
   workspaceId,
 }: UseWorkspaceDataInput) {
+  useSessionCacheRetention(sessionId);
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const entityArtifacts = useLiveStore((state) => state.entities.artifacts);
@@ -165,6 +169,10 @@ export function useWorkspaceData({
       return current && isSessionActive(current.state) ? 5_000 : false;
     },
   });
+  const surrounding = useSessionResourceLoading(
+    `${settings.endpoint}:${sessionId}`,
+    Boolean(transcript.data) && !transcript.isPlaceholderData,
+  );
   const { refetch: refetchTranscript } = transcript;
   const previousSessionState = useRef<{ sessionId: string; active: boolean } | null>(null);
   const terminalReconciliation = useRef('');
@@ -191,8 +199,11 @@ export function useWorkspaceData({
   }, [refetchTranscript, sessionId, sessions.data, transcript.data?.messages.length]);
   const sessionArtifacts = useQuery({
     queryKey: queryKeys.key('session-artifacts', settings.endpoint, sessionId),
-    queryFn: ({ signal }) => repository.sessionArtifacts(sessionId, signal),
-    enabled: Boolean(sessionId),
+    queryFn: ({ signal }) =>
+      loadSessionResource(surrounding, signal, () =>
+        repository.sessionArtifacts(sessionId, signal),
+      ),
+    enabled: Boolean(sessionId) && surrounding.enabled,
   });
   const streamSession =
     entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
@@ -204,7 +215,7 @@ export function useWorkspaceData({
     sessionId,
     workspaceId,
   });
-  useVariantRunHydration({ enabled: transcript.isSuccess, sessionId });
+  useVariantRunHydration({ enabled: Boolean(surrounding.enabled), sessionId });
   const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
     capabilities.data?.capabilities,
   );
@@ -260,10 +271,12 @@ export function useWorkspaceData({
       queryFn: ({ signal }) => repository.pendingInteractionProjection(rootSessionId, true, signal),
       staleTime: PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
     })),
+    combine: (results) => ({
+      error: results.find((query) => query.error)?.error,
+      interactions: results.flatMap((query) => query.data?.interactions ?? []),
+    }),
   });
-  const attentionInteractionsError = attentionInteractionQueries.find(
-    (query) => query.error,
-  )?.error;
+  const attentionInteractionsError = attentionInteractionQueries.error;
   const legacyInteractions = useMemo(
     () => legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),
     [approvals.data, hierarchySessions, questions.data],
@@ -282,12 +295,18 @@ export function useWorkspaceData({
       supportsUnifiedInteractions,
     ],
   );
-  const attentionInteractions = supportsUnifiedInteractions
-    ? [
-        ...interactions,
-        ...attentionInteractionQueries.flatMap((query) => query.data?.interactions ?? []),
-      ]
-    : legacyInteractions;
+  const attentionInteractions = useMemo(
+    () =>
+      supportsUnifiedInteractions
+        ? [...interactions, ...attentionInteractionQueries.interactions]
+        : legacyInteractions,
+    [
+      supportsUnifiedInteractions,
+      interactions,
+      attentionInteractionQueries.interactions,
+      legacyInteractions,
+    ],
+  );
   const a2uiOwnerIds = useMemo(
     () => [
       ...new Set(
@@ -394,19 +413,29 @@ export function useWorkspaceData({
     contextTargetId,
     contextTargetSession?.agent_id ?? 'main',
     Boolean(session && contextTargetSession),
+    surrounding,
   );
-  const sessionObservability = useSessionObservability(sessionId);
-  const executionProvenance = useExecutionProvenance(sessionId);
+  const sessionObservability = useSessionObservability(sessionId, {
+    ...surrounding,
+    warmHistory: true,
+  });
+  const executionProvenance = useExecutionProvenance(sessionId, undefined, surrounding);
   const family = useMemo(
     () => conversationFamily(hierarchySessions, sessionId),
     [hierarchySessions, sessionId],
   );
+  const [requestedFamily, setRequestedFamily] = useState('');
+  const loadFamilyProvenance = useCallback(() => setRequestedFamily(sessionId), [sessionId]);
   const familyExecutionProvenance = useExecutionProvenance(
     family.sessions[0]?.id ?? sessionId,
     executionProvenance.provider,
-    { includeChildren: true },
+    {
+      includeChildren: true,
+      ...surrounding,
+      enabled: surrounding.enabled && requestedFamily === sessionId,
+    },
   );
-  const contextObservability = useSessionObservability(contextTargetId);
+  const contextObservability = useSessionObservability(contextTargetId, surrounding);
   const { hideDotFiles } = useAppearancePreferences();
   const workspaceFiles = useQuery({
     // The Files-view-only "Hide dot files and folders" toggle is part of the
@@ -428,11 +457,13 @@ export function useWorkspaceData({
       connectionScope(settings),
     ),
     queryFn: ({ signal }) =>
-      repository.workspaceFiles(workspaceId, signal, {
-        includeHidden: !hideDotFiles,
-        directory: '',
-      }),
-    enabled: Boolean(workspaceId),
+      loadSessionResource(surrounding, signal, () =>
+        repository.workspaceFiles(workspaceId, signal, {
+          includeHidden: !hideDotFiles,
+          directory: '',
+        }),
+      ),
+    enabled: Boolean(workspaceId) && surrounding.enabled,
     // No live-event trigger for this view (owner decision, after a server-side
     // watcher produced an event storm): poll instead, but ONLY while the Files
     // view is actually the mounted tab -- GET /v1/workspaces/{wid}/files is a
@@ -446,8 +477,9 @@ export function useWorkspaceData({
   });
   const workspaceResources = useQuery({
     queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
-    queryFn: ({ signal }) => repository.resources(workspaceId, signal),
-    enabled: Boolean(workspaceId),
+    queryFn: ({ signal }) =>
+      loadSessionResource(surrounding, signal, () => repository.resources(workspaceId, signal)),
+    enabled: Boolean(workspaceId) && surrounding.enabled,
     refetchInterval: (query) =>
       (query.state.data ?? []).some((resource) =>
         ['submitted', 'processing'].includes(resource.processing?.state ?? ''),
@@ -455,9 +487,15 @@ export function useWorkspaceData({
         ? ACTIVE_SESSION_POLL_MS
         : false,
   });
-  const installedAgents = useInstalledAgents(Boolean(workspaceId));
-  const tasks = Object.values(entities.tasks).filter((task) => task.session_id === sessionId);
-  const tools = Object.values(entities.tools).filter((tool) => tool.session_id === sessionId);
+  const installedAgents = useInstalledAgents(Boolean(workspaceId) && surrounding.enabled === true);
+  const tasks = useMemo(
+    () => Object.values(entities.tasks).filter((task) => task.session_id === sessionId),
+    [entities.tasks, sessionId],
+  );
+  const tools = useMemo(
+    () => Object.values(entities.tools).filter((tool) => tool.session_id === sessionId),
+    [entities.tools, sessionId],
+  );
   const transcriptArtifacts = useMemo(
     () => Object.values(entities.artifacts).filter((artifact) => artifact.session_id === sessionId),
     [entities.artifacts, sessionId],
@@ -525,11 +563,17 @@ export function useWorkspaceData({
     () => computeA2uiReferencedSessionIds(sessionId, a2uiOwnerIds, interactionSessionIds),
     [sessionId, a2uiOwnerIds, interactionSessionIds],
   );
-  useA2uiSessionRegistry(a2uiReferencedSessionIds);
+  useA2uiSessionRegistry(a2uiReferencedSessionIds, {
+    ...surrounding,
+    immediateIds: [sessionId, ...a2uiOwnerIds],
+  });
   // Every pending approval is rendered. A blocked descendant this view has not
   // discovered yet is labelled by the interaction surface, never hidden.
   const visibleApprovals = approvals.data ?? [];
-  const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
+  const runs = useMemo(
+    () => Object.values(entities.runs).filter((run) => run.session_id === sessionId),
+    [entities.runs, sessionId],
+  );
   const context = sessionContext.state.data ?? entities.context[contextTargetId];
   // provider_id only -- never modelConfiguration.data?.provider, which is the
   // wire KIND ("openai") that nine presets share (bedrock, llama_cpp, ...),
@@ -615,6 +659,7 @@ export function useWorkspaceData({
     entities,
     executionProvenance,
     familyObservability: {
+      onLoadFamilyProvenance: loadFamilyProvenance,
       sessions: hierarchySessions,
       familyProvenance: familyExecutionProvenance.execution.data,
       familyProvenancePending:

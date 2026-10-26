@@ -102,6 +102,25 @@ afterEach(() => {
 });
 
 describe('FlowRunView', () => {
+  it('uses timestamps supplied with the flow instead of reading each child task', async () => {
+    repository.taskFlow.mockResolvedValue(
+      flowRunSchema.parse({
+        ...workflowRun,
+        timings: {
+          task_flow: { created_at: '2026-10-25T10:00:00Z', updated_at: '2026-10-25T10:00:10Z' },
+          task_draft: {
+            created_at: '2026-10-25T10:00:00Z',
+            updated_at: '2026-10-25T10:00:05Z',
+            terminal_at: '2026-10-25T10:00:05Z',
+          },
+        },
+      }),
+    );
+    renderRun();
+    await screen.findByRole('img', { name: /The workflow's 3 steps in order/u });
+    expect(repository.agentTask).not.toHaveBeenCalled();
+  });
+
   it('draws the live workflow with text statuses and the proposal awaiting approval', async () => {
     const user = userEvent.setup();
     repository.taskFlow.mockResolvedValue(workflowRun);

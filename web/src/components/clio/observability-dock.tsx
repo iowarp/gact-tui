@@ -15,7 +15,7 @@ import {
   Layers3Icon,
   WaypointsIcon,
 } from 'lucide-react';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -104,6 +104,7 @@ export function ClioObservabilityView({
   sessions,
   familyProvenance,
   familyProvenancePending,
+  onLoadFamilyProvenance,
   requestedView,
   interactions = [],
 }: ClioObservabilityDockProps) {
@@ -111,6 +112,9 @@ export function ClioObservabilityView({
   const [activeView, setActiveView] = useState<ObservabilityView>(
     () => requestedView?.view ?? restoredObservabilityView(sessionId),
   );
+  useEffect(() => {
+    if (activeView === 'work') onLoadFamilyProvenance?.();
+  }, [activeView, onLoadFamilyProvenance]);
   // Reset the restored view when the session identity itself changes, without
   // an effect: adjusting state from a prop change during render (rather than
   // in a post-commit effect) avoids the extra render-then-reset flash.

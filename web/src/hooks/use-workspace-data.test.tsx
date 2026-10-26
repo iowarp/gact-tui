@@ -5,7 +5,7 @@ import type {
   SessionArtifactListing,
   TranscriptSnapshot,
 } from '@clio/core/v3';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -128,10 +128,13 @@ const approval = {
   created_at: '2026-09-02T00:00:00Z',
 };
 
-function wrapper({ children }: { children: ReactNode }) {
-  const client = new QueryClient({
-    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
-  });
+function Wrapper({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+      }),
+  );
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
@@ -144,7 +147,7 @@ function renderWorkspaceData(overrides: { filesViewActive?: boolean } = {}) {
         sessionId: 'sess_1',
         workspaceId: 'ws_1',
       }),
-    { wrapper },
+    { wrapper: Wrapper },
   );
 }
 
@@ -170,6 +173,16 @@ beforeEach(() => {
 });
 
 describe('useWorkspaceData stream ownership', () => {
+  it('keeps current work collections stable across unrelated renders', async () => {
+    const view = renderWorkspaceData();
+    await waitFor(() => expect(view.result.current.transcript.isSuccess).toBe(true));
+    const { tools, tasks, runs, attentionInteractions } = view.result.current;
+    view.rerender();
+    expect(view.result.current.tools).toBe(tools);
+    expect(view.result.current.tasks).toBe(tasks);
+    expect(view.result.current.runs).toBe(runs);
+    expect(view.result.current.attentionInteractions).toBe(attentionInteractions);
+  });
   it('keeps the focused-session stream open between turns', async () => {
     mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: ['0.3'] });
     const idle = renderWorkspaceData();
@@ -531,7 +544,7 @@ describe('useWorkspaceData requested session lookup', () => {
     const { result, rerender } = renderHook(
       ({ sessionId }: { sessionId: string }) =>
         useWorkspaceData({ contextTargetId: sessionId, sessionId, workspaceId: 'ws_1' }),
-      { initialProps: { sessionId: 'sess_1' }, wrapper },
+      { initialProps: { sessionId: 'sess_1' }, wrapper: Wrapper },
     );
     await waitFor(() => expect(result.current.session?.id).toBe('sess_1'));
     const fetchesBefore = mocks.repository.sessions.mock.calls.length;
@@ -556,7 +569,7 @@ describe('useWorkspaceData requested session lookup', () => {
           sessionId: 'sess_gone',
           workspaceId: 'ws_1',
         }),
-      { wrapper },
+      { wrapper: Wrapper },
     );
 
     await waitFor(() => expect(result.current.sessionLookupPending).toBe(false));

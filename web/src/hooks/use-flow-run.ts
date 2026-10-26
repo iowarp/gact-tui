@@ -13,12 +13,12 @@ export const FLOW_RUN_POLL_MS = 2_000;
  * The flow run checkpointed under one task, re-read while it runs so the workflow,
  * its proposals and any stall appear as the task layer records them.
  */
-export function useFlowRun(sessionId: string, handle: string) {
+export function useFlowRun(sessionId: string, handle: string, enabled = true) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   return useQuery({
     queryKey: queryKeys.key('task-flow', settings.endpoint, sessionId, handle),
-    enabled: Boolean(sessionId && handle),
+    enabled: Boolean(sessionId && handle) && enabled,
     queryFn: ({ signal }) => repository.taskFlow(sessionId, handle, signal),
     refetchInterval: (query) =>
       query.state.data && flowRunActive(query.state.data) ? FLOW_RUN_POLL_MS : false,

@@ -12,6 +12,7 @@ import {
   type Workspace,
 } from '@clio/core/v3';
 import { z } from 'zod';
+import { SESSION_CACHE_POLICY } from './session-cache-retention';
 
 const CACHE_VERSION = 'v1';
 const MAX_TRANSCRIPT_MESSAGES = 16;
@@ -45,12 +46,14 @@ function readCache<T>(key: string, schema: z.ZodType<T>): T | undefined {
   return undefined;
 }
 
-function writeCache(key: string, value: unknown): void {
-  if (typeof window === 'undefined') return;
+function writeCache(key: string, value: unknown): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     window.sessionStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
     // Storage limits and privacy modes degrade to the existing network-first path.
+    return false;
   }
 }
 
@@ -99,6 +102,16 @@ export function readReloadTranscript(
   endpoint: string,
   sessionId: string,
 ): TranscriptSnapshot | undefined {
+  const key = cacheKey(endpoint, 'transcript', sessionId);
+  try {
+    const writtenAt = Number(window.sessionStorage.getItem(`${key}:used-at`) || 0);
+    if (!writtenAt || Date.now() - writtenAt >= SESSION_CACHE_POLICY.idleMs) {
+      dropReloadTranscript(endpoint, sessionId);
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
   const cached = readCache(cacheKey(endpoint, 'transcript', sessionId), transcriptCacheSchema);
   return cached as TranscriptSnapshot | undefined;
 }
@@ -115,7 +128,32 @@ export function writeReloadTranscript(
     messages = messages.slice(1);
     candidate = transcriptTail(transcript, messages);
   }
-  writeCache(cacheKey(endpoint, 'transcript', sessionId), candidate);
+  if (writeCache(cacheKey(endpoint, 'transcript', sessionId), candidate)) {
+    touchReloadTranscript(endpoint, sessionId);
+  }
+}
+
+/** Keep the reload tail for the idle interval after leaving a session. */
+export function touchReloadTranscript(endpoint: string, sessionId: string): void {
+  try {
+    window.sessionStorage.setItem(
+      `${cacheKey(endpoint, 'transcript', sessionId)}:used-at`,
+      String(Date.now()),
+    );
+  } catch {
+    /* Browser storage is optional; authoritative reads remain available. */
+  }
+}
+
+/** Retire the disposable reload tail alongside normalized and query data. */
+export function dropReloadTranscript(endpoint: string, sessionId: string): void {
+  try {
+    const key = cacheKey(endpoint, 'transcript', sessionId);
+    window.sessionStorage.removeItem(key);
+    window.sessionStorage.removeItem(`${key}:used-at`);
+  } catch {
+    /* Browser storage may be unavailable. */
+  }
 }
 
 function transcriptTail(

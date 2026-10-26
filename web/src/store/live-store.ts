@@ -1,3 +1,4 @@
+import { withoutSessionData } from '@/lib/session-entity-retention';
 import {
   createEntityState,
   mergeVariantRuns,
@@ -44,6 +45,7 @@ interface LiveStore {
    * live ones: what the stream wrote wins, the trace fills what it never saw.
    */
   hydrateVariantRuns: (runs: VariantRuns) => void;
+  dropSessionData: (sessionId: string) => void;
   reset: () => void;
 }
 
@@ -224,5 +226,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
         variant_runs: mergeVariantRuns(state.entities.variant_runs, runs),
       },
     })),
+  dropSessionData: (sessionId) =>
+    set((state) => ({ entities: withoutSessionData(state.entities, sessionId) })),
   reset: () => set({ entities: createEntityState(), frameGaps: [], error: undefined }),
 }));

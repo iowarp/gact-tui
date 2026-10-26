@@ -11,7 +11,9 @@ const mocks = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
   readOnly: false,
+  near: true,
 }));
+vi.mock('@/hooks/use-near-viewport', () => ({ useNearViewport: () => mocks.near }));
 vi.mock('@/hooks/use-repository', () => ({
   useRepository: () => ({ responseFeedback: mocks.read, rateResponse: mocks.save }),
 }));
@@ -21,7 +23,9 @@ vi.mock('@/providers/connection-provider', () => ({
     readOnly: mocks.readOnly,
   }),
 }));
-vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: mocks.success, error: mocks.error } }));
+vi.mock('sonner', () => ({
+  toast: { dismiss: vi.fn(), success: mocks.success, error: mocks.error },
+}));
 
 const message: Message = {
   id: 'answer',
@@ -67,11 +71,17 @@ function mount(value = message, active = false) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.readOnly = false;
+  mocks.near = true;
   mocks.read.mockResolvedValue({ feedback: null });
 });
 afterEach(cleanup);
 
 describe('response rating', () => {
+  it('does not read feedback for offscreen messages', async () => {
+    mocks.near = false;
+    mount();
+    expect(mocks.read).not.toHaveBeenCalled();
+  });
   it('saves a good rating only after acknowledgement and restores it on remount', async () => {
     const user = userEvent.setup();
     let acknowledge!: (value: ResponseFeedbackState) => void;

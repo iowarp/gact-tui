@@ -1,3 +1,4 @@
+import { loadSessionResource, type SessionResourceLoading } from '@/lib/session-resource-loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { ContextSnapshot } from '@clio/core/v3';
@@ -13,11 +14,16 @@ export function sessionContextQueryKey(endpoint: string, sessionId: string) {
 }
 
 /** Selected agent context plus server-owned compaction controls. */
-export function useSessionContext(sessionId: string, scope: string, enabled = true) {
+export function useSessionContext(
+  sessionId: string,
+  scope: string,
+  enabled = true,
+  loading: SessionResourceLoading = {},
+) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const canLoad = Boolean(enabled && sessionId && scope);
+  const canLoad = Boolean(enabled && sessionId && scope && loading.enabled !== false);
   const settledRuns = useLiveStore((live) =>
     Object.values(live.entities.runs)
       .filter((run) => run.session_id === sessionId && run.completed_at)
@@ -33,7 +39,8 @@ export function useSessionContext(sessionId: string, scope: string, enabled = tr
   }, [canLoad, settledRuns, queryClient, settings.endpoint, sessionId, scope]);
   const state = useQuery({
     queryKey: queryKeys.sessionContextState(settings.endpoint, sessionId, scope),
-    queryFn: ({ signal }) => repository.contextState(sessionId, scope, signal),
+    queryFn: ({ signal }) =>
+      loadSessionResource(loading, signal, () => repository.contextState(sessionId, scope, signal)),
     enabled: canLoad,
   });
   // The conversation shows a running compaction in place ("Summarizing

@@ -17,6 +17,7 @@ import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
 import { useQueries } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { loadSessionResource, type SessionResourceLoading } from '@/lib/session-resource-loading';
 import { classifyA2uiRegistryFailure, shouldRetryA2uiRegistryFailure } from './registry-failure';
 import {
   collectA2uiClientDataModelSurfaces,
@@ -52,10 +53,14 @@ import {
  * advertisement, and a session with no surface at all must still advertise
  * on its first message).
  */
-export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
+export function useA2uiSessionRegistry(
+  sessionIds: readonly string[],
+  loading: SessionResourceLoading & { immediateIds?: readonly string[] } = {},
+): void {
   const repository = useRepository();
   const uniqueIds = [...new Set(sessionIds.filter((id): id is string => Boolean(id)))];
   const uniqueIdsKey = uniqueIds.join('\u0000');
+  const immediate = new Set(loading.immediateIds ?? uniqueIds);
 
   // `retry: shouldRetryA2uiRegistryFailure` (S1 adversarial follow-up): a
   // transient network blip must not stick for the session's whole
@@ -67,7 +72,11 @@ export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
   const rowsQueries = useQueries({
     queries: uniqueIds.map((id) => ({
       queryKey: ['a2ui-catalogs', id],
-      queryFn: ({ signal }) => repository.a2uiCatalogs(id, signal),
+      enabled: immediate.has(id) || loading.enabled !== false,
+      queryFn: ({ signal }) =>
+        immediate.has(id)
+          ? repository.a2uiCatalogs(id, signal)
+          : loadSessionResource(loading, signal, () => repository.a2uiCatalogs(id, signal)),
       staleTime: 60_000,
       retry: shouldRetryA2uiRegistryFailure,
     })),
@@ -75,7 +84,11 @@ export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
   const capsQueries = useQueries({
     queries: uniqueIds.map((id) => ({
       queryKey: ['a2ui-capabilities', id],
-      queryFn: ({ signal }) => repository.a2uiCapabilities(id, signal),
+      enabled: immediate.has(id) || loading.enabled !== false,
+      queryFn: ({ signal }) =>
+        immediate.has(id)
+          ? repository.a2uiCapabilities(id, signal)
+          : loadSessionResource(loading, signal, () => repository.a2uiCapabilities(id, signal)),
       staleTime: 60_000,
       retry: shouldRetryA2uiRegistryFailure,
     })),
@@ -118,7 +131,7 @@ export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
         id,
         rowsQuery.data?.rows,
         rowsQuery.data?.rejected,
-        rowsQuery.isLoading && !rowsQuery.data,
+        rowsQuery.isPending && !rowsQuery.data,
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

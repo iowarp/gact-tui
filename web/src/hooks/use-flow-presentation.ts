@@ -91,7 +91,7 @@ export function useFlowToolArgs(handle: string): Record<string, unknown> | undef
 }
 
 /** The runs of workflow steps that are flows themselves, read again while they run. */
-function useNestedFlowRuns(sessionId: string, steps: readonly FlowStep[]) {
+function useNestedFlowRuns(sessionId: string, steps: readonly FlowStep[], enabled = true) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const nested = steps.filter(
@@ -100,6 +100,7 @@ function useNestedFlowRuns(sessionId: string, steps: readonly FlowStep[]) {
   const results = useQueries({
     queries: nested.map((step) => ({
       queryKey: queryKeys.key('task-flow', settings.endpoint, sessionId, step.handle),
+      enabled,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         repository.taskFlow(sessionId, step.handle, signal),
       retry: false,
@@ -162,6 +163,7 @@ export function useFlowPresentation(
   agentRef: string,
   args: Record<string, unknown> | undefined,
   sessionId: string,
+  enabled = true,
 ): FlowPresentation {
   const model = useMemo(() => {
     if (!run) return { steps: [], members: [], verdict: {} as FlowVerdict };
@@ -169,7 +171,7 @@ export function useFlowPresentation(
     const members = run.view || run.execution?.length ? [] : flowMembers(run, agentRef, args);
     return { steps, members, verdict: flowVerdict(run) };
   }, [agentRef, args, run]);
-  const nested = useNestedFlowRuns(sessionId, model.steps);
+  const nested = useNestedFlowRuns(sessionId, model.steps, enabled);
   const { agent } = useSessionAgent(sessionId);
   const catalog = agent.data?.resolution.flows;
   const flows = useMemo(
@@ -195,9 +197,23 @@ export function useFlowPresentation(
     ],
     [model, rootHandle, rootSettled],
   );
-  const times = useFlowTaskTimes(tasks);
+  const legacyTimes = useFlowTaskTimes(run?.timings || !enabled ? [] : tasks);
+  const times = useMemo(() => {
+    if (!run?.timings) return legacyTimes;
+    const recorded = new Map<string, { startedAt: number; settledAt?: number }>();
+    for (const [handle, time] of Object.entries(run.timings)) {
+      const startedAt = Date.parse(time.created_at);
+      if (!Number.isFinite(startedAt)) continue;
+      const settledAt = time.terminal_at ? Date.parse(time.terminal_at) : undefined;
+      recorded.set(handle, {
+        startedAt,
+        ...(settledAt !== undefined && Number.isFinite(settledAt) ? { settledAt } : {}),
+      });
+    }
+    return recorded;
+  }, [run?.timings, legacyTimes]);
   const ticking = tasks.some((task) => task.handle && !task.settled);
-  const now = useNow(ticking);
+  const now = useNow(ticking && enabled);
   const elapsed = useMemo(() => {
     const result = new Map<string, number>();
     for (const row of [...model.steps, ...model.members]) {
