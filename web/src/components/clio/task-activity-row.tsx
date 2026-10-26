@@ -1,3 +1,4 @@
+import { taskFlowState } from './task-flow-state';
 import type { ReactNode } from 'react';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { ChevronRightIcon, PanelRightOpenIcon } from 'lucide-react';
@@ -35,23 +36,20 @@ export function TaskActivityRow({
   const previewLines = useTranscriptPreviewLines();
   const conversation = subagent ?? (task ? mergeSessionSubagents([], [task])[0] : undefined);
   const title = task?.title || subagent?.title || 'Task';
-  const kind = task?.task_kind ?? (task?.kind === 'agent' || subagent ? 'Subagent' : 'MCP');
+  const kind = task?.flow
+    ? 'Flow'
+    : (task?.task_kind ?? (task?.kind === 'agent' || subagent ? 'Subagent' : 'MCP'));
+  const flowState = task ? taskFlowState(task, status) : undefined;
   // A child conversation that runs a flow reads as that flow's run, not as a chat.
-  const flowRun = task?.flow ? `${flowLabel(task.flow.id)} run` : undefined;
+  const flowRun = task?.flow
+    ? `${flowLabel(task.flow.id)} ${task.flow.status === 'not_run' ? 'follow-up' : 'run'}`
+    : undefined;
   const assignment = task?.description || subagent?.task;
   const progress = taskProgressLabel(task?.progress, kind, task?.error_reason);
   const yielded = status === 'yielded';
   const awaitingAnswer =
     kind === 'Question' && (status === 'input_required' || status === 'waiting_user');
-  const running =
-    status === 'running' ||
-    status === 'working' ||
-    status === 'executing' ||
-    status === 'recovering' ||
-    status === 'stopping' ||
-    status === 'cancelling' ||
-    status === 'cancellation_requested' ||
-    status === 'resume_requested';
+  const running = ['running', 'working', 'executing', 'starting'].includes(status);
   const label =
     status === 'task_state_uncertain'
       ? 'Needs inspection'
@@ -71,7 +69,11 @@ export function TaskActivityRow({
             title={title}
             className={`flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'min-h-9 gap-1.5 px-1 py-1' : 'min-h-14 gap-2.5 px-2 py-2'}`}
           >
-            <WorkKindStatus kind={task?.flow ? 'workflow' : taskWorkKind(kind)} status={status} />
+            <WorkKindStatus
+              kind={task?.flow ? 'workflow' : taskWorkKind(kind)}
+              status={flowState?.value ?? status}
+              detail={flowState?.detail}
+            />
             <span className={`min-w-0 flex-1 ${compact ? 'flex items-baseline gap-2' : ''}`}>
               {compact ? (
                 <span className="block flex-1 truncate text-sm">{flowRun ?? title}</span>
@@ -86,13 +88,15 @@ export function TaskActivityRow({
               <span
                 className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-xs' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
-                {running || status === 'completed'
-                  ? kind === 'MCP' || kind === 'Shell'
-                    ? 'Tool'
-                    : kind === 'Session'
-                      ? 'Agent'
-                      : kind
-                  : `${kind === 'MCP' || kind === 'Shell' ? 'Tool' : kind} · ${label}`}
+                {flowState
+                  ? `Flow · ${flowState.label}`
+                  : running || status === 'completed'
+                    ? kind === 'MCP' || kind === 'Shell'
+                      ? 'Tool'
+                      : kind === 'Session'
+                        ? 'Agent'
+                        : kind
+                    : `${kind === 'MCP' || kind === 'Shell' ? 'Tool' : kind} · ${label}`}
                 {!compact && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
@@ -118,6 +122,21 @@ export function TaskActivityRow({
               {assignment || 'Description unavailable for this older task'}
             </BoundedResult>
           </div>
+          {flowState?.detail ? (
+            <p className="text-sm text-muted-foreground">{flowState.detail}</p>
+          ) : null}
+          {task?.flow?.previous_handle && onOpenFlow ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-8 px-0"
+              onClick={() =>
+                onOpenFlow(task.flow!.previous_handle!, `${flowLabel(task.flow!.id)} run`)
+              }
+            >
+              Open earlier flow attempt
+            </Button>
+          ) : null}
           {progress ? (
             <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{progress}</p>
           ) : null}
@@ -154,7 +173,7 @@ export function TaskActivityRow({
               {result}
             </div>
           ) : null}
-          {flowRun && onOpenFlow ? (
+          {flowRun && task?.flow?.status !== 'not_run' && onOpenFlow ? (
             <Button
               variant="link"
               size="sm"

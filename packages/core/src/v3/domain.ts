@@ -547,7 +547,13 @@ export interface AsyncProcess {
   updated_at?: string;
   error_reason?: string;
   /** Set when the task's child conversation runs a flow (a workflow, council, arena...). */
-  flow?: { id: string };
+  flow?: {
+    id: string;
+    status?: string;
+    outcome?: { reason?: string; message?: string } | null;
+    previous_handle?: string;
+    detail?: string;
+  };
   /** The model the child conversation runs on and why. */
   model_choice?: ModelChoice;
   result?: {

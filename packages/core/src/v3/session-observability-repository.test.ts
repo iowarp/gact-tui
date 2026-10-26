@@ -18,7 +18,7 @@ class RecordingTransport implements ClioTransport {
     _cursor?: string,
     _signal?: AbortSignal,
   ): AsyncIterable<TransportFrame> {
-    return;
+    yield* [];
   }
 }
 
@@ -168,4 +168,19 @@ describe('SessionObservabilityRepository agent tasks', () => {
       answer_excerpt: '',
     });
   });
+});
+
+it('retains an owning tasks flow outcome and no-op predecessor independently from task completion', async () => {
+  const process = {
+    id: 'followup',
+    kind: 'agent',
+    title: 'Research',
+    live_state: 'completed',
+    status: 'completed',
+    flow: { id: 'deep-research', status: 'not_run', previous_handle: 'earlier' },
+  };
+  const repository = new ClioRepository(
+    new RecordingTransport([{ processes: [process], cursor: null, total: 1, revision: 1 }]),
+  );
+  expect((await repository.asyncProcessesPage('parent')).items[0]?.flow).toEqual(process.flow);
 });

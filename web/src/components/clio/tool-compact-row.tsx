@@ -14,8 +14,6 @@ import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { WorkKindStatus } from './work-kind-status';
-import type { WorkKind } from './work-kind';
 import {
   getToolActionLabel,
   getToolFailureDetail,
@@ -32,14 +30,12 @@ export function ToolCompactRow({
   duration,
   expanded,
   surface = 'transcript',
-  kind = 'tool',
 }: {
   tool: ToolInvocation;
   attention?: ReactNode;
   duration?: number;
   expanded: boolean;
   surface?: 'transcript' | 'evidence';
-  kind?: WorkKind;
 }) {
   const status = getToolStatus(tool);
   const evidence = surface === 'evidence';
@@ -78,8 +74,6 @@ export function ToolCompactRow({
             data-slot="tool-interrupted-mark"
             className="size-3.5 shrink-0 text-warning"
           />
-        ) : evidence ? (
-          <WorkKindStatus kind={kind} status={status} />
         ) : active ? (
           <LoaderCircleIcon
             aria-hidden="true"

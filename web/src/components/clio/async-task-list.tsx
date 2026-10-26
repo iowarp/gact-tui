@@ -180,6 +180,7 @@ export function AsyncTaskList({
       (active || cancellable) &&
       (task.cancel_requested || requested.has(handle));
     const kind = task.task_kind ?? (task.kind === 'agent' ? 'Subagent' : 'MCP');
+    const restartKind = task.flow ? 'flow' : kind === 'Session' ? 'assignment' : 'subagent';
     return (
       <TaskActivityRow
         compact={compact}
@@ -224,7 +225,7 @@ export function AsyncTaskList({
                         variant="ghost"
                         size="icon"
                         aria-label={`${action} ${kind}: ${task.title}`}
-                        title={action === 'pause' ? 'Pause agent' : 'Resume agent'}
+                        title={`${action === 'pause' ? 'Pause' : 'Resume'} ${task.flow ? 'flow' : 'agent'}`}
                         disabled={Boolean(
                           controlling[handle] || cancelling || status === 'pause_requested',
                         )}
@@ -251,7 +252,7 @@ export function AsyncTaskList({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onSelect={() => setRestart(task)}>
                     <RetryIcon aria-hidden="true" />
-                    Restart {kind === 'Session' ? 'assignment' : 'subagent'}
+                    Restart {restartKind}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -352,7 +353,13 @@ export function AsyncTaskList({
         <AlertDialogContent layer="task-confirmation" className="flex flex-col overflow-hidden">
           <AlertDialogHeader className="shrink-0">
             <AlertDialogTitle>
-              Restart this {restart?.task_kind === 'Session' ? 'assignment' : 'subagent'}?
+              Restart this{' '}
+              {restart?.flow
+                ? 'flow'
+                : restart?.task_kind === 'Session'
+                  ? 'assignment'
+                  : 'subagent'}
+              ?
             </AlertDialogTitle>
             <p className="text-sm font-medium [overflow-wrap:anywhere]">{restart?.title}</p>
             <AlertDialogDescription>
@@ -368,7 +375,12 @@ export function AsyncTaskList({
                 if (restart) void control(restart, 'restart');
               }}
             >
-              Restart {restart?.task_kind === 'Session' ? 'assignment' : 'subagent'}
+              Restart{' '}
+              {restart?.flow
+                ? 'flow'
+                : restart?.task_kind === 'Session'
+                  ? 'assignment'
+                  : 'subagent'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

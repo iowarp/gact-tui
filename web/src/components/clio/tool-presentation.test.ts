@@ -239,3 +239,68 @@ describe('declared tool presentation', () => {
     },
   );
 });
+
+it.each([
+  ['run_flow', 'Start flow'],
+  ['restart_agent', 'Restart agent'],
+  ['observe_tasks', 'Check task status'],
+  ['task_result', 'Read task result'],
+  ['spawn_agent_task', 'Delegate to agent'],
+])('corrects retained Inspect metadata for %s', (name, label) => {
+  const tool: ToolInvocation = {
+    id: 'old',
+    session_id: 's',
+    name,
+    title: 'Inspect',
+    state: 'succeeded',
+    presentation: { action: 'Inspect', summary: 'Tasks', blocks: [] },
+  };
+  expect(getToolActionLabel(tool)).toBe(label);
+  expect(getToolSummary(tool)).toBeUndefined();
+});
+it('reports a retained restart request as a request', () => {
+  expect(
+    getToolSummary({
+      id: 'r',
+      session_id: 's',
+      name: 'restart_agent',
+      state: 'succeeded',
+      output: [{ type: 'text', text: '{"restart_requested":true,"pending":true}' }],
+    }),
+  ).toBe('Restart requested');
+});
+
+it('labels an accepted start request independently of the later flow outcome', () => {
+  expect(
+    getToolSummary({
+      id: 'r',
+      session_id: 's',
+      name: 'run_flow',
+      state: 'succeeded',
+      output: { accepted: true, handle: 'task' },
+    }),
+  ).toBe('Request accepted');
+});
+
+it('replaces a legacy Subagent placeholder with the recorded flow or assigned agent name', () => {
+  const base: ToolInvocation = {
+    id: 'old',
+    session_id: 's',
+    name: 'run_flow',
+    state: 'succeeded',
+    input: { flow: 'deep-research' },
+    presentation: {
+      summary:'',
+      subject: 'target',
+      blocks: [{ id: 'target', type: 'link', target: 'session', uri: 'child', label: 'Subagent' }],
+    },
+  };
+  expect(getToolSubject(base)?.label).toBe('Deep research');
+  expect(
+    getToolSubject({ ...base, name: 'spawn_agent_task', input: { name: 'Report recovery' } })
+      ?.label,
+  ).toBe('Report recovery');
+  expect(getToolActionLabel({ ...base, name: 'get_task_result', title: 'Inspect' })).toBe(
+    'Read task result',
+  );
+});

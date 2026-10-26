@@ -347,7 +347,7 @@ it('names a task that runs a flow as that run and opens the run view', async () 
     id: 'task_workflow_handle',
     handle: 'task_workflow_handle',
     title: 'Field sites workflow',
-    flow: { id: 'workflow' },
+    flow: { id: 'workflow', status: 'running' },
     effective_status: 'running',
     live_state: 'running',
     status: 'running',
@@ -356,7 +356,7 @@ it('names a task that runs a flow as that run and opens the run view', async () 
   };
   render(<AsyncTaskList processes={[flowTask]} onOpenFlow={openFlow} onOpenSubagent={openChild} />);
   expect(screen.getByText('Workflow run')).toBeVisible();
-  expect(screen.getByRole('img', { name: 'Workflow: running' })).toBeVisible();
+  expect(screen.getByRole('img', { name: 'Flow: running' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Task details: Field sites workflow' }));
   await user.click(
     screen.getByRole('button', { name: 'Open the workflow run: Field sites workflow' }),
@@ -393,4 +393,41 @@ it('hides a stale resume affordance while running and keeps restart behind More 
   expect(screen.getByRole('alertdialog')).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Restart subagent' }));
   expect(control).toHaveBeenCalledWith(expect.objectContaining({ id: task.id }), 'restart');
+});
+
+it('distinguishes a flow from a subagent and links a no-op follow-up to the actual earlier attempt', async () => {
+  const open = vi.fn();
+  render(
+    <AsyncTaskList
+      processes={[
+        {
+          ...task,
+          id: 'flow',
+          handle: 'flow',
+          effective_status: 'completed',
+          live_state: 'completed',
+          flow: { id: 'deep-research', status: 'not_run', previous_handle: 'old' },
+          supported_actions: ['restart'],
+        },
+        task,
+      ]}
+      onOpenFlow={open}
+      onControlTask={vi.fn()}
+    />,
+  );
+  expect(screen.getByText('Deep research follow-up')).toBeVisible();
+  expect(screen.getByText('Flow · No new run')).toBeVisible();
+  expect(document.querySelector('[data-work-kind="workflow"]')).toHaveAttribute(
+    'data-work-status',
+    'not_run',
+  );
+  expect(document.querySelector('[data-work-kind="agent"]')).not.toBeNull();
+  const row = screen.getByText('Deep research follow-up').closest('button')!;
+  await userEvent.click(row);
+  await userEvent.click(screen.getByRole('button', { name: 'Open earlier flow attempt' }));
+  expect(open).toHaveBeenCalledWith('old', 'Deep research run');
+  await userEvent.click(
+    row.parentElement!.querySelector('[aria-label="More actions for Worker #1"]')!,
+  );
+  expect(screen.getByRole('menuitem', { name: 'Restart flow' })).toBeVisible();
 });

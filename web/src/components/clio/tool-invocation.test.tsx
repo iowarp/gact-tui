@@ -75,7 +75,9 @@ describe('ClioToolInvocation content and subject rendering', () => {
       </PresentationNavigation.Provider>,
     );
     expect(screen.getAllByText('Deep Researcher', { exact: true })).toHaveLength(1);
-    await userEvent.click(screen.getByRole('button', { name: 'Show result for Observe tasks' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show result for Check task status' }),
+    );
     expect(screen.getAllByText('Deep Researcher', { exact: true })).toHaveLength(1);
     expect(screen.queryByText('Tasks', { exact: true })).not.toBeInTheDocument();
     expect(screen.getByText('Investigate the storage decision.')).toBeVisible();
@@ -110,7 +112,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
     expect(screen.getAllByText('Planning guide', { exact: true })).toHaveLength(1);
     expect(screen.getByText('Read these instructions before planning.')).toBeVisible();
   });
-  it('keeps Evidence kind/status glyphs scoped and gives its copied invocation a distinct DOM identity', () => {
+  it('keeps task-kind glyphs out of both tool-call surfaces with distinct DOM identities', () => {
     const tool = {
       id: 'scoped-read',
       session_id: 's',
@@ -129,8 +131,8 @@ describe('ClioToolInvocation content and subject rendering', () => {
     ).toBeNull();
     expect(
       view.container.querySelector('#evidence-tool-scoped-read [data-slot="work-kind-status"]'),
-    ).not.toBeNull();
-    expect(view.container.querySelectorAll('[data-slot="work-kind-status"]')).toHaveLength(1);
+    ).toBeNull();
+    expect(view.container.querySelectorAll('[data-slot="work-kind-status"]')).toHaveLength(0);
   });
   it('expands a pending wait into named snapshots without repeating header counts', async () => {
     const user = userEvent.setup();

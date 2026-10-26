@@ -178,7 +178,6 @@ export function ClioToolInvocation({
                 expanded={resultOpen}
                 duration={duration}
                 surface={surface}
-                kind={flow ? 'workflow' : tool.name === 'ask_user' ? 'question' : 'tool'}
                 attention={
                   attention ? (
                     <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />

@@ -17,7 +17,7 @@ const kinds = {
   agent: { label: 'Agent', icon: BotIcon },
   question: { label: 'Question', icon: MessageCircleQuestionIcon },
   tool: { label: 'Tool', icon: WrenchIcon },
-  workflow: { label: 'Workflow', icon: WorkflowIcon },
+  workflow: { label: 'Flow', icon: WorkflowIcon },
 };
 
 /** Kind/state glyph for rail and Evidence/Work task lists, not transcript tool calls. */
@@ -70,7 +70,7 @@ export function WorkKindStatus({
         ? CircleAlertIcon
         : cancelled
           ? XIcon
-          : !complete
+          : !complete && status !== 'not_run'
             ? Clock3Icon
             : undefined;
   return (

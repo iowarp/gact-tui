@@ -10,7 +10,7 @@ it.each<WorkKind>(['agent', 'question', 'tool', 'workflow'])(
   (kind) => {
     const view = render(<WorkKindStatus kind={kind} status="running" />);
     const running = screen.getByRole('img', {
-      name: `${kind[0].toUpperCase()}${kind.slice(1)}: running`,
+      name: `${kind === 'workflow' ? 'Flow' : kind[0].toUpperCase() + kind.slice(1)}: running`,
     });
     const glyph = running.querySelector('[data-slot="work-kind-icon"]');
     expect(glyph).not.toBeNull();
@@ -38,4 +38,10 @@ it.each([
 ])('never colors %s as completed', (status) => {
   render(<WorkKindStatus kind="agent" status={status} />);
   expect(screen.getByRole('img')).not.toHaveClass('text-success');
+});
+
+it('shows a known no-op flow quietly rather than calling it success or uncertainty', () => {
+  const { container } = render(<WorkKindStatus kind="workflow" status="not_run" />);
+  expect(screen.getByRole('img', { name: 'Flow: not run' })).toHaveClass('text-muted-foreground');
+  expect(container.querySelector('[data-slot="work-status-indicator"]')).toBeNull();
 });

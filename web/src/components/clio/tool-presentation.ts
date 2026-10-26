@@ -1,3 +1,5 @@
+import { flowToolDescriptor } from './flow-tool-presentation';
+import { toolResultRecord } from './tool-result-shared';
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { formatDuration } from '@/lib/format';
 import type { ClioStatusValue } from './status';
@@ -39,9 +41,25 @@ function toolInput(tool: ToolInvocation): Record<string, unknown> | undefined {
     : input;
 }
 
+const TASK_OPERATIONS: Record<string, string> = {
+  run_flow: 'Start flow',
+  run_workflow: 'Start workflow',
+  spawn_agent_task: 'Delegate to agent',
+  observe_tasks: 'Check task status',
+  task_result: 'Read task result',
+  get_task_result: 'Read task result',
+  query_tasks: 'Find tasks',
+  restart_agent: 'Restart agent',
+  pause_agent: 'Pause agent',
+  resume_agent: 'Resume agent',
+  list_tasks: 'List tasks',
+  cancel_tasks: 'Cancel tasks',
+};
+
 /** Keep protocol identifiers in details and use the same operation label everywhere. */
 export function getToolActionLabel(tool: ToolInvocation): string {
   if (tool.name === 'ask_user') return 'Ask you';
+  if (TASK_OPERATIONS[tool.name]) return TASK_OPERATIONS[tool.name]!;
   if (isA2uiCatalogLookup(tool)) return 'Inspect widget catalog';
   let action = tool.presentation?.action || tool.title || tool.name;
   const title = tool.title?.trim();
@@ -90,7 +108,13 @@ export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | un
     tool.presentation?.blocks.filter(
       (block) => block.type === 'link' && block.target === 'session',
     ) ?? [];
-  const subject = declared ?? (identities.length === 1 ? identities[0] : undefined);
+  let subject = declared ?? (identities.length === 1 ? identities[0] : undefined);
+  if (subject && /^(Subagent|Session|Tasks)$/iu.test(subject.label ?? '')) {
+    const flow = flowToolDescriptor(tool);
+    const assignedName = tool.name === 'spawn_agent_task' ? toolInput(tool)?.name : undefined;
+    const label = flow?.label || (typeof assignedName === 'string' ? assignedName.trim() : '');
+    if (label) subject = { ...subject, label };
+  }
   if (!isA2uiCatalogLookup(tool)) return subject;
   const input = toolInput(tool);
   const paths = [input?.file, ...(Array.isArray(input?.files) ? input.files : [])].filter(
@@ -106,6 +130,11 @@ export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | un
 
 export function getToolSummary(tool: ToolInvocation): string | undefined {
   if (tool.name === 'ask_user') return questionToolSummary(tool);
+  const captured = toolResultRecord(tool.output);
+  if (['run_flow', 'run_workflow'].includes(tool.name) && captured?.accepted === true)
+    return 'Request accepted';
+  if (tool.name === 'restart_agent' && captured?.restart_requested === true)
+    return 'Restart requested';
   const summary = tool.presentation?.summary?.trim();
   if (!summary) return undefined;
   const normalize = (value: string) =>

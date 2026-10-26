@@ -30,6 +30,9 @@ it.each(['running', 'completed'] as const)(
         <section aria-label="Task list">
           <AsyncTaskList processes={[task]} />
         </section>
+        <section aria-label="Evidence tool calls">
+          <ClioToolInvocation compact surface="evidence" tool={tool} />
+        </section>
         <section aria-label="Conversation tools">
           <ClioToolInvocation compact tool={tool} />
         </section>
@@ -41,6 +44,11 @@ it.each(['running', 'completed'] as const)(
       tasks.querySelector('[data-slot="work-kind-status"][data-work-kind="tool"]'),
     ).not.toBeNull();
     expect(conversation.querySelector('[data-slot="work-kind-status"]')).toBeNull();
+    expect(
+      screen
+        .getByRole('region', { name: 'Evidence tool calls' })
+        .querySelector('[data-slot="work-kind-status"]'),
+    ).toBeNull();
     expect(
       conversation.querySelector(state === 'completed' ? '.lucide-check' : '.animate-spin'),
     ).not.toBeNull();
