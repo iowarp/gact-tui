@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
@@ -86,26 +85,6 @@ const repository = vi.hoisted(() => ({
       metadata: { source: 'gact_compact' },
     },
   ]),
-  searchMemory: vi.fn().mockResolvedValue({
-    query: 'anomaly evidence',
-    include_cross_session: false,
-    searched_sessions: ['sess_memory'],
-    hits: [
-      {
-        session_id: 'sess_memory',
-        session_title: 'NDP evidence campaign',
-        workspace_id: 'ws_science',
-        message_id: 'msg_match',
-        role: 'assistant',
-        created_at: '2026-08-23T00:30:00Z',
-        text: 'The anomaly evidence was retained with its provenance.',
-        score: 1,
-        match_terms: ['anomaly', 'evidence'],
-        metadata: {},
-      },
-    ],
-    metadata: {},
-  }),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -114,16 +93,6 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { ContextHistorySettings } from './settings-context-history';
-import { PastSessionsSearch } from './settings-past-sessions';
-
-function MemorySettings({ initialSessionId }: { initialSessionId: string }) {
-  return (
-    <>
-      <ContextHistorySettings initialSessionId={initialSessionId} />
-      <PastSessionsSearch initialSessionId={initialSessionId} />
-    </>
-  );
-}
 
 afterEach(() => {
   cleanup();
@@ -139,10 +108,9 @@ function renderSettings(children: ReactNode) {
   );
 }
 
-describe('context history and past sessions', () => {
-  it('searches the selected session and exposes retained summaries as exact links', async () => {
-    const user = userEvent.setup();
-    renderSettings(<MemorySettings initialSessionId="sess_memory" />);
+describe('retained context history', () => {
+  it('shows retained summaries and their exact source links', async () => {
+    renderSettings(<ContextHistorySettings initialSessionId="sess_memory" />);
 
     expect(await screen.findByText('Retained session context')).toBeInTheDocument();
     expect(screen.getByText('Within context budget')).toBeVisible();
@@ -155,50 +123,5 @@ describe('context history and past sessions', () => {
     expect(
       screen.getByRole('link', { name: 'Open retained summary in conversation' }),
     ).toHaveAttribute('href', '/workspaces/ws_science/sessions/sess_memory#message-msg_summary');
-
-    await user.click(screen.getByRole('combobox', { name: 'Search in session' }));
-    expect(screen.queryByRole('option', { name: 'NDP task' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'NDP evidence campaign' }));
-
-    await user.type(
-      screen.getByRole('textbox', { name: 'Find earlier evidence or decisions' }),
-      'anomaly evidence',
-    );
-    await user.click(screen.getByRole('button', { name: 'Search' }));
-
-    expect(
-      await screen.findByText('The anomaly evidence was retained with its provenance.'),
-    ).toBeVisible();
-    expect(repository.searchMemory).toHaveBeenCalledWith(
-      'anomaly evidence',
-      { sessionId: 'sess_memory', includeCrossSession: false },
-      expect.any(AbortSignal),
-    );
-    expect(
-      screen.getByRole('link', { name: 'Open NDP evidence campaign at matching message' }),
-    ).toHaveAttribute('href', '/workspaces/ws_science/sessions/sess_memory#message-msg_match');
-  });
-
-  it('expands recall only after the explicit cross-session control is selected', async () => {
-    const user = userEvent.setup();
-    renderSettings(<MemorySettings initialSessionId="sess_memory" />);
-    await screen.findByText('Retained session context');
-
-    await user.click(
-      screen.getByRole('checkbox', { name: /Include related sessions in this workspace/u }),
-    );
-    await user.type(
-      screen.getByRole('textbox', { name: 'Find earlier evidence or decisions' }),
-      'prior decision',
-    );
-    await user.click(screen.getByRole('button', { name: 'Search' }));
-
-    await waitFor(() =>
-      expect(repository.searchMemory).toHaveBeenCalledWith(
-        'prior decision',
-        { sessionId: 'sess_memory', includeCrossSession: true },
-        expect.any(AbortSignal),
-      ),
-    );
   });
 });

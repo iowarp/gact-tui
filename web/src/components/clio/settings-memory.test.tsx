@@ -117,7 +117,7 @@ beforeEach(() => {
         title: 'Search past sessions',
         description: 'Let the agent search earlier conversations.',
         group: 'Memory',
-        value: false,
+        value: true,
         default_value: true,
         kind: 'boolean',
         minimum: null,
@@ -180,7 +180,7 @@ describe('memory page', () => {
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
     await screen.findByText('Frontier allocation details');
-    expect(screen.queryByText('Search past sessions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Search conversation history')).not.toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: 'Search memories' }), 'CSC456');
     expect(screen.getByText('Frontier allocation details')).toBeVisible();
     await user.clear(screen.getByRole('textbox', { name: 'Search memories' }));
@@ -298,7 +298,7 @@ describe('memory page', () => {
     expect(row).toHaveAttribute('aria-current', 'true');
   });
 
-  it('opens the document named in the address and hides past-session search when off', async () => {
+  it('opens the document named in the address', async () => {
     renderPage(<MemorySettings />, `/settings/memory?doc=${encodeURIComponent(document.name)}`);
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByText('My Frontier project id is CSC456')).toBeVisible();

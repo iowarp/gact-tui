@@ -36,7 +36,6 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
-import { connectionScope } from '@/lib/connection-scope';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { MemoryDocumentDialog, MemoryHistoryDialog } from './memory-document-dialog';
@@ -46,7 +45,6 @@ import { MemoryCreate } from './memory-create';
 import { MEMORY_CATEGORY_LABELS } from './memory-presentation';
 import { MemoryCreationLog } from './memory-creation-log';
 import { RuntimeSettingsPanel } from './settings-runtime';
-import { PastSessionsSearch } from './settings-past-sessions';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { downloadBlob } from './surface-export';
 
@@ -199,7 +197,7 @@ function scopeTitle(scope: string, workspaceNames: Map<string, string>) {
 }
 
 /** Long-term memory: what the agent keeps, what waits for review, import and export. */
-export function MemorySettings({ initialSessionId }: { initialSessionId?: string }) {
+export function MemorySettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const [params, setParams] = useSearchParams();
@@ -236,10 +234,6 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
     queryKey: ['memory', 'documents', 'all'],
     queryFn: ({ signal }) => repository.memoryDocuments('all', signal),
   });
-  const runtime = useQuery({
-    queryKey: queryKeys.key('runtime-settings', connectionScope(settings)),
-    queryFn: ({ signal }) => repository.runtimeSettings(signal),
-  });
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint, 'memory'),
     queryFn: ({ signal }) => repository.workspaces(signal),
@@ -268,9 +262,6 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
       name.startsWith('user/') ? 'user' : name.split('/').slice(0, 2).join('/'),
       workspaceNames,
     );
-  const sessionSearch =
-    runtime.data?.settings.find((setting) => setting.key === 'memory.session_search')?.value !==
-    false;
   const scopes = [...new Set((documents.data ?? []).map((document) => document.scope))].sort(
     (a, b) => (a === 'user' ? -1 : b === 'user' ? 1 : a.localeCompare(b)),
   );
@@ -422,21 +413,6 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
           </div>
           {needle && documents.data?.length && !filtered.length ? (
             <p className="text-sm text-muted-foreground">No memories match “{filter.trim()}”.</p>
-          ) : null}
-          {sessionSearch ? (
-            <details className="border-t pt-3">
-              <summary className="cursor-pointer text-sm font-medium">
-                Search conversation history
-              </summary>
-              <div className="grid gap-3 pt-3">
-                <p className="text-sm text-muted-foreground">
-                  Find the original messages in retained conversations. These transcripts are
-                  separate from saved memories; searching here does not create a memory or start a
-                  model run.
-                </p>
-                <PastSessionsSearch initialSessionId={initialSessionId} />
-              </div>
-            </details>
           ) : null}
         </TabsContent>
         <TabsContent value="review">

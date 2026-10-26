@@ -524,7 +524,7 @@ function SettingsSection({
   if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
   if (section === 'relays') return <RelaySettings />;
   if (section === 'permissions') return <PermissionsSettings workspaceId={workspaceId} />;
-  if (section === 'memory') return <MemorySettings initialSessionId={sessionId} />;
+  if (section === 'memory') return <MemorySettings />;
   if (section === 'system') return <SystemSettings />;
   if (section === 'notifications') return <NotificationSettings />;
   if (section === 'general') return <GeneralSettings />;
