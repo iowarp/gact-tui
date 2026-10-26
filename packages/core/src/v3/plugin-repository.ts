@@ -78,10 +78,26 @@ export class PluginRepository extends SessionObservabilityRepository {
       decode: (value) => marketplaceSummarySchema.parse(value),
     });
   }
-  public uploadExtension(name: string, archive: string): Promise<MarketplaceSummary> {
+  public exportLocalMarketplace(signal?: AbortSignal): Promise<Uint8Array> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/plugins/local/export',
+      responseType: 'bytes',
+      signal,
+      decode: (value) => {
+        if (!(value instanceof Uint8Array)) throw new Error('Invalid marketplace archive');
+        return value;
+      },
+    });
+  }
+  public uploadExtension(
+    name: string,
+    archive: string,
+    kind?: 'skill' | 'plugin',
+  ): Promise<MarketplaceSummary> {
     return this.transport.request({
       method: 'POST',
-      path: `/v1/plugins/upload?${new URLSearchParams({ name })}`,
+      path: `/v1/plugins/upload?${new URLSearchParams({ name, ...(kind ? { kind } : {}) })}`,
       body: { archive },
       decode: (value) => marketplaceSummarySchema.parse(value),
     });

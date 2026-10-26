@@ -90,7 +90,7 @@ export function AgentPluginMenu({
       align={align}
       footer={
         <Link to="/settings/plugins" className="block rounded-md px-2 py-2 text-sm hover:bg-accent">
-          Browse extensions · Add MCPs, skills or plugins
+          Browse extensions
         </Link>
       }
     >

@@ -131,7 +131,7 @@ export function CapabilityPicker({
             </CommandList>
           </Command>
           {footer ? (
-            <div className="border-t p-2" onClickCapture={() => setOpen(false)}>
+            <div className="border-t p-2" onClick={() => setOpen(false)}>
               {footer}
             </div>
           ) : null}

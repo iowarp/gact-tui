@@ -32,16 +32,18 @@ type SourceFile = PluginInspection['files'][number];
 export function PluginExplorer({
   reference,
   pending = false,
+  initialSkill,
   onClose,
 }: {
   reference: string;
   pending?: boolean;
+  initialSkill?: string;
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState<{ reference: string; pending: boolean; skill?: string }>(
-    { reference, pending },
+    { reference, pending, skill: initialSkill },
   );
-  const [tab, setTab] = useState('capabilities');
+  const [tab, setTab] = useState(initialSkill ? 'files' : 'capabilities');
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();

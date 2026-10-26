@@ -1,5 +1,5 @@
 import type { LocalExtensionInput, McpConfigurationInput } from '@clio/core/v3';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { PlusIcon, PackageIcon, BoxesIcon, CableIcon } from 'lucide-react';
 import { CapabilitySelection } from './capability-picker';
 import { toast } from 'sonner';
@@ -34,6 +34,7 @@ export type ExtensionAdd = {
   title?: string;
   command?: string;
   args?: string[];
+  category?: 'marketplaces' | 'mcp' | 'skills' | 'plugins';
 };
 
 const CHOICES: ExtensionAdd['kind'][] = ['remote', 'local', 'import', 'upload', 'skill', 'plugin'];
@@ -50,9 +51,11 @@ const ADD_LABELS = {
 export function ExtensionAddMenu({
   onChoose,
   mcpOnly = false,
+  category,
 }: {
   onChoose: (choice: ExtensionAdd) => void;
   mcpOnly?: boolean;
+  category?: ExtensionAdd['category'];
 }) {
   const supported = useExtensionsSupported();
   return (
@@ -68,13 +71,28 @@ export function ExtensionAddMenu({
           }
         >
           <PlusIcon />
-          {mcpOnly ? 'Add MCP' : 'Add'}
+          {mcpOnly || category === 'mcp'
+            ? 'Add MCP'
+            : category === 'skills'
+              ? 'Add skill'
+              : category === 'plugins'
+                ? 'Add plugin'
+                : 'Add'}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {CHOICES.filter((kind) => !mcpOnly || kind === 'remote' || kind === 'local').map((kind) => (
-          <DropdownMenuItem key={kind} onSelect={() => onChoose({ kind })}>
-            {ADD_LABELS[kind]}
+        {CHOICES.filter((kind) => {
+          if (mcpOnly || category === 'mcp') return kind === 'remote' || kind === 'local';
+          if (category === 'skills')
+            return kind === 'skill' || kind === 'import' || kind === 'upload';
+          if (category === 'plugins')
+            return kind === 'plugin' || kind === 'import' || kind === 'upload';
+          return true;
+        }).map((kind) => (
+          <DropdownMenuItem key={kind} onSelect={() => onChoose({ kind, category })}>
+            {kind === 'upload' && category
+              ? `Upload ${category === 'skills' ? 'skill' : 'plugin'} ZIP`
+              : ADD_LABELS[kind]}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -142,6 +160,8 @@ export function ExtensionAddDialog({
   const [refs, setRefs] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [file, setFile] = useState<File>();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function save() {
@@ -216,7 +236,15 @@ export function ExtensionAddDialog({
           const bytes = new Uint8Array(await file.arrayBuffer());
           let binary = '';
           for (const byte of bytes) binary += String.fromCharCode(byte);
-          await repository.uploadExtension(key, btoa(binary));
+          await repository.uploadExtension(
+            key,
+            btoa(binary),
+            choice.category === 'skills'
+              ? 'skill'
+              : choice.category === 'plugins'
+                ? 'plugin'
+                : undefined,
+          );
         } else {
           const body: LocalExtensionInput = {
             name: key,
@@ -230,10 +258,13 @@ export function ExtensionAddDialog({
         }
         await onSaved();
         onClose();
-        toast.success('Added to your library', {
-          description:
-            'Inspect the contents, then trust the source to make it available to agents.',
-        });
+        toast.success(
+          choice.kind === 'import' ? 'Source installed' : 'Saved to Private local marketplace',
+          {
+            description:
+              'Inspect the contents, then trust the source to make it available to agents.',
+          },
+        );
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not add extension');
@@ -252,7 +283,11 @@ export function ExtensionAddDialog({
     >
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{TITLES[choice.kind]}</DialogTitle>
+          <DialogTitle>
+            {choice.kind === 'upload' && choice.category
+              ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'}`
+              : TITLES[choice.kind]}
+          </DialogTitle>
           <DialogDescription>
             {remote
               ? 'Enter the address from your MCP server. Sign-in opens in your browser when required.'
@@ -260,7 +295,11 @@ export function ExtensionAddDialog({
                 ? 'Install a marketplace, plugin or Agent Skills folder. The original source stays unchanged.'
                 : choice.kind === 'plugin'
                   ? 'Combine installed capabilities and saved connections. Credentials stay with their connection.'
-                  : 'Add reusable instructions and tools to your library.'}
+                  : choice.kind === 'upload'
+                    ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP to your private marketplace.`
+                    : choice.kind === 'skill'
+                      ? 'Save reusable instructions in your private marketplace.'
+                      : 'Run an MCP server on the connected agent host.'}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -276,7 +315,15 @@ export function ExtensionAddDialog({
               autoFocus
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder={remote ? 'Home Assistant' : 'My extension'}
+              placeholder={
+                remote
+                  ? 'Home Assistant'
+                  : choice.kind === 'skill' || choice.category === 'skills'
+                    ? 'My skill'
+                    : choice.kind === 'plugin' || choice.category === 'plugins'
+                      ? 'My plugin'
+                      : 'My connection'
+              }
               required={!importing}
             />
           </Label>
@@ -348,19 +395,46 @@ export function ExtensionAddDialog({
             </Label>
           ) : null}
           {choice.kind === 'upload' ? (
-            <Label className="grid gap-2">
-              ZIP of source files
+            <div className="grid gap-2">
               <Input
+                ref={fileInput}
+                className="sr-only"
+                aria-label={choice.category === 'skills' ? 'Skill ZIP' : 'Plugin ZIP'}
                 type="file"
                 accept=".zip"
                 onChange={(event) => setFile(event.target.files?.[0])}
-                required
               />
+              <button
+                type="button"
+                className={`rounded-lg border-2 border-dashed p-6 text-center text-sm transition-colors ${dragging ? 'border-primary bg-accent' : 'hover:bg-muted/40'}`}
+                onClick={() => fileInput.current?.click()}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setDragging(false);
+                  const dropped = event.dataTransfer.files;
+                  if (dropped.length !== 1) setError('Drop one ZIP file');
+                  else {
+                    setFile(dropped[0]);
+                    setError('');
+                  }
+                }}
+              >
+                {file
+                  ? file.name
+                  : `Drop a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP here, or click to choose`}
+              </button>
               <span className="text-sm text-muted-foreground">
-                Up to 128 UTF-8 files, 2 MiB uncompressed. For binaries or larger packages, use a
-                repository or host folder.
+                {choice.category === 'skills'
+                  ? 'A skill folder containing SKILL.md and its references.'
+                  : 'A plugin folder containing plugin.json or .claude-plugin/plugin.json.'}{' '}
+                Up to 128 UTF-8 files, 2 MiB uncompressed.
               </span>
-            </Label>
+            </div>
           ) : null}
           {choice.kind === 'local' ? (
             <>
@@ -449,12 +523,24 @@ export function ExtensionAddDialog({
               {error}
             </p>
           ) : null}
+          {!remote && choice.kind !== 'local' && !importing ? (
+            <p className="text-sm text-muted-foreground">
+              Saves to your Private local marketplace on this agent host. GitHub backup is available
+              from Marketplaces.
+            </p>
+          ) : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={busy || supported !== true}>
-              {busy ? 'Adding…' : remote || choice.kind === 'local' ? 'Connect' : 'Add to library'}
+              {busy
+                ? 'Adding…'
+                : remote || choice.kind === 'local'
+                  ? 'Connect'
+                  : importing
+                    ? 'Install source'
+                    : 'Save to private marketplace'}
             </Button>
           </div>
         </form>

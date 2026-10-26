@@ -45,11 +45,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ClioInteractiveRow } from './interactive-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
 import { humanizeToolName } from './tool-presentation';
 import { McpSignInDialog } from './mcp-sign-in';
+import { InventoryList } from './mcp-inventory';
 
 function workspaceTitle(workspace: Workspace) {
   return workspace.display_name || workspace.name;
@@ -73,22 +73,6 @@ function connectionLabel(server: McpServerDefinition) {
     return 'Remote service';
   }
   return server.transport ? humanizeToolName(server.transport) : 'Connection unavailable';
-}
-
-function inventoryTitle(row: Record<string, unknown>) {
-  if (typeof row.title === 'string' && row.title) return row.title;
-  if (typeof row.name === 'string' && row.name) return humanizeToolName(row.name);
-  const value = row.uri ?? row.id;
-  return typeof value === 'string' && value ? value : 'Untitled item';
-}
-
-function inventoryIdentifier(row: Record<string, unknown>) {
-  return typeof row.name === 'string' && row.name !== inventoryTitle(row) ? row.name : '';
-}
-
-function inventoryDescription(row: Record<string, unknown>) {
-  const value = row.description ?? row.mimeType ?? row.mime_type;
-  return typeof value === 'string' ? value : '';
 }
 
 export function ToolsSettings({
@@ -453,46 +437,6 @@ function ToolCatalogLoading() {
           </div>
           <Skeleton className="h-6 w-16 rounded-md" />
         </div>
-      ))}
-    </div>
-  );
-}
-
-function InventoryList({
-  rows,
-  fallback = [],
-  empty,
-  icon: Icon,
-}: {
-  rows?: Array<Record<string, unknown>>;
-  fallback?: Array<Record<string, unknown>>;
-  empty: string;
-  icon: typeof WrenchIcon;
-}) {
-  const items = rows?.length ? rows : fallback;
-  if (!items.length)
-    return <p className="rounded-lg border p-5 text-sm text-muted-foreground">{empty}</p>;
-  return (
-    <div className="grid max-h-[52vh] gap-2 overflow-y-auto">
-      {items.map((row, index) => (
-        <ClioInteractiveRow key={`${inventoryTitle(row)}:${index}`}>
-          <div className="flex items-start gap-3">
-            <Icon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">{inventoryTitle(row)}</p>
-              {inventoryDescription(row) ? (
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {inventoryDescription(row)}
-                </p>
-              ) : null}
-              {inventoryIdentifier(row) ? (
-                <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-                  {inventoryIdentifier(row)}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </ClioInteractiveRow>
       ))}
     </div>
   );

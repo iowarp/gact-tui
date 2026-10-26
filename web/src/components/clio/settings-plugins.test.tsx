@@ -23,7 +23,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
-import { PluginSettings } from './settings-plugins';
+import { MarketplaceSettings } from './settings-plugins';
 
 const summary = {
   marketplace: 'lab',
@@ -39,7 +39,7 @@ function renderSettings() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <PluginSettings />
+      <MarketplaceSettings />
     </QueryClientProvider>,
   );
 }
@@ -108,7 +108,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('PluginSettings', () => {
+describe('MarketplaceSettings', () => {
   it('requires the explicit trust step for an untrusted marketplace', async () => {
     const user = userEvent.setup();
     repository.trustPluginMarketplace.mockResolvedValue(summary);
@@ -125,12 +125,13 @@ describe('PluginSettings', () => {
     await waitFor(() => expect(repository.trustPluginMarketplace).toHaveBeenCalledWith('lab'));
   });
 
-  it('installs a marketplace by source and lists packs with their members', async () => {
+  it('installs a marketplace by source without repeating the plugin inventory', async () => {
     const user = userEvent.setup();
     repository.installPluginMarketplace.mockResolvedValue({ ...summary, trusted: false });
     renderSettings();
-    expect(await screen.findByText('Brings pdf, xlsx')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Install marketplace' }));
+    expect(await screen.findByRole('region', { name: 'Marketplaces' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Installed plugins' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add marketplace' }));
     await user.type(
       screen.getByRole('textbox', { name: 'Source' }),
       'https://github.com/iowarp/clio-kit.git',
@@ -147,7 +148,7 @@ describe('PluginSettings', () => {
     );
   });
 
-  it('accepts an update that waits for trust from the plugin row and refreshes the list', async () => {
+  it('accepts a waiting executable update from its source and refreshes the catalog', async () => {
     const user = userEvent.setup();
     const waiting = {
       ...(await repository.plugins()).plugins[0],
@@ -171,15 +172,17 @@ describe('PluginSettings', () => {
     expect(
       within(marketplaces).getByRole('button', { name: 'Trust the update from clio' }),
     ).toBeVisible();
-    const installed = screen.getByRole('region', { name: 'Installed plugins' });
-    expect(within(installed).getByText('Update waits for trust')).toBeVisible();
-    await user.click(within(installed).getByRole('button', { name: 'Trust the update of pdf' }));
+    await user.click(
+      within(marketplaces).getByRole('button', { name: 'Trust the update from clio' }),
+    );
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText('Trust the update from clio?')).toBeVisible();
     expect(repository.trustPluginMarketplace).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Trust update' }));
     await waitFor(() => expect(repository.trustPluginMarketplace).toHaveBeenCalledWith('clio'));
-    await waitFor(() => expect(within(installed).queryByText('Update waits for trust')).toBeNull());
+    await waitFor(() =>
+      expect(within(marketplaces).queryByText('1 update waits for trust')).toBeNull(),
+    );
     expect(repository.plugins.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 

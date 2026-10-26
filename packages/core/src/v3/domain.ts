@@ -634,6 +634,7 @@ export interface McpUserConfiguration {
   transport?: string;
   tools_count: number;
   tools: string[];
+  tool_details?: Array<Record<string, unknown>>;
   spec?: Record<string, unknown>;
   error?: string;
   retryable: boolean;

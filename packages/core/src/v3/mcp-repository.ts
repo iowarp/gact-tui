@@ -12,6 +12,7 @@ const mcpUserConfigurationSchema = z.object({
   transport: z.string().optional(),
   tools_count: z.number().int().nonnegative().default(0),
   tools: z.array(z.string()).default([]),
+  tool_details: z.array(z.record(z.string(), z.unknown())).default([]),
   spec: z.record(z.string(), z.unknown()).optional(),
   error: z.string().optional(),
   retryable: z.boolean(),

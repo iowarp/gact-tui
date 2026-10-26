@@ -1,7 +1,11 @@
 import type { McpServerDefinition } from '@clio/core/v3';
 
 /** Inspect the connection separately from the service inventory, without exposing process secrets. */
-export function McpConnectionDetails({ server }: { server: McpServerDefinition }) {
+export function McpConnectionDetails({
+  server,
+}: {
+  server: Pick<McpServerDefinition, 'spec' | 'transport'>;
+}) {
   const spec = server.spec;
   const fields = [
     ['Transport', server.transport],

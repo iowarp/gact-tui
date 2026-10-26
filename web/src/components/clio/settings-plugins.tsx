@@ -32,7 +32,6 @@ import {
 import { AddIcon, DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { InstalledPluginList } from './installed-plugin-list';
 import { PluginMarketplaceDialog, type PluginMarketplaceInput } from './plugin-marketplace-dialog';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
@@ -46,8 +45,8 @@ function summaryText(summary: MarketplaceSummary): string {
   return parts.join(', ');
 }
 
-/** Marketplaces (install, the trust step, update, check, uninstall) and installed plugins. */
-export function PluginSettings() {
+/** The single owner of marketplace installation, trust, updates and removal. */
+export function MarketplaceSettings({ onBackup }: { onBackup?: () => void }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -79,9 +78,8 @@ export function PluginSettings() {
   });
   const trust = useMutation({
     mutationFn: (name: string) => repository.trustPluginMarketplace(name),
-    onSuccess: async (summary) => {
+    onSuccess: async () => {
       await invalidate();
-      toast.success(`Trusted ${summary.marketplace}`, { description: summaryText(summary) });
     },
     onError: (error: Error) => toast.error('Trust step failed', { description: error.message }),
     onSettled: () => setConfirm(undefined),
@@ -128,11 +126,11 @@ export function PluginSettings() {
     <div className="grid gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SettingsSectionHeading
-          description="Plugins bring tools, skills, subagents, flows and prompt guidance. Agents are made of plugins."
-          title="Plugins & marketplaces"
+          title="Marketplaces"
+          description="Sources for your skills and plugins. Manage trust and updates here."
         />
         <Button onClick={() => setInstalling(true)}>
-          <AddIcon aria-hidden="true" /> Install marketplace
+          <AddIcon aria-hidden="true" /> Add marketplace
         </Button>
       </div>
       {catalog.data?.default_marketplace_error ? (
@@ -150,7 +148,6 @@ export function PluginSettings() {
         </Alert>
       ) : null}
       <section aria-label="Marketplaces" className="grid gap-2">
-        <h2 className="text-sm font-semibold">Marketplaces</h2>
         {marketplaces.isPending ? (
           <p className="text-sm text-muted-foreground" role="status">
             Loading marketplaces…
@@ -175,22 +172,13 @@ export function PluginSettings() {
               }
               onUninstall={() => setConfirm({ kind: 'uninstall', marketplace })}
               onUpdate={() => update.mutate(marketplace.name)}
+              onBackup={marketplace.name === 'private-local' ? onBackup : undefined}
               updating={update.isPending && update.variables === marketplace.name}
             />
           ))}
         </ul>
       </section>
       {report ? <CheckReport onClose={() => setReport(undefined)} report={report} /> : null}
-      <InstalledPluginList
-        busy={busy}
-        onTrustUpdate={(name) => {
-          const marketplace = marketplaces.data?.find((row) => row.name === name);
-          if (marketplace) setConfirm({ kind: 'trust', marketplace });
-        }}
-        error={catalog.error?.message}
-        pending={catalog.isPending}
-        plugins={catalog.data?.plugins ?? []}
-      />
       {installing ? (
         <PluginMarketplaceDialog
           error={install.error?.message}
@@ -260,6 +248,7 @@ function MarketplaceRow({
   onUpdate,
   onCheck,
   onUninstall,
+  onBackup,
 }: {
   marketplace: PluginMarketplace;
   busy: boolean;
@@ -271,6 +260,7 @@ function MarketplaceRow({
   onUpdate: () => void;
   onCheck: () => void;
   onUninstall: () => void;
+  onBackup?: () => void;
 }) {
   const errors = marketplace.diagnostics.filter((row) => row.severity === 'error').length;
   return (
@@ -278,7 +268,9 @@ function MarketplaceRow({
       <StoreIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{marketplace.name}</span>
+          <span className="font-medium">
+            {marketplace.name === 'private-local' ? 'Private local marketplace' : marketplace.name}
+          </span>
           <ClioStatus
             label={marketplace.trusted ? 'Trusted' : 'Not trusted'}
             value={marketplace.trusted ? 'healthy' : 'degraded'}
@@ -303,6 +295,11 @@ function MarketplaceRow({
             </Badge>
           ) : null}
         </div>
+        {onBackup ? (
+          <Button className="mt-2" size="sm" variant="outline" onClick={onBackup}>
+            Back up with GitHub
+          </Button>
+        ) : null}
         <p
           className="mt-1 truncate font-mono text-xs text-muted-foreground"
           title={marketplace.source}

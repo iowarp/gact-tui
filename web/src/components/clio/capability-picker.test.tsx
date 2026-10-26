@@ -2,7 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, expect, it } from 'vitest';
-import { CapabilitySelection, type CapabilityOption } from './capability-picker';
+import { CapabilityPicker, CapabilitySelection, type CapabilityOption } from './capability-picker';
+import { MemoryRouter, Link, useLocation } from 'react-router-dom';
 
 afterEach(cleanup);
 
@@ -18,6 +19,34 @@ const items: CapabilityOption[] = [
   },
   { id: 'science/data', title: 'Scientific data', source: 'science', group: 'Plugins', icon: null },
 ];
+
+it('lets a footer link navigate before dismissing the popup', async () => {
+  function Harness() {
+    const location = useLocation();
+    return (
+      <>
+        <output>{location.pathname}</output>
+        <CapabilityPicker
+          items={items}
+          onChoose={() => {}}
+          footer={<Link to="/settings/plugins">Browse extensions</Link>}
+        >
+          <button>Open picker</button>
+        </CapabilityPicker>
+      </>
+    );
+  }
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter>
+      <Harness />
+    </MemoryRouter>,
+  );
+  await user.click(screen.getByRole('button', { name: 'Open picker' }));
+  await user.click(screen.getByRole('link', { name: 'Browse extensions' }));
+  expect(screen.getByRole('status')).toHaveTextContent('/settings/plugins');
+  expect(screen.queryByRole('link', { name: 'Browse extensions' })).not.toBeInTheDocument();
+});
 
 it('searches capability contents, adds one choice and lets it be removed without rendering the whole catalog when closed', async () => {
   function Harness() {
