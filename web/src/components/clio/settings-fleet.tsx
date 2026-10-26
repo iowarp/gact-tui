@@ -94,6 +94,44 @@ export function FleetSettingsPanel() {
           </Button>
         ) : null}
       </div>
+      {data.spotter !== undefined ? (
+        <div className="flex flex-wrap items-center gap-3 border-b py-3">
+          <div className="min-w-48 flex-1">
+            <h3 className="font-medium">SPOTTER review</h3>
+            <p className="text-sm text-muted-foreground">
+              Watches actions under SPOTTER review. A conversation can choose its own model.
+            </p>
+          </div>
+          <ClioModelPicker
+            title="Choose SPOTTER model"
+            options={options}
+            model={data.spotter?.model_id}
+            provider={data.spotter?.provider_id}
+            catalogStatus={catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready'}
+            onRetryCatalog={() => void catalog.refetch()}
+            trigger={
+              <Button variant="outline" disabled={save.isPending}>
+                {data.spotter?.model_id ?? 'Conversation model'}
+              </Button>
+            }
+            onChange={(model) =>
+              save.mutate({
+                ...data,
+                spotter: { provider_id: model.providerId, model_id: model.id },
+              })
+            }
+          />
+          {data.spotter ? (
+            <Button
+              variant="ghost"
+              disabled={save.isPending}
+              onClick={() => save.mutate({ ...data, spotter: null })}
+            >
+              Use conversation model
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {roles
         .filter(([role]) => role in data.judges)
         .map(([role, title, description]) => {

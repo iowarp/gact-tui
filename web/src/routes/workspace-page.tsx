@@ -439,6 +439,14 @@ export function WorkspacePage() {
           onBehaviorChange={async (behavior) => {
             await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
           }}
+          spotterModel={
+            typeof session.metadata?.spotter_model === 'string'
+              ? session.metadata.spotter_model
+              : ''
+          }
+          onSpotterModelChange={async (ref) => {
+            await updateSessionBehavior.mutateAsync({ spotter_model: ref });
+          }}
           onPrepareFiles={prepareFiles}
           onDiscardFiles={discardFiles}
           onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}

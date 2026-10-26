@@ -211,6 +211,8 @@ export class ClioRepository extends WorkRepository {
       mode?: 'plan' | 'edit' | 'architect';
       routing_mode?: 'auto' | 'chat' | 'experts' | 'reasoning_only';
       approval_mode?: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
+      /** The fleet model (`<account>/<model>`) SPOTTER review runs on; omitted uses the conversation's. */
+      spotter_model?: string;
     },
     signal?: AbortSignal,
   ): Promise<Session> {
@@ -223,13 +225,17 @@ export class ClioRepository extends WorkRepository {
         ...(input.provider_id || input.model_id
           ? { model: { provider_id: input.provider_id ?? '', model_id: input.model_id ?? '' } }
           : {}),
-        ...(input.pinned === undefined && !input.agent_ref && !input.agent_delta
+        ...(input.pinned === undefined &&
+        !input.agent_ref &&
+        !input.agent_delta &&
+        !input.spotter_model
           ? {}
           : {
               metadata: {
                 ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
                 ...(input.agent_ref ? { agent_ref: input.agent_ref } : {}),
                 ...(input.agent_delta ? { agent_delta: input.agent_delta } : {}),
+                ...(input.spotter_model ? { spotter_model: input.spotter_model } : {}),
               },
             }),
         ...(input.mode ? { mode: input.mode } : {}),

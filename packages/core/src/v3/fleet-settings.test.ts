@@ -15,4 +15,15 @@ describe('Fleet capability compatibility', () => {
     };
     expect(fleetSettingsSchema.parse(current)).toEqual(current);
   });
+  it('keeps the SPOTTER default model and preserves its absence on an older service', () => {
+    const current = {
+      revision: 'r3',
+      judges: { goals: null, variants: null, permissions: null },
+      spotter: { provider_id: 'server-vllm-spotter', model_id: 'qwen3' },
+    };
+    expect(fleetSettingsSchema.parse(current)).toEqual(current);
+    expect(fleetSettingsSchema.parse({ ...current, spotter: null }).spotter).toBeNull();
+    const { spotter: _spotter, ...legacy } = current;
+    expect(fleetSettingsSchema.parse(legacy)).not.toHaveProperty('spotter');
+  });
 });

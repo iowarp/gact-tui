@@ -70,3 +70,54 @@ it('inherits three conversation models and changes only the selected judge role'
     }),
   );
 });
+
+it('chooses and resets the SPOTTER default model, keeping the judges as they were', async () => {
+  const initial = {
+    revision: 'r1',
+    judges: { goals: null, variants: null, permissions: null },
+    spotter: null,
+  };
+  repository.fleetSettings.mockResolvedValue(initial);
+  repository.updateFleetSettings.mockImplementation(async (value) => ({
+    ...value,
+    revision: 'r2',
+  }));
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <FleetSettingsPanel />
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Choose SPOTTER model' }));
+  await waitFor(() =>
+    expect(repository.updateFleetSettings).toHaveBeenCalledWith({
+      ...initial,
+      spotter: { provider_id: 'codex', model_id: 'gpt-6-luna' },
+    }),
+  );
+  await user.click(await screen.findByRole('button', { name: 'Use conversation model' }));
+  await waitFor(() =>
+    expect(repository.updateFleetSettings).toHaveBeenLastCalledWith({
+      ...initial,
+      revision: 'r2',
+    }),
+  );
+});
+
+it('hides the SPOTTER row for a service that predates it', async () => {
+  repository.fleetSettings.mockResolvedValue({
+    revision: 'r1',
+    judges: { goals: null, variants: null, permissions: null },
+  });
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <FleetSettingsPanel />
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByRole('button', { name: 'Choose Goals judge' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Choose SPOTTER model' })).toBeNull();
+});

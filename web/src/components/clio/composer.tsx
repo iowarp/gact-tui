@@ -40,6 +40,7 @@ import { COMPOSER_ATTACHMENT_MAX_BYTES } from '@/lib/composer-paste';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
+import { ComposerSpotterModel } from './composer-spotter-model';
 import {
   defaultReasoningLabel,
   effectiveReasoningEffort,
@@ -115,8 +116,17 @@ export interface ClioComposerProps extends ComposerQueueControls {
     onUploadProgress: (progress: ResourceUploadProgress) => void;
     /** A new conversation that neither reads nor writes long-term memory. */
     memoryOff?: boolean;
+    /** The fleet model (`<account>/<model>`) SPOTTER review runs on in a new conversation. */
+    spotterModel?: string;
   }) => Promise<void>;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
+  /** The session's SPOTTER model reference; empty uses the conversation's model. */
+  spotterModel?: string;
+  /**
+   * Store a SPOTTER model on the open session (empty clears it). Without it the
+   * choice is kept with the draft and sent when the conversation is created.
+   */
+  onSpotterModelChange?: (ref: string) => Promise<void>;
   onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
   onPrepareFiles?: (
     files: readonly UploadableFilePart[],
@@ -169,6 +179,8 @@ export function ClioComposer({
   commands = [],
   onSubmit,
   onBehaviorChange,
+  spotterModel = '',
+  onSpotterModelChange,
   onPrepareFiles,
   onDiscardFiles,
   onStop,
@@ -263,6 +275,25 @@ export function ClioComposer({
         effortPicked: behaviorSelection.effortPicked,
       });
       toast.error('Session behavior was not changed', {
+        description: error instanceof Error ? error.message : 'The service rejected the change.',
+      });
+    });
+  };
+  // The person's pick in this mount, until the session reports a different one.
+  const [spotterSelection, setSpotterSelection] = useState({
+    value: spotterModel,
+    authoritative: spotterModel,
+  });
+  const selectedSpotterModel =
+    spotterSelection.authoritative === spotterModel ? spotterSelection.value : spotterModel;
+  const setSpotterModel = (next: string) => {
+    const previous = selectedSpotterModel;
+    if (next === previous) return;
+    setSpotterSelection({ value: next, authoritative: spotterModel });
+    if (!onSpotterModelChange) return;
+    void onSpotterModelChange(next).catch((error: unknown) => {
+      setSpotterSelection({ value: previous, authoritative: spotterModel });
+      toast.error('SPOTTER model was not changed', {
         description: error instanceof Error ? error.message : 'The service rejected the change.',
       });
     });
@@ -586,6 +617,11 @@ export function ClioComposer({
                   setUploadProgress(progress);
                 },
                 ...(variant === 'welcome' && memoryOff ? { memoryOff } : {}),
+                ...(variant === 'welcome' &&
+                selectedSpotterModel &&
+                messageBehavior.confirmation_policy === 'spotter-ai'
+                  ? { spotterModel: selectedSpotterModel }
+                  : {}),
               });
             } catch (error) {
               setUploadProgress(undefined);
@@ -691,6 +727,16 @@ export function ClioComposer({
               behavior={messageBehavior}
               {...(variant === 'welcome' ? { memoryOff, onMemoryOffChange: setMemoryOff } : {})}
               spotterAvailability={spotterAvailability}
+              spotterModelControl={
+                <ComposerSpotterModel
+                  catalogStatus={modelCatalogStatus}
+                  disabled={disabled}
+                  onChange={setSpotterModel}
+                  onRetryCatalog={onRetryModelCatalog}
+                  options={modelOptions}
+                  value={selectedSpotterModel}
+                />
+              }
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
               defaultEffortLabel={defaultReasoningLabel(
                 configuredEffort,

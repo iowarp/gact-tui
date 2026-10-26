@@ -155,3 +155,40 @@ describe('ClioComposerBehaviorControls SPOTTER availability', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 });
+
+describe('ClioComposerBehaviorControls SPOTTER model', () => {
+  const available = { available: true, reason: '', message: '', remedy: '', verified: 'runtime' };
+  function renderSpotterModel(
+    policy: MessageBehavior['confirmation_policy'],
+    spotterAvailability?: typeof available,
+  ) {
+    render(
+      <ClioComposerBehaviorControls
+        behavior={{ ...behavior, confirmation_policy: policy }}
+        modelControl={null}
+        onChange={vi.fn()}
+        reasoningLevels={ALL_LEVELS}
+        spotterAvailability={spotterAvailability}
+        spotterModelControl={<button type="button">SPOTTER model control</button>}
+      />,
+    );
+  }
+
+  it('shows the SPOTTER model choice only under SPOTTER review the service can arm', () => {
+    renderSpotterModel('spotter-ai', available);
+    expect(screen.getByRole('button', { name: 'SPOTTER model control' })).toBeVisible();
+  });
+
+  it('hides the SPOTTER model choice under another policy', () => {
+    renderSpotterModel('ask', available);
+    expect(screen.queryByRole('button', { name: 'SPOTTER model control' })).toBeNull();
+  });
+
+  it('hides the SPOTTER model choice when SPOTTER cannot be armed or is unknown', () => {
+    renderSpotterModel('spotter-ai', { ...available, available: false });
+    expect(screen.queryByRole('button', { name: 'SPOTTER model control' })).toBeNull();
+    cleanup();
+    renderSpotterModel('spotter-ai');
+    expect(screen.queryByRole('button', { name: 'SPOTTER model control' })).toBeNull();
+  });
+});

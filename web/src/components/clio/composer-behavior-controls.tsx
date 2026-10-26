@@ -37,6 +37,11 @@ interface ClioComposerBehaviorControlsProps {
   unrecognizedEffort?: string;
   /** What the service reports about arming SPOTTER review here (undefined: unknown). */
   spotterAvailability?: SpotterAvailability;
+  /**
+   * The SPOTTER model choice. Shown only while SPOTTER review is the policy and
+   * the service reports it can be armed here.
+   */
+  spotterModelControl?: ReactNode;
   /** Only a new conversation offers this: once off, memory stays off for it. */
   memoryOff?: boolean;
   onMemoryOffChange?: (off: boolean) => void;
@@ -52,6 +57,7 @@ export function ClioComposerBehaviorControls({
   defaultEffortLabel = 'Model default',
   unrecognizedEffort,
   spotterAvailability,
+  spotterModelControl,
   memoryOff = false,
   onMemoryOffChange,
 }: ClioComposerBehaviorControlsProps) {
@@ -215,6 +221,11 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+      {spotterModelControl &&
+      behavior.confirmation_policy === 'spotter-ai' &&
+      spotterAvailability?.available
+        ? spotterModelControl
+        : null}
       {onMemoryOffChange ? (
         <Button
           aria-label={memoryOff ? 'Memory off for this conversation' : 'Memory on'}
