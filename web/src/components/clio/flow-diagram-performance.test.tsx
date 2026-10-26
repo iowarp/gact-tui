@@ -4,6 +4,7 @@ import type { FlowDiagramSpec } from '@/hooks/use-flow-presentation';
 const mocks = vi.hoisted(() => ({ render: vi.fn() }));
 vi.mock('./diagram-renderer', () => ({ renderPeleDiagram: mocks.render }));
 import { FlowDiagram } from './flow-diagram';
+import { scaleSvg } from './flow-railroad-marks';
 
 beforeEach(() => {
   mocks.render
@@ -66,4 +67,20 @@ it('does not lay out an offscreen flow until it becomes active', async () => {
   view.rerender(<FlowDiagram spec={spec(false)} active={false} />);
   view.rerender(<FlowDiagram spec={spec(false)} active />);
   expect(mocks.render).toHaveBeenCalledTimes(1);
+});
+
+it('does not shrink dense graph labels to fit the card', async () => {
+  render(
+    <FlowDiagram
+      spec={{ kind: 'graph', source: 'graph LR; a-->b;', label: 'Graph', note: 'Graph shape' }}
+    />,
+  );
+  await waitFor(() => expect(mocks.render).toHaveBeenCalledTimes(1));
+  expect(mocks.render.mock.calls[0]?.[2]).toBeUndefined();
+  expect(screen.getByRole('img', { name: 'Graph' })).toHaveClass('overflow-auto');
+  const svg = new DOMParser().parseFromString('<svg width="1800" height="400"/>', 'image/svg+xml')
+    .documentElement as unknown as SVGElement;
+  scaleSvg(svg, 1.5, 500);
+  expect(svg.getAttribute('width')).toBe('1800');
+  expect(svg.getAttribute('height')).toBe('400');
 });

@@ -12,6 +12,8 @@ Flow responses include task timestamps, avoiding a full task-detail request for 
 node. Older servers retain the legacy fallback. Offscreen flow cards pause reads and
 layout work; feedback reads start near the viewport. Graph status and selection updates
 reuse layout geometry until the graph structure or sizing changes.
+Dense diagrams retain their natural font size in a bounded, pannable viewport rather
+than shrinking labels to fit the whole graph inside the conversation column.
 
 Recently visited session bodies are disposable UI data. Defaults retain the current
 session and up to two inactive sessions for five minutes after departure, with an

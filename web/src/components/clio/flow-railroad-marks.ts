@@ -120,7 +120,7 @@ export function scaleSvg(svg: SVGElement, scale: number, limit: number) {
   const width = Number(svg.getAttribute('width'));
   const height = Number(svg.getAttribute('height'));
   if (!width || !height) return;
-  const factor = Math.min(scale, limit / width);
+  const factor = Math.max(1, Math.min(scale, limit / width));
   svg.setAttribute('width', String(Math.round(width * factor)));
   svg.setAttribute('height', String(Math.round(height * factor)));
 }

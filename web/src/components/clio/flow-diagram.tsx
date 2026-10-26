@@ -55,7 +55,9 @@ export function FlowDiagram({
   const selectable = Boolean(railroad && onSelect);
   const isRailroad = Boolean(railroad);
   const measured = width > 0;
-  const renderWidth = isRailroad ? undefined : Math.floor(width / scale);
+  // Preserve readable type for dense graphs too. Fitting the entire SVG into
+  // the card can turn a 12px label into 4px; pan the natural layout instead.
+  const renderWidth = undefined;
   const renderKey = JSON.stringify([source, fontSize, renderWidth]);
   // Status/selection changes mark a cheap SVG clone. They do not lay out the
   // same railroad again whenever a usage or timer update changes its object.
@@ -84,15 +86,14 @@ export function FlowDiagram({
   useEffect(() => {
     if (!measured || !active || geometry?.key === renderKey) return;
     let cancelled = false;
-    // A railroad is drawn at its natural width, never wrapped onto a second line (a wrapped
-    // track crosses itself); a narrow screen scrolls it sideways. A graph fits the width.
+    // Both forms keep their natural label size and pan on a narrow surface.
     renderPeleDiagram(source, `flow-${id}`, renderWidth, {
       fontSize,
       autoDirection: !isRailroad,
       inheritTheme: true,
       transform: (element) => {
         element.removeAttribute('role');
-        if (isRailroad) element.style.maxWidth = 'none';
+        element.style.maxWidth = 'none';
       },
     })
       .then((html) => {
@@ -136,8 +137,8 @@ export function FlowDiagram({
       <div
         aria-label={spec.label}
         className={cn(
-          'clio-flow-diagram min-w-0',
-          railroad ? 'clio-scrollbar min-h-10 overflow-x-auto' : 'min-h-24',
+          'clio-flow-diagram clio-scrollbar max-h-[min(32rem,55vh)] min-w-0 overflow-auto',
+          railroad ? 'min-h-10' : 'min-h-24',
           selectable && 'is-selectable',
         )}
         onClick={selectable ? pick : undefined}
