@@ -630,7 +630,7 @@ export interface McpUserConfiguration {
   name: string;
   configured: boolean;
   scope: 'user';
-  status: 'ready' | 'degraded' | 'local_fallback';
+  status: 'ready' | 'degraded' | 'auth_required' | 'local_fallback';
   transport?: string;
   tools_count: number;
   tools: string[];

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
+  capabilities: vi.fn(async () => ({ capabilities: { x_clio_extension_library: true } })),
   workspaces: vi.fn(),
   mcpServers: vi.fn(),
   tools: vi.fn(),
@@ -80,6 +81,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+async function openAdd(kind: 'MCP server URL' | 'Local MCP command') {
+  await userEvent.click(await screen.findByRole('button', { name: 'Add MCP' }));
+  await userEvent.click(screen.getByRole('menuitem', { name: kind }));
+  return screen.getByRole('dialog');
+}
+async function pasteField(dialog: HTMLElement, label: string, text: string) {
+  const field = within(dialog).getByLabelText(label, { exact: true });
+  await userEvent.clear(field);
+  await userEvent.click(field);
+  await userEvent.paste(text);
+}
+
 describe('tool provider settings', () => {
   it('inspects a declared on-demand connection without querying nonexistent installed-server routes', async () => {
     repository.mcpServers.mockResolvedValue([
@@ -108,31 +121,34 @@ describe('tool provider settings', () => {
     expect(screen.getByText('PRIVATE_TOKEN. Values are hidden.')).toBeVisible();
     expect(screen.queryByText('never-render-this-value')).not.toBeInTheDocument();
   });
-  it('explains invalid service names before attempting installation', async () => {
+  it('keeps human connection labels and derives a valid tool namespace on save', async () => {
     renderSettings(<ToolsSettings embedded />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Add MCP' }));
-    const dialog = screen.getByRole('dialog');
-    await userEvent.type(within(dialog).getByLabelText('Name'), 'Research Tools');
-    await userEvent.type(within(dialog).getByLabelText('Package'), 'mcp-server-fetch');
-    expect(within(dialog).getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true');
-    expect(within(dialog).getByText(/Use lowercase letters, numbers, and hyphens/)).toBeVisible();
-    expect(within(dialog).getByRole('button', { name: 'Install and connect' })).toBeDisabled();
-    expect(repository.configureMcpServer).not.toHaveBeenCalled();
+    const dialog = await openAdd('MCP server URL');
+    await pasteField(dialog, 'Name', 'Research Tools');
+    await pasteField(dialog, 'MCP server URL', 'https://mcp.example.test');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Connect' }));
+    await waitFor(() =>
+      expect(repository.configureMcpServer).toHaveBeenCalledWith(
+        'research-tools',
+        expect.objectContaining({ name: 'Research Tools', transport: 'http', always_load: false }),
+      ),
+    );
   });
-  it('installs a package from Services using explicit argv and the chosen conversation scope', async () => {
+  it('installs a local package with explicit argv and opt-in conversation access', async () => {
     renderSettings(<ToolsSettings embedded />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Add MCP' }));
-    const dialog = screen.getByRole('dialog');
-    await userEvent.type(within(dialog).getByLabelText('Name'), 'fetch-qualification');
-    await userEvent.type(within(dialog).getByLabelText('Package'), 'mcp-server-fetch');
-    await userEvent.click(within(dialog).getByLabelText('Available in every conversation'));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Install and connect' }));
+    const dialog = await openAdd('Local MCP command');
+    await pasteField(dialog, 'Name', 'fetch-qualification');
+    await pasteField(dialog, 'Arguments', '["mcp-server-fetch"]');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Connect' }));
     await waitFor(() =>
       expect(repository.configureMcpServer).toHaveBeenCalledWith('fetch-qualification', {
+        name: 'fetch-qualification',
         transport: 'stdio',
         command: 'uvx',
         args: ['mcp-server-fetch'],
+        env: {},
         always_load: false,
+        connection_only: true,
       }),
     );
   });
@@ -189,104 +205,80 @@ describe('tool provider settings', () => {
     expect(screen.getByText('This provider reported no resources.')).toBeVisible();
   });
 
-  it('connects a remote provider using task-oriented labels', async () => {
-    const user = userEvent.setup();
+  it('connects a remote provider through the shared URL setup', async () => {
     renderSettings(<ToolsSettings />);
-
-    await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
-    const dialog = screen.getByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Name'), 'science-tools');
-    await user.type(within(dialog).getByLabelText('Service address'), 'https://mcp.example.test');
-    await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
-
-    // Saved, so it survives a restart and reaches every conversation by default.
-    expect(repository.configureMcpServer).toHaveBeenCalledWith('science-tools', {
-      transport: 'http',
-      url: 'https://mcp.example.test',
-      always_load: true,
-    });
+    const dialog = await openAdd('MCP server URL');
+    await pasteField(dialog, 'Name', 'science-tools');
+    await pasteField(dialog, 'MCP server URL', 'https://mcp.example.test');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Connect' }));
+    await waitFor(() =>
+      expect(repository.configureMcpServer).toHaveBeenCalledWith('science-tools', {
+        name: 'science-tools',
+        transport: 'http',
+        url: 'https://mcp.example.test',
+        authentication: 'auto',
+        headers: {},
+        always_load: false,
+        connection_only: true,
+      }),
+    );
   });
-
-  it('keeps local provider process settings collapsed and sends them to the service', async () => {
-    const user = userEvent.setup();
+  it('keeps local process settings collapsed and sends table entries to the service', async () => {
     renderSettings(<ToolsSettings />);
-
-    await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
-    const dialog = screen.getByRole('dialog');
-    // Paste, not per-keystroke typing: the fields only need their values, and
-    // ~60 synthetic keystrokes pushed this test past the timeout under load.
-    const fill = async (label: string, text: string) => {
-      await user.click(within(dialog).getByLabelText(label));
-      await user.paste(text);
-    };
-    await fill('Name', 'web-search');
-    await user.click(within(dialog).getByLabelText('Connection type'));
-    await user.click(screen.getByRole('option', { name: 'Local command' }));
-    await fill('Executable', 'web-tools');
-    await fill('Arguments', 'serve');
-    expect(within(dialog).queryByLabelText('Process settings')).not.toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole('button', { name: 'Advanced configuration' }));
-    // A Variable / Value table, the way the system environment editor shows it.
-    await fill('Variable 1', 'WEB_STATE_DIR');
-    await fill('Value 1', 'D:\\agent-state');
-    await user.click(within(dialog).getByRole('button', { name: 'Add variable' }));
-    await fill('Variable 2', 'WEB_MODE');
-    await fill('Value 2', 'a=b');
-    await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
-
-    expect(repository.configureMcpServer).toHaveBeenCalledWith('web-search', {
-      always_load: true,
-      transport: 'stdio',
-      command: 'web-tools',
-      args: ['serve'],
-      env: { WEB_STATE_DIR: 'D:\\agent-state', WEB_MODE: 'a=b' },
-    });
+    const dialog = await openAdd('Local MCP command');
+    await pasteField(dialog, 'Name', 'web-search');
+    await pasteField(dialog, 'Command', 'web-tools');
+    await pasteField(dialog, 'Arguments', '["serve"]');
+    expect(within(dialog).getByLabelText('Variable 1')).not.toBeVisible();
+    await userEvent.click(within(dialog).getByText('Environment variables', { exact: true }));
+    await pasteField(dialog, 'Variable 1', 'WEB_STATE_DIR');
+    await pasteField(dialog, 'Value 1', 'D:\\agent-state');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add variable' }));
+    await pasteField(dialog, 'Variable 2', 'WEB_MODE');
+    await pasteField(dialog, 'Value 2', 'a=b');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Connect' }));
+    await waitFor(() =>
+      expect(repository.configureMcpServer).toHaveBeenCalledWith('web-search', {
+        name: 'web-search',
+        transport: 'stdio',
+        command: 'web-tools',
+        args: ['serve'],
+        env: { WEB_STATE_DIR: 'D:\\agent-state', WEB_MODE: 'a=b' },
+        always_load: false,
+        connection_only: true,
+      }),
+    );
   });
-
-  it('switches the process settings between the table and raw NAME=value lines', async () => {
-    const user = userEvent.setup();
+  it('keeps table and raw process settings in sync in shared setup', async () => {
     renderSettings(<ToolsSettings />);
-
-    await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
-    const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByLabelText('Connection type'));
-    await user.click(screen.getByRole('option', { name: 'Local command' }));
-    await user.click(within(dialog).getByRole('button', { name: 'Advanced configuration' }));
-    await user.click(within(dialog).getByLabelText('Variable 1'));
-    await user.paste('TOKEN');
-    await user.click(within(dialog).getByLabelText('Value 1'));
-    await user.paste('secret');
-    await user.click(within(dialog).getByRole('checkbox', { name: 'Raw input' }));
-    const raw = within(dialog).getByLabelText('Process settings');
-    expect(raw).toHaveValue('TOKEN=secret');
-    await user.clear(raw);
-    await user.paste('A=1\nB=2');
-    await user.click(within(dialog).getByRole('checkbox', { name: 'Raw input' }));
+    const dialog = await openAdd('Local MCP command');
+    await userEvent.click(within(dialog).getByText('Environment variables', { exact: true }));
+    await pasteField(dialog, 'Variable 1', 'TOKEN');
+    await pasteField(dialog, 'Value 1', 'secret');
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Raw input' }));
+    expect(within(dialog).getByLabelText('Process settings')).toHaveValue('TOKEN=secret');
+    await pasteField(dialog, 'Process settings', 'A=1\nB=2');
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Raw input' }));
     expect(within(dialog).getByLabelText('Variable 2')).toHaveValue('B');
     expect(within(dialog).getByLabelText('Value 2')).toHaveValue('2');
   });
-
-  it('saves a service for conversations that ask for it when the box is cleared', async () => {
-    const user = userEvent.setup();
+  it('adds a connection to every conversation only when explicitly selected', async () => {
     renderSettings(<ToolsSettings />);
-
-    await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
-    const dialog = screen.getByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Name'), 'docs');
-    await user.type(within(dialog).getByLabelText('Service address'), 'https://mcp.example.test');
-    await user.click(
-      within(dialog).getByRole('checkbox', { name: 'Available in every conversation' }),
+    const dialog = await openAdd('MCP server URL');
+    await pasteField(dialog, 'Name', 'docs');
+    await pasteField(dialog, 'MCP server URL', 'https://mcp.example.test');
+    await userEvent.click(within(dialog).getByText('Conversation access', { exact: true }));
+    await userEvent.click(
+      within(dialog).getByRole('checkbox', { name: /Available in every conversation/ }),
     );
-    await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
-
-    expect(repository.configureMcpServer).toHaveBeenCalledWith('docs', {
-      transport: 'http',
-      url: 'https://mcp.example.test',
-      always_load: false,
-    });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Connect' }));
+    await waitFor(() =>
+      expect(repository.configureMcpServer).toHaveBeenCalledWith(
+        'docs',
+        expect.objectContaining({ always_load: true }),
+      ),
+    );
   });
-
   it('lists the saved services and removes one after confirming', async () => {
     const user = userEvent.setup();
     repository.savedMcpServices.mockResolvedValue([

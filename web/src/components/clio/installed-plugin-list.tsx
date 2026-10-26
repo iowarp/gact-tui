@@ -36,6 +36,7 @@ export function InstalledPluginList({
   error,
   busy = false,
   onTrustUpdate,
+  hideFilter = false,
 }: {
   plugins: readonly PluginEntry[];
   pending: boolean;
@@ -43,6 +44,7 @@ export function InstalledPluginList({
   busy?: boolean;
   /** Accept a waiting update: the trust step of the plugin's marketplace. */
   onTrustUpdate?: (marketplace: string) => void;
+  hideFilter?: boolean;
 }) {
   const [filter, setFilter] = useState('');
   const [inspecting, setInspecting] = useState<PluginEntry>();
@@ -56,13 +58,15 @@ export function InstalledPluginList({
         <h2 className="text-sm font-semibold">
           Installed plugins {plugins.length ? `(${plugins.length})` : ''}
         </h2>
-        <Input
-          aria-label="Filter plugins"
-          className="h-8 w-full sm:w-64"
-          onChange={(event) => setFilter(event.target.value)}
-          placeholder="Filter plugins"
-          value={filter}
-        />
+        {!hideFilter ? (
+          <Input
+            aria-label="Filter plugins"
+            className="h-8 w-full sm:w-64"
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder="Filter plugins"
+            value={filter}
+          />
+        ) : null}
       </div>
       {pending ? (
         <p className="text-sm text-muted-foreground" role="status">

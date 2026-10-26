@@ -68,6 +68,7 @@ export function EnvironmentTable({
       </label>
       {raw ? (
         <Textarea
+          aria-label="Process settings"
           className="font-mono text-xs"
           id={id}
           onChange={(event) => onChange(event.target.value)}
@@ -102,7 +103,9 @@ export function EnvironmentTable({
               <tr key={index}>
                 <td>
                   <Input
-                    aria-invalid={Boolean(row.name.trim() && environmentNameProblem(row.name.trim()))}
+                    aria-invalid={Boolean(
+                      row.name.trim() && environmentNameProblem(row.name.trim()),
+                    )}
                     aria-label={`Variable ${index + 1}`}
                     className="font-mono text-xs"
                     id={index === 0 ? id : undefined}

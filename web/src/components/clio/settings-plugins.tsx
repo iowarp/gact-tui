@@ -1,5 +1,5 @@
 import type { MarketplaceSummary, PluginCheckReport, PluginMarketplace } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { StoreIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -24,7 +24,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
-import { useAgentPluginsSupported, usePluginCatalog } from '@/hooks/use-session-agent';
+import {
+  useAgentPluginsSupported,
+  usePluginCatalog,
+  usePluginMarketplaces,
+} from '@/hooks/use-session-agent';
 import { AddIcon, DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -51,11 +55,7 @@ export function PluginSettings() {
   const [confirm, setConfirm] = useState<Confirm>();
   const [report, setReport] = useState<PluginCheckReport>();
   const supported = useAgentPluginsSupported();
-  const marketplaces = useQuery({
-    queryKey: queryKeys.key('plugin-marketplaces', settings.endpoint),
-    enabled: supported === true,
-    queryFn: ({ signal }) => repository.pluginMarketplaces(signal),
-  });
+  const marketplaces = usePluginMarketplaces();
   const catalog = usePluginCatalog();
   const invalidate = () =>
     Promise.all(

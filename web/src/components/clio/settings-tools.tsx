@@ -1,6 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
-import { EnvironmentTable } from './environment-table';
-import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
+import { ExtensionAddDialog, ExtensionAddMenu, type ExtensionAdd } from './extension-add-dialog';
+
 import { RemoveSavedMcpDialog } from './settings-saved-mcp';
 import { McpServiceList } from './settings-mcp-services';
 import { McpConnectionDetails } from './mcp-connection-details';
@@ -8,13 +8,7 @@ import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import { mcpServiceEntries } from '@/lib/mcp-service-entries';
 import type { McpServerDefinition, SavedMcpService, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  BookOpenIcon,
-  ChevronDownIcon,
-  PackagePlusIcon,
-  ScrollTextIcon,
-  WrenchIcon,
-} from 'lucide-react';
+import { BookOpenIcon, ScrollTextIcon, WrenchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -29,19 +23,16 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Field, FieldLabel } from '@/components/ui/field';
+
 import {
   Select,
   SelectContent,
@@ -51,15 +42,14 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
 import { humanizeToolName } from './tool-presentation';
-
-type ConnectionKind = 'http' | 'stdio' | 'package';
+import { McpSignInDialog } from './mcp-sign-in';
 
 function workspaceTitle(workspace: Workspace) {
   return workspace.display_name || workspace.name;
@@ -83,24 +73,6 @@ function connectionLabel(server: McpServerDefinition) {
     return 'Remote service';
   }
   return server.transport ? humanizeToolName(server.transport) : 'Connection unavailable';
-}
-
-function parseProcessSettings(value: string): Record<string, string> {
-  const settings: Record<string, string> = {};
-  for (const [index, rawLine] of value.split('\n').entries()) {
-    const line = rawLine.trim();
-    if (!line || isEnvironmentComment(line)) continue;
-    const separator = line.indexOf('=');
-    if (separator < 1) {
-      throw new Error(`Process setting on line ${index + 1} must use NAME=value.`);
-    }
-    const name = line.slice(0, separator).trim();
-    const settingValue = line.slice(separator + 1).trim();
-    const problem = environmentNameProblem(name);
-    if (problem) throw new Error(`Process setting "${name}" on line ${index + 1} ${problem}.`);
-    settings[name] = settingValue;
-  }
-  return settings;
 }
 
 function inventoryTitle(row: Record<string, unknown>) {
@@ -132,21 +104,11 @@ export function ToolsSettings({
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const [workspacePreference, setWorkspacePreference] = useState('');
-  const [installOpen, setInstallOpen] = useState(false);
-  const [connectionKind, setConnectionKind] = useState<ConnectionKind>(
-    embedded ? 'package' : 'http',
-  );
-  const [packageManager, setPackageManager] = useState<'uvx' | 'npx'>('uvx');
-  const [packageName, setPackageName] = useState('');
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [command, setCommand] = useState('');
-  const [argumentsText, setArgumentsText] = useState('');
-  const [environmentText, setEnvironmentText] = useState('');
-  const [everyConversation, setEveryConversation] = useState(true);
+  const [adding, setAdding] = useState<ExtensionAdd>();
   const [detailServer, setDetailServer] = useState<McpServerDefinition>();
   const [deleteServer, setDeleteServer] = useState<McpServerDefinition>();
   const [removingSaved, setRemovingSaved] = useState<SavedMcpService>();
+  const [signingIn, setSigningIn] = useState('');
   const saved = useSavedMcpServices();
 
   const workspaces = useQuery({
@@ -218,61 +180,6 @@ export function ToolsSettings({
       }),
     ]);
   };
-  const resetInstallForm = () => {
-    setName('');
-    setUrl('');
-    setCommand('');
-    setArgumentsText('');
-    setEnvironmentText('');
-    setConnectionKind(embedded ? 'package' : 'http');
-    setPackageManager('uvx');
-    setPackageName('');
-    setEveryConversation(true);
-  };
-  // Saved, not only connected: it survives a restart and reaches conversations.
-  const install = useMutation({
-    mutationFn: () => {
-      if (connectionKind === 'http') {
-        return repository.configureMcpServer(name.trim(), {
-          transport: 'http',
-          url: url.trim(),
-          always_load: everyConversation,
-        });
-      }
-      const env = parseProcessSettings(environmentText);
-      if (
-        connectionKind === 'package' &&
-        (!packageName.trim() ||
-          packageName.trim().startsWith('-') ||
-          /\s/u.test(packageName.trim()))
-      )
-        throw new Error('Enter a package name without command flags or spaces.');
-      return repository.configureMcpServer(name.trim(), {
-        always_load: everyConversation,
-        transport: 'stdio',
-        command: connectionKind === 'package' ? packageManager : command.trim(),
-        args: [
-          ...(connectionKind === 'package'
-            ? [...(packageManager === 'npx' ? ['-y'] : []), packageName.trim()]
-            : []),
-          ...argumentsText
-            .split('\n')
-            .map((argument) => argument.trim())
-            .filter(Boolean),
-        ],
-        ...(Object.keys(env).length ? { env } : {}),
-      });
-    },
-    onSuccess: async (saved) => {
-      setInstallOpen(false);
-      resetInstallForm();
-      await invalidate();
-      if (saved.status === 'ready') toast.success(`Connected ${saved.name}`);
-      else
-        toast.warning(`Saved ${saved.name}, but it did not answer`, { description: saved.error });
-    },
-    onError: (error) => toast.error(error.message),
-  });
   const reconnect = useMutation({
     mutationFn: (server: McpServerDefinition) => repository.reconnectMcpServer(server.id),
     onSuccess: async () => {
@@ -290,18 +197,6 @@ export function ToolsSettings({
     },
     onError: (error) => toast.error(error.message),
   });
-  const validName = /^[a-z0-9-]+$/u.test(name.trim());
-  const canInstall =
-    validName &&
-    (connectionKind === 'http'
-      ? url.trim()
-      : connectionKind === 'package'
-        ? packageName.trim() &&
-          !packageName.trim().startsWith('-') &&
-          !/\s/u.test(packageName.trim())
-        : command.trim()) &&
-    !install.isPending;
-
   return (
     <div className="grid gap-6">
       {!embedded ? (
@@ -343,9 +238,7 @@ export function ToolsSettings({
                 </Select>
               </Field>
             ) : null}
-            <Button onClick={() => setInstallOpen(true)} size="sm">
-              <PackagePlusIcon aria-hidden="true" /> {embedded ? 'Add MCP' : 'Connect MCP'}
-            </Button>
+            <ExtensionAddMenu mcpOnly onChoose={setAdding} />
           </div>
         </div>
         {servers.isPending || tools.isPending ? <ToolCatalogLoading /> : null}
@@ -380,182 +273,25 @@ export function ToolsSettings({
       </section>
 
       <RemoveSavedMcpDialog onClose={() => setRemovingSaved(undefined)} service={removingSaved} />
+      {signingIn ? (
+        <McpSignInDialog
+          name={signingIn}
+          onClose={() => setSigningIn('')}
+          onConnected={() => {
+            void invalidate();
+          }}
+        />
+      ) : null}
 
-      <Dialog
-        onOpenChange={(open) => {
-          setInstallOpen(open);
-          if (!open && !install.isPending) resetInstallForm();
-        }}
-        open={installOpen}
-      >
-        <DialogContent className="grid max-h-[min(720px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {connectionKind === 'package' ? 'Install an MCP service' : 'Connect an MCP service'}
-            </DialogTitle>
-            <DialogDescription>
-              {connectionKind === 'package'
-                ? `The package runs on ${computerLabel || settings.location || 'the connected computer'}. It is checked before its tools become available.`
-                : 'Connect a service that already exposes MCP. Its tools are checked before becoming available.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 overflow-y-auto pr-1">
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="tool-provider-name">Name</FieldLabel>
-                <Input
-                  id="tool-provider-name"
-                  aria-invalid={Boolean(name.trim()) && !validName}
-                  aria-describedby="tool-provider-name-help"
-                  maxLength={128}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="science-tools"
-                  value={name}
-                />
-                <FieldDescription id="tool-provider-name-help">
-                  Use lowercase letters, numbers, and hyphens, such as science-tools.
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="tool-provider-kind">Connection type</FieldLabel>
-                <Select
-                  onValueChange={(value) => setConnectionKind(value as ConnectionKind)}
-                  value={connectionKind}
-                >
-                  <SelectTrigger id="tool-provider-kind">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="package">Install a package</SelectItem>
-                    <SelectItem value="http">Remote service</SelectItem>
-                    <SelectItem value="stdio">Local command</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              {connectionKind === 'http' ? (
-                <Field>
-                  <FieldLabel htmlFor="tool-provider-url">Service address</FieldLabel>
-                  <Input
-                    id="tool-provider-url"
-                    onChange={(event) => setUrl(event.target.value)}
-                    placeholder="https://tools.example.org/mcp"
-                    type="url"
-                    value={url}
-                  />
-                </Field>
-              ) : (
-                <>
-                  {connectionKind === 'package' ? (
-                    <>
-                      <Field>
-                        <FieldLabel htmlFor="mcp-package-manager">Package source</FieldLabel>
-                        <Select
-                          value={packageManager}
-                          onValueChange={(value) => setPackageManager(value as 'uvx' | 'npx')}
-                        >
-                          <SelectTrigger id="mcp-package-manager">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="uvx">Python (uvx)</SelectItem>
-                            <SelectItem value="npx">npm (npx)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="mcp-package-name">Package</FieldLabel>
-                        <Input
-                          id="mcp-package-name"
-                          value={packageName}
-                          onChange={(event) => setPackageName(event.target.value)}
-                          placeholder={
-                            packageManager === 'uvx'
-                              ? 'mcp-server-fetch'
-                              : '@organization/mcp-server'
-                          }
-                        />
-                      </Field>
-                    </>
-                  ) : (
-                    <Field>
-                      <FieldLabel htmlFor="tool-provider-command">Executable</FieldLabel>
-                      <Input
-                        id="tool-provider-command"
-                        onChange={(event) => setCommand(event.target.value)}
-                        placeholder="npx"
-                        value={command}
-                      />
-                    </Field>
-                  )}
-                  <Field>
-                    <FieldLabel htmlFor="tool-provider-arguments">Arguments</FieldLabel>
-                    <Textarea
-                      id="tool-provider-arguments"
-                      onChange={(event) => setArgumentsText(event.target.value)}
-                      placeholder={
-                        connectionKind === 'package'
-                          ? 'Optional arguments for the server'
-                          : '-y\n@organization/tool-provider'
-                      }
-                      value={argumentsText}
-                    />
-                    <FieldDescription>Enter one argument per line.</FieldDescription>
-                  </Field>
-                  <Collapsible>
-                    <CollapsibleTrigger asChild>
-                      <Button className="w-fit px-0" size="sm" type="button" variant="link">
-                        Advanced configuration
-                        <ChevronDownIcon aria-hidden="true" />
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="pt-2">
-                      <Field>
-                        <FieldLabel htmlFor="tool-provider-environment">
-                          Process settings
-                        </FieldLabel>
-                        <EnvironmentTable
-                          id="tool-provider-environment"
-                          onChange={setEnvironmentText}
-                          value={environmentText}
-                        />
-                        <FieldDescription>
-                          Environment variables for the service&apos;s process. Values stay with the
-                          connected service and are hidden when it is read back.
-                        </FieldDescription>
-                      </Field>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </>
-              )}
-            </FieldGroup>
-            <label className="mt-4 flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={everyConversation}
-                onCheckedChange={(checked) => setEveryConversation(checked === true)}
-              />
-              Available in every conversation
-            </label>
-            {install.error ? (
-              <Alert className="mt-4" variant="destructive">
-                <AlertTitle>Connection failed</AlertTitle>
-                <AlertDescription>{install.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setInstallOpen(false)} variant="outline">
-              Cancel
-            </Button>
-            <Button disabled={!canInstall} onClick={() => install.mutate()}>
-              {install.isPending
-                ? 'Connecting…'
-                : connectionKind === 'package'
-                  ? 'Install and connect'
-                  : 'Connect MCP'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {adding ? (
+        <ExtensionAddDialog
+          choice={adding}
+          connections={saved.data ?? []}
+          onClose={() => setAdding(undefined)}
+          onSaved={invalidate}
+          onSignIn={setSigningIn}
+        />
+      ) : null}
 
       <Dialog
         onOpenChange={(open) => !open && setDetailServer(undefined)}

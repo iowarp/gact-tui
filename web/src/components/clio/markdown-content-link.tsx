@@ -9,6 +9,7 @@ import {
 } from '@/lib/markdown-content-reference';
 import { cn } from '@/lib/utils';
 import { PresentationNavigation } from './presentation-navigation';
+import { ScopedDocumentNavigation, SCOPED_DOCUMENT_LINK } from './scoped-document-navigation';
 import { SourceCitation } from './source-citation';
 import { messageSearchHash } from '@/lib/search-matches';
 
@@ -32,6 +33,7 @@ export function MarkdownContentLink({
   ...props
 }: ContentLinkProps) {
   const navigation = useContext(PresentationNavigation);
+  const bundle = useContext(ScopedDocumentNavigation);
   const inRouter = useInRouterContext();
   const style = cn(
     presentation === 'citation' && 'wrap-anywhere font-medium text-link no-underline',
@@ -53,6 +55,25 @@ export function MarkdownContentLink({
       </SourceCitation>
     );
   if (!href) return <a {...props}>{children}</a>;
+  if (href.startsWith(SCOPED_DOCUMENT_LINK)) {
+    const path = decoded(href.slice(SCOPED_DOCUMENT_LINK.length));
+    return bundle?.files.includes(path) ? (
+      <a
+        {...props}
+        className={style}
+        href="#"
+        target={undefined}
+        onClick={(event) => {
+          event.preventDefault();
+          bundle.open(path);
+        }}
+      >
+        {children}
+      </a>
+    ) : (
+      <span>{children}</span>
+    );
+  }
   const uri = href.startsWith(CONTENT_REFERENCE_PATH)
     ? decoded(href.slice(CONTENT_REFERENCE_PATH.length))
     : isMarkdownContentReference(href)

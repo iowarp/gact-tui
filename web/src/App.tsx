@@ -19,6 +19,7 @@ import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
+import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -91,6 +92,8 @@ export default function App() {
     else navigate('/settings/about', { state: settingsReturnState });
   });
 
+  if (location.pathname === '/oauth/mcp') return <McpOAuthReturn />;
+
   const appContent = (
     <>
       <ProviderCatalogWarmup />
@@ -104,6 +107,7 @@ export default function App() {
           <Route element={<RunsPage />} path="/runs" />
           <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
           <Route element={<SettingsPage />} path="/settings/:section" />
+          <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
           <Route element={<UnknownRouteRedirect />} path="*" />
         </Routes>
       </Suspense>

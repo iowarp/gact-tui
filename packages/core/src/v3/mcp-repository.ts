@@ -8,7 +8,7 @@ const mcpUserConfigurationSchema = z.object({
   name: z.string(),
   configured: z.boolean(),
   scope: z.literal('user'),
-  status: z.enum(['ready', 'degraded', 'local_fallback']),
+  status: z.enum(['ready', 'degraded', 'auth_required', 'local_fallback']),
   transport: z.string().optional(),
   tools_count: z.number().int().nonnegative().default(0),
   tools: z.array(z.string()).default([]),
@@ -19,18 +19,28 @@ const mcpUserConfigurationSchema = z.object({
 });
 
 export type McpConfigurationInput =
-  | { transport: 'http'; url: string; always_load?: boolean; name?: string }
+  | {
+      transport: 'http' | 'sse';
+      url: string;
+      always_load?: boolean;
+      connection_only?: boolean;
+      name?: string;
+      authentication?: 'auto' | 'none' | 'oauth';
+      headers?: Record<string, string>;
+    }
   | {
       transport: 'stdio';
       command: string;
       args: string[];
       env?: Record<string, string>;
       always_load?: boolean;
+      connection_only?: boolean;
       name?: string;
     };
 
 const savedMcpServiceSchema = z.object({
   name: z.string(),
+  label: z.string().optional(),
   transport: z.string(),
   always_load: z.boolean(),
   spec: z.record(z.string(), z.unknown()).default({}),
@@ -38,6 +48,32 @@ const savedMcpServiceSchema = z.object({
 
 /** A service the person saved (Settings or `clio-agent mcp add`), not yet started. */
 export type SavedMcpService = z.infer<typeof savedMcpServiceSchema>;
+
+export const mcpSignInSchema = z.object({
+  flow_id: z.string(),
+  name: z.string(),
+  expires_at: z.number(),
+  state: z.enum([
+    'preparing',
+    'authorizing',
+    'connecting',
+    'connected',
+    'cancelled',
+    'denied',
+    'expired',
+    'failed',
+  ]),
+  authorization_url: z.string().default(''),
+  error: z.string().default(''),
+  tools: z.array(z.string()).default([]),
+});
+export type McpSignIn = z.infer<typeof mcpSignInSchema>;
+export interface McpSignInInput {
+  redirect_uri: string;
+  client_id?: string;
+  client_secret?: string;
+  client_metadata_url?: string;
+}
 
 /** Narrows an MCP server listing to the tools one session holds open. */
 export interface McpServerListOptions {
@@ -52,6 +88,62 @@ export interface McpServerListOptions {
 
 /** Tool-provider discovery, lifecycle, and inventory routes. */
 export class McpRepository extends DocumentRepository {
+  /** Start an explicit user sign-in; credentials never enter conversation messages. */
+  public startMcpSignIn(
+    name: string,
+    body: McpSignInInput,
+    signal?: AbortSignal,
+  ): Promise<McpSignIn> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/mcp/configuration/${encodeURIComponent(name)}/sign-in`,
+      body,
+      decode: (value) => mcpSignInSchema.parse(value),
+      signal,
+    });
+  }
+  public mcpSignIn(name: string, id: string, signal?: AbortSignal): Promise<McpSignIn> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/mcp/configuration/${encodeURIComponent(name)}/sign-in/${encodeURIComponent(id)}`,
+      decode: (value) => mcpSignInSchema.parse(value),
+      signal,
+    });
+  }
+  public completeMcpSignIn(
+    name: string,
+    id: string,
+    callbackUrl: string,
+    signal?: AbortSignal,
+  ): Promise<McpSignIn> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/mcp/configuration/${encodeURIComponent(name)}/sign-in/${encodeURIComponent(id)}/complete`,
+      body: { callback_url: callbackUrl },
+      decode: (value) => mcpSignInSchema.parse(value),
+      signal,
+    });
+  }
+  public cancelMcpSignIn(name: string, id: string, signal?: AbortSignal): Promise<McpSignIn> {
+    return this.transport.request({
+      method: 'DELETE',
+      path: `/v1/mcp/configuration/${encodeURIComponent(name)}/sign-in/${encodeURIComponent(id)}`,
+      decode: (value) => mcpSignInSchema.parse(value),
+      signal,
+    });
+  }
+  public forgetMcpAuthorization(
+    name: string,
+    signal?: AbortSignal,
+  ): Promise<{ name: string; state: 'signed_out' }> {
+    return this.transport.request({
+      method: 'DELETE',
+      path: `/v1/mcp/configuration/${encodeURIComponent(name)}/authorization`,
+      decode: (value) =>
+        z.object({ name: z.string(), state: z.literal('signed_out') }).parse(value),
+      signal,
+    });
+  }
   /** Prepare the selected workspace's MCP fleet without creating a session. */
   public warmWorkspace(workspaceId: string, signal?: AbortSignal) {
     return this.transport.request({

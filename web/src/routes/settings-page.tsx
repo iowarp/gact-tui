@@ -23,7 +23,7 @@ import { useEffect, useRef, type ComponentType, type SVGProps } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
-import { PluginSettings } from '@/components/clio/settings-plugins';
+import { ExtensionLibrary as PluginSettings } from '@/components/clio/extension-library';
 import { RelaySettings } from '@/components/clio/relay-settings';
 import { AgentSettings } from '@/components/clio/settings-agents';
 import { SystemSettings } from '@/components/clio/settings-operations';

@@ -17,13 +17,20 @@ export async function openExternalUrl(url: string): Promise<void> {
 export function prepareExternalUrl(): { open: (url: string) => Promise<void>; cancel: () => void } {
   const pending = inTauri() ? null : window.open('about:blank', '_blank');
   if (pending) pending.opener = null;
+  let opened = false;
+  let cancelled = false;
   return {
     open: async (url: string) => {
+      if (opened || cancelled) return;
+      opened = true;
       if (pending && !pending.closed) pending.location.replace(url);
       else await openExternalUrl(url);
     },
     cancel: () => {
-      if (pending && !pending.closed) pending.close();
+      cancelled = true;
+      // Once navigated, this isolated tab has no opener. Chromium rejects a
+      // parent's close as a cross-origin navigation; its return page owns Close.
+      if (!opened && pending && !pending.closed) pending.close();
     },
   };
 }

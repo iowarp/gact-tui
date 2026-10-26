@@ -43,7 +43,7 @@ pub fn storage_oauth_listen(
     provider: String,
     registry: tauri::State<'_, StorageOAuth>,
 ) -> Result<BrowserReturn, String> {
-    if provider != "google_drive" && provider != "globus" {
+    if provider != "google_drive" && provider != "globus" && provider != "mcp" {
         return Err("Unsupported sign-in provider".into());
     }
     let listener = TcpListener::bind(if provider == "globus" {

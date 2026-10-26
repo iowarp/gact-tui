@@ -69,7 +69,10 @@ it('browses a pack member and its source in the shared reader without changing t
   const dialog = await screen.findByRole('dialog', { name: 'pdf' });
   expect(repository.inspectPlugin).toHaveBeenCalledWith('clio/pdf', false, expect.anything());
   await user.click(within(dialog).getByRole('tab', { name: 'Files (1)' }));
-  expect(await within(dialog).findByRole('heading', { name: 'PDF work' })).toBeVisible();
+  // The shared reader mounts lazily when its tab opens, including its Markdown renderer.
+  expect(
+    await within(dialog).findByRole('heading', { name: 'PDF work' }, { timeout: 5000 }),
+  ).toBeVisible();
   expect(within(dialog).getByRole('button', { name: 'Copy SKILL.md' })).toBeVisible();
   await user.keyboard('{Escape}');
   expect(screen.getByRole('button', { name: 'Collapse pack documents' })).toBeVisible();

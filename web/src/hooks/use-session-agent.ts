@@ -7,6 +7,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { connectionScope } from '@/lib/connection-scope';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 /**
@@ -14,14 +15,26 @@ import { useConnectionSettings } from '@/providers/connection-provider';
  * until its capabilities are known. Every plugin and agent route depends on it.
  */
 export function useAgentPluginsSupported(): boolean | undefined {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const capabilities = useQuery({
-    queryKey: queryKeys.key('capabilities', settings.endpoint),
-    queryFn: ({ signal }) => repository.capabilities(signal),
-  });
+  const capabilities = useAgentCapabilities();
   if (!capabilities.data) return capabilities.isError ? false : undefined;
   return agentPluginsSupported(capabilities.data.capabilities);
+}
+
+function useAgentCapabilities() {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  return useQuery({
+    queryKey: queryKeys.key('capabilities', settings.endpoint, connectionScope(settings)),
+    queryFn: ({ signal }) => repository.capabilities(signal),
+  });
+}
+
+/** New connection-only and sign-in semantics must be acknowledged by the agent host. */
+export function useExtensionsSupported(): boolean | undefined {
+  const capabilities = useAgentCapabilities();
+  return capabilities.data
+    ? capabilities.data.capabilities.x_clio_extension_library === true
+    : undefined;
 }
 
 /**
@@ -69,9 +82,21 @@ export function usePluginCatalog(enabled = true) {
   const { settings } = useConnectionSettings();
   const supported = useAgentPluginsSupported();
   return useQuery({
-    queryKey: queryKeys.key('plugins', settings.endpoint),
+    queryKey: queryKeys.key('plugins', settings.endpoint, connectionScope(settings)),
     enabled: enabled && supported === true,
     queryFn: ({ signal }) => repository.plugins(signal),
+  });
+}
+
+/** Source identities and revisions, without fetching content or connecting servers. */
+export function usePluginMarketplaces(enabled = true) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const supported = useAgentPluginsSupported();
+  return useQuery({
+    queryKey: queryKeys.key('plugin-marketplaces', settings.endpoint, connectionScope(settings)),
+    enabled: enabled && supported === true,
+    queryFn: ({ signal }) => repository.pluginMarketplaces(signal),
   });
 }
 
@@ -81,7 +106,7 @@ export function useInstalledAgents(enabled = true) {
   const { settings } = useConnectionSettings();
   const supported = useAgentPluginsSupported();
   return useQuery({
-    queryKey: queryKeys.key('agents', settings.endpoint),
+    queryKey: queryKeys.key('agents', settings.endpoint, connectionScope(settings)),
     enabled: enabled && supported === true,
     queryFn: ({ signal }) => repository.agents(signal),
   });

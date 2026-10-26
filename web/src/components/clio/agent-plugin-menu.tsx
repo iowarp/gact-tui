@@ -5,17 +5,9 @@ import {
   type PluginEntry,
 } from '@clio/core/v3';
 import { BoxesIcon, PackageIcon } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-
+import { useMemo, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { CapabilityPicker } from './capability-picker';
 export interface AgentPluginMenuProps {
   /** Installed plugins and packs; `undefined` while loading. */
   plugins?: readonly PluginEntry[];
@@ -48,10 +40,7 @@ function availability(
   return { selectable: true, label: 'Add' };
 }
 
-/**
- * The agent + menu: every installed plugin and pack, with what each brings.
- * Adding one changes only this conversation; Save as agent keeps it.
- */
+/** Conversation availability stays with the agent resolver; the picker owns only presentation. */
 export function AgentPluginMenu({
   plugins,
   pluginsError,
@@ -62,91 +51,50 @@ export function AgentPluginMenu({
   children,
   align = 'start',
 }: AgentPluginMenuProps) {
-  const [open, setOpen] = useState(false);
-  const active = new Map(resolution.plugins.map((plugin) => [plugin.id, plugin.marketplace]));
-  const rows = (plugins ?? []).filter((plugin) => plugin.id !== 'core');
-  const packs = rows.filter((plugin) => plugin.kind === 'pack');
-  const singles = rows.filter((plugin) => plugin.kind !== 'pack');
-  const item = (plugin: PluginEntry) => {
-    const state = availability(plugin, active, delta);
-    const Icon = plugin.kind === 'pack' ? BoxesIcon : PackageIcon;
-    return (
-      <CommandItem
-        key={plugin.ref}
-        value={plugin.ref}
-        keywords={[plugin.id, plugin.description, ...plugin.members]}
-        disabled={!state.selectable}
-        onSelect={() => {
-          if (!state.selectable) return;
-          onAdd(plugin.ref);
-          setOpen(false);
-        }}
-        className="items-start gap-2 py-2"
-      >
-        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-baseline gap-2">
-            <span className="truncate font-medium">{plugin.id}</span>
-            <span className="truncate text-xs text-muted-foreground">{plugin.marketplace}</span>
-            <span className="shrink-0 text-xs text-muted-foreground">{state.label}</span>
-          </span>
-          {plugin.description ? (
-            <span className="line-clamp-2 text-xs text-muted-foreground">{plugin.description}</span>
-          ) : null}
-          {plugin.kind === 'pack' && plugin.members.length ? (
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              Brings {plugin.members.join(', ')}
-            </span>
-          ) : null}
-          {plugin.requires.length ? (
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              Also needs {plugin.requires.join(', ')}
-            </span>
-          ) : null}
-        </span>
-      </CommandItem>
-    );
-  };
+  const items = useMemo(() => {
+    const active = new Map(resolution.plugins.map((plugin) => [plugin.id, plugin.marketplace]));
+    const rows = (plugins ?? []).filter((plugin) => plugin.id !== 'core');
+    return [
+      ...rows.filter((plugin) => plugin.kind === 'pack'),
+      ...rows.filter((plugin) => plugin.kind !== 'pack'),
+    ].map((plugin) => {
+      const state = availability(plugin, active, delta);
+      const Icon = plugin.kind === 'pack' ? BoxesIcon : PackageIcon;
+      return {
+        id: plugin.ref,
+        title: plugin.id,
+        source: plugin.marketplace,
+        description: plugin.description,
+        group: plugin.kind === 'pack' ? 'Packs' : 'Plugins',
+        icon: <Icon className="size-4" aria-hidden="true" />,
+        disabled: !state.selectable,
+        state: state.label,
+        keywords: [
+          ...plugin.members,
+          ...plugin.skills,
+          ...plugin.mcp_servers,
+          ...plugin.tools,
+          ...plugin.flows,
+        ],
+      };
+    });
+  }, [plugins, resolution.plugins, delta]);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild disabled={disabled}>
-        {children}
-      </PopoverTrigger>
-      <PopoverContent
-        aria-label="Add a plugin"
-        align={align}
-        className="w-[min(26rem,calc(100vw-2rem))] p-0"
-      >
-        <Command
-          label="Search plugins"
-          filter={(value, search, keywords) =>
-            [value, ...(keywords ?? [])].some((text) =>
-              text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
-            )
-              ? 1
-              : 0
-          }
-        >
-          <CommandInput aria-label="Search plugins" placeholder="Search plugins and packs…" />
-          <CommandList className="max-h-[min(24rem,60dvh)]">
-            {plugins === undefined && !pluginsError ? (
-              <p className="p-4 text-sm text-muted-foreground" role="status">
-                Loading plugins…
-              </p>
-            ) : null}
-            {pluginsError ? (
-              <p className="p-4 text-sm text-destructive" role="alert">
-                Plugins could not be listed: {pluginsError}
-              </p>
-            ) : null}
-            {plugins !== undefined ? <CommandEmpty>No matching plugins.</CommandEmpty> : null}
-            {packs.length ? <CommandGroup heading="Packs">{packs.map(item)}</CommandGroup> : null}
-            {singles.length ? (
-              <CommandGroup heading="Plugins">{singles.map(item)}</CommandGroup>
-            ) : null}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <CapabilityPicker
+      items={items}
+      pending={plugins === undefined && !pluginsError}
+      error={pluginsError}
+      onChoose={onAdd}
+      disabled={disabled}
+      label="Plugins"
+      align={align}
+      footer={
+        <Link to="/settings/plugins" className="block rounded-md px-2 py-2 text-sm hover:bg-accent">
+          Browse extensions · Add MCPs, skills or plugins
+        </Link>
+      }
+    >
+      {children}
+    </CapabilityPicker>
   );
 }

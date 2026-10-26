@@ -9,6 +9,7 @@ import '../ai-elements/markdown';
 import { FileTextView } from './file-text-view';
 import { FileViewerShell } from './file-viewer-shell';
 import type { FileViewerSource } from './file-viewer-source';
+import { readFileViewerBytes } from './file-viewer-source';
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => ({}) }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -23,6 +24,20 @@ afterEach(() => {
 });
 
 const workspaceId = 'workspace_composition';
+
+it('reads provided bundle source through the common download boundary without a workspace lookup', async () => {
+  const bytes = new TextEncoder().encode('# Skill\r\n');
+  const source: FileViewerSource = {
+    kind: 'provided',
+    name: 'SKILL.md',
+    mediaType: 'text/markdown',
+    origin: 'Plugin source',
+    readBytes: async () => bytes,
+  };
+  expect(await readFileViewerBytes({} as never, source)).toEqual(bytes);
+  renderComposition(source, 'SKILL.md', '# Skill\r\n', 'text/markdown');
+  expect(await screen.findByRole('button', { name: 'Download Markdown' })).toBeVisible();
+});
 
 interface FormatCase {
   name: string;

@@ -4,6 +4,15 @@ import { verifyArtifactRecovery } from './artifact-custody';
 /** File custody determines reads and copy behavior; the format only determines rendering. */
 export type FileViewerSource =
   | {
+      kind: 'provided';
+      name: string;
+      mediaType: string;
+      size?: number;
+      origin: string;
+      readBytes: () => Promise<Uint8Array>;
+      workspaceId?: undefined;
+    }
+  | {
       kind: 'artifact';
       artifact: Artifact;
       workspaceId: string;
@@ -14,6 +23,14 @@ export type FileViewerSource =
   | { kind: 'workspace'; path: string; mediaType: string; size?: number; workspaceId: string };
 
 export function fileViewerIdentity(source: FileViewerSource) {
+  if (source.kind === 'provided')
+    return {
+      name: source.name,
+      mediaType: source.mediaType,
+      size: source.size,
+      origin: source.origin,
+      available: true,
+    };
   if (source.kind === 'artifact') {
     return {
       name: source.artifact.name,
@@ -43,6 +60,7 @@ export function fileViewerIdentity(source: FileViewerSource) {
 
 /** Reads original bytes through the connected agent's transport, never a derivative URL. */
 export async function readFileViewerBytes(repository: ClioRepository, source: FileViewerSource) {
+  if (source.kind === 'provided') return source.readBytes();
   if (source.kind === 'artifact') {
     if (!source.verifiedWorkspacePath) return repository.readArtifactBytesFor(source.artifact);
     const bytes = await repository.readWorkspaceFileBytes(

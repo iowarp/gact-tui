@@ -56,6 +56,7 @@ export type PluginEntry = z.infer<typeof pluginEntrySchema>;
 /** Read-only source inspection of one exact installed or pending catalog entry. */
 export const pluginInspectionSchema = z.object({
   plugin: pluginEntrySchema,
+  skill: z.string().default(''),
   files: z.array(
     z.object({
       path: z.string(),

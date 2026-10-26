@@ -127,7 +127,7 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
   },
   {
     id: 'plugins',
-    label: 'Plugins & marketplaces',
+    label: 'Extensions',
     icon: BoxesIcon,
     group: 'Agent',
     keywords: 'plugins packs marketplace install trust update skills tools',

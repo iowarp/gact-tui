@@ -60,6 +60,8 @@ describe('external URL bridge', () => {
     expect(replace).not.toHaveBeenCalled();
     await pending.open('https://auth.globus.org/example');
     expect(replace).toHaveBeenCalledWith('https://auth.globus.org/example');
+    await pending.open('https://another.example/late-return');
+    expect(replace).toHaveBeenCalledTimes(1);
   });
 
   it('closes an unused tab when authorization setup fails', () => {
@@ -68,6 +70,25 @@ describe('external URL bridge', () => {
     vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
     prepareExternalUrl().cancel();
     expect(popup.close).toHaveBeenCalledOnce();
+  });
+
+  it('never opens a cancelled reservation when an async setup response arrives late', async () => {
+    mocks.inTauri.mockReturnValue(false);
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const pending = prepareExternalUrl();
+    pending.cancel();
+    await pending.open('https://another.example/late-return');
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a navigated isolated tab to its own close control when cancelling', async () => {
+    mocks.inTauri.mockReturnValue(false);
+    const popup = { opener: window, closed: false, location: { replace: vi.fn() }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+    const pending = prepareExternalUrl();
+    await pending.open('https://accounts.example/authorize');
+    pending.cancel();
+    expect(popup.close).not.toHaveBeenCalled();
   });
 });
 
