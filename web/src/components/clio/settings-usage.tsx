@@ -11,8 +11,8 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { BILLING_ORDER, billingLabel, spendLabel, type UsageMode } from '@/lib/fleet-usage';
-import { UsageSummary } from './fleet-usage';
+import { BILLING_ORDER, billingLabel, type UsageMode } from '@/lib/fleet-usage';
+import { SpendSummary, UsageSummary } from './fleet-usage';
 
 const MODE_KEY = 'clio.usage.mode';
 
@@ -46,12 +46,12 @@ function AccountRow({ account, mode }: { account: FleetAccount; mode: UsageMode 
           <p className="font-medium">{account.label}</p>
           <p className="text-xs text-muted-foreground">
             {billingLabel(account.billing)}
-            {account.health === 'ready' ? '' : ` · ${account.health}`}
+            {account.health === 'ready' ? '' : ` (${account.health})`}
           </p>
           {account.spend ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Used here: {spendLabel(account.spend)}
-            </p>
+            <div aria-label="Usage recorded by CLIO" className="mt-1">
+              <SpendSummary spend={account.spend} />
+            </div>
           ) : null}
         </div>
       </div>
@@ -116,7 +116,7 @@ export function UsageSettings() {
         <div>
           <h2 className="text-lg font-semibold">Usage</h2>
           <p className="text-sm text-muted-foreground">
-            What each connected account has used and has left, and what this workspace spent on it.
+            Account limits and usage recorded by CLIO.
           </p>
         </div>
         <ToggleGroup

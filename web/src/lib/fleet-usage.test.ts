@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { busiestWindow, formatTokens, observedAgo, resetsIn, spendLabel } from './fleet-usage';
+import {
+  busiestWindow,
+  formatTokens,
+  observedAgo,
+  resetsIn,
+  spendDetails,
+  spendLabel,
+} from './fleet-usage';
 import { callModel } from './flow-run-usage';
 import { turnModelExhausted } from './turn-model-exhausted';
 
@@ -30,7 +37,11 @@ describe('fleet usage presentation', () => {
       turns: 3,
     };
     expect(spendLabel(spend)).toBe('1.3M tokens');
-    expect(spendLabel({ ...spend, tokens: 4200, cost_usd: 0.25 })).toBe('4k tokens · $0.25');
+    expect(spendLabel({ ...spend, tokens: 4200, cost_usd: 0.25 })).toBe('4k tokens, $0.25');
+    expect(spendDetails({ ...spend, tokens: 40_000, cost_usd: 0.005 })).toEqual({
+      tokens: '40k tokens',
+      cost: 'under $0.01',
+    });
     expect(formatTokens(950)).toBe('950');
   });
 

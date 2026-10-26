@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { busiestWindow, spendLabel } from '@/lib/fleet-usage';
-import { UsageSummary } from './fleet-usage';
+import { busiestWindow } from '@/lib/fleet-usage';
+import { SpendSummary, UsageSummary } from './fleet-usage';
 
 type Marker = { name: string; used_percent: number };
 
@@ -16,9 +17,7 @@ function Readout({ tokens, cost, marker }: { tokens?: number; cost?: number; mar
           {marker.name} {Math.round(marker.used_percent)}%
         </span>
       ) : null}
-      <span title="This conversation's own input and output tokens, without cache reads">
-        Tokens: {tokens ?? 0}
-      </span>
+      <span title="Tokens recorded for this conversation">Tokens: {tokens ?? 0}</span>
       <span>
         Cost:{' '}
         {cost === undefined ? (
@@ -84,11 +83,6 @@ function SessionUsageHover({
         </button>
       </HoverCardTrigger>
       <HoverCardContent align="end" className="w-80 font-sans" side="top">
-        {/* Each figure names its scope, so the two token counts do not read as a contradiction. */}
-        <p className="mb-3 text-xs text-muted-foreground">
-          Under the chat box: this conversation's own input and output tokens, without cache
-          reads.
-        </p>
         {account ? (
           <div className="grid gap-3">
             <div>
@@ -110,23 +104,21 @@ function SessionUsageHover({
         )}
         {spend.length ? (
           <div className="mt-3 grid gap-1 border-t pt-3">
-            <p className="text-xs font-medium">
-              This conversation and the work it started, with cache reads
-            </p>
+            <p className="text-xs font-medium">Including delegated work</p>
             {spend.map(([ref, row]) => (
-              <p className="flex justify-between gap-2 text-xs" key={ref}>
+              <div className="flex justify-between gap-3 text-xs" key={ref}>
                 <span className="truncate">{ref.split('/').slice(1).join('/')}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">
-                  {spendLabel(row)}
-                </span>
-              </p>
+                <SpendSummary className="shrink-0 text-right" spend={row} />
+              </div>
             ))}
           </div>
         ) : null}
-        <p className="mt-3 text-xs text-muted-foreground">
-          {cost === undefined ? "This provider doesn't report cost. " : ''}Every account is in
-          Settings › Usage.
-        </p>
+        <Link
+          className="mt-3 inline-block text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          to="/settings/usage"
+        >
+          Usage settings
+        </Link>
       </HoverCardContent>
     </HoverCard>
   );

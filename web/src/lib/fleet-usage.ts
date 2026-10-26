@@ -52,15 +52,21 @@ export function formatTokens(tokens: number): string {
   return String(tokens);
 }
 
-/** One spend line: tokens, and cost when any turn reported one. */
-export function spendLabel(spend: FleetSpend): string {
+/** Separate measurements so each view can lay them out without splitting a price. */
+export function spendDetails(spend: FleetSpend): { tokens: string; cost?: string } {
   const cost =
     spend.cost_usd >= 0.01
-      ? ` · $${spend.cost_usd.toFixed(2)}`
+      ? `$${spend.cost_usd.toFixed(2)}`
       : spend.cost_usd > 0
-        ? ' · under $0.01'
-        : '';
-  return `${formatTokens(spend.tokens)} tokens${cost}`;
+        ? 'under $0.01'
+        : undefined;
+  return { tokens: `${formatTokens(spend.tokens)} tokens`, cost };
+}
+
+/** A compact text alternative for nonvisual consumers. */
+export function spendLabel(spend: FleetSpend): string {
+  const { tokens, cost } = spendDetails(spend);
+  return cost ? `${tokens}, ${cost}` : tokens;
 }
 
 /** The highest window use, for the readout's marker past 80%. */
