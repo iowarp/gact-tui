@@ -136,8 +136,7 @@ export function useSessionMutations({
       queryKeys.pendingSteers(settings.endpoint, sessionId),
       queryKeys.workspaceResources(settings.endpoint, workspaceId),
       queryKeys.transcript(settings.endpoint, sessionId),
-      queryKeys.sessions(settings.endpoint, workspaceId),
-      queryKeys.sessions(settings.endpoint, 'all'),
+      queryKeys.allSessionReads(settings.endpoint),
     ]);
   };
 
@@ -341,12 +340,13 @@ export function useSessionMutations({
   });
 
   function openStartedSession(created: Session, controller: AbortController | null) {
-    for (const scope of [workspaceId, 'all']) {
-      queryClient.setQueryData<Session[]>(
-        queryKeys.sessions(settings.endpoint, scope),
-        (current = []) => [...current.filter((item) => item.id !== created.id), created],
-      );
-    }
+    // The new conversation is its own family and the newest row of its workspace's rail.
+    queryClient.setQueryData<Session[]>(queryKeys.sessionFamily(settings.endpoint, created.id), [
+      created,
+    ]);
+    invalidateQueriesInBackground(queryClient, [
+      queryKeys.key('session-pages', settings.endpoint, created.workspace_id),
+    ]);
     // A submitted turn may finish after navigation. Preserve its real session,
     // but never pull the person back from Settings or another conversation.
     if (!controller || controller.signal.aborted) return;
@@ -552,10 +552,7 @@ export function useSessionMutations({
           queryKey: queryKeys.key('pending-questions', settings.endpoint),
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.sessions(settings.endpoint, workspaceId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sessions(settings.endpoint, 'all'),
+          queryKey: queryKeys.allSessionReads(settings.endpoint),
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.transcript(

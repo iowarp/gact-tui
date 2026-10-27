@@ -1,5 +1,6 @@
 import type { MemoryCreationRun } from '@clio/core/v3';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
@@ -191,10 +192,13 @@ export function MemoryCreationLog({
   sessionHref,
   sessionTitle,
   targetLabel,
+  onSessionIds,
 }: {
   sessionHref: (id: string) => string | undefined;
   sessionTitle: (id: string) => string;
   targetLabel: (name: string) => string;
+  /** The sessions the shown runs name, so their titles and links can be resolved. */
+  onSessionIds?: (sessionIds: readonly string[]) => void;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -205,7 +209,10 @@ export function MemoryCreationLog({
     getNextPageParam: (page) => page.next_cursor || undefined,
     refetchInterval: 10_000,
   });
-  const runs = log.data?.pages.flatMap((page) => page.runs) ?? [];
+  const runs = useMemo(() => log.data?.pages.flatMap((page) => page.runs) ?? [], [log.data]);
+  useEffect(() => {
+    onSessionIds?.(runs.flatMap((run) => [run.source_session, run.curator_session]));
+  }, [onSessionIds, runs]);
   const background = log.data?.pages[0]?.background;
   const waiting = Object.entries(background?.skipped ?? {}).filter(([reason]) => REASONS[reason]);
   return (

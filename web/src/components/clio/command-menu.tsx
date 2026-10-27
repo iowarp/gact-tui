@@ -17,7 +17,11 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 import { useRepository } from '@/hooks/use-repository';
-import { isPrimarySession, sessionInteractionAt } from '@/lib/recent-sessions';
+import {
+  isPrimarySession,
+  PRIMARY_SESSION_KINDS,
+  sessionInteractionAt,
+} from '@/lib/recent-sessions';
 import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioRelativeTime } from './relative-time';
@@ -112,11 +116,32 @@ export function ClioCommandMenu({
     queryKey: queryKeys.key('workspaces', settings.endpoint, connectionScope(settings)),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
+  // One page from the server: the newest conversations, or the titles matching the
+  // (debounced) query. The menu never loads every session.
   const sessions = useQuery({
     enabled: open && credentialsReady,
-    queryKey: queryKeys.key('sessions', settings.endpoint, 'all', connectionScope(settings)),
-    queryFn: ({ signal }) => repository.allSessions(signal),
+    queryKey: queryKeys.key(
+      'session-pages',
+      settings.endpoint,
+      'command-menu',
+      connectionScope(settings),
+      serverQuery,
+    ),
+    queryFn: async ({ signal }) =>
+      (
+        await repository.sessionPage(
+          {
+            kinds: PRIMARY_SESSION_KINDS,
+            limit: serverQuery
+              ? COMMAND_MENU_LIMITS.searchedSessions
+              : COMMAND_MENU_LIMITS.recentSessions,
+            search: serverQuery || undefined,
+          },
+          signal,
+        )
+      ).sessions,
   });
+  const entitySessions = useLiveStore((state) => state.entities.sessions);
   const files = useQuery({
     // The `@`-picker excludes ONLY CLIO's own .clio/.clio-* service storage
     // (exclude_service_storage), independent of the Files-view-only "Hide dot
@@ -252,27 +277,42 @@ export function ClioCommandMenu({
         },
       }),
     );
-  const openWorkspace = (id: string) => {
-    const latest = (sessions.data ?? [])
-      .filter((item) => item.workspace_id === id && !item.archived && isPrimarySession(item))
-      .sort((left, right) =>
-        sessionInteractionAt(right).localeCompare(sessionInteractionAt(left)),
-      )[0];
+  // The conversation to open in a workspace: the open one when it is there, else the
+  // workspace's newest (one row from the server).
+  const latestSessionIn = async (id: string) => {
+    const current = entitySessions[sessionId];
+    if (current?.workspace_id === id && !current.archived && isPrimarySession(current)) {
+      return current;
+    }
+    const page = await repository.sessionPage({
+      workspaceId: id,
+      kinds: PRIMARY_SESSION_KINDS,
+      limit: 1,
+    });
+    return page.sessions[0];
+  };
+  const openWorkspace = async (id: string) => {
+    const latest = await latestSessionIn(id).catch(() => undefined);
     openRoute(
       latest
         ? `/workspaces/${encodeURIComponent(id)}/sessions/${encodeURIComponent(latest.id)}`
         : newConversationRoute(id),
     );
   };
-  const openMemoryHit = (hit: MemorySearchHit) => {
-    const session = sessions.data?.find((candidate) => candidate.id === hit.session_id);
+  const openMemoryHit = async (hit: MemorySearchHit) => {
+    const session =
+      sessions.data?.find((candidate) => candidate.id === hit.session_id) ??
+      entitySessions[hit.session_id] ??
+      (hit.workspace_id
+        ? undefined
+        : (await repository.sessionsById([hit.session_id]).catch(() => []))[0]);
     const targetWorkspace = hit.workspace_id || session?.workspace_id;
     if (!targetWorkspace) return;
     openRoute(
       `/workspaces/${encodeURIComponent(targetWorkspace)}/sessions/${encodeURIComponent(hit.session_id)}${messageSearchHash(hit.message_id, hit.part_id ?? undefined, query.trim())}`,
     );
   };
-  const openResource = (request: ClioWorkbenchOpenRequest) => {
+  const openResource = async (request: ClioWorkbenchOpenRequest) => {
     if (onOpenResource) return finish(() => onOpenResource(request));
     const targetWorkspace =
       request.kind === 'artifact'
@@ -280,15 +320,9 @@ export function ClioCommandMenu({
         : request.kind === 'workspace-file'
           ? (request.workspaceId ?? workspaceId)
           : workspaceId;
-    const target = (sessions.data ?? [])
-      .filter(
-        (item) => item.workspace_id === targetWorkspace && !item.archived && isPrimarySession(item),
-      )
-      .sort(
-        (left, right) =>
-          Number(right.id === sessionId) - Number(left.id === sessionId) ||
-          sessionInteractionAt(right).localeCompare(sessionInteractionAt(left)),
-      )[0];
+    const target = targetWorkspace
+      ? await latestSessionIn(targetWorkspace).catch(() => undefined)
+      : undefined;
     const targetRoute =
       request.kind === 'workspace-file' &&
       targetWorkspace &&
@@ -443,7 +477,7 @@ export function ClioCommandMenu({
                       <CommandItem
                         key={item.id}
                         value={`workspace:${item.id}`}
-                        onSelect={() => openWorkspace(item.id)}
+                        onSelect={() => void openWorkspace(item.id)}
                       >
                         <FolderIcon aria-hidden="true" />
                         <span className="min-w-0 flex-1 truncate">
@@ -459,7 +493,7 @@ export function ClioCommandMenu({
                   {memory.data.hits.map((hit) => (
                     <CommandItem
                       key={`${hit.session_id}:${hit.message_id}:${hit.part_id ?? ''}`}
-                      onSelect={() => openMemoryHit(hit)}
+                      onSelect={() => void openMemoryHit(hit)}
                       value={`message:${hit.session_id}:${hit.message_id}:${hit.part_id ?? ''}`}
                       className="items-start py-2"
                     >
@@ -493,7 +527,9 @@ export function ClioCommandMenu({
                   {matchingFiles.map((file) => (
                     <CommandItem
                       key={file.path}
-                      onSelect={() => openResource({ kind: 'workspace-file', path: file.path })}
+                      onSelect={() =>
+                        void openResource({ kind: 'workspace-file', path: file.path })
+                      }
                       value={file.path}
                     >
                       <FileIcon aria-hidden="true" />
@@ -509,7 +545,7 @@ export function ClioCommandMenu({
                   {matchingArtifacts.map((artifact: Artifact) => (
                     <CommandItem
                       key={artifact.id}
-                      onSelect={() => openResource({ kind: 'artifact', artifact })}
+                      onSelect={() => void openResource({ kind: 'artifact', artifact })}
                       value={`artifact:${artifact.id}`}
                     >
                       <BoxIcon aria-hidden="true" />

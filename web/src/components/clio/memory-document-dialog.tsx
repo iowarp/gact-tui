@@ -149,11 +149,14 @@ export function MemoryDocumentDialog({
   sessionHref,
   highlight = '',
   scopeLabel,
+  onSessionIds,
 }: {
   name: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionHref: SessionHref;
+  /** The sessions the shown facts came from, so their links can be resolved. */
+  onSessionIds?: (sessionIds: readonly string[]) => void;
   /** A fact id to scroll to and mark (from a memory notice's "Edit in memory"). */
   highlight?: string;
   scopeLabel?: string;
@@ -164,6 +167,9 @@ export function MemoryDocumentDialog({
     queryFn: ({ signal }) => repository.memoryDocument(name, signal),
     enabled: open,
   });
+  useEffect(() => {
+    if (document.data) onSessionIds?.(document.data.facts.map((fact) => fact.session));
+  }, [document.data, onSessionIds]);
   const live = document.data?.facts.filter((fact) => fact.live) ?? [];
   const superseded = document.data?.facts.filter((fact) => !fact.live) ?? [];
   return (

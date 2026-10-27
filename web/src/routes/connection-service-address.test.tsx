@@ -27,6 +27,7 @@ vi.mock('@/lib/connection', async (importOriginal) => {
 });
 
 import { ConnectionPage } from './connection-page';
+import { sessionReads } from '@/test/session-reads';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -83,3 +84,9 @@ it('retains a later API failure after the service has successfully negotiated', 
   expect(await screen.findByText('Workspace endpoint missing')).toBeVisible();
   expect(screen.queryByText(/No agent service was found/)).not.toBeInTheDocument();
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  mocks.repository,
+  sessionReads(() => mocks.repository.allSessions()),
+);

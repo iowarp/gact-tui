@@ -1,5 +1,5 @@
 import { refreshAfterMemoryRemoval } from '@/lib/memory-cache';
-import { MEMORY_CATEGORIES, type MemoryDocument, type Session } from '@clio/core/v3';
+import { MEMORY_CATEGORIES, type MemoryDocument } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DownloadIcon, UploadIcon, SearchIcon } from 'lucide-react';
 import { MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
+import { useSessionDirectory } from '@/hooks/use-session-directory';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { MemoryDocumentDialog, MemoryHistoryDialog } from './memory-document-dialog';
@@ -238,20 +239,15 @@ export function MemorySettings() {
     queryKey: queryKeys.key('workspaces', settings.endpoint, 'memory'),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
-  const sessions = useQuery({
-    queryKey: queryKeys.key('all-sessions', settings.endpoint, 'memory'),
-    queryFn: ({ signal }) => repository.allSessions(signal),
-  });
+  // Sessions the memory views name, read by id as they are shown (never every session).
+  const sessions = useSessionDirectory();
   const exportAll = useMutation({
     mutationFn: () => repository.exportMemory({ scope: 'all' }),
     onSuccess: (bytes) => saveArchive(bytes, 'all'),
     onError: (error) => toast.error(error.message),
   });
-  const bySession = new Map<string, Session>(
-    (sessions.data ?? []).map((session) => [session.id, session]),
-  );
   const sessionHref = (sessionId: string) => {
-    const session = bySession.get(sessionId);
+    const session = sessions.get(sessionId);
     return session ? `/workspaces/${session.workspace_id}/sessions/${session.id}` : undefined;
   };
   const workspaceNames = new Map(
@@ -417,6 +413,7 @@ export function MemorySettings() {
         </TabsContent>
         <TabsContent value="review">
           <MemoryInbox
+            onSessionIds={sessions.request}
             sessionHref={sessionHref}
             targetLabel={(name) =>
               `${memoryScope(name)}: ${name.split('/').at(-1)?.replaceAll('-', ' ')}`
@@ -437,7 +434,8 @@ export function MemorySettings() {
         <TabsContent value="log">
           <MemoryCreationLog
             sessionHref={sessionHref}
-            sessionTitle={(id) => bySession.get(id)?.title || 'Conversation not loaded'}
+            onSessionIds={sessions.request}
+            sessionTitle={(id) => sessions.get(id)?.title || 'Conversation not loaded'}
             targetLabel={(name) =>
               `${memoryScope(name)}: ${name.split('/').at(-1)?.replaceAll('-', ' ')}`
             }
@@ -455,6 +453,7 @@ export function MemorySettings() {
           name={opened}
           onOpenChange={(next) => (next ? undefined : open(''))}
           open
+          onSessionIds={sessions.request}
           sessionHref={sessionHref}
         />
       ) : null}

@@ -64,6 +64,7 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { ConnectionPage } from './connection-page';
 import { clearConnectionOutcomes } from '@/lib/connection-outcomes';
+import { sessionReads } from '@/test/session-reads';
 
 beforeEach(() => {
   useCommandMenuVisibility.getState().setOpen(false);
@@ -175,3 +176,9 @@ it('shows a saved service that is still starting as starting, with what it is lo
 
   expect((await screen.findAllByText('Starting')).length).toBeGreaterThan(0);
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  mocks.repository,
+  sessionReads(() => mocks.repository.allSessions()),
+);

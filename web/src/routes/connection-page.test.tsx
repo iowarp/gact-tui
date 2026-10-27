@@ -63,6 +63,7 @@ import { ConnectionPage } from './connection-page';
 import { clearConnectionOutcomes, connectionOutcomes } from '@/lib/connection-outcomes';
 import { InfrastructureTargetGoneError } from '@/lib/connection';
 import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { sessionReads } from '@/test/session-reads';
 
 beforeEach(() => {
   useCommandMenuVisibility.getState().setOpen(false);
@@ -788,3 +789,9 @@ it('shows the name the user gave the local service', () => {
   expect(screen.getByText('laptop')).toBeVisible();
   expect(screen.queryByText('This computer')).not.toBeInTheDocument();
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  mocks.repository,
+  sessionReads(() => mocks.repository.allSessions()),
+);

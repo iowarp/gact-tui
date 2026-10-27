@@ -4,11 +4,11 @@ import { useMemo } from 'react';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
 import { mergeRailSessions } from '@/lib/rail-sessions';
+import { PRIMARY_SESSION_KINDS } from '@/lib/recent-sessions';
 import { useRepository } from './use-repository';
 
 /** Conversations per rail page; the server reads each page by range. */
 export const RAIL_PAGE_SIZE = 30;
-const RAIL_KINDS = ['conversation', 'branch'] as const;
 
 export interface RailSessions {
   /** Loaded conversations merged with live rows, newest interaction first. */
@@ -39,7 +39,7 @@ export function useRailSessions(
     queryKey: queryKeys.key('session-pages', settings.endpoint, workspaceId, 'rail'),
     queryFn: ({ pageParam, signal }) =>
       repository.sessionPage(
-        { workspaceId, kinds: RAIL_KINDS, limit: RAIL_PAGE_SIZE, cursor: pageParam },
+        { workspaceId, kinds: PRIMARY_SESSION_KINDS, limit: RAIL_PAGE_SIZE, cursor: pageParam },
         signal,
       ),
     initialPageParam: undefined as string | undefined,

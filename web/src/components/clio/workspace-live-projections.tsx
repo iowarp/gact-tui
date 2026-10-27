@@ -52,7 +52,7 @@ export function WorkspaceLiveConversation({
   ...props
 }: LiveConversationProps) {
   const session = useLiveStore((state) => state.entities.sessions[sessionId]);
-  const messageMarks = useMessageMarks(session, props.workspaceId ?? '');
+  const messageMarks = useMessageMarks(session);
   const forkOrigin = useMemo(() => conversationForkOrigin(session), [session]);
   const infrastructure = useLiveStore((state) => state.entities.infrastructure);
   const activeTurnId = useLiveStore((state) => state.entities.active_turns[sessionId]);

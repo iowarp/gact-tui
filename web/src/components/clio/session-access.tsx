@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRightIcon, ShieldIcon } from 'lucide-react';
+import { recentSessionsWith } from '@/lib/session-pages';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
@@ -27,13 +28,16 @@ export function SessionAccess({sessionId}: {sessionId: string}) {
   const grantKey = ['session-access', settings.endpoint, sessionId] as const;
   const grants = useQuery({queryKey: grantKey, enabled: open,
     queryFn: ({signal}) => repository.coordinationGrants(sessionId, signal)});
-  const sessions = useQuery({queryKey: ['session-access-targets', settings.endpoint], enabled: open,
+  // The newest page of conversations plus every granted target (never every session).
+  const grantedTargets = (grants.data ?? []).map((row) => row.target_session);
+  const sessions = useQuery({queryKey: ['session-access-targets', settings.endpoint, ...grantedTargets],
+    enabled: open && grants.isSuccess,
     queryFn: async ({signal}) => {
-      const workspaces = await repository.workspaces(signal);
-      const groups = await Promise.all(workspaces.map(async (workspace) => ({workspace,
-        sessions: await repository.sessions(workspace.id, signal)})));
-      return groups.flatMap(({workspace, sessions}) => sessions.map((session) => ({
-        id: session.id, title: session.title, workspace: workspace.display_name || workspace.name})));
+      const [workspaces, targets] = await Promise.all([repository.workspaces(signal),
+        recentSessionsWith(repository, {ids: grantedTargets}, signal)]);
+      const names = new Map(workspaces.map((workspace) => [workspace.id, workspace.display_name || workspace.name]));
+      return targets.map((session) => ({
+        id: session.id, title: session.title, workspace: names.get(session.workspace_id) ?? ''}));
     }});
   const grant = useMutation({mutationFn: () => repository.grantSessionAccess(sessionId, target, rights, descendants),
     onSuccess: async () => {setTarget(''); await queryClient.invalidateQueries({queryKey: grantKey});}});

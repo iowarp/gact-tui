@@ -33,6 +33,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { isPrimarySession } from '@/lib/recent-sessions';
+import { recentSessionsWith } from '@/lib/session-pages';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
 import { SettingsSectionHeading } from './settings-section-heading';
@@ -204,8 +205,13 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
   const { settings } = useConnectionSettings();
   const [sessionId, setSessionId] = useState(initialSessionId ?? '');
   const sessions = useQuery({
-    queryKey: queryKeys.key('all-sessions', settings.endpoint, 'context-history'),
-    queryFn: ({ signal }) => repository.allSessions(signal),
+    queryKey: queryKeys.key(
+      'session-pages',
+      settings.endpoint,
+      'context-history',
+      initialSessionId ?? '',
+    ),
+    queryFn: ({ signal }) => recentSessionsWith(repository, { ids: [initialSessionId] }, signal),
   });
   const primarySessions = (sessions.data ?? []).filter(isPrimarySession);
   const selectedSessionId = primarySessions.some((session) => session.id === sessionId)

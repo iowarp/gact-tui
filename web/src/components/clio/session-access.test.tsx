@@ -17,6 +17,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { SessionAccess } from './session-access';
+import { sessionReads } from '@/test/session-reads';
 
 let queryClient: QueryClient;
 
@@ -164,3 +165,9 @@ it('retains the chosen recipient and rights after a rejected grant', async () =>
   expect(screen.getByRole('checkbox', { name: 'Pause, restart and cancel' })).not.toBeChecked();
   expect(screen.queryByRole('list', { name: 'Current session access' })).toBeNull();
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => repository.sessions()),
+);

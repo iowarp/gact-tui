@@ -43,7 +43,7 @@ afterEach(cleanup);
 
 it('sends only the changed ID and publishes the acknowledged session to the live store', async () => {
   mocks.update.mockResolvedValue(updated);
-  const { result, rerender } = renderHook(({ value }) => useMessageMarks(value, 'ws'), {
+  const { result, rerender } = renderHook(({ value }) => useMessageMarks(value), {
     initialProps: { value: session },
     wrapper,
   });
@@ -56,7 +56,7 @@ it('sends only the changed ID and publishes the acknowledged session to the live
 
 it('reports a rejected save and keeps the saved marks unchanged', async () => {
   mocks.update.mockRejectedValue(new Error('Service unavailable'));
-  const { result } = renderHook(() => useMessageMarks(session, 'ws'), { wrapper });
+  const { result } = renderHook(() => useMessageMarks(session), { wrapper });
   await act(async () => {
     await expect(result.current.onMarkMessage('next', true)).rejects.toThrow('Service unavailable');
   });
@@ -75,7 +75,7 @@ it('does not replace a newer cross-client update with an older acknowledgement',
   };
   useLiveStore.getState().replaceSnapshots({ sessions: { session: newest } });
   mocks.update.mockResolvedValue(updated);
-  const { result } = renderHook(() => useMessageMarks(session, 'ws'), { wrapper });
+  const { result } = renderHook(() => useMessageMarks(session), { wrapper });
   await act(() => result.current.onMarkMessage('next', true));
   expect(useLiveStore.getState().entities.sessions['session']).toEqual(newest);
 });

@@ -74,7 +74,7 @@ describe('ClioRepository session contract', () => {
     ]);
     const repository = new ClioRepository(transport);
 
-    const [session] = await repository.sessions('ws_demo');
+    const [session] = await repository.sessionFamily('sess_ndp');
     expect(sessionAgentRef(session)).toBe('clio/earthscope-flat');
     expect(sessionAgentRef({ metadata: {} })).toBe('');
   });

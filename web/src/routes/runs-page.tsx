@@ -9,6 +9,7 @@ import {
 import type { TaskSnapshot, RunState, Session, TranscriptSnapshot, Workspace } from '@clio/core/v3';
 import { operationalRunStateSchema } from '@clio/core/v3';
 import {
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQueries,
@@ -75,6 +76,8 @@ import { matchesRunState } from '@/lib/session-agent-tasks';
 
 type RunSource = 'agent_task' | 'mcp_task' | 'unknown' | 'flow';
 const FLOW_SCAN_BATCH = 4;
+/** Conversations read per page for the flow index (a few scan batches). */
+const FLOW_SESSION_PAGE = 20;
 
 export interface RunRow {
   progress?: Record<string, unknown>;
@@ -290,9 +293,18 @@ export function RunsPage() {
     queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
-  const sessions = useQuery({
-    queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
-    queryFn: ({ signal }) => repository.allSessions(signal),
+  // Flows are indexed from conversations a page at a time, newest first (never
+  // every session); the open conversation, when there is one, is read first.
+  const currentFlowSession = sessionIdFromRoute(
+    returnRouteFromState(location.state, settings.endpoint),
+  );
+  const flowSessionPages = useInfiniteQuery({
+    queryKey: queryKeys.key('session-pages', settings.endpoint, 'runs-flows'),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ signal, pageParam }) =>
+      repository.sessionPage({ limit: FLOW_SESSION_PAGE, cursor: pageParam }, signal),
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
+    enabled: category === 'flows',
   });
   const runs = useInfiniteQuery({
     queryKey: queryKeys.key(
@@ -317,15 +329,57 @@ export function RunsPage() {
     ],
     [runs.data],
   );
+  // The sessions the shown rows name (task owners, the open conversation), by id.
+  const namedSessionIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          [currentFlowSession, ...tasks.map((task) => task.owner.session_id)].filter(
+            (id): id is string => Boolean(id),
+          ),
+        ),
+      ].toSorted(),
+    [currentFlowSession, tasks],
+  );
+  const namedSessions = useQuery({
+    queryKey: queryKeys.key('session-directory', settings.endpoint, ...namedSessionIds),
+    queryFn: ({ signal }) => repository.sessionsById(namedSessionIds, signal),
+    enabled: namedSessionIds.length > 0,
+    placeholderData: keepPreviousData,
+  });
+  const pagedFlowSessions = useMemo(
+    () => flowSessionPages.data?.pages.flatMap((page) => page.sessions) ?? [],
+    [flowSessionPages.data],
+  );
+  const flowSessionTotal = flowSessionPages.data?.pages[0]?.total ?? pagedFlowSessions.length;
   const orderedFlowSessions = useMemo(() => {
-    const current = sessionIdFromRoute(returnRouteFromState(location.state, settings.endpoint));
-    const values = sessions.data ?? [];
+    const current = namedSessions.data?.find((session) => session.id === currentFlowSession);
     return current
-      ? [...values].sort(
-          (left, right) => Number(right.id === current) - Number(left.id === current),
-        )
-      : values;
-  }, [location.state, sessions.data, settings.endpoint]);
+      ? [current, ...pagedFlowSessions.filter((session) => session.id !== current.id)]
+      : pagedFlowSessions;
+  }, [currentFlowSession, namedSessions.data, pagedFlowSessions]);
+  const sessions = useMemo(() => {
+    const byId = new Map<string, Session>();
+    for (const session of [...orderedFlowSessions, ...(namedSessions.data ?? [])]) {
+      byId.set(session.id, session);
+    }
+    return {
+      data: [...byId.values()],
+      error: namedSessions.error ?? flowSessionPages.error,
+      isPending:
+        (namedSessionIds.length > 0 && namedSessions.isPending) ||
+        (category === 'flows' && flowSessionPages.isPending),
+    };
+  }, [
+    category,
+    flowSessionPages.error,
+    flowSessionPages.isPending,
+    namedSessionIds.length,
+    namedSessions.data,
+    namedSessions.error,
+    namedSessions.isPending,
+    orderedFlowSessions,
+  ]);
   const flowTranscripts = useQueries({
     queries: orderedFlowSessions.map((session, index) => ({
       enabled: category === 'flows' && index < flowScanLimit,
@@ -544,7 +598,7 @@ export function RunsPage() {
   const flowsIndexed = flowTranscripts.filter(
     (query) => query.data !== undefined || query.isError,
   ).length;
-  const flowsRemaining = Math.max(0, orderedFlowSessions.length - flowsIndexed);
+  const flowsRemaining = Math.max(0, flowSessionTotal - flowsIndexed);
   const flowsIndexing = flowTranscripts.slice(0, flowScanLimit).some((query) => query.isFetching);
   const flowFailures = flowTranscripts.filter((query) => query.isError).length;
 
@@ -642,20 +696,25 @@ export function RunsPage() {
                 Each row is a flow an agent started in a conversation, with its task&apos;s current
                 state. Open one to see its steps and any stall in the workspace canvas.
                 {flowsRemaining > 0
-                  ? ` ${flowsIndexed} of ${orderedFlowSessions.length} sessions indexed.`
+                  ? ` ${flowsIndexed} of ${flowSessionTotal} sessions indexed.`
                   : ''}
                 {flowFailures > 0
                   ? ` ${flowFailures} session${flowFailures === 1 ? '' : 's'} could not be indexed.`
                   : ''}
               </span>
-              {flowScanLimit < orderedFlowSessions.length ? (
+              {flowScanLimit < orderedFlowSessions.length || flowSessionPages.hasNextPage ? (
                 <Button
-                  disabled={flowsIndexing}
-                  onClick={() =>
-                    setFlowScanLimit((current) =>
-                      Math.min(current + FLOW_SCAN_BATCH, orderedFlowSessions.length),
-                    )
-                  }
+                  disabled={flowsIndexing || flowSessionPages.isFetchingNextPage}
+                  onClick={() => {
+                    // Read the next page of conversations when the indexed ones run out.
+                    if (
+                      flowScanLimit + FLOW_SCAN_BATCH > orderedFlowSessions.length &&
+                      flowSessionPages.hasNextPage
+                    ) {
+                      void flowSessionPages.fetchNextPage();
+                    }
+                    setFlowScanLimit((current) => current + FLOW_SCAN_BATCH);
+                  }}
                   size="sm"
                   variant="outline"
                 >

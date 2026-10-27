@@ -82,6 +82,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { MemorySettings } from './settings-memory';
+import { sessionReads } from '@/test/session-reads';
 
 function renderPage(children: ReactNode, path = '/settings/memory') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -306,3 +307,9 @@ describe('memory page', () => {
     expect(screen.queryByText('Search in session')).not.toBeInTheDocument();
   });
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => repository.allSessions()),
+);

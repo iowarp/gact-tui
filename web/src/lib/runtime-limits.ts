@@ -34,6 +34,13 @@ export const ACTIVE_SESSION_POLL_MS = 1_500;
 export const TRANSCRIPT_PAGE_SIZE = 40;
 
 /**
+ * Refetch cadence for the sessions waiting on a person (the attention badges of
+ * conversations that are not open). The live stream and every pending-interaction
+ * event refresh it sooner. Unit: milliseconds.
+ */
+export const WAITING_SESSIONS_POLL_MS = 10_000;
+
+/**
  * Refetch cadence for infrastructure inventories (relays, MCP servers, hosts).
  * Unit: milliseconds. These change on human timescales, so the cadence exists to
  * notice an operator's out-of-band change, not to track live progress.

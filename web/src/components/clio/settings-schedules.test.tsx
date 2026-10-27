@@ -61,6 +61,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { ScheduleSettings } from './settings-schedules';
+import { sessionReads } from '@/test/session-reads';
 
 afterEach(() => {
   cleanup();
@@ -159,3 +160,9 @@ describe('scheduled work settings', () => {
     await waitFor(() => expect(repository.deleteScheduledTurn).toHaveBeenCalledWith('schedule_1'));
   });
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => repository.allSessions()),
+);

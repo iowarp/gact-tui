@@ -59,6 +59,7 @@ vi.mock('@/tauri/desktop-lifecycle', () => ({
 }));
 
 import { queryInvalidationKeysForEvent, useSessionLiveStream } from './use-session-live-stream';
+import { sessionReads } from '@/test/session-reads';
 
 describe('useSessionLiveStream resume recovery', () => {
   beforeEach(() => {
@@ -583,3 +584,9 @@ describe('useSessionLiveStream resume recovery', () => {
     unmount();
   });
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  mocks.repository,
+  sessionReads(() => mocks.repository.sessions()),
+);

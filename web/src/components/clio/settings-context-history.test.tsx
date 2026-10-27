@@ -93,6 +93,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { ContextHistorySettings } from './settings-context-history';
+import { sessionReads } from '@/test/session-reads';
 
 afterEach(() => {
   cleanup();
@@ -125,3 +126,9 @@ describe('retained context history', () => {
     ).toHaveAttribute('href', '/workspaces/ws_science/sessions/sess_memory#message-msg_summary');
   });
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => repository.allSessions()),
+);

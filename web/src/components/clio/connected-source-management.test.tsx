@@ -21,6 +21,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 import { connectionScope } from '@/lib/connection-scope';
 import { ConnectedSourcePicker } from './connected-source-picker';
+import { sessionReads } from '@/test/session-reads';
 
 afterEach(cleanup);
 
@@ -180,3 +181,9 @@ it('opens a summary-selected source directly without changing the composer selec
   expect(repository.beginSourceDraft).not.toHaveBeenCalled();
   client.clear();
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => repository.sessions()),
+);

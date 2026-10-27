@@ -60,6 +60,7 @@ import {
   type ConnectionSettings,
 } from '@/lib/connection';
 import {
+  connectionCandidateSessions,
   connectionSessionRoute,
   connectionWorkspaceForRoute,
   connectionSessionTargetForRoute,
@@ -306,11 +307,11 @@ export function ConnectionPage() {
           `This workspace requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}; the service offers ${capabilities.gact_versions.join(', ') || `no ${PROTOCOL.gact} versions`}.`,
         );
       }
+      const rememberedRoute = lastWorkspaceRoute(next.endpoint);
       const [workspaces, sessions] = await Promise.all([
         repository.workspaces(),
-        repository.allSessions(),
+        connectionCandidateSessions(repository, rememberedRoute),
       ]);
-      const rememberedRoute = lastWorkspaceRoute(next.endpoint);
       const target = connectionSessionTargetForRoute(rememberedRoute, workspaces, sessions);
       const recent = latestConnectionSessionTarget(workspaces, sessions);
       const workspace =
@@ -320,13 +321,6 @@ export function ConnectionPage() {
       await connect(next);
       queryClient.setQueryData(queryKeys.key('capabilities', next.endpoint), capabilities);
       queryClient.setQueryData(queryKeys.key('workspaces', next.endpoint), workspaces);
-      queryClient.setQueryData(queryKeys.sessions(next.endpoint, 'all'), sessions);
-      if (workspace) {
-        queryClient.setQueryData(
-          queryKeys.sessions(next.endpoint, workspace.id),
-          sessions.filter((session) => session.workspace_id === workspace.id),
-        );
-      }
       // Opening a service must never persist an unused conversation. Defer the
       // route transition while search is open, including an in-flight startup.
       const route = target
