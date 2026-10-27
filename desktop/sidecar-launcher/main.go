@@ -164,12 +164,7 @@ func runChild(rt *resolvedRuntime, args cliArgs) int {
 			fmt.Fprintln(os.Stdout, "sidecar-progress: launcher is waiting for backend readiness")
 		case <-desktopParentExited:
 			fmt.Fprintln(os.Stdout, "sidecar-progress: desktop exited; starting crash cleanup")
-			// The backend is still alive until this launcher exits and closes its
-			// KILL_ON_JOB_CLOSE Job Object. Start a breakaway helper first; it waits
-			// for that backend client to disappear, then prunes its registry lease
-			// and stops the shared runtime if no independent CLIO client remains.
-			startCrashCleanupAfterExit(rt)
-			return exitExecFailed
+			return stopAfterDesktopExit(cmd, waitDone, rt)
 		case err := <-waitDone:
 			// The Windows console-script shim can translate a force-killed
 			// interpreter into a zero exit status. Cleanup is registry-gated and
