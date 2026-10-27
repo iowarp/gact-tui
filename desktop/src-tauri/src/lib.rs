@@ -22,6 +22,8 @@ mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
+#[cfg(not(windows))]
+mod install_prepare;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod installer_dir_swap;
 mod installer_options;
@@ -149,12 +151,20 @@ fn claim_quit() -> bool {
     !QUIT_STARTED.swap(true, Ordering::SeqCst)
 }
 
+/// The app's configuration and assets, generated once at build time.
+pub(crate) fn app_context() -> tauri::Context {
+    tauri::generate_context!()
+}
+
+#[cfg(not(windows))]
+pub use install_prepare::prepare_runtime_command;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let supervisor = Supervisor::new();
     let state = Mutex::new(supervisor);
 
-    let mut context = tauri::generate_context!();
+    let mut context = app_context();
     let startup_windows = downloads::defer_configured_windows(context.config_mut());
 
     let app = tauri::Builder::default()

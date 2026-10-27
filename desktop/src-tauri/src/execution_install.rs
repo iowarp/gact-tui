@@ -113,7 +113,7 @@ fn startup_command(runtime: &Path, workspace: &Path, user: &Path) -> Result<Comm
     Ok(command)
 }
 
-#[cfg(windows)]
+/// The installer's explicit package setup (no reuse of earlier checks).
 pub(crate) fn prepare_packages_for_install(
     runtime: &Path,
     workspace: &Path,
@@ -125,13 +125,15 @@ pub(crate) fn prepare_packages_for_install(
     )
 }
 
-#[cfg(windows)]
 fn explicit_install_command(
     runtime: &Path,
     workspace: &Path,
     user: &Path,
 ) -> Result<Command, String> {
+    #[allow(unused_mut)]
     let mut command = install_command(runtime, workspace, user)?;
+    // The one-time sandbox setup with administrator approval exists only on Windows.
+    #[cfg(windows)]
     command.arg("--setup-protected-execution");
     Ok(command)
 }

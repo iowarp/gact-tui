@@ -20,7 +20,6 @@ fn main() {
             return;
         }
     }
-    #[cfg(windows)]
     if std::env::args_os().any(|arg| arg == "--prepare-runtime") {
         if let Err(report) = clio_desktop_lib::prepare_runtime_command() {
             eprintln!("{report}");
