@@ -92,6 +92,10 @@ pub fn classify_command(program: &str, args: &[String]) -> &'static str {
     for (tag, kind) in [
         ("# clio-deploy:claim", "claim"),
         ("# clio-deploy:install", "install"),
+        // The start script includes the root resolution, which runs `uname -s`:
+        // read its tag before the probe heuristic, or it reads as a platform check
+        // and the stage list says the server start was not needed.
+        ("# clio-deploy:start", "start"),
         ("# clio-deploy:teardown", "teardown"),
     ] {
         if script.contains(tag) {
@@ -274,6 +278,14 @@ mod tests {
         assert_eq!(
             classify_command("bash", &args("root=\"$1\"; \"$bin/clio\" status")),
             "other"
+        );
+        // The real start script: tagged, and it resolves the root with `uname -s`.
+        assert_eq!(
+            classify_command(
+                "bash",
+                &args("# clio-deploy:start\ncase \"$(uname -s)\" in Darwin) ;; esac\n\"$bin/clio\" start || fail x")
+            ),
+            "start"
         );
         assert_eq!(classify_command("docker", &["ps".to_string()]), "other");
         assert_eq!(
