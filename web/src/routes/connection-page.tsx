@@ -28,6 +28,7 @@ import { availabilityAfterAttempt, useConnectionWaiting } from '@/lib/connection
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
+import { SavedHostsCheck } from '@/components/clio/saved-hosts-check';
 import { queryKeys } from '@/lib/query-keys';
 import { reportConnectionOutcome } from '@/lib/connection-outcomes';
 import { connectionCapabilities } from '@/lib/connection-capabilities';
@@ -599,6 +600,7 @@ export function ConnectionPage() {
                       );
                     })}
                   </div>
+                  <SavedHostsCheck />
                   <Button
                     className="justify-start"
                     onClick={() => {

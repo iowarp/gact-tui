@@ -15,6 +15,10 @@ import {
   type SshTransportStatus,
 } from '@/tauri/ssh-infrastructure-transport';
 import {
+  infrastructureRecovery,
+  waitForInfrastructureRecovery,
+} from '@/tauri/ssh-recovery-progress';
+import {
   deployProgressReducer,
   initialDeployProgress,
   oneLineReason,
@@ -163,8 +167,13 @@ export function useRemoteDeployment(
       setTransport(undefined);
       setDetails(undefined);
       setPhase('running');
-      dispatch({ type: 'start', at: Date.now() });
+      dispatch({ type: 'start', at: Date.now(), recovery: infrastructureRecovery() });
       try {
+        // A deployment shares hosts with the saved ones the desktop is still checking.
+        await waitForInfrastructureRecovery(
+          (check) => dispatch({ type: 'recover', ...check, at: Date.now() }),
+          controller.signal,
+        );
         await listen();
         // Infrastructure always belongs to this Desktop's local controller,
         // even while the active conversation is connected to a remote agent.

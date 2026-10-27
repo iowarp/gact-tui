@@ -47,6 +47,7 @@ describe('deploy progress', () => {
       ),
     ).toMatchObject({ state: 'done', startedAt: 66_000, endedAt: 67_000 });
     expect(states(progress)).toEqual({
+      recover: 'skipped',
       connect: 'done',
       authenticate: 'skipped',
       detect: 'done',
@@ -57,6 +58,7 @@ describe('deploy progress', () => {
       open: 'running',
       cleanup: 'pending',
     });
+    expect(progress.stages.find((stage) => stage.id === 'recover')?.hidden).toBe(true);
     expect(progress.stages.find((stage) => stage.id === 'claim')?.hidden).toBe(true);
     expect(progress.stages.find((stage) => stage.id === 'cleanup')?.hidden).toBe(true);
     expect(progress.stages.find((stage) => stage.id === 'authenticate')?.hidden).toBe(true);
@@ -191,6 +193,37 @@ describe('deploy progress', () => {
     });
     const tunnel = progress.stages.find((stage) => stage.id === 'tunnel');
     expect((tunnel?.endedAt ?? 0) - (tunnel?.startedAt ?? 0)).toBe(15_000);
+  });
+
+  it('waits for the check of saved installs, counting it, before connecting', () => {
+    const progress = run([
+      { type: 'start', at: 0, recovery: { done: 0, total: 3 } },
+      { type: 'recover', done: 1, total: 3, at: 400 },
+      { type: 'recover', done: 2, total: 3, at: 900 },
+    ]);
+    const recovering = progress.stages.find((stage) => stage.id === 'recover');
+    expect(recovering).toMatchObject({ state: 'running', detail: '2/3', hidden: false });
+    expect(recovering?.label).toMatch(/^Checking saved .+ installs$/u);
+    expect(states(progress).connect).toBe('pending');
+
+    const connecting = deployProgressReducer(progress, {
+      type: 'recover',
+      done: 3,
+      total: 3,
+      at: 1_200,
+    });
+    expect(connecting.stages.find((stage) => stage.id === 'recover')).toMatchObject({
+      state: 'done',
+      detail: '3/3',
+      endedAt: 1_200,
+    });
+    expect(states(connecting).connect).toBe('running');
+  });
+
+  it('lists no check of saved installs when none is running', () => {
+    const progress = run([{ type: 'start', at: 0 }]);
+    expect(progress.stages.find((stage) => stage.id === 'recover')?.hidden).toBe(true);
+    expect(states(progress).connect).toBe('running');
   });
 
   it('formats reasons and elapsed times for people', () => {
