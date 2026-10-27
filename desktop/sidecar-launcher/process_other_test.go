@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,5 +49,46 @@ func TestProcessAliveSeesAnExitedProcess(t *testing.T) {
 	}
 	if !processAlive(os.Getpid()) {
 		t.Fatal("this process reported not alive")
+	}
+}
+
+// The real failure: the desktop is killed, its ends of the launcher's stdout and
+// stderr pipes close, and the launcher's next progress line must not end it with
+// SIGPIPE before it stops the backend.
+func TestALauncherSurvivesWritingToADeadDesktopsPipe(t *testing.T) {
+	if os.Getenv("LAUNCHER_BROKEN_STDOUT_HELPER") == "1" {
+		ignoreBrokenPipe()
+		time.Sleep(200 * time.Millisecond) // the parent closes its read end meanwhile
+		for i := 0; i < 20; i++ {
+			fmt.Fprintln(os.Stdout, "sidecar-progress: desktop exited; starting crash cleanup")
+		}
+		os.Exit(0)
+	}
+	read, write, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestALauncherSurvivesWritingToADeadDesktopsPipe$")
+	cmd.Env = append(os.Environ(), "LAUNCHER_BROKEN_STDOUT_HELPER=1")
+	cmd.Stdout = write
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	write.Close()
+	read.Close() // the desktop is gone
+	if err := cmd.Wait(); err != nil {
+		t.Fatalf("the launcher died writing to the dead desktop's pipe: %v", err)
+	}
+}
+
+func TestCleanupHelpersDoNotWriteToADeadDesktop(t *testing.T) {
+	running := make(chan struct{})
+	if out, _ := cleanupOutput(running); out != os.Stdout {
+		t.Fatal("while the desktop runs, cleanup output goes to the desktop")
+	}
+	gone := make(chan struct{})
+	close(gone)
+	if out, errOut := cleanupOutput(gone); out != nil || errOut != nil {
+		t.Fatal("after the desktop is gone, a cleanup helper must not inherit its closed pipes")
 	}
 }

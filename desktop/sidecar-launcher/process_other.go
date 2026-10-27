@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
@@ -36,6 +37,7 @@ func monitorDesktopParent() error {
 	if err != nil || pid <= 1 {
 		return fmt.Errorf("invalid %s value %q", envDesktopParentPID, rawPID)
 	}
+	ignoreBrokenPipe()
 	go func() {
 		for {
 			time.Sleep(desktopParentPoll)
@@ -46,6 +48,15 @@ func monitorDesktopParent() error {
 		}
 	}()
 	return nil
+}
+
+// ignoreBrokenPipe keeps the launcher alive when the desktop is gone. The
+// launcher's stdout and stderr are pipes the desktop reads; once the desktop dies,
+// Go ends a program that writes to a closed stdout or stderr pipe with SIGPIPE,
+// which killed the launcher on its first progress line, before it stopped the
+// backend. Ignored, such a write fails with EPIPE and the launcher carries on.
+func ignoreBrokenPipe() {
+	signal.Ignore(syscall.SIGPIPE)
 }
 
 func processAlive(pid int) bool {

@@ -38,6 +38,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -186,13 +187,25 @@ func runChild(rt *resolvedRuntime, args cliArgs) int {
 	}
 }
 
+// cleanupOutput is where a cleanup helper writes: the desktop's pipes while the
+// desktop runs, nowhere once it is gone. A helper writing to the dead desktop's
+// pipe fails its own output (Python raises BrokenPipeError) and can end before it
+// has cleaned up.
+func cleanupOutput(desktopGone <-chan struct{}) (io.Writer, io.Writer) {
+	select {
+	case <-desktopGone:
+		return nil, nil
+	default:
+		return os.Stdout, os.Stderr
+	}
+}
+
 func cleanupRuntimeAfterCrash(rt *resolvedRuntime) {
 	ctx, cancel := context.WithTimeout(context.Background(), crashCleanupTimeout)
 	defer cancel()
 	argv := crashCleanupArgv(rt)
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout, cmd.Stderr = cleanupOutput(desktopParentExited)
 	cmd.Env = append(os.Environ(), "CLIO_DESKTOP_BOOT_HEARTBEAT=0", "PYTHONUNBUFFERED=1")
 	for k, v := range rt.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
@@ -208,8 +221,7 @@ func cleanupRuntimeAfterCrash(rt *resolvedRuntime) {
 func startCrashCleanupAfterExit(rt *resolvedRuntime) {
 	argv := crashCleanupArgv(rt)
 	cmd := exec.Command(argv[0], argv[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout, cmd.Stderr = cleanupOutput(desktopParentExited)
 	cmd.Env = append(os.Environ(), "CLIO_DESKTOP_BOOT_HEARTBEAT=0", "PYTHONUNBUFFERED=1")
 	for k, v := range rt.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
