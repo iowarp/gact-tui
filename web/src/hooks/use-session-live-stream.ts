@@ -3,7 +3,7 @@ import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react
 import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
-import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
+import { STREAM_RECONNECT_BASE_MS, TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
@@ -93,12 +93,12 @@ export function useSessionLiveStream({
       const [workspaces, sessions, transcript] = await Promise.all([
         repository.workspaces(controller.signal),
         repository.sessions(workspaceId, controller.signal),
-        repository.transcript(sessionId, controller.signal),
+        repository.transcript(sessionId, controller.signal, { limit: TRANSCRIPT_PAGE_SIZE }),
       ]);
       if (controller.signal.aborted) return;
       queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
       queryClient.setQueryData(queryKeys.sessions(settings.endpoint, workspaceId), sessions);
-      queryClient.setQueryData(queryKeys.transcript(settings.endpoint, sessionId), transcript);
+      queryClient.setQueryData(queryKeys.transcriptPage(settings.endpoint, sessionId), transcript);
       reconcileSnapshots({
         workspaces: recordById(workspaces),
         sessions: recordById(sessions),
@@ -220,12 +220,15 @@ export function useSessionLiveStream({
         const [workspaces, sessions, transcript] = await Promise.all([
           repository.workspaces(controller.signal),
           repository.sessions(workspaceId, controller.signal),
-          repository.transcript(sessionId, controller.signal),
+          repository.transcript(sessionId, controller.signal, { limit: TRANSCRIPT_PAGE_SIZE }),
         ]);
         if (controller.signal.aborted) return;
         queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
         queryClient.setQueryData(queryKeys.sessions(settings.endpoint, workspaceId), sessions);
-        queryClient.setQueryData(queryKeys.transcript(settings.endpoint, sessionId), transcript);
+        queryClient.setQueryData(
+          queryKeys.transcriptPage(settings.endpoint, sessionId),
+          transcript,
+        );
         reconcileSnapshots({
           workspaces: recordById(workspaces),
           sessions: recordById(sessions),

@@ -62,6 +62,30 @@ describe('ClioRepository interaction contracts', () => {
     });
   });
 
+  it('reads bounded transcript pages and session list pages', async () => {
+    const transport = new RecordingTransport([
+      { cursor: '7', next_cursor: 'msg_10', messages: [] },
+      { sessions: [], next_cursor: 'c2', total: 31 },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(
+      repository.transcript('sess_1', undefined, { limit: 40, before: 'msg_50' }),
+    ).resolves.toMatchObject({ next_cursor: 'msg_10' });
+    await expect(
+      repository.sessionPage({
+        workspaceId: 'ws_1',
+        kinds: ['conversation', 'branch'],
+        limit: 30,
+        cursor: 'c1',
+      }),
+    ).resolves.toEqual({ sessions: [], next_cursor: 'c2', total: 31 });
+    expect(transport.requests.map((request) => request.path)).toEqual([
+      '/v1/sessions/sess_1/messages?limit=40&before=msg_50',
+      '/v1/sessions?workspace_id=ws_1&limit=30&kinds=conversation%2Cbranch&cursor=c1',
+    ]);
+  });
+
   it('contains an unreadable block inside its message instead of failing the transcript', async () => {
     const transport = new RecordingTransport([
       {

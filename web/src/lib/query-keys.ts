@@ -76,6 +76,7 @@ export type ClioQueryNamespace =
   | 'session-diffs'
   | 'session-observability'
   | 'session-toolset'
+  | 'session-pages'
   | 'sessions'
   | 'spotter-availability'
   | 'pending-steers'
@@ -154,6 +155,9 @@ export const queryKeys = {
       | 'processes',
   ) => [...queryKeys.sessionObservability(endpoint, sessionId), detail] as const,
   sessions: (endpoint: string, scope: string) => ['sessions', endpoint, scope] as const,
+  /** The conversation view's newest page; older pages merge into the live store. */
+  transcriptPage: (endpoint: string, sessionId: string) =>
+    ['transcript', endpoint, sessionId, 'latest-page'] as const,
   transcript: (endpoint: string, sessionId: string, view?: string) =>
     view
       ? (['transcript', endpoint, sessionId, view] as const)

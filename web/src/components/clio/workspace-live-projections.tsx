@@ -5,6 +5,7 @@ import { useLiveStore } from '@/store/live-store';
 import { useTaskCancellation } from '@/hooks/use-task-cancellation';
 import { useSubagentControl } from '@/hooks/use-subagent-control';
 import { useMessageMarks } from '@/hooks/use-message-marks';
+import { useEarlierMessages } from '@/hooks/use-earlier-messages';
 import { conversationForkOrigin } from './conversation-fork-origin';
 import { ClioConversation, type ClioConversationProps } from './conversation';
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
@@ -37,6 +38,8 @@ type LiveConversationProps = Omit<
   sessionId: string;
   subagents: readonly SubagentRun[];
   sessionState?: RunState;
+  /** The newest page left older messages unread (the transcript is paged). */
+  hasEarlierMessages?: boolean;
 };
 
 /** Isolates high-rate message updates from the surrounding workspace chrome. */
@@ -45,6 +48,7 @@ export function WorkspaceLiveConversation({
   sessionId,
   subagents: subagentList,
   sessionState,
+  hasEarlierMessages = false,
   ...props
 }: LiveConversationProps) {
   const session = useLiveStore((state) => state.entities.sessions[sessionId]);
@@ -107,6 +111,7 @@ export function WorkspaceLiveConversation({
     }),
     [subagentEntities, subagentList],
   );
+  const earlier = useEarlierMessages(sessionId, hasEarlierMessages, messages[0]?.id);
   const entities = useMemo(
     () => ({ actionLifecycles, artifacts, compactions, subagents, surfaces, tasks, tools }),
     [actionLifecycles, artifacts, compactions, subagents, surfaces, tasks, tools],
@@ -117,6 +122,7 @@ export function WorkspaceLiveConversation({
       {...props}
       {...messageMarks}
       sessionId={sessionId}
+      earlier={earlier}
       forkOrigin={forkOrigin}
       messages={messages}
       preparation={{ activeTurnId, activeTurnResponded, dependencies, sessionState }}

@@ -32,6 +32,9 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         queryClient.invalidateQueries({
           queryKey: queryKeys.key('sessions', settings.endpoint, targetWorkspaceId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('session-pages', settings.endpoint),
+        }),
       ]);
     },
     [queryClient, settings.endpoint, workspaceId],

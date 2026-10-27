@@ -27,6 +27,13 @@
 export const ACTIVE_SESSION_POLL_MS = 1_500;
 
 /**
+ * Messages per transcript page. Opening a conversation reads this many of its
+ * newest messages; scrolling to the top reads the same number of older ones.
+ * Larger pages mean fewer requests while scrolling back and a slower first paint.
+ */
+export const TRANSCRIPT_PAGE_SIZE = 40;
+
+/**
  * Refetch cadence for infrastructure inventories (relays, MCP servers, hosts).
  * Unit: milliseconds. These change on human timescales, so the cadence exists to
  * notice an operator's out-of-band change, not to track live progress.

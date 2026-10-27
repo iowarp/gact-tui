@@ -5,11 +5,12 @@ import {
   ClipboardIcon,
   FolderGit2Icon,
   FolderOpenIcon,
+  LoaderCircleIcon,
   PinIcon,
   PinOffIcon,
 } from 'lucide-react';
 import { AddIcon, DeleteIcon, EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import {
@@ -40,6 +41,7 @@ import { ClioInteractiveRow } from './interactive-row';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { nestAgentForks } from './conversation-fork-origin';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
+import { useRailSessions } from '@/hooks/use-rail-sessions';
 
 interface WorkspaceNavigationProps {
   workspaces: readonly Workspace[];
@@ -262,11 +264,17 @@ function WorkspaceTreeItem({
   onVisitSession,
   attentions,
 }: WorkspaceTreeItemProps) {
+  // The rail reads its conversations a page at a time; live rows win over a page's copy.
+  const rail = useRailSessions(workspace.id, sessions, expanded);
+  const railSessions = rail.sessions.filter(
+    (session) => !session.archived && isPrimarySession(session),
+  );
+  const sessionTotal = Math.max(rail.total ?? 0, railSessions.length);
   const visibleSessions = visibleWorkspaceSessions(
-    sessions,
+    railSessions,
     workspace.id,
     '',
-    sessionLimitExpanded ? sessions.length : undefined,
+    sessionLimitExpanded ? railSessions.length : undefined,
   ).sort((left, right) => Number(right.pinned) - Number(left.pinned));
 
   return (
@@ -339,7 +347,10 @@ function WorkspaceTreeItem({
           {visibleSessions.length === 0 ? (
             <p className="px-2 py-1.5 text-xs text-muted-foreground">No sessions</p>
           ) : null}
-          {sessions.length > 8 ? (
+          {sessionLimitExpanded && (rail.hasMore || rail.loadingMore) ? (
+            <RailLoadMore loading={rail.loadingMore} onLoadMore={rail.loadMore} />
+          ) : null}
+          {sessionTotal > 8 ? (
             <Button
               className="h-7 w-full justify-between px-2 text-xs"
               onClick={() => setSessionLimitExpanded(!sessionLimitExpanded)}
@@ -347,9 +358,7 @@ function WorkspaceTreeItem({
               type="button"
               variant="ghost"
             >
-              {sessionLimitExpanded
-                ? 'Show recent sessions'
-                : `Show all ${sessions.length} sessions`}
+              {sessionLimitExpanded ? 'Show recent sessions' : `Show all ${sessionTotal} sessions`}
               {sessionLimitExpanded ? (
                 <ChevronUpIcon aria-hidden="true" />
               ) : (
@@ -360,6 +369,39 @@ function WorkspaceTreeItem({
         </div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/** Loads the next rail page when it scrolls into view, or on click. */
+function RailLoadMore({ loading, onLoadMore }: { loading: boolean; onLoadMore: () => void }) {
+  const sentinel = useRef<HTMLButtonElement>(null);
+  const load = useRef(onLoadMore);
+  useEffect(() => {
+    load.current = onLoadMore;
+  });
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) load.current();
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <Button
+      aria-busy={loading || undefined}
+      className="h-7 w-full justify-start gap-1.5 px-2 text-xs text-muted-foreground"
+      disabled={loading}
+      onClick={onLoadMore}
+      ref={sentinel}
+      size="sm"
+      type="button"
+      variant="ghost"
+    >
+      {loading ? <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" /> : null}
+      {loading ? 'Loading more sessions…' : 'Load more sessions'}
+    </Button>
   );
 }
 

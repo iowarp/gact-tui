@@ -15,6 +15,7 @@ import {
   ACTIVE_SESSION_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_CAP,
   PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
+  TRANSCRIPT_PAGE_SIZE,
 } from '@/lib/runtime-limits';
 import { sessionArtifactEntities, sessionArtifactVersionEntities } from '@/lib/session-artifacts';
 import {
@@ -157,8 +158,10 @@ export function useWorkspaceData({
   );
   const attendedSessionId = attendedSessionRoot.id;
   const transcript = useQuery({
-    queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
-    queryFn: ({ signal }) => repository.transcript(sessionId, signal),
+    queryKey: queryKeys.transcriptPage(settings.endpoint, sessionId),
+    // The newest page only: older messages load on scroll (useEarlierMessages).
+    queryFn: ({ signal }) =>
+      repository.transcript(sessionId, signal, { limit: TRANSCRIPT_PAGE_SIZE }),
     enabled: Boolean(sessionId),
     placeholderData: reloadTranscript,
     // A provider can finish without emitting visible stream chunks. Keep the
@@ -186,8 +189,12 @@ export function useWorkspaceData({
     // A terminal session snapshot can arrive even if its final stream frame did not.
     // Reconcile the transcript before active-session polling stops.
     const completionKey = `${sessionId}:${current.updated_at}:${current.message_count ?? 0}`;
+    // A bounded page holds fewer messages than the session by design; only a
+    // complete transcript (no older page) can be missing messages.
     const missingMessages =
-      !active && (current.message_count ?? 0) > (transcript.data?.messages.length ?? 0);
+      !active &&
+      !transcript.data?.next_cursor &&
+      (current.message_count ?? 0) > (transcript.data?.messages.length ?? 0);
     if (
       (wasActive && !active) ||
       current.state === 'failed' ||
@@ -196,7 +203,13 @@ export function useWorkspaceData({
       terminalReconciliation.current = completionKey;
       void refetchTranscript();
     }
-  }, [refetchTranscript, sessionId, sessions.data, transcript.data?.messages.length]);
+  }, [
+    refetchTranscript,
+    sessionId,
+    sessions.data,
+    transcript.data?.messages.length,
+    transcript.data?.next_cursor,
+  ]);
   const sessionArtifacts = useQuery({
     queryKey: queryKeys.key('session-artifacts', settings.endpoint, sessionId),
     queryFn: ({ signal }) =>

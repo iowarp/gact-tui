@@ -733,12 +733,29 @@ export interface PermissionLedgerItem {
 
 export interface TranscriptSnapshot {
   cursor?: string;
+  /** Set on a bounded page when older messages remain: request `before` this id. */
+  next_cursor?: string | null;
   messages: Message[];
   tools: ToolInvocation[];
   tasks: Task[];
   subagents: SubagentRun[];
   artifacts: Artifact[];
   surfaces: A2UISurface[];
+}
+
+/** One page of the conversation list, newest interaction first. */
+export interface SessionPage {
+  sessions: Session[];
+  /** Pass back as `cursor` for the next page; absent on the last page. */
+  next_cursor?: string | null;
+  /** How many sessions match the filters in all pages. */
+  total?: number | null;
+}
+
+/** The newest messages of a conversation, or the ones before `before`. */
+export interface TranscriptPageOptions {
+  limit?: number;
+  before?: string;
 }
 
 export interface EntityState {

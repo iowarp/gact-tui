@@ -12,8 +12,10 @@ import type {
   ApprovalRequest,
   PermissionLedgerItem,
   Session,
+  SessionPage,
   SessionArtifactListing,
   SessionDefaults,
+  TranscriptPageOptions,
   TranscriptSnapshot,
   TurnAttempt,
   Workspace,
@@ -35,6 +37,7 @@ import {
   permissionListSchema,
   questionListSchema,
   sessionListSchema,
+  sessionPageSchema,
   toolCatalogSchema,
   workspaceFileListSchema,
   workspaceListSchema,
@@ -271,6 +274,33 @@ export class ClioRepository extends WorkRepository {
       path: '/v1/session-defaults',
       body: input,
       decode: (value) => sessionDefaultsSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * One page of the conversation list, newest interaction first. `kinds` limits
+   * it to those session kinds (the rail asks for conversations and branches).
+   */
+  public sessionPage(
+    input: {
+      workspaceId: string;
+      kinds?: readonly ('conversation' | 'branch' | 'agent' | 'lookup')[];
+      limit: number;
+      cursor?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<SessionPage> {
+    const query = new URLSearchParams({
+      workspace_id: input.workspaceId,
+      limit: String(input.limit),
+    });
+    if (input.kinds?.length) query.set('kinds', input.kinds.join(','));
+    if (input.cursor) query.set('cursor', input.cursor);
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions?${query.toString()}`,
+      decode: (value) => sessionPageSchema.parse(value) as SessionPage,
       signal,
     });
   }
@@ -643,10 +673,22 @@ export class ClioRepository extends WorkRepository {
     });
   }
 
-  public async transcript(sessionId: string, signal?: AbortSignal): Promise<TranscriptSnapshot> {
+  /**
+   * A conversation's transcript. Without `page` it is the whole conversation; with
+   * `page.limit` it is the newest `limit` messages (older than `page.before`), and
+   * `next_cursor` names the oldest of them when older messages remain.
+   */
+  public async transcript(
+    sessionId: string,
+    signal?: AbortSignal,
+    page?: TranscriptPageOptions,
+  ): Promise<TranscriptSnapshot> {
+    const query = new URLSearchParams();
+    if (page?.limit) query.set('limit', String(page.limit));
+    if (page?.before) query.set('before', page.before);
     const value = await this.transport.request({
       method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages${query.size ? `?${query}` : ''}`,
       decode: (value) => value,
       signal,
     });
