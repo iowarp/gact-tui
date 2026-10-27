@@ -212,8 +212,9 @@ export const versionConflictDetailSchema = z.object({
   pid: z.string(),
   // "healthy" answered its own health check; "unresponsive"/"unknown" did
   // not (or could not be asked) -- never, on its own, a reason it was
-  // stopped. A `"connect"` answer only makes sense when `"healthy"`.
-  health: z.enum(['healthy', 'unresponsive', 'unknown']).default('unknown'),
+  // stopped. "stopped": installed under `owner` but not running; a
+  // `"connect"` answer then starts it as it is.
+  health: z.enum(['healthy', 'unresponsive', 'unknown', 'stopped']).default('unknown'),
   target_version: z.string().optional(),
   owner: z.string().optional(),
   port: z.number().optional(),
