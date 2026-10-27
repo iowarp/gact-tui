@@ -73,6 +73,25 @@ export const MANAGED_BACKEND_POLL_MS = 150;
 export const CONNECTION_PROBE_POLL_MS = 30_000;
 
 /**
+ * Re-probe cadence while a remembered service is starting, or has not answered yet
+ * (it may have been started together with this page). Unit: milliseconds.
+ */
+export const CONNECTION_PROBE_STARTING_MS = 1_000;
+
+/**
+ * Failed probes re-checked at the starting cadence before falling back to the slow
+ * poll, about two minutes. Unit: probe attempts.
+ */
+export const CONNECTION_PROBE_FAST_ATTEMPTS = 120;
+
+/**
+ * How long a connect attempt that nothing answered is treated as a service still
+ * starting (the page waits and connects by itself) before it is shown as a failure.
+ * Unit: milliseconds.
+ */
+export const CONNECTION_WAIT_FOR_START_MS = 120_000;
+
+/**
  * Poll cadence while waiting out a sandbox setup already in flight
  * (`sandbox_setup_in_progress`) or watching one this tab just started.
  * Unit: milliseconds. A one-shot wait for a local, human-paced event (a UAC

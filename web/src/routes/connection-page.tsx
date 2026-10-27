@@ -23,6 +23,8 @@ import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-av
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { BrandTagline } from '@/components/clio/brand-tagline';
 import { ClioStatus } from '@/components/clio/status';
+import { ConnectionWaitingNotice } from '@/components/clio/connection-attempt';
+import { availabilityAfterAttempt, useConnectionWaiting } from '@/lib/connection-attempt';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
@@ -49,7 +51,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
-import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import {
   createRepository,
   DEFAULT_ENDPOINT,
@@ -104,35 +105,6 @@ function connectionSourceIcon(source: KnownConnection['source']) {
   if (source === 'managed') return LaptopIcon;
   if (source === 'infrastructure') return ServerIcon;
   return FolderClockIcon;
-}
-
-/**
- * A row's badge normally reflects the independent background probe
- * (`useConnectionAvailabilities`, retried on its own schedule). But a real
- * connect attempt against that SAME endpoint already produced a definitive
- * answer -- there is no honest reason to keep showing "Checking" on the row
- * while the alert right below it already says the service is unreachable.
- * Once a connect attempt to this endpoint has failed, that failure IS the
- * row's availability until something clears it (a new attempt, or the
- * background probe itself catching up and reporting the same thing).
- */
-function withFailedAttemptAvailability(
-  connection: KnownConnection,
-  attempt: { isError: boolean; error: Error | null; variables?: ConnectionSettings },
-): ConnectionAvailability {
-  if (!attempt.isError || !attempt.variables) return connection.availability;
-  let attemptedEndpoint: string;
-  try {
-    attemptedEndpoint = normalizeEndpoint(attempt.variables.endpoint);
-  } catch {
-    return connection.availability;
-  }
-  if (attemptedEndpoint !== connection.endpoint) return connection.availability;
-  return {
-    state: 'unavailable',
-    label: 'Unavailable',
-    detail: attempt.error?.message || 'The service could not be reached.',
-  };
 }
 
 function managedBootStage(status?: ManagedBackendStatus): DesktopBootStage {
@@ -404,6 +376,7 @@ export function ConnectionPage() {
     },
   });
 
+  const waiting = useConnectionWaiting(mutation, knownConnections);
   const resolvedRoute = mutation.data?.route;
   useEffect(() => {
     if (resolvedRoute && !searchOpen) navigate(resolvedRoute, { replace: true });
@@ -577,7 +550,7 @@ export function ConnectionPage() {
                     {knownConnections.map((connection) => {
                       const selected = connection.endpoint === selectedEndpoint;
                       const Icon = connectionSourceIcon(connection.source);
-                      const availability = withFailedAttemptAvailability(connection, mutation);
+                      const availability = availabilityAfterAttempt(connection, mutation);
                       return (
                         <div
                           className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center overflow-hidden rounded-xl border bg-background transition-colors data-[selected=true]:border-primary/45 data-[selected=true]:bg-primary/5"
@@ -722,10 +695,13 @@ export function ConnectionPage() {
                 </FieldGroup>
               )}
 
-              {mutation.error ? (
+              {mutation.error && waiting.waiting ? (
+                <ConnectionWaitingNotice availability={waiting.availability} />
+              ) : null}
+              {mutation.error && !waiting.waiting ? (
                 <Alert role="alert" variant="destructive">
                   <TriangleAlertIcon aria-hidden="true" />
-                  <AlertTitle>Connection unavailable</AlertTitle>
+                  <AlertTitle>Can't connect</AlertTitle>
                   <AlertDescription>
                     {mutation.error.message}
                     {mutation.error instanceof TransportError && mutation.error.details ? (

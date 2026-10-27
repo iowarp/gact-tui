@@ -397,7 +397,7 @@ it('shows the manual form -- never a reconnect screen -- after "Add a service" o
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByText('Connection unavailable')).toBeVisible();
+  expect(await screen.findByText("Can't connect")).toBeVisible();
 
   await user.click(screen.getByRole('button', { name: 'Add a service' }));
 
@@ -412,7 +412,7 @@ it('shows the manual form -- never a reconnect screen -- after "Add a service" o
   expect(mocks.connect).not.toHaveBeenCalled();
 });
 
-it("settles a known connection's badge to Unavailable as soon as connecting to it fails", async () => {
+it("settles a known connection's badge to Not reachable as soon as connecting to it fails", async () => {
   mocks.recents = [{ endpoint: 'http://127.0.0.1:17999', label: 'Offline lab' }];
   mocks.repository.capabilities.mockRejectedValue(
     new Error('Unable to reach the service at http://127.0.0.1:17999'),
@@ -435,7 +435,7 @@ it("settles a known connection's badge to Unavailable as soon as connecting to i
   // attempts it directly.
   await user.click(screen.getByRole('button', { name: 'Open workspace' }));
 
-  expect(await screen.findByText('Connection unavailable')).toBeVisible();
+  expect(await screen.findByText("Can't connect")).toBeVisible();
   // The real connect attempt against this exact endpoint already settled
   // (the alert above proves it) -- the row must reflect that immediately,
   // not wait on the SEPARATE background probe's own slower retry/backoff
@@ -443,7 +443,7 @@ it("settles a known connection's badge to Unavailable as soon as connecting to i
   // 1000ms between attempts). A tight timeout here is deliberate: it can
   // only pass through the mutation-tied badge, not a coincidentally fast
   // probe settlement.
-  await waitFor(() => expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0), {
+  await waitFor(() => expect(screen.getAllByText('Not reachable').length).toBeGreaterThan(0), {
     timeout: 200,
   });
 });
@@ -486,7 +486,7 @@ it('offers to remove and redeploy a saved connection whose infrastructure target
   // The typed error's recovery action opens the deploy flow instead of
   // stranding the person on a dead alert with no way forward.
   expect(await screen.findByRole('dialog', { name: /Deploy/u })).toBeVisible();
-  expect(screen.queryByText('Connection unavailable')).not.toBeInTheDocument();
+  expect(screen.queryByText("Can't connect")).not.toBeInTheDocument();
 });
 
 it('shows "Deploy CLIO" only in the Tauri desktop app, never on the web build', () => {
@@ -535,14 +535,14 @@ it('reports a passive probe failure without locking the real connection attempt'
     </QueryClientProvider>,
   );
 
-  expect((await screen.findAllByText('Unavailable')).length).toBeGreaterThan(0);
+  expect((await screen.findAllByText('Not reachable')).length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { pressed: true })).toBeEnabled();
   const open = screen.getByRole('button', { name: 'Open workspace' });
   expect(open).toBeEnabled();
 
   await userEvent.setup().click(open);
 
-  expect(await screen.findByText('Connection unavailable')).toBeVisible();
+  expect(await screen.findByText("Can't connect")).toBeVisible();
   expect(mocks.repository.capabilities.mock.calls.length).toBeGreaterThan(3);
 });
 
