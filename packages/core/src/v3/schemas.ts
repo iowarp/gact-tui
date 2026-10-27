@@ -385,10 +385,28 @@ export const toolCatalogItemSchema = z.object({
   domain: z.string().nullish(),
 });
 
+/**
+ * One MCP server's preparation, as the agent reports it while the server is made ready
+ * for a conversation: building its environment (`provision`), starting it and listing
+ * its tools (`launch`), or connecting it (`connect`). A failure carries a typed reason.
+ */
+export const mcpServerPreparationSchema = z.object({
+  state: forwardCompatibleEnum(['preparing', 'ready', 'failed']),
+  phase: forwardCompatibleEnum(['provision', 'launch', 'connect']),
+  reason: z.string().optional(),
+  detail: z.string().optional(),
+  provision: z.string().optional(),
+  attempt: z.number().int().positive().optional(),
+  tool_count: z.number().int().nonnegative().optional(),
+  elapsed_s: z.number().nonnegative().optional(),
+});
+
 export const mcpServerDefinitionSchema = z.object({
   id: z.string(),
   name: z.string(),
   status: z.string(),
+  reason: z.string().optional(),
+  preparation: mcpServerPreparationSchema.optional(),
   transport: z.string().optional(),
   tools_count: z.number().int().nonnegative().default(0),
   tools: z

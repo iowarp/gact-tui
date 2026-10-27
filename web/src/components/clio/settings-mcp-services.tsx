@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { mcpServerPreparation, reconnectableNamespace } from '@/lib/mcp-preparation';
+import { McpServerPreparationNote } from './mcp-server-preparation';
 import { RefreshIndicator } from './refresh-button';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { humanizeToolName } from './tool-presentation';
@@ -28,15 +30,19 @@ export function McpServiceList({
   reconnecting,
   onDetails,
   onReconnect,
+  onReconnectSession,
   onDisconnect,
   onRemoveSaved,
   defaultOpen = true,
   showConnection = true,
 }: {
   entries: McpServiceEntry[];
+  /** The id of the server whose reconnect is in flight. */
   reconnecting?: string;
-  onDetails: (server: McpServerDefinition) => void;
+  onDetails?: (server: McpServerDefinition) => void;
   onReconnect: (server: McpServerDefinition) => void;
+  /** Prepares a conversation's own server again (see `reconnectableNamespace`). */
+  onReconnectSession?: (server: McpServerDefinition) => unknown | Promise<unknown>;
   onDisconnect: (server: McpServerDefinition) => void;
   onRemoveSaved: (service: SavedMcpService) => void;
   defaultOpen?: boolean;
@@ -54,6 +60,7 @@ export function McpServiceList({
           onDetails={onDetails}
           onDisconnect={onDisconnect}
           onReconnect={onReconnect}
+          onReconnectSession={onReconnectSession}
           onRemoveSaved={onRemoveSaved}
           reconnecting={Boolean(entry.server && reconnecting === entry.server.id)}
           defaultOpen={defaultOpen}
@@ -69,6 +76,7 @@ function McpServiceItem({
   reconnecting,
   onDetails,
   onReconnect,
+  onReconnectSession,
   onDisconnect,
   onRemoveSaved,
   defaultOpen,
@@ -76,8 +84,9 @@ function McpServiceItem({
 }: {
   entry: McpServiceEntry;
   reconnecting: boolean;
-  onDetails: (server: McpServerDefinition) => void;
+  onDetails?: (server: McpServerDefinition) => void;
   onReconnect: (server: McpServerDefinition) => void;
+  onReconnectSession?: (server: McpServerDefinition) => unknown | Promise<unknown>;
   onDisconnect: (server: McpServerDefinition) => void;
   onRemoveSaved: (service: SavedMcpService) => void;
   defaultOpen: boolean;
@@ -91,6 +100,10 @@ function McpServiceItem({
     : (server?.tools ?? []);
   const title = serviceTitle(entry);
   const runtime = server ? server.id.startsWith('mcp_ext_') : false;
+  const reconnectSession =
+    server && onReconnectSession && reconnectableNamespace(server)
+      ? () => onReconnectSession(server)
+      : undefined;
   return (
     <li className="min-w-0">
       <Collapsible onOpenChange={setOpen} open={open}>
@@ -119,16 +132,31 @@ function McpServiceItem({
                 {savedTarget(saved)}
               </p>
             ) : null}
-            {server?.error ? <p className="mt-1 text-xs text-destructive">{server.error}</p> : null}
+            {mcpServerPreparation(server) ? (
+              <McpServerPreparationNote
+                onReconnect={reconnectSession}
+                reconnecting={reconnecting}
+                server={server}
+                title={title}
+              />
+            ) : server?.error ? (
+              <p className="mt-1 text-xs text-destructive">{server.error}</p>
+            ) : null}
           </div>
           <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
             <ClioStatus className="size-4" compact label={state.label} value={state.value} />
             <span aria-hidden="true">{state.label}</span>
           </span>
           <ServiceActions
-            onDetails={server ? () => onDetails(server) : undefined}
+            onDetails={server && onDetails ? () => onDetails(server) : undefined}
             onDisconnect={runtime && server ? () => onDisconnect(server) : undefined}
-            onReconnect={runtime && server ? () => onReconnect(server) : undefined}
+            onReconnect={
+              runtime && server
+                ? () => onReconnect(server)
+                : state.value === 'failed'
+                  ? undefined // the visible Reconnect under its reason offers it
+                  : reconnectSession
+            }
             onRemoveSaved={saved ? () => onRemoveSaved(saved) : undefined}
             reconnecting={reconnecting}
             title={title}
@@ -290,6 +318,17 @@ function serviceState(entry: McpServiceEntry): {
       value: 'healthy',
       known: true,
       empty: 'This service offers no tools.',
+    };
+  const preparation = mcpServerPreparation(server);
+  if (preparation)
+    return {
+      label: preparation.label,
+      value: preparation.value,
+      known: server.tools.length > 0,
+      empty:
+        preparation.state === 'preparing'
+          ? 'Its tools are listed once it is ready.'
+          : 'Its tools are listed once it is ready. Reconnect to try again.',
     };
   if (server.status === 'available')
     return {

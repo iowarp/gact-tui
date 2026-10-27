@@ -4,7 +4,8 @@ import {
   type InfrastructureSection,
 } from '@/lib/application-destinations';
 import { queryKeys } from '@/lib/query-keys';
-import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
+import { INFRASTRUCTURE_POLL_MS, MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
+import { anyServerPreparing } from '@/lib/mcp-preparation';
 import type {
   EffectiveAgentTool,
   McpServerDefinition,
@@ -99,7 +100,8 @@ export function InfrastructurePage() {
       sessionId || 'service',
     ),
     queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal, { sessionId }),
-    refetchInterval: INFRASTRUCTURE_POLL_MS,
+    refetchInterval: (query) =>
+      anyServerPreparing(query.state.data) ? MCP_PREPARING_POLL_MS : INFRASTRUCTURE_POLL_MS,
   });
   const tools = useQuery({
     enabled: currentSection === 'tools',

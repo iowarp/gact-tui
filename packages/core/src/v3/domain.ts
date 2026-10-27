@@ -10,6 +10,7 @@ import type { CapabilityNegotiation } from './capability-domain.js';
 import type { PendingCompaction } from './compaction-domain.js';
 import type { VariantRun } from './variant-domain.js';
 import type { UsageSnapshot } from './usage-domain.js';
+import type { McpServerPreparation } from './mcp-preparation-domain.js';
 import type { RunState } from './run-domain.js';
 export type { RunState } from './run-domain.js';
 
@@ -613,6 +614,8 @@ export interface McpServerDefinition {
   id: string;
   name: string;
   status: string;
+  reason?: string;
+  preparation?: McpServerPreparation;
   transport?: string;
   tools_count: number;
   tools: string[];

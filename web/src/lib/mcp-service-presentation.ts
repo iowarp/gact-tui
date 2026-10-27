@@ -14,6 +14,7 @@
 import type { McpServerDefinition } from '@clio/core/v3';
 import { humanizeToolName } from '@/components/clio/tool-presentation';
 import type { ClioStatusValue } from '@/components/clio/status';
+import { mcpServerPreparation } from '@/lib/mcp-preparation';
 
 /**
  * The two services every deployment has. They are part of the agent rather than
@@ -76,6 +77,8 @@ export function serviceStatus(server: McpServerDefinition): {
     return { label: server.session_id ? 'Connected' : 'Ready', value: 'healthy' };
   }
   if (server.status === 'available') return { label: 'Starts on use', value: 'pending' };
+  const preparation = mcpServerPreparation(server);
+  if (preparation) return { label: preparation.label, value: preparation.value };
   return { label: humanizeStatus(server.status), value: 'degraded' };
 }
 

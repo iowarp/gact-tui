@@ -6,6 +6,8 @@ import { McpServiceList } from './settings-mcp-services';
 import { McpConnectionDetails } from './mcp-connection-details';
 import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import { mcpServiceEntries } from '@/lib/mcp-service-entries';
+import { anyServerPreparing } from '@/lib/mcp-preparation';
+import { MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
 import type { McpServerDefinition, SavedMcpService, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpenIcon, ScrollTextIcon, WrenchIcon } from 'lucide-react';
@@ -107,6 +109,8 @@ export function ToolsSettings({
   const servers = useQuery({
     queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'global'),
     queryFn: ({ signal }) => repository.mcpServers(workspaceId || undefined, signal),
+    refetchInterval: (query) =>
+      anyServerPreparing(query.state.data) ? MCP_PREPARING_POLL_MS : false,
   });
   const tools = useQuery({
     queryKey: queryKeys.key('tools', settings.endpoint),
