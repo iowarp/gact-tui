@@ -99,7 +99,9 @@ pub(crate) fn prepare_packages(
             Ok(PackageLaunch::CheckAfterStart)
         }
         LaunchCheck::Required(reason) if cfg!(windows) => {
-            boot_log_line(&format!("Checking managed packages before start reason={reason}"));
+            boot_log_line(&format!(
+                "Checking managed packages before start reason={reason}"
+            ));
             run_check(runtime, workspace, user, true, &boot_log_line)?;
             Ok(PackageLaunch::Checked)
         }

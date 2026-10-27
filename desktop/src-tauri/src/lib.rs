@@ -17,7 +17,6 @@ mod document_apps;
 mod document_path;
 mod downloads;
 mod execution_install;
-mod package_stamp;
 mod file_reveal;
 mod gact_http;
 mod gact_http_response;
@@ -35,6 +34,7 @@ mod menu;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu_spec;
 mod net_util;
+mod package_stamp;
 mod package_version;
 mod plugins;
 mod remote_lifecycle;

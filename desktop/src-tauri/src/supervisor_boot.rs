@@ -103,8 +103,11 @@ pub(crate) fn boot_sidecar(
     ) {
         match crate::execution_install::prepare_packages(runtime, workspace, user) {
             Ok(PackageLaunch::CheckAfterStart) => {
-                check_after_start =
-                    Some((runtime.to_path_buf(), workspace.to_path_buf(), user.to_path_buf()));
+                check_after_start = Some((
+                    runtime.to_path_buf(),
+                    workspace.to_path_buf(),
+                    user.to_path_buf(),
+                ));
             }
             Ok(PackageLaunch::Checked | PackageLaunch::CheckingAlongside) => {}
             Err(error) => {

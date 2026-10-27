@@ -151,7 +151,10 @@ mod tests {
     #[test]
     fn an_unverified_install_is_checked_before_start() {
         let fixture = Fixture::new();
-        assert_eq!(fixture.check(), LaunchCheck::Required("launch_stamp_missing"));
+        assert_eq!(
+            fixture.check(),
+            LaunchCheck::Required("launch_stamp_missing")
+        );
     }
 
     #[test]
@@ -165,8 +168,15 @@ mod tests {
     fn a_changed_runtime_is_checked_before_start() {
         let fixture = Fixture::new();
         fixture.record();
-        std::fs::write(fixture.0.join("runtime/runtime.json"), r#"{"schema":1,"v":2}"#).unwrap();
-        assert_eq!(fixture.check(), LaunchCheck::Required("launch_stamp_changed"));
+        std::fs::write(
+            fixture.0.join("runtime/runtime.json"),
+            r#"{"schema":1,"v":2}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            fixture.check(),
+            LaunchCheck::Required("launch_stamp_changed")
+        );
     }
 
     #[test]
@@ -174,13 +184,19 @@ mod tests {
         let fixture = Fixture::new();
         fixture.record();
         forget(&fixture.0.join("user")).unwrap();
-        assert_eq!(fixture.check(), LaunchCheck::Required("launch_stamp_missing"));
+        assert_eq!(
+            fixture.check(),
+            LaunchCheck::Required("launch_stamp_missing")
+        );
     }
 
     #[test]
     fn an_unreadable_stamp_is_checked_before_start() {
         let fixture = Fixture::new();
         std::fs::write(fixture.0.join("user").join(STAMP_FILE), "not json").unwrap();
-        assert_eq!(fixture.check(), LaunchCheck::Required("launch_stamp_unreadable"));
+        assert_eq!(
+            fixture.check(),
+            LaunchCheck::Required("launch_stamp_unreadable")
+        );
     }
 }
