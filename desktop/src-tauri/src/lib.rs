@@ -17,6 +17,7 @@ mod document_apps;
 mod document_path;
 mod downloads;
 mod execution_install;
+mod package_stamp;
 mod file_reveal;
 mod gact_http;
 mod gact_http_response;

@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use crate::brand_backend::connect_mode_error;
 use crate::clio_core_daemon::{self, DaemonOutcome};
 use crate::clio_core_registry;
+use crate::execution_install::PackageLaunch;
 use crate::runtime_pack::{has_bundled_runtime, prepare_bundled_runtime};
 use crate::supervisor_attach::try_attach_existing;
 use crate::supervisor_boot_log::{boot_log_line, reset_boot_log};
@@ -91,21 +92,30 @@ pub(crate) fn boot_sidecar(
     ));
 
     // 4. Spawn our own.
-    // Installer packages are downloaded into managed storage. DMG/AppImage installs
-    // have no post-install hook, so finish their setup here before starting the agent.
+    // Installer packages are downloaded into managed storage. DMG/AppImage/deb installs
+    // have no per-user install step, so the first launch installs them here, alongside
+    // the agent (which reports them as preparing); later launches verify them (B4).
+    let mut check_after_start = None;
     if let (Some(runtime), Some(workspace), Some(user)) = (
         bundled_runtime.as_deref(),
         working_dir.as_deref(),
         user_dir.as_deref(),
     ) {
-        if let Err(error) = crate::execution_install::prepare_packages(runtime, workspace, user) {
-            boot_log_line(&error);
-            state.set_status(BackendStatus::Error(error));
-            return;
+        match crate::execution_install::prepare_packages(runtime, workspace, user) {
+            Ok(PackageLaunch::CheckAfterStart) => {
+                check_after_start =
+                    Some((runtime.to_path_buf(), workspace.to_path_buf(), user.to_path_buf()));
+            }
+            Ok(PackageLaunch::Checked | PackageLaunch::CheckingAlongside) => {}
+            Err(error) => {
+                boot_log_line(&error);
+                state.set_status(BackendStatus::Error(error));
+                return;
+            }
         }
     }
     boot_log_line(&format!(
-        "Startup checkpoint: managed packages ready {:.3}s",
+        "Startup checkpoint: managed package step done {:.3}s",
         started.elapsed().as_secs_f64()
     ));
     state.set_status(BackendStatus::Starting(
@@ -130,6 +140,11 @@ pub(crate) fn boot_sidecar(
                 started.elapsed().as_secs_f64()
             ));
             state.set_handle_and_child(handle, child);
+            if let Some((runtime, workspace, user)) = check_after_start {
+                crate::execution_install::check_packages_in_background(
+                    runtime, workspace, user, false,
+                );
+            }
         }
         // The launcher exited 2 (sidecar not found): this is a fresh install,
         // not a broken one. Surface NeedsInstall so the frontend auto-runs the

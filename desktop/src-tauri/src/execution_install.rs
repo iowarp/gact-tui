@@ -10,6 +10,7 @@ use std::{
     thread,
 };
 
+use crate::package_stamp::{self, LaunchCheck};
 use crate::supervisor_boot_log::boot_log_line;
 
 fn bundled_python(runtime: &Path) -> Result<PathBuf, String> {
@@ -68,25 +69,136 @@ pub(crate) fn install_command(
     Ok(command)
 }
 
+/// What a launch did about the managed packages before starting the agent.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum PackageLaunch {
+    /// Checked (and installed or repaired if needed) before the agent started.
+    Checked,
+    /// Unchanged since the last verified check: check again after the agent is ready.
+    CheckAfterStart,
+    /// Changed or never verified: installing or checking now, alongside the agent.
+    CheckingAlongside,
+}
+
+/// The per-launch package step (B4). The agent never waits for it outside Windows:
+/// an unchanged installation (launch stamp) is re-checked after the agent is ready,
+/// and a changed or first installation (a .deb/.rpm/.dmg has no per-user install
+/// step, so its first launch installs Office and the document tools) runs alongside
+/// the agent, which reports those tools as preparing until it finishes.
 pub(crate) fn prepare_packages(
     runtime: &Path,
     workspace: &Path,
     user: &Path,
-) -> Result<(), String> {
-    let mut probe = install_command(runtime, workspace, user)?;
-    probe.arg("--help");
-    prepare_startup(
-        probe,
-        startup_command(runtime, workspace, user)?,
-        &boot_log_line,
-    )
+) -> Result<PackageLaunch, String> {
+    match package_stamp::launch_check(runtime, workspace, user) {
+        LaunchCheck::Unchanged => {
+            boot_log_line(
+                "Managed packages unchanged since their last check (reason=launch_stamp_unchanged); \
+                 checking them again after the agent starts",
+            );
+            Ok(PackageLaunch::CheckAfterStart)
+        }
+        LaunchCheck::Required(reason) if cfg!(windows) => {
+            boot_log_line(&format!("Checking managed packages before start reason={reason}"));
+            run_check(runtime, workspace, user, true, &boot_log_line)?;
+            Ok(PackageLaunch::Checked)
+        }
+        LaunchCheck::Required(reason) => {
+            boot_log_line(&format!(
+                "Checking managed packages alongside the agent reason={reason}"
+            ));
+            check_packages_in_background(
+                runtime.to_path_buf(),
+                workspace.to_path_buf(),
+                user.to_path_buf(),
+                true,
+            );
+            Ok(PackageLaunch::CheckingAlongside)
+        }
+    }
 }
 
+/// The full check for a launch that did not wait for it. It installs a first or
+/// changed installation and repairs a damaged one (the Python step reinstalls
+/// whatever no longer matches its receipt); every outcome is a typed boot-log line.
+/// A failure forgets the stamp so the next launch checks again.
+pub(crate) fn check_packages_in_background(
+    runtime: PathBuf,
+    workspace: PathBuf,
+    user: PathBuf,
+    probe: bool,
+) {
+    thread::spawn(move || {
+        let started = std::time::Instant::now();
+        let reused = std::sync::atomic::AtomicBool::new(false);
+        let log = |line: &str| {
+            if line.contains("Verified installation unchanged") {
+                reused.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            boot_log_line(line);
+        };
+        match run_check(&runtime, &workspace, &user, probe, &log) {
+            Ok(true) => {
+                let reason = if reused.load(std::sync::atomic::Ordering::Relaxed) {
+                    "managed_packages_unchanged"
+                } else {
+                    "managed_packages_installed"
+                };
+                boot_log_line(&format!(
+                    "Managed packages checked reason={reason} {:.3}s",
+                    started.elapsed().as_secs_f64()
+                ));
+            }
+            Ok(false) => {}
+            Err(error) => {
+                boot_log_line(&format!(
+                    "Managed package check failed reason=managed_packages_check_failed: {error}"
+                ));
+                if let Err(error) = package_stamp::forget(&user) {
+                    boot_log_line(&format!("reason=launch_stamp_not_removed: {error}"));
+                }
+            }
+        }
+    });
+}
+
+/// Run `document_install --reuse-installed` (after a `--help` probe for runtimes that
+/// predate reuse when `probe`), and record the launch stamp when it verified.
+fn run_check(
+    runtime: &Path,
+    workspace: &Path,
+    user: &Path,
+    probe: bool,
+    log: &(impl Fn(&str) + Sync),
+) -> Result<bool, String> {
+    let startup = startup_command(runtime, workspace, user)?;
+    let verified = if probe {
+        let mut help = install_command(runtime, workspace, user)?;
+        help.arg("--help");
+        prepare_startup(help, startup, log)?
+    } else {
+        run_install(startup, log).map(|()| true)?
+    };
+    if verified {
+        record_stamp(runtime, workspace, user);
+    }
+    Ok(verified)
+}
+
+fn record_stamp(runtime: &Path, workspace: &Path, user: &Path) {
+    if let Err(error) = package_stamp::record_verified(runtime, workspace, user) {
+        // Not fatal: the next launch checks before starting, as it did before stamps.
+        boot_log_line(&format!("reason=launch_stamp_not_recorded: {error}"));
+    }
+}
+
+/// Run the startup check; `Ok(true)` when it verified the packages, `Ok(false)` when
+/// the runtime predates package reuse and nothing was checked.
 fn prepare_startup(
     mut probe: Command,
     startup: Command,
     log: &(impl Fn(&str) + Sync),
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let help = probe
         .output()
         .map_err(|error| format!("inspect managed package setup: {error}"))?;
@@ -102,9 +214,9 @@ fn prepare_startup(
         .any(|arg| arg.trim_matches(|c: char| matches!(c, '[' | ']' | ',')) == "--reuse-installed")
     {
         log("This CLIO runtime predates package reuse. Keeping its installed packages; update CLIO from System version.");
-        return Ok(());
+        return Ok(false);
     }
-    run_install(startup, log)
+    run_install(startup, log).map(|()| true)
 }
 
 fn startup_command(runtime: &Path, workspace: &Path, user: &Path) -> Result<Command, String> {
@@ -122,7 +234,10 @@ pub(crate) fn prepare_packages_for_install(
     run_install(
         explicit_install_command(runtime, workspace, user)?,
         &boot_log_line,
-    )
+    )?;
+    // The first launch after this install starts the agent without re-checking.
+    record_stamp(runtime, workspace, user);
+    Ok(())
 }
 
 fn explicit_install_command(
