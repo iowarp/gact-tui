@@ -208,7 +208,7 @@ function WorkspaceBinaryView({
         <EmptyHeader>
           <EmptyTitle>No inline preview</EmptyTitle>
           <EmptyDescription>
-            {mediaType} · {size === undefined ? 'Size unavailable' : formatBytes(size)}
+            {mediaType}, {size === undefined ? 'Size unavailable' : formatBytes(size)}
           </EmptyDescription>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
             <Button disabled={busy} onClick={() => void open()} size="sm">

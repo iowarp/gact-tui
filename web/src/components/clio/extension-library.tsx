@@ -233,7 +233,7 @@ function ExtensionLibraryContents() {
                     <span className="min-w-0 flex-1">
                       <span className="font-medium">{row.label || row.name}</span>
                       <span className="mt-1 block text-sm text-muted-foreground">
-                        {row.transport === 'stdio' ? 'Local command' : 'Remote MCP'} · Saved on this
+                        {row.transport === 'stdio' ? 'Local command' : 'Remote MCP'}, saved on this
                         agent host
                       </span>
                     </span>
@@ -391,7 +391,7 @@ function ExtensionLibraryContents() {
                         ? 'Remote connection'
                         : server.packages
                             .map((row) => `${row.registryType}: ${row.identifier}`)
-                            .join(' · ') || 'See server documentation'
+                            .join(', ') || 'See server documentation'
                     }
                   />
                 ))}
@@ -618,7 +618,7 @@ function McpConnectionDetails({
         <DialogHeader>
           <DialogTitle>{connection.label || connection.name}</DialogTitle>
           <DialogDescription>
-            {connection.transport === 'stdio' ? 'Local MCP command' : 'Remote MCP connection'} ·{' '}
+            {connection.transport === 'stdio' ? 'Local MCP command' : 'Remote MCP connection'}:{' '}
             {connection.name}
           </DialogDescription>
         </DialogHeader>
@@ -651,7 +651,7 @@ function McpConnectionDetails({
             <div role="status">
               <p>
                 {status.data.status === 'ready'
-                  ? `Connected · ${status.data.tools_count} ${status.data.tools_count === 1 ? 'tool' : 'tools'} available`
+                  ? `Connected, ${status.data.tools_count} ${status.data.tools_count === 1 ? 'tool' : 'tools'} available`
                   : status.data.status === 'auth_required'
                     ? 'Sign-in required'
                     : 'Connection check failed'}

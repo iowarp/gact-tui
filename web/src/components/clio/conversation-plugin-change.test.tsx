@@ -25,7 +25,7 @@ afterEach(cleanup);
 
 describe('plugin_change injection', () => {
   it('labels the change from the note itself', () => {
-    expect(pluginChangeLabel(NOTE)).toBe('Plugins changed: +shell · −document-runtime · −pdf');
+    expect(pluginChangeLabel(NOTE)).toBe('Plugins changed: +shell, −document-runtime, −pdf');
     expect(pluginChangeLabel('Something else entirely.')).toBe('Plugins changed');
   });
 
@@ -33,7 +33,7 @@ describe('plugin_change injection', () => {
     const user = userEvent.setup();
     render(<HarnessInjection block={block(NOTE)} />);
     const chip = screen.getByRole('button', {
-      name: 'Plugins changed: +shell · −document-runtime · −pdf',
+      name: 'Plugins changed: +shell, −document-runtime, −pdf',
     });
     expect(chip).toHaveAttribute('aria-expanded', 'false');
     await user.hover(chip);

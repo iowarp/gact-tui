@@ -28,7 +28,7 @@ it('keeps a visibility error in technical details without repeating it as progre
     supported_actions: ['observe', 'cancel'],
   };
   render(<AsyncTaskList processes={[uncertain]} />);
-  expect(screen.getByText('Tool · Needs inspection')).toBeVisible();
+  expect(screen.getByText('Tool: Needs inspection')).toBeVisible();
   expect(screen.queryByText(issue)).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: 'Task details: Prepare dataset' }));
   expect(screen.queryByText(issue)).toBeNull();
@@ -60,7 +60,7 @@ it('retains numeric progress when a repeated visibility error is disclosed separ
       ]}
     />,
   );
-  expect(screen.getByText('Indexing · Needs inspection — 42 entries indexed')).toBeVisible();
+  expect(screen.getByText('Indexing: Needs inspection — 42 entries indexed')).toBeVisible();
   expect(screen.queryByText(issue)).toBeNull();
 });
 
@@ -142,7 +142,7 @@ it('shows a question waiting for its answer and reveals the stored answer on dem
     progress: { message: 'Waiting for your answer' },
   };
   const view = render(<AsyncTaskList processes={[question]} />);
-  expect(screen.getByText('Question · Waiting for your answer')).toBeVisible();
+  expect(screen.getByText('Question: Waiting for your answer')).toBeVisible();
   const details = screen.getByRole('button', { name: 'Task details: Which dataset?' });
   expect(details).toHaveAttribute('aria-expanded', 'false');
   view.rerender(
@@ -244,7 +244,7 @@ it('keeps legacy child discovery and opening available without unsupported lifec
     />,
   );
   expect(screen.queryByRole('button', { name: /^Cancel/ })).toBeNull();
-  expect(screen.getByText('Subagent · Paused')).toBeVisible();
+  expect(screen.getByText('Subagent: Paused')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Open child conversation Worker #1' })).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: 'Task details: Worker #1' }));
   expect(screen.queryByRole('button', { name: 'Technical details' })).toBeNull();
@@ -416,7 +416,7 @@ it('distinguishes a flow from a subagent and links a no-op follow-up to the actu
     />,
   );
   expect(screen.getByText('Deep research follow-up')).toBeVisible();
-  expect(screen.getByText('Flow · No new run')).toBeVisible();
+  expect(screen.getByText('Flow: No new run')).toBeVisible();
   expect(document.querySelector('[data-work-kind="workflow"]')).toHaveAttribute(
     'data-work-status',
     'not_run',

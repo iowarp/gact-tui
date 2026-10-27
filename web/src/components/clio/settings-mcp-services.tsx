@@ -111,7 +111,7 @@ function McpServiceItem({
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h3 className="font-medium">{title}</h3>
               <span className="text-xs text-muted-foreground">
-                {origin(entry)} · {countLabel(toolNames.length, state.known)}
+                {origin(entry)}, {countLabel(toolNames.length, state.known)}
               </span>
             </div>
             {saved && showConnection ? (

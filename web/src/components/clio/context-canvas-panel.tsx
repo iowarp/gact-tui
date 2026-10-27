@@ -120,9 +120,9 @@ export function ClioContextCanvasPanel({
                       </p>
                     )}
                     <p className="text-muted-foreground">
-                      {item.included ? 'Included' : 'Excluded'} · ≈
+                      {item.included ? 'Included' : 'Excluded'}, ≈
                       {contextTokens(item.tokens_estimated)} tokens
-                      {item.reason ? ` · ${humanizeProtocolValue(item.reason)}` : ''}
+                      {item.reason ? `, ${humanizeProtocolValue(item.reason)}` : ''}
                     </p>
                   </li>
                 ))}

@@ -188,14 +188,14 @@ export function Review() {
     <main className="mx-auto min-w-0 max-w-5xl space-y-6 p-4 text-foreground sm:p-6">
       <header className="border-b pb-6">
         <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {vocab.product} · Session archive
+          {vocab.product} session archive
         </p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight">
           {data.transcript.session.title}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          {data.manifest.mode[0].toUpperCase() + data.manifest.mode.slice(1)} ·{' '}
-          {rows.reduce((n, row) => n + row.messages.length, 0)} messages · {tools} tool records ·{' '}
+          {data.manifest.mode[0].toUpperCase() + data.manifest.mode.slice(1)},{' '}
+          {rows.reduce((n, row) => n + row.messages.length, 0)} messages, {tools} tool records,{' '}
           {skills} skill loads
         </p>
         <p className="mt-3 text-sm">
@@ -383,8 +383,8 @@ export function Review() {
           </div>
         </DialogContent>
       </Dialog>
-      <footer className="border-t pt-5 text-xs text-muted-foreground">
-        Exported {new Date(data.transcript.exported_at).toLocaleString()} ·{' '}
+      <footer className="flex flex-wrap gap-x-4 gap-y-1 border-t pt-5 text-xs text-muted-foreground">
+        <span>Exported {new Date(data.transcript.exported_at).toLocaleString()}</span>
         {data.manifest.mode === 'transcript' ? (
           <button className="underline" onClick={() => setSection('evidence')}>
             Embedded transcript and skills
@@ -393,8 +393,7 @@ export function Review() {
           <>
             <a className="underline" href="transcript.json">
               Raw transcript
-            </a>{' '}
-            ·{' '}
+            </a>
             <a className="underline" href="manifest.json">
               File inventory and checksums
             </a>

@@ -150,7 +150,7 @@ export function PluginExplorer({
           <DialogTitle>{selected.skill || plugin?.id || selected.reference}</DialogTitle>
           <DialogDescription>
             {plugin
-              ? `${plugin.marketplace}${plugin.version ? ` · ${plugin.version}` : ''}`
+              ? `${plugin.marketplace}${plugin.version ? `, version ${plugin.version}` : ''}`
               : 'Plugin details'}
           </DialogDescription>
         </DialogHeader>
@@ -228,7 +228,7 @@ export function PluginExplorer({
                       disabled={trusting}
                       onClick={() => void trustSource()}
                     >
-                      {trusting ? 'Trusting…' : `Trust source · ${plugin.marketplace}`}
+                      {trusting ? 'Trusting…' : `Trust source: ${plugin.marketplace}`}
                     </Button>
                     {trustError ? (
                       <p role="alert" className="text-destructive">
@@ -251,7 +251,7 @@ export function PluginExplorer({
                           onClick={() => member && open(member)}
                         >
                           {ref}
-                          {member ? '' : ' · not installed'}
+                          {member ? '' : ' (not installed)'}
                         </Button>
                       );
                     })}

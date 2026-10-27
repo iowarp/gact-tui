@@ -164,7 +164,7 @@ describe('memory page', () => {
     ).toBeVisible();
     expect(within(inbox).getByText('Wants results emailed to x@example.com')).toBeVisible();
     expect(within(inbox).queryByText(/Prefers SI units|updated:/u)).not.toBeInTheDocument();
-    expect(within(inbox).getByText('Account · preferences')).toBeVisible();
+    expect(within(inbox).getByText('Account: preferences')).toBeVisible();
     expect(within(inbox).getByRole('link', { name: 'From a web page' })).not.toBeVisible();
     await user.click(within(inbox).getByText('Source facts (1)'));
     expect(within(inbox).getByRole('link', { name: 'From a web page' })).toHaveAttribute(

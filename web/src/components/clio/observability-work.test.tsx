@@ -89,7 +89,7 @@ describe('Gantt and Relationships switch', () => {
       'true',
     );
     fireEvent.click(screen.getByRole('button', { name: 'Select Check residuals' }));
-    expect(inspector).toHaveTextContent('Subagent · parent owned');
+    expect(inspector).toHaveTextContent('Subagent (parent owned)');
     expect(screen.queryByRole('button', { name: /Branch from/ })).not.toBeInTheDocument();
     mounted.unmount();
     render(content);

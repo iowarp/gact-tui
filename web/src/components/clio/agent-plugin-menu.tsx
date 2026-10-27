@@ -31,7 +31,7 @@ function availability(
   if (plugin.pending_trust) return { selectable: false, label: 'Waiting for trust in Settings' };
   if (!plugin.trusted) return { selectable: false, label: 'Marketplace not trusted' };
   if (delta.remove.some((reference) => pluginReferenceId(reference) === plugin.id))
-    return { selectable: true, label: 'Removed · add back' };
+    return { selectable: true, label: 'Removed (select to add back)' };
   const activeFrom = active.get(plugin.id);
   if (activeFrom === plugin.marketplace) return { selectable: false, label: 'Active' };
   if (activeFrom !== undefined) return { selectable: false, label: `Active from ${activeFrom}` };

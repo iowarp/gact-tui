@@ -208,7 +208,7 @@ it('shows saved provider servers and preserves actual host facts in the topology
   );
   expect(screen.getByRole('list', { name: /Connections from this client/u })).toBeInTheDocument();
   expect(repository.managedServiceCatalog).not.toHaveBeenCalled();
-  await userEvent.click(await screen.findByText('Saved model servers · 1'));
+  await userEvent.click(await screen.findByText('Saved model servers (1)'));
   expect(await screen.findByText('My running server')).toBeVisible();
   await userEvent.click(screen.getByText('Computer details'));
   expect(await screen.findByText('Home: C:\\Users\\Alice')).not.toBeVisible();
@@ -276,7 +276,7 @@ it('says the built-in search engine is not installed, with Install, in the map a
   expect(within(map).getByText('Not installed')).toBeVisible();
   expect(within(map).queryByText('Not checked')).not.toBeInTheDocument();
   expect(screen.queryByText('No research service connected')).not.toBeInTheDocument();
-  expect(screen.getByText('Built-in search engine · SearXNG')).toBeVisible();
+  expect(screen.getByText('Built-in search engine: SearXNG')).toBeVisible();
   expect(
     screen.getByText('The last installation did not finish. Install it to use it.'),
   ).toBeVisible();

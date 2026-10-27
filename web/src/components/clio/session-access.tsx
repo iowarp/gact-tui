@@ -55,7 +55,7 @@ export function SessionAccess({sessionId}: {sessionId: string}) {
           {active.map((row) => <li key={row.id} className="flex min-w-0 items-start gap-2">
             <div className="min-w-0 flex-1">
               <p className="truncate">{sessions.data?.find((session) => session.id === row.target_session)?.title || 'Session unavailable'}</p>
-              <p className="text-xs text-muted-foreground">{row.rights.map((right) => ({read: 'Read', observe: 'Observe', message: 'Message', control: 'Control'})[right]).join(', ')}{row.target_scope === 'tree' ? ' · Includes children' : ''}</p>
+              <p className="text-xs text-muted-foreground">{row.rights.map((right) => ({read: 'Read', observe: 'Observe', message: 'Message', control: 'Control'})[right]).join(', ')}{row.target_scope === 'tree' ? ', including children' : ''}</p>
             </div>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => revoke.mutate(row.id)}>Revoke</Button>
           </li>)}

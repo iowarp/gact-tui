@@ -213,8 +213,8 @@ function AgentRow({
           {agent.kind === 'user' && agent.extends ? (
             <p className="mt-1 text-xs text-muted-foreground">
               Starts from {agentDisplayName(agent.extends, agents)}
-              {agent.delta?.add.length ? ` · adds ${agent.delta.add.join(', ')}` : ''}
-              {agent.delta?.remove.length ? ` · removes ${agent.delta.remove.join(', ')}` : ''}
+              {agent.delta?.add.length ? `; adds ${agent.delta.add.join(', ')}` : ''}
+              {agent.delta?.remove.length ? `; removes ${agent.delta.remove.join(', ')}` : ''}
             </p>
           ) : (
             <p className="mt-1 text-xs text-muted-foreground">

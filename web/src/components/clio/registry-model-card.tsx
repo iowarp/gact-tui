@@ -57,9 +57,9 @@ export function RegistryModelCard({ model }: { model: ModelRegistryDetails }) {
           <p className="text-sm text-muted-foreground">This model card is empty.</p>
         ) : null}
         <p className="border-t pt-4 text-xs text-muted-foreground" title={revision}>
-          Card: {repository} · {revision.slice(0, 12)}
+          Card: {repository}, revision {revision.slice(0, 12)}
           {model.metadata_repository !== repository
-            ? ` · Capability metadata: ${model.metadata_repository}`
+            ? `. Capability metadata: ${model.metadata_repository}`
             : ''}
         </p>
       </div>

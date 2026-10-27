@@ -233,7 +233,7 @@ export function ClioRasterViewport({
         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
           <span>{data?.min?.toPrecision(4) ?? '—'}</span><span aria-label={`${colormap} colour scale`} className="h-2 flex-1 rounded" style={{ background: legend }} {...DATA_SCALE_EXEMPTION} /><span>{data?.max?.toPrecision(4) ?? '—'} {unit}</span>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">{selectedExtent ? 'Region selected · Zoom to selection or Reference this' : 'Drag to pan · Ctrl + wheel to zoom'}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{selectedExtent ? 'Region selected. Use Zoom to selection or Reference this.' : 'Drag to pan, Ctrl + wheel to zoom'}</p>
       </div>
     </SurfaceFullScreenHost>
   </section>;

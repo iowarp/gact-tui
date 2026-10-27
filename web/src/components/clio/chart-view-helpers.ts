@@ -92,5 +92,6 @@ export function describeChart(
   if (loading) return 'Loading rows…';
   const summary = spec && typeof spec.description === 'string' ? spec.description : '';
   const count = rows ? `${rows.length.toLocaleString()} rows` : '';
-  return [summary, count].filter(Boolean).join(' · ') || (note ? note : 'No rows');
+  if (summary && count) return `${summary} (${count})`;
+  return summary || count || (note ? note : 'No rows');
 }

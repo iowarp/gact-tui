@@ -65,7 +65,7 @@ export function ArtifactLineageGraph({
           <WrenchIcon aria-hidden="true" className="size-3.5" />
           {lineage.nodes.filter((node) => node.type === 'activity').length} recorded actions
         </span>
-        <span>Follow the arrows · select a file to open it</span>
+        <span>Follow the arrows and select a file to open it</span>
       </div>
       <ReactFlow<LineageFlowNode, Edge>
         edges={graph.edges}
@@ -205,7 +205,7 @@ function LineageNodeCard({ data }: NodeProps<LineageFlowNode>) {
       style={{ width: data.width, height: nodeHeight }}
       title={[data.label, ...data.details, data.self ? 'Current result' : '']
         .filter(Boolean)
-        .join(' · ')}
+        .join('\n')}
     >
       <Handle className="!size-0 !border-0" position={Position.Left} type="target" />
       {data.artifact && data.onOpenArtifact ? (

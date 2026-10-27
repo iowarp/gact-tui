@@ -603,7 +603,7 @@ describe('ClioObservabilityView', () => {
     // Renders once as the owner group's row title and once as the span's own
     // event label.
     for (const element of screen.getAllByText('ndp #1')) expect(element).toBeVisible();
-    // GanttTitle now appends the visible time window ("Execution · <range>").
+    // GanttTitle now appends the visible time window ("Execution: <range>").
     expect(screen.getByText(/^Execution/u)).toBeVisible();
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));

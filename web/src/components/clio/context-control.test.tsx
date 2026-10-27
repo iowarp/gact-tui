@@ -139,6 +139,6 @@ describe('ContextControl', () => {
     const effective = screen
       .getAllByRole('status')
       .find((node) => node.getAttribute('data-slot') === 'context-effective');
-    expect(effective).toHaveTextContent('In force: 16,384 tokens · Fit to GPU on 1 GPU');
+    expect(effective).toHaveTextContent('In force: 16,384 tokens (Fit to GPU on 1 GPU)');
   });
 });

@@ -308,7 +308,7 @@ function MarketplaceRow({
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {marketplace.format === 'claude-code' ? 'Claude Code format' : 'Agent Plugins format'}
-          {marketplace.commit ? ` · commit ${marketplace.commit.slice(0, 12)}` : ''}
+          {marketplace.commit ? `, commit ${marketplace.commit.slice(0, 12)}` : ''}
         </p>
         {marketplace.diagnostics.length ? (
           <details className="mt-1 text-xs">

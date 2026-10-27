@@ -144,7 +144,7 @@ export function stepCounter(progress?: OperationStepProgress): string | undefine
     }
   }
   if (progress.detail) parts.push(progress.detail);
-  return parts.length ? parts.join(' · ') : undefined;
+  return parts.length ? parts.join(', ') : undefined;
 }
 
 /** "Reusing <thing> (<identity>); skipped <size>/~<time>", as the service words it. */

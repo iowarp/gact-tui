@@ -151,7 +151,7 @@ export function AgentPluginTree({
                             <p className="flex min-w-0 items-center gap-1.5 py-1.5 pl-5 text-sm text-muted-foreground opacity-75">
                               <PackageIcon aria-hidden="true" className="size-4 shrink-0" />
                               <span className="min-w-0 truncate">
-                                {member} · not in this conversation
+                                {member} (not in this conversation)
                               </span>
                             </p>
                           )}
@@ -346,7 +346,7 @@ function PluginDetails({
                   <span className="font-mono text-xs break-all">{fragment.id}</span>
                   <span className="text-xs text-muted-foreground">
                     {promptSectionLabel(fragment.section)}
-                    {fragment.tokens !== undefined ? ` · about ${fragment.tokens} tokens` : ''}
+                    {fragment.tokens !== undefined ? `, about ${fragment.tokens} tokens` : ''}
                   </span>
                 </li>
               ))}
@@ -420,7 +420,7 @@ function PluginDetails({
               plugin.marketplace ? `from ${plugin.marketplace}` : '',
             ]
               .filter(Boolean)
-              .join(' · ')}
+              .join(', ')}
           </span>
         </DetailRow>
       </dl>

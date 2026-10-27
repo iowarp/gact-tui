@@ -77,7 +77,7 @@ function Run({
     counts.rejected ? `${counts.rejected} rejected` : '',
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join(', ');
   const failed = ['failed', 'error', 'missing'].includes(run.state);
   return (
     <li className="border-b last:border-b-0">
@@ -120,7 +120,7 @@ function Run({
               <dt className="text-muted-foreground">Total model usage</dt>
               <dd>
                 {run.usage.input_tokens !== null || run.usage.output_tokens !== null
-                  ? `${run.usage.input_tokens?.toLocaleString() ?? '—'} input · ${run.usage.output_tokens?.toLocaleString() ?? '—'} output tokens`
+                  ? `${run.usage.input_tokens?.toLocaleString() ?? '—'} input, ${run.usage.output_tokens?.toLocaleString() ?? '—'} output tokens`
                   : 'Token usage unavailable'}
               </dd>
               <dt className="text-muted-foreground">Total cost</dt>
@@ -135,7 +135,7 @@ function Run({
                   <dd>
                     {run.extract.kept} kept of {run.extract.returned}
                     {Object.values(run.extract.dropped).some(Boolean)
-                      ? ` · ${Object.values(run.extract.dropped).reduce((sum, n) => sum + n, 0)} excluded`
+                      ? `, ${Object.values(run.extract.dropped).reduce((sum, n) => sum + n, 0)} excluded`
                       : ''}
                   </dd>
                 </>
@@ -233,7 +233,7 @@ export function MemoryCreationLog({
                 : 'No background check recorded yet.'}
           </p>
           {waiting.length ? (
-            <p>{waiting.map(([reason, n]) => `${REASONS[reason]} (${n})`).join(' · ')}</p>
+            <p>{waiting.map(([reason, n]) => `${REASONS[reason]} (${n})`).join(', ')}</p>
           ) : null}
         </div>
       ) : null}

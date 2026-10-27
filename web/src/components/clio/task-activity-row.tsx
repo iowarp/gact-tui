@@ -89,14 +89,14 @@ export function TaskActivityRow({
                 className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-xs' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
                 {flowState
-                  ? `Flow · ${flowState.label}`
+                  ? `Flow: ${flowState.label}`
                   : running || status === 'completed'
                     ? kind === 'MCP' || kind === 'Shell'
                       ? 'Tool'
                       : kind === 'Session'
                         ? 'Agent'
                         : kind
-                    : `${kind === 'MCP' || kind === 'Shell' ? 'Tool' : kind} · ${label}`}
+                    : `${kind === 'MCP' || kind === 'Shell' ? 'Tool' : kind}: ${label}`}
                 {!compact && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>

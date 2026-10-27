@@ -81,7 +81,7 @@ export function workflowAgentflowSource(
       step.targetLabel === 'this agent' ? '' : step.targetLabel,
     ]
       .filter(Boolean)
-      .join(' · ');
+      .join(', ');
     const third = step.addedBy && step.kind !== 'proposal' ? `added by ${step.addedBy}` : '';
     const name = step.forkOf
       ? `${step.label ?? step.id} · fork of ${step.forkOf}`

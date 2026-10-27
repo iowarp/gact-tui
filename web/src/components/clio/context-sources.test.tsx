@@ -33,7 +33,7 @@ it('distinguishes a capture using its recorded operation and count', async () =>
   };
   render(<ContextSources files={[]} resources={[resource(1)]} tools={[tool]} />);
   await userEvent.click(screen.getByRole('button', { name: 'Sources 1' }));
-  expect(screen.getByText(/Capture observations · 1 record · 20 B/)).toBeVisible();
+  expect(screen.getByText(/Capture observations, 1 record, 20 B/)).toBeVisible();
 });
 function resource(index: number): WorkspaceResource {
   return {

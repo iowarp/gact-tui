@@ -156,9 +156,10 @@ function restoredWorkbenchState(
     const storedTabs = Array.isArray(record.tabs)
       ? record.tabs
           .filter(isWorkbenchTab)
+          // Knowledge tabs saved by older builds carry a " (middle dot) Knowledge" suffix.
           .map((tab) =>
             tab.kind === 'knowledge'
-              ? { ...tab, label: tab.label.replace(/ · Knowledge$/, '') }
+              ? { ...tab, label: tab.label.replace(/ \u00b7 Knowledge$/u, '') }
               : tab,
           )
       : [];

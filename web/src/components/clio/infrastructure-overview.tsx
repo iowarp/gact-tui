@@ -202,7 +202,7 @@ export function InfrastructureOverview({
       {servers.data?.length ? (
         <details className="border-b pb-4">
           <summary className="cursor-pointer text-sm font-medium">
-            Saved model servers · {servers.data.length}
+            Saved model servers ({servers.data.length})
           </summary>
           <div className="mt-3 divide-y">
             {servers.data.map((server) => (
@@ -301,7 +301,7 @@ function webResearchRow(
     const status = managedServiceStatus(builtIn);
     const name = infrastructureServiceName(builtIn.service_id);
     return {
-      detail: `Built-in search engine · ${name}`,
+      detail: `Built-in search engine: ${name}`,
       description: status.reason ?? description,
       action:
         status.action === 'install'

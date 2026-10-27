@@ -36,7 +36,7 @@ it('pauses model execution without cancelling the task and suppresses duplicate 
   expect(control).toHaveBeenCalledWith(task, 'pause');
   expect(cancel).not.toHaveBeenCalled();
   expect(button).toBeDisabled();
-  expect(screen.getByText('Subagent · Pause requested')).toBeVisible();
+  expect(screen.getByText('Subagent: Pause requested')).toBeVisible();
   await user.click(button);
   expect(control).toHaveBeenCalledTimes(1);
   finish();
@@ -52,7 +52,7 @@ it('shows a held run honestly and resumes on the same task', async () => {
   };
   const control = vi.fn(async () => {});
   const view = render(<AsyncTaskList processes={[paused]} onControlTask={control} />);
-  expect(screen.getByText('Subagent · Paused')).toBeVisible();
+  expect(screen.getByText('Subagent: Paused')).toBeVisible();
   expect(view.container.querySelector('.animate-spin')).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: `resume Subagent: ${task.title}` }));
   expect(control).toHaveBeenCalledTimes(1);

@@ -14,7 +14,7 @@ export function ModelDownloadProgress({ model }: { model: ModelAcquisition }) {
         </span>
         {total ? (
           <span className="tabular-nums">
-            {formatBytes(model.bytes_done)} / {formatBytes(total)} · {percent}%
+            {formatBytes(model.bytes_done)} of {formatBytes(total)} ({percent}%)
           </span>
         ) : active ? (
           <span>{model.bytes_done > 0 ? formatBytes(model.bytes_done) : 'Preparing download'}</span>

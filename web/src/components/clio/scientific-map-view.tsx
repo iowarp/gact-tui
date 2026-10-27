@@ -780,7 +780,7 @@ export function ClioScientificMapView({
       ) : null}
       {offlineArchive ? (
         <p className="absolute bottom-1 left-2 rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground">
-          Offline map · Natural Earth land outline · saved scientific data
+          Offline map: Natural Earth land outline and saved scientific data
         </p>
       ) : null}
       {mapError ? (

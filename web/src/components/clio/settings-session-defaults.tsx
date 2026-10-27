@@ -233,11 +233,11 @@ export function SessionDefaultsSettings() {
                 {agents.data?.map((agent) => (
                   <SelectItem key={agent.ref} value={agent.ref}>
                     {agent.name || agent.id}
-                    {agent.kind === 'user' ? ' · yours' : ''}
+                    {agent.kind === 'user' ? ' (yours)' : ''}
                   </SelectItem>
                 ))}
                 {form.agent_ref && !agents.data?.some((agent) => agent.ref === form.agent_ref) ? (
-                  <SelectItem value={form.agent_ref}>{form.agent_ref} · not installed</SelectItem>
+                  <SelectItem value={form.agent_ref}>{form.agent_ref} (not installed)</SelectItem>
                 ) : null}
               </SelectContent>
             </Select>

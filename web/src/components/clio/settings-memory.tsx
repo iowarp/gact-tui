@@ -419,7 +419,7 @@ export function MemorySettings() {
           <MemoryInbox
             sessionHref={sessionHref}
             targetLabel={(name) =>
-              `${memoryScope(name)} · ${name.split('/').at(-1)?.replaceAll('-', ' ')}`
+              `${memoryScope(name)}: ${name.split('/').at(-1)?.replaceAll('-', ' ')}`
             }
           />
         </TabsContent>
@@ -439,7 +439,7 @@ export function MemorySettings() {
             sessionHref={sessionHref}
             sessionTitle={(id) => bySession.get(id)?.title || 'Conversation not loaded'}
             targetLabel={(name) =>
-              `${memoryScope(name)} · ${name.split('/').at(-1)?.replaceAll('-', ' ')}`
+              `${memoryScope(name)}: ${name.split('/').at(-1)?.replaceAll('-', ' ')}`
             }
           />
         </TabsContent>
@@ -450,7 +450,7 @@ export function MemorySettings() {
           scopeLabel={
             opened.startsWith('user/')
               ? 'Account memory'
-              : `Workspace memory · ${memoryScope(opened)}`
+              : `Workspace memory: ${memoryScope(opened)}`
           }
           name={opened}
           onOpenChange={(next) => (next ? undefined : open(''))}

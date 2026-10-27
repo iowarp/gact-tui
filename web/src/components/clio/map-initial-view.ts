@@ -49,7 +49,7 @@ export const offlineStyle = () => {
       'offline-land': {
         type: 'geojson' as const,
         data: offlineLandData,
-        attribution: 'Natural Earth · coarse land outline',
+        attribution: 'Natural Earth coarse land outline',
       },
     },
     layers: [

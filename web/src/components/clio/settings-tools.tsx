@@ -194,7 +194,7 @@ export function ToolsSettings({
           <div className="min-w-0">
             <h2 className="text-sm font-semibold" id="mcp-services-heading">
               {embedded
-                ? `MCP services · ${computerLabel || settings.location || 'Connected computer'}`
+                ? `MCP services on ${computerLabel || settings.location || 'the connected computer'}`
                 : 'Services and their tools'}
             </h2>
             {!embedded ? (

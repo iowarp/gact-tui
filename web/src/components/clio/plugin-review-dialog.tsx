@@ -58,7 +58,7 @@ export function PluginReviewDialog({
               : request.author
                 ? `From ${request.author}`
                 : 'Its source is not known'}
-            {request.version ? ` · version ${request.version}` : ''}
+            {request.version ? `, version ${request.version}` : ''}
           </DialogDescription>
         </DialogHeader>
         {open ? <PluginReviewBody request={request} /> : null}

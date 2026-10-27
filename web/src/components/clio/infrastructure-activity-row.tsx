@@ -120,7 +120,7 @@ export function InfrastructureActivityRow({
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
-              {host} · {new Date(row.time).toLocaleString()}
+              {host}, {new Date(row.time).toLocaleString()}
             </DialogDescription>
           </DialogHeader>
           <Tabs defaultValue="summary" className="flex min-h-0 flex-1 flex-col">

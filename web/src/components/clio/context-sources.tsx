@@ -36,7 +36,7 @@ export function ContextSources({
             summary ? `${summary} ${summary === '1' ? 'record' : 'records'}` : undefined,
           ]
             .filter(Boolean)
-            .join(' · '),
+            .join(', '),
         );
       }
     }
@@ -45,7 +45,7 @@ export function ContextSources({
     ...files.map((file) => ({
       id: file.path,
       label: file.display_path || file.path,
-      detail: `${file.mode === 'edit' ? 'Editable' : file.mode === 'pin' ? 'Pinned' : 'Read only'} · ${frame?.items.some((item) => item.path === file.path && item.included) ? 'In last request' : 'Attached to agent'}`,
+      detail: `${file.mode === 'edit' ? 'Editable' : file.mode === 'pin' ? 'Pinned' : 'Read only'}, ${frame?.items.some((item) => item.path === file.path && item.included) ? 'in last request' : 'attached to agent'}`,
       open: onOpenFile ? () => onOpenFile(file.path) : undefined,
     })),
     ...resources
@@ -69,7 +69,7 @@ export function ContextSources({
               : 'Available in workspace',
         ]
           .filter(Boolean)
-          .join(' · '),
+          .join(', '),
         open: onOpenResource ? () => onOpenResource(resource) : undefined,
       })),
   ];

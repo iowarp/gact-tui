@@ -210,7 +210,7 @@ function counted(count: number, singular: string, plural = `${singular}s`): stri
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-/** A one-line count of what a plugin adds, such as "6 tools · 2 skills · 3 prompt parts". */
+/** A one-line count of what a plugin adds, such as "6 tools, 2 skills, 3 prompt parts". */
 export function capabilitySummary(contributions: PluginContributions): string {
   const parts = [
     [contributions.tools.length, 'tool'],
@@ -224,7 +224,7 @@ export function capabilitySummary(contributions: PluginContributions): string {
     [contributions.catalogs.length, 'catalog'],
   ] as const;
   const named = parts.filter(([count]) => count > 0).map(([count, noun]) => counted(count, noun));
-  return named.length ? named.join(' · ') : 'Nothing of its own';
+  return named.length ? named.join(', ') : 'Nothing of its own';
 }
 
 /** A pack's member count, naming how many are active when some have left. */
@@ -278,9 +278,9 @@ export function pluginChangeSummary(text: string): { added: string[]; removed: s
   return { added, removed: removed.filter(Boolean) };
 }
 
-/** "Plugins changed: +shell · −document-runtime", or "Plugins changed". */
+/** "Plugins changed: +shell, −document-runtime", or "Plugins changed". */
 export function pluginChangeLabel(text: string): string {
   const { added, removed } = pluginChangeSummary(text);
   const items = [...added.map((id) => `+${id}`), ...removed.map((id) => `−${id}`)];
-  return items.length ? `Plugins changed: ${items.join(' · ')}` : 'Plugins changed';
+  return items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed';
 }

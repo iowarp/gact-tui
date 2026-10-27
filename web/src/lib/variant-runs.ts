@@ -175,7 +175,7 @@ export interface VariantRunView {
   variantsId: string;
   sessionId: string;
   title: string;
-  /** How the run chooses: `Best of 3 · you pick`. */
+  /** How the run chooses: `Best of 3 — you pick`. */
   method: string;
   rubric?: string;
   judge: VariantRun['judge'];
@@ -202,7 +202,7 @@ function methodLabel(run: VariantRun): string {
         : 'Best of several';
   const judge =
     run.judge === 'user' ? 'you pick' : run.judge === 'lm' ? 'judged by the model' : undefined;
-  return judge ? `${strategy} · ${judge}` : strategy;
+  return judge ? `${strategy} — ${judge}` : strategy;
 }
 
 /** A closed run's plain status and notice; never a colour or an icon alone. */

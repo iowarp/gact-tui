@@ -176,7 +176,7 @@ export function MemoryDocumentDialog({
               ? (scopeLabel ??
                 (document.data.scope === 'user'
                   ? 'Account memory'
-                  : `Workspace memory · ${document.data.scope.replace('project/', '')}`))
+                  : `Workspace memory: ${document.data.scope.replace('project/', '')}`))
               : 'Loading…'}
           </DialogDescription>
         </DialogHeader>

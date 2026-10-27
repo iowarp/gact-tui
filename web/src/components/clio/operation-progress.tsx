@@ -142,10 +142,8 @@ export function OperationProgress({
             <span className="font-medium">{OPERATION_STATE_LABELS[state]}</span>
             {progressText ? (
               <>
-                <span aria-hidden="true" className="text-muted-foreground">
-                  {' · '}
-                </span>
-                <span className="text-muted-foreground">{progressText}</span>
+                {' '}
+                <span className="ml-1 text-muted-foreground">{progressText}</span>
               </>
             ) : null}
           </p>
@@ -198,15 +196,14 @@ export function OperationProgress({
                       step.state === 'failed' && 'text-destructive',
                     )}
                   >
-                    {step.label}
-                    <span className="text-xs text-muted-foreground">
-                      {' '}
-                      · {STEP_STATE_LABELS[step.state]}
+                    {step.label}{' '}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {STEP_STATE_LABELS[step.state]}
                     </span>
                   </p>
                   {step.message || counter ? (
                     <p className="truncate text-xs text-muted-foreground" title={step.message}>
-                      {[counter, step.message].filter(Boolean).join(' · ')}
+                      {[counter, step.message].filter(Boolean).join(', ')}
                     </p>
                   ) : null}
                   {step.state === 'running' && running ? (

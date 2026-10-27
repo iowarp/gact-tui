@@ -209,7 +209,7 @@ export function ClioSteps({
                     <span className="min-w-0">
                       {ingredient.name}
                       {ingredient.note ? (
-                        <span className="text-muted-foreground"> · {ingredient.note}</span>
+                        <span className="text-muted-foreground">, {ingredient.note}</span>
                       ) : null}
                     </span>
                     <span className="shrink-0 tabular-nums text-muted-foreground">

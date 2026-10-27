@@ -46,7 +46,7 @@ export function ArchiveFileList({
         />
       </div>
       <p role="status" className="text-sm text-muted-foreground">
-        {matches.length.toLocaleString()} of {files.length.toLocaleString()} files · Page{' '}
+        {matches.length.toLocaleString()} of {files.length.toLocaleString()} files, page{' '}
         {current + 1} of {pages.toLocaleString()}
       </p>
       <ul className="space-y-2">

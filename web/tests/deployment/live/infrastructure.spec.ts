@@ -156,7 +156,7 @@ test.describe.serial('live CLIO infrastructure', () => {
       await fit.click();
       for (const strategy of preview.fit_to_gpu.strategies) {
         await expect(
-          page.getByRole('option', { name: `Fit to GPU · ${strategy.label}` }),
+          page.getByRole('option', { name: `Fit to GPU: ${strategy.label}` }),
         ).toBeVisible();
       }
       await page.keyboard.press('Escape');

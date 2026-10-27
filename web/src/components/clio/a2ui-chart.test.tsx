@@ -291,7 +291,7 @@ describe('ClioChart', () => {
     expect(screen.getByText('Loss')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'More' }));
     expect(
-      screen.getByRole('menuitem', { name: /v over t, one line per run\. · 4 rows/u }),
+      screen.getByRole('menuitem', { name: /v over t, one line per run\. \(4 rows\)/u }),
     ).toBeInTheDocument();
     expect(container.querySelector('[data-renderer="svg"]')).not.toBeNull();
   });

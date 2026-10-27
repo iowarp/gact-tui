@@ -26,7 +26,7 @@ function contributions(plugin: PluginEntry): string {
   add(plugin.hooks.length, 'hook', 'hooks');
   add(plugin.commands.length, 'command', 'commands');
   add(plugin.fragments.length, 'prompt fragment', 'prompt fragments');
-  return parts.join(' · ') || 'No contributions of its own';
+  return parts.join(', ') || 'No contributions of its own';
 }
 
 /** Every installed plugin and pack, by marketplace, with what it contributes. */
@@ -197,7 +197,7 @@ function CatalogNode({
             ) : null}
             <span className="mt-0.5 block text-xs text-muted-foreground">
               {pack ? `Brings ${plugin.members.join(', ') || 'no members'}` : contributions(plugin)}
-              {plugin.requires.length ? ` · needs ${plugin.requires.join(', ')}` : ''}
+              {plugin.requires.length ? `; needs ${plugin.requires.join(', ')}` : ''}
             </span>
           </span>
         </button>
