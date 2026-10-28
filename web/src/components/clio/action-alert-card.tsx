@@ -2,17 +2,31 @@ import type { ActionCardAction, MessageBlock } from '@clio/core/v3';
 import { ShieldAlertIcon, TriangleAlertIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { vocab } from '@/lib/brand-vocabulary';
-import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { ActionCardButton } from './action-card-button';
 
 type ActionCardBlock = Extract<MessageBlock, { type: 'action_card' }>;
 
-const SEVERITY = {
-  critical: { label: 'Critical', accent: 'border-l-destructive', tone: 'text-destructive' },
-  warning: { label: 'Warning', accent: 'border-l-warning', tone: 'text-warning' },
-  info: { label: 'Info', accent: 'border-l-primary', tone: 'text-primary' },
+/** Two alert levels: a warning informs (yellow); a danger also quarantines the session (red). */
+const LEVEL = {
+  warning: {
+    label: 'Warning',
+    accent: 'border-l-warning',
+    tone: 'text-warning',
+    Icon: TriangleAlertIcon,
+  },
+  danger: {
+    label: 'Danger',
+    accent: 'border-l-destructive',
+    tone: 'text-destructive',
+    Icon: ShieldAlertIcon,
+  },
 } as const;
+
+/** Older cards said ``critical`` (a danger) or ``info`` (a warning). */
+function alertLevel(severity: string | undefined) {
+  return severity === 'danger' || severity === 'critical' ? LEVEL.danger : LEVEL.warning;
+}
 
 /** Who raised the card, as the person knows it (the watcher agent id reads as SPOTTER). */
 function raisedBy(source: string | undefined): string {
@@ -32,20 +46,11 @@ export function ActionAlertCard({
   block: ActionCardBlock;
   onAction?: (action: ActionCardAction) => void | Promise<unknown>;
 }) {
-  const severity =
-    SEVERITY[(block.severity ?? 'warning') as keyof typeof SEVERITY] ?? SEVERITY.warning;
-  const Icon =
-    block.severity === 'info'
-      ? InfoIcon
-      : block.severity === 'critical'
-        ? ShieldAlertIcon
-        : TriangleAlertIcon;
-  // The evidence action leads when it is usable; an unavailable one keeps its reason tip.
-  const actions = [...block.actions].sort(
-    (a, b) =>
-      Number(b.enabled && b.behavior.kind === 'inspect_attention') -
-      Number(a.enabled && a.behavior.kind === 'inspect_attention'),
-  );
+  const severity = alertLevel(block.severity);
+  const Icon = severity.Icon;
+  // Attention is explored by selecting text in the answer now; older cards' evidence action is
+  // not offered.
+  const actions = block.actions.filter((action) => action.behavior.kind !== 'inspect_attention');
   return (
     <section
       aria-label={`${raisedBy(block.source)} finding: ${block.title}`}
@@ -56,7 +61,7 @@ export function ActionAlertCard({
       <header className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
         <Icon aria-hidden="true" className={cn('size-3.5 shrink-0', severity.tone)} />
         <span className="font-medium tracking-wide text-foreground">{raisedBy(block.source)}</span>
-        <Badge variant={block.severity === 'critical' ? 'destructive' : 'outline'}>
+        <Badge variant={severity === LEVEL.danger ? 'destructive' : 'outline'}>
           {severity.label}
         </Badge>
       </header>

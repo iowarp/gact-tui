@@ -743,6 +743,16 @@ export class ClioRepository extends WorkRepository {
     });
   }
 
+  /** Lift the quarantine a SPOTTER danger alert put on a session (the person's decision). */
+  public liftSpotterQuarantine(sessionId: string, signal?: AbortSignal): Promise<void> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/spotter/quarantine/lift`,
+      decode: () => undefined,
+      signal,
+    });
+  }
+
   public agentTask(
     taskId: string,
     signal?: AbortSignal,

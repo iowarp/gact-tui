@@ -58,6 +58,7 @@ import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReferenceOrToast } from '@/lib/composer-reference-navigation';
 import { canForkSession, isManagedChildSession } from '@/lib/session-state';
 import { sessionSpotterModel } from '@/lib/spotter-model-ref';
+import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
@@ -274,6 +275,7 @@ export function WorkspacePage() {
     interactionRootSessionId,
     supportsUnifiedInteractions,
   });
+  const hold = useSpotterQuarantine(session, actionCard.mutateAsync);
   const { handleInteractionResponse, questionAnswering, pendingInteractionsPanel } =
     useWorkspaceQuestions({
       interactions,
@@ -416,7 +418,7 @@ export function WorkspacePage() {
           )}
           commands={commands}
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
-          disabled={!session || send.isPending || cancel.isPending || isPending}
+          disabled={!session || send.isPending || cancel.isPending || isPending || hold.active}
           effort={activeEffort}
           configuredEffort={configuredEffort}
           executionMode={
@@ -436,7 +438,7 @@ export function WorkspacePage() {
           model={activeModel}
           modelCatalogStatus={modelCatalogStatus}
           modelOptions={modelOptions}
-          pendingInteractions={pendingInteractionsPanel}
+          pendingInteractions={hold.withCard(pendingInteractionsPanel)}
           onCommand={(value) => leaveWelcomeWhile(() => run(value))}
           onRetryModelCatalog={(providerId) => void providerCatalog.refreshCatalog(providerId)}
           onBehaviorChange={async (behavior) => {
