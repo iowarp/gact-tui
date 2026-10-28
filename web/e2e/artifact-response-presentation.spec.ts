@@ -173,7 +173,15 @@ test('shows one latest response output while Evidence retains versions and revie
   ).toHaveText(/HTML\s*512 B\s*v2/u);
   // The compact inventory retains all versions and review evidence without
   // repeating the transcript's Output badges on each produced file.
-  await expect(canvas.locator('[data-slot="artifact"]')).toHaveCount(6);
+  for (const name of new Set(rows.map((row) => row.name))) {
+    const versions = name === 'sunflower-garden.html' ? 2 : 1;
+    await expect(canvas.getByRole('button', { name: `Open ${name}`, exact: true })).toHaveCount(
+      versions,
+    );
+    await expect(canvas.getByRole('button', { name: `Download ${name}`, exact: true })).toHaveCount(
+      versions,
+    );
+  }
   await expect(canvas.getByText('Output', { exact: true })).toHaveCount(0);
   await expect(canvas.getByRole('button', { name: 'Open review.png' })).toBeVisible();
   await expect(canvas.getByRole('button', { name: 'Open working.pdf' })).toBeVisible();
