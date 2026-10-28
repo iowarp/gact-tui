@@ -190,6 +190,8 @@ fn run_check(
     log: &(impl Fn(&str) + Sync),
 ) -> Result<bool, String> {
     let startup = startup_command(runtime, workspace, user)?;
+    #[cfg(windows)]
+    let startup = owned_package_command(startup, &crate::supervisor_launcher::locate_launcher()?);
     let verified = if probe {
         let mut help = install_command(runtime, workspace, user)?;
         help.arg("--help");
@@ -201,6 +203,28 @@ fn run_check(
         record_stamp(runtime, workspace, user);
     }
     Ok(verified)
+}
+
+#[cfg(windows)]
+fn owned_package_command(command: Command, launcher: &Path) -> Command {
+    let mut owned = Command::new(launcher);
+    owned
+        .arg("--managed-package-command")
+        .arg(command.get_program())
+        .args(command.get_args());
+    for (key, value) in command.get_envs() {
+        if let Some(value) = value {
+            owned.env(key, value);
+        } else {
+            owned.env_remove(key);
+        }
+    }
+    if let Some(directory) = command.get_current_dir() {
+        owned.current_dir(directory);
+    }
+    owned.env("CLIO_DESKTOP_PARENT_PID", std::process::id().to_string());
+    owned.stdin(Stdio::null()).creation_flags(0x0800_0000);
+    owned
 }
 
 fn record_stamp(runtime: &Path, workspace: &Path, user: &Path) {
@@ -327,6 +351,47 @@ fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(),
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn package_owner_preserves_command_and_environment_without_attaching_the_gui() {
+        let mut python = Command::new("private/python.exe");
+        python.args([
+            "-B",
+            "-m",
+            "clio_agent.runtime.document_install",
+            "--reuse-installed",
+        ]);
+        python
+            .env("GACT_BUNDLED_RUNTIME_DIR", "private")
+            .env_remove("UNUSED_INSTALLER_INPUT");
+        python.current_dir("workspace");
+        let owned = owned_package_command(python, Path::new("private/launcher.exe"));
+        assert_eq!(owned.get_program(), "private/launcher.exe");
+        assert_eq!(
+            owned.get_args().collect::<Vec<_>>(),
+            [
+                "--managed-package-command",
+                "private/python.exe",
+                "-B",
+                "-m",
+                "clio_agent.runtime.document_install",
+                "--reuse-installed"
+            ]
+        );
+        assert_eq!(owned.get_current_dir(), Some(Path::new("workspace")));
+        assert!(owned
+            .get_envs()
+            .any(|(key, value)| key == "CLIO_DESKTOP_PARENT_PID"
+                && value == Some(std::ffi::OsStr::new(&std::process::id().to_string()))));
+        assert!(owned
+            .get_envs()
+            .any(|(key, value)| key == "GACT_BUNDLED_RUNTIME_DIR"
+                && value == Some(std::ffi::OsStr::new("private"))));
+        assert!(owned
+            .get_envs()
+            .any(|(key, value)| key == "UNUSED_INSTALLER_INPUT" && value.is_none()));
+    }
 
     struct RuntimeFixture(PathBuf);
 
