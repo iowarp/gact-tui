@@ -4,7 +4,12 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { useFlowQuestions, useFlowRun, useOpenTaskHandle } from '@/hooks/use-flow-run';
+import {
+  useFlowQuestions,
+  useFlowRun,
+  useFlowTaskRecord,
+  useOpenTaskHandle,
+} from '@/hooks/use-flow-run';
 import {
   rowDuration,
   useFlowPresentation,
@@ -23,7 +28,12 @@ import {
   FlowVerdictView,
   WorkflowBounds,
 } from './flow-run-parts';
-import { flowRunStatus, flowTaskHistoryUnavailable, stepTally } from './flow-run-presentation';
+import {
+  flowRunStatus,
+  flowTaskHistoryUnavailable,
+  settledTaskStatus,
+  stepTally,
+} from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
 import { FlowTrack } from './flow-track';
 import { FlowUsageSummary } from './flow-run-usage';
@@ -60,6 +70,8 @@ export function FlowRunView({
   const presentation = useFlowPresentation(run.data, agentRef, args, sessionId);
   const [fullScreen, setFullScreen] = useState(false);
   const questions = useFlowQuestions(sessionId, run.data);
+  const task = useFlowTaskRecord(handle, run.data === null);
+  const ended = run.data === null && task.data ? settledTaskStatus(task.data) : undefined;
   if (run.isPending) {
     return (
       <p className="p-4 text-sm text-muted-foreground" role="status">
@@ -73,6 +85,20 @@ export function FlowRunView({
         <AlertTitle>Flow run unavailable</AlertTitle>
         <AlertDescription>{run.error.message}</AlertDescription>
       </Alert>
+    );
+  }
+  if (!run.data && ended) {
+    return (
+      <div className="grid gap-2 p-4 text-sm">
+        <ClioStatus className="justify-self-start" label={ended.label} value={ended.value} />
+        <p className="text-muted-foreground">
+          The task ended before its flow run was recorded
+          {task.data?.error_reason ? ':' : '.'}
+        </p>
+        {task.data?.error_reason ? (
+          <p className="[overflow-wrap:anywhere]">{task.data.error_reason}</p>
+        ) : null}
+      </div>
     );
   }
   if (!run.data) {

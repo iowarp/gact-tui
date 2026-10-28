@@ -10,6 +10,7 @@ import {
   runQuestions,
   type FlowQuestion,
 } from '@/components/clio/flow-run-edits';
+import { settledTaskStatus } from '@/components/clio/flow-run-presentation';
 
 /** Cadence for re-reading a running flow. Unit: milliseconds. */
 export const FLOW_RUN_POLL_MS = 2_000;
@@ -27,6 +28,23 @@ export function useFlowRun(sessionId: string, handle: string, enabled = true) {
     queryFn: ({ signal }) => repository.taskFlow(sessionId, handle, signal),
     refetchInterval: (query) =>
       query.state.data && flowRunActive(query.state.data) ? FLOW_RUN_POLL_MS : false,
+  });
+}
+
+/**
+ * The task behind a flow handle, read only when that task has no flow checkpoint.
+ * A flow refused before it wrote one (a limit hit on its first call) is then shown
+ * from the task's own terminal state. Re-read until the task settles.
+ */
+export function useFlowTaskRecord(handle: string, enabled: boolean) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  return useQuery({
+    queryKey: queryKeys.key('flow-task-record', settings.endpoint, handle),
+    enabled: Boolean(handle) && enabled,
+    queryFn: ({ signal }) => repository.agentTask(handle, signal),
+    refetchInterval: (query) =>
+      query.state.data && !settledTaskStatus(query.state.data) ? FLOW_RUN_POLL_MS : false,
   });
 }
 
