@@ -93,6 +93,9 @@ pub(crate) fn prepare_packages(
         help.arg("--help");
         let mut fence = install_command(runtime, workspace, user)?;
         fence.arg("--protected-execution-only");
+        let launcher = crate::supervisor_launcher::locate_launcher()?;
+        let help = owned_package_command(help, &launcher);
+        let fence = owned_package_command(fence, &launcher);
         if !check_fence(help, fence, &boot_log_line)? {
             boot_log_line("Runtime predates independent protected execution; checking managed packages before start");
             run_check(runtime, workspace, user, true, &boot_log_line)?;
@@ -195,6 +198,8 @@ fn run_check(
     let verified = if probe {
         let mut help = install_command(runtime, workspace, user)?;
         help.arg("--help");
+        #[cfg(windows)]
+        let help = owned_package_command(help, &crate::supervisor_launcher::locate_launcher()?);
         prepare_startup(help, startup, log)?
     } else {
         run_install(startup, log).map(|()| true)?
