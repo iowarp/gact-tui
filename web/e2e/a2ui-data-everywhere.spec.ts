@@ -567,7 +567,7 @@ test('box selection links the map and explicit zoom preserves the full dataset',
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.75, { steps: 10 });
   await page.mouse.up();
-  await expect(chart.getByRole('img', { name: /· 500 rows$/u })).toBeVisible();
+  await expect(chart.getByRole('img', { name: /\(500 rows\)$/u })).toBeVisible();
 
   // The zone's own ids replaced the shared selection: the map (which always
   // shows every referenced point, never paginated) highlights a proper
@@ -615,7 +615,7 @@ test('box selection links the map and explicit zoom preserves the full dataset',
   await chart.hover();
   await chart.getByRole('button', { name: 'Zoom to selection' }).click();
   await expect.poll(xDomain).not.toEqual(beforeZoom);
-  await expect(chart.getByRole('img', { name: /· 500 rows$/u })).toBeVisible();
+  await expect(chart.getByRole('img', { name: /\(500 rows\)$/u })).toBeVisible();
   await expect(selectedCount).toHaveText(selectedText);
   await chart.getByRole('button', { name: 'Reset zoom' }).click();
   await expect.poll(xDomain).toEqual(beforeZoom);
@@ -628,7 +628,7 @@ test('a chart filter popover narrows the plotted rows, layered on the agent base
   await openEarthquakeDemo(page);
   const chartFrame = page.locator('[data-slot="a2ui-chart"]');
   const chartImage = chartFrame.getByRole('img');
-  await expect(chartImage).toHaveAttribute('aria-label', /· 500 rows$/u, { timeout: 20_000 });
+  await expect(chartImage).toHaveAttribute('aria-label', /\(500 rows\)$/u, { timeout: 20_000 });
 
   // The toolbar is revealed on hover (G0 redesign); a real mouse user reaches
   // it by moving across the card, so a synthetic click needs the same hover
@@ -638,8 +638,8 @@ test('a chart filter popover narrows the plotted rows, layered on the agent base
   await chartFrame.getByRole('button', { name: /^Filters/u }).click();
   await page.getByLabel('Filter place, contains').fill('eastern');
 
-  await expect(chartImage).not.toHaveAttribute('aria-label', /· 500 rows$/u, { timeout: 20_000 });
-  await expect(chartImage).toHaveAttribute('aria-label', /· [1-9]\d* rows$/u);
+  await expect(chartImage).not.toHaveAttribute('aria-label', /\(500 rows\)$/u, { timeout: 20_000 });
+  await expect(chartImage).toHaveAttribute('aria-label', /\([1-9]\d* rows\)$/u);
 
   await page.screenshot({
     path: `${test.info().outputDir}/chart-filter-popover.png`,

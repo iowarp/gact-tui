@@ -58,11 +58,7 @@ fn identity(runtime: &Path, workspace: &Path, user: &Path) -> Result<String, &'s
 
 /// Decide whether this launch can skip the check before the agent starts.
 pub(crate) fn launch_check(runtime: &Path, workspace: &Path, user: &Path) -> LaunchCheck {
-    if cfg!(windows) {
-        // The Windows check also prepares the protected-execution fence the agent
-        // starts under, so it stays before the agent.
-        return LaunchCheck::Required("launch_stamp_windows_fence_first");
-    }
+    // Windows verifies its fence separately before applying this package cache.
     let current = match identity(runtime, workspace, user) {
         Ok(current) => current,
         Err(reason) => return LaunchCheck::Required(reason),
@@ -115,7 +111,7 @@ pub(crate) fn forget(user: &Path) -> Result<(), String> {
     }
 }
 
-#[cfg(all(test, not(windows)))]
+#[cfg(test)]
 mod tests {
     use super::*;
 

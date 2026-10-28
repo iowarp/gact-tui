@@ -239,6 +239,9 @@ func startCrashCleanupAfterExit(rt *resolvedRuntime) {
 }
 
 func main() {
+	if code, handled := managedCommandMode(os.Args); handled {
+		os.Exit(code)
+	}
 	args, err := parseArgs()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sidecar-launcher: %v\n", err)

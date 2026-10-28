@@ -12,7 +12,7 @@
 // including the fixed scientific data scales), tests and test fixtures.
 // Comments are skipped, so issue references such as #1549 do not count.
 import { readFileSync, readdirSync } from 'node:fs';
-import { extname, join, relative, resolve } from 'node:path';
+import { extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stripComments } from './check_brand_literals.mjs';
 
@@ -51,7 +51,7 @@ function main() {
   const excluded = ['theme', 'test', 'test-fixtures'].map((name) => resolve(sourceRoot, name));
   const failures = [];
   for (const path of sourceFiles(sourceRoot)) {
-    if (excluded.some((directory) => path.startsWith(`${directory}/`))) continue;
+    if (excluded.some((directory) => path.startsWith(`${directory}${sep}`))) continue;
     const relPath = relative(root, path).replaceAll('\\', '/');
     stripComments(readFileSync(path, 'utf8'))
       .split('\n')

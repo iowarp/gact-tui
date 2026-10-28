@@ -14,7 +14,7 @@ test('an image opens on a fitted stage, resists dragging, and returns its refere
   }, endpoint);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.route('**/v1/sessions/sess_flat_ndp/messages', async (route) => {
+  await page.route(/\/v1\/sessions\/sess_flat_ndp\/messages(?:\?.*)?$/u, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     const surfaceId = 'image_preview';

@@ -173,7 +173,7 @@ test('first send creates exactly one session and negotiates interactive UI befor
       await route.fulfill({ json: session });
     } else await route.fulfill({ json: { sessions: created ? [session] : [] } });
   });
-  await page.route(`${endpoint}/v1/sessions/sess_flat_ndp/messages`, async (route) => {
+  await page.route(/\/v1\/sessions\/sess_flat_ndp\/messages(?:\?.*)?$/u, async (route) => {
     if (route.request().method() === 'POST') {
       expect(created).toBe(true);
       const body = route.request().postDataJSON();

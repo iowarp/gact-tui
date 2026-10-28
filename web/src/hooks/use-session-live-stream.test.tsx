@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
   const repository = {
-    sessions: vi.fn(),
     stream: vi.fn(),
     transcript: vi.fn(),
     workspaces: vi.fn(),
@@ -24,6 +23,7 @@ const mocks = vi.hoisted(() => {
     { getState: vi.fn(() => storeState) },
   );
   return {
+    sessionRows: vi.fn(),
     queryClient: {
       invalidateQueries: vi.fn(async () => undefined),
       setQueriesData: vi.fn(),
@@ -66,8 +66,8 @@ describe('useSessionLiveStream resume recovery', () => {
     mocks.storeState.entities.cursor = undefined;
     vi.spyOn(document, 'hasFocus').mockReturnValue(true);
     mocks.repository.stream.mockReset();
-    mocks.repository.sessions.mockReset();
-    mocks.repository.sessions.mockResolvedValue([]);
+    mocks.sessionRows.mockReset();
+    mocks.sessionRows.mockResolvedValue([]);
     mocks.repository.transcript.mockReset();
     mocks.repository.transcript.mockResolvedValue({
       cursor: 'snapshot-9',
@@ -132,11 +132,12 @@ describe('useSessionLiveStream resume recovery', () => {
         workspaceId: 'ws_1',
       }),
     ).toEqual([
+      ['sessions', 'http://127.0.0.1:8790', 'waiting'],
       ['pending-interactions', 'http://127.0.0.1:8790'],
       ['pending-approvals', 'http://127.0.0.1:8790'],
       ['pending-questions', 'http://127.0.0.1:8790'],
       ['session-observability', 'http://127.0.0.1:8790', 'sess_1', 'processes'],
-      ['sessions', 'http://127.0.0.1:8790', 'all'],
+      ['sessions', 'http://127.0.0.1:8790'],
       ['execution-provenance', 'http://127.0.0.1:8790'],
     ]);
   });
@@ -192,7 +193,7 @@ describe('useSessionLiveStream resume recovery', () => {
     });
 
     expect(keys).toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
-    expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
+    expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790']);
     expect(keys).toContainEqual(['execution-provenance', 'http://127.0.0.1:8790']);
   });
 
@@ -483,7 +484,11 @@ describe('useSessionLiveStream resume recovery', () => {
 
     await waitFor(
       () =>
-        expect(mocks.repository.transcript).toHaveBeenCalledWith('sess_1', expect.any(AbortSignal)),
+        expect(mocks.repository.transcript).toHaveBeenCalledWith(
+          'sess_1',
+          expect.any(AbortSignal),
+          { limit: 40 },
+        ),
       {
         timeout: 3_000,
       },
@@ -588,5 +593,5 @@ describe('useSessionLiveStream resume recovery', () => {
 // The bounded session reads, answered from this test's session list.
 Object.assign(
   mocks.repository,
-  sessionReads(() => mocks.repository.sessions()),
+  sessionReads(() => mocks.sessionRows()),
 );

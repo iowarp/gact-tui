@@ -288,8 +288,8 @@ describe('stopping a turn', () => {
       queryKeys.pendingSteers(endpoint, 'sess_1'),
       queryKeys.queuedMessages(endpoint, 'sess_1'),
       queryKeys.transcript(endpoint, 'sess_1'),
-      queryKeys.sessions(endpoint, 'ws_1'),
-      queryKeys.sessions(endpoint, 'all'),
+      queryKeys.allSessionReads(endpoint),
+      queryKeys.workspaceResources(endpoint, 'ws_1'),
     ]) {
       expect(invalidate).toHaveBeenCalledWith({ queryKey });
     }

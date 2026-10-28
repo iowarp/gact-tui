@@ -9,6 +9,12 @@ import { InfrastructureHosts } from './infrastructure-hosts';
 import { CatalogToolset } from './catalog-toolset';
 import { InfrastructureTools } from './infrastructure-tools';
 
+const repository = vi.hoisted(() => ({ reconnectSessionMcpServer: vi.fn() }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://owned-service' } }),
+}));
+
 vi.mock('./ssh-host-picker', () => ({ SshHostPicker: () => <p>Saved SSH computers</p> }));
 vi.mock('./infrastructure-overview', () => ({
   InfrastructureHostInspection: ({ targetId }: { targetId: string }) => <p>Inspect {targetId}</p>,

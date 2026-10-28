@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { selectFileView } from './file-viewer-setup';
 
 // Synthetic editable documents and real LibreOffice PDF renditions, produced by
 // clio-agent's locked document_stack/smoke.py. Only API transport is a fixture:
@@ -276,8 +277,8 @@ for (const layout of [
         }));
         expect(toolbarGeometry.height).toBeLessThanOrEqual(40);
         expect(toolbarGeometry.scroll).toBeLessThanOrEqual(toolbarGeometry.width);
+        await expect(toolbar.getByRole('button', { name: 'Zoom in', exact: true })).toBeVisible();
         await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
-        await expect(page.getByRole('menuitem', { name: 'Zoom in', exact: true })).toBeVisible();
         await page
           .getByRole('menuitem', { name: 'Copy to another workspace', exact: true })
           .click();
@@ -286,7 +287,10 @@ for (const layout of [
         ).toBeVisible();
         await page.getByRole('button', { name: 'Cancel', exact: true }).click();
         const download = page.waitForEvent('download');
-        await toolbar.getByRole('button', { name: 'Download file', exact: true }).click();
+        await toolbar
+          .getByRole('group', { name: 'File download', exact: true })
+          .getByRole('button', { name: /^Download /u })
+          .click();
         const saved = await download;
         expect(saved.suggestedFilename()).toBe(name);
         const savedPath = await saved.path();
@@ -320,11 +324,7 @@ for (const layout of [
           }),
         ).toBeVisible();
         await expect(canvas.getByRole('button', { name: 'Use paged PDF view' })).toHaveCount(0);
-        if (layout.name === 'desktop') {
-          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
-        } else {
-          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeHidden();
-        }
+        await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
         await expect(document.getByText(item.text, { exact: true })).toBeVisible();
         await expect(document.locator('.react-pdf__Page__canvas').first()).toBeVisible();
         const pageCanvas = document.locator('.react-pdf__Page__canvas').first();
@@ -370,12 +370,10 @@ for (const layout of [
             }),
           )
           .toBeGreaterThanOrEqual(0.99);
-        await canvas.getByRole('button', { name: 'Export', exact: true }).click();
-        await expect(
-          page.getByRole('menuitem', { name: 'Download PDF', exact: true }),
-        ).toBeVisible();
+        await canvas.getByRole('button', { name: 'Export to…', exact: true }).click();
+        await expect(page.getByRole('menuitem', { name: 'PDF', exact: true })).toBeVisible();
         const pdfDownload = page.waitForEvent('download');
-        await page.getByRole('menuitem', { name: 'Download PDF', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'PDF', exact: true }).click();
         const downloadedPdf = await pdfDownload;
         expect(downloadedPdf.suggestedFilename()).toMatch(/\.pdf$/u);
         const downloadedStream = await downloadedPdf.createReadStream();
@@ -426,22 +424,26 @@ for (const layout of [
           path: testInfo.outputPath(`${item.extension}-preview-lineage.png`),
           fullPage: true,
         });
-        await toolbar.getByRole('tab', { name: 'Versions', exact: true }).click();
-        await expect(toolbar.getByRole('tab', { name: 'Versions', exact: true })).toHaveAttribute(
-          'data-state',
-          'active',
-        );
+        await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
         await previewTab.click();
         holdRefresh = true;
-        await canvas
-          .getByRole('button', { name: 'Refresh document revision', exact: true })
-          .click();
-        const refreshing = canvas.getByRole('button', {
-          name: 'Refresh document revision — refreshing',
+        const fileActions = canvas.getByRole('button', { name: 'File actions', exact: true });
+        await fileActions.click();
+        const refreshAction = page.getByRole('menuitem', {
+          name: 'Refresh document revision',
           exact: true,
         });
-        await expect(refreshing).toBeDisabled();
+        await refreshAction.click();
+        const refreshing = fileActions;
         await expect(refreshing).toHaveAttribute('aria-busy', 'true');
+        await fileActions.click();
+        await expect(
+          page.getByRole('menuitem', {
+            name: 'Refresh document revision — refreshing',
+            exact: true,
+          }),
+        ).toBeDisabled();
+        await page.keyboard.press('Escape');
         const icon = refreshing.locator('svg');
         await expect(icon).toHaveCSS('animation-name', 'spin');
         const before = await icon.evaluate((element) => getComputedStyle(element).transform);
@@ -453,9 +455,10 @@ for (const layout of [
           fullPage: true,
         });
         finishRefresh();
-        await expect(
-          canvas.getByRole('button', { name: 'Refresh document revision', exact: true }),
-        ).toBeEnabled();
+        await expect(fileActions).toHaveAttribute('aria-busy', 'false');
+        await fileActions.click();
+        await expect(refreshAction).toBeEnabled();
+        await page.keyboard.press('Escape');
         expect(conversions).toEqual(item.saved ? [] : [`/v1/artifacts/${sourceId}/renditions`]);
         expect(errors).toEqual([]);
       });

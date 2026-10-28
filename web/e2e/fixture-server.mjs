@@ -2025,7 +2025,53 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/sessions') {
-    sendJson(response, { sessions: [session, ...branchArtifacts.sessions()] });
+    const all = [session, ...branchArtifacts.sessions()];
+    const byId = new Map(all.map((row) => [row.id, row]));
+    const rootOf = (id) => {
+      const seen = new Set();
+      while (byId.get(id)?.parent_session_id && !seen.has(id)) {
+        seen.add(id);
+        id = byId.get(id).parent_session_id;
+      }
+      return id;
+    };
+    const named = url.searchParams.get('ids')?.split(',');
+    const family = url.searchParams.get('family_of');
+    const workspace = url.searchParams.get('workspace_id');
+    const kinds = url.searchParams.get('kinds')?.split(',');
+    const search = url.searchParams.get('q')?.toLowerCase();
+    const waiting = url.searchParams.get('waiting_on_person') === 'true';
+    const waitingIds = new Set();
+    for (const row of all.filter((row) => ['waiting_user', 'waiting_permission'].includes(row.state))) {
+      let id = row.id;
+      while (id && !waitingIds.has(id)) {
+        waitingIds.add(id);
+        id = byId.get(id)?.parent_session_id;
+      }
+    }
+    const rows = all.filter((row) =>
+      (!named || named.includes(row.id)) &&
+      (!family || rootOf(row.id) === rootOf(family)) &&
+      (!waiting || waitingIds.has(row.id)) &&
+      (!workspace || row.workspace_id === workspace) &&
+      (!kinds || kinds.includes(row.session_kind ?? 'conversation')) &&
+      (!search || row.title.toLowerCase().includes(search)) &&
+      Boolean(row.archived) === (url.searchParams.get('archived') === 'true'),
+    );
+    const limit = Number(url.searchParams.get('limit') || rows.length || 1);
+    const offset = Number(url.searchParams.get('cursor') || 0);
+    sendJson(response, {
+      sessions: rows.slice(offset, offset + limit),
+      total: rows.length,
+      next_cursor: offset + limit < rows.length ? String(offset + limit) : null,
+    });
+    return;
+  }
+  const scienceLog = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/science-log$/u);
+  if (request.method === 'GET' && scienceLog &&
+      [session, ...branchArtifacts.sessions()].some((row) => row.id === scienceLog[1])) {
+    // These conversation fixtures have no study; the production read still runs.
+    sendJson(response, { session_id: scienceLog[1], in_study: false });
     return;
   }
   if (

@@ -9,6 +9,7 @@ import { useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  sessionRows: vi.fn(async () => [] as unknown[]),
   mergeSnapshots: vi.fn(),
   useSessionLiveStream: vi.fn(),
   // Default matches the real provider's default (owner ruling: dot files are
@@ -16,7 +17,6 @@ const mocks = vi.hoisted(() => ({
   useAppearancePreferences: vi.fn(() => ({ hideDotFiles: false })),
   repository: {
     agents: vi.fn(async () => []),
-    allSessions: vi.fn(async () => [] as unknown[]),
     capabilities: vi.fn(async () => ({}) as unknown),
     languageModelConfiguration: vi.fn(
       async (): Promise<LanguageModelConfiguration> => ({
@@ -45,7 +45,6 @@ const mocks = vi.hoisted(() => ({
         child_session_ids: [],
       }),
     ),
-    sessions: vi.fn(async () => [] as unknown[]),
     transcript: vi.fn(
       async (): Promise<TranscriptSnapshot> => ({
         messages: [],
@@ -165,10 +164,7 @@ beforeEach(() => {
     interactions: [],
     degradations: [],
   });
-  mocks.repository.sessions.mockResolvedValue([
-    { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'idle' },
-  ]);
-  mocks.repository.allSessions.mockResolvedValue([
+  mocks.sessionRows.mockResolvedValue([
     { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'idle' },
   ]);
 });
@@ -297,10 +293,9 @@ describe('useWorkspaceData interaction reads', () => {
     });
     const sessions = [
       { id: 'sess_1', workspace_id: 'ws_1', title: 'Current', state: 'idle' },
-      { id: 'sess_2', workspace_id: 'ws_1', title: 'Older', state: 'idle' },
+      { id: 'sess_2', workspace_id: 'ws_1', title: 'Older', state: 'waiting_user' },
     ];
-    mocks.repository.sessions.mockResolvedValue(sessions);
-    mocks.repository.allSessions.mockResolvedValue(sessions);
+    mocks.sessionRows.mockResolvedValue(sessions);
     mocks.repository.pendingInteractionProjection.mockImplementation(
       async (...args: unknown[]) => ({
         interactions: [],
@@ -548,18 +543,18 @@ describe('useWorkspaceData requested session lookup', () => {
       { initialProps: { sessionId: 'sess_1' }, wrapper: Wrapper },
     );
     await waitFor(() => expect(result.current.session?.id).toBe('sess_1'));
-    const fetchesBefore = mocks.repository.sessions.mock.calls.length;
+    const fetchesBefore = sessionReadMocks.sessionFamily.mock.calls.length;
 
     // Another tab, the CLI or an agent creates a conversation; the route moves
     // to it while the cached list for this workspace predates it.
-    mocks.repository.sessions.mockResolvedValue([sessionOne, sessionTwo]);
+    mocks.sessionRows.mockResolvedValue([sessionOne, sessionTwo]);
     rerender({ sessionId: 'sess_2' });
 
     expect(result.current.session).toBeUndefined();
     expect(result.current.sessionLookupPending).toBe(true);
     await waitFor(() => expect(result.current.session?.id).toBe('sess_2'));
     expect(result.current.sessionLookupPending).toBe(false);
-    expect(mocks.repository.sessions.mock.calls.length).toBeGreaterThan(fetchesBefore);
+    expect(sessionReadMocks.sessionFamily.mock.calls.length).toBeGreaterThan(fetchesBefore);
   });
 
   it('reports a session the service really does not have once a fresh list confirms it', async () => {
@@ -575,13 +570,17 @@ describe('useWorkspaceData requested session lookup', () => {
 
     await waitFor(() => expect(result.current.sessionLookupPending).toBe(false));
     expect(result.current.session).toBeUndefined();
-    expect(mocks.repository.sessions.mock.calls.length).toBe(2);
+    expect(sessionReadMocks.sessionFamily).toHaveBeenCalledWith(
+      'sess_gone',
+      expect.any(AbortSignal),
+    );
+    expect(sessionReadMocks.sessionFamily).toHaveBeenCalledTimes(2);
   });
 });
 
 describe('useWorkspaceData transcript recovery', () => {
   it('fetches the completed answer when the initial transcript missed the final stream frame', async () => {
-    mocks.repository.sessions.mockResolvedValue([
+    mocks.sessionRows.mockResolvedValue([
       {
         id: 'sess_1',
         workspace_id: 'ws_1',
@@ -661,7 +660,9 @@ describe('useWorkspaceData background polls', () => {
       },
     );
     await waitFor(() => expect(result.current.interactions).toHaveLength(1));
-    // Let every initial read settle before counting.
+    // Surrounding reads start after the log has painted twice. Wait for that
+    // phase too, so its state change is not counted as a background poll.
+    await waitFor(() => expect(result.current.sessionArtifacts.isSuccess).toBe(true));
     await waitFor(() => expect(client.isFetching()).toBe(0));
     const settled = renders;
 
@@ -671,7 +672,9 @@ describe('useWorkspaceData background polls', () => {
       await Promise.all([
         client.refetchQueries({ queryKey: ['pending-approvals'] }),
         client.refetchQueries({ queryKey: ['pending-questions'] }),
-        client.refetchQueries({ queryKey: ['sessions', 'http://127.0.0.1:8790', 'ws_1'] }),
+        client.refetchQueries({
+          queryKey: ['sessions', 'http://127.0.0.1:8790', 'family', 'sess_1'],
+        }),
       ]);
       // Query notifications are delivered on a later macrotask.
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -683,10 +686,5 @@ describe('useWorkspaceData background polls', () => {
 });
 
 // The bounded session reads, answered from this test's session list.
-Object.assign(
-  mocks.repository,
-  sessionReads(async () => [
-    ...((await mocks.repository.sessions()) ?? []),
-    ...((await mocks.repository.allSessions()) ?? []),
-  ]),
-);
+const sessionReadMocks = sessionReads(() => mocks.sessionRows());
+Object.assign(mocks.repository, sessionReadMocks);

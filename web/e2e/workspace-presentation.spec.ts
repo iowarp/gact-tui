@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { selectFileView } from './file-viewer-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -52,8 +53,6 @@ for (const width of [1280, 1600]) {
     const toolbar = viewer.locator('[data-slot="viewer-toolbar"]');
     await expect(toolbar).toHaveCount(1);
     await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeVisible();
-    const source = toolbar.getByRole('tab', { name: 'Source', exact: true });
-    await expect(source).toBeVisible();
     await expect(viewer.getByText(/Static preview ·/)).toHaveCount(0);
     const frame = viewer.getByTitle(`HTML preview of ${name}`);
     await expect(frame).toBeVisible();
@@ -87,11 +86,11 @@ for (const width of [1280, 1600]) {
         return frameBounds!.y - toolbarBounds!.y - toolbarBounds!.height;
       })
       .toBeLessThanOrEqual(1);
-    await source.click();
+    await selectFileView(page, viewer, 'Source');
     await expect(viewer.locator('[data-language="html"]')).toContainText(
       '__htmlPreviewRan = true;',
     );
-    await toolbar.getByRole('tab', { name: 'Preview', exact: true }).click();
+    await selectFileView(page, viewer, 'HTML preview');
     await expect(frame).toBeVisible();
     expect(reads).toBe(1);
     await page.screenshot({ path: testInfo.outputPath(`html-toolbar-${width}.png`) });
@@ -131,13 +130,14 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   }));
   expect(metrics.height).toBeLessThanOrEqual(40);
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.width);
-  for (const name of ['Preview', 'Versions', 'Lineage']) {
-    await expect(toolbar.getByRole('tab', { name, exact: true })).toBeVisible();
-  }
+  await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeVisible();
+  await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+  await expect(page.getByRole('menuitemcheckbox', { name: 'Versions', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(toolbar.getByRole('tab', { name: 'Lineage', exact: true })).toBeVisible();
   const zoom = canvas.getByRole('button', { name: 'Reset image zoom', exact: true });
   const before = await zoom.innerText();
-  await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Zoom in', exact: true }).click();
+  await toolbar.getByRole('button', { name: 'Zoom in', exact: true }).click();
   await expect(zoom).not.toHaveText(before);
   const image = canvas.getByRole('img', { name: 'vertical-displacement.png', exact: true });
   await expectImageAtTop(image);
@@ -152,7 +152,7 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   expect(imageAfter!.y).toBeCloseTo(imageBefore!.y, 1);
   await expect(image).toHaveAttribute('draggable', 'false');
   const download = page.waitForEvent('download');
-  await toolbar.getByRole('button', { name: 'Download file', exact: true }).click();
+  await toolbar.getByRole('button', { name: 'Download PNG', exact: true }).click();
   expect((await download).suggestedFilename()).toBe('vertical-displacement.png');
   await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
   await expect(
@@ -160,12 +160,12 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   ).toBeVisible();
   await page.keyboard.press('Escape');
   await page.screenshot({ path: testInfo.outputPath('shared-image-toolbar.png'), fullPage: true });
-  await toolbar.getByRole('tab', { name: 'Versions', exact: true }).click();
+  await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
   await expect(canvas.getByRole('tabpanel', { name: 'Versions', exact: true })).toBeVisible();
   expect(
     (await new AxeBuilder({ page }).include('[data-slot="viewer-toolbar"]').analyze()).violations,
   ).toEqual([]);
-  await toolbar.getByRole('tab', { name: 'Lineage', exact: true }).click();
+  await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Lineage');
   await expect(canvas.getByRole('tabpanel', { name: 'Lineage', exact: true })).toBeVisible();
   await expect(
     canvas.getByRole('region', { name: 'Artifact lineage graph', exact: true }),
@@ -195,23 +195,25 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
   expect(header!.y).toBe(canvasHeader!.y);
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
-  for (const name of [
-    'Zoom in',
-    'Zoom out',
-    'Fit image to view',
-    'Download file',
-    'View file fullscreen',
-  ]) {
+  for (const name of ['Zoom in', 'Zoom out', 'Reset image zoom', 'Download PNG', 'File actions']) {
     await expect(canvas.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await canvas.getByRole('button', { name: 'Zoom in', exact: true }).focus();
   await expect(page.getByRole('tooltip', { name: 'Zoom in', exact: true })).toBeVisible();
-  await canvas.getByRole('button', { name: 'View file fullscreen', exact: true }).click();
-  await expect(
-    canvas.getByRole('button', { name: 'Exit file fullscreen', exact: true }),
-  ).toBeVisible();
+  await canvas.getByRole('button', { name: 'File actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'View file fullscreen', exact: true }).click();
+  await expect
+    .poll(() =>
+      canvas
+        .locator('[data-slot="file-viewer"]')
+        .evaluate((node) => document.fullscreenElement === node),
+    )
+    .toBe(true);
   await expectImageAtTop(canvas.getByRole('img', { name: 'vertical-displacement.png' }));
   await canvas.getByRole('button', { name: 'File actions', exact: true }).click();
+  await expect(
+    page.getByRole('menuitem', { name: 'Exit file fullscreen', exact: true }),
+  ).toBeVisible();
   const info = page.getByRole('menuitem', { name: 'File information', exact: true });
   await expect(info).toBeVisible();
   await info.click();
@@ -221,7 +223,9 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
     fullPage: true,
   });
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-  await canvas.getByRole('button', { name: 'Exit file fullscreen', exact: true }).click();
+  await canvas.getByRole('button', { name: 'File actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Exit file fullscreen', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
 });
 
 test('SVG previews stay at the top and horizontally centered through pane resizing and zoom', async ({
@@ -268,8 +272,7 @@ test('SVG previews stay at the top and horizontally centered through pane resizi
       .toBe(0);
     await page.screenshot({ path: testInfo.outputPath(`image-top-${label}-light.png`) });
   }
-  await canvas.getByRole('button', { name: 'File actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Zoom in', exact: true }).click();
+  await canvas.getByRole('button', { name: 'Zoom in', exact: true }).click();
   await expectImageAtTop(image);
   await canvas.getByRole('button', { name: 'Reset image zoom', exact: true }).click();
   await expectImageAtTop(image);

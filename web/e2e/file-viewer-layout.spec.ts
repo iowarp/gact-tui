@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { selectFileView } from './file-viewer-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -39,13 +40,11 @@ for (const width of [1280, 390]) {
     await viewer.getByRole('button', { name: 'Go to next page', exact: true }).click();
     await expect(viewer.getByText(/^11 - 20 of /u)).toBeVisible();
     for (const name of ['Versions', 'Lineage', 'Preview']) {
-      const control = toolbar.getByRole('tab', { name, exact: true });
-      await control.click();
-      await expect(control).toHaveAttribute('aria-selected', 'true');
+      await selectFileView(page, viewer, name);
     }
     await expect(viewer.getByRole('table')).toBeVisible();
     const download = page.waitForEvent('download');
-    await toolbar.getByRole('button', { name: 'Download file', exact: true }).click();
+    await toolbar.getByRole('button', { name: 'Download CSV', exact: true }).click();
     expect((await download).suggestedFilename()).toBe('earthquakes.csv');
     await page.screenshot({ path: testInfo.outputPath('csv-viewer.png') });
   });
