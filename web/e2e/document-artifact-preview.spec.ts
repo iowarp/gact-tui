@@ -427,15 +427,23 @@ for (const layout of [
         await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
         await previewTab.click();
         holdRefresh = true;
-        await canvas
-          .getByRole('button', { name: 'Refresh document revision', exact: true })
-          .click();
-        const refreshing = canvas.getByRole('button', {
-          name: 'Refresh document revision — refreshing',
+        const fileActions = canvas.getByRole('button', { name: 'File actions', exact: true });
+        await fileActions.click();
+        const refreshAction = page.getByRole('menuitem', {
+          name: 'Refresh document revision',
           exact: true,
         });
-        await expect(refreshing).toBeDisabled();
+        await refreshAction.click();
+        const refreshing = fileActions;
         await expect(refreshing).toHaveAttribute('aria-busy', 'true');
+        await fileActions.click();
+        await expect(
+          page.getByRole('menuitem', {
+            name: 'Refresh document revision — refreshing',
+            exact: true,
+          }),
+        ).toBeDisabled();
+        await page.keyboard.press('Escape');
         const icon = refreshing.locator('svg');
         await expect(icon).toHaveCSS('animation-name', 'spin');
         const before = await icon.evaluate((element) => getComputedStyle(element).transform);
@@ -447,9 +455,10 @@ for (const layout of [
           fullPage: true,
         });
         finishRefresh();
-        await expect(
-          canvas.getByRole('button', { name: 'Refresh document revision', exact: true }),
-        ).toBeEnabled();
+        await expect(fileActions).toHaveAttribute('aria-busy', 'false');
+        await fileActions.click();
+        await expect(refreshAction).toBeEnabled();
+        await page.keyboard.press('Escape');
         expect(conversions).toEqual(item.saved ? [] : [`/v1/artifacts/${sourceId}/renditions`]);
         expect(errors).toEqual([]);
       });
