@@ -53,20 +53,16 @@ func (p *executionTimelineProjector) apply(event executionTimelineEvent) {
 	case "expert.lifecycle.started":
 		p.flushText()
 		p.applyExpertLifecycleStarted(event.Payload)
-	// The delegation atom rides TWO prefixes depending on the runtime —
-	// ``blueprint.delegation.*`` for Agent Blueprint experts, plain
-	// ``delegation.*`` for expert-pack / prompt-agent delegations. Both are
-	// the SAME atom (contract/SPEC.md §7.6) and project identically.
-	case "blueprint.delegation.started", "delegation.started":
+	// The delegation atom (contract/SPEC.md §7.6).
+	case "delegation.started":
 		p.flushText()
 		p.applyDelegationStarted(event.Payload)
-	case "blueprint.delegation.completed", "delegation.completed",
-		"blueprint.delegation.failed", "delegation.failed":
+	case "delegation.completed", "delegation.failed":
 		// A failed delegation still produces the child's report row — the
 		// payload carries status/error, and errors are first-class (§7.6).
 		p.flushText()
 		p.applyDelegationCompleted(event.Payload)
-	case "blueprint.delegation.parent_resumed", "delegation.parent_resumed":
+	case "delegation.parent_resumed":
 		p.flushText()
 		p.applyDelegationParentResumed(event.Payload)
 	case "expert.extract.completed":

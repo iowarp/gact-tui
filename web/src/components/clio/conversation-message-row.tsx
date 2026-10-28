@@ -23,6 +23,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ClioMessageHistoryActions } from './message-history-actions';
+import { answerRevisions } from './answer-revisions';
 import { MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
 import { VariantRunsForMessage } from './variant-runs-for-message';
@@ -34,11 +35,14 @@ import { ClioCompactionProgress } from './conversation-summarization';
 import { useConversationTurn } from './use-conversation-turn';
 import { useMessageAttentionIndex } from './use-message-attention-index';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
+import { turnModelExhausted } from '@/lib/turn-model-exhausted';
+import { TurnModelExhausted } from './turn-model-exhausted';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { brand } from '@brand';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { MessageCompletionFooter } from './message-completion-footer';
+import { MemoryUsedAction } from './memory-used-action';
 import { ResponseRating } from './response-rating';
 import { MessageMarkButton } from './message-mark-button';
 import { messageToolCallCounts } from './message-tool-call-counts';
@@ -47,6 +51,8 @@ import { modelBoundariesEqual } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { ClioSubagentProgressLine } from './subagent-card';
 import { canGroupUserMessages, feedbackMessage } from './conversation-user-group';
+import { ParentDelegationMessage } from './parent-delegation-message';
+import { isParentDelegation } from './parent-delegation';
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -84,6 +90,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     emptyResponseErrorCode === 'cancelled' ||
     emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
   const signInProvider = turnSignInProvider(message.error_info);
+  const modelExhausted = turnModelExhausted(message.error_info);
   const canRetry =
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
@@ -102,6 +109,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     turnPresentation,
   );
   const { linkedSubagentIds, residualBlocks } = turn;
+  // A delegation is recorded inside an assistant turn by the runtime. Keep its
+  // input visible before the response while retaining later prompts at their step.
+  const leadingDelegations = [];
+  for (const segment of turn.segments) {
+    if (segment.kind !== 'block' || !isParentDelegation(segment.block)) break;
+    leadingDelegations.push(segment.block);
+  }
+  const leadingDelegationIds = new Set(leadingDelegations.map((block) => block.id));
   const childIds = [
     ...linkedSubagentIds,
     ...message.blocks.flatMap((block) => (block.type === 'subagent' ? [block.subagent_id] : [])),
@@ -184,6 +199,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       {message.role === 'assistant' ? (
         <TranscriptContentPicker sessionId={message.session_id} messageId={message.id} />
       ) : null}
+      {message.role === 'assistant' ? <MemoryUsedAction metadata={message.metadata} /> : null}
       <ResponseRating message={message} active={active} />
       {entities.onMarkMessage ? (
         <MessageMarkButton
@@ -206,14 +222,17 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       ) : null}
       <MessageAction
         label="Copy message"
-        onClick={() =>
+        onClick={() => {
+          // A hook's revision replaces the answer it revised; copy what is shown.
+          const revised = answerRevisions(message.blocks);
           void copyText(
             message.blocks
-              .filter((block) => block.type === 'text')
-              .map((block) => block.text)
+              .flatMap((block) =>
+                block.type === 'text' && !revised.has(block.id) ? [block.text] : [],
+              )
               .join('\n'),
-          )
-        }
+          );
+        }}
         tooltip="Copy message"
       >
         <CopyIcon aria-hidden="true" className="size-3.5" />
@@ -265,9 +284,22 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
         />
       ) : null}
       {modelBoundary ? <ConversationModelCheckpoint boundary={modelBoundary} /> : null}
-      {message.role === 'system' &&
-      message.blocks.length > 0 &&
-      message.blocks.every((block) => block.type === 'injection') ? (
+      {message.role === 'assistant' && leadingDelegations.length > 0 ? (
+        <ParentDelegationMessage message={{ ...message, blocks: leadingDelegations }} />
+      ) : null}
+      {message.role === 'system' && message.blocks.some(isParentDelegation) ? (
+        <>
+          <ParentDelegationMessage message={message} />
+          <MessageBlockSequence
+            blocks={message.blocks.filter((block) => !isParentDelegation(block))}
+            messageId={message.id}
+            messageSessionId={message.session_id}
+            {...entities}
+          />
+        </>
+      ) : message.role === 'system' &&
+        message.blocks.length > 0 &&
+        message.blocks.every((block) => block.type === 'injection') ? (
         <div className="py-1">
           <ConversationTurn
             iterations={turn.iterations}
@@ -297,11 +329,21 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   {message.role === 'user'
                     ? 'You'
                     : message.role === 'assistant'
-                      ? brand.name
+                      ? entities.agentName || brand.name
                       : message.role === 'system'
                         ? 'System'
                         : 'Unknown sender'}
                 </span>
+                {message.role === 'assistant' && message.model?.model_id ? (
+                  <span
+                    className="min-w-0 truncate font-normal"
+                    title={[message.model.provider_id, message.model.model_id]
+                      .filter(Boolean)
+                      .join('/')}
+                  >
+                    {message.model.model_id}
+                  </span>
+                ) : null}
                 {entities.markedMessageIds?.has(message.id) ? (
                   <BookmarkIcon
                     aria-label="Marked message"
@@ -370,20 +412,33 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                             providerLabel={signInProvider.label}
                           />
                         ) : null}
+                        {modelExhausted ? (
+                          <TurnModelExhausted
+                            exhausted={modelExhausted}
+                            messageId={message.id}
+                            sessionId={message.session_id}
+                          />
+                        ) : null}
                       </AlertDescription>
                     ) : null}
                   </Alert>
                 ) : message.role === 'assistant' &&
                   (turnPresentation ||
                     turn.iterations.length > 0 ||
+                    turn.segments.some(
+                      (segment) => segment.kind === 'block' && isParentDelegation(segment.block),
+                    ) ||
                     Boolean(feedbackMessages?.length)) ? (
                   <>
                     {turn.segments
                       .filter(
                         (segment) =>
-                          segment.kind !== 'block' ||
-                          segment.block.type !== 'subagent' ||
-                          !linkedSubagentIds.has(segment.block.subagent_id),
+                          !(
+                            segment.kind === 'block' && leadingDelegationIds.has(segment.block.id)
+                          ) &&
+                          (segment.kind !== 'block' ||
+                            segment.block.type !== 'subagent' ||
+                            !linkedSubagentIds.has(segment.block.subagent_id)),
                       )
                       .map((segment, segmentIndex, segments) =>
                         segment.kind === 'feedback' ? (
@@ -405,14 +460,22 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                             onDisplayModeChange={onDisplayModeChange}
                           />
                         ) : segment.kind === 'block' ? (
-                          <MessageBlockSequence
-                            blocks={[segment.block]}
-                            key={segment.block.id}
-                            messageId={message.id}
-                            messageAttentionIndex={messageAttentionIndex}
-                            messageSessionId={message.session_id}
-                            {...entities}
-                          />
+                          isParentDelegation(segment.block) ? (
+                            <ParentDelegationMessage
+                              key={segment.block.id}
+                              message={{ ...message, blocks: [segment.block] }}
+                            />
+                          ) : (
+                            <MessageBlockSequence
+                              blocks={[segment.block]}
+                              messageBlocks={message.blocks}
+                              key={segment.block.id}
+                              messageId={message.id}
+                              messageAttentionIndex={messageAttentionIndex}
+                              messageSessionId={message.session_id}
+                              {...entities}
+                            />
+                          )
                         ) : (
                           <div key={segment.iterations[0]?.id}>
                             <ConversationTurn
@@ -639,6 +702,7 @@ export function conversationMessageRowPropsEqual(
     left.messageCompactions !== right.messageCompactions ||
     !modelBoundariesEqual(left.modelBoundary, right.modelBoundary) ||
     left.forkOrigin !== right.forkOrigin ||
+    left.agentName !== right.agentName ||
     left.attentionData !== right.attentionData ||
     !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||

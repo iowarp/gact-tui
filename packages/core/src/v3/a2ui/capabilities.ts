@@ -24,7 +24,7 @@ export type A2uiCapabilitiesResponse = z.infer<typeof a2uiCapabilitiesResponseSc
 
 /**
  * Orders a resolved id list to match the server's own preference order
- * (owner decision, adversarial S6 review): the active blueprint's pack
+ * (owner decision, adversarial S6 review): the session agent's plugin
  * catalogs first, then the builtins, exactly as
  * `agent.v0.9.supportedCatalogIds` lists them — NOT the raw
  * `GET .../a2ui/catalogs` row order, which is builtins-first. An id the

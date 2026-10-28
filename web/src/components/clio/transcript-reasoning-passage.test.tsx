@@ -114,3 +114,34 @@ it('keeps multi-line reasoning reachable with the keyboard after the header chan
   await user.keyboard('{Enter}');
   expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
+
+it('shows a long one-line thought on one line and expands it in place on click', async () => {
+  const widths = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.dataset.slot === 'reasoning-summary' ? 900 : 0;
+  });
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
+  try {
+    const view = render(
+      <TranscriptReasoningPassage text="A long thought that runs well past the width of the row." />,
+    );
+    const summary = view.container.querySelector('[data-slot="reasoning-summary"]');
+    expect(summary).toHaveClass('truncate');
+    const row = screen.getByRole('button', { name: /^Thinking: A long thought/ });
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(row);
+    expect(row).toHaveAttribute('aria-expanded', 'true');
+    expect(summary).not.toHaveClass('truncate');
+    expect(summary).toHaveClass('whitespace-pre-wrap');
+  } finally {
+    widths.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});

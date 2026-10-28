@@ -62,6 +62,53 @@ describe('ClioRepository interaction contracts', () => {
     });
   });
 
+  it('reads bounded transcript pages and session list pages', async () => {
+    const transport = new RecordingTransport([
+      { cursor: '7', next_cursor: 'msg_10', messages: [] },
+      { sessions: [], next_cursor: 'c2', total: 31 },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(
+      repository.transcript('sess_1', undefined, { limit: 40, before: 'msg_50' }),
+    ).resolves.toMatchObject({ next_cursor: 'msg_10' });
+    await expect(
+      repository.sessionPage({
+        workspaceId: 'ws_1',
+        kinds: ['conversation', 'branch'],
+        limit: 30,
+        cursor: 'c1',
+      }),
+    ).resolves.toEqual({ sessions: [], next_cursor: 'c2', total: 31 });
+    expect(transport.requests.map((request) => request.path)).toEqual([
+      '/v1/sessions/sess_1/messages?limit=40&before=msg_50',
+      '/v1/sessions?workspace_id=ws_1&limit=30&kinds=conversation%2Cbranch&cursor=c1',
+    ]);
+  });
+
+  it('reads sessions only by bounded queries', async () => {
+    const transport = new RecordingTransport([
+      { sessions: [] },
+      { sessions: [] },
+      { sessions: [] },
+      { sessions: [], next_cursor: null, total: 0 },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await repository.sessionFamily('sess_1');
+    await repository.sessionsWaitingOnPerson();
+    await repository.sessionsById(['sess_1', 'sess 2']);
+    await repository.sessionPage({ limit: 10, search: 'fan out' });
+    expect(transport.requests.map((request) => request.path)).toEqual([
+      '/v1/sessions?family_of=sess_1',
+      '/v1/sessions?waiting_on_person=true',
+      '/v1/sessions?ids=sess_1,sess%202',
+      '/v1/sessions?include_all_workspaces=true&limit=10&q=fan+out',
+    ]);
+    await expect(repository.sessionsById([])).resolves.toEqual([]);
+    expect(transport.requests).toHaveLength(4);
+  });
+
   it('contains an unreadable block inside its message instead of failing the transcript', async () => {
     const transport = new RecordingTransport([
       {
@@ -153,7 +200,6 @@ describe('ClioRepository interaction contracts', () => {
 
   it('decodes service-owned administrative catalogs and diagnostics', async () => {
     const transport = new RecordingTransport([
-      { expert_packs: [] },
       { policies: [{ scope: 'workspace', action: 'allow', tool_name_pattern: '*' }] },
       { policies: [{ scope: 'workspace', action: 'ask', tool_name_pattern: 'shell_*' }] },
       { backend: 'declarative', enabled: true, hooks: [], recent_invocations: [] },
@@ -181,7 +227,6 @@ describe('ClioRepository interaction contracts', () => {
     ]);
     const repository = new ClioRepository(transport);
 
-    expect(await repository.expertPacks()).toEqual([]);
     expect((await repository.policies())[0]?.action).toBe('allow');
     await repository.updatePolicies([
       {
@@ -198,10 +243,9 @@ describe('ClioRepository interaction contracts', () => {
     expect(serviceHealth.tool_hooks_installed).toBeUndefined();
     expect((await repository.runtimeMetrics()).tokens.cache_read_total).toBe(0);
 
-    expect(transport.requests[5]?.acceptStatuses).toEqual([503]);
+    expect(transport.requests[4]?.acceptStatuses).toEqual([503]);
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
-      { method: 'GET', path: '/v1/expert-packs' },
       { method: 'GET', path: '/v1/policies' },
       { method: 'PUT', path: '/v1/policies' },
       { method: 'GET', path: '/v1/hooks' },
@@ -209,7 +253,7 @@ describe('ClioRepository interaction contracts', () => {
       { method: 'GET', path: '/v1/health' },
       { method: 'GET', path: '/v1/metrics' },
     ]);
-    expect(transport.requests[2]?.body).toEqual({
+    expect(transport.requests[1]?.body).toEqual({
       policies: [{ scope: 'workspace', action: 'ask', tool_name_pattern: 'shell_*' }],
     });
   });
@@ -254,7 +298,8 @@ describe('ClioRepository interaction contracts', () => {
       workspace_id: 'ws_1',
       title: 'Evidence review',
       pinned: true,
-      blueprint_id: 'workspace::src_lab::research',
+      agent_ref: 'user/research',
+      agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
       mode: 'plan',
       routing_mode: 'experts',
       approval_mode: 'spotter-ai',
@@ -280,7 +325,11 @@ describe('ClioRepository interaction contracts', () => {
         body: {
           workspace_id: 'ws_1',
           title: 'Evidence review',
-          metadata: { pinned: true, active_agent_blueprint_id: 'workspace::src_lab::research' },
+          metadata: {
+            pinned: true,
+            agent_ref: 'user/research',
+            agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
+          },
           mode: 'plan',
           routing_mode: 'experts',
           approval_mode: 'spotter-ai',
@@ -366,7 +415,8 @@ describe('ClioRepository interaction contracts', () => {
       edit_mode: 'diff',
       routing_mode: 'experts',
       approval_mode: 'ai-review',
-      blueprint_id: 'earthscope-review',
+      agent_ref: 'clio/earthscope-flat',
+      default_agent_ref: 'clio/standard',
     };
     const transport = new RecordingTransport([defaults, { ...defaults, mode: 'edit' }]);
     const repository = new ClioRepository(transport);

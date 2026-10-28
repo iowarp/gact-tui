@@ -1,7 +1,7 @@
 import { GitBranchIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Checkpoint, CheckpointIcon } from '@/components/ai-elements/checkpoint';
-import type { ConversationForkOrigin } from './conversation-fork-origin';
+import { isAgentFork, type ConversationForkOrigin } from './conversation-fork-origin';
 
 /** A child-side checkpoint after the last copied message, linked to its source. */
 export function ConversationForkCheckpoint({
@@ -23,8 +23,10 @@ export function ConversationForkCheckpoint({
         <GitBranchIcon className="size-3.5" />
       </CheckpointIcon>
       <span className="min-w-0 text-xs leading-5 text-muted-foreground">
-        <strong className="font-medium text-foreground">Branched here</strong>
-        {' · '}
+        <strong className="font-medium text-foreground">
+          {isAgentFork(origin) ? 'Forked by the agent here' : 'Branched here'}
+        </strong>{' '}
+        from{' '}
         {workspaceId ? (
           <Link
             className="underline decoration-border underline-offset-4 hover:text-primary"
@@ -35,6 +37,9 @@ export function ConversationForkCheckpoint({
         ) : (
           label
         )}
+        {isAgentFork(origin) && origin.note ? (
+          <span className="block text-[11px] text-foreground">Fork note: {origin.note}</span>
+        ) : null}
         <span className="block text-[11px]">
           {origin.message_count
             ? 'History above was copied. Continue independently below.'

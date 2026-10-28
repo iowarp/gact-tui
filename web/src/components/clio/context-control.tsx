@@ -142,7 +142,7 @@ export function ContextControl({
             <SelectContent>
               {fit.strategies.map((row) => (
                 <SelectItem key={row.id} title={row.description || undefined} value={row.id}>
-                  Fit to GPU · {row.label}
+                  Fit to GPU: {row.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -163,7 +163,7 @@ export function ContextControl({
               ? `${formatTokens(effective.length)} tokens`
               : 'the engine’s own default'}
           </span>
-          {effective.reason ? ` · ${effective.reason}` : null}
+          {effective.reason ? ` (${effective.reason})` : null}
         </p>
       ) : null}
     </Field>

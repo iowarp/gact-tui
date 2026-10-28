@@ -2,10 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash, webcrypto } from 'node:crypto';
+import { TransportError } from '@clio/core/v3';
 
 const repository = vi.hoisted(() => ({
   readArtifactBytesFor: vi.fn().mockResolvedValue(new Uint8Array([137, 80, 78, 71])),
   readArtifactTextFor: vi.fn(),
+  readWorkspaceFileBytes: vi.fn(),
+  workspaceFiles: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -33,6 +37,7 @@ afterEach(() => {
   Reflect.deleteProperty(URL, 'createObjectURL');
   Reflect.deleteProperty(URL, 'revokeObjectURL');
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function renderCard(onOpen = vi.fn()) {
@@ -57,6 +62,49 @@ function renderCard(onOpen = vi.fn()) {
 }
 
 describe('ClioArtifactCard', () => {
+  it.each([undefined, '0'.repeat(64), 'matching'])(
+    'verifies mutable workspace recovery before showing a saved preview (%s)',
+    async (checksum) => {
+      vi.stubGlobal('crypto', webcrypto);
+      const bytes = new TextEncoder().encode('Current mutable content');
+      repository.readArtifactTextFor.mockRejectedValue(
+        new TransportError('Missing saved bytes', 404),
+      );
+      repository.workspaceFiles.mockResolvedValue({
+        entries: [{ path: 'result.txt', type: 'file', internal: false, size: bytes.length }],
+        truncated: false,
+      });
+      repository.readWorkspaceFileBytes.mockResolvedValue(bytes);
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <ClioArtifactCard
+            artifact={{
+              id: 'recovery',
+              session_id: 's',
+              workspace_id: 'w',
+              name: 'result.txt',
+              media_type: 'text/plain',
+              uri: 'artifact://w/result.txt@v1',
+              size: bytes.length,
+              sha256:
+                checksum === 'matching'
+                  ? createHash('sha256').update(bytes).digest('hex')
+                  : checksum,
+            }}
+            presentation="evidence"
+          />
+        </QueryClientProvider>,
+      );
+      if (checksum === 'matching')
+        expect(await screen.findByText('Current mutable content')).toBeVisible();
+      else {
+        expect(await screen.findByText('Saved content unavailable')).toBeVisible();
+        expect(screen.queryByText('Current mutable content')).not.toBeInTheDocument();
+      }
+    },
+  );
   it('omits bound previews from transcript groups without changing requested document or PDF cards', () => {
     const base = {
       id: 'doc',

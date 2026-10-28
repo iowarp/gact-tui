@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -16,8 +17,6 @@ func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 	a.height = 40
 	a.stage = StageReady
 	a.session.caps.Capabilities.XClioPromptRegistry = true
-	a.session.caps.Capabilities.XClioExpertPacks = true
-	a.session.caps.Capabilities.XClioAgentBlueprints = true
 	a.session.caps.Capabilities.IntegrationHealth = true
 	a.session.caps.Capabilities.Memory = true
 	a.help.open = true
@@ -57,8 +56,7 @@ func TestHelpCommandsUseSharedListRowsAndStageCommandOnClick(t *testing.T) {
 		"Experts",
 		"Settings",
 		"Diagnostics",
-		"/agent-blueprints",
-		"/expert-packs",
+		"/experts",
 		"/doctor",
 		"/permissions",
 		"/theme-prev",
@@ -153,8 +151,6 @@ func TestHelpModalUsesCompactCommandAndKeybindingHeights(t *testing.T) {
 	a.height = 50
 	a.stage = StageReady
 	a.session.caps.Capabilities.XClioPromptRegistry = true
-	a.session.caps.Capabilities.XClioExpertPacks = true
-	a.session.caps.Capabilities.XClioAgentBlueprints = true
 	a.session.caps.Capabilities.IntegrationHealth = true
 	a.session.caps.Capabilities.Memory = true
 	a.help.open = true
@@ -178,7 +174,7 @@ func TestHelpModalUsesCompactCommandAndKeybindingHeights(t *testing.T) {
 	areaPos := func(area string) (int, int) {
 		for row, line := range strings.Split(commands, "\n") {
 			if col := strings.Index(line, "┌"+area); col >= 0 {
-				return row, col
+				return row, utf8.RuneCountInString(line[:col])
 			}
 		}
 		t.Fatalf("commands help should expose %s area:\n%s", area, commands)
@@ -202,7 +198,7 @@ func TestHelpModalUsesCompactCommandAndKeybindingHeights(t *testing.T) {
 	if !strings.Contains(commands, "/copy") || !strings.Contains(commands, "/compact") || !strings.Contains(commands, "/mode") || !strings.Contains(commands, "/tools") || !strings.Contains(commands, "/diff") {
 		t.Fatalf("commands help should still show the command grid:\n%s", commands)
 	}
-	for _, want := range []string{"/agent", "/model", "/experts", "/prompts", "/expert-packs", "/agent-blueprints", "/doctor", "/permissions", "/metrics", "/memory"} {
+	for _, want := range []string{"/agent", "/model", "/experts", "/prompts", "/doctor", "/permissions", "/metrics", "/memory"} {
 		if !strings.Contains(commands, want) {
 			t.Fatalf("commands help should expose canonical operator command %q:\n%s", want, commands)
 		}
@@ -244,15 +240,13 @@ func TestHelpCommandsHideUnsupportedOptionalSurfaces(t *testing.T) {
 	a.height = 50
 	a.stage = StageReady
 	a.session.caps.Capabilities.XClioPromptRegistry = false
-	a.session.caps.Capabilities.XClioExpertPacks = false
-	a.session.caps.Capabilities.XClioAgentBlueprints = false
 	a.session.caps.Capabilities.IntegrationHealth = false
 	a.session.caps.Capabilities.Memory = false
 	a.help.open = true
 	a.help.tab = helpTabIndex("Commands")
 
 	out := ansi.Strip(a.help.view())
-	for _, hidden := range []string{"/prompts", "/expert-packs", "/agent-blueprints", "/doctor", "/memory", "prompts", "blueprints", "expert packs", "backend health", "retained context"} {
+	for _, hidden := range []string{"/prompts", "/doctor", "/memory", "prompts", "backend health", "retained context"} {
 		if strings.Contains(out, hidden) {
 			t.Fatalf("Help Commands should not advertise unsupported %s:\n%s", hidden, out)
 		}
@@ -262,7 +256,7 @@ func TestHelpCommandsHideUnsupportedOptionalSurfaces(t *testing.T) {
 			t.Fatalf("Help Commands should keep core command %s visible:\n%s", visible, out)
 		}
 	}
-	for _, hidden := range []string{"/catalog", "/theme-export", "/blueprints", "/agents-list"} {
+	for _, hidden := range []string{"/catalog", "/theme-export", "/agents-list"} {
 		if strings.Contains(out, hidden) {
 			t.Fatalf("Help Commands should not advertise hidden alias/action %s:\n%s", hidden, out)
 		}
@@ -285,11 +279,9 @@ func TestCapabilityGatedCommandsHiddenWhenUnsupported(t *testing.T) {
 		enable func(c *gact.CapabilityFlags)
 	}{
 		{"/prompts", func(c *gact.CapabilityFlags) { c.XClioPromptRegistry = true }},
-		{"/expert-packs", func(c *gact.CapabilityFlags) { c.XClioExpertPacks = true }},
-		{"/agent-blueprints", func(c *gact.CapabilityFlags) { c.XClioAgentBlueprints = true }},
 		{"/doctor", func(c *gact.CapabilityFlags) { c.IntegrationHealth = true }},
 		{"/memory", func(c *gact.CapabilityFlags) { c.Memory = true }},
-		{"/skills", func(c *gact.CapabilityFlags) { c.SkillsExtraction = true }},
+		{"/skills", func(c *gact.CapabilityFlags) { c.XClioAgentPlugins = true }},
 	}
 
 	inPalette := func(a *App, id string) bool {

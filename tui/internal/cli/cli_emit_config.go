@@ -18,8 +18,7 @@ func runEmitConfig() {
 	th := "dark"
 	locale := "en"
 	vc := ""
-	defaultBlueprint := ""
-	defaultExpertPack := ""
+	defaultAgent := ""
 	ct := 5
 	cw := 100_000
 	cd := 150_000
@@ -31,8 +30,7 @@ func runEmitConfig() {
 		Theme:                  &th,
 		Locale:                 &locale,
 		VoiceCommand:           &vc,
-		DefaultBlueprint:       &defaultBlueprint,
-		DefaultExpertPack:      &defaultExpertPack,
+		DefaultAgent:           &defaultAgent,
 		CollapseThreshold:      &ct,
 		CostWarnTokens:         &cw,
 		CostDangerTokens:       &cd,

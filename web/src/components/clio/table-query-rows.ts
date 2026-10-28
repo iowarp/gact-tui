@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
-import { IMMUTABLE_QUERY, TABLE_QUERY_ROW_LIMIT } from '@/lib/runtime-limits';
+import { IMMUTABLE_QUERY, STUDY_VIEW_POLL_MS, TABLE_QUERY_ROW_LIMIT } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 /**
@@ -16,7 +16,8 @@ import { useConnectionSettings } from '@/providers/connection-provider';
  * `dataUri` + `dataQuery` (`clio.chart.v1`, `clio.map.v1`,
  * `clio.data-table.v1`): one bounded `POST /v1/artifacts/{id}/table-query`,
  * reused rather than reimplemented per component (`a2ui-component-design`
- * skill, rule 1 and rule 5).
+ * skill, rule 1 and rule 5). A `study://` source reads a study's live record
+ * through `POST /v1/studies/{study}/table-query` with the same request.
  */
 
 /**
@@ -128,6 +129,42 @@ export function artifactIdFromDataUri(uri: string | undefined): string | undefin
   return uri ? /^artifact:\/\/(artifact_[A-Za-z0-9_-]+)$/u.exec(uri)?.[1] : undefined;
 }
 
+/** A study's live source named by a `dataUri` (`study://<study>/<source>`). */
+export interface StudySource {
+  study: string;
+  /** `measurements`, `entries` or `records/<name>`. */
+  source: string;
+}
+
+const STUDY_URI = /^study:\/\/([A-Za-z0-9_-]+)\/(measurements|entries|records\/[A-Za-z0-9_.-]+)$/u;
+
+/** A tabular `dataUri`: a registered artifact or a study source (clio-schemas `TABLE_DATA_URI_PATTERN`). */
+export const TABLE_DATA_URI =
+  /^(artifact:\/\/artifact_[A-Za-z0-9_-]+|study:\/\/[A-Za-z0-9_-]+\/(measurements|entries|records\/[A-Za-z0-9_.-]+))$/u;
+
+export function studySourceFromDataUri(uri: string | undefined): StudySource | undefined {
+  const match = uri ? STUDY_URI.exec(uri) : null;
+  return match ? { study: match[1]!, source: match[2]! } : undefined;
+}
+
+/** The cache key prefix of every source read of one study, for invalidation. */
+export function studySourceQueryPrefix(endpoint: string, study: string) {
+  return queryKeys.key('study-source', endpoint, study);
+}
+
+/**
+ * How a study source is cached: never as immutable (a study grows), re-read when an
+ * entry of the study merges (`ScienceEntryMerger`), and, for plugin records, which
+ * arrive on tool results rather than as entries, polled while shown.
+ */
+export function studySourceQueryOptions(source: StudySource) {
+  return {
+    staleTime: 0,
+    refetchInterval: source.source.startsWith('records/') ? STUDY_VIEW_POLL_MS : false,
+    refetchIntervalInBackground: false,
+  } as const;
+}
+
 /** Columnar `{name: values[]}` to row objects (`count` rows). */
 export function columnarToRows(
   columns: Readonly<Record<string, readonly QueryCell[]>>,
@@ -193,6 +230,10 @@ export function tableQueryErrorMessage(error: Error): string {
       return 'the query took longer than the server allows.';
     case 'not_found':
       return 'the artifact is not in this workspace.';
+    case 'study_not_found':
+      return 'the study is not on this server.';
+    case 'study_uri_invalid':
+      return 'the study source is not measurements, entries or records/<name>.';
     case 'validation_error': {
       const first = Array.isArray(details.errors) ? details.errors[0] : undefined;
       if (isJsonObject(first) && typeof first.msg === 'string') {
@@ -236,7 +277,25 @@ export function useTableQueryRows({
     () => ({ ...dataQuery, ...(columns.length ? { columns } : {}), limit }),
     [columns, dataQuery, limit],
   );
-  const query = useQuery({
+  const study = artifactId ? undefined : studySourceFromDataUri(dataUri);
+  const studyQuery = useQuery({
+    enabled: !data && Boolean(study),
+    queryKey: [
+      ...studySourceQueryPrefix(settings.endpoint, study?.study ?? ''),
+      study?.source,
+      JSON.stringify(request),
+    ],
+    queryFn: ({ signal }) =>
+      repository.studyTableQuery(study!.study, study!.source, request, signal),
+    retry: retryTableQuery,
+    // A refetch keeps the rows on screen; a different source shows its own loading.
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[2] === study?.study && previousQuery?.queryKey[3] === study?.source
+        ? previousData
+        : undefined,
+    ...(study ? studySourceQueryOptions(study) : {}),
+  });
+  const artifactQuery = useQuery({
     enabled: !data && Boolean(artifactId),
     queryKey: queryKeys.key(
       'artifact-table-query',
@@ -258,6 +317,7 @@ export function useTableQueryRows({
       previousQuery?.queryKey[2] === artifactId ? previousData : undefined,
     ...IMMUTABLE_QUERY,
   });
+  const query = study ? studyQuery : artifactQuery;
   const queried = useMemo(
     () =>
       query.data
@@ -286,11 +346,11 @@ export function useTableQueryRows({
       rowKey: undefined,
     };
   }
-  if (!artifactId) {
+  if (!artifactId && !study) {
     return {
       rows: undefined,
       loading: false,
-      error: 'the data source is not a registered artifact id.',
+      error: 'the data source is not a registered artifact id or a study source.',
       note: '',
       matchedRows: undefined,
       totalRows: undefined,

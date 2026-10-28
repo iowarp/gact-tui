@@ -7,6 +7,7 @@ import {
   screen,
   within,
 } from '@testing-library/react';
+import type { SessionDiff } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { createRef, type PropsWithChildren, type ReactElement } from 'react';
@@ -77,12 +78,10 @@ function renderWorkbench() {
   return render(
     <ClioWorkbench
       artifacts={[]}
-      blueprints={[]}
       diffs={[]}
       files={[]}
-      onApplyDiff={vi.fn()}
       onOpenSubagent={vi.fn()}
-      onRejectDiff={vi.fn()}
+      onUndoDiff={vi.fn()}
       sessionId="session_parent"
       sessionView={<p>Session intelligence</p>}
       workspaceId="workspace_1"
@@ -104,10 +103,8 @@ describe('ClioWorkbench canvas', () => {
         sessionId=""
         files={[]}
         artifacts={[]}
-        blueprints={[]}
         diffs={[]}
-        onApplyDiff={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
         sessionView={<p>Send your first message to see session activity.</p>}
       />,
@@ -122,12 +119,10 @@ describe('ClioWorkbench canvas', () => {
     render(
       <ClioWorkbench
         artifacts={[]}
-        blueprints={[]}
         diffs={[]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         sessionId="session_parent"
         sessionView={<BrokenCanvasItem />}
         workspaceId="workspace_1"
@@ -147,12 +142,10 @@ describe('ClioWorkbench canvas', () => {
       <WorkspaceCanvasVisibilityProvider visible={false}>
         <ClioWorkbench
           artifacts={[]}
-          blueprints={[]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
           workspaceId="workspace_1"
@@ -170,12 +163,10 @@ describe('ClioWorkbench canvas', () => {
       <WorkspaceCanvasVisibilityProvider visible>
         <ClioWorkbench
           artifacts={[]}
-          blueprints={[]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
           workspaceId="workspace_1"
@@ -211,13 +202,11 @@ describe('ClioWorkbench canvas', () => {
     render(
       <ClioWorkbench
         artifacts={[]}
-        blueprints={[]}
         diffs={[]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
         onOpenTerminal={onOpenTerminal}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         sessionId="session_parent"
         sessionView={<p>Session intelligence</p>}
         workspaceId="workspace_1"
@@ -338,12 +327,10 @@ describe('ClioWorkbench canvas', () => {
               session_relation: 'used',
             },
           ]}
-          blueprints={[]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
           workspaceId="workspace_1"
@@ -383,12 +370,10 @@ describe('ClioWorkbench canvas', () => {
               session_relation: 'produced',
             },
           ]}
-          blueprints={[]}
           diffs={[]}
           files={[]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
           workspaceId="workspace_1"
@@ -430,23 +415,23 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
-  it('opens a changed file as a durable review tab', () => {
+  it('opens a changed file as a durable record tab with Undo', () => {
     const ref = createRef<ClioWorkbenchHandle>();
-    const diff = {
+    const diff: SessionDiff = {
+      id: 'chg_1',
       path: 'src/analysis.py',
-      status: 'pending',
-      applied: false,
+      status: 'applied',
+      created: false,
+      undo_available: true,
       unified_diff: '@@ -1 +1 @@\n-old\n+new',
     };
     render(
       <ClioWorkbench
         artifacts={[]}
-        blueprints={[]}
         diffs={[diff]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         ref={ref}
         sessionId="session_parent"
         sessionView={<p>Session intelligence</p>}
@@ -460,9 +445,8 @@ describe('ClioWorkbench canvas', () => {
       'aria-selected',
       'true',
     );
-    expect(screen.getByText('Review file change')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Apply change' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Reject change' })).toBeVisible();
+    expect(screen.getByText('File changed by the agent')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible();
   });
 
   it('keeps the file tree beside a directly opened rendered file', async () => {
@@ -474,12 +458,10 @@ describe('ClioWorkbench canvas', () => {
       <QueryClientProvider client={queryClient}>
         <ClioWorkbench
           artifacts={[]}
-          blueprints={[]}
           diffs={[]}
           files={[{ path: 'reports/summary.md', type: 'file', internal: false, size: 18 }]}
-          onApplyDiff={vi.fn()}
           onOpenSubagent={vi.fn()}
-          onRejectDiff={vi.fn()}
+          onUndoDiff={vi.fn()}
           ref={ref}
           sessionId="session_parent"
           sessionView={<p>Session intelligence</p>}
@@ -708,22 +690,22 @@ describe('ClioWorkbench canvas', () => {
   });
 
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
-    const diff = {
+    const diff: SessionDiff = {
+      id: 'chg_compact',
       path: 'src/compact-canvas.py',
-      status: 'pending',
-      applied: false,
+      status: 'applied',
+      created: false,
+      undo_available: true,
       unified_diff: '@@ -1 +1 @@\n-old\n+new',
     };
 
     render(
       <ClioWorkbench
         artifacts={[]}
-        blueprints={[]}
         diffs={[diff]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         requestedOpen={{ key: 'request-1', request: { kind: 'diff', diff } }}
         sessionId="session_parent"
         sessionView={<p>Session intelligence</p>}
@@ -735,57 +717,6 @@ describe('ClioWorkbench canvas', () => {
       'aria-selected',
       'true',
     );
-    expect(screen.getByText('Review file change')).toBeVisible();
-  });
-
-  it('opens a recorded workflow as a durable canvas tab with its execution graph', () => {
-    const workflow = {
-      id: 'call_workflow',
-      session_id: 'session_parent',
-      name: 'run_workflow',
-      state: 'succeeded' as const,
-      duration_ms: 30_000,
-      input: { request: 'Inventory and verify the supplied facts.' },
-      output: {
-        steps: [
-          { child: 'inventory', task_id: 'task_inventory' },
-          { child: 'verification', task_id: 'task_verification' },
-        ],
-      },
-    };
-
-    render(
-      <ClioWorkbench
-        artifacts={[]}
-        blueprints={[]}
-        diffs={[]}
-        files={[]}
-        onApplyDiff={vi.fn()}
-        onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
-        requestedOpen={{ key: 'workflow-request', request: { kind: 'workflow', tool: workflow } }}
-        sessionId="session_parent"
-        sessionView={<p>Session intelligence</p>}
-        subagents={[
-          {
-            id: 'task_inventory',
-            session_id: 'session_parent',
-            child_session_id: 'session_inventory',
-            title: 'inventory #1',
-            state: 'completed',
-          },
-        ]}
-        workspaceId="workspace_1"
-      />,
-    );
-
-    expect(screen.getByRole('tab', { name: 'inventory → verification' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    expect(screen.getByRole('heading', { name: 'inventory → verification' })).toBeVisible();
-    expect(
-      screen.getByRole('img', { name: 'Workflow execution graph: inventory → verification' }),
-    ).toBeVisible();
+    expect(screen.getByText('File changed by the agent')).toBeVisible();
   });
 });

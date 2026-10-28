@@ -96,8 +96,6 @@ func TestPaletteCategorySelectionFiltersDefaultCommands(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 36
-	a.session.caps.Capabilities.XClioAgentBlueprints = true
-	a.session.caps.Capabilities.XClioExpertPacks = true
 	a.cmdPalette.paletteOpen = true
 
 	if a.cmdPalette.paletteGroup != "" {
@@ -134,8 +132,6 @@ func TestPaletteCategorySelectionFiltersDefaultCommands(t *testing.T) {
 
 func TestPaletteCategoryOrderPrioritizesOperatorEntrypoints(t *testing.T) {
 	a := newReadyApp(nil, nil)
-	a.session.caps.Capabilities.XClioAgentBlueprints = true
-	a.session.caps.Capabilities.XClioExpertPacks = true
 	a.session.caps.Capabilities.XClioPromptRegistry = true
 	a.cmdPalette.paletteGroup = "Runtime"
 
@@ -262,8 +258,6 @@ func TestPaletteDefaultEnterChoosesCommandCategory(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 36
-	a.session.caps.Capabilities.XClioAgentBlueprints = true
-	a.session.caps.Capabilities.XClioExpertPacks = true
 	a.cmdPalette.paletteOpen = true
 
 	if !a.cmdPalette.showingGroupOverview() {
@@ -284,8 +278,6 @@ func TestPaletteOverviewUsesBrowseHint(t *testing.T) {
 	a := newReadyApp(nil, nil)
 	a.width = 120
 	a.height = 36
-	a.session.caps.Capabilities.XClioAgentBlueprints = true
-	a.session.caps.Capabilities.XClioExpertPacks = true
 	a.cmdPalette.paletteOpen = true
 
 	out := ansi.Strip(a.cmdPalette.view())

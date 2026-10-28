@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/tauri/external-url', () => ({ openExternalUrl: mocks.openExternalUrl }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
-vi.mock('sonner', () => ({ toast: { error: mocks.toastError } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: mocks.toastError } }));
 
 import { ExternalLink } from './external-link';
 

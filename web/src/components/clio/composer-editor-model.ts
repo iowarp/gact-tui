@@ -36,11 +36,24 @@ export function collectPlainText(
       if (node.nextSibling) value += '\n';
       return;
     }
-    const startedAt = value.length;
-    for (const child of node.childNodes) visit(child);
-    if (node.tagName === 'DIV' && value.length > startedAt && !value.endsWith('\n')) value += '\n';
+    visitChildren(node.childNodes);
   };
-  for (const node of nodes) visit(node);
+  const isBlock = (node: Node): boolean =>
+    node instanceof HTMLElement && node.tagName === 'DIV' && !node.dataset.referenceToken;
+  const visitChildren = (children: Iterable<Node>): void => {
+    let previous: Node | undefined;
+    for (const node of children) {
+      // Chromium represents typed paragraphs as adjacent DIVs, including empty
+      // DIV/BR lines. Their boundaries, not a suffix after nonempty blocks,
+      // carry the newlines. A preceding BR already supplies that boundary.
+      if (previous && (isBlock(previous) || isBlock(node)) && previous.nodeName !== 'BR') {
+        value += '\n';
+      }
+      visit(node);
+      previous = node;
+    }
+  };
+  visitChildren(nodes);
   return value;
 }
 

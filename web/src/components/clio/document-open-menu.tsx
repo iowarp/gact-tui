@@ -1,5 +1,5 @@
 import type { Artifact, DocumentEditorHealth, DocumentManifest } from '@clio/core/v3';
-import { ChevronDownIcon, DownloadIcon, ExternalLinkIcon, FolderOpenIcon } from 'lucide-react';
+import { ChevronDownIcon, ExternalLinkIcon, FolderOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -22,7 +22,7 @@ export type DocumentOpenTarget =
   | { kind: 'native'; application: DocumentApplication; format: 'original' | 'pdf' }
   | { kind: 'embedded'; provider: 'onlyoffice' | 'collabora' };
 
-/** App launching, original downloads, and PDF exports stay distinct from CLIO's view controls. */
+/** Application launching stays separate from file downloading and format conversion. */
 export function DocumentOpenMenu({
   artifact,
   manifest,
@@ -35,13 +35,9 @@ export function DocumentOpenMenu({
   editorHealth,
   openPending,
   pdfPending,
-  downloadPending,
   onOpen,
-  onPdfDownload,
-  onDownload,
   onReveal,
   revealPending = false,
-  hideDownload = false,
 }: {
   artifact: Artifact;
   manifest: DocumentManifest;
@@ -54,29 +50,23 @@ export function DocumentOpenMenu({
   editorHealth?: DocumentEditorHealth;
   openPending: boolean;
   pdfPending: boolean;
-  downloadPending: boolean;
   onOpen: (target: DocumentOpenTarget) => void;
-  onPdfDownload: () => void;
-  onDownload: () => void;
   onReveal?: () => void;
   revealPending?: boolean;
-  hideDownload?: boolean;
 }) {
   const native = inTauri();
   const pdf =
+    native &&
     manifest.profile !== 'pdf' &&
     (Boolean(manifest.pdf_rendition_artifact_id) || manifest.rendition_formats.includes('pdf'));
   const providers = hasEmbeddedDocumentEditors(manifest.profile) ? manifest.embedded_editors : [];
   const configuredProviders = providers.filter((provider) =>
     editorHealth?.editors.some((editor) => editor.provider === provider && editor.configured),
   );
-  const label = native || configuredProviders.length ? 'Open in' : 'Export';
+  const label = 'Open in';
   const canReveal = native && Boolean(onReveal);
   const hasOriginal =
-    (manifest.native_open && native) ||
-    configuredProviders.length > 0 ||
-    !hideDownload ||
-    canReveal;
+    (manifest.native_open && native) || configuredProviders.length > 0 || canReveal;
   const appItems = (
     apps: readonly DocumentApplication[],
     format: 'original' | 'pdf',
@@ -135,12 +125,6 @@ export function DocumentOpenMenu({
                 </DropdownMenuItem>
               );
             })}
-            {!hideDownload ? (
-              <DropdownMenuItem disabled={downloadPending} onSelect={onDownload}>
-                <DownloadIcon aria-hidden="true" />
-                Download original
-              </DropdownMenuItem>
-            ) : null}
             {canReveal ? (
               <DropdownMenuItem disabled={openPending || revealPending} onSelect={onReveal}>
                 <FolderOpenIcon aria-hidden="true" />
@@ -157,10 +141,6 @@ export function DocumentOpenMenu({
               {native
                 ? appItems(pdfApplications, 'pdf', pdfApplicationsPending, pdfApplicationsError)
                 : null}
-              <DropdownMenuItem disabled={pdfPending || openPending} onSelect={onPdfDownload}>
-                <DownloadIcon aria-hidden="true" />
-                {pdfPending ? 'Preparing PDF…' : 'Download PDF'}
-              </DropdownMenuItem>
             </DropdownMenuGroup>
           </>
         ) : null}

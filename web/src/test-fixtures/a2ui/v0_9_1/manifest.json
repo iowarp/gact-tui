@@ -48,10 +48,11 @@
   "catalogs": {
     "catalogs/basic/catalog.json": "8cc94d0a482e67048f9fc989964ca5da56fe42f531d919315a508989fb22e13e",
     "catalogs/basic/catalog.clio.json": "11a1e1312cf5b47239aa122f497b5f521ec78ff5503298eec21682a7368c3e20",
-    "catalogs/clio-workspace/v1/catalog.json": "df9533e1cb95422ce3574f1f3849e097e4b95f5a0b39f6d8d6b6a336f06fc157",
+    "catalogs/clio-workspace/v1/catalog.json": "c3c4509f8f94eb644ad31264718303c6c4396e66eba353a7a5333cbda42f6597",
     "catalogs/clio-workspace/v1/catalog.clio.json": "62bc6548e6b2f3f5168bc0fefb985bdde9fba751c9245371cf312436d145ec6b"
   },
   "catalog_source_commits": {
-    "catalogs/clio-workspace/v1/catalog.clio.json": "eaa6d4cba762b6359cee1b32061f52672b04d0a5"
+    "catalogs/clio-workspace/v1/catalog.clio.json": "eaa6d4cba762b6359cee1b32061f52672b04d0a5",
+    "catalogs/clio-workspace/v1/catalog.json": "ac1be7bc4b814228bbe3222cd80fb95251ec7024"
   }
 }

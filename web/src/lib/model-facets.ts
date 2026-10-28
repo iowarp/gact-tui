@@ -37,6 +37,8 @@ export interface FacetChip {
    * nothing, so an inactive zero chip is not pressable.
    */
   count: number;
+  /** A remote query choice has no global result count until the Hub answers it. */
+  remote?: boolean;
   active: boolean;
   /** The default tokens pressing this chip swaps out (empty: it just adds). */
   replaces: ModelFilterToken[];

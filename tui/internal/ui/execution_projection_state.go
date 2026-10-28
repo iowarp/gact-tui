@@ -98,7 +98,7 @@ func (c *executionComponent) currentSessionHasProjected() bool {
 func executionEventsHaveTrajectory(events []executionTimelineEvent) bool {
 	for _, event := range events {
 		switch event.Type {
-		case "react.step.completed", "expert.extract.completed", "blueprint.delegation.started", "delegation.started":
+		case "react.step.completed", "expert.extract.completed", "delegation.started":
 			return true
 		}
 	}

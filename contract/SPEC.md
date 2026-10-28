@@ -2,15 +2,15 @@
 
 > **v0.3 (2026-08-03) — Part model re-derived from observation.**
 >
-> §4.5 was rewritten from a *capture* of the reference backend rather than
+> §4.5 was rewritten from a _capture_ of the reference backend rather than
 > edited forward from its v0.2 prose. Ground truth is
 > `clio-agent-gact 0.9.0+42522bb1` at `http://127.0.0.1:17900`, recorded in
 > two artifacts committed alongside this document so the derivation is
 > auditable rather than asserted:
 >
-> * `contract/testdata/observed-part-model-v0.3.json` — the `Part` model
+> - `contract/testdata/observed-part-model-v0.3.json` — the `Part` model
 >   reflected off the running backend: **56 fields, a flat union**.
-> * `contract/testdata/observed-parts-v0.3.json` — real parts read out of
+> - `contract/testdata/observed-parts-v0.3.json` — real parts read out of
 >   live session ledgers.
 >
 > Two things the v0.2 prose got wrong, both caught by the capture:
@@ -36,7 +36,7 @@
 > — it is the one backed by a capture.
 
 > **Reconciliation note (2026-07-01).** This document was reconciled
-> to the *actually-implemented* GACT v0.2 wire, using as ground truth
+> to the _actually-implemented_ GACT v0.2 wire, using as ground truth
 > the reference backend `clio-agent-gact` (iowarp/clio-agent) at
 > `develop @ 3527143` (source: `src/clio_agent/gact/` — routes,
 > `types.py`, `events.py`, `turn.py`, `permission_gate.py`,
@@ -65,11 +65,11 @@
 >
 > - **Vendor extensions** — every `x_clio_*` capability flag, the
 >   `semantic.event` SSE spine, and the clio-only endpoints (prompts,
->   agent-blueprints, expert-packs, context frames, user-questions,
+>   agent plugins, context frames, user-questions,
 >   turn-retry, memory tools, schedules, sharing) are **optional
 >   vendor surface**. A generic GACT client MUST run without them; a
 >   generic GACT backend need not implement them. They are catalogued
->   here so consumers that *do* parse clio's wire have an authority.
+>   here so consumers that _do_ parse clio's wire have an authority.
 > - **Aspirational / not-yet-implemented** — a handful of v0.1/early-v0.2
 >   shapes that the spec describes but the reference backend does not
 >   emit (e.g. the global `/v1/events` stream, `session.agent_routed` /
@@ -125,7 +125,7 @@ The contract is large. No backend will implement every part of it. The TUI must 
 
 #### 3.2.1 v0.2 additions (CLIO-aligned)
 
-> This subsection records the *design intent* of v0.2. For what the
+> This subsection records the _design intent_ of v0.2. For what the
 > reference backend actually ships (which events/endpoints landed and
 > which did not), see the per-section drift notes and the consolidated
 > §15.
@@ -144,7 +144,7 @@ New additions:
 
 v0.2 does NOT deprecate anything in v0.1. A v0.1 client talking to a v0.2 backend works unchanged (it ignores new capability flags, new fields, new events). A v0.2 client talking to a v0.1 backend reads `capabilities.agent_routing == false` etc. and disables the related UI affordances.
 
-**Gold-standard clause**: v0.2 is drafted so that **every** primitive a modern agentic-coder exposes natively has a place on the wire. The first reference backend is `clio-agent-gact` (iowarp/clio-agent, `tui-integration` branch) — any v0.2 primitive CLIO implements is by definition *supported*. Any v0.1 primitive CLIO doesn't yet implement is declared `unsupported` in its capabilities response and tracked as a native CLIO capability request (framed around CLIO's own mission, not "TUI-integration ask") until it lands.
+**Gold-standard clause**: v0.2 is drafted so that **every** primitive a modern agentic-coder exposes natively has a place on the wire. The first reference backend is `clio-agent-gact` (iowarp/clio-agent, `tui-integration` branch) — any v0.2 primitive CLIO implements is by definition _supported_. Any v0.1 primitive CLIO doesn't yet implement is declared `unsupported` in its capabilities response and tracked as a native CLIO capability request (framed around CLIO's own mission, not "TUI-integration ask") until it lands.
 
 #### 3.2.2 Protocol negotiation — `X-GACT-Version`
 
@@ -188,85 +188,90 @@ consumers have an authority for the values.
 {
   "contract_version": "0.2",
   "backend": {
-    "name": "clio-agent-gact",        // e.g. "clio-agent-gact" / "crush" / "claudecode"
-    "version": "<package version>",   // backend build version (NOT the contract version).
-                                      // clio reports the installed clio-agent package
-                                      // version via importlib.metadata (currently 0.5.x);
-                                      // the same value appears in /v1/health's
-                                      // api-integration detail and the SSE
-                                      // server.connected payload's `server_version`.
-    "vendor": "iowarp",               // e.g. "iowarp" / "charmbracelet"
-    "homepage": "https://github.com/iowarp/clio-agent"   // optional
+    "name": "clio-agent-gact", // e.g. "clio-agent-gact" / "crush" / "claudecode"
+    "version": "<package version>", // backend build version (NOT the contract version).
+    // clio reports the installed clio-agent package
+    // version via importlib.metadata (currently 0.5.x);
+    // the same value appears in /v1/health's
+    // api-integration detail and the SSE
+    // server.connected payload's `server_version`.
+    "vendor": "iowarp", // e.g. "iowarp" / "charmbracelet"
+    "homepage": "https://github.com/iowarp/clio-agent" // optional
   },
   "capabilities": {
     // --- v0.1 baseline ---
-    "workspaces": true,               // §4.1
-    "sessions": true,                 // §4.2
-    "subagents": true,                // §4.3
-    "mcp": true,                      // §6.7
-    "lsp": false,                     // §6.8 (optional)
-    "files": true,                    // §6.9
-    "diffs": true,                    // §6.10
-    "permissions": true,              // §6.11
-    "providers": true,                // §6.12
-    "commands": true,                 // §6.13
-    "voice": false,                   // §6.14 (optional)
-    "scheduled_sessions": true,       // §6.15 — /v1/sessions/{id}/schedules (vendor-ish, see note)
-    "hooks": true,                    // §6.17 — /v1/hooks
-    "session_tasks": true,            // §6.18 — /v1/sessions/{id}/tasks
-    "metrics": true,                  // §6.16 — GET /v1/metrics
-    "session_branching": true,        // fork support (§6.2 /fork)
-    "session_sharing": true,          // §6.15b — /v1/sessions/{id}/share + /v1/shared/{token}
-    "session_export": true,           // §6.2 export/import
-    "session_summary": false,         // /summarize not implemented (truthful since clio #760 / Phase 0)
-    "attachments_upload": false,      // /attachments not implemented (truthful since clio #760 / Phase 0)
-    "multimodal_image_parts": true,   // §4.5 — POST /messages accepts/preserves `image` parts
+    "workspaces": true, // §4.1
+    "sessions": true, // §4.2
+    "subagents": true, // §4.3
+    "mcp": true, // §6.7
+    "lsp": false, // §6.8 (optional)
+    "files": true, // §6.9
+    "diffs": true, // §6.10
+    "permissions": true, // §6.11
+    "providers": true, // §6.12
+    "commands": true, // §6.13
+    "voice": false, // §6.14 (optional)
+    "scheduled_sessions": true, // §6.15 — /v1/sessions/{id}/schedules (vendor-ish, see note)
+    "hooks": true, // §6.17 — /v1/hooks
+    "session_tasks": true, // §6.18 — /v1/sessions/{id}/tasks
+    "metrics": true, // §6.16 — GET /v1/metrics
+    "session_branching": true, // fork support (§6.2 /fork)
+    "session_sharing": true, // §6.15b — /v1/sessions/{id}/share + /v1/shared/{token}
+    "session_export": true, // §6.2 export/import
+    "session_summary": false, // /summarize not implemented (truthful since clio #760 / Phase 0)
+    "attachments_upload": false, // /attachments not implemented (truthful since clio #760 / Phase 0)
+    "multimodal_image_parts": true, // §4.5 — POST /messages accepts/preserves `image` parts
     "cost_tracking": true,
-    "thinking_blocks": true,          // extended thinking content blocks
-    "edit_modes": true,               // Aider-style multi-mode (Session.edit_mode: diff/whole/patch)
-    "plan_mode": true,                // read-only plan mode (Session.mode: chat/plan/edit/architect)
-    "search_messages": true,          // §6.3 — full-text search across messages
-    "agent_write": true,              // §6.5 — POST/PUT/DELETE on /v1/agents
-    "skills_extraction": true,        // §6.5 — POST /v1/agents/extract
+    "thinking_blocks": true, // extended thinking content blocks
+    "edit_modes": true, // Aider-style multi-mode (Session.edit_mode: diff/whole/patch)
+    "plan_mode": true, // read-only plan mode (Session.mode: chat/plan/edit/architect)
+    "search_messages": true, // §6.3 — full-text search across messages
+    "agent_write": false, // §6.5 — POST/PUT/DELETE on /v1/agents (clio: false; user agents via §6.21)
+    "skills_extraction": false, // §6.5 — POST /v1/agents/extract (clio: false)
 
     // --- v0.2 generic additions ---
-    "agent_routing": true,            // §4.3.1 — multi-tier agents + routing decisions
-    "memory": true,                   // §6.19 — /v1/memory/stats introspection
-    "structured_errors": true,        // §14 — typed error_info taxonomy
-    "integration_health": true,       // §3.4 — /v1/health `integrations[]` array
-    "tool_telemetry": true,           // §4.5 — tool_result.cached + duration_ms
+    "agent_routing": true, // §4.3.1 — multi-tier agents + routing decisions
+    "memory": true, // §6.19 — /v1/memory/stats introspection
+    "structured_errors": true, // §14 — typed error_info taxonomy
+    "integration_health": true, // §3.4 — /v1/health `integrations[]` array
+    "tool_telemetry": true, // §4.5 — tool_result.cached + duration_ms
 
     // --- x_clio_* — VENDOR EXTENSION (optional; generic clients ignore) ---
     // These intentionally carry richer-than-boolean values. See §8.2.
-    "x_clio_cancellation": "best_effort",          // "none" | "best_effort" | "hard"
+    "x_clio_cancellation": "best_effort", // "none" | "best_effort" | "hard"
     "x_clio_executor_cancellation": false,
-    "x_clio_text_streaming": "best_effort_live",   // "none" | "batch" | "best_effort_live"
-    "x_clio_synthetic_posthoc_streaming": false,   // AUTHORITATIVE: clio never replays synthetic deltas post-hoc
-    "x_clio_stream_fallback_reasons": { /* map<reason, row> — see note below */ },
+    "x_clio_text_streaming": "best_effort_live", // "none" | "batch" | "best_effort_live"
+    "x_clio_synthetic_posthoc_streaming": false, // AUTHORITATIVE: clio never replays synthetic deltas post-hoc
+    "x_clio_stream_fallback_reasons": {
+      /* map<reason, row> — see note below */
+    },
     "x_clio_direct_delete_permissions": true,
-    "x_clio_prompt_registry": true,                // §6.20 — /v1/prompts
-    "x_clio_expert_packs": true,                   // §6.22 — /v1/expert-packs
-    "x_clio_agent_blueprints": true,               // §6.21 — /v1/agent-blueprints
-    "x_clio_user_questions": true,                 // §6.23 — /v1/sessions/{id}/questions
-    "x_clio_retry_attempts": true,                 // §6.24 — /v1/sessions/{id}/messages/{id}/retry
-    "x_clio_context_frames": true,                 // §6.9 — /v1/sessions/{id}/context/frames + /context/state + /context/compact
-    "x_clio_semantic_events": true,                // §7.6 — the semantic.event SSE spine
-    "x_clio_artifacts": true,                      // §6.26 — /v1/artifacts + artifact.* events + resource_link artifact:// parts
-    "x_clio_semantic_trace_backend": "none",       // "none" | "file" | "factory"
-    "x_clio_semantic_trace_detail": "semantic",    // "off" | "metadata" | "semantic" | "full_debug"
-    "x_clio_hook_backend": "local_python",         // "local_python" | "none" | "factory" | "unavailable" (init failure)
-    "x_clio_hook_events": { /* map<hook_event_name, int handler_count> */ },
-    "x_clio_capability_gaps": { /* map<feature, {...}>; mirrors GET /v1/capability-gaps */ }
+    "x_clio_prompt_registry": true, // §6.20 — /v1/prompts
+    "x_clio_agent_plugins": true, // §6.21 — /v1/plugins, /v1/agents (plugin agents)
+    "x_clio_user_questions": true, // §6.23 — /v1/sessions/{id}/questions
+    "x_clio_retry_attempts": true, // §6.24 — /v1/sessions/{id}/messages/{id}/retry
+    "x_clio_context_frames": true, // §6.9 — /v1/sessions/{id}/context/frames + /context/state + /context/compact
+    "x_clio_semantic_events": true, // §7.6 — the semantic.event SSE spine
+    "x_clio_artifacts": true, // §6.26 — /v1/artifacts + artifact.* events + resource_link artifact:// parts
+    "x_clio_semantic_trace_backend": "none", // "none" | "file" | "factory"
+    "x_clio_semantic_trace_detail": "semantic", // "off" | "metadata" | "semantic" | "full_debug"
+    "x_clio_hook_backend": "local_python", // "local_python" | "none" | "factory" | "unavailable" (init failure)
+    "x_clio_hook_events": {
+      /* map<hook_event_name, int handler_count> */
+    },
+    "x_clio_capability_gaps": {
+      /* map<feature, {...}>; mirrors GET /v1/capability-gaps */
+    }
   },
   "transports": {
-    "events_sse": true,               // §7
-    "events_websocket": false         // optional, future
+    "events_sse": true, // §7
+    "events_websocket": false // optional, future
   },
   "auth": {
-    "schemes": ["trust_socket"],      // §5 — clio runs trust_socket only today
-    "current": "trust_socket"         // active scheme
+    "schemes": ["trust_socket"], // §5 — clio runs trust_socket only today
+    "current": "trust_socket" // active scheme
   },
-  "extensions": []                    // §8.1 — array of {id, version, docs}; clio ships none
+  "extensions": [] // §8.1 — array of {id, version, docs}; clio ships none
 }
 ```
 
@@ -306,13 +311,13 @@ Response wrapper: `{"capability_gaps": map<feature, row>}`. Each row is
 
 ```json
 {
-  "status": "unsupported",           // gap status: "unsupported" | "unavailable"
-  "advertised": false,               // whether the caps map claims it
-  "category": "optional",            // gap classification
+  "status": "unsupported", // gap status: "unsupported" | "unavailable"
+  "advertised": false, // whether the caps map claims it
+  "category": "optional", // gap classification
   "description": "…",
-  "client_behavior": "…",            // what a client should do instead
+  "client_behavior": "…", // what a client should do instead
   "recovery_actions": ["…"],
-  "related_endpoints": ["…"],        // and/or "related_commands" (a row may carry both)
+  "related_endpoints": ["…"] // and/or "related_commands" (a row may carry both)
 }
 ```
 
@@ -333,13 +338,13 @@ Returns 200 with `{"healthy": true, "uptime_s": <int>}` if the backend can serve
 {
   "healthy": true,
   "uptime_s": 1234,
-  "overall_status": "degraded",           // "ready" | "degraded" | "unavailable"
+  "overall_status": "degraded", // "ready" | "degraded" | "unavailable"
   "integrations": [
-    {"name": "api",      "status": "ready",       "detail": "..."},
-    {"name": "sessions", "status": "ready",       "detail": "..."},
-    {"name": "agent",    "status": "degraded",    "detail": "..."},
-    {"name": "memory",   "status": "ready",       "detail": "..."},
-    {"name": "lm",       "status": "ready",       "detail": "..."}
+    { "name": "api", "status": "ready", "detail": "..." },
+    { "name": "sessions", "status": "ready", "detail": "..." },
+    { "name": "agent", "status": "degraded", "detail": "..." },
+    { "name": "memory", "status": "ready", "detail": "..." },
+    { "name": "lm", "status": "ready", "detail": "..." }
   ]
 }
 ```
@@ -359,16 +364,18 @@ A **Workspace** is a project root + its associated configuration. It is the pare
 ```json
 {
   "id": "ws_...",
-  "name": "string",                  // human-readable, defaults to basename of root_path
+  "name": "string", // human-readable, defaults to basename of root_path
   "root_path": "/abs/path/to/project",
   "created_at": "...",
   "updated_at": "...",
-  "config": {                        // backend-defined; see §6.12 for provider/model config
+  "config": {
+    // backend-defined; see §6.12 for provider/model config
     "default_provider": "anthropic",
     "default_model": "claude-opus-4-7",
     "...": "..."
   },
-  "metadata": {                      // open-ended
+  "metadata": {
+    // open-ended
     "vcs": { "branch": "main", "dirty": false }
   }
 }
@@ -393,9 +400,9 @@ omitted), and surfaces session **mode** as three distinct fields
 {
   "id": "sess_...",
   "workspace_id": "ws_...",
-  "parent_session_id": "",           // "" (not null) when not a fork
+  "parent_session_id": "", // "" (not null) when not a fork
   "title": "string",
-  "status": "idle",                  // "idle" | "running" | "waiting_permission" | "waiting_user" | "error" | "cancelled"
+  "status": "idle", // "idle" | "running" | "waiting_permission" | "waiting_user" | "error" | "cancelled"
   "created_at": "...",
   "updated_at": "...",
   "message_count": 12,
@@ -405,17 +412,17 @@ omitted), and surfaces session **mode** as three distinct fields
     "variant": ""
   },
   "agent": {
-    "id": "main",                    // which agent persona/recipe is active (default "main")
+    "id": "main", // which agent persona/recipe is active (default "main")
     "mode": ""
   },
-  "tokens_input": 12500,             // cumulative input tokens (flattened)
-  "tokens_output": 8400,             // cumulative output tokens (flattened)
+  "tokens_input": 12500, // cumulative input tokens (flattened)
+  "tokens_output": 8400, // cumulative output tokens (flattened)
   "cost_usd": 0.42,
-  "mode": "chat",                    // "chat" | "plan" | "edit" | "architect"  (plan_mode/edit_modes)
-  "edit_mode": "diff",               // "diff" | "whole" | "patch"
-  "routing_mode": "auto",            // "auto" | "chat" | "experts" | "reasoning_only"  (agent_routing knob)
-  "archived": false,                 // hide from active list, keep for browse
-  "metadata": {}                     // backend-specific, open-ended (e.g. metadata.pinned: bool)
+  "mode": "chat", // "chat" | "plan" | "edit" | "architect"  (plan_mode/edit_modes)
+  "edit_mode": "diff", // "diff" | "whole" | "patch"
+  "routing_mode": "auto", // "auto" | "chat" | "experts" | "reasoning_only"  (agent_routing knob)
+  "archived": false, // hide from active list, keep for browse
+  "metadata": {} // backend-specific, open-ended (e.g. metadata.pinned: bool)
 }
 ```
 
@@ -436,7 +443,7 @@ instead. All other values are live.
 
 Forks: `POST /v1/sessions/{id}/fork` with `{at_message_id?: string,
 title?: string}` returns **201** with a new session whose
-`parent_session_id` is set. `at_message_id` truncation is *inclusive*
+`parent_session_id` is set. `at_message_id` truncation is _inclusive_
 (the named message is the last one copied); an unknown id silently
 copies **all** messages. Context files are copied. `mode`, `edit_mode`,
 `routing_mode`, `model`, `agent`, and `metadata` are **NOT inherited**
@@ -460,11 +467,11 @@ A **SubSession** is a child agent invocation spawned by a parent session, e.g. v
 {
   "id": "sess_...",
   "workspace_id": "ws_...",
-  "parent_session_id": "sess_parent",   // REQUIRED for subsessions
-  "spawned_by_message_id": "msg_xyz",   // the parent message containing the subagent invocation
-  "spawned_by_part_id": "part_...",     // the specific part (typically a `subagent_call` part)
+  "parent_session_id": "sess_parent", // REQUIRED for subsessions
+  "spawned_by_message_id": "msg_xyz", // the parent message containing the subagent invocation
+  "spawned_by_part_id": "part_...", // the specific part (typically a `subagent_call` part)
   "agent": {
-    "id": "code_reviewer",              // the subagent definition/recipe
+    "id": "code_reviewer", // the subagent definition/recipe
     "mode": null
   },
   "...": "...other Session fields..."
@@ -479,11 +486,11 @@ v0.1 described agents as a flat catalog (§6.5 `AgentDef`). v0.2 adds a **tier**
 
 Tier definitions:
 
-| Tier | Role | Lifetime | Count per backend |
-|---|---|---|---|
-| 1 | Orchestrator — parses the query and selects which tier-2 agent to dispatch | Long-lived | Typically 1 |
-| 2 | Specialist — handles a class of queries (one domain, one capability family) with a curated tool set | Long-lived | N (0..many) |
-| 3 | Ephemeral worker — spawned per turn via `subagent_call` (§4.5), maps to a SubSession (§4.3) | Per-turn | Unlimited |
+| Tier | Role                                                                                                | Lifetime   | Count per backend |
+| ---- | --------------------------------------------------------------------------------------------------- | ---------- | ----------------- |
+| 1    | Orchestrator — parses the query and selects which tier-2 agent to dispatch                          | Long-lived | Typically 1       |
+| 2    | Specialist — handles a class of queries (one domain, one capability family) with a curated tool set | Long-lived | N (0..many)       |
+| 3    | Ephemeral worker — spawned per turn via `subagent_call` (§4.5), maps to a SubSession (§4.3)         | Per-turn   | Unlimited         |
 
 A backend without tiered routing (single agent per backend — most v0.1 adapters) sets `capabilities.agent_routing = false`. The catalog then contains only tier-1 (or untagged) `AgentDef` rows and the TUI skips per-turn routing-badge rendering.
 
@@ -499,7 +506,7 @@ Extended `AgentDef` shape (all new fields optional; see §6.5 for the base shape
 
   // v0.2 additions (all optional; absent = tier-1 or untagged):
   "tier": 2,
-  "specialization": "code_editing",       // free-form domain tag — UI palette hints
+  "specialization": "code_editing", // free-form domain tag — UI palette hints
   "keywords": ["edit", "refactor", "fix", "review"],
   "metadata": {}
 }
@@ -507,11 +514,11 @@ Extended `AgentDef` shape (all new fields optional; see §6.5 for the base shape
 
 `specialization` is a short free-form identifier (e.g. `code_editing`, `data_analysis`, `research`, `visualization`) that the TUI MAY use to colour the per-turn agent badge from a palette. Unknown specialisations render with a default accent — it's a hint, not a taxonomy the TUI needs to know exhaustively.
 
-`keywords` are the intent tokens the tier-1 orchestrator matches against. Exposed so the TUI can show *why* a given agent was picked (heuristic routing) or render a searchable agent picker.
+`keywords` are the intent tokens the tier-1 orchestrator matches against. Exposed so the TUI can show _why_ a given agent was picked (heuristic routing) or render a searchable agent picker.
 
 Backends with `agent_routing = true` SHOULD emit a `routing_decision` part (§4.5) as the first part of an assistant message that was routed. The decision references `AgentDef.id`. **[NOT IMPLEMENTED in clio 3527143: the companion `session.agent_routed` SSE event is NOT emitted.]** clio surfaces routing two ways instead: the `routing_decision` part (which additionally carries an `execution_path` field, see §4.5) and the `semantic.event` spine (§7.6, e.g. `agent.invocation.started`). A client wanting live routing badges from clio listens to `semantic.event`, not `session.agent_routed`.
 
-The implemented `AgentDef` (clio `types.py:AgentDef`) carries more than the sketch above — including `parent_id`, `prompt_id`/`prompt_profile`, `default_provider`/`default_model`, `skills[]`, `commands[]`, `capability_refs[]`, `enabled`, `validation_errors[]`, and a `source` value of `"expert_pack"` in addition to the v0.1 set. See §6.5 for the full shape.
+The implemented `AgentDef` (clio `types.py:AgentDef`) carries more than the sketch above — including `parent_id`, `prompt_id`/`prompt_profile`, `default_provider`/`default_model`, `skills[]`, `commands[]`, `capability_refs[]`, `enabled`, `validation_errors[]`, and a `source` value of `"plugin"` in addition to the v0.1 set. See §6.5 for the full shape. A backend advertising `x_clio_agent_plugins` serves the plugin agent catalog of §6.21 at `GET /v1/agents` instead.
 
 Discovery: `GET /v1/agents?tier=2` lists tier-2 specialists; the base `/v1/agents` query returns all tiers. clio tier values: `0` untagged, `1` orchestrator, `2` specialist, `3` nanoagent (ephemeral).
 
@@ -571,8 +578,8 @@ into the main transcript.
 
 ### 4.5 Part (Content Block)
 
-*Re-derived for v0.3 from a capture of `clio-agent-gact 0.9.0+42522bb1`. See
-the artifacts named in the v0.3 header note.*
+_Re-derived for v0.3 from a capture of `clio-agent-gact 0.9.0+42522bb1`. See
+the artifacts named in the v0.3 header note._
 
 The content of a message is an ordered list of typed parts. `type` selects how
 a part is **rendered**, but it does **not** select which fields the part
@@ -597,15 +604,15 @@ A field that does not apply to a given `type` is present at its **default**
 
 Consequences a client MUST design for:
 
-* **Presence is not meaning.** `part.tool_name === ''` does not distinguish
+- **Presence is not meaning.** `part.tool_name === ''` does not distinguish
   "no tool" from "field absent". Branch on `type` first, then read the fields
   that `type` documents below.
-* **Truthiness checks are unsafe as type tests.** `if (part.path)` is false
+- **Truthiness checks are unsafe as type tests.** `if (part.path)` is false
   for a `file_diff` whose path is genuinely empty, and false for every part of
   every other kind — it tests emptiness, never kind.
-* **Unknown fields are normal.** A part from a newer backend carries fields
+- **Unknown fields are normal.** A part from a newer backend carries fields
   this document does not list. Clients MUST ignore them, never reject the part.
-* **Older parts carry fewer keys.** Ledgers written before a field existed
+- **Older parts carry fewer keys.** Ledgers written before a field existed
   serialise without it; the captured live samples carry **32** keys against the
   current model's **56**. A reader MUST treat a missing key exactly as it
   treats that field's default.
@@ -624,27 +631,26 @@ kinds have demonstrably been produced by a running backend:
 code is cited, but no session in the corpus has exercised them, so the field
 sets below are weaker evidence than the group above:
 
-| `type` | Emitter |
-|---|---|
-| `agent_message` | `gact/agent_messaging.py:116` |
-| `resource_link` | `gact/artifacts/wire.py:186` |
-| `background_exit` | `gact/background_exit.py:46` |
-| `mcp_app` | `gact/mcp_apps.py:439` |
-| `file_diff` | `gact/turn_finalize.py:444` |
-| `compaction` | `gact/routes/compaction.py:60` |
-| `action_card` | `gact/action_cards.py` (generic in-transcript notification/action primitive; `spotter-ai` is the first emitter) |
+| `type`            | Emitter                                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| `agent_message`   | `gact/agent_messaging.py:116`                                                                                   |
+| `resource_link`   | `gact/artifacts/wire.py:186`                                                                                    |
+| `background_exit` | `gact/background_exit.py:46`                                                                                    |
+| `mcp_app`         | `gact/mcp_apps.py:439`                                                                                          |
+| `file_diff`       | `gact/turn_finalize.py:444`                                                                                     |
+| `compaction`      | `gact/routes/compaction.py:60`                                                                                  |
+| `action_card`     | `gact/action_cards.py` (generic in-transcript notification/action primitive; `spotter-ai` is the first emitter) |
 
-**GACT 0.3 message blocks.** The 0.3 stream carries a narrower, closed *block*
+**GACT 0.3 message blocks.** The 0.3 stream carries a narrower, closed _block_
 vocabulary rather than the flat Part above, and one of its kinds has no Part
 counterpart:
 
-| block `type` | Emitter | Notes |
-|---|---|---|
-| `resource` | `gact/protocol/v3/message.py:167` (`part_to_v3_block`) | The 0.3 projection of a `resource_ref` part — a **workspace resource** (§6 attachment custody) attached to a message, not an MCP resource. |
+| block `type` | Emitter                                                | Notes                                                                                                                                      |
+| ------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `resource`   | `gact/protocol/v3/message.py:167` (`part_to_v3_block`) | The 0.3 projection of a `resource_ref` part — a **workspace resource** (§6 attachment custody) attached to a message, not an MCP resource. |
 
-> **Name collision, deliberate.** The `resource` *Part* at §4.5.4 is the
-> Embedded MCP resource (`server_id` + `uri` + `mime_type`). The `resource`
-> *block* here is the workspace-attachment projection and shares none of those
+> **Name collision, deliberate.** The `resource` _Part_ at §4.5.4 is the
+> Embedded MCP resource (`server_id` + `uri` + `mime_type`). The `resource` > _block_ here is the workspace-attachment projection and shares none of those
 > fields. A reader keys off which vocabulary it is decoding — 0.2 parts or 0.3
 > blocks — before it keys off `type`.
 
@@ -653,39 +659,39 @@ counterpart:
 Fields cluster by concern. A part uses the groups its kind needs and leaves
 the rest at their defaults.
 
-| Group | Fields |
-|---|---|
-| identity | `id`, `type`, `metadata`, `agent_id`, `sequence` |
-| content | `text`, `data`, `url`, `media_type` |
-| routing | `selected_agent`, `rationale`, `confidence`, `heuristic`, `execution_path` |
-| delegation | `parent_agent`, `child_agent`, `stage` |
-| run handle | `handle_id`, `run_label`, `live_state`, `host`, `placement`, `message_action`, `supersedes_handle_id`, `superseded_by_handle_id` |
-| job | `task_id`, `job_id`, `exit_status`, `artifact_ref` |
-| tool | `call_id`, `tool_name`, `thought`, `input`, `content`, `is_error`, `cached`, `duration_ms` |
-| resource | `uri`, `name`, `server_id`, `mime_type` |
-| mcp app | `app_instance_id`, `resource_uri`, `source_server`, `data_ref`, `height` |
-| diff | `path`, `unified_diff`, `new_content`, `status`, `edit_mode`, `lines_added`, `lines_removed` |
-| compaction | `summary`, `auto`, `compacted_message_ids` |
-| action card | `source` (emitter identity, open string, e.g. `"spotter-ai"`), `severity` (open string; MVP `"info"\|"warning"\|"critical"`), `title`, `body` (markdown), `status` (reuses the shared `status` slot; open string, MVP always `"active"`, future `"resolved"`), `actions` (list of `{id, label, enabled, behavior}`, `behavior` an open discriminated union on `kind` — `"focus_session"` `{handle_id}`, `"stub"` `{reason}`; unknown `kind`s and unknown `severity` values MUST render safely as disabled/neutral, per §8.3) |
-| workspace resource (0.3 block only) | `resource_id`, `resource_revision`, `workspace_id`, `name`, `media_type`, `delivery?` |
+| Group                               | Fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| identity                            | `id`, `type`, `metadata`, `agent_id`, `sequence`                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| content                             | `text`, `data`, `url`, `media_type`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| routing                             | `selected_agent`, `rationale`, `confidence`, `heuristic`, `execution_path`                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| delegation                          | `parent_agent`, `child_agent`, `stage`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| run handle                          | `handle_id`, `run_label`, `live_state`, `host`, `placement`, `message_action`, `supersedes_handle_id`, `superseded_by_handle_id`                                                                                                                                                                                                                                                                                                                                                                                             |
+| job                                 | `task_id`, `job_id`, `exit_status`, `artifact_ref`                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| tool                                | `call_id`, `tool_name`, `thought`, `input`, `content`, `is_error`, `cached`, `duration_ms`                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| resource                            | `uri`, `name`, `server_id`, `mime_type`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| mcp app                             | `app_instance_id`, `resource_uri`, `source_server`, `data_ref`, `height`                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| diff                                | `path`, `unified_diff`, `new_content`, `status`, `edit_mode`, `lines_added`, `lines_removed`                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| compaction                          | `summary`, `auto`, `compacted_message_ids`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| action card                         | `source` (emitter identity, open string, e.g. `"spotter-ai"`), `severity` (open string; MVP `"info"\|"warning"\|"critical"`), `title`, `body` (markdown), `status` (reuses the shared `status` slot; open string, MVP always `"active"`, future `"resolved"`), `actions` (list of `{id, label, enabled, behavior}`, `behavior` an open discriminated union on `kind` — `"focus_session"` `{handle_id}`, `"stub"` `{reason}`; unknown `kind`s and unknown `severity` values MUST render safely as disabled/neutral, per §8.3) |
+| workspace resource (0.3 block only) | `resource_id`, `resource_revision`, `workspace_id`, `name`, `media_type`, `delivery?`                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 The workspace-resource group in full, as the reference backend emits it
 (`gact/protocol/v3/message.py:167`) and as the client decodes it
 (`packages/core/src/v3/message-schemas.ts`):
 
-| Field | Type | Presence |
-|---|---|---|
-| `id` | string | always (the block's own id) |
-| `type` | `"resource"` | always |
-| `resource_id` | string | always |
-| `resource_revision` | **string** | always — stringified at projection; the REST resource's own `revision` is an integer, and the two are not interchangeable |
-| `workspace_id` | string | always (from `metadata.workspace_id`; `""` when the part carried none) |
-| `name` | string | always (`"Attachment"` when the part carried none) |
-| `media_type` | string | always (`"application/octet-stream"` when the part carried none) |
-| `delivery` | object | **optional** — omitted entirely unless the part's `metadata.delivery.representation` is one of the six known values |
-| `delivery.representation` | `"native"` \| `"bounded_tools"` \| `"structured_document"` \| `"sandbox"` \| `"retrieval"` \| `"metadata_only"` | required inside `delivery` |
-| `delivery.evidence_source` | string | optional — **dropped when empty**, never sent as `""` |
-| `delivery.reason` | string | optional — dropped when empty |
+| Field                      | Type                                                                                                            | Presence                                                                                                                  |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `id`                       | string                                                                                                          | always (the block's own id)                                                                                               |
+| `type`                     | `"resource"`                                                                                                    | always                                                                                                                    |
+| `resource_id`              | string                                                                                                          | always                                                                                                                    |
+| `resource_revision`        | **string**                                                                                                      | always — stringified at projection; the REST resource's own `revision` is an integer, and the two are not interchangeable |
+| `workspace_id`             | string                                                                                                          | always (from `metadata.workspace_id`; `""` when the part carried none)                                                    |
+| `name`                     | string                                                                                                          | always (`"Attachment"` when the part carried none)                                                                        |
+| `media_type`               | string                                                                                                          | always (`"application/octet-stream"` when the part carried none)                                                          |
+| `delivery`                 | object                                                                                                          | **optional** — omitted entirely unless the part's `metadata.delivery.representation` is one of the six known values       |
+| `delivery.representation`  | `"native"` \| `"bounded_tools"` \| `"structured_document"` \| `"sandbox"` \| `"retrieval"` \| `"metadata_only"` | required inside `delivery`                                                                                                |
+| `delivery.evidence_source` | string                                                                                                          | optional — **dropped when empty**, never sent as `""`                                                                     |
+| `delivery.reason`          | string                                                                                                          | optional — dropped when empty                                                                                             |
 
 The block also carries the four shared block fields (`agent_id`, `sequence`,
 `stream_source`, `channel`), all optional. It carries no size and no digest:
@@ -696,14 +702,14 @@ not list rather than degrade the block.
 
 #### 4.5.3 Corrections against v0.2
 
-| Kind | v0.2 said | Observed |
-|---|---|---|
-| `thinking` | `thinking: string` | **`text: string`**. Provider attribution rides in `metadata` (`thinking_source`, `provider_source`, `default_collapsed`). No token count on the part. |
-| `tool_result` | `content: Part[]` | Correct — and it is worth restating, because reading `content` as a **string** is a live-breaking bug. It is *always* a list. |
-| `routing_decision` | `selected_agent` | Correct. Consumers that guessed `expert`/`selected_expert` rendered a bare "routed to" with no name. |
-| `expert_handoff` | — | The delegate is **`child_agent`**. The question rides in `metadata.question`, not a top-level field. |
-| `mcp_app` | — | Addressed by **`resource_uri` + `app_instance_id`**, not `uri`. |
-| `compaction` | — | **`summary`**, `auto`, `compacted_message_ids` — there is no `reason` field. |
+| Kind               | v0.2 said          | Observed                                                                                                                                              |
+| ------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thinking`         | `thinking: string` | **`text: string`**. Provider attribution rides in `metadata` (`thinking_source`, `provider_source`, `default_collapsed`). No token count on the part. |
+| `tool_result`      | `content: Part[]`  | Correct — and it is worth restating, because reading `content` as a **string** is a live-breaking bug. It is _always_ a list.                         |
+| `routing_decision` | `selected_agent`   | Correct. Consumers that guessed `expert`/`selected_expert` rendered a bare "routed to" with no name.                                                  |
+| `expert_handoff`   | —                  | The delegate is **`child_agent`**. The question rides in `metadata.question`, not a top-level field.                                                  |
+| `mcp_app`          | —                  | Addressed by **`resource_uri` + `app_instance_id`**, not `uri`.                                                                                       |
+| `compaction`       | —                  | **`summary`**, `auto`, `compacted_message_ids` — there is no `reason` field.                                                                          |
 
 #### 4.5.4 Per-kind rendering fields
 
@@ -712,24 +718,24 @@ field is still present at its default.
 
 **Core part types** (every conforming backend MUST handle these in messages it produces, but MAY return only a subset depending on what the backend supports):
 
-| `type` | Purpose | Key fields |
-|---|---|---|
-| `text` | Plain text | `text: string` |
-| `thinking` | Extended reasoning | **`text: string`** — corrected in v0.3; the emitter does NOT use a `thinking` field. Attribution rides in `metadata`: `thinking_source` (`provider`/…), `provider_source`, `default_collapsed`. |
-| `redacted_thinking` | Encrypted reasoning | `data: string`, `signature?: string` |
-| `image` | Image content | **Implemented (clio)**: flat `data?: string` (base64), `url?: string`, `media_type?: string` — NOT a nested `source` object. Gated by `multimodal_image_parts`. |
-| `document` | Document content | `source: {...same}`, `title?`, `context?`, `citations?: {enabled: bool}` (v0.1 sketch; clio does not emit document parts today) |
-| `tool_call` | Model invokes a tool | `call_id: string`, `tool_name: string`, `input: object`, `server_id?: string` (for MCP), `annotations?: {readOnlyHint, destructiveHint, idempotentHint, openWorldHint, title}` |
-| `tool_result` | Result of a tool | `call_id: string`, `content: Part[]` (recursive — text, image, resource, etc.), `is_error: bool`, **v0.2 (tool_telemetry)**: `cached: bool` (result came from a memory cache hit, not fresh execution), `duration_ms: number` (wall-clock), `structured_content?: any` (the MCP `structuredContent` object at the part TOP level — absent when the tool returned none; wire/UI-only, the model's observation never carries it) |
-| `routing_decision` (v0.2) | Orchestrator picked an agent for this turn | `selected_agent: string` (matches `AgentDef.id` at §6.5 / `/v1/agents`), `rationale?: string`, `confidence?: number` (0..1), `heuristic: bool` (true = deterministic keyword match; false = LM router). **clio extension**: also carries `execution_path: string` — `"fast"` (deterministic tool template, no LM) or `"expert_loop"` (full expert tool-loop), empty when N/A. SHOULD be the first part of a routed assistant message when `agent_routing` is true. |
-| `subagent_call` | Spawn a subagent | `subsession_id: string`, `agent_id: string`, `prompt: string`, `params?: object` |
-| `subagent_result` | Subagent terminal result | `subsession_id: string`, `summary: string`, `final_message_id: string` |
-| `resource_link` | MCP resource reference | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?`. **clio-artifact use (vendor, `x_clio_artifacts`)**: clio reuses `resource_link` to give a generated **artifact** (§6.26) outbound wire identity — emitted at turn finalize, one part per artifact generated that turn. `server_id: "clio-artifacts"` (the sentinel source, not an MCP server); `uri: "artifact://<workspace_id>/<name>@vN"` (or `ui://<workspace_id>/<name>@vN` for a `ui_payload` artifact, `mime_type: "text/html;profile=mcp-app"`); `name` = the artifact name; `mime_type` = a best-effort content type. `metadata` carries the identity/provenance block `{artifact_id, sha256, size_bytes, kind, version, custody, fetch_url, producer_activity_id, mechanism, workspace_id, name}` — the nine identity/provenance keys plus the logical-identity pair `workspace_id`/`name` (which the `uri`/`name` fields already encode, repeated here so a client keying off `metadata` alone need not re-parse the `uri`). `fetch_url` is `GET /v1/artifacts/{artifact_id}/bytes` (hash-verified; see §6.26). Additive — the base MCP-resource fields are unchanged. |
-| `resource` | Embedded MCP resource | `server_id: string`, `uri: string`, `mime_type: string`, `text?: string`, `data?: string` (base64) |
-| `file_diff` | Proposed file change | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile; ships on the wire in both SSE `message.part.added` and `GET /messages`), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. **Lifecycle caveat**: the persisted Part's `status` is frozen at `"pending"` (its status at proposal time) — apply/reject mutate only the §6.10 diff rows and emit `file.diff.*` events; `GET /messages` never reflects apply state. `GET /diffs` + `file.diff.*` are authoritative. |
-| `citation` | Source attribution | `text_range: {start, end}`, `source: {type: "document"\|"web"\|"resource", reference: string, location: object}` (v0.1 sketch) |
-| `error` | In-stream error | `code: string`, `message: string`, `recoverable: bool` (v0.1 shape; v0.2 backends prefer `Message.error_info`, §14) |
-| `compaction` | Marks a checkpoint appended after prior history was summarized | `summary: string`, `compacted_message_ids: string[]`, `auto: bool` (true if backend-triggered, false if user-triggered). **[EMITTED by clio 2f892c1; APPEND semantics since #1339]** — clio's `/compact` (§6.25) APPENDS a checkpoint row: one synthetic assistant message whose single part is `type="compaction"`, carrying `summary`/`compacted_message_ids`/`auto=false` (user-triggered) plus `metadata.synthetic: "compact_summary"` + `memory_event_id`; earlier messages stay in the transcript. (Prior to 2f892c1 clio inlined the summary as a `[compact summary]`-prefixed `text` part; that prose form is retired.) |
+| `type`                    | Purpose                                                        | Key fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `text`                    | Plain text                                                     | `text: string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `thinking`                | Extended reasoning                                             | **`text: string`** — corrected in v0.3; the emitter does NOT use a `thinking` field. Attribution rides in `metadata`: `thinking_source` (`provider`/…), `provider_source`, `default_collapsed`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `redacted_thinking`       | Encrypted reasoning                                            | `data: string`, `signature?: string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `image`                   | Image content                                                  | **Implemented (clio)**: flat `data?: string` (base64), `url?: string`, `media_type?: string` — NOT a nested `source` object. Gated by `multimodal_image_parts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `document`                | Document content                                               | `source: {...same}`, `title?`, `context?`, `citations?: {enabled: bool}` (v0.1 sketch; clio does not emit document parts today)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `tool_call`               | Model invokes a tool                                           | `call_id: string`, `tool_name: string`, `input: object`, `server_id?: string` (for MCP), `annotations?: {readOnlyHint, destructiveHint, idempotentHint, openWorldHint, title}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tool_result`             | Result of a tool                                               | `call_id: string`, `content: Part[]` (recursive — text, image, resource, etc.), `is_error: bool`, **v0.2 (tool_telemetry)**: `cached: bool` (result came from a memory cache hit, not fresh execution), `duration_ms: number` (wall-clock), `structured_content?: any` (the MCP `structuredContent` object at the part TOP level — absent when the tool returned none; wire/UI-only, the model's observation never carries it)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `routing_decision` (v0.2) | Orchestrator picked an agent for this turn                     | `selected_agent: string` (matches `AgentDef.id` at §6.5 / `/v1/agents`), `rationale?: string`, `confidence?: number` (0..1), `heuristic: bool` (true = deterministic keyword match; false = LM router). **clio extension**: also carries `execution_path: string` — `"fast"` (deterministic tool template, no LM) or `"expert_loop"` (full expert tool-loop), empty when N/A. SHOULD be the first part of a routed assistant message when `agent_routing` is true.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `subagent_call`           | Spawn a subagent                                               | `subsession_id: string`, `agent_id: string`, `prompt: string`, `params?: object`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `subagent_result`         | Subagent terminal result                                       | `subsession_id: string`, `summary: string`, `final_message_id: string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `resource_link`           | MCP resource reference                                         | `server_id: string`, `uri: string`, `name?, description?, mime_type?, annotations?`. **clio-artifact use (vendor, `x_clio_artifacts`)**: clio reuses `resource_link` to give a generated **artifact** (§6.26) outbound wire identity — emitted at turn finalize, one part per artifact generated that turn. `server_id: "clio-artifacts"` (the sentinel source, not an MCP server); `uri: "artifact://<workspace_id>/<name>@vN"` (or `ui://<workspace_id>/<name>@vN` for a `ui_payload` artifact, `mime_type: "text/html;profile=mcp-app"`); `name` = the artifact name; `mime_type` = a best-effort content type. `metadata` carries the identity/provenance block `{artifact_id, sha256, size_bytes, kind, version, custody, fetch_url, producer_activity_id, mechanism, workspace_id, name}` — the nine identity/provenance keys plus the logical-identity pair `workspace_id`/`name` (which the `uri`/`name` fields already encode, repeated here so a client keying off `metadata` alone need not re-parse the `uri`). `fetch_url` is `GET /v1/artifacts/{artifact_id}/bytes` (hash-verified; see §6.26). Additive — the base MCP-resource fields are unchanged. |
+| `resource`                | Embedded MCP resource                                          | `server_id: string`, `uri: string`, `mime_type: string`, `text?: string`, `data?: string` (base64)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `file_diff`               | Proposed file change                                           | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile; ships on the wire in both SSE `message.part.added` and `GET /messages`), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. **Lifecycle caveat**: the persisted Part's `status` is frozen at `"pending"` (its status at proposal time) — apply/reject mutate only the §6.10 diff rows and emit `file.diff.*` events; `GET /messages` never reflects apply state. `GET /diffs` + `file.diff.*` are authoritative.                                                                                                                                                                                                                                                                                                                                                   |
+| `citation`                | Source attribution                                             | `text_range: {start, end}`, `source: {type: "document"\|"web"\|"resource", reference: string, location: object}` (v0.1 sketch)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `error`                   | In-stream error                                                | `code: string`, `message: string`, `recoverable: bool` (v0.1 shape; v0.2 backends prefer `Message.error_info`, §14)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `compaction`              | Marks a checkpoint appended after prior history was summarized | `summary: string`, `compacted_message_ids: string[]`, `auto: bool` (true if backend-triggered, false if user-triggered). **[EMITTED by clio 2f892c1; APPEND semantics since #1339]** — clio's `/compact` (§6.25) APPENDS a checkpoint row: one synthetic assistant message whose single part is `type="compaction"`, carrying `summary`/`compacted_message_ids`/`auto=false` (user-triggered) plus `metadata.synthetic: "compact_summary"` + `memory_event_id`; earlier messages stay in the transcript. (Prior to 2f892c1 clio inlined the summary as a `[compact summary]`-prefixed `text` part; that prose form is retired.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 > **Implemented part shape (clio `types.py:Part`).** The reference
 > backend models `Part` as a **single flat struct** with all of the
@@ -748,7 +754,7 @@ field is still present at its default.
 > text belongs to — e.g. `answer`, `reasoning`, `next_thought`).
 > Provider-native reasoning arrives as `type: "thinking"` parts with
 > `metadata: {thinking_source: "provider", provider_source: "...",
-> default_collapsed: true}`. `default_collapsed` is a client disclosure
+default_collapsed: true}`. `default_collapsed` is a client disclosure
 > hint, not exclusively `true`: the literal boolean `false` tells a
 > client to render the thinking part EXPANDED on first paint; `true`,
 > absence, or any other value (a non-boolean, a malformed field) all mean
@@ -765,7 +771,7 @@ field is still present at its default.
 > child returned, never a server-authored summary or a re-formatted view of
 > it. When the child's deliverable is structured, `output` legitimately
 > carries a bare JSON body; a client renders it VERBATIM (behind a `show
-> more` disclosure) and MUST NOT filter, summarize, or re-shape it.
+more` disclosure) and MUST NOT filter, summarize, or re-shape it.
 > `workflow_state` is the typed workflow dictionary (also surfaced on the
 > message per §4.4) — a typed carrier on the row, not rendered as the answer.
 > It rides BOTH ends of a delegation: on the `delegate.completed` part it is the
@@ -790,8 +796,8 @@ field is still present at its default.
 >
 > **Delegation lifecycle: one header, one conclusion** (clio). A single
 > delegation emits exactly ONE `expert_handoff` part with `stage:
-> "delegate.started"` and exactly ONE concluding part with `stage:
-> "delegate.completed"` — *whatever the outcome*. A **failed** delegation
+"delegate.started"` and exactly ONE concluding part with `stage:
+"delegate.completed"` — _whatever the outcome_. A **failed** delegation
 > concludes on `delegate.completed` too, carrying `status: "failed"`; the
 > finer-grained `delegate.failed` stage is reported on the message's
 > `metadata.expert_handoffs` row and the `delegation.failed` semantic
@@ -814,22 +820,27 @@ A **Tool** is something the agent can call. Tools come from three sources: built
 
 ```json
 {
-  "id": "...",                       // unique within source
+  "id": "...", // unique within source
   "source": "builtin|mcp|recipe|extension",
-  "server_id": "string|null",        // MCP server, if source=mcp
+  "server_id": "string|null", // MCP server, if source=mcp
   "name": "edit_file",
   "title": "Edit File",
   "description": "Modify a file in place",
-  "input_schema": { /* JSON Schema */ },
-  "output_schema": { /* JSON Schema, optional */ },
-  "annotations": {                   // MCP-aligned hints
+  "input_schema": {
+    /* JSON Schema */
+  },
+  "output_schema": {
+    /* JSON Schema, optional */
+  },
+  "annotations": {
+    // MCP-aligned hints
     "title": "...",
     "readOnlyHint": false,
     "destructiveHint": true,
     "idempotentHint": false,
     "openWorldHint": false
   },
-  "permission_default": "ask"        // "allow" | "ask" | "deny"
+  "permission_default": "ask" // "allow" | "ask" | "deny"
 }
 ```
 
@@ -851,9 +862,9 @@ Implemented shape (clio `permission_gate.py`) — the row is THIN:
     "tool_name": "string",
     "input": {}
   },
-  "summary": "string",               // human-readable preview ("Run: rm -rf /tmp/x")
+  "summary": "string", // human-readable preview ("Run: rm -rf /tmp/x")
   "created_at": "...",
-  "status": "pending"                // lifecycle — see below
+  "status": "pending" // lifecycle — see below
 }
 ```
 
@@ -922,11 +933,11 @@ object gains fields rather than changing shape:
 // Implemented (clio 3527143) — every 4xx/5xx
 {
   "error": {
-    "error": "not_found",            // machine-readable taxonomy tag (§14.2). v0.1 called this `code`.
-    "message": "string",             // human-readable
-    "details": {},                   // always an object (possibly empty); display-only
+    "error": "not_found", // machine-readable taxonomy tag (§14.2). v0.1 called this `code`.
+    "message": "string", // human-readable
+    "details": {}, // always an object (possibly empty); display-only
     "recoverable": false,
-    "retry_after_s": null            // omitted when null
+    "retry_after_s": null // omitted when null
   }
 }
 ```
@@ -954,14 +965,14 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 
 ### §6.1 Workspaces
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/workspaces` | — | `{workspaces: Workspace[]}` (clio: no `next_cursor`) |
-| POST | `/v1/workspaces` | `{name, root_path?, storage_root?, metadata?}` | `Workspace`, `201` |
-| GET | `/v1/workspaces/{id}` | — | `Workspace` |
-| PATCH | `/v1/workspaces/{id}` | partial `Workspace` | `Workspace` |
-| DELETE | `/v1/workspaces/{id}` | — | `204` |
-| POST | `/v1/workspaces/{id}/grants` | `{root?, domain?, deny_mode?}` (any subset) | `{workspace_id, root?, domain?, deny_mode?}` — B5 mid-session grants |
+| Method | Path                         | Body                                           | Response                                                             |
+| ------ | ---------------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
+| GET    | `/v1/workspaces`             | —                                              | `{workspaces: Workspace[]}` (clio: no `next_cursor`)                 |
+| POST   | `/v1/workspaces`             | `{name, root_path?, storage_root?, metadata?}` | `Workspace`, `201`                                                   |
+| GET    | `/v1/workspaces/{id}`        | —                                              | `Workspace`                                                          |
+| PATCH  | `/v1/workspaces/{id}`        | partial `Workspace`                            | `Workspace`                                                          |
+| DELETE | `/v1/workspaces/{id}`        | —                                              | `204`                                                                |
+| POST   | `/v1/workspaces/{id}/grants` | `{root?, domain?, deny_mode?}` (any subset)    | `{workspace_id, root?, domain?, deny_mode?}` — B5 mid-session grants |
 
 > **Boundary events (B5 #979).** The write-territory **changes** — workspace
 > **create** and a `PATCH` **`root_path` change** — now emit
@@ -977,6 +988,7 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 > **`POST /v1/workspaces/{id}/grants` (B5 #979).** Grants new effective
 > boundary to a workspace mid-session — every grant is a recorded USER decision
 > that emits `boundary.granted` (§7.6). Body (any subset):
+>
 > - `{root: "<path>"}` — grant a writable filesystem root. The OS write-fence
 >   and the advisory file-policy widen LIVE on the next spawn/tool-boundary
 >   check. Returns `root: {granted, pattern, reason, pending_respawn}` where
@@ -987,11 +999,11 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 >   floor — advisory-only widen). `kind: "root"` boundary event.
 > - `{domain: "<host>"}` — grant a network domain: appends a sticky workspace
 >   `host_pattern` allow policy (§6.11) and emits `boundary.granted{kind:
->   "domain"}`.
+"domain"}`.
 > - `{deny_mode: true|false}` — toggle the workspace's opt-in network deny mode
 >   (§6.11.d).
-> `404` for an unknown workspace; `400` if the body names none of
-> `root`/`domain`/`deny_mode`.
+>   `404` for an unknown workspace; `400` if the body names none of
+>   `root`/`domain`/`deny_mode`.
 
 > **Drift note.** clio's `CreateWorkspaceRequest` requires `name` and
 > takes `storage_root` (not `config`); the implemented `Workspace` adds
@@ -1009,20 +1021,20 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 
 ### §6.2 Sessions
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/sessions` | query: `workspace_id?` (default scope `ws_default`), `include_all_workspaces?: bool`, `archived?: bool` (omitted = active-only, `true` = archived-only, `false` = active-only), `parent_session_id?` (clio honors: non-empty → only that parent's direct sub-sessions) | `{sessions: Session[]}` newest-first by `created_at`. **No `next_cursor`/`limit`/`before`** (sessions returned unbounded) |
-| POST | `/v1/sessions` | `{workspace_id? = "ws_default", title?, model?, agent?, mode? = "chat", edit_mode? = "diff", routing_mode? = "auto", metadata?}` — no `parent_session_id`/`fork_at_message_id` (forking is `/fork`) | `Session`, `200`. Unknown workspace → 404 (legacy tag `internal_error`). **No `session.created` event** is emitted |
-| GET | `/v1/sessions/{id}` | query: `workspace_id?` — on mismatch → **403 `permission_error`** with `details.scope: "other_workspace"` | `Session` |
-| PATCH | `/v1/sessions/{id}` | `{title?, model?, agent?, mode?, edit_mode?, routing_mode?, metadata?, archived?}` — `metadata` **merges shallowly** (never replaces; e.g. `metadata.pinned` survives unrelated patches) | `Session`; publishes `session.updated` with the **full Session object** as payload (§7.3a) |
-| DELETE | `/v1/sessions/{id}` | — | `204`. Policy-gated (§6.11 direct destructive action: policy deny → **403 `permission_error`**; auto-approved deletes are audited as resolved rows in `/v1/permissions`). Cascades: messages, context-file ledger, ARC footprint, workspace mirror. **No `session.deleted` event today** — see the PROPOSED note below |
-| POST | `/v1/sessions/{id}/fork` | `{at_message_id?, title?}` (malformed JSON tolerated as `{}`) | `Session` (new), **201**. `at_message_id` truncation is **inclusive**; an unknown id silently copies all messages. Context files copied. `mode`/`edit_mode`/`routing_mode`/`model`/`agent`/`metadata` **NOT inherited** (fork gets store defaults). No SSE event |
-| POST | `/v1/sessions/{id}/cancel` | — | **204 always** (idle race tolerated). Best-effort: cooperative flag + event, 0.1 s grace, then asyncio task cancel. Session flips to `cancelled` **immediately** (even when idle). See the cancellation note below |
-| POST | `/v1/sessions/{id}/summarize` | `{auto?, instructions?}` | **[NOT IMPLEMENTED in clio 3527143 — returns 404; `session_summary` is truthfully advertised `false`. Use `/compact` (§6.25).]** |
-| GET | `/v1/sessions/{id}/export` | — | `application/json` blob `{version: "1", session, workspace, messages, context_files}` |
-| POST | `/v1/sessions/import` | export blob | `Session` — creates a **fresh** session carrying only `title` + `metadata` (modes/model/rollups recomputed or dropped); malformed messages are skipped silently |
-| POST | `/v1/sessions/{id}/undo` | `{count?: int}` (alias key `message_count` also read; `count < 1` → 422; non-object body → 422; invalid JSON tolerated as `{count: 1}`) | rollback envelope — see below (also §6.10) |
-| POST | `/v1/sessions/{id}/rewind` | target key `message_id` (canonical) \| `target_message_id` \| `to_message_id`; `include_target?: bool = false`; unknown target → **404 `not_found`** | rollback envelope with `operation: "rewind"` — see below (also §6.10) |
+| Method | Path                          | Body                                                                                                                                                                                                                                                                   | Response                                                                                                                                                                                                                                                                                                               |
+| ------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/sessions`                | query: `workspace_id?` (default scope `ws_default`), `include_all_workspaces?: bool`, `archived?: bool` (omitted = active-only, `true` = archived-only, `false` = active-only), `parent_session_id?` (clio honors: non-empty → only that parent's direct sub-sessions) | `{sessions: Session[]}` newest-first by `created_at`. **No `next_cursor`/`limit`/`before`** (sessions returned unbounded)                                                                                                                                                                                              |
+| POST   | `/v1/sessions`                | `{workspace_id? = "ws_default", title?, model?, agent?, mode? = "chat", edit_mode? = "diff", routing_mode? = "auto", metadata?}` — no `parent_session_id`/`fork_at_message_id` (forking is `/fork`)                                                                    | `Session`, `200`. Unknown workspace → 404 (legacy tag `internal_error`). **No `session.created` event** is emitted                                                                                                                                                                                                     |
+| GET    | `/v1/sessions/{id}`           | query: `workspace_id?` — on mismatch → **403 `permission_error`** with `details.scope: "other_workspace"`                                                                                                                                                              | `Session`                                                                                                                                                                                                                                                                                                              |
+| PATCH  | `/v1/sessions/{id}`           | `{title?, model?, agent?, mode?, edit_mode?, routing_mode?, metadata?, archived?}` — `metadata` **merges shallowly** (never replaces; e.g. `metadata.pinned` survives unrelated patches)                                                                               | `Session`; publishes `session.updated` with the **full Session object** as payload (§7.3a)                                                                                                                                                                                                                             |
+| DELETE | `/v1/sessions/{id}`           | —                                                                                                                                                                                                                                                                      | `204`. Policy-gated (§6.11 direct destructive action: policy deny → **403 `permission_error`**; auto-approved deletes are audited as resolved rows in `/v1/permissions`). Cascades: messages, context-file ledger, ARC footprint, workspace mirror. **No `session.deleted` event today** — see the PROPOSED note below |
+| POST   | `/v1/sessions/{id}/fork`      | `{at_message_id?, title?}` (malformed JSON tolerated as `{}`)                                                                                                                                                                                                          | `Session` (new), **201**. `at_message_id` truncation is **inclusive**; an unknown id silently copies all messages. Context files copied. `mode`/`edit_mode`/`routing_mode`/`model`/`agent`/`metadata` **NOT inherited** (fork gets store defaults). No SSE event                                                       |
+| POST   | `/v1/sessions/{id}/cancel`    | —                                                                                                                                                                                                                                                                      | **204 always** (idle race tolerated). Best-effort: cooperative flag + event, 0.1 s grace, then asyncio task cancel. Session flips to `cancelled` **immediately** (even when idle). See the cancellation note below                                                                                                     |
+| POST   | `/v1/sessions/{id}/summarize` | `{auto?, instructions?}`                                                                                                                                                                                                                                               | **[NOT IMPLEMENTED in clio 3527143 — returns 404; `session_summary` is truthfully advertised `false`. Use `/compact` (§6.25).]**                                                                                                                                                                                       |
+| GET    | `/v1/sessions/{id}/export`    | —                                                                                                                                                                                                                                                                      | `application/json` blob `{version: "1", session, workspace, messages, context_files}`                                                                                                                                                                                                                                  |
+| POST   | `/v1/sessions/import`         | export blob                                                                                                                                                                                                                                                            | `Session` — creates a **fresh** session carrying only `title` + `metadata` (modes/model/rollups recomputed or dropped); malformed messages are skipped silently                                                                                                                                                        |
+| POST   | `/v1/sessions/{id}/undo`      | `{count?: int}` (alias key `message_count` also read; `count < 1` → 422; non-object body → 422; invalid JSON tolerated as `{count: 1}`)                                                                                                                                | rollback envelope — see below (also §6.10)                                                                                                                                                                                                                                                                             |
+| POST   | `/v1/sessions/{id}/rewind`    | target key `message_id` (canonical) \| `target_message_id` \| `to_message_id`; `include_target?: bool = false`; unknown target → **404 `not_found`**                                                                                                                   | rollback envelope with `operation: "rewind"` — see below (also §6.10)                                                                                                                                                                                                                                                  |
 
 **Rollback envelope (undo/rewind response).** Both routes return the
 same eight-key envelope:
@@ -1072,22 +1084,21 @@ event type** — the transition rides `session.status_changed`.
 > emits nothing, so a session deleted by another client is
 > unobservable (lists are workspace+archive filtered, so refetch
 > inference is unreliable). Per the owner's decision on
-> iowarp/gact-tui#232, a broadcast `session.deleted`
-> `{session_id, workspace_id}` event is the agreed fix so clients can
+> iowarp/gact-tui#232, a broadcast `session.deleted` > `{session_id, workspace_id}` event is the agreed fix so clients can
 > drop per-session state deterministically — tracked as a clio issue;
 > **not current behavior**, do not depend on it yet.
 
 ### §6.3 Messages
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/sessions/{id}/messages` | query (clio honors; all optional — omit every one for the historical full-ledger behavior): `before?` (cursor → messages strictly older than that id; unknown id → 404), `limit?: int` (newest-N after `before`; `<=0` → 422 `validation_error`), `include_system?: bool` (default true; `false` drops `role:"system"`, §4.4) | `{messages: Message[] newest-first, next_cursor}` — `next_cursor` is the oldest-of-page id when `limit` truncated older rows, else `null`. May include one **live in-flight assistant message** (`metadata: {live: true, status: "running"}`) on the newest page (`before` unset) while a turn is streaming |
-| GET | `/v1/sessions/{id}/messages/{msg_id}` | — | `Message`; 404 `not_found` |
-| POST | `/v1/sessions/{id}/messages` | `{parts: Part[], text?, model?, agent?, agent_id?, metadata?}` | `{message_id, accepted_at}`, HTTP **200** |
-| DELETE | `/v1/sessions/{id}/messages/{msg_id}` | — | `204` |
-| DELETE | `/v1/messages/{msg_id}` | query: `session_id?` | `204` (clio also exposes this session-less delete alias) |
-| PATCH | `/v1/sessions/{id}/messages/{msg_id}/parts/{part_id}` | partial part | **[NOT IMPLEMENTED in clio 3527143.]** |
-| GET | `/v1/sessions/{id}/messages/search` | query: `q` | `{matches: SearchMatch[]}` (gated by `search_messages`; clio takes `q` only, no cursor; empty `q` → `{matches: []}`) |
+| Method | Path                                                  | Body                                                                                                                                                                                                                                                                                                                          | Response                                                                                                                                                                                                                                                                                                    |
+| ------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/sessions/{id}/messages`                          | query (clio honors; all optional — omit every one for the historical full-ledger behavior): `before?` (cursor → messages strictly older than that id; unknown id → 404), `limit?: int` (newest-N after `before`; `<=0` → 422 `validation_error`), `include_system?: bool` (default true; `false` drops `role:"system"`, §4.4) | `{messages: Message[] newest-first, next_cursor}` — `next_cursor` is the oldest-of-page id when `limit` truncated older rows, else `null`. May include one **live in-flight assistant message** (`metadata: {live: true, status: "running"}`) on the newest page (`before` unset) while a turn is streaming |
+| GET    | `/v1/sessions/{id}/messages/{msg_id}`                 | —                                                                                                                                                                                                                                                                                                                             | `Message`; 404 `not_found`                                                                                                                                                                                                                                                                                  |
+| POST   | `/v1/sessions/{id}/messages`                          | `{parts: Part[], text?, model?, agent?, agent_id?, metadata?}`                                                                                                                                                                                                                                                                | `{message_id, accepted_at}`, HTTP **200**                                                                                                                                                                                                                                                                   |
+| DELETE | `/v1/sessions/{id}/messages/{msg_id}`                 | —                                                                                                                                                                                                                                                                                                                             | `204`                                                                                                                                                                                                                                                                                                       |
+| DELETE | `/v1/messages/{msg_id}`                               | query: `session_id?`                                                                                                                                                                                                                                                                                                          | `204` (clio also exposes this session-less delete alias)                                                                                                                                                                                                                                                    |
+| PATCH  | `/v1/sessions/{id}/messages/{msg_id}/parts/{part_id}` | partial part                                                                                                                                                                                                                                                                                                                  | **[NOT IMPLEMENTED in clio 3527143.]**                                                                                                                                                                                                                                                                      |
+| GET    | `/v1/sessions/{id}/messages/search`                   | query: `q`                                                                                                                                                                                                                                                                                                                    | `{matches: SearchMatch[]}` (gated by `search_messages`; clio takes `q` only, no cursor; empty `q` → `{matches: []}`)                                                                                                                                                                                        |
 
 > **Drift note.** `POST /messages` body: clio accepts either
 > `parts: Part[]` or a convenience `text: string`, plus a per-turn
@@ -1107,9 +1118,9 @@ event type** — the transition rides `session.status_changed`.
 > **POST error paths** (clio): 404 session-not-found (legacy tag
 > `internal_error`); 503 `provider_configuring` while LM config is in
 > flight; 503 `agent_not_available` with `details.agent_status ∈
-> {starting, failed, not_configured}` + `details.recovery_actions[]`;
+{starting, failed, not_configured}` + `details.recovery_actions[]`;
 > 501 unsupported model ref (a per-message or session model override
-> that doesn't match the active model — a stale *session* override is
+> that doesn't match the active model — a stale _session_ override is
 > silently cleared instead when an active model exists); 501 for image
 > parts without vision support; 422 when the body has neither text nor
 > image parts.
@@ -1137,53 +1148,73 @@ A backend that does NOT support subagents reports `capabilities.subagents = fals
 
 Lists the agent personas / recipes the backend can spawn. Reads always work; writes are gated by `capabilities.agent_write`.
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/agents` | query: `workspace_id?, source?, tier?` | `{agents: AgentDef[]}` |
-| GET | `/v1/agents/{id}` | — | `AgentDef` |
-| POST | `/v1/agents` | `AgentDef` (without `id`) | `AgentDef` (with assigned id), `201` |
-| PUT | `/v1/agents/{id}` | `AgentDef` (id MUST match path) | `AgentDef` |
-| DELETE | `/v1/agents/{id}` | — | `204` |
-| POST | `/v1/agents/extract` | `{session_id, name?, description?}` | `AgentDef`, `201` (gated by `skills_extraction`) |
+> **clio.** A backend advertising `x_clio_agent_plugins` (§6.21) reports
+> `agent_write = false` and `skills_extraction = false`: it serves none of the
+> write or extraction routes below, and `GET /v1/agents` returns the plugin agent
+> catalog of §6.21 instead of `AgentDef` rows. User agents (a parent agent plus a
+> plugin delta) are saved with `POST /v1/agents/user` and removed with
+> `DELETE /v1/agents/user/{id}`; clients gate that UI on `x_clio_agent_plugins`,
+> not on `agent_write`.
+
+| Method | Path                 | Body                                   | Response                                         |
+| ------ | -------------------- | -------------------------------------- | ------------------------------------------------ |
+| GET    | `/v1/agents`         | query: `workspace_id?, source?, tier?` | `{agents: AgentDef[]}`                           |
+| GET    | `/v1/agents/{id}`    | —                                      | `AgentDef`                                       |
+| POST   | `/v1/agents`         | `AgentDef` (without `id`)              | `AgentDef` (with assigned id), `201`             |
+| PUT    | `/v1/agents/{id}`    | `AgentDef` (id MUST match path)        | `AgentDef`                                       |
+| DELETE | `/v1/agents/{id}`    | —                                      | `204`                                            |
+| POST   | `/v1/agents/extract` | `{session_id, name?, description?}`    | `AgentDef`, `201` (gated by `skills_extraction`) |
 
 ```json
 // AgentDef — implemented shape (clio types.py:AgentDef)
 {
   "id": "code_expert",
-  "source": "builtin",               // "builtin"|"user"|"recipe"|"skill"|"expert_pack"
+  "source": "builtin", // "builtin"|"user"|"recipe"|"skill"|"plugin"
   "title": "Code Expert",
   "description": "...",
-  "parent_id": "",                   // hierarchy link (multi-tier / overlay parent)
-  "system_prompt": "",               // backend MAY redact for builtin agents
-  "prompt_id": "",                   // ref into the prompt registry (§6.20)
+  "parent_id": "", // hierarchy link (multi-tier / overlay parent)
+  "system_prompt": "", // backend MAY redact for builtin agents
+  "prompt_id": "", // ref into the prompt registry (§6.20)
   "prompt_profile": "",
-  "default_provider": "",            // NOTE: flat strings, not a nested ModelRef
+  "default_provider": "", // NOTE: flat strings, not a nested ModelRef
   "default_model": "",
-  "parameters": {},                  // object (clio), not the v0.1 array-of-params
-  "module": {}, "signature": {}, "structured_outputs": {}, "fanout": {},  // execution semantics
-  "tools": ["..."],                  // tool ids the agent has access to
+  "parameters": {}, // object (clio), not the v0.1 array-of-params
+  "module": {},
+  "signature": {},
+  "structured_outputs": {},
+  "fanout": {}, // execution semantics
+  "tools": ["..."], // tool ids the agent has access to
   "skills": ["..."],
   "commands": ["..."],
-  "capability_refs": [               // richer than `tools`: kind = tool|skill|command
-    {"kind": "tool", "id": "...", "title": "", "description": "", "source": "builtin",
-     "status": "available", "metadata": {}}
+  "capability_refs": [
+    // richer than `tools`: kind = tool|skill|command
+    {
+      "kind": "tool",
+      "id": "...",
+      "title": "",
+      "description": "",
+      "source": "builtin",
+      "status": "available",
+      "metadata": {}
+    }
   ],
   "metadata": {},
   "enabled": true,
   "validation_errors": [],
   // v0.2 multi-tier routing:
-  "tier": 2,                         // 0 untagged | 1 orchestrator | 2 specialist | 3 nanoagent
+  "tier": 2, // 0 untagged | 1 orchestrator | 2 specialist | 3 nanoagent
   "specialization": "code_editing",
   "keywords": ["edit", "refactor", "fix", "review"]
 }
 ```
 
 `source` distinguishes:
+
 - `builtin`: shipped with the backend, usually read-only.
 - `user`: created via the write API by the end user.
 - `recipe`: loaded from a recipe file (Goose-style), may live on disk.
 - `skill`: extracted from past sessions (Gemini-style automated derivation).
-- `expert_pack`: contributed by an installed expert pack (§6.22, clio).
+- `plugin`: an agent or defined subagent composed from installed plugins (§6.21, clio).
 
 > **Drift note.** The implemented `AgentDef` differs from the v0.1
 > sketch: `default_provider`/`default_model` are **flat strings** (not a
@@ -1194,19 +1225,19 @@ Lists the agent personas / recipes the backend can spawn. Reads always work; wri
 > `skills`/`commands`/`capability_refs`, `enabled`, and
 > `validation_errors`. `?tier=N` filters by tier.
 
-The extraction endpoint analyzes a completed session and synthesizes a reusable agent definition. Backends that don't implement this report `capabilities.skills_extraction = false` and return `501`.
+The extraction endpoint analyzes a completed session and synthesizes a reusable agent definition. Backends that don't implement this report `capabilities.skills_extraction = false` and return `501` (clio does not implement it; its skills come from plugins, §6.21).
 
 ### §6.6 Tools
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/tools` | — | `{tools: Tool[]}` (unified catalog across every mounted MCP server) |
-| GET | `/v1/tools/{id}` | — | `Tool` (detail) |
-| GET | `/v1/catalog/tools` | — | `{tools: Tool[]}` (clio alias; `ListToolsResponse` shape) |
+| Method | Path                | Body | Response                                                            |
+| ------ | ------------------- | ---- | ------------------------------------------------------------------- |
+| GET    | `/v1/tools`         | —    | `{tools: Tool[]}` (unified catalog across every mounted MCP server) |
+| GET    | `/v1/tools/{id}`    | —    | `Tool` (detail)                                                     |
+| GET    | `/v1/catalog/tools` | —    | `{tools: Tool[]}` (clio alias; `ListToolsResponse` shape)           |
 
 > **Drift note.** clio's `Tool` (clio `types.py:Tool`) carries
 > `{id, source, server_id?, name, title, description, permission_default,
-> owner, tags[], visible_to[]}` and does **not** ship the
+owner, tags[], visible_to[]}` and does **not** ship the
 > `input_schema`/`output_schema`/`annotations` the v0.1 §4.6 sketch
 > showed in the list view (those may appear in the `/v1/tools/{id}`
 > detail). The full tool catalog aggregates bundled in-process gateway
@@ -1218,17 +1249,17 @@ If `capabilities.mcp = true`:
 
 Implemented in clio:
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/mcp/servers` | query: `workspace_id?` | `{servers: McpServer[]}` |
-| GET | `/v1/mcp/handshake` | query: `workspace_id?, session_id?` | `{servers: [{name, reachable, state, transport, tools_count, tools, error?, latency_ms?}]}` |
-| POST | `/v1/mcp/servers` | install descriptor | `McpServer`, `201` (clio: install third-party server) |
-| GET | `/v1/mcp/servers/{id}` | — | `McpServer` |
-| DELETE | `/v1/mcp/servers/{id}` | — | `204` (clio: uninstall) |
-| GET | `/v1/mcp/servers/{id}/tools` | — | `{tools: Tool[]}` |
-| GET | `/v1/mcp/servers/{id}/resources` | — | `{resources: McpResource[]}` |
-| GET | `/v1/mcp/servers/{id}/prompts` | — | `{prompts: McpPrompt[]}` |
-| POST | `/v1/mcp/servers/{id}/call` | `{tool, arguments}` | tool result (clio: direct external-tool call) |
+| Method | Path                             | Body                                | Response                                                                                    |
+| ------ | -------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| GET    | `/v1/mcp/servers`                | query: `workspace_id?`              | `{servers: McpServer[]}`                                                                    |
+| GET    | `/v1/mcp/handshake`              | query: `workspace_id?, session_id?` | `{servers: [{name, reachable, state, transport, tools_count, tools, error?, latency_ms?}]}` |
+| POST   | `/v1/mcp/servers`                | install descriptor                  | `McpServer`, `201` (clio: install third-party server)                                       |
+| GET    | `/v1/mcp/servers/{id}`           | —                                   | `McpServer`                                                                                 |
+| DELETE | `/v1/mcp/servers/{id}`           | —                                   | `204` (clio: uninstall)                                                                     |
+| GET    | `/v1/mcp/servers/{id}/tools`     | —                                   | `{tools: Tool[]}`                                                                           |
+| GET    | `/v1/mcp/servers/{id}/resources` | —                                   | `{resources: McpResource[]}`                                                                |
+| GET    | `/v1/mcp/servers/{id}/prompts`   | —                                   | `{prompts: McpPrompt[]}`                                                                    |
+| POST   | `/v1/mcp/servers/{id}/call`      | `{tool, arguments}`                 | tool result (clio: direct external-tool call)                                               |
 
 The `/v1/mcp/handshake` response is live health, not a durable registry:
 stdio MCP servers are mounted per active workspace and `cwd` is the
@@ -1243,41 +1274,41 @@ The TUI uses `/mcp/servers/{id}/prompts` to populate slash-command palettes.
 
 If `capabilities.lsp = true`:
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/v1/lsp/clients` | `{clients: LspClient[]}` |
-| GET | `/v1/lsp/clients/{name}/diagnostics` | `{diagnostics: ...}` |
+| Method | Path                                 | Response                 |
+| ------ | ------------------------------------ | ------------------------ |
+| GET    | `/v1/lsp/clients`                    | `{clients: LspClient[]}` |
+| GET    | `/v1/lsp/clients/{name}/diagnostics` | `{diagnostics: ...}`     |
 
 Otherwise omit; TUI hides LSP UI.
 
 ### §6.9 Files & Context
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/sessions/{id}/context/files` | — | `{files: ContextFile[]}` |
-| POST | `/v1/sessions/{id}/context/files` | `{path (optionally "@"-prefixed → source:"mention"), mode? = "read", workspace_id?, size?, last_modified?, language?}` — upserts by path | `ContextFile` |
-| DELETE | `/v1/sessions/{id}/context/files` | `{path}` | `204` (idempotent; matches `path`/`display_path`/`resolved_path`) |
-| GET | `/v1/workspaces/{id}/files` | — | `{entries: FileEntry[]}` (workspace tree) |
-| GET | `/v1/workspaces/{id}/files/read` | query: `path` | file content — see serving rules below |
-| GET | `/v1/workspaces/{id}/repo_map` | — | `{tree: RepoMapNode, tokens: int, truncated: bool}` |
+| Method | Path                              | Body                                                                                                                                     | Response                                                          |
+| ------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| GET    | `/v1/sessions/{id}/context/files` | —                                                                                                                                        | `{files: ContextFile[]}`                                          |
+| POST   | `/v1/sessions/{id}/context/files` | `{path (optionally "@"-prefixed → source:"mention"), mode? = "read", workspace_id?, size?, last_modified?, language?}` — upserts by path | `ContextFile`                                                     |
+| DELETE | `/v1/sessions/{id}/context/files` | `{path}`                                                                                                                                 | `204` (idempotent; matches `path`/`display_path`/`resolved_path`) |
+| GET    | `/v1/workspaces/{id}/files`       | —                                                                                                                                        | `{entries: FileEntry[]}` (workspace tree)                         |
+| GET    | `/v1/workspaces/{id}/files/read`  | query: `path`                                                                                                                            | file content — see serving rules below                            |
+| GET    | `/v1/workspaces/{id}/repo_map`    | —                                                                                                                                        | `{tree: RepoMapNode, tokens: int, truncated: bool}`               |
 
 Implemented shapes (clio):
 
 - **`ContextFile`** = `{path, display_path, resolved_path,
-  workspace_id, source: "mention"|"api", mode, added_at,
-  last_modified, size, language}`. **Absolute paths are accepted
+workspace_id, source: "mention"|"api", mode, added_at,
+last_modified, size, language}`. **Absolute paths are accepted
   verbatim (NOT workspace-bounded)**; relative paths are bounded (403
   `path_outside_workspace` on escape). `read`/`pin` modes require an
   existing regular file (404 / 422 `context_file_error` with
   `recovery_actions`); `edit` does not. Context files persist across
   restarts (`context_files.json`).
 - **`FileEntry`** = `{path (relative to root_path, native separators),
-  type: "file"|"dir", size?: int, modified?: ISO-8601 Z}`. The walk is
+type: "file"|"dir", size?: int, modified?: ISO-8601 Z}`. The walk is
   capped at **5000 entries**, skips VCS/cache/build/vendor dirs, and
   excludes symlinks unless the file policy allows them. A missing root
   returns `{entries: []}` — not an error.
 - **`RepoMapNode`** = `{name, path (/-normalized, root path ""), type,
-  children?, size?}`; `tokens` = Σ max(1, size/4); `truncated: true`
+children?, size?}`; `tokens` = Σ max(1, size/4); `truncated: true`
   when the 5000-entry cap was hit. **clio serves NO tree-sitter code
   outlines** — nodes are plain name/path/type/size. (Outlines remain
   valid for backends that support them.)
@@ -1290,19 +1321,19 @@ Implemented shapes (clio):
   (policy `max_file_size_bytes`), 500 `read_failed`.
 
 > **Drift note.** `PATCH /v1/sessions/{id}/context/files` is **[NOT
-> IMPLEMENTED in clio 3527143]** — to change a file's mode, DELETE +
+> > IMPLEMENTED in clio 3527143]** — to change a file's mode, DELETE +
 > re-POST. The old "context file content" route is gone in favor of the
 > workspace-scoped `/v1/workspaces/{id}/files` + `/files/read`. clio
 > also adds two **vendor** context-introspection routes (gated by
 > `x_clio_context_frames`):
 >
-> | Method | Path | Response |
-> |---|---|---|
-> | GET | `/v1/sessions/{id}/context/frames` (query `limit?` — clamped to 1..200, default 50) | `{frames: ContextFrame[]}` — per-turn assembled-context snapshots (what was actually fed to the model: items with `kind`, `included`, `reason`, `tokens_estimated`) |
-> | GET | `/v1/sessions/{id}/context/frames/{frame_id}` | `{frame: ContextFrame}` (wrapped, not a bare ContextFrame) |
-> | GET | `/v1/sessions/{id}/context/policy` | `SessionContextPolicy` — effective memory/context policy (memory scope, cross-session-read availability, consent flags) |
-> | GET | `/v1/sessions/{id}/context/state` (query `scope?=<expert>`) | `ContextStateResponse` — per-expert context-usage snapshot (token fullness, auto-compaction line, `/context-style` category buckets) |
-> | POST | `/v1/sessions/{id}/context/compact` (query `scope?=<expert>`) | `ContextStateResponse` — LLM-summarizes the live working set into one summary segment, then returns the updated state |
+> | Method | Path                                                                                | Response                                                                                                                                                            |
+> | ------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | GET    | `/v1/sessions/{id}/context/frames` (query `limit?` — clamped to 1..200, default 50) | `{frames: ContextFrame[]}` — per-turn assembled-context snapshots (what was actually fed to the model: items with `kind`, `included`, `reason`, `tokens_estimated`) |
+> | GET    | `/v1/sessions/{id}/context/frames/{frame_id}`                                       | `{frame: ContextFrame}` (wrapped, not a bare ContextFrame)                                                                                                          |
+> | GET    | `/v1/sessions/{id}/context/policy`                                                  | `SessionContextPolicy` — effective memory/context policy (memory scope, cross-session-read availability, consent flags)                                             |
+> | GET    | `/v1/sessions/{id}/context/state` (query `scope?=<expert>`)                         | `ContextStateResponse` — per-expert context-usage snapshot (token fullness, auto-compaction line, `/context-style` category buckets)                                |
+> | POST   | `/v1/sessions/{id}/context/compact` (query `scope?=<expert>`)                       | `ContextStateResponse` — LLM-summarizes the live working set into one summary segment, then returns the updated state                                               |
 >
 > **`/context/state`** is the per-expert context-usage view. `scope` selects
 > the expert lane; omit it for the session-default expert. The response is
@@ -1312,31 +1343,56 @@ Implemented shapes (clio):
 > // ContextStateResponse
 > {
 >   "session_id": "...",
->   "scope": "<expert>",              // echoes the requested scope ("" = default)
->   "as_of": 1700000000000,            // epoch millis of the snapshot, or null
->   "window_tokens": 200000,           // model context window; 0 = unknown
->   "live_tokens": 12000,              // segment-store attribution sum
->   "pct_used": 0.06,                  // live_tokens/window_tokens, or null
->   "used_tokens": 15500,              // NEW: REAL prompt tokens from the last LM call; null between turns
->   "used_pct": 0.0775,                // NEW: used_tokens/window_tokens; null when unavailable
->   "autocompact_pct": 0.85,           // NEW: auto-compaction trigger fraction in (0,1]; default 0.85
+>   "scope": "<expert>", // echoes the requested scope ("" = default)
+>   "as_of": 1700000000000, // epoch millis of the snapshot, or null
+>   "window_tokens": 200000, // model context window; 0 = unknown
+>   "live_tokens": 12000, // segment-store attribution sum
+>   "pct_used": 0.06, // live_tokens/window_tokens, or null
+>   "used_tokens": 15500, // NEW: REAL prompt tokens from the last LM call; null between turns
+>   "used_pct": 0.0775, // NEW: used_tokens/window_tokens; null when unavailable
+>   "autocompact_pct": 0.85, // NEW: auto-compaction trigger fraction in (0,1]; default 0.85
 >   "live_block_count": 7,
 >   "tokens_by_kind": { "<SegmentKind>": 8000 },
->   "categories": {                    // NEW: /context-style buckets; zero buckets dropped
->     "system": 0, "messages": 8000, "tools": 0, "reasoning": 0,
->     "tool_calls": 4000, "observations": 0, "summary": 0, "io": 0, "other": 0,
->     "framing": 3500                  //   synthetic = used_tokens - live_tokens; present only when used_tokens>0 and framing>0
+>   "categories": {
+>     // NEW: /context-style buckets; zero buckets dropped
+>     "system": 0,
+>     "messages": 8000,
+>     "tools": 0,
+>     "reasoning": 0,
+>     "tool_calls": 4000,
+>     "observations": 0,
+>     "summary": 0,
+>     "io": 0,
+>     "other": 0,
+>     "framing": 3500 //   synthetic = used_tokens - live_tokens; present only when used_tokens>0 and framing>0
 >   },
->   "segments": [ /* attributed working-set rows */ ],
->   "render_text": "...",              // pre-rendered one-line summary
->   "messages": [                      // the agent's context exactly as the model receives it
->     { "role": "user", "parts": [ { "type": "text", "text": "..." } ] },
->     { "role": "assistant", "parts": [
->         { "type": "thinking", "text": "..." }, { "type": "text", "text": "..." },
->         { "type": "tool_call", "id": "call_1", "name": "...", "input": { } } ] },
->     { "role": "tool", "parts": [
->         { "type": "tool_result", "id": "call_1", "name": "...", "is_error": false,
->           "content": [ { "type": "text", "text": "..." } ] } ] }
+>   "segments": [
+>     /* attributed working-set rows */
+>   ],
+>   "render_text": "...", // pre-rendered one-line summary
+>   "messages": [
+>     // the agent's context exactly as the model receives it
+>     { "role": "user", "parts": [{ "type": "text", "text": "..." }] },
+>     {
+>       "role": "assistant",
+>       "parts": [
+>         { "type": "thinking", "text": "..." },
+>         { "type": "text", "text": "..." },
+>         { "type": "tool_call", "id": "call_1", "name": "...", "input": {} }
+>       ]
+>     },
+>     {
+>       "role": "tool",
+>       "parts": [
+>         {
+>           "type": "tool_result",
+>           "id": "call_1",
+>           "name": "...",
+>           "is_error": false,
+>           "content": [{ "type": "text", "text": "..." }]
+>         }
+>       ]
+>     }
 >   ]
 > }
 > ```
@@ -1351,7 +1407,7 @@ Implemented shapes (clio):
 > the auto-compaction line on the bar at `autocompact_pct`; absolute usage =
 > `used_tokens` (or `live_tokens` when `used_tokens` is null) / `window_tokens`.
 > `categories` keys are drawn from `system | messages | tools | reasoning |
-> tool_calls | observations | summary | io | other`, plus the synthetic
+tool_calls | observations | summary | io | other`, plus the synthetic
 > `framing` key.
 >
 > **`/context/compact`** summarizes the live working set into a single summary
@@ -1366,25 +1422,25 @@ Implemented shapes (clio):
 
 ### §6.10 Diffs
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/sessions/{id}/diffs` | — | `{diffs: FileDiff[]}` — **ALL** diff rows for the session (statuses `pending`/`applied`/`rejected`/`apply_failed`), not just proposed-but-not-applied |
-| GET | `/v1/sessions/{id}/messages/{msg_id}/diffs` | — | `{diffs: FileDiff[]}` (per-message; unknown message → 404 `not_found`) |
-| POST | `/v1/sessions/{id}/diffs/apply` | `{paths?: string[]}` | `{applied: string[], write_errors?: {path: string}}` |
-| POST | `/v1/sessions/{id}/diffs/reject` | `{paths?: string[]}` | `{rejected: string[]}` |
-| POST | `/v1/sessions/{id}/undo` | `{count?: int}` | rollback envelope (§6.2) |
-| POST | `/v1/sessions/{id}/rewind` | `{message_id \| target_message_id \| to_message_id, include_target?: bool}` | rollback envelope (§6.2) (MMM7) |
+| Method | Path                                        | Body                                                                        | Response                                                                                                                                              |
+| ------ | ------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/sessions/{id}/diffs`                   | —                                                                           | `{diffs: FileDiff[]}` — **ALL** diff rows for the session (statuses `pending`/`applied`/`rejected`/`apply_failed`), not just proposed-but-not-applied |
+| GET    | `/v1/sessions/{id}/messages/{msg_id}/diffs` | —                                                                           | `{diffs: FileDiff[]}` (per-message; unknown message → 404 `not_found`)                                                                                |
+| POST   | `/v1/sessions/{id}/diffs/apply`             | `{paths?: string[]}`                                                        | `{applied: string[], write_errors?: {path: string}}`                                                                                                  |
+| POST   | `/v1/sessions/{id}/diffs/reject`            | `{paths?: string[]}`                                                        | `{rejected: string[]}`                                                                                                                                |
+| POST   | `/v1/sessions/{id}/undo`                    | `{count?: int}`                                                             | rollback envelope (§6.2)                                                                                                                              |
+| POST   | `/v1/sessions/{id}/rewind`                  | `{message_id \| target_message_id \| to_message_id, include_target?: bool}` | rollback envelope (§6.2) (MMM7)                                                                                                                       |
 
 Implemented diff row shape (clio):
 
 ```json
 {
   "path": "src/main.go",
-  "applied": false,          // DERIVED compat bool: status == "applied"
-  "status": "pending",       // canonical: pending | applied | rejected | apply_failed
-  "unified_diff": "...",     // optional
-  "part_id": "part_...",     // optional
-  "message_id": "msg_..."    // optional
+  "applied": false, // DERIVED compat bool: status == "applied"
+  "status": "pending", // canonical: pending | applied | rejected | apply_failed
+  "unified_diff": "...", // optional
+  "part_id": "part_...", // optional
+  "message_id": "msg_..." // optional
 }
 ```
 
@@ -1413,13 +1469,13 @@ Full body/response semantics in §6.2.
 
 ### §6.11 Permissions
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/permissions` | query: `session_id?`, `status?` (any status value or `all`; default all), `limit` (default 100, max 500) | `{permissions: PermissionRequest[] (desc by created_at), metadata: {session_id, status, limit, total, returned, truncated, total_before_filters, total_after_session_filter}}` |
-| GET | `/v1/permissions/{id}` | — | `PermissionRequest` **[NOT IMPLEMENTED in clio 3527143 — clio exposes only the list + the reply POST.]** |
-| POST | `/v1/permissions/{id}` | `{action: "allow"\|"deny"\|"allow_session"\|"allow_workspace"}` | `204`. **Idempotent**: POST on an already-resolved row is a silent 204 (no event re-emit). 404/422 currently use the legacy tag `internal_error` (clio inconsistency; target taxonomy `not_found`/`bad_request` — §14.2) |
-| GET | `/v1/policies` | — | `{policies: Policy[]}` |
-| PUT | `/v1/policies` | `{policies: Policy[]}` | `{policies: Policy[]}` — **atomic validation**: 400 if the body is not `{policies: [...]}`; 422 rejecting the WHOLE update if any row is invalid, with `details: {policy_errors[], allowed_scopes, allowed_actions}` |
+| Method | Path                   | Body                                                                                                     | Response                                                                                                                                                                                                                 |
+| ------ | ---------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/v1/permissions`      | query: `session_id?`, `status?` (any status value or `all`; default all), `limit` (default 100, max 500) | `{permissions: PermissionRequest[] (desc by created_at), metadata: {session_id, status, limit, total, returned, truncated, total_before_filters, total_after_session_filter}}`                                           |
+| GET    | `/v1/permissions/{id}` | —                                                                                                        | `PermissionRequest` **[NOT IMPLEMENTED in clio 3527143 — clio exposes only the list + the reply POST.]**                                                                                                                 |
+| POST   | `/v1/permissions/{id}` | `{action: "allow"\|"deny"\|"allow_session"\|"allow_workspace"}`                                          | `204`. **Idempotent**: POST on an already-resolved row is a silent 204 (no event re-emit). 404/422 currently use the legacy tag `internal_error` (clio inconsistency; target taxonomy `not_found`/`bad_request` — §14.2) |
+| GET    | `/v1/policies`         | —                                                                                                        | `{policies: Policy[]}`                                                                                                                                                                                                   |
+| PUT    | `/v1/policies`         | `{policies: Policy[]}`                                                                                   | `{policies: Policy[]}` — **atomic validation**: 400 if the body is not `{policies: [...]}`; 422 rejecting the WHOLE update if any row is invalid, with `details: {policy_errors[], allowed_scopes, allowed_actions}`     |
 
 **Sticky grants** (clio #759, Phase 0): resolving with `allow_session`
 / `allow_workspace` additionally derives a sticky allow policy
@@ -1437,10 +1493,10 @@ policy carries **`host_pattern`** (the requested domain) instead of
 // Policy (implemented)
 {
   "scope": "workspace|session",
-  "scope_id": "...",                 // empty = wildcard within scope
-  "tool_name_pattern": "shell|edit|*",   // fnmatch glob, default "*"
-  "path_pattern": "/src/**|*",           // fnmatch glob, optional (file territory)
-  "host_pattern": "*.ndp.org|*",         // fnmatch glob, optional (B5 — network domain)
+  "scope_id": "...", // empty = wildcard within scope
+  "tool_name_pattern": "shell|edit|*", // fnmatch glob, default "*"
+  "path_pattern": "/src/**|*", // fnmatch glob, optional (file territory)
+  "host_pattern": "*.ndp.org|*", // fnmatch glob, optional (B5 — network domain)
   "action": "allow|allow_session|allow_workspace|deny|ask"
 }
 ```
@@ -1456,7 +1512,7 @@ row's `tool_name_pattern` is unused.
 Policy semantics (clio's evaluator, descriptive):
 
 - Action enum is `allow | allow_session | allow_workspace | deny |
-  ask` — `allow_session`/`allow_workspace` enforce identically to
+ask` — `allow_session`/`allow_workspace` enforce identically to
   `allow`. The v0.1 `annotations_filter` key is **not evaluated**
   (stored if sent, ignored).
 - Matching: **first match wins in list order**; empty `scope_id`
@@ -1503,7 +1559,7 @@ observable only via `permission.requested` +
 > with synthetic tool names namespaced `gact.*` (e.g.
 > `gact.session.delete`). Policy deny ⇒ `auto_denied` audit row + 403
 > `permission_error` with `details: {reason: "policy_deny",
-> recovery_actions: ["change_policy", "retry", "exit"]}`; otherwise an
+recovery_actions: ["change_policy", "retry", "exit"]}`; otherwise an
 > `auto_approved` audit row (reason `policy_allow` or
 > `user_requested_*`) + `permission.resolved` event — **never an
 > interactive prompt**. Consequence: clients WILL receive
@@ -1537,14 +1593,14 @@ workspace's `host_pattern` policies at CONNECT time:
   `permission.resolved{action: deny}` record is emitted;
 - an **unknown** domain → a `permission.requested` of a new request **kind
   `network_egress`** is opened on the pending-row (`tool_call.tool_name =
-  "network_egress"`, `tool_call.input = {host, port}`, `kind: "network_egress"`),
+"network_egress"`, `tool_call.input = {host, port}`, `kind: "network_egress"`),
   and the connection blocks (up to 600 s) exactly like the interactive tool gate.
   Concurrent CONNECTs to the SAME `(workspace, host)` **coalesce** onto one prompt;
   distinct concurrently-open prompts are bounded, and a connect over that bound
   fails closed (`reason: egress_gate_prompt_cap_reached`). Resolving `allow_workspace`
   derives a sticky **workspace-scoped** `host_pattern` policy (with
   `created_from_permission_id` provenance) and emits `boundary.granted{kind:
-  "domain"}`; a subsequent CONNECT to that domain proceeds with no prompt. Resolving
+"domain"}`; a subsequent CONNECT to that domain proceeds with no prompt. Resolving
   `allow_session` derives a session-scoped `host_pattern` policy that is **NOT honoured
   at the chokepoint** — a workspace-shared fleet child's egress cannot be attributed to
   one session, so a session-scoped host grant never widens the network boundary (it
@@ -1561,31 +1617,29 @@ workspace's `host_pattern` policies at CONNECT time:
 
 ### §6.12 Providers & Models
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/v1/providers` | `{providers: Provider[]}` |
-| GET | `/v1/providers/{id}` | `Provider` |
-| GET | `/v1/providers/{id}/models` | `{models: Model[]}` (query: `api_base?`) |
-| GET | `/v1/providers/{id}/handshake` | provider probe (query: `api_base?, refresh?`) |
-| POST | `/v1/providers/{id}/auth` | provider-specific OAuth/API-key flow init |
-| GET | `/v1/providers/lm` | `LMProviderInfo` (clio: current LM config + picker presets) |
-| GET | `/v1/providers/lm/wait` | `LMProviderInfo` (long-poll readiness after async PUT; query `timeout?`) |
-| PUT | `/v1/providers/lm` | `LMProviderInfo` (clio: set provider/model/api_base/api_key/...; builds the agent at runtime) |
+| Method | Path                           | Response                                                                                      |
+| ------ | ------------------------------ | --------------------------------------------------------------------------------------------- |
+| GET    | `/v1/providers`                | `{providers: Provider[]}`                                                                     |
+| GET    | `/v1/providers/{id}`           | `Provider`                                                                                    |
+| GET    | `/v1/providers/{id}/models`    | `{models: Model[]}` (query: `api_base?`)                                                      |
+| GET    | `/v1/providers/{id}/handshake` | provider probe (query: `api_base?, refresh?`)                                                 |
+| POST   | `/v1/providers/{id}/auth`      | provider-specific OAuth/API-key flow init                                                     |
+| GET    | `/v1/providers/lm`             | `LMProviderInfo` (clio: current LM config + picker presets)                                   |
+| GET    | `/v1/providers/lm/wait`        | `LMProviderInfo` (long-poll readiness after async PUT; query `timeout?`)                      |
+| PUT    | `/v1/providers/lm`             | `LMProviderInfo` (clio: set provider/model/api_base/api_key/...; builds the agent at runtime) |
 
 > **Implemented (clio).** The TUI configures the model through the
 > singleton **`/v1/providers/lm`** surface. `PUT` may configure the LM
 > asynchronously; clients SHOULD follow with
 > `GET /v1/providers/lm/wait?timeout=<seconds>` until `state` is
-> `ready` or `error`. `GET` returns `LMProviderInfo`
-> `{configured, provider, api_base, model, temperature, max_tokens,
-> context_length, chosen_context?, context_window?, is_reasoning?,
-> native_tool_calling?, thinking_level?, thinking_effective,
-> thinking_budget, transport?, state,
-> status_message, error, operation_id, presets[]}` — `api_key` is never
+> `ready` or `error`. `GET` returns `LMProviderInfo` > `{configured, provider, api_base, model, temperature, max_tokens,
+context_length, chosen_context?, context_window?, is_reasoning?,
+native_tool_calling?, thinking_level?, thinking_effective,
+thinking_budget, transport?, state,
+status_message, error, operation_id, presets[]}` — `api_key` is never
 > echoed back.
-> `PUT` body is `LMProviderRequest`
-> `{provider, api_base, model, api_key, temperature?, max_tokens?,
-> context_length?, parallel?, transport?, thinking_level?, thinking_budget?}`.
+> `PUT` body is `LMProviderRequest` > `{provider, api_base, model, api_key, temperature?, max_tokens?,
+context_length?, parallel?, transport?, thinking_level?, thinking_budget?}`.
 > Defaults:
 > `temperature=0.0`; `max_tokens=0`, `context_length=0`, and
 > `parallel=0` mean "let the server choose/default." Each preset row
@@ -1610,21 +1664,21 @@ workspace's `host_pattern` policies at CONNECT time:
 > `"medium (budget 8192)"`, `"max"`, `"off"`, `"default (provider default)"`, or
 > `"unsupported (<reason>)"`).
 >
-> | Provider family | Where per-model levels come from | Native transport |
-> |---|---|---|
-> | `claude_code` | Claude Code CLI `initialize` model list (`supportedEffortLevels`) | SDK `effort` option on adaptive thinking; `off` = `{"type":"disabled"}`; models without effort use `{"type":"enabled","budget_tokens":N}` for `low`/`medium`/`high` |
-> | `anthropic` | LiteLLM model map (adaptive-thinking models accept `output_config.effort`) | `reasoning_effort` → `thinking:{type:"adaptive"}` + `output_config.effort`; other thinking models: `thinking.budget_tokens` 2048/8192/24576; `off` omits |
-> | `codex` | Codex SDK `supportedReasoningEfforts` / `defaultReasoningEffort` | `model_reasoning_effort` pinned on `turn/start`; `off` = `"none"` |
-> | `openai` | LiteLLM model map | `reasoning_effort` = the level; `off` = `"none"` where the model supports it |
-> | `lm_studio` / `ollama` / `argonne` | the served model (gpt-oss: `low`/`medium`/`high`) | `reasoning_effort` |
-> | any other | — | `unsupported` (typed reason in `thinking_effective`) |
+> | Provider family                    | Where per-model levels come from                                           | Native transport                                                                                                                                                    |
+> | ---------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | `claude_code`                      | Claude Code CLI `initialize` model list (`supportedEffortLevels`)          | SDK `effort` option on adaptive thinking; `off` = `{"type":"disabled"}`; models without effort use `{"type":"enabled","budget_tokens":N}` for `low`/`medium`/`high` |
+> | `anthropic`                        | LiteLLM model map (adaptive-thinking models accept `output_config.effort`) | `reasoning_effort` → `thinking:{type:"adaptive"}` + `output_config.effort`; other thinking models: `thinking.budget_tokens` 2048/8192/24576; `off` omits            |
+> | `codex`                            | Codex SDK `supportedReasoningEfforts` / `defaultReasoningEffort`           | `model_reasoning_effort` pinned on `turn/start`; `off` = `"none"`                                                                                                   |
+> | `openai`                           | LiteLLM model map                                                          | `reasoning_effort` = the level; `off` = `"none"` where the model supports it                                                                                        |
+> | `lm_studio` / `ollama` / `argonne` | the served model (gpt-oss: `low`/`medium`/`high`)                          | `reasoning_effort`                                                                                                                                                  |
+> | any other                          | —                                                                          | `unsupported` (typed reason in `thinking_effective`)                                                                                                                |
 >
 > **Per-message and session levels.** `behavior.reasoning_effort` on a message
 > uses the same vocabulary; absent/`null` means "use the configured level" and
 > is never defaulted by the server. A spawned child inherits its parent turn's
 > per-message level only when it runs on the same provider and model (its
 > `agent_runtime.reasoning` otherwise records `inherited: false, reason:
-> "different_model"`). `GET /v1/session-defaults` `effort` is `null` unless a
+"different_model"`). `GET /v1/session-defaults` `effort` is `null` unless a
 > person chose a level (`effort_source: "user"`); a session's `effort` is
 > projected only when it carries that provenance.
 >
@@ -1681,10 +1735,10 @@ workspace's `host_pattern` policies at CONNECT time:
 
 The catalog of invocable commands: built-in, MCP prompts, user-defined, and recipes. The TUI renders this as a slash-command palette.
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/commands` | query: `workspace_id?` | `{commands: Command[]}` |
-| POST | `/v1/sessions/{id}/commands/{cmd_id}` | `{arguments: object}` | `204` (effects flow via SSE) |
+| Method | Path                                  | Body                   | Response                     |
+| ------ | ------------------------------------- | ---------------------- | ---------------------------- |
+| GET    | `/v1/commands`                        | query: `workspace_id?` | `{commands: Command[]}`      |
+| POST   | `/v1/sessions/{id}/commands/{cmd_id}` | `{arguments: object}`  | `204` (effects flow via SSE) |
 
 ```json
 // Command
@@ -1703,38 +1757,38 @@ The catalog of invocable commands: built-in, MCP prompts, user-defined, and reci
 
 If `capabilities.voice = true`:
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| POST | `/v1/sessions/{id}/voice/transcribe` | `audio/*` (multipart) | `{text: string, duration_ms: int}` |
-| POST | `/v1/sessions/{id}/voice/synthesize` | `{text}` | `audio/*` (stream) |
+| Method | Path                                 | Body                  | Response                           |
+| ------ | ------------------------------------ | --------------------- | ---------------------------------- |
+| POST   | `/v1/sessions/{id}/voice/transcribe` | `audio/*` (multipart) | `{text: string, duration_ms: int}` |
+| POST   | `/v1/sessions/{id}/voice/synthesize` | `{text}`              | `audio/*` (stream)                 |
 
 ### §6.15 Scheduled sessions (optional)
 
 If `capabilities.scheduled_sessions = true`. Implemented in clio 3527143
 as session-scoped schedules:
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/sessions/{id}/schedules` | — | `{schedules: [...]}` |
-| POST | `/v1/sessions/{id}/schedules` | schedule spec | created schedule |
-| DELETE | `/v1/schedules/{schedule_id}` | — | `204` |
+| Method | Path                          | Body          | Response             |
+| ------ | ----------------------------- | ------------- | -------------------- |
+| GET    | `/v1/sessions/{id}/schedules` | —             | `{schedules: [...]}` |
+| POST   | `/v1/sessions/{id}/schedules` | schedule spec | created schedule     |
+| DELETE | `/v1/schedules/{schedule_id}` | —             | `204`                |
 
 ### §6.15b Session sharing (optional)
 
 If `capabilities.session_sharing = true`. Implemented in clio:
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| POST | `/v1/sessions/{id}/share` | share opts | `{token, url?, ...}` |
-| GET | `/v1/shared/{token}` | — | shared session view |
+| Method | Path                      | Body       | Response             |
+| ------ | ------------------------- | ---------- | -------------------- |
+| POST   | `/v1/sessions/{id}/share` | share opts | `{token, url?, ...}` |
+| GET    | `/v1/shared/{token}`      | —          | shared session view  |
 
 ### §6.16 Metrics (optional)
 
 If `capabilities.metrics = true`:
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/v1/metrics` | `Metrics` |
+| Method | Path          | Response  |
+| ------ | ------------- | --------- |
+| GET    | `/v1/metrics` | `Metrics` |
 
 ```json
 // Metrics
@@ -1757,7 +1811,7 @@ If `capabilities.metrics = true`:
   },
   "cost": {
     "total_usd": 12.84,
-    "by_provider": { "anthropic": 11.20, "openai": 1.64 }
+    "by_provider": { "anthropic": 11.2, "openai": 1.64 }
   }
 }
 ```
@@ -1768,12 +1822,12 @@ Metrics are point-in-time snapshots. Backends MAY add custom counters under a ve
 
 If `capabilities.session_tasks = true`:
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/sessions/{id}/tasks` |  | `{tasks: [SessionTask]}` |
-| POST | `/v1/sessions/{id}/tasks` | `{title, status?, metadata?}` | `SessionTask` |
-| PATCH | `/v1/tasks/{id}` | `{title?, status?, metadata?}` | `SessionTask` |
-| DELETE | `/v1/tasks/{id}` |  | 204 |
+| Method | Path                      | Body                           | Response                 |
+| ------ | ------------------------- | ------------------------------ | ------------------------ |
+| GET    | `/v1/sessions/{id}/tasks` |                                | `{tasks: [SessionTask]}` |
+| POST   | `/v1/sessions/{id}/tasks` | `{title, status?, metadata?}`  | `SessionTask`            |
+| PATCH  | `/v1/tasks/{id}`          | `{title?, status?, metadata?}` | `SessionTask`            |
+| DELETE | `/v1/tasks/{id}`          |                                | 204                      |
 
 ```json
 // SessionTask
@@ -1781,10 +1835,10 @@ If `capabilities.session_tasks = true`:
   "id": "tsk_01H...",
   "session_id": "sess_...",
   "title": "Run unit tests",
-  "status": "pending",       // "pending" | "running" | "completed" | "failed"
+  "status": "pending", // "pending" | "running" | "completed" | "failed"
   "created_at": "...",
   "updated_at": "...",
-  "metadata": {}             // optional vendor extension bucket
+  "metadata": {} // optional vendor extension bucket
 }
 ```
 
@@ -1798,21 +1852,21 @@ pending` is legal).
 
 If `capabilities.hooks = true`:
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/hooks` |  | `{hooks: [Hook]}` |
-| POST | `/v1/hooks` | `Hook` (no `id`) | `Hook` (with `id`) |
-| DELETE | `/v1/hooks/{id}` |  | 204 |
+| Method | Path             | Body             | Response           |
+| ------ | ---------------- | ---------------- | ------------------ |
+| GET    | `/v1/hooks`      |                  | `{hooks: [Hook]}`  |
+| POST   | `/v1/hooks`      | `Hook` (no `id`) | `Hook` (with `id`) |
+| DELETE | `/v1/hooks/{id}` |                  | 204                |
 
 ```json
 // Hook
 {
   "id": "hk_01H...",
-  "event": "tool.call.completed",  // any §7.3 event type, or "*"
-  "command": "/usr/local/bin/notify-hook.sh",  // exec'd with event JSON on stdin
-  "url": null,                                  // alternative: POST event JSON here
-  "session_id": null,                           // optional scope
-  "workspace_id": null                          // optional scope
+  "event": "tool.call.completed", // any §7.3 event type, or "*"
+  "command": "/usr/local/bin/notify-hook.sh", // exec'd with event JSON on stdin
+  "url": null, // alternative: POST event JSON here
+  "session_id": null, // optional scope
+  "workspace_id": null // optional scope
 }
 ```
 
@@ -1822,9 +1876,9 @@ A hook fires whenever an event matching `event` is published; if both `command` 
 
 If `capabilities.memory = true`:
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/memory/stats` | query: `session_id?` | `MemoryStats` |
+| Method | Path               | Body                 | Response      |
+| ------ | ------------------ | -------------------- | ------------- |
+| GET    | `/v1/memory/stats` | query: `session_id?` | `MemoryStats` |
 
 ```json
 // MemoryStats
@@ -1832,21 +1886,23 @@ If `capabilities.memory = true`:
   "cache": {
     "hits": 1284,
     "misses": 192,
-    "hit_rate": 0.87,                    // [0..1]
+    "hit_rate": 0.87, // [0..1]
     "capacity": 1000
   },
-  "session": {                           // present only when session_id query set
+  "session": {
+    // present only when session_id query set
     "session_id": "sess_...",
     "messages_retained": 42,
     "tokens_retained": 3584,
-    "tokens_budget": 4000,               // null if unbounded
-    "profiles_attached": 3               // session-scoped knowledge records, opaque to TUI
+    "tokens_budget": 4000, // null if unbounded
+    "profiles_attached": 3 // session-scoped knowledge records, opaque to TUI
   },
-  "global": {                            // overall backend state
+  "global": {
+    // overall backend state
     "conversations_total": 128,
     "invocations_total": 2048
   },
-  "metadata": {}                         // backend-specific
+  "metadata": {} // backend-specific
 }
 ```
 
@@ -1856,19 +1912,19 @@ The TUI uses this to surface a cache hit-rate indicator and show per-session con
 
 > **Drift note.** clio's session block carries more than the sketch:
 > `{session_id, messages_retained, tokens_retained, tokens_budget,
-> profiles_attached, context_files_attached, context_files_by_mode,
-> compact_summaries, token_pressure, threshold_state
-> (empty/normal/warning/critical), compaction_recommended}`. clio also
+profiles_attached, context_files_attached, context_files_by_mode,
+compact_summaries, token_pressure, threshold_state
+(empty/normal/warning/critical), compaction_recommended}`. clio also
 > exposes related **vendor** memory surface:
 >
-> | Method | Path | Response |
-> |---|---|---|
-> | GET | `/v1/memory/search` (query `q`, `include_cross_session?`) | `MemorySearchResponse` `{query, include_cross_session, searched_sessions[], hits[]}` |
-> | GET | `/v1/sessions/{id}/memory/events` (query `limit?`) | per-session memory event log |
-> | GET | `/v1/sessions/{id}/memory/events/{event_id}` | one memory event |
-> | POST | `/v1/sessions/{id}/memory/tools/search-sessions` | agent-facing cross-session search tool |
-> | POST | `/v1/sessions/{id}/memory/tools/read-session-summary` | agent-facing summary read tool |
-> | POST | `/v1/sessions/{id}/memory/tools/read-context-frame` | agent-facing context-frame read tool |
+> | Method | Path                                                              | Response                                                                             |
+> | ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+> | GET    | `/v1/session-recall/search` (query `q`, `include_cross_session?`) | `MemorySearchResponse` `{query, include_cross_session, searched_sessions[], hits[]}` |
+> | GET    | `/v1/sessions/{id}/memory/events` (query `limit?`)                | per-session memory event log                                                         |
+> | GET    | `/v1/sessions/{id}/memory/events/{event_id}`                      | one memory event                                                                     |
+> | POST   | `/v1/sessions/{id}/session-recall/search`                         | agent-facing cross-session search tool                                               |
+> | POST   | `/v1/sessions/{id}/session-recall/read-summary`                   | agent-facing summary read tool                                                       |
+> | POST   | `/v1/sessions/{id}/session-recall/read-context-frame`             | agent-facing context-frame read tool                                                 |
 
 ---
 
@@ -1877,49 +1933,48 @@ The TUI uses this to surface a cache hit-rate indicator and show per-session con
 clio exposes a versioned prompt registry the TUI's agent editor reads
 and writes. Optional vendor surface; generic clients ignore it.
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/prompts` | — | `{prompts: [...]}` |
-| GET | `/v1/prompts/{prompt_id}` | — | prompt record (`{prompt_id:path}`) |
-| POST | `/v1/prompts/{prompt_id}/render` | render vars (query `profile?`) | rendered text |
-| POST | `/v1/prompts/{prompt_id}/validate` | candidate prompt | validation result |
-| PUT | `/v1/prompts/{prompt_id}` | prompt body | saved prompt |
-| POST | `/v1/prompts/reload` | — | reload from disk |
+| Method | Path                               | Body                           | Response                           |
+| ------ | ---------------------------------- | ------------------------------ | ---------------------------------- |
+| GET    | `/v1/prompts`                      | —                              | `{prompts: [...]}`                 |
+| GET    | `/v1/prompts/{prompt_id}`          | —                              | prompt record (`{prompt_id:path}`) |
+| POST   | `/v1/prompts/{prompt_id}/render`   | render vars (query `profile?`) | rendered text                      |
+| POST   | `/v1/prompts/{prompt_id}/validate` | candidate prompt               | validation result                  |
+| PUT    | `/v1/prompts/{prompt_id}`          | prompt body                    | saved prompt                       |
+| POST   | `/v1/prompts/reload`               | —                              | reload from disk                   |
 
-## §6.21 Agent blueprints (vendor — `x_clio_agent_blueprints`)
+## §6.21 Agent plugins (vendor — `x_clio_agent_plugins`)
 
-Blueprints are declarative agent definitions loaded from installable
-**sources**; they materialise into the `/v1/agents` catalog. Optional.
+A plugin (Agent Plugins 1.0.0 plus the `ai.iowarp.clio` namespace)
+contributes tools, skills, MCP servers, hooks, subagents, flows, commands,
+A2UI catalogs and prompt fragments. A **pack** is a plugin whose content is
+only membership in other plugins. An **agent** is a flow, an identity and a
+set of plugins; a **user agent** is a parent agent plus a delta (`add`,
+`remove`). A session pins one resolution of its agent; the session's delta
+changes it. Every failure is a typed error envelope carrying the resolver's
+diagnostics. Optional.
 
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/v1/agent-blueprints/sources` | list blueprint sources |
-| POST | `/v1/agent-blueprints/sources` | add a source (`201`) |
-| POST | `/v1/agent-blueprints/sources/{source_id}/refresh` | re-pull a source |
-| DELETE | `/v1/agent-blueprints/sources/{source_id}` | remove a source |
-| GET | `/v1/agent-blueprints` (query `workspace_id?`) | list blueprints |
-| GET | `/v1/agent-blueprints/{blueprint_id}` | one blueprint (`{id:path}`) |
-| POST | `/v1/agent-blueprints/validate` | validate a candidate |
-| POST | `/v1/agent-blueprints/install` | install (`201`) |
-| POST | `/v1/agent-blueprints/{blueprint_id}/update` | update installed |
-| DELETE | `/v1/agent-blueprints/{blueprint_id}` | uninstall |
-| POST | `/v1/agent-blueprints/{blueprint_id}/mcp/{descriptor_id}/enable` | enable a blueprint-bundled MCP descriptor |
-| GET / POST | `/v1/sessions/{id}/agent-blueprint` | get / set the session's active blueprint |
-| GET / PUT | `/v1/sessions/{id}/agent-overlay` | get / set a per-session overlay on the active blueprint |
-| POST | `/v1/sessions/{id}/agent-overlay/export` | export the overlay as a reusable artifact (`201`) |
+| Method | Path                                     | Notes                                                                                                                                                                                    |
+| ------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/plugins`                            | `{plugins: [PluginEntry], default_marketplace_error}`; plugins whose update waits for trust carry `pending_trust: true`                                                                  |
+| GET    | `/v1/plugins/marketplaces`               | `{marketplaces: [{name, source, commit, format, trusted, trust_reason, default, parent, installed_at, diagnostics}]}`                                                                    |
+| POST   | `/v1/plugins/marketplaces`               | `{source, ref?, commit?, name?}` → install summary (`201`); non-default sources wait for the trust step                                                                                  |
+| POST   | `/v1/plugins/marketplaces/{name}/trust`  | the explicit trust step for the current executable parts                                                                                                                                 |
+| POST   | `/v1/plugins/marketplaces/{name}/update` | re-fetch; changed executable parts wait for trust again                                                                                                                                  |
+| DELETE | `/v1/plugins/marketplaces/{name}`        | uninstall                                                                                                                                                                                |
+| POST   | `/v1/plugins/check`                      | `{installed}` or `{path}` → `{source, ok, targets, diagnostics, text}`                                                                                                                   |
+| GET    | `/v1/agents`                             | `{agents: [AgentEntry]}` — installed agents and user agents (`kind: "user"`, `extends`, `delta`)                                                                                         |
+| GET    | `/v1/agents/resolve`                     | query `ref`, repeatable `add`/`remove` → resolution preview (plugins with `provenance`, `removed`, tools, composed `prompt.sections[].fragments[]` attributed by `plugin`); pins nothing |
+| POST   | `/v1/agents/preview-removal`             | `{ref, plugin, delta}` → `{plugin, removes: [{id, reason}], tools_removed}` (the cascade of dependents)                                                                                  |
+| POST   | `/v1/agents/user`                        | `{id, extends, add, remove, name?, description?}` → saved `AgentEntry` (`user/<id>`, `201`)                                                                                              |
+| DELETE | `/v1/agents/user/{id}`                   | delete a user agent                                                                                                                                                                      |
+| GET    | `/v1/sessions/{id}/agent`                | `{session_id, delta, subagent, resolution}`                                                                                                                                              |
+| PATCH  | `/v1/sessions/{id}/agent`                | `{ref?, add?, remove?}`; `add`/`remove` replace the whole session delta; pins and returns the new resolution                                                                             |
+| GET    | `/v1/sessions/{id}/tasks/{handle}/flow`  | the flow run checkpointed under a task (`plan` runs publish `view.nodes`, `view.awaiting_approval`; typed stalls in `outcome`); `404` when the task runs no flow                         |
 
-## §6.22 Expert packs (vendor — `x_clio_expert_packs`)
-
-An expert pack bundles tier-2 specialist agents + their tools/prompts.
-Installed packs contribute `AgentDef` rows with `source:"expert_pack"`.
-Optional.
-
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/v1/expert-packs` (query `workspace_id?`) | list packs |
-| GET | `/v1/expert-packs/{pack_id}` | one pack (`{id:path}`) |
-| POST | `/v1/expert-packs/validate` | validate a candidate pack |
-| GET / POST | `/v1/sessions/{id}/expert-pack` | get / set the session's active pack |
+`provenance.source` is `core`, `agent` (`via` names the agent layer),
+`pack` (`via` names the pack), `required` (`via` names the plugin that
+requires it) or `user`. Sessions choose an agent with
+`metadata.agent_ref = "<marketplace>/<id>"` at creation.
 
 ## §6.23 User questions (vendor — `x_clio_user_questions`)
 
@@ -1927,12 +1982,12 @@ The backend can block a turn to ask the user a question (free-form,
 choice, or confirmation); the session enters `status:"waiting_user"`.
 Optional.
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/sessions/{id}/questions` | query: `status?` | `{questions: [UserQuestion]}` |
-| POST | `/v1/sessions/{id}/questions` | `CreateUserQuestionRequest` | `UserQuestion` (`201`) |
-| POST | `/v1/sessions/{id}/questions/{qid}/answer` | `AnswerUserQuestionRequest` | `UserQuestion` |
-| POST | `/v1/sessions/{id}/questions/{qid}/cancel` | — | `UserQuestion` |
+| Method | Path                                       | Body                        | Response                      |
+| ------ | ------------------------------------------ | --------------------------- | ----------------------------- |
+| GET    | `/v1/sessions/{id}/questions`              | query: `status?`            | `{questions: [UserQuestion]}` |
+| POST   | `/v1/sessions/{id}/questions`              | `CreateUserQuestionRequest` | `UserQuestion` (`201`)        |
+| POST   | `/v1/sessions/{id}/questions/{qid}/answer` | `AnswerUserQuestionRequest` | `UserQuestion`                |
+| POST   | `/v1/sessions/{id}/questions/{qid}/cancel` | —                           | `UserQuestion`                |
 
 Implemented `UserQuestion` (clio `types.py:UserQuestion`):
 
@@ -1941,14 +1996,19 @@ Implemented `UserQuestion` (clio `types.py:UserQuestion`):
   "id": "ques_<12hex>",
   "session_id": "sess_...",
   "prompt": "string",
-  "status": "pending",               // pending | answered | cancelled | expired
-  "kind": "freeform",                // freeform | choice | confirmation
-  "options": [{"label": "", "value": "", "description": ""}],
-  "created_at": "...", "updated_at": "...", "expires_at": "",
+  "status": "pending", // pending | answered | cancelled | expired
+  "kind": "freeform", // freeform | choice | confirmation
+  "options": [{ "label": "", "value": "", "description": "" }],
+  "created_at": "...",
+  "updated_at": "...",
+  "expires_at": "",
   "source": "orchestrator",
-  "turn_id": "", "attempt_id": "",
-  "answer": "", "selected_options": [],
-  "answer_metadata": {}, "metadata": {}
+  "turn_id": "",
+  "attempt_id": "",
+  "answer": "",
+  "selected_options": [],
+  "answer_metadata": {},
+  "metadata": {}
 }
 ```
 
@@ -1989,10 +2049,10 @@ also produce a `semantic.event`.
 Re-run a turn (optionally with notes / a different model) without
 re-typing the user message. Optional.
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/v1/sessions/{id}/attempts` | — | `{attempts: [TurnAttempt]}` (unknown session → 404 `not_found`) |
-| POST | `/v1/sessions/{id}/messages/{msg_id}/retry` | `RetryTurnRequest` `{notes?, execute?, model?, provider_id?, model_id?}` | `TurnAttempt`, HTTP **202** |
+| Method | Path                                        | Body                                                                     | Response                                                        |
+| ------ | ------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| GET    | `/v1/sessions/{id}/attempts`                | —                                                                        | `{attempts: [TurnAttempt]}` (unknown session → 404 `not_found`) |
+| POST   | `/v1/sessions/{id}/messages/{msg_id}/retry` | `RetryTurnRequest` `{notes?, execute?, model?, provider_id?, model_id?}` | `TurnAttempt`, HTTP **202**                                     |
 
 Implemented `TurnAttempt`:
 
@@ -2000,9 +2060,12 @@ Implemented `TurnAttempt`:
 {
   "id": "att_...",
   "session_id": "sess_...",
-  "source_message_id": "msg_...",    // the USER message being retried
-  "status": "recorded",              // recorded | queued | running | completed | failed | cancelled
-  "notes": "", "model": {}, "warning": "", "metadata": {}
+  "source_message_id": "msg_...", // the USER message being retried
+  "status": "recorded", // recorded | queued | running | completed | failed | cancelled
+  "notes": "",
+  "model": {},
+  "warning": "",
+  "metadata": {}
 }
 ```
 
@@ -2025,9 +2088,9 @@ Semantics (clio):
 
 ## §6.25 Compaction
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| POST | `/v1/sessions/{id}/compact` | `{focus?: string}` (malformed body tolerated) | 200 `{session_id, compacted: true, event_id: "mem_evt_...", archived_count: int, summary: string}` — or 200 `{session_id, compacted: false, reason}` when there is nothing to compact |
+| Method | Path                        | Body                                          | Response                                                                                                                                                                              |
+| ------ | --------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/v1/sessions/{id}/compact` | `{focus?: string}` (malformed body tolerated) | 200 `{session_id, compacted: true, event_id: "mem_evt_...", archived_count: int, summary: string}` — or 200 `{session_id, compacted: false, reason}` when there is nothing to compact |
 
 Errors: 404 `not_found` (unknown session — note: this route uses the
 canonical tag), 503 `agent_unavailable` (no LM agent bound), 502
@@ -2043,7 +2106,7 @@ Behavior (clio 2f892c1, descriptive; APPEND semantics since #1339):
   `compacted_message_ids` (the ids of the rows it covers), and `auto`
   (`false` for a user-triggered `/compact`, `true` for the automatic
   percentage trigger) — and also retains `metadata.synthetic:
-  "compact_summary"` + `memory_event_id`. This is a checkpoint row:
+"compact_summary"` + `memory_event_id`. This is a checkpoint row:
   earlier messages stay in the transcript rather than being removed
   from the visible ledger. (Prior to 2f892c1 the summary rode on a
   `[compact summary]`-prefixed `text` part; that prose form is
@@ -2060,7 +2123,7 @@ Behavior (clio 2f892c1, descriptive; APPEND semantics since #1339):
   `arc_status` (`not_configured` | `no_active_scope` |
   `working_set_too_small` | `folded`).
 - Emits `session.compacted` with payload `{event_id, archived_count,
-  summary_chars, summary_message_id, version: 1}` (§7.3a) plus an
+summary_chars, summary_message_id, version: 1}` (§7.3a) plus an
   additive `trigger` (`"manual"` | `"auto"`) — `archived_count` now
   counts the rows the checkpoint covers, not a deletion — plus a
   `memory.compacted` semantic event (semantic spine only, §7.6). The
@@ -2084,21 +2147,21 @@ and `artifact.*` semantic events (§7.6). Server-only in this slice — client
 rendering (an artifacts panel) is a later campaign; the wire contract lands
 first.
 
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/v1/sessions/{sid}/artifacts` | List the artifacts of the session's workspace. `?limit=` (clamped ≤ 200, default 50), `?before=<head artifact_id>` cursor (newest-first). `?include_children=true` (S5 GAP B) also lists the **descendant child sessions'** workspaces so a parent orchestrator sees its delegates' outputs (children resolve via the agent-task registry — `child_session_id` on the parent's tasks, bounded descendants; their workspaces union with the parent's, records dedup by `(workspace_id, name)`). With the flag ON, each `ArtifactRecord` also carries `producing_session_ids: string[]` (the distinct sessions that produced its versions) and the body adds `include_children: true` + `child_session_ids: string[]`. Returns `{artifacts: ArtifactRecord[], count, next_cursor}` (flag off → own workspace only, byte-identical to before). |
-| GET | `/v1/workspaces/{wid}/artifacts` | Same, scoped to a workspace directly. |
-| GET | `/v1/workspaces/{wid}/artifacts/{name}` | Resolve one version by name. `?ref=latest\|vN\|<alias>` — **full resolution is live** (S4): `latest` (the auto-maintained head alias), any `vN`, and any tracked alias resolve. An unknown ref is an honest **`404 not_found`** whose `details.available` lists the full resolvable set (`latest`, every `v1..vN`, every tracked alias name) — the pre-S4 `409 alias_resolution_not_available` placeholder is gone (resolution is complete). Returns `{artifact, resolved, ref}` on success. |
-| POST | `/v1/workspaces/{wid}/artifacts/{name}/aliases` | Move a mutable alias to a version (S4). Body `{alias, ref}` where `ref` is `latest\|vN\|<alias>`. Emits `artifact.alias.moved` (§7.6). The reserved `latest` alias is auto-maintained to the head, so moving it by hand is `422 reserved_alias`; a missing artifact / unresolvable target is `404` (with `details.available`). Returns `{artifact, alias, from_version, to_version}`. |
-| GET | `/v1/artifacts/{artifact_id}` | Resolve one version by its `artifact_id`, plus its logical record. |
-| GET | `/v1/artifacts/{artifact_id}/bytes` | Serve the version's bytes **hash-verified**. Re-hashes on read: a content mismatch is `409 integrity_violation`. Only `cas`-custody bytes are app-served; a `workspace-referenced` version is `409 custody_not_cas` whose `details.fetch_via` points at the path-based workspace file route (`GET /v1/workspaces/{wid}/files/read`, §6.9); the workspace id and the `path` query value are percent-encoded, so a name carrying `&`, `#`, `+` or `%` survives intact. |
-| GET | `/v1/sessions/{sid}/references/resolve` | Resolve one A2UI content **reference** for a viewer of session `sid` (A2 remote media). `?uri=` is the reference exactly as the payload carried it: `artifact://artifact_<id>`, `artifact:artifact_<id>`, bare `artifact_<id>`, `artifact://<wid>/<name>@<ref>` (`ref` = `vN`\|`latest`\|alias; omitted = `latest`; the name is matched verbatim, then percent-decoded), `resource://<wid>/res_<id>`, `resource://res_<id>`, `resource:res_<id>` or bare `res_<id>` (the workspace-less resource forms resolve in the session's workspace). Returns `{uri, kind: artifact\|resource, workspace_id, name, media_type, size_bytes, fetch_path, artifact_id?, version?, custody?, resource_id?, state?}`; `fetch_path` is the existing `/v1/...` byte route (`/v1/artifacts/{id}/bytes` or `/v1/workspaces/{wid}/resources/{rid}/content`) the client reads **through its authenticated transport** and renders from a `blob:` URL — a browser never dereferences `artifact:`/`resource:` itself, and the bytes never leave the one serve ladder. Typed failures: `422 reference_uri_invalid`, `404 reference_not_found` (an unknown `vN` carries `details.available`), `409 reference_workspace_unresolved`; an unknown session is `404 not_found`. |
-| POST | `/v1/sessions/{sid}/artifacts/pin` | User-pinned designation: register a workspace file as an artifact. Body `{path, name?, kind?, annotation?}`. The harness hashes the file in-hand (mechanism `harness`); a path outside the workspace root is `403 path_outside_workspace`. Returns `{pinned: ArtifactVersion}`. |
-| GET | `/v1/artifacts/{artifact_id}/lineage` | The provenance graph rooted at a version (S5). `?direction=upstream\|downstream\|both` (default `both`; an unknown value defaults to `both`), `?depth=` (clamped `[0, 12]`, default 3). Returns `{root, direction, depth, nodes, edges, truncated}` — nodes are `artifact\|activity\|gap`, edges are `used\|generated\|revision_of` each carrying `evidence`. An unknown `artifact_id` is `404`. `truncated` is `null` for a complete graph, else `{reason: "node_cap", nodes}` or `{reason: "depth_horizon", at_depth}`; the graph is always well-formed (no edge references a node absent from `nodes`). |
-| GET | `/v1/sessions/{sid}/transforms` | The **TransformRecords** a session produced (S5). `?include_children=true` (S5 GAP B) AGGREGATES the descendant child sessions' records too — a parent orchestrator delegates the tool work to spawned children, so its OWN records are empty while the children hold everything; children resolve via the agent-task registry (bounded descendants). Each `TransformRecord` already carries its producing `session_id` (per-row attribution); with the flag ON the body adds `include_children: true` + `child_session_ids: string[]`. Returns `{transforms: TransformRecord[], count}` (flag off → own records only, byte-identical to before). |
-| GET | `/v1/transforms/{activity_id}` | One TransformRecord by its `activity_id` (the producing tool `call_id`). Returns `{transform: TransformRecord}`; unknown id is `404`. |
-| GET | `/v1/artifacts/{artifact_id}/export` | **RO-Crate export** of one artifact's lineage ("give me the scripts", S7). Returns `application/zip` (`Content-Disposition: attachment`) — an RO-Crate folder: `ro-crate-metadata.json` (JSON-LD; see below), the artifact bytes under `data/` (only versions at/under the CAS max-file size are shipped; a larger one is recorded with `clio:bytes_exported: false`), and a compiled `reproduce.py` + `reproduce.ipynb`. The crate carries the artifact's version chain, its producing TransformRecords (as `CreateAction`s), and the one-hop input records so the reproduce chain is closed. Exporting registers the shipped content hashes as CAS GC roots (never evicted from under a downloaded bundle). Unknown `artifact_id` is `404`. |
-| GET | `/v1/sessions/{sid}/export/bundle` | **RO-Crate export** of a whole session's artifacts + transforms (S7). Same zip shape. `?include_children=true` (default) unions the descendant child sessions' workspaces so a parent orchestrator's bundle carries its delegates' outputs. Unknown session is `404`. |
+| Method | Path                                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/sessions/{sid}/artifacts`                  | List the artifacts of the session's workspace. `?limit=` (clamped ≤ 200, default 50), `?before=<head artifact_id>` cursor (newest-first). `?include_children=true` (S5 GAP B) also lists the **descendant child sessions'** workspaces so a parent orchestrator sees its delegates' outputs (children resolve via the agent-task registry — `child_session_id` on the parent's tasks, bounded descendants; their workspaces union with the parent's, records dedup by `(workspace_id, name)`). With the flag ON, each `ArtifactRecord` also carries `producing_session_ids: string[]` (the distinct sessions that produced its versions) and the body adds `include_children: true` + `child_session_ids: string[]`. Returns `{artifacts: ArtifactRecord[], count, next_cursor}` (flag off → own workspace only, byte-identical to before).                                                                                                                                                                                                                                                                                                                                                                                                       |
+| GET    | `/v1/workspaces/{wid}/artifacts`                | Same, scoped to a workspace directly.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| GET    | `/v1/workspaces/{wid}/artifacts/{name}`         | Resolve one version by name. `?ref=latest\|vN\|<alias>` — **full resolution is live** (S4): `latest` (the auto-maintained head alias), any `vN`, and any tracked alias resolve. An unknown ref is an honest **`404 not_found`** whose `details.available` lists the full resolvable set (`latest`, every `v1..vN`, every tracked alias name) — the pre-S4 `409 alias_resolution_not_available` placeholder is gone (resolution is complete). Returns `{artifact, resolved, ref}` on success.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| POST   | `/v1/workspaces/{wid}/artifacts/{name}/aliases` | Move a mutable alias to a version (S4). Body `{alias, ref}` where `ref` is `latest\|vN\|<alias>`. Emits `artifact.alias.moved` (§7.6). The reserved `latest` alias is auto-maintained to the head, so moving it by hand is `422 reserved_alias`; a missing artifact / unresolvable target is `404` (with `details.available`). Returns `{artifact, alias, from_version, to_version}`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| GET    | `/v1/artifacts/{artifact_id}`                   | Resolve one version by its `artifact_id`, plus its logical record.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| GET    | `/v1/artifacts/{artifact_id}/bytes`             | Serve the version's bytes **hash-verified**. Re-hashes on read: a content mismatch is `409 integrity_violation`. Only `cas`-custody bytes are app-served; a `workspace-referenced` version is `409 custody_not_cas` whose `details.fetch_via` points at the path-based workspace file route (`GET /v1/workspaces/{wid}/files/read`, §6.9); the workspace id and the `path` query value are percent-encoded, so a name carrying `&`, `#`, `+` or `%` survives intact.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| GET    | `/v1/sessions/{sid}/references/resolve`         | Resolve one A2UI content **reference** for a viewer of session `sid` (A2 remote media). `?uri=` is the reference exactly as the payload carried it: `artifact://artifact_<id>`, `artifact:artifact_<id>`, bare `artifact_<id>`, `artifact://<wid>/<name>@<ref>` (`ref` = `vN`\|`latest`\|alias; omitted = `latest`; the name is matched verbatim, then percent-decoded), `resource://<wid>/res_<id>`, `resource://res_<id>`, `resource:res_<id>` or bare `res_<id>` (the workspace-less resource forms resolve in the session's workspace). Returns `{uri, kind: artifact\|resource, workspace_id, name, media_type, size_bytes, fetch_path, artifact_id?, version?, custody?, resource_id?, state?}`; `fetch_path` is the existing `/v1/...` byte route (`/v1/artifacts/{id}/bytes` or `/v1/workspaces/{wid}/resources/{rid}/content`) the client reads **through its authenticated transport** and renders from a `blob:` URL — a browser never dereferences `artifact:`/`resource:` itself, and the bytes never leave the one serve ladder. Typed failures: `422 reference_uri_invalid`, `404 reference_not_found` (an unknown `vN` carries `details.available`), `409 reference_workspace_unresolved`; an unknown session is `404 not_found`. |
+| POST   | `/v1/sessions/{sid}/artifacts/pin`              | User-pinned designation: register a workspace file as an artifact. Body `{path, name?, kind?, annotation?}`. The harness hashes the file in-hand (mechanism `harness`); a path outside the workspace root is `403 path_outside_workspace`. Returns `{pinned: ArtifactVersion}`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| GET    | `/v1/artifacts/{artifact_id}/lineage`           | The provenance graph rooted at a version (S5). `?direction=upstream\|downstream\|both` (default `both`; an unknown value defaults to `both`), `?depth=` (clamped `[0, 12]`, default 3). Returns `{root, direction, depth, nodes, edges, truncated}` — nodes are `artifact\|activity\|gap`, edges are `used\|generated\|revision_of` each carrying `evidence`. An unknown `artifact_id` is `404`. `truncated` is `null` for a complete graph, else `{reason: "node_cap", nodes}` or `{reason: "depth_horizon", at_depth}`; the graph is always well-formed (no edge references a node absent from `nodes`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| GET    | `/v1/sessions/{sid}/transforms`                 | The **TransformRecords** a session produced (S5). `?include_children=true` (S5 GAP B) AGGREGATES the descendant child sessions' records too — a parent orchestrator delegates the tool work to spawned children, so its OWN records are empty while the children hold everything; children resolve via the agent-task registry (bounded descendants). Each `TransformRecord` already carries its producing `session_id` (per-row attribution); with the flag ON the body adds `include_children: true` + `child_session_ids: string[]`. Returns `{transforms: TransformRecord[], count}` (flag off → own records only, byte-identical to before).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| GET    | `/v1/transforms/{activity_id}`                  | One TransformRecord by its `activity_id` (the producing tool `call_id`). Returns `{transform: TransformRecord}`; unknown id is `404`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| GET    | `/v1/artifacts/{artifact_id}/export`            | **RO-Crate export** of one artifact's lineage ("give me the scripts", S7). Returns `application/zip` (`Content-Disposition: attachment`) — an RO-Crate folder: `ro-crate-metadata.json` (JSON-LD; see below), the artifact bytes under `data/` (only versions at/under the CAS max-file size are shipped; a larger one is recorded with `clio:bytes_exported: false`), and a compiled `reproduce.py` + `reproduce.ipynb`. The crate carries the artifact's version chain, its producing TransformRecords (as `CreateAction`s), and the one-hop input records so the reproduce chain is closed. Exporting registers the shipped content hashes as CAS GC roots (never evicted from under a downloaded bundle). Unknown `artifact_id` is `404`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| GET    | `/v1/sessions/{sid}/export/bundle`              | **RO-Crate export** of a whole session's artifacts + transforms (S7). Same zip shape. `?include_children=true` (default) unions the descendant child sessions' workspaces so a parent orchestrator's bundle carries its delegates' outputs. Unknown session is `404`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 **RO-Crate bundle** (S7 — `x_clio_artifacts`). `ro-crate-metadata.json` is JSON-LD conforming to RO-Crate 1.1. Each artifact **version** is a `File` entity (`prov:Entity`) carrying `sha256`/`contentSize`, `clio:{artifact_id, version, kind, custody, mechanism, evidence_class}`, and the PROV edges `wasGeneratedBy` (its producing `#activity-<call_id>`) and `wasRevisionOf` (the version it revises). Each **TransformRecord** serializes as a schema.org `CreateAction` (`prov:Activity`) `{object: [used inputs], result: [generated outputs], instrument: {@id}, agent: {@id}, startTime, endTime, actionStatus, clio:{replay, replay_reason, environment_tier, kind}}` — serialization, not translation (the record is already CreateAction-shaped). A **gap** version (mechanism `none`) attributes to `#agent-unknown` (never a false author). `reproduce.py` compiles the lineage into a deterministic re-run: transforms in topological order, each instrument translated to its plain-tool equivalent (a staged download → `requests.get` of the recorded source url; a pandas filter → the pandas expression; a timeseries plot → matplotlib; model-designated inline content → a write-these-bytes stage from the exported bytes), **each stage ending with an executable `assert sha256(output) == <recorded pin>`**. Per-stage honesty banners: `deterministic` (translatable + hash-pinned inputs + env ≥ lockfile-hash) / `write-bytes` / `re-runnable` (a precondition fails — runs but not bit-identical) / `agentic-only` (no translation — the MCP invocation form, re-hand to a live agent) / `gap-break` (an explicit `raise`). `reproduce.ipynb` is the notebook-staged variant (one code cell per stage). Server-only in this campaign; the UI Recreate tab (copy the script / download the bundle / agentic replay) is a later slice. |
 
@@ -2173,18 +2236,18 @@ The capability value is an object with `protocol_version`, `profiles`, `anchors`
 `native_working_copies`, `native_comment_trigger`, `embedded_editors`,
 `static_html_scripts`, and `executable_html_transition`.
 
-| Method | Endpoint | Contract |
-| --- | --- | --- |
-| GET | `/v1/artifacts/{artifact_id}/document` | Return the exact version's `DocumentManifest`: identity, profile, verified content URL, allowed anchors, native-open/editor availability, renditions, and provenance. |
-| GET | `/v1/artifacts/{artifact_id}/document/content` | Serve exact bytes. Static HTML carries a sandboxed deny-by-default CSP. |
-| GET | `/v1/artifacts/{artifact_id}/reviews` | Return the durable latest projection of reviews for the logical artifact chain. |
-| POST | `/v1/sessions/{sid}/artifact-reviews` | Validate `artifact_id`, `expected_version`, and `expected_sha256`; reject a stale head with `409 stale_artifact_anchor`; idempotently persist and immediately continue the agent with an `artifact_review` part. |
-| POST | `/v1/artifacts/{artifact_id}/renditions?session_id=...` | Create a real derived PDF artifact or return an explicit unavailable/failure error. |
-| POST | `/v1/artifacts/{artifact_id}/working-copies` | Materialize a confined copy with a single writable lease. Stable saves mint immutable revisions; stale heads become explicit conflicts. |
-| GET/DELETE | `/v1/document-working-copies/{id}` | Read or close a working-copy lease. |
-| POST | `/v1/document-working-copies/{id}/conflict` | Resolve with `keep-current` or `use-working-copy` against an expected head. |
-| GET | `/v1/document-editors/health` | Report configured and reachable ONLYOFFICE/Collabora endpoints. |
-| POST | `/v1/document-working-copies/{id}/editor-sessions` | Issue a short-lived token scoped to one working copy and provider. |
+| Method     | Endpoint                                                | Contract                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET        | `/v1/artifacts/{artifact_id}/document`                  | Return the exact version's `DocumentManifest`: identity, profile, verified content URL, allowed anchors, native-open/editor availability, renditions, and provenance.                                            |
+| GET        | `/v1/artifacts/{artifact_id}/document/content`          | Serve exact bytes. Static HTML carries a sandboxed deny-by-default CSP.                                                                                                                                          |
+| GET        | `/v1/artifacts/{artifact_id}/reviews`                   | Return the durable latest projection of reviews for the logical artifact chain.                                                                                                                                  |
+| POST       | `/v1/sessions/{sid}/artifact-reviews`                   | Validate `artifact_id`, `expected_version`, and `expected_sha256`; reject a stale head with `409 stale_artifact_anchor`; idempotently persist and immediately continue the agent with an `artifact_review` part. |
+| POST       | `/v1/artifacts/{artifact_id}/renditions?session_id=...` | Create a real derived PDF artifact or return an explicit unavailable/failure error.                                                                                                                              |
+| POST       | `/v1/artifacts/{artifact_id}/working-copies`            | Materialize a confined copy with a single writable lease. Stable saves mint immutable revisions; stale heads become explicit conflicts.                                                                          |
+| GET/DELETE | `/v1/document-working-copies/{id}`                      | Read or close a working-copy lease.                                                                                                                                                                              |
+| POST       | `/v1/document-working-copies/{id}/conflict`             | Resolve with `keep-current` or `use-working-copy` against an expected head.                                                                                                                                      |
+| GET        | `/v1/document-editors/health`                           | Report configured and reachable ONLYOFFICE/Collabora endpoints.                                                                                                                                                  |
+| POST       | `/v1/document-working-copies/{id}/editor-sessions`      | Issue a short-lived token scoped to one working copy and provider.                                                                                                                                               |
 
 `artifact_review` is a user part:
 
@@ -2286,52 +2349,51 @@ publishes on `GET /v1/sessions/{id}/events`. The message-streaming core
 (`server.*`, `session.status_changed`, `message.*`) matches the v0.1
 sketch; the rest reflect clio's resource model.
 
-| Type | When emitted | Payload |
-|---|---|---|
-| `server.connected` | On stream open (id 0, preamble) | `{server_version}` |
-| `server.heartbeat` | ≥ every 15s per attached connection; TRANSIENT (never replayed, §7.1) | `{}` |
-| `session.snapshot` | Right after `server.connected` (id 0, preamble) | `{session_id, status, updated_at, authoritative: true}` |
-| `session.status_changed` | status transition | `{session_id, status, prev_status?, updated_at, reason?, pending_user_question_id?}`; on `/cancel` additionally `{execution_cancellation: "cooperative_pending"\|"none"\|"turn_boundary"\|"best_effort", executor_work_may_continue, cancellation_attempt}`. **No `session.cancelled` event type exists** |
-| `session.updated` | PATCH `/v1/sessions/{id}` and after undo/rewind (only) | payload IS the **full Session object** (model_dump; zero-values present) |
-| `session.compacted` | `/compact` succeeded (§6.25) | `{event_id, archived_count, summary_chars, summary_message_id, version: 1}` plus an additive `trigger` (`"manual"` \| `"auto"`) |
-| `session.cleared` | `/clear` backend command wiped the ledger (policy-guarded) | `{session_id}` |
-| `session.undo` / `session.rewind` | rollback committed (§6.2) — after per-message `message.deleted`, before `session.updated` | `{session_id, deleted_message_ids, target_message_id, include_target}` (`target_message_id: ""` / `include_target: false` for undo) |
-| `message.created` | new message frame (user msg, streamed assistant frame, finalize assistant frame, tool-observer frame) | payload IS the **flat wire Message** (`Message.to_wire()`) — **NOT** `{message: Message}`. Assistant frames arrive with `parts: []` and a `turn_id`. No `role: "tool"` messages are emitted (tool results are `tool_result` parts on the assistant message) |
-| `message.part.added` | new part appended | `{turn_id, message_id, stream_source: "live"\|"batch", part}` |
-| `message.part.updated` | an existing part REPLACED in place by `part.id` (clean delegation wire: the terminal `expert_handoff` updates the started part — same id/sequence, metadata carrying both `question` and `output`) | `{turn_id, message_id, stream_source, part}` (same shape as `part.added`) |
-| `message.part.delta` | streaming part delta | `{turn_id, message_id, part_id, stream_source: "live", signature_field_name, delta: {text_append}}` — thinking parts ALSO use `text_append` (§7.5) |
-| `message.part.completed` | part finalized | `{turn_id, message_id, part_id, stream_source, final_text, stream_fallback?}` — **`final_text` is authoritative**: clients MUST replace buffered deltas with it. A streamed part whose text cleans to empty is dropped and never receives `part.completed` |
-| `message.completed` | turn settled | `{turn_id, message_id, stop_reason: end_turn\|error\|cancelled\|blocked, tokens, cost_usd, error_info?, metadata?}` — exactly one per turn EXCEPT the ask-user pause (none, §6.23). Turn failures surface as `error_info` here + `session.status_changed(error)`; there is no `message.error` event |
-| `message.deleted` | message removed | `{message_id, session_id, operation?}` (`operation` = `undo`\|`rewind` on rollback) |
-| `tool.call.started` | tool exec start | `{call_id, tool, args, telemetry_source}` (key is `tool`, not `tool_name`) |
-| `tool.call.completed` | tool exec finish | `{call_id, tool, ok, duration_ms, cached, telemetry_source, error?, result? (bounded), execution_cancellation?, executor_work_may_continue?}` (key is `ok`, not `is_error`) |
-| `tool.selection.invalid` | router picked an unavailable tool | vendor |
-| `permission.requested` | interactive gate blocked (§6.11) | payload IS the **flat PermissionRequest row** (§4.7) — NOT `{permission: ...}`. Replayed copies may show post-resolution `status`/`action` (the payload is mutated by reference) |
-| `permission.resolved` | resolution (user or auto) | `{permission_id, action, session_id, reason?}` — arrives WITHOUT a matching `requested` event for all auto/direct resolutions |
-| `subagent.started` / `subagent.completed` | subsession lifecycle | §4.3 |
-| `turn.started` / `turn.completed` | dual-namespace turn lifecycle (§7.3c) | `{turn_id, agent_id}` / `{turn_id}`. **`turn.failed` is NOT a bus event** (semantic.event only, §7.6) |
-| `state.updated` | turn state change (dual-namespace lifecycle, §7.3c) | `{turn_id, value, visibility: "hidden"}` |
-| `turn.retry_requested` / `turn.retry_running` / `turn.retry_completed` / `turn.retry_failed` / `turn.retry_cancelled` | retry lifecycle (§6.24) | full TurnAttempt (flat) |
-| `context.file.added` / `context.file.removed` | session context files (§6.9) | — |
-| `file.diff.applied` / `file.diff.rejected` | diff apply lifecycle (§6.10) | `{session_id, path, part_id, message_id}` |
-| `file.diff.write_failed` | diff write failed (§6.10) | `{session_id, path, part_id, message_id, error}` |
-| `memory.search.completed` | memory search served | vendor |
-| `memory_search_sessions.completed` / `.denied`, `memory_read_session_summary.completed` / `.denied`, `memory_read_context_frame.completed` / `.denied` | memory-tool audit events (§6.19 tools) | vendor |
-| `arc.op` | context mutations (allow-listed ids/kinds/token_count only) | vendor |
-| `agent.reasoning.delta` | throttled (≥1 s) liveness ping while the model reasons | `{stream_source: "reasoning"}` — carries NO text; vendor |
-| `lm.provider.changed` / `lm.provider.failed` | `/v1/providers/lm` config result | global (`session_id: ""`, broadcast to all streams) |
-| `mcp.server.error` / `mcp.server.reconnected` | MCP server health transitions | global (`session_id: ""`, broadcast to all streams) |
-| `mcp_task.updated` / `.completed` / `.failed` / `.cancelled` | durable MCP/relay task record (SEP-2663, #1115) WRITE **or** REMOVAL — `.completed`/`.failed`/`.cancelled` on the matching terminal status, `.updated` otherwise (lease/ledger/non-terminal-status changes). Fires on every store `put` (a status/lease/ledger change, including the write that first records a terminal status) AND, separately, on every `drop` (the record leaving the store — an explicit user dismiss, `run_registry.dismiss_run`; a settled record is RETAINED with its terminal status until then, never auto-dropped at settle, clio-agent#1205 2nd round). A settled-then-dismissed task therefore emits its terminal type TWICE, once from each write: the `put` that recorded the terminal status, and the later `drop` that removed the row — both carry the record's full final state, so the second is a harmless, idempotent repeat rather than new information. | full TaskRecord wire projection: `{key: {server_id, session_id, task_id}, tool, backend, status, created_at, updated_at, input_answers, lease_owner, lease_expires_at, cancel_requested, holding_reason}`; published to the OWNING session's channel (clio-agent#1205) |
-| `user_question.created` / `.answered` / `.cancelled` / `.resumed` | ask-user lifecycle (§6.23) | full UserQuestion; `.resumed` = `{question_id, session_id, queued_user_message_id, source_turn_id}` |
-| `semantic.event` | the semantic-execution spine | §7.6 (vendor; `x_clio_semantic_events`) |
+| Type                                                                                                                                     | When emitted                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Payload                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server.connected`                                                                                                                       | On stream open (id 0, preamble)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `{server_version}`                                                                                                                                                                                                                                                                                        |
+| `server.heartbeat`                                                                                                                       | ≥ every 15s per attached connection; TRANSIENT (never replayed, §7.1)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `{}`                                                                                                                                                                                                                                                                                                      |
+| `session.snapshot`                                                                                                                       | Right after `server.connected` (id 0, preamble)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `{session_id, status, updated_at, authoritative: true}`                                                                                                                                                                                                                                                   |
+| `session.status_changed`                                                                                                                 | status transition                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `{session_id, status, prev_status?, updated_at, reason?, pending_user_question_id?}`; on `/cancel` additionally `{execution_cancellation: "cooperative_pending"\|"none"\|"turn_boundary"\|"best_effort", executor_work_may_continue, cancellation_attempt}`. **No `session.cancelled` event type exists** |
+| `session.updated`                                                                                                                        | PATCH `/v1/sessions/{id}` and after undo/rewind (only)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | payload IS the **full Session object** (model_dump; zero-values present)                                                                                                                                                                                                                                  |
+| `session.compacted`                                                                                                                      | `/compact` succeeded (§6.25)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `{event_id, archived_count, summary_chars, summary_message_id, version: 1}` plus an additive `trigger` (`"manual"` \| `"auto"`)                                                                                                                                                                           |
+| `session.cleared`                                                                                                                        | `/clear` backend command wiped the ledger (policy-guarded)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `{session_id}`                                                                                                                                                                                                                                                                                            |
+| `session.undo` / `session.rewind`                                                                                                        | rollback committed (§6.2) — after per-message `message.deleted`, before `session.updated`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `{session_id, deleted_message_ids, target_message_id, include_target}` (`target_message_id: ""` / `include_target: false` for undo)                                                                                                                                                                       |
+| `message.created`                                                                                                                        | new message frame (user msg, streamed assistant frame, finalize assistant frame, tool-observer frame)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | payload IS the **flat wire Message** (`Message.to_wire()`) — **NOT** `{message: Message}`. Assistant frames arrive with `parts: []` and a `turn_id`. No `role: "tool"` messages are emitted (tool results are `tool_result` parts on the assistant message)                                               |
+| `message.part.added`                                                                                                                     | new part appended                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `{turn_id, message_id, stream_source: "live"\|"batch", part}`                                                                                                                                                                                                                                             |
+| `message.part.updated`                                                                                                                   | an existing part REPLACED in place by `part.id` (clean delegation wire: the terminal `expert_handoff` updates the started part — same id/sequence, metadata carrying both `question` and `output`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | `{turn_id, message_id, stream_source, part}` (same shape as `part.added`)                                                                                                                                                                                                                                 |
+| `message.part.delta`                                                                                                                     | streaming part delta                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `{turn_id, message_id, part_id, stream_source: "live", signature_field_name, delta: {text_append}}` — thinking parts ALSO use `text_append` (§7.5)                                                                                                                                                        |
+| `message.part.completed`                                                                                                                 | part finalized                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `{turn_id, message_id, part_id, stream_source, final_text, stream_fallback?}` — **`final_text` is authoritative**: clients MUST replace buffered deltas with it. A streamed part whose text cleans to empty is dropped and never receives `part.completed`                                                |
+| `message.completed`                                                                                                                      | turn settled                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `{turn_id, message_id, stop_reason: end_turn\|error\|cancelled\|blocked, tokens, cost_usd, error_info?, metadata?}` — exactly one per turn EXCEPT the ask-user pause (none, §6.23). Turn failures surface as `error_info` here + `session.status_changed(error)`; there is no `message.error` event       |
+| `message.deleted`                                                                                                                        | message removed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `{message_id, session_id, operation?}` (`operation` = `undo`\|`rewind` on rollback)                                                                                                                                                                                                                       |
+| `tool.call.started`                                                                                                                      | tool exec start                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `{call_id, tool, args, telemetry_source}` (key is `tool`, not `tool_name`)                                                                                                                                                                                                                                |
+| `tool.call.completed`                                                                                                                    | tool exec finish                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `{call_id, tool, ok, duration_ms, cached, telemetry_source, error?, result? (bounded), execution_cancellation?, executor_work_may_continue?}` (key is `ok`, not `is_error`)                                                                                                                               |
+| `tool.selection.invalid`                                                                                                                 | router picked an unavailable tool                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | vendor                                                                                                                                                                                                                                                                                                    |
+| `permission.requested`                                                                                                                   | interactive gate blocked (§6.11)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | payload IS the **flat PermissionRequest row** (§4.7) — NOT `{permission: ...}`. Replayed copies may show post-resolution `status`/`action` (the payload is mutated by reference)                                                                                                                          |
+| `permission.resolved`                                                                                                                    | resolution (user or auto)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `{permission_id, action, session_id, reason?}` — arrives WITHOUT a matching `requested` event for all auto/direct resolutions                                                                                                                                                                             |
+| `subagent.started` / `subagent.completed`                                                                                                | subsession lifecycle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | §4.3                                                                                                                                                                                                                                                                                                      |
+| `turn.started` / `turn.completed`                                                                                                        | dual-namespace turn lifecycle (§7.3c)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `{turn_id, agent_id}` / `{turn_id}`. **`turn.failed` is NOT a bus event** (semantic.event only, §7.6)                                                                                                                                                                                                     |
+| `state.updated`                                                                                                                          | turn state change (dual-namespace lifecycle, §7.3c)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `{turn_id, value, visibility: "hidden"}`                                                                                                                                                                                                                                                                  |
+| `turn.retry_requested` / `turn.retry_running` / `turn.retry_completed` / `turn.retry_failed` / `turn.retry_cancelled`                    | retry lifecycle (§6.24)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | full TurnAttempt (flat)                                                                                                                                                                                                                                                                                   |
+| `context.file.added` / `context.file.removed`                                                                                            | session context files (§6.9)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                                                                                                                                                                                         |
+| `file.diff.applied` / `file.diff.rejected`                                                                                               | diff apply lifecycle (§6.10)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `{session_id, path, part_id, message_id}`                                                                                                                                                                                                                                                                 |
+| `file.diff.write_failed`                                                                                                                 | diff write failed (§6.10)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `{session_id, path, part_id, message_id, error}`                                                                                                                                                                                                                                                          |
+| `memory.search.completed`                                                                                                                | memory search served                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | vendor                                                                                                                                                                                                                                                                                                    |
+| `session_search.completed` / `.denied`, `session_read_summary.completed` / `.denied`, `session_read_context_frame.completed` / `.denied` | memory-tool audit events (§6.19 tools)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | vendor                                                                                                                                                                                                                                                                                                    |
+| `arc.op`                                                                                                                                 | context mutations (allow-listed ids/kinds/token_count only)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | vendor                                                                                                                                                                                                                                                                                                    |
+| `agent.reasoning.delta`                                                                                                                  | throttled (≥1 s) liveness ping while the model reasons                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `{stream_source: "reasoning"}` — carries NO text; vendor                                                                                                                                                                                                                                                  |
+| `lm.provider.changed` / `lm.provider.failed`                                                                                             | `/v1/providers/lm` config result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | global (`session_id: ""`, broadcast to all streams)                                                                                                                                                                                                                                                       |
+| `mcp.server.error` / `mcp.server.reconnected`                                                                                            | MCP server health transitions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | global (`session_id: ""`, broadcast to all streams)                                                                                                                                                                                                                                                       |
+| `mcp_task.updated` / `.completed` / `.failed` / `.cancelled`                                                                             | durable MCP/relay task record (SEP-2663, #1115) WRITE **or** REMOVAL — `.completed`/`.failed`/`.cancelled` on the matching terminal status, `.updated` otherwise (lease/ledger/non-terminal-status changes). Fires on every store `put` (a status/lease/ledger change, including the write that first records a terminal status) AND, separately, on every `drop` (the record leaving the store — an explicit user dismiss, `run_registry.dismiss_run`; a settled record is RETAINED with its terminal status until then, never auto-dropped at settle, clio-agent#1205 2nd round). A settled-then-dismissed task therefore emits its terminal type TWICE, once from each write: the `put` that recorded the terminal status, and the later `drop` that removed the row — both carry the record's full final state, so the second is a harmless, idempotent repeat rather than new information. | full TaskRecord wire projection: `{key: {server_id, session_id, task_id}, tool, backend, status, created_at, updated_at, input_answers, lease_owner, lease_expires_at, cancel_requested, holding_reason}`; published to the OWNING session's channel (clio-agent#1205)                                    |
+| `user_question.created` / `.answered` / `.cancelled` / `.resumed`                                                                        | ask-user lifecycle (§6.23)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | full UserQuestion; `.resumed` = `{question_id, session_id, queued_user_message_id, source_turn_id}`                                                                                                                                                                                                       |
+| `semantic.event`                                                                                                                         | the semantic-execution spine                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | §7.6 (vendor; `x_clio_semantic_events`)                                                                                                                                                                                                                                                                   |
 
 Removed from this table vs earlier drafts because clio does **not**
 publish them on the bus (they are read via REST or ride
 `semantic.event` / synthetic system `message.created` frames):
 `tool.started`, `agent.invocation.started/completed`,
 `context.frame.created/completed`, `memory.compacted`,
-`memory.policy_summary`, `session.active_pack`,
-`session.active_agent_blueprint`.
+`memory.policy_summary`.
 
 There is no `file.diff.proposed` event — a diff proposal arrives as a
 batch `message.part.added` (`file_diff` part) plus a `semantic.event`
@@ -2347,7 +2409,7 @@ lines_added, lines_removed}`.
 
 #### §7.3c Normalized transcript channel — RETIRED (clio e921eec)
 
-The normalized channel's four *content* twins — `turn.text.delta`,
+The normalized channel's four _content_ twins — `turn.text.delta`,
 `turn.trace.delta`, `turn.action.added`, and `call.result.delta` — were
 **retired in clio `e921eec` (iowarp/clio-agent#833)** and are no longer
 emitted on the bus. They were a provisional double-publish alongside
@@ -2357,7 +2419,7 @@ store, or Go code ever read them). `message.part.*` (+
 vocabulary** (§7.3a, §7.4). Clients MUST NOT declare or depend on the
 retired types.
 
-The three *lifecycle* events `turn.started` / `turn.completed` /
+The three _lifecycle_ events `turn.started` / `turn.completed` /
 `state.updated` **remain** as dual-namespace lifecycle events —
 conservatively kept server-side because their semantic twins feed ARC.
 They carry `{turn_id, agent_id}` / `{turn_id}` / `{turn_id, value,
@@ -2370,26 +2432,26 @@ surface for other backends, but the reference backend does **NOT** emit
 them today. A client driving clio must not wait on them. Where clio
 offers an alternative, it is noted.
 
-| Type | Status against clio | Alternative |
-|---|---|---|
-| `server.disposed` | not emitted | — |
-| `workspace.updated` | not emitted | — |
-| `session.created` | not emitted | discover via REST list |
-| `session.deleted` | **not emitted — PROPOSED addition** (owner decision on iowarp/gact-tui#232: to be added as a broadcast `{session_id, workspace_id}`; tracked as a clio issue). Until then, session deletion by another client is unobservable | REST list refetch (unreliable — lists are workspace+archive filtered) |
-| `session.summarized` | not emitted | `session.compacted` (§6.25) |
-| `message.error` | not emitted | `message.completed.error_info` (§14) + `session.status_changed(error)` |
-| `tool.call.progress` | not emitted | — |
-| `mcp.server.status` / `mcp.tools.list_changed` / `mcp.prompts.list_changed` / `mcp.resources.list_changed` / `mcp.resources.updated` / `mcp.log` | not emitted (but see `mcp.server.error`/`mcp.server.reconnected`, §7.3a). Concrete names per the MCP notification mapping (§9.2) | poll `/v1/mcp/servers` |
-| `file.changed` | not emitted | — |
-| `diff.generated` | not emitted | `file.diff.*` cover apply/reject; proposal = batch `message.part.added` + semantic `artifact.proposed` |
-| `cost.updated` | not emitted | rollups arrive on `message.completed` |
-| `notification` | not emitted | — |
-| `turn.failed` | not emitted as a plain bus event | `semantic.event` with `status: "failed"` (§7.6) |
-| `session.agent_routed` (v0.2) | **not emitted** | `routing_decision` part (§4.5) + `agent.invocation.*` semantic events (§7.6) |
-| `user_question.expired` | **not emitted by clio** (expiry is inert — §15.7.7) — but **the emulator emits it** (`emulator/internal/server/handlers_user_questions.go`) and the web keeps a live listener | — |
-| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**, and no client carries typed envelopes for them any more — the `apps/core/src/wire/events.ts` declarations went with the `wire/Live*` dispatch stack that was deleted as a zero-consumer island (gact-tui#365) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
-| `memory.cache.updated` (v0.2) | **not emitted** | poll `/v1/memory/stats` |
-| `integration.status_changed` (v0.2) | **not emitted** | poll `/v1/health` |
+| Type                                                                                                                                             | Status against clio                                                                                                                                                                                                                                 | Alternative                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `server.disposed`                                                                                                                                | not emitted                                                                                                                                                                                                                                         | —                                                                                                      |
+| `workspace.updated`                                                                                                                              | not emitted                                                                                                                                                                                                                                         | —                                                                                                      |
+| `session.created`                                                                                                                                | not emitted                                                                                                                                                                                                                                         | discover via REST list                                                                                 |
+| `session.deleted`                                                                                                                                | **not emitted — PROPOSED addition** (owner decision on iowarp/gact-tui#232: to be added as a broadcast `{session_id, workspace_id}`; tracked as a clio issue). Until then, session deletion by another client is unobservable                       | REST list refetch (unreliable — lists are workspace+archive filtered)                                  |
+| `session.summarized`                                                                                                                             | not emitted                                                                                                                                                                                                                                         | `session.compacted` (§6.25)                                                                            |
+| `message.error`                                                                                                                                  | not emitted                                                                                                                                                                                                                                         | `message.completed.error_info` (§14) + `session.status_changed(error)`                                 |
+| `tool.call.progress`                                                                                                                             | not emitted                                                                                                                                                                                                                                         | —                                                                                                      |
+| `mcp.server.status` / `mcp.tools.list_changed` / `mcp.prompts.list_changed` / `mcp.resources.list_changed` / `mcp.resources.updated` / `mcp.log` | not emitted (but see `mcp.server.error`/`mcp.server.reconnected`, §7.3a). Concrete names per the MCP notification mapping (§9.2)                                                                                                                    | poll `/v1/mcp/servers`                                                                                 |
+| `file.changed`                                                                                                                                   | not emitted                                                                                                                                                                                                                                         | —                                                                                                      |
+| `diff.generated`                                                                                                                                 | not emitted                                                                                                                                                                                                                                         | `file.diff.*` cover apply/reject; proposal = batch `message.part.added` + semantic `artifact.proposed` |
+| `cost.updated`                                                                                                                                   | not emitted                                                                                                                                                                                                                                         | rollups arrive on `message.completed`                                                                  |
+| `notification`                                                                                                                                   | not emitted                                                                                                                                                                                                                                         | —                                                                                                      |
+| `turn.failed`                                                                                                                                    | not emitted as a plain bus event                                                                                                                                                                                                                    | `semantic.event` with `status: "failed"` (§7.6)                                                        |
+| `session.agent_routed` (v0.2)                                                                                                                    | **not emitted**                                                                                                                                                                                                                                     | `routing_decision` part (§4.5) + `agent.invocation.*` semantic events (§7.6)                           |
+| `user_question.expired`                                                                                                                          | **not emitted by clio** (expiry is inert — §15.7.7) — but **the emulator emits it** (`emulator/internal/server/handlers_user_questions.go`) and the web keeps a live listener                                                                       | —                                                                                                      |
+| `context.frame.created` / `context.frame.completed`                                                                                              | **not emitted by any backend today**, and no client carries typed envelopes for them any more — the `apps/core/src/wire/events.ts` declarations went with the `wire/Live*` dispatch stack that was deleted as a zero-consumer island (gact-tui#365) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6)                                         |
+| `memory.cache.updated` (v0.2)                                                                                                                    | **not emitted**                                                                                                                                                                                                                                     | poll `/v1/memory/stats`                                                                                |
+| `integration.status_changed` (v0.2)                                                                                                              | **not emitted**                                                                                                                                                                                                                                     | poll `/v1/health`                                                                                      |
 
 ### §7.4 Streaming a message
 
@@ -2456,12 +2518,12 @@ Empty-output turns settle as `error_info.error: "empty_response"`.
 
 ### §7.5 Delta shapes
 
-| Part type | Delta keys (clio) |
-|---|---|
-| `text` | `text_append: string` |
-| `thinking` | `text_append: string` — clio streams thinking parts with `text_append`, NOT `thinking_append` |
-| `tool_call` | never streamed by clio — `tool_call` parts arrive complete via `part.added` |
-| Other | backend-defined; clients tolerate unknown delta shapes |
+| Part type   | Delta keys (clio)                                                                             |
+| ----------- | --------------------------------------------------------------------------------------------- |
+| `text`      | `text_append: string`                                                                         |
+| `thinking`  | `text_append: string` — clio streams thinking parts with `text_append`, NOT `thinking_append` |
+| `tool_call` | never streamed by clio — `tool_call` parts arrive complete via `part.added`                   |
+| Other       | backend-defined; clients tolerate unknown delta shapes                                        |
 
 `thinking_append` and `input_json_append` are **never emitted by
 clio**; they remain valid delta keys for other backends only. Delta
@@ -2486,16 +2548,21 @@ Envelope (clio `semantic_events.py:SemanticEvent.to_dict`):
 {
   "schema_version": "clio.semantic_event.v1",
   "event_id": "sem_...",
-  "event_type": "turn.started",     // dotted vocabulary (see below)
+  "event_type": "turn.started", // dotted vocabulary (see below)
   "session_id": "sess_...",
   "workspace_id": "ws_...",
-  "trace_id": "...", "turn_id": "...", "span_id": "...", "parent_span_id": "",
-  "status": "completed",            // started | completed | failed | ...
+  "trace_id": "...",
+  "turn_id": "...",
+  "span_id": "...",
+  "parent_span_id": "",
+  "status": "completed", // started | completed | failed | ...
   "summary": "human-readable one-liner",
-  "actor": {}, "subject": {}, "blueprint": {}, "provider": {},
-  "payload": {},                    // redacted per detail level (see below)
+  "actor": {},
+  "subject": {},
+  "provider": {},
+  "payload": {}, // redacted per detail level (see below)
   "live_observed": true,
-  "detail_level": "semantic",       // off | metadata | semantic | full_debug
+  "detail_level": "semantic", // off | metadata | semantic | full_debug
   "occurred_at": "..."
 }
 ```
@@ -2504,7 +2571,7 @@ Envelope (clio `semantic_events.py:SemanticEvent.to_dict`):
 serves. Only these `event_type` values reach the SSE wire:
 `react.step.completed`, `expert.extract.completed`,
 `expert.response.completed`, `expert.lifecycle.started`,
-`(blueprint.)delegation.started` / `.completed` / `.parent_resumed` /
+`delegation.started` / `.completed` / `.parent_resumed` /
 `.failed`, `memory.search.completed`, **the artifact `created` family
 (`artifact.created` / `artifact.version.added` / `artifact.alias.moved`,
 vendor `x_clio_artifacts`, §6.26)**, **the grant/boundary family (B5 #979):
@@ -2578,7 +2645,7 @@ reference backend (clio) publishes the type on the bus today (§7.3a);
 `spec-only` = valid spec surface that clio does not emit (§7.3b) but
 another backend (e.g. the emulator) or a forward-compat client may
 legitimately carry. The block is `§7.3a ∪ §7.3b` restricted to the
-concrete event *types* — the semantic-spine `event_type` vocabulary
+concrete event _types_ — the semantic-spine `event_type` vocabulary
 (§7.6) and the never-a-bus-type rows (`turn.failed`,
 `memory.cache.updated`, `integration.status_changed`) are deliberately
 absent. Custom `x.{vendor}.*` types (§8.4) are out of scope and exempt.
@@ -2607,12 +2674,12 @@ mcp_task.completed implemented
 mcp_task.failed implemented
 mcp_task.updated implemented
 memory.search.completed implemented
-memory_read_context_frame.completed implemented
-memory_read_context_frame.denied implemented
-memory_read_session_summary.completed implemented
-memory_read_session_summary.denied implemented
-memory_search_sessions.completed implemented
-memory_search_sessions.denied implemented
+session_read_context_frame.completed implemented
+session_read_context_frame.denied implemented
+session_read_summary.completed implemented
+session_read_summary.denied implemented
+session_search.completed implemented
+session_search.denied implemented
 message.completed implemented
 message.created implemented
 message.deleted implemented
@@ -2682,7 +2749,7 @@ wall-clock progress.
 
 ```ts
 interface GactV3Envelope {
-  protocol_version: "0.3";
+  protocol_version: '0.3';
   type: string;
   occurred_at: string;
   scope: {
@@ -2743,6 +2810,7 @@ session.upserted implemented
 stream.gap implemented
 stream.live implemented
 subagent.upserted implemented
+task.updated implemented
 tool.presentation.delta implemented
 tool.upserted implemented
 variant.closed implemented
@@ -2760,6 +2828,11 @@ run.upserted spec-only
 task.upserted spec-only
 workspace.upserted spec-only
 ```
+
+`task.updated` is a refresh hint for a durable task the receiving session owns, is an ancestor
+of, or subscribes to. Its payload is `{handle, kind, revision, owner_session_id}`, plus
+`invocation_id` for a native or external MCP tool task. It carries no output or description: the
+client re-reads the task through the task routes, which authorize again.
 
 The `compaction.*` events make a context compaction visible while it runs.
 Every payload carries `session_id`, `compaction_id`, `scope`,
@@ -2784,7 +2857,7 @@ known entity.
 #### Variant runs (Phase 9)
 
 A BestOfN / Refine run (the agent drafting alternatives, origin
-`draft_alternatives`, or a blueprint/subagent module run as variants, origin
+`draft_alternatives`, or a plugin agent or subagent module run as variants, origin
 `module_variant`) is projected as one run keyed by `variants_id`:
 
 - `variant.try.upserted` (entity `<variants_id>:<try_index>`) — a try started
@@ -2926,6 +2999,7 @@ fields are additive and never required for `messages` to be self-sufficient.
 Backends MAY expose endpoints under `/v1/ext/{vendor}/...` for features not covered by the spec. Example: `/v1/ext/charm/pubsub/...`. Clients ignore namespaces they don't understand.
 
 Vendors MUST:
+
 - Use a unique namespace (recommend a short DNS-safe name).
 - Document the namespace at a publicly fetchable URL listed in `capabilities.extensions[].docs`.
 
@@ -2946,12 +3020,14 @@ Custom SSE events SHOULD be namespaced: `x.{vendor}.{event}` (e.g. `x.charm.lsp_
 ### 8.5 Capability negotiation patterns
 
 The TUI:
+
 1. On connect, calls `GET /v1/capabilities`.
 2. Disables UI affordances for any feature with `capabilities.<feature> = false`.
 3. Subscribes to `GET /v1/sessions/{id}/events` per focused session (clio has no global stream — §7.1).
 4. Optionally calls `GET /v1/agents`, `GET /v1/tools`, `GET /v1/mcp/servers`, `GET /v1/commands` to populate menus.
 
 The backend:
+
 1. Returns `404` or `501` for endpoints corresponding to disabled capabilities.
 2. Uses event namespacing for vendor-specific events.
 3. Reports its `contract_version` honestly so older clients can refuse to connect to newer backends if they wish.
@@ -2988,7 +3064,7 @@ A2A's agent-card pattern can be exposed as an `/v1/ext/a2a/agent_card.json` for 
 
 The 10 questions raised during design review are decided here. Several are explicit "no, because X" decisions — those are still decisions, not deferrals.
 
-1. **Bulk message operations: NO.** Use `POST /v1/sessions/import` for bulk loads. One way to do it; the export/import round-trip covers backfill, migration, and snapshot use cases. *Trigger to revisit:* a real backend with high-frequency message ingestion (e.g. CI logs).
+1. **Bulk message operations: NO.** Use `POST /v1/sessions/import` for bulk loads. One way to do it; the export/import round-trip covers backfill, migration, and snapshot use cases. _Trigger to revisit:_ a real backend with high-frequency message ingestion (e.g. CI logs).
 
 2. **System messages: in the message stream as `role: "system"`.** Default included; suppressible via `?include_system=false`. Backends that store the system prompt only in session config simply never emit one. See §4.4.
 
@@ -2996,15 +3072,15 @@ The 10 questions raised during design review are decided here. Several are expli
 
 4. **Search: yes, `GET /v1/sessions/{id}/messages/search?q=...`** (§6.3). Gated by `capabilities.search_messages`. Simple full-text shape, returns matches with snippets. Backend ranks however it wants.
 
-5. **Multi-tenant / multi-user: out of v0.1.** The bearer-token auth scheme already permits adding `user_id` claims in tokens later, and tagging resources with `created_by` would be additive. *Trigger to revisit:* shared-service deployments where one backend serves multiple end users.
+5. **Multi-tenant / multi-user: out of v0.1.** The bearer-token auth scheme already permits adding `user_id` claims in tokens later, and tagging resources with `created_by` would be additive. _Trigger to revisit:_ shared-service deployments where one backend serves multiple end users.
 
-6. **gRPC transport: out of v0.1.** SSE is sufficient for TUI latency budgets (humans don't notice <50ms differences in chat). Maintaining dual stacks is real cost. *Trigger to revisit:* A2A inter-agent traffic where HTTP/2 multiplexing matters, or backends targeting hard real-time response budgets.
+6. **gRPC transport: out of v0.1.** SSE is sufficient for TUI latency budgets (humans don't notice <50ms differences in chat). Maintaining dual stacks is real cost. _Trigger to revisit:_ A2A inter-agent traffic where HTTP/2 multiplexing matters, or backends targeting hard real-time response budgets.
 
-7. **WebSocket events: out of v0.1.** Bidirectional WS gives no advantage over our REST-POST + SSE pairing for the TUI use case. *Trigger to revisit:* features needing client-pushed real-time events upstream (e.g. mouse-share for pair programming).
+7. **WebSocket events: out of v0.1.** Bidirectional WS gives no advantage over our REST-POST + SSE pairing for the TUI use case. _Trigger to revisit:_ features needing client-pushed real-time events upstream (e.g. mouse-share for pair programming).
 
-8. **Agent write API: yes** (§6.5). `POST/PUT/DELETE /v1/agents/{id}` gated by `capabilities.agent_write`. Goose-style recipes are a primary user-extension surface; without a write API the contract can't expose them.
+8. **Agent write API: yes** (§6.5). `POST/PUT/DELETE /v1/agents/{id}` gated by `capabilities.agent_write`. Goose-style recipes are a primary user-extension surface; without a write API the contract can't expose them. clio advertises `agent_write = false` and saves user agents through the plugin routes instead (§6.21).
 
-9. **Skills are agents** with `source: "skill"` (§6.5). Backends doing automated extraction from past sessions (Gemini-style) expose `POST /v1/agents/extract?session_id=...`, gated by `capabilities.skills_extraction`. No dedicated namespace — that would fragment the agent picker UI.
+9. **Skills are agents** with `source: "skill"` (§6.5). Backends doing automated extraction from past sessions (Gemini-style) expose `POST /v1/agents/extract?session_id=...`, gated by `capabilities.skills_extraction`. No dedicated namespace — that would fragment the agent picker UI. clio advertises `skills_extraction = false`; its skills come from plugins (§6.21).
 
 10. **Telemetry: yes, `GET /v1/metrics`** (§6.16). Standard counters (sessions, messages, tokens, cost, by-provider), gated by `capabilities.metrics`. Vendor-specific counters go under `x_<vendor>_<key>`.
 
@@ -3012,7 +3088,7 @@ The 10 questions raised during design review are decided here. Several are expli
 
 ## §14 Error Taxonomy (v0.2)
 
-v0.1 surfaces errors two ways: an `error` part type in a message's content stream (§4.5), and a global `error` response envelope (§6.0). Neither pins a shape for *categorising* errors — clients end up string-matching `message` fields to decide whether an error is retryable, the user's fault, or the platform's.
+v0.1 surfaces errors two ways: an `error` part type in a message's content stream (§4.5), and a global `error` response envelope (§6.0). Neither pins a shape for _categorising_ errors — clients end up string-matching `message` fields to decide whether an error is retryable, the user's fault, or the platform's.
 
 v0.2 adds a **typed error taxonomy** used by backends reporting `capabilities.structured_errors = true`. The same envelope flows through three surfaces:
 
@@ -3024,15 +3100,16 @@ v0.2 adds a **typed error taxonomy** used by backends reporting `capabilities.st
 
 ```json
 {
-  "error": "tool_error",                    // machine-readable type (see §14.2)
+  "error": "tool_error", // machine-readable type (see §14.2)
   "message": "Read of /tmp/x.h5 exceeded CLIO_MAX_FILE_SIZE_BYTES",
-  "details": {                              // free-form context — opaque to the TUI
+  "details": {
+    // free-form context — opaque to the TUI
     "tool": "hdf5_analyze",
     "call_id": "c_42",
     "file_policy": "outside_allowed_roots"
   },
-  "recoverable": true,                      // may the user retry meaningfully?
-  "retry_after_s": null                     // hint for auto-retry UI; null if unknown
+  "recoverable": true, // may the user retry meaningfully?
+  "retry_after_s": null // hint for auto-retry UI; null if unknown
 }
 ```
 
@@ -3048,38 +3125,38 @@ add vendor-specific types prefixed `x_<vendor>_`.
 
 **Tier A — HTTP response tags** (§6.0 envelope on 4xx/5xx):
 
-| `error` | HTTP | Meaning |
-|---|---|---|
-| `not_found` | 404 | Resource missing — **canonical** for all resource-missing 404s |
-| `validation_error` | 400/422 | Body/param failed validation |
-| `bad_request` | 400/409/422 | Malformed or state-invalid request (question routes, §6.23) |
-| `conflict` | 409 | State conflict (e.g. rollback while `running`) |
-| `permission_error` | 401/403 | Policy/scope rejected the request (incl. `details.scope: "other_workspace"`, direct-destructive `policy_deny`) |
-| `unsupported` | 405/501 | Method or model/vision capability not supported |
-| `not_implemented` | 501 | Endpoint recognised but not implemented |
-| `agent_not_available` | 503 | No agent built (`details.agent_status`, `details.recovery_actions[]`) |
-| `provider_configuring` | 503 | LM config in flight — retry after `/v1/providers/lm/wait` |
-| `arc_unavailable` / `compaction_unavailable` / `dependency_missing` / `upstream_unavailable` | 503 | Readiness family — a dependency is down |
-| `agent_unavailable` / `upstream_error` / `memory_update_failed` | 503/502/500 | `/compact` pipeline errors (§6.25) |
-| `internal_error` | 5xx (and legacy 404/422) | Unclassified failure. **Legacy**: many session-lookup 404s and a few 422s still emit this tag — clients must tolerate it where `not_found`/`validation_error` is meant (§6.0) |
-| `request_error` | any | Fallback wrapper for unclassified request failures |
+| `error`                                                                                      | HTTP                     | Meaning                                                                                                                                                                       |
+| -------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `not_found`                                                                                  | 404                      | Resource missing — **canonical** for all resource-missing 404s                                                                                                                |
+| `validation_error`                                                                           | 400/422                  | Body/param failed validation                                                                                                                                                  |
+| `bad_request`                                                                                | 400/409/422              | Malformed or state-invalid request (question routes, §6.23)                                                                                                                   |
+| `conflict`                                                                                   | 409                      | State conflict (e.g. rollback while `running`)                                                                                                                                |
+| `permission_error`                                                                           | 401/403                  | Policy/scope rejected the request (incl. `details.scope: "other_workspace"`, direct-destructive `policy_deny`)                                                                |
+| `unsupported`                                                                                | 405/501                  | Method or model/vision capability not supported                                                                                                                               |
+| `not_implemented`                                                                            | 501                      | Endpoint recognised but not implemented                                                                                                                                       |
+| `agent_not_available`                                                                        | 503                      | No agent built (`details.agent_status`, `details.recovery_actions[]`)                                                                                                         |
+| `provider_configuring`                                                                       | 503                      | LM config in flight — retry after `/v1/providers/lm/wait`                                                                                                                     |
+| `arc_unavailable` / `compaction_unavailable` / `dependency_missing` / `upstream_unavailable` | 503                      | Readiness family — a dependency is down                                                                                                                                       |
+| `agent_unavailable` / `upstream_error` / `memory_update_failed`                              | 503/502/500              | `/compact` pipeline errors (§6.25)                                                                                                                                            |
+| `internal_error`                                                                             | 5xx (and legacy 404/422) | Unclassified failure. **Legacy**: many session-lookup 404s and a few 422s still emit this tag — clients must tolerate it where `not_found`/`validation_error` is meant (§6.0) |
+| `request_error`                                                                              | any                      | Fallback wrapper for unclassified request failures                                                                                                                            |
 
 **Tier B — turn-settlement tags** (`message.error_info` /
 `message.completed.error_info`):
 
-| `error` | Meaning | TUI default rendering |
-|---|---|---|
-| `provider_error` | Upstream LM / model provider failed (timeout, auth, rate-limit). A refused sign-in carries `details.reason: "provider_auth_required"` + `details.provider_id` / `details.provider_label` (clio #1454) | Red toast, offer retry, surface provider name; for `provider_auth_required`, offer that provider's sign-in / check action |
-| `provider_timeout` | No-progress watchdog aborted a stalled turn (clio #761); partial streamed text kept; `recoverable: true` | Offer retry |
-| `finalize_error` | Finalize itself crashed; settled by the §7.4a invariant (`details.reason: "turn_finalize_error"`, `details.stage: "finalize"`); `recoverable: true` | Offer retry |
-| `empty_response` | Model produced no usable output | Offer retry |
-| `cancelled` | User cancelled (§6.2 `/cancel`); details carry `execution_cancellation`, `executor_work_may_continue`, `cancellation_attempt` | Silent; show the session settled `cancelled` |
-| `permission_error` | Pre-message hook veto (`stop_reason: "blocked"`) or gate denial killed the turn | Modal with what was blocked |
-| `tool_error` | Tool invocation returned an error dict or raised | Inline under the tool row, don't kill the turn |
-| `routing_error` | Tier-1 orchestrator (§4.3.1) couldn't classify the query | Transient warning; backend typically falls back gracefully |
-| `agent_error` | A tier-2 agent's loop failed | Red per-turn badge, keep session open |
-| `config_error` | Env/config invalid (missing API key, bad endpoint) | Route to Settings / `/v1/health` doctor view |
-| `rate_limited` | Soft-limit backoff, not a hard failure | Transient; auto-retry after `retry_after_s` (never emitted by clio today) |
+| `error`            | Meaning                                                                                                                                                                                               | TUI default rendering                                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `provider_error`   | Upstream LM / model provider failed (timeout, auth, rate-limit). A refused sign-in carries `details.reason: "provider_auth_required"` + `details.provider_id` / `details.provider_label` (clio #1454) | Red toast, offer retry, surface provider name; for `provider_auth_required`, offer that provider's sign-in / check action |
+| `provider_timeout` | No-progress watchdog aborted a stalled turn (clio #761); partial streamed text kept; `recoverable: true`                                                                                              | Offer retry                                                                                                               |
+| `finalize_error`   | Finalize itself crashed; settled by the §7.4a invariant (`details.reason: "turn_finalize_error"`, `details.stage: "finalize"`); `recoverable: true`                                                   | Offer retry                                                                                                               |
+| `empty_response`   | Model produced no usable output                                                                                                                                                                       | Offer retry                                                                                                               |
+| `cancelled`        | User cancelled (§6.2 `/cancel`); details carry `execution_cancellation`, `executor_work_may_continue`, `cancellation_attempt`                                                                         | Silent; show the session settled `cancelled`                                                                              |
+| `permission_error` | Pre-message hook veto (`stop_reason: "blocked"`) or gate denial killed the turn                                                                                                                       | Modal with what was blocked                                                                                               |
+| `tool_error`       | Tool invocation returned an error dict or raised                                                                                                                                                      | Inline under the tool row, don't kill the turn                                                                            |
+| `routing_error`    | Tier-1 orchestrator (§4.3.1) couldn't classify the query                                                                                                                                              | Transient warning; backend typically falls back gracefully                                                                |
+| `agent_error`      | A tier-2 agent's loop failed                                                                                                                                                                          | Red per-turn badge, keep session open                                                                                     |
+| `config_error`     | Env/config invalid (missing API key, bad endpoint)                                                                                                                                                    | Route to Settings / `/v1/health` doctor view                                                                              |
+| `rate_limited`     | Soft-limit backoff, not a hard failure                                                                                                                                                                | Transient; auto-retry after `retry_after_s` (never emitted by clio today)                                                 |
 
 **`details.recovery_actions[]` convention**: error `details` MAY carry
 a `recovery_actions: string[]` list of machine-readable next steps
@@ -3110,7 +3187,8 @@ A v0.1 backend leaves `error_info` null and emits a v0.1 `error` part (§4.5) wi
 
 A backend's conformance is defined by the capabilities it reports. We do not (yet) specify "levels" (e.g. minimal, standard, full). Rather, the TUI adapts to whatever capabilities are present.
 
-A *minimum useful* backend probably reports:
+A _minimum useful_ backend probably reports:
+
 - `workspaces` (even if a single implicit one)
 - `sessions`
 - `commands` (even if just built-in)
@@ -3131,6 +3209,7 @@ error envelope, sticky-grant persistence) are now **documented
 behavior above, not drift**.
 
 ### 15.1 Endpoints — present but renamed/reshaped vs v0.1 sketch
+
 - **SSE is session-scoped only**: `GET /v1/sessions/{id}/events`. The
   global `GET /v1/events` is **not implemented** (§7.1).
 - **Summarization is `/compact`**: `POST /v1/sessions/{id}/compact`
@@ -3145,13 +3224,14 @@ behavior above, not drift**.
 - **Error discriminator key is `error`** (the §14 tag), not `code` (§6.0).
 
 ### 15.2 Endpoints / params — specified but NOT implemented in clio
+
 - `GET /v1/events` (global stream) — §7.1
 - `POST /v1/sessions/{id}/summarize`, `POST /v1/sessions/{id}/attachments`
   — routes absent AND flags truthfully `false` (§3.3)
 - `GET /v1/sessions` pagination: `limit`/`before` still absent
   (sessions returned unbounded, newest-first) — §6.2. NOTE:
   `parent_session_id` (sessions) and `before`/`limit`/`include_system`
-  + `next_cursor` (`GET /messages`) are now honored by clio (§6.2, §6.4)
+  - `next_cursor` (`GET /messages`) are now honored by clio (§6.2, §6.4)
 - `PATCH /v1/sessions/{id}/context/files` — §6.9
 - `PATCH /v1/sessions/{id}/messages/{id}/parts/{id}` — §6.3
 - `GET /v1/permissions/{id}` — §6.11
@@ -3159,18 +3239,19 @@ behavior above, not drift**.
   `/resources/subscribe`, `/prompts/get` — §6.7
 
 ### 15.3 Endpoints — clio adds (vendor or minor, gated by `x_clio_*`)
+
 - Prompt registry `/v1/prompts*` (§6.20)
-- Agent blueprints `/v1/agent-blueprints*` + session blueprint/overlay (§6.21)
-- Expert packs `/v1/expert-packs*` + session pack (§6.22)
+- Agent plugins `/v1/plugins*`, plugin agents `/v1/agents*`, session agent `/v1/sessions/{id}/agent`, flow runs `/v1/sessions/{id}/tasks/{handle}/flow` (§6.21)
 - User questions `/v1/sessions/{id}/questions*` (§6.23)
 - Turn retry/attempts `/v1/sessions/{id}/attempts`, `.../retry` (§6.24)
 - Context frames/policy/state `/v1/sessions/{id}/context/frames*`, `/context/policy`, `/context/state`, `/context/compact` (§6.9)
-- Memory search/events/tools `/v1/memory/search`, `/v1/sessions/{id}/memory/*` (§6.19)
+- Memory search/events/tools `/v1/session-recall/search`, `/v1/sessions/{id}/memory/*` (§6.19)
 - Capability gaps `/v1/capability-gaps` (§3.3.1)
 - Scheduled sessions + sharing (§6.15, §6.15b)
 - `DELETE /v1/messages/{id}` session-less alias (§6.3)
 
 ### 15.4 Shape drift (implementation wins — now codified above)
+
 - `Session`: flattened `tokens_input`/`tokens_output`; boolean
   `archived`; adds `mode`/`edit_mode`/`routing_mode`; status enum adds
   `waiting_user`/`cancelled` (and `waiting_permission` is never
@@ -3185,7 +3266,7 @@ behavior above, not drift**.
 - `PermissionRequest`: thin row + lifecycle fields; no
   `subsession_id`/`call_id`/`server_id`/`annotations` (§4.7).
 - `AgentDef`: flat `default_provider`/`default_model`; `parameters` is an
-  object; adds many fields incl. `capability_refs`, `source:"expert_pack"`
+  object; adds many fields incl. `capability_refs`, `source:"plugin"`
   (§6.5).
 - Error body wraps `ErrorInfo` (`error`/`message`/`details`/`recoverable`/
   `retry_after_s` — the latter never emitted) (§6.0/§14).
@@ -3193,6 +3274,7 @@ behavior above, not drift**.
   does not exist (§6.2).
 
 ### 15.5 SSE events
+
 - Implemented set + exact payloads in §7.3a; specified-but-not-emitted
   in §7.3b. The provisional normalized `turn.*` content channel was
   **retired** in clio `e921eec` (#833) — `message.part.*` is the sole
@@ -3207,6 +3289,7 @@ behavior above, not drift**.
   story is the `semantic.event` spine (§7.6) plus polling for caps/health.
 
 ### 15.6 Capabilities envelope
+
 - Full implemented flag map in §3.3 (incl. all `x_clio_*` vendor
   flags); truthful in both directions since Phase 0.
 - `backend.version` is the installed package version (dynamic,
@@ -3216,6 +3299,7 @@ behavior above, not drift**.
 - `extensions = []`.
 
 ### 15.7 Known clio-side inconsistencies (documented as-is; clio issues)
+
 1. **Legacy `internal_error` on 404/422** in older session/permission
    routes while newer routes emit `not_found`/`bad_request`. Canonical
    target codified in §14.2; clients must tolerate both.
@@ -3247,6 +3331,7 @@ behavior above, not drift**.
     change (§6.2).
 
 ### 15.8 Conformance fixtures
+
 `contract/conformance/` asserts the v0.2 caps flags,
 `/v1/agents?tier=2`, `/v1/memory/stats`, integration health, and the
 structured-error envelope. The structured-error check accepts both
@@ -3315,7 +3400,7 @@ is structured, the wire therefore **legitimately** carries a **bare JSON body in
 `output`**, shown VERBATIM behind the return's `show more` disclosure. The client
 renders those bytes exactly and MUST NOT filter, summarize, or pretty-rewrite them —
 so `dropBareJsonSummary` and `isBareJsonBody` are not just dead, they would be
-**wrong to restore**: they would delete a legitimate answer. (Pretty-*printing* JSON
+**wrong to restore**: they would delete a legitimate answer. (Pretty-_printing_ JSON
 is a permissible render choice; the byte content in the data model must be preserved.)
 
 The last dedup went with them: `seenDelegation` (with `delegationKey` and
@@ -3329,24 +3414,24 @@ render path.
 
 The one surviving row is not a prose heuristic — it is a permanent structural drop:
 
-| Filter | Kind | Trigger vocabulary (what it keys on) | Why it exists | Deletion condition |
-| --- | --- | --- | --- | --- |
+| Filter              | Kind       | Trigger vocabulary (what it keys on)                                                                                                                                                             | Why it exists                                                                                                               | Deletion condition                                                                                                        |
+| ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `filterVisibleRows` | structural | a row with no renderable content: a `return` row with empty `output` AND no typed failure (no `error`, non-failed `status`), or an empty `text`/`reasoning` row that is not a live thinking host | Skips rows that would paint nothing; behaves IDENTICALLY live and reloaded (no streaming branch, no prose/shape predicates) | Not transitional — a permanent structural empty-row skip, keyed on emptiness + typed status alone, never on model wording |
 
 ### TUI client (`tui/internal/ui`)
 
-| Filter (stage) | Kind | Trigger vocabulary (what it keys on) | Why it exists | Deletion condition |
-| --- | --- | --- | --- | --- |
-| `normalizeMessageCompactionSummaries` | prose + format | a `text` part prefixed `[compact summary]` or carrying metadata `synthetic == "compact_summary"` | Recast an inline compaction summary as a typed compaction part | Server emits compaction as its own part type, never inline text — **met as of clio 2f892c1** (§4.5/§6.25); clio now ships a `compaction` part, so this stage is a no-op for clio. Deletion tracked in #233. |
-| `normalizeMessageAdapterSections` | format | a `text` part containing `[[ ## ` ChatAdapter section markers | Split adapter-formatted text back into typed parts | Server never ships raw ChatAdapter section markup in `text` |
-| `normalizeMessageExpertHandoffs` | structural | `expert_handoffs` metadata rows | Synthesize handoff parts/rows the stream did not carry as parts | Server emits handoffs as first-class parts |
-| `normalizeMessageReasoningLog` | structural | `reasoning_log` metadata rows | Materialize a reasoning log the stream carried only as metadata (the backend emits `metadata.reasoning_log` for reasoning-capable models with no backing part) | Server emits reasoning as `reasoning`/`thinking` parts |
-| `normalizeMessageErrorInfo` | structural | `error_info` metadata | Materialize structured error info as a part | Server emits errors via the §14 error envelope/parts |
-| `normalizeMessagePartialAnswerLabels` | structural | on an errored turn, `text` parts after an `error` part | Flag post-error text as `partial_after_error` so it renders as partial | Server labels partial answers at the source |
-| `normalizeMessageToolEvidence` | structural | `tools_called` / tool-evidence metadata | Materialize tool evidence rows from metadata | Server emits tool calls/results as parts |
-| `normalizeMessageRuntimeProvenance` | structural | runtime-provenance metadata | Summarize runtime provenance from metadata | Server emits provenance as a typed part or omits it |
-| `CleanProse` (`presentation/prose_filters.go`) | prose + format | leaked `[[ ## field ## ]]` section markers; whole-line status parentheticals (`initiat*`, `rout*`, `delegat*`, `dispatch*`, `await*`, `synthesi*`, `in progress`, `orchestrat*`, `invoking`, `preparing`, `continuing`, `resuming`, `finaliz*`, `coordinat*`, `gathering`, `querying`); inline `(in progress …)` / `(awaiting …)`; `(no user-facing answer yet …)`; a `… typed workflow state: { … }` caption + balanced JSON blob; retained-evidence markers; a leading `A -> B \| status \| stage \|` prefix | Byte-faithful Go port of the web's `stripClioScaffolding` + `stripStatusPrefix`; strips the same backend chrome from `text`/`thinking` prose so both clients render identically (a `command_result` synthetic part is routed around it, matching the web) | Server never emits status parentheticals, section markers, typed-state captions, or status-prefix heads in a `text`/`reasoning` part |
-| `executionPlaceholderAssistantText` | prose | text that `CleanProse` reduces ENTIRELY to empty (pure whole-line chrome), or a body normalizing to `no answer yet` | Detect a placeholder assistant row so it is not treated as a real answer — web parity: only fully-chrome rows are hidden, a row merely mentioning orchestration survives | Server withholds placeholder answer text |
+| Filter (stage)                                 | Kind           | Trigger vocabulary (what it keys on)                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Why it exists                                                                                                                                                                                                                                             | Deletion condition                                                                                                                                                                                          |
+| ---------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `normalizeMessageCompactionSummaries`          | prose + format | a `text` part prefixed `[compact summary]` or carrying metadata `synthetic == "compact_summary"`                                                                                                                                                                                                                                                                                                                                                                                                               | Recast an inline compaction summary as a typed compaction part                                                                                                                                                                                            | Server emits compaction as its own part type, never inline text — **met as of clio 2f892c1** (§4.5/§6.25); clio now ships a `compaction` part, so this stage is a no-op for clio. Deletion tracked in #233. |
+| `normalizeMessageAdapterSections`              | format         | a `text` part containing `[[ ## ` ChatAdapter section markers                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Split adapter-formatted text back into typed parts                                                                                                                                                                                                        | Server never ships raw ChatAdapter section markup in `text`                                                                                                                                                 |
+| `normalizeMessageExpertHandoffs`               | structural     | `expert_handoffs` metadata rows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Synthesize handoff parts/rows the stream did not carry as parts                                                                                                                                                                                           | Server emits handoffs as first-class parts                                                                                                                                                                  |
+| `normalizeMessageReasoningLog`                 | structural     | `reasoning_log` metadata rows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Materialize a reasoning log the stream carried only as metadata (the backend emits `metadata.reasoning_log` for reasoning-capable models with no backing part)                                                                                            | Server emits reasoning as `reasoning`/`thinking` parts                                                                                                                                                      |
+| `normalizeMessageErrorInfo`                    | structural     | `error_info` metadata                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Materialize structured error info as a part                                                                                                                                                                                                               | Server emits errors via the §14 error envelope/parts                                                                                                                                                        |
+| `normalizeMessagePartialAnswerLabels`          | structural     | on an errored turn, `text` parts after an `error` part                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Flag post-error text as `partial_after_error` so it renders as partial                                                                                                                                                                                    | Server labels partial answers at the source                                                                                                                                                                 |
+| `normalizeMessageToolEvidence`                 | structural     | `tools_called` / tool-evidence metadata                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Materialize tool evidence rows from metadata                                                                                                                                                                                                              | Server emits tool calls/results as parts                                                                                                                                                                    |
+| `normalizeMessageRuntimeProvenance`            | structural     | runtime-provenance metadata                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Summarize runtime provenance from metadata                                                                                                                                                                                                                | Server emits provenance as a typed part or omits it                                                                                                                                                         |
+| `CleanProse` (`presentation/prose_filters.go`) | prose + format | leaked `[[ ## field ## ]]` section markers; whole-line status parentheticals (`initiat*`, `rout*`, `delegat*`, `dispatch*`, `await*`, `synthesi*`, `in progress`, `orchestrat*`, `invoking`, `preparing`, `continuing`, `resuming`, `finaliz*`, `coordinat*`, `gathering`, `querying`); inline `(in progress …)` / `(awaiting …)`; `(no user-facing answer yet …)`; a `… typed workflow state: { … }` caption + balanced JSON blob; retained-evidence markers; a leading `A -> B \| status \| stage \|` prefix | Byte-faithful Go port of the web's `stripClioScaffolding` + `stripStatusPrefix`; strips the same backend chrome from `text`/`thinking` prose so both clients render identically (a `command_result` synthetic part is routed around it, matching the web) | Server never emits status parentheticals, section markers, typed-state captions, or status-prefix heads in a `text`/`reasoning` part                                                                        |
+| `executionPlaceholderAssistantText`            | prose          | text that `CleanProse` reduces ENTIRELY to empty (pure whole-line chrome), or a body normalizing to `no answer yet`                                                                                                                                                                                                                                                                                                                                                                                            | Detect a placeholder assistant row so it is not treated as a real answer — web parity: only fully-chrome rows are hidden, a row merely mentioning orchestration survives                                                                                  | Server withholds placeholder answer text                                                                                                                                                                    |
 
 Most TUI stages are **structural** (metadata-keyed synthesizers that reconstruct
 parts the stream carried only as message metadata) rather than prose heuristics;
@@ -3360,4 +3445,4 @@ surviving `filterVisibleRows` keys on row emptiness alone, never on model wordin
 
 ---
 
-*End of GACT v0.2 spec.*
+_End of GACT v0.2 spec._

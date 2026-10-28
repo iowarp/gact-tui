@@ -32,6 +32,7 @@ import {
 import { ComposerSubmitControls } from './composer-submit-controls';
 import { composerDelivery } from '@/hooks/use-composer-delivery';
 import { ClioModelPicker } from './model-picker';
+import { ModelFitNotice } from './model-fit-notice';
 import { useComposerModelSelection } from './use-composer-model-selection';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { cn } from '@/lib/utils';
@@ -112,6 +113,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
     delivery: MessageDelivery | 'queued';
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
+    /** A new conversation that neither reads nor writes long-term memory. */
+    memoryOff?: boolean;
   }) => Promise<void>;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
   onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
@@ -269,6 +272,7 @@ export function ClioComposer({
   // though the service had asked for it.
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
+  const [memoryOff, setMemoryOff] = useState(false);
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
   const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
     [],
@@ -581,6 +585,7 @@ export function ClioComposer({
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
                 },
+                ...(variant === 'welcome' && memoryOff ? { memoryOff } : {}),
               });
             } catch (error) {
               setUploadProgress(undefined);
@@ -635,6 +640,13 @@ export function ClioComposer({
               : ''}
           </div>
         ) : null}
+        {sessionId ? (
+          <ModelFitNotice
+            modelId={selectedOption?.id}
+            providerId={selectedOption?.providerId}
+            sessionId={sessionId}
+          />
+        ) : null}
         <ClioComposerAnnotations
           annotations={annotations.filter((annotation) => annotation.kind !== 'region-capture')}
           onRemove={(gone) => onAnnotationsChange?.(annotations.filter((item) => item !== gone))}
@@ -677,6 +689,7 @@ export function ClioComposer({
             ) : null}
             <ClioComposerBehaviorControls
               behavior={messageBehavior}
+              {...(variant === 'welcome' ? { memoryOff, onMemoryOffChange: setMemoryOff } : {})}
               spotterAvailability={spotterAvailability}
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
               defaultEffortLabel={defaultReasoningLabel(

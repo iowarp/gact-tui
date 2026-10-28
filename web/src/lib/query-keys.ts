@@ -3,8 +3,8 @@ type QueryKeyPart = string | number | boolean | null | undefined;
 export type ClioQueryNamespace =
   | 'a2ui-reference'
   | 'a2ui-reference-bytes'
-  | 'agent-blueprint-sources'
-  | 'agent-blueprints'
+  | 'agent-resolution'
+  | 'agent-draft'
   | 'agents'
   | 'all-sessions'
   | 'artifact-attachment-image'
@@ -19,10 +19,6 @@ export type ClioQueryNamespace =
   | 'artifact-table-preview'
   | 'artifact-table-query'
   | 'artifact-text'
-  | 'blueprint-files'
-  | 'blueprint-file'
-  | 'blueprint-authoring'
-  | 'blueprint-operations'
   | 'capabilities'
   | 'commands'
   | 'connection-availability'
@@ -30,8 +26,6 @@ export type ClioQueryNamespace =
   | 'document-editor-health'
   | 'document-manifest'
   | 'document-pdf'
-  | 'expert-pack'
-  | 'expert-packs'
   | 'execution-provenance'
   | 'hook-inspection'
   | 'language-model-configuration'
@@ -39,9 +33,11 @@ export type ClioQueryNamespace =
   | 'mcp-server'
   | 'mcp-configuration'
   | 'mcp-server-inventory'
+  | 'mcp-configurations'
+  | 'fleet'
   | 'mcp-servers'
   | 'memory-events'
-  | 'memory-search'
+  | 'session-recall-search'
   | 'memory-statistics'
   | 'pending-approvals'
   | 'pending-interactions'
@@ -58,6 +54,14 @@ export type ClioQueryNamespace =
   | 'provenance-providers'
   | 'providers'
   | 'relay-status'
+  | 'task-flow'
+  | 'science-log'
+  | 'study-source'
+  | 'flow-task-time'
+  | 'flow-task-answer'
+  | 'flow-questions'
+  | 'task-child-session'
+  | 'transform-record'
   | 'tasks'
   | 'runtime-metrics'
   | 'runtime-settings'
@@ -65,15 +69,20 @@ export type ClioQueryNamespace =
   | 'sandbox-status'
   | 'saved-servers'
   | 'service-health'
+  | 'session-agent'
   | 'session-artifacts'
   | 'session-context'
   | 'session-defaults'
   | 'session-diffs'
   | 'session-observability'
   | 'session-toolset'
+  | 'session-directory'
+  | 'session-pages'
   | 'sessions'
   | 'spotter-availability'
   | 'pending-steers'
+  | 'plugin-marketplaces'
+  | 'plugins'
   | 'queued-messages'
   | 'tools'
   | 'transcript'
@@ -102,10 +111,6 @@ export const queryKeys = {
     namespace: ClioQueryNamespace,
     ...parts: Parts
   ) => [namespace, ...parts] as const,
-  agentBlueprints: (endpoint: string, scope?: string) =>
-    scope
-      ? (['agent-blueprints', endpoint, scope] as const)
-      : (['agent-blueprints', endpoint] as const),
   capabilities: (endpoint: string) => ['capabilities', endpoint] as const,
   languageModelConfiguration: (endpoint: string) =>
     ['language-model-configuration', endpoint] as const,
@@ -151,6 +156,16 @@ export const queryKeys = {
       | 'processes',
   ) => [...queryKeys.sessionObservability(endpoint, sessionId), detail] as const,
   sessions: (endpoint: string, scope: string) => ['sessions', endpoint, scope] as const,
+  /** Every bounded session read of one service (family, waiting): a refresh after a change. */
+  allSessionReads: (endpoint: string) => ['sessions', endpoint] as const,
+  /** The open conversation's tree (`GET /v1/sessions?family_of=`). */
+  sessionFamily: (endpoint: string, sessionId: string) =>
+    ['sessions', endpoint, 'family', sessionId] as const,
+  /** Sessions waiting on a person, with their ancestors (`?waiting_on_person=true`). */
+  sessionsWaiting: (endpoint: string) => ['sessions', endpoint, 'waiting'] as const,
+  /** The conversation view's newest page; older pages merge into the live store. */
+  transcriptPage: (endpoint: string, sessionId: string) =>
+    ['transcript', endpoint, sessionId, 'latest-page'] as const,
   transcript: (endpoint: string, sessionId: string, view?: string) =>
     view
       ? (['transcript', endpoint, sessionId, view] as const)

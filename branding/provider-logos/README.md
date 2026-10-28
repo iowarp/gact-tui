@@ -22,3 +22,7 @@ retrieved on 2026-10-18 from:
 https://nationaldataplatform.org/wagtail/media/original_images/National_Data_Platform_horiz_stacked.png
 and https://nationaldataplatform.org/wagtail/media/original_images/National_Data_Platform_horiz_stacked_wt.png.
 They identify the NDP integration and retain the original colors and aspect ratio.
+
+`gmail.svg` and `outlook.svg` are the simplified Gmail and Outlook marks shown
+on message drafts, moved out of the component so that interface code carries
+no color values. They keep the providers' own colors in every theme.

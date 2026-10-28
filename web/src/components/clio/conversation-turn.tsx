@@ -1,5 +1,5 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { ListChecksIcon, LoaderCircleIcon, WorkflowIcon } from 'lucide-react';
+import { CircleAlertIcon, ListChecksIcon, LoaderCircleIcon } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import {
   ChainOfThought,
@@ -18,6 +18,7 @@ import type {
 } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus } from './status';
+import { getToolStatus } from './tool-presentation';
 import {
   ClioAgentMessageLine,
   ClioSubagentLifecycleLine,
@@ -28,19 +29,24 @@ import { ClioToolInvocation } from './tool-invocation';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
-import { workflowDescriptor } from './workflow-tool-presentation';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { transcriptActivitySummary } from './transcript-activity-summary';
 import { IterationReasoningText, TranscriptIterationText } from './transcript-iteration-text';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { HarnessInjection } from './conversation-harness-injection';
+import { FlowRunCard } from './flow-run-card';
+import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
-type SubagentActivityEntry = Extract<
-  ConversationIteration['activity'][number],
-  { kind: 'subagent' }
->;
+
+/** The flow a run_flow / run_workflow call started, once its start was accepted. */
+function startedFlow(
+  tool: ToolInvocation | undefined,
+): (FlowToolDescriptor & { handle: string }) | undefined {
+  const flow = flowToolDescriptor(tool);
+  return flow?.handle ? (flow as FlowToolDescriptor & { handle: string }) : undefined;
+}
 
 /** This tool's attention-mode badge, or `undefined` when it carried no traced heat. */
 function toolAttentionBadge(
@@ -74,6 +80,8 @@ interface ConversationTurnProps {
     response: PendingInteractionResponse,
   ) => Promise<void>;
   messageAttentionIndex?: MessageAttentionIndex;
+  /** Present each started flow as a card; off inside a section already split at its flow. */
+  flowCards?: boolean;
 }
 
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
@@ -91,6 +99,7 @@ export function ConversationTurn({
   onOpenArtifact,
   onInteractionResponse,
   messageAttentionIndex,
+  flowCards = true,
 }: ConversationTurnProps) {
   if (iterations.length === 0) return null;
   // Plan decisions are conversation boundaries, not details of hidden activity.
@@ -111,16 +120,29 @@ export function ConversationTurn({
       }),
     ),
   );
+  // A started flow is a conversation boundary too: its card stays in the
+  // conversation instead of folding into the activity summary.
+  const flowStarts = new Map(
+    messageSessionId && flowCards
+      ? iterations.flatMap((iteration) =>
+          iteration.tools.flatMap((tool) => {
+            const flow = startedFlow(tool);
+            return flow ? [[tool.id, flow] as const] : [];
+          }),
+        )
+      : [],
+  );
   const hasActiveApp = iterations.some((iteration) =>
     iteration.activity.some(
       (entry) => entry.kind === 'mcp_app' && entry.block.app_instance_id === activeMcpAppId,
     ),
   );
-  if (mode === 'chain' && (boundaries.size > 0 || hasActiveApp)) {
+  if (mode === 'chain' && (boundaries.size > 0 || hasActiveApp || flowStarts.size > 0)) {
     const sections: Array<
       | { kind: 'activity'; iterations: ConversationIteration[] }
       | { kind: 'review'; interaction: PendingInteraction }
       | { kind: 'app'; entry: McpAppActivityEntry }
+      | { kind: 'flow'; id: string; flow: FlowToolDescriptor & { handle: string } }
     > = [];
     let group: ConversationIteration[] = [];
     for (const iteration of iterations) {
@@ -146,11 +168,13 @@ export function ConversationTurn({
           return;
         }
         const reviews = entry.kind === 'tool' ? boundaries.get(entry.id) : undefined;
-        if (!reviews) return;
+        const flow = entry.kind === 'tool' ? flowStarts.get(entry.id) : undefined;
+        if (!reviews && !flow) return;
         appendSegment(index + 1);
         sections.push({ kind: 'activity', iterations: group });
         group = [];
-        reviews.forEach((interaction) => sections.push({ kind: 'review', interaction }));
+        if (flow) sections.push({ kind: 'flow', id: entry.id, flow });
+        reviews?.forEach((interaction) => sections.push({ kind: 'review', interaction }));
         start = index + 1;
       });
       if (start === 0 || start < iteration.activity.length)
@@ -168,6 +192,12 @@ export function ConversationTurn({
               interaction={section.interaction}
               onOpenArtifact={onOpenArtifact}
               onResponse={onInteractionResponse}
+            />
+          ) : section.kind === 'flow' ? (
+            <FlowRunCard
+              flow={section.flow}
+              key={`flow:${section.id}`}
+              sessionId={messageSessionId!}
             />
           ) : section.kind === 'app' ? (
             <McpAppActivity
@@ -193,6 +223,7 @@ export function ConversationTurn({
               onOpenArtifact={onOpenArtifact}
               onInteractionResponse={onInteractionResponse}
               messageAttentionIndex={messageAttentionIndex}
+              flowCards={false}
             />
           ),
         )}
@@ -258,6 +289,15 @@ export function ConversationTurn({
                       />
                     ) : null}
                     <span className="min-w-0 truncate font-medium">{summary.label}</span>
+                    {summary.failed ? (
+                      <span
+                        className="shrink-0"
+                        data-slot="activity-failed-mark"
+                        title={summary.failed === 1 ? 'A call failed' : 'Calls failed'}
+                      >
+                        <CircleAlertIcon aria-hidden="true" className="size-3.5 text-destructive" />
+                      </span>
+                    ) : null}
                   </span>
                 </ChainOfThoughtHeader>
                 <ChainOfThoughtContent
@@ -368,13 +408,6 @@ function IterationDetail({
       entry.kind === 'subagent' ? [entry.block.subagent_id] : [],
     ),
   );
-  const workflowTaskIds = new Set(
-    iteration.activity.flatMap((entry) =>
-      entry.kind === 'tool'
-        ? (workflowDescriptor(entry.tool)?.steps.flatMap((step) => step.taskId ?? []) ?? [])
-        : [],
-    ),
-  );
   return (
     <article>
       <div className="space-y-2">
@@ -396,20 +429,8 @@ function IterationDetail({
                   sessionId={messageSessionId}
                   tool={entry.tool}
                 />
-                {workflowDescriptor(entry.tool) ? (
-                  <WorkflowChildGroup
-                    descriptor={workflowDescriptor(entry.tool)!}
-                    events={iteration.activity.filter(
-                      (candidate): candidate is SubagentActivityEntry =>
-                        candidate.kind === 'subagent' &&
-                        (workflowDescriptor(entry.tool)?.steps.some(
-                          (step) => step.taskId === candidate.block.subagent_id,
-                        ) ??
-                          false),
-                    )}
-                    onOpenSubagent={onOpenSubagent}
-                    subagents={subagents}
-                  />
+                {!compact && messageSessionId && startedFlow(entry.tool) ? (
+                  <FlowRunCard flow={startedFlow(entry.tool)!} sessionId={messageSessionId} />
                 ) : null}
                 {subagentsForTool(entry.tool, subagents)
                   .filter((subagent) => !explicitSubagentIds.has(subagent.id))
@@ -443,7 +464,7 @@ function IterationDetail({
               <HarnessInjection block={entry.block} compact={compact} />
             </div>
           ) : entry.kind === 'subagent' ? (
-            workflowTaskIds.has(entry.block.subagent_id) ? null : showSubagents ? (
+            showSubagents ? (
               <div data-turn-activity={`subagent:${entry.id}`} key={`subagent:${entry.id}`}>
                 <ClioSubagentLifecycleLine
                   onOpen={onOpenSubagent}
@@ -475,47 +496,12 @@ function IterationDetail({
             <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />
           ) : null,
         )}
-        {iteration.interrupted ? <ClioStatus value="interrupted" /> : null}
+        {iteration.interrupted &&
+        !iteration.tools.some((tool) => getToolStatus(tool) === 'interrupted') ? (
+          <ClioStatus value="interrupted" />
+        ) : null}
       </div>
     </article>
-  );
-}
-
-function WorkflowChildGroup({
-  descriptor,
-  events,
-  onOpenSubagent,
-  subagents,
-}: {
-  descriptor: NonNullable<ReturnType<typeof workflowDescriptor>>;
-  events: SubagentActivityEntry[];
-  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  subagents: Record<string, SubagentRun>;
-}) {
-  if (events.length === 0) return null;
-  return (
-    <div
-      aria-label={`Workflow steps: ${descriptor.label}`}
-      className="ml-2 min-w-0 border-l pl-3"
-      role="group"
-    >
-      <p className="mb-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-        <WorkflowIcon aria-hidden="true" className="size-3.5 shrink-0" />
-        <span className="shrink-0 font-medium text-foreground/85">Workflow steps</span>
-        <span className="truncate">{descriptor.label}</span>
-      </p>
-      <div className="space-y-0.5">
-        {events.map((entry) => (
-          <ClioSubagentLifecycleLine
-            key={`workflow-subagent:${entry.id}`}
-            onOpen={onOpenSubagent}
-            stage={entry.block.stage ?? 'delegate.unknown'}
-            subagent={subagents[entry.block.subagent_id]}
-            task={entry.block.task}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 

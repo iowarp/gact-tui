@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { selectFileView } from './file-viewer-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -22,7 +23,7 @@ test('Export with evidence downloads one intact ZIP from the artifact Versions v
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: 'Open vertical-displacement.png', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  await canvas.getByRole('tab', { name: 'Versions', exact: true }).click();
+  await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
   const download = page.waitForEvent('download');
   await canvas.getByRole('button', { name: 'Export with evidence', exact: true }).click();
   const saved = await download;

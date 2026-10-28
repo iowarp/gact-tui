@@ -3,6 +3,7 @@ import {
   modelAcquisitionSchema,
   modelInventorySchema,
   modelSearchSchema,
+  modelSearchPageSchema,
   modelRegistryDetailsSchema,
   type ModelDownloadInput,
 } from './model-acquisition-contract.js';
@@ -23,6 +24,20 @@ export class ModelAcquisitionRepository extends ConnectedStorageRepository {
       path: `/v1/infrastructure/models/search?q=${encodeURIComponent(query)}`,
       signal,
       decode: (value) => modelSearchSchema.parse(value),
+    });
+  }
+  public searchModelsPage(
+    input: { query: string; cursor?: string; filters?: string[] },
+    signal?: AbortSignal,
+  ) {
+    const params = new URLSearchParams({ q: input.query });
+    if (input.cursor) params.set('cursor', input.cursor);
+    for (const filter of input.filters ?? []) params.append('filters', filter);
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/infrastructure/models/search-page?${params.toString()}`,
+      signal,
+      decode: (value) => modelSearchPageSchema.parse(value),
     });
   }
   public modelInventory(targetId: string, signal?: AbortSignal) {

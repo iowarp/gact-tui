@@ -21,7 +21,7 @@ vi.mock('@/providers/connection-provider', () => ({
   }),
 }));
 vi.mock('sonner', () => ({
-  toast: { loading: mocks.loading, success: mocks.success, message: mocks.message },
+  toast: { dismiss: vi.fn(), loading: mocks.loading, success: mocks.success, message: mocks.message },
 }));
 afterEach(() => {
   cleanup();

@@ -88,7 +88,7 @@ describe('ClioDocumentPdfViewer', () => {
     },
   );
 
-  it('makes Fit switch an explicit width view to a complete page', async () => {
+  it('makes the zoom reset fit an explicit width view to a complete page', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1_200);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
     render(
@@ -101,7 +101,8 @@ describe('ClioDocumentPdfViewer', () => {
     );
     const page = await screen.findByText('PDF page 1');
     expect(Number(page.dataset.testPdfWidth) * pageAspectRatio.value).toBeGreaterThan(600);
-    await userEvent.click(screen.getByRole('button', { name: 'Fit document to view' }));
+    // The percentage control resets zoom by fitting the whole page (#681 merged Fit into it).
+    await userEvent.click(screen.getByRole('button', { name: 'Reset zoom' }));
     expect(Number(page.dataset.testPdfWidth) * pageAspectRatio.value + 26).toBeLessThanOrEqual(600);
     expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('100%');
   });

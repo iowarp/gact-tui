@@ -165,6 +165,8 @@ async function openFixture(page: Page, type: string, content?: string) {
     ],
   };
   if (type === 'diff') {
+    tool.name = 'fs_write_file';
+    tool.title = 'Write file';
     tool.presentation.action = 'Write';
     tool.presentation.subject = 'target';
     tool.presentation.blocks.unshift({

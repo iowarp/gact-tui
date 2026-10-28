@@ -31,8 +31,6 @@ func semanticSummaryIsPlumbing(summary, eventType string) bool {
 		"invocation failed",
 		"agent invocation started",
 		"agent invocation completed",
-		"blueprint delegation started",
-		"blueprint delegation completed",
 		"delegate.started",
 		"delegate.completed",
 		"parent.resumed":
@@ -51,7 +49,6 @@ func semanticSummaryIsPlumbing(summary, eventType string) bool {
 
 func humanizeSemanticEventType(eventType string) string {
 	text := strings.TrimSpace(eventType)
-	text = strings.TrimPrefix(text, "blueprint.")
 	text = strings.TrimPrefix(text, "agent.")
 	text = strings.ReplaceAll(text, ".", " ")
 	text = strings.ReplaceAll(text, "_", " ")

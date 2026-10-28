@@ -1,12 +1,34 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message, TranscriptSnapshot } from '@clio/core/v3';
-import { readReloadSessions, readReloadTranscript, writeReloadTranscript } from './session-reload-cache';
+import {
+  readReloadSessions,
+  readReloadTranscript,
+  writeReloadTranscript,
+} from './session-reload-cache';
+import { SESSION_CACHE_POLICY } from './session-cache-retention';
 
 const ENDPOINT = 'http://127.0.0.1:8787';
 
 beforeEach(() => window.sessionStorage.clear());
+afterEach(() => vi.useRealTimers());
 
 describe('session reload cache', () => {
+  it('expires a retained transcript tail without changing navigation metadata', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-25T10:00:00Z'));
+    writeReloadTranscript(ENDPOINT, 'sess_1', {
+      cursor: '1',
+      messages: [],
+      tools: [],
+      tasks: [],
+      subagents: [],
+      artifacts: [],
+      surfaces: [],
+    });
+    expect(readReloadTranscript(ENDPOINT, 'sess_1')).toBeDefined();
+    vi.advanceTimersByTime(SESSION_CACHE_POLICY.idleMs + 1);
+    expect(readReloadTranscript(ENDPOINT, 'sess_1')).toBeUndefined();
+  });
   it('keeps only the recent complete transcript tail', () => {
     const messages: Message[] = Array.from({ length: 20 }, (_, index) => ({
       id: `message_${index}`,

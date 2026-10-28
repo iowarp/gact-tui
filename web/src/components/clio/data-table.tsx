@@ -147,7 +147,10 @@ export function ClioDataTable({
   inlineSort,
   onInlineSortChange,
   capabilities,
+  initialPageSize,
 }: {
+  /** Rows per page at first for an inline table (its producer's `pageSize`). */
+  initialPageSize?: number;
   columns: readonly ClioDataColumn[];
   rows: readonly ClioDataRow[];
   label?: string;
@@ -310,6 +313,9 @@ export function ClioDataTable({
         : selectedRows
           ? { state: { rowSelection } }
           : {}),
+    ...(!server && initialPageSize
+      ? { initialState: { pagination: { pageIndex: 0, pageSize: initialPageSize } } }
+      : {}),
     // Row ids are the row's index in `rows` (TanStack's default), matching `selectedRows`.
   });
 

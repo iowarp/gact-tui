@@ -179,7 +179,7 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
     'File explorer',
     'Workspace resources',
     'Session artifacts',
-    'Agent blueprints',
+    'Conversation agent',
     'Work',
   ]) {
     await canvas.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
@@ -189,7 +189,7 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
     await page.setViewportSize({ width, height: 900 });
     await expectSelectedTabVisible(canvas);
   }
-  await canvas.getByRole('tab', { name: 'Blueprints', exact: true }).click();
+  await canvas.getByRole('tab', { name: 'Agent', exact: true }).click();
   await expectSelectedTabVisible(canvas);
   const resize = await page
     .getByRole('separator', { name: 'Resize workspace canvas', exact: true })
@@ -200,7 +200,7 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
   await page.mouse.up();
   await expectSelectedTabVisible(canvas);
   await page.screenshot({ path: testInfo.outputPath('selected-tab-resized.png') });
-  await canvas.getByRole('tab', { name: 'Blueprints', exact: true }).press('Alt+ArrowLeft');
+  await canvas.getByRole('tab', { name: 'Agent', exact: true }).press('Alt+ArrowLeft');
   await expectSelectedTabVisible(canvas);
   await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
   await expectSelectedTabVisible(canvas);

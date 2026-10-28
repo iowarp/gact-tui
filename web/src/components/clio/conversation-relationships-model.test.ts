@@ -1,7 +1,11 @@
 import type { Session } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import { conversationFamily } from './conversation-relationships-model';
-import { conversationForkOrigin } from './conversation-fork-origin';
+import {
+  conversationForkOrigin,
+  forkAuthorLabel,
+  nestAgentForks,
+} from './conversation-fork-origin';
 
 const session = (
   id: string,
@@ -72,5 +76,49 @@ describe('saved fork checkpoint', () => {
         conversationForkOrigin({ ...session('child', 'root'), metadata: { fork_origin: value } }),
       ).toBeUndefined();
     }
+  });
+});
+
+describe('agent fork origin', () => {
+  const origin = {
+    session_id: 'root',
+    message_id: 'message',
+    message_count: 2,
+    title: 'Baseline',
+    created_at: '2026-10-11',
+    author: { kind: 'agent', agent_id: 'clio/standard' },
+    invocation: 'call_000000000001',
+    note: 'pursue H4 instead',
+  };
+  const fork = { ...session('fork', 'root'), metadata: { fork_origin: origin } } as Session;
+
+  it('names the agent as author with its note', () => {
+    expect(conversationForkOrigin(fork)).toMatchObject({
+      author: { kind: 'agent', agent_id: 'clio/standard' },
+      note: 'pursue H4 instead',
+      invocation: 'call_000000000001',
+    });
+    expect(forkAuthorLabel(conversationForkOrigin(fork))).toBe(
+      'Forked by the agent: pursue H4 instead',
+    );
+    const person = { ...origin, author: { kind: 'human' } };
+    expect(
+      forkAuthorLabel(
+        conversationForkOrigin({ ...session('b', 'root'), metadata: { fork_origin: person } }),
+      ),
+    ).toBeUndefined();
+  });
+
+  it('lists an agent fork under its origin', () => {
+    const rows = nestAgentForks([
+      fork,
+      session('other', undefined, 'conversation'),
+      session('root', undefined, 'conversation'),
+    ]);
+    expect(rows.map((row) => [row.session.id, row.depth])).toEqual([
+      ['other', 0],
+      ['root', 0],
+      ['fork', 1],
+    ]);
   });
 });

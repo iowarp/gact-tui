@@ -6,12 +6,12 @@ import { cn } from '@/lib/utils';
 import { contextComposition, contextPercent, contextTokens } from './context-composition-model';
 
 const COLORS: Record<string, string> = {
-  system: 'bg-sky-500',
-  tools: 'bg-orange-500',
-  skills: 'bg-violet-500',
-  messages: 'bg-teal-500',
-  results: 'bg-amber-500',
-  reasoning: 'bg-pink-500',
+  system: 'bg-category-1',
+  tools: 'bg-chart-2',
+  skills: 'bg-category-2',
+  messages: 'bg-category-10',
+  results: 'bg-category-11',
+  reasoning: 'bg-category-9',
 };
 const GRID = 'grid grid-cols-[minmax(0,1fr)_4rem_3.5rem] items-center gap-2';
 
@@ -50,7 +50,7 @@ export function ContextUsage({
           {sections.map((section) => (
             <span
               key={section.id}
-              className={cn('h-full', COLORS[section.id] ?? 'bg-stone-400')}
+              className={cn('h-full', COLORS[section.id] ?? 'bg-category-4')}
               style={{
                 width: `${Math.max(0, Math.min(100, (section.tokens_estimated / Math.max(limit, used, context?.prompt_breakdown?.tokens_estimated ?? 0)) * 100))}%`,
               }}
@@ -59,7 +59,7 @@ export function ContextUsage({
         </div>
       ) : null}
       <p className="mb-2 text-[11px] leading-4 text-muted-foreground">
-        {estimated ? 'Estimated usage' : 'Provider-reported usage'} · Last request
+        {estimated ? 'Estimated usage' : 'Provider-reported usage'} for the last request
         {context?.usage_recorded_at
           ? ` at ${new Date(context.usage_recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
           : ''}
@@ -82,7 +82,10 @@ export function ContextUsage({
               <span className="flex min-w-0 items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className={cn('size-2 shrink-0 rounded-sm', COLORS[section.id] ?? 'bg-stone-400')}
+                  className={cn(
+                    'size-2 shrink-0 rounded-sm',
+                    COLORS[section.id] ?? 'bg-category-4',
+                  )}
                 />
                 <span className="min-w-0 break-words">{section.label}</span>
                 {section.items.length ? (
@@ -130,7 +133,7 @@ export function ContextUsage({
         <p className="mt-2 text-[11px] text-muted-foreground">
           Prompt cache: {contextTokens(cacheRead)} reused ({contextPercent(cacheRead, used)})
           {context.cache_write_tokens
-            ? ` · ${contextTokens(context.cache_write_tokens)} written`
+            ? `, ${contextTokens(context.cache_write_tokens)} written`
             : ''}
         </p>
       ) : null}

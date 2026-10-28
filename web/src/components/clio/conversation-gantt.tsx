@@ -218,7 +218,8 @@ export function ConversationGantt({
             </>
           ) : (
             <>
-              <span>Bars: responses · ◆ fork point</span>
+              <span>Bars: responses</span>
+              <span>◆ fork point</span>
             </>
           )}
           {provenance && (!provenance.complete || provenance.truncated) ? (

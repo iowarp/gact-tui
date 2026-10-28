@@ -169,10 +169,6 @@ func tuiLatencySurfaceForTarget(id string) string {
 		return "provider setup"
 	case strings.HasPrefix(id, "mcp-"):
 		return "mcp"
-	case strings.HasPrefix(id, "agent-blueprint"), strings.Contains(id, "agent-blueprint"):
-		return "agent blueprints"
-	case strings.HasPrefix(id, "expert-pack"):
-		return "expert packs"
 	default:
 		part := strings.Split(id, ":")[0]
 		if part != "" {

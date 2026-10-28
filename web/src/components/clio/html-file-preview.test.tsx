@@ -105,7 +105,7 @@ it('opens HTML source without sanitizing the original bytes shown or copied', as
     'window.original = true;',
   );
   expect(screen.getByRole('button', { name: 'Copy report.htm' })).toBeVisible();
-  await userEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+  await userEvent.click(screen.getByRole('tab', { name: 'HTML preview' }));
   expect(screen.getByTitle('HTML preview of report.htm')).toBeVisible();
 });
 

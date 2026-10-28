@@ -20,6 +20,7 @@ import { RetryIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { IMMUTABLE_QUERY } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { useThemeKey } from '@/theme/runtime';
 import {
   a2uiAccessibilityLabel,
   a2uiAccessibilityProps,
@@ -70,6 +71,8 @@ export interface ClioMeshViewportProps {
   upAxis?: MeshUpAxis;
   /** Flex weight inside a Row/Column, as the Basic catalog components apply it. */
   weight?: number;
+  /** The viewport's height in CSS pixels; the default frame is 320. */
+  height?: number;
 }
 
 const STAGE_LABEL: Record<string, string> = {
@@ -109,6 +112,7 @@ export function ClioMeshViewport({
   title,
   upAxis = 'y',
   weight,
+  height,
 }: ClioMeshViewportProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -149,6 +153,10 @@ export function ClioMeshViewport({
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<MeshViewportScene | undefined>(undefined);
+  const theme = useThemeKey();
+  useEffect(() => {
+    sceneRef.current?.setEdgeColor(edgeColorForTheme());
+  }, [theme]);
   const [legend, setLegend] = useState<MeshLegendState>();
   const [visibleCells, setVisibleCells] = useState<number>();
   const [probe, setProbe] = useState<{ value?: number; x: number; y: number }>();
@@ -658,8 +666,11 @@ export function ClioMeshViewport({
                 className={
                   fullscreen
                     ? 'relative h-[calc(100dvh-6rem)] min-h-64 overflow-hidden'
-                    : 'relative h-80 min-h-64 overflow-hidden'
+                    : height
+                      ? 'relative overflow-hidden'
+                      : 'relative h-80 min-h-64 overflow-hidden'
                 }
+                style={!fullscreen && height ? { height } : undefined}
                 onPointerLeave={() => setProbe(undefined)}
                 onPointerMove={onPointerMove}
                 ref={canvasRef}
@@ -677,7 +688,7 @@ export function ClioMeshViewport({
                   >
                     {draftBox ? (
                       <div
-                        className="pointer-events-none absolute border-2 border-cyan-400 bg-cyan-400/10"
+                        className="pointer-events-none absolute border-2 border-primary bg-primary/10"
                         style={{
                           left: `${Math.min(draftBox.x0, draftBox.x1) * 100}%`,
                           top: `${Math.min(draftBox.y0, draftBox.y1) * 100}%`,
@@ -729,7 +740,7 @@ export function ClioMeshViewport({
               </p>
             ) : null}
             {selectedNodes.length ? (
-              <p className="mt-2 text-xs text-cyan-500">
+              <p className="mt-2 text-xs text-primary">
                 {selectedNodes.length} mesh {selectedNodes.length === 1 ? 'node' : 'nodes'} selected
               </p>
             ) : null}

@@ -28,6 +28,45 @@ import { AsyncTaskList, TaskPageContinuation } from '@/components/clio/async-tas
 
 afterEach(cleanup);
 
+it('warms only the first bounded history page and shares it when the rail opens', async () => {
+  repository.asyncProcessesPage.mockReset().mockImplementation(async (_id, options) => ({
+    items: options.activeOnly ? [] : [{ handle: 'finished-child' }],
+    cursor: options.activeOnly ? null : 'another-page',
+    total: null,
+    revision: 1,
+  }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  const { result, unmount } = renderHook(
+    () => useSessionObservability('sess', { warmHistory: true }),
+    { wrapper },
+  );
+  try {
+    await waitFor(() => expect(result.current.workPages.history.items).toHaveLength(1));
+    expect(result.current.workPages.history.visible).toBe(false);
+    expect(repository.asyncProcessesPage).toHaveBeenCalledWith(
+      'sess',
+      {
+        cursor: undefined,
+        activeOnly: false,
+        includeDescendants: false,
+        limit: 25,
+      },
+      expect.any(AbortSignal),
+    );
+    expect(repository.asyncProcessesPage).toHaveBeenCalledTimes(2);
+    act(() => result.current.workPages.history.toggle());
+    expect(result.current.workPages.history.visible).toBe(true);
+    expect(repository.asyncProcessesPage).toHaveBeenCalledTimes(2);
+    expect(result.current.workPages.history.hasMore).toBe(true);
+  } finally {
+    unmount();
+    client.clear();
+  }
+});
+
 it('uses one bounded active-work read and retains empty-page continuation', async () => {
   repository.asyncProcessesPage
     .mockReset()
@@ -49,7 +88,7 @@ it('uses one bounded active-work read and retains empty-page continuation', asyn
     expect(repository.asyncProcessesPage).toHaveBeenCalledTimes(1);
     expect(repository.asyncProcessesPage).toHaveBeenLastCalledWith(
       'sess',
-      { cursor: undefined, activeOnly: true },
+      { cursor: undefined, activeOnly: true, includeDescendants: false },
       expect.any(AbortSignal),
     );
     await act(async () => {
@@ -64,7 +103,7 @@ it('uses one bounded active-work read and retains empty-page continuation', asyn
     expect(repository.asyncProcessesPage).toHaveBeenCalledTimes(2);
     expect(repository.asyncProcessesPage).toHaveBeenLastCalledWith(
       'sess',
-      { cursor: 'next', activeOnly: true },
+      { cursor: 'next', activeOnly: true, includeDescendants: false },
       expect.any(AbortSignal),
     );
     expect(repository.sessionAgentTasks).not.toHaveBeenCalled();
@@ -130,13 +169,14 @@ it('keeps current work visible independently of fifty historical rows and offers
   try {
     expect(await screen.findByText('Current analysis')).toBeVisible();
     expect(repository.asyncProcessesPage).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Show completed work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Completed work' }));
     expect(await screen.findByText('Old analysis 49')).toBeVisible();
     expect(screen.getByText('Current analysis')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Load more completed work' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'restart Subagent: Completed analysis' }),
-    );
+    fireEvent.keyDown(await screen.findByLabelText('More actions for Completed analysis'), {
+      key: 'Enter',
+    });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Restart subagent' }));
     expect(control).not.toHaveBeenCalled();
     expect(screen.getByRole('alertdialog')).toHaveTextContent(completed.title);
     fireEvent.click(screen.getByRole('button', { name: 'Restart subagent' }));

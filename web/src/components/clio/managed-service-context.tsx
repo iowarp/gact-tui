@@ -118,7 +118,7 @@ function DeploymentContextControl({
   const installedDefault =
     controls && !draft.choice && controls.current !== undefined
       ? `Default: ${controls.current.toLocaleString('en-US')} tokens${
-          controls.current_reason ? ` · ${controls.current_reason}` : ''
+          controls.current_reason ? ` (${controls.current_reason})` : ''
         }`
       : undefined;
   return (

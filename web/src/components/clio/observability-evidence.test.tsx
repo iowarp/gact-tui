@@ -1,10 +1,4 @@
-import type {
-  Artifact,
-  ExecutionProvenanceResult,
-  Message,
-  ToolInvocation,
-  WorkspaceResource,
-} from '@clio/core/v3';
+import type { Artifact, Message, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +7,58 @@ import { ClioEvidenceView } from './observability-evidence';
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+});
+
+it('lets Evidence disclose the formatted tool result and preserves semantic failures without repeated success badges', async () => {
+  render(
+    <ClioEvidenceView
+      artifacts={[]}
+      contextFiles={[]}
+      diffs={[]}
+      messages={[]}
+      processes={[]}
+      tools={[
+        {
+          id: 'read',
+          session_id: 's',
+          name: 'fs_read_file',
+          state: 'succeeded',
+          presentation: { action: 'Read', summary: '710 bytes', blocks: [] },
+        },
+        {
+          id: 'fetch',
+          session_id: 's',
+          name: 'fetch',
+          state: 'succeeded',
+          presentation: {
+            action: 'Fetch',
+            status: 'failed',
+            summary: 'Could not fetch',
+            blocks: [
+              {
+                id: 'failure',
+                type: 'text',
+                text: 'Resource exceeded its size limit',
+                severity: 'error',
+              },
+            ],
+          },
+        },
+      ]}
+    />,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Tool calls, 2 recorded' }));
+  // Tool-call rows carry no task-kind glyph; a failure is named in text, success is not.
+  expect(document.querySelector('[data-slot="work-kind-status"]')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Show result for Read' })).not.toHaveTextContent(
+    'failed',
+  );
+  expect(screen.getByRole('button', { name: 'Show result for Fetch' })).toHaveTextContent('failed');
+  expect(screen.queryByText('Succeeded')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Show result for Fetch' }));
+  expect(screen.getByRole('region', { name: 'Fetch: Result' })).toHaveTextContent(
+    'Resource exceeded its size limit',
+  );
 });
 
 it.each([false, true])(
@@ -41,12 +87,12 @@ it.each([false, true])(
       },
     };
     const view = render(<ClioEvidenceView {...props} section="data" />);
-    expect(screen.queryByRole('button', { name: 'Show completed work' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Completed work' })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Background (work|tasks),/ })).toBeNull();
     view.rerender(<ClioEvidenceView {...props} section="work" />);
-    const group = screen.getByRole('button', { name: /^Background (work|tasks), 0 recorded$/ });
+    const group = screen.getByRole('button', { name: /^Background (work|tasks), none running$/ });
     if (group.getAttribute('aria-expanded') === 'false') await userEvent.click(group);
-    expect(screen.getByRole('button', { name: 'Show completed work' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Completed work' })).toBeVisible();
     expect(screen.queryByText('No session evidence or recorded activity is available.')).toBeNull();
   },
 );
@@ -546,74 +592,67 @@ describe('ClioEvidenceView session_lineage fallback', () => {
 });
 
 describe('ClioEvidenceView change status', () => {
-  it('marks a historical proposal applied when provenance records the completed write', () => {
-    const path = 'D:\\workspace\\example.py';
-    const proposal: ToolInvocation = {
-      id: 'tool_proposal',
-      session_id: 'session_root',
-      name: 'fs_propose_edit',
-      state: 'succeeded',
-      presentation: {
-        action: 'Proposed edit',
-        summary: 'Review the proposed change.',
-        blocks: [
-          { id: 'file', type: 'link', target: 'file', label: 'example.py', uri: path },
-          {
-            id: 'diff',
-            type: 'diff',
-            text: '--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new',
-          },
-        ],
-      },
-    };
-    const provenance: ExecutionProvenanceResult = {
-      schema_version: 'clio.execution_provenance.v1',
-      provider: 'native',
-      session_id: 'session_root',
-      root_session_id: 'session_root',
-      complete: true,
-      truncated: false,
-      provider_health: {},
-      campaigns: [],
-      workflows: [],
-      agents: [],
-      session_lineage: [],
-      spans: [],
-      nodes: [
+  const path = 'D:\\workspace\\example.py';
+  const write: ToolInvocation = {
+    id: 'tool_write',
+    session_id: 'session_root',
+    name: 'fs_edit_file',
+    state: 'succeeded',
+    presentation: {
+      action: 'Edit',
+      summary: '',
+      blocks: [
+        { id: 'file', type: 'link', target: 'file', label: 'example.py', uri: path },
         {
-          id: 'tool_write',
-          kind: 'tool',
-          label: 'Write example.py',
-          status: 'completed',
-          session_id: 'session_root',
-          agent_id: 'main',
-          start_time: 1,
-          end_time: 2,
-          attributes: {
-            tool_name: 'fs_apply_edit_write',
-            owner_session_id: 'session_root',
-            tool_input: { filepath: path },
-          },
+          id: 'diff',
+          type: 'diff',
+          text: '--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new',
         },
       ],
-      edges: [],
-    };
+    },
+  };
 
+  it('lists the service record of a change with its undone status', () => {
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[
+          {
+            id: 'chg_1',
+            call_id: 'tool_write',
+            path,
+            status: 'reverted',
+            created: false,
+            undo_available: false,
+            unified_diff: '@@ -1 +1 @@\n-old\n+new',
+          },
+        ]}
+        messages={[]}
+        processes={[]}
+        resources={[]}
+        tools={[write]}
+      />,
+    );
+
+    expect(screen.getByText('Reverted')).toBeVisible();
+    expect(screen.queryByText('Applied')).not.toBeInTheDocument();
+  });
+
+  it('keeps a transcript-only write as applied when the service no longer records it', () => {
     render(
       <ClioEvidenceView
         artifacts={[]}
         contextFiles={[]}
         diffs={[]}
-        executionProvenance={provenance}
         messages={[]}
         processes={[]}
         resources={[]}
-        tools={[proposal]}
+        tools={[write]}
       />,
     );
 
     expect(screen.getByText('Applied')).toBeVisible();
-    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
   });
 });
 
@@ -650,6 +689,40 @@ describe('ClioEvidenceView child agents', () => {
     expect(screen.getByText('No child agents in this session yet.')).toBeVisible();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Child agents, 0 recorded' }));
     expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
+  });
+
+  it('uses one completed-work disclosure without claiming that no child agents ever ran', async () => {
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        subagents={[]}
+        workPages={{
+          hasMore: false,
+          pending: false,
+          loadMore: async () => undefined,
+          history: {
+            visible: false,
+            toggle: () => {},
+            items: [],
+            hasMore: false,
+            pending: false,
+            loadMore: async () => undefined,
+            error: '',
+          },
+        }}
+      />,
+    );
+    expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
+    // History has one owner; a second child section must not duplicate its toggle.
+    expect(screen.queryByRole('button', { name: /^Child agents,/ })).toBeNull();
+    const background = screen.getByRole('button', { name: 'Background tasks, none running' });
+    if (background.getAttribute('aria-expanded') === 'false') await userEvent.click(background);
+    expect(screen.getAllByRole('button', { name: 'Completed work' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Background tasks, none running' })).toBeVisible();
   });
 
   it('opens a workspace tab on click and the center on Shift-click', async () => {

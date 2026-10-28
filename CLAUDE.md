@@ -26,6 +26,17 @@ User-facing rules:
 - A2UI renders trusted diagrams, code, plots, tables, evidence, and actions. JSON
   payloads and producer tool identifiers are technical detail, not the result.
 - Stream updates at display-frame cadence and honor reduced motion.
+- A file viewer has one download control: its primary action downloads the original
+  bytes, and an adjacent Export to… menu offers the renderer's declared alternate
+  formats. Choosing an export never changes the primary download. Renderers
+  contribute conversions through the shared file-action registry instead of adding
+  separate export buttons. Application opening stays separate. A generated surface
+  without an original file offers explicit format choices rather than inventing an
+  original download.
+- File toolbars prioritize reading/source modes, copying and downloading. Secondary
+  inspection views, refresh, information, fullscreen and workspace-copy actions
+  appear once in More. Do not repeat visible controls in the menu. Menu-based views
+  retain selected state, named panels and a clear way back to reading.
 
 Primary gates:
 

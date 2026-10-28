@@ -152,7 +152,7 @@ export function ProviderRefreshResults({ blocks }: { blocks: ToolPresentationBlo
   return (
     <div className="min-w-0" data-slot="provider-refresh-results">
       <p className="pb-1 text-sm text-muted-foreground">
-        {blocks.length} providers · {refreshed} refreshed · {failed} failed
+        {blocks.length} providers: {refreshed} refreshed, {failed} failed
       </p>
       <ul aria-label="Provider refresh results" className="divide-y border-y">
         {blocks.map((block) => (
@@ -275,7 +275,7 @@ export function ExpandableDetail({ text, label }: { text: string; label: string 
       </p>
       {long ? (
         <button
-          className="font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="font-medium text-link underline-offset-2 hover:text-link/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={() => setExpanded((value) => !value)}
           type="button"
         >
@@ -474,6 +474,7 @@ export function PagedBlock({
           ref.block_id,
           next,
           signal,
+          ref.result_sha256,
         );
         if (signal.aborted) return;
         if (page.cursor !== next || (page.next_cursor !== null && page.next_cursor <= next))

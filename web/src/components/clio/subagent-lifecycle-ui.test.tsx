@@ -36,7 +36,7 @@ it('pauses model execution without cancelling the task and suppresses duplicate 
   expect(control).toHaveBeenCalledWith(task, 'pause');
   expect(cancel).not.toHaveBeenCalled();
   expect(button).toBeDisabled();
-  expect(screen.getByText('Subagent · Pause requested')).toBeVisible();
+  expect(screen.getByText('Subagent: Pause requested')).toBeVisible();
   await user.click(button);
   expect(control).toHaveBeenCalledTimes(1);
   finish();
@@ -52,7 +52,7 @@ it('shows a held run honestly and resumes on the same task', async () => {
   };
   const control = vi.fn(async () => {});
   const view = render(<AsyncTaskList processes={[paused]} onControlTask={control} />);
-  expect(screen.getByText('Subagent · Paused')).toBeVisible();
+  expect(screen.getByText('Subagent: Paused')).toBeVisible();
   expect(view.container.querySelector('.animate-spin')).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: `resume Subagent: ${task.title}` }));
   expect(control).toHaveBeenCalledTimes(1);
@@ -69,7 +69,8 @@ it('requires confirmation before creating a linked successor', async () => {
   };
   const control = vi.fn(async () => {});
   render(<AsyncTaskList processes={[completed]} onControlTask={control} />);
-  await userEvent.click(screen.getByRole('button', { name: `restart Subagent: ${task.title}` }));
+  await userEvent.click(screen.getByRole('button', { name: `More actions for ${task.title}` }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Restart subagent' }));
   expect(control).not.toHaveBeenCalled();
   expect(screen.getByRole('alertdialog')).toHaveTextContent(
     'An active assignment is cancelled and settled first. The linked assignment keeps its context. Check uncertain effects before retrying operations.',
@@ -82,7 +83,8 @@ it('requires confirmation before creating a linked successor', async () => {
   );
   await userEvent.click(screen.getByRole('button', { name: 'Keep this run' }));
   expect(control).not.toHaveBeenCalled();
-  await userEvent.click(screen.getByRole('button', { name: `restart Subagent: ${task.title}` }));
+  await userEvent.click(screen.getByRole('button', { name: `More actions for ${task.title}` }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Restart subagent' }));
   await userEvent.click(screen.getByRole('button', { name: 'Restart subagent' }));
   expect(control).toHaveBeenCalledTimes(1);
   expect(control).toHaveBeenCalledWith(completed, 'restart');

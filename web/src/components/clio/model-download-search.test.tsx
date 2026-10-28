@@ -49,7 +49,7 @@ it('filters Hub results with the shared task chips without inventing serving cap
     }),
   );
   expect(within(results).getAllByRole('button')).toHaveLength(1);
-  expect(screen.getByLabelText('1 of 2 models match')).toBeVisible();
+  expect(screen.getByLabelText('1 of 2 loaded results match')).toBeVisible();
   expect(within(results).queryByText('org/image')).not.toBeInTheDocument();
   expect(screen.queryByText('Tools')).not.toBeInTheDocument();
   await user.click(within(results).getByRole('button', { name: /org\/chat/u }));

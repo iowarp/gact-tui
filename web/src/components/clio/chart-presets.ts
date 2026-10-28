@@ -76,7 +76,20 @@ export function isChartPresetName(name: string): name is ChartPresetName {
 
 const OMIT = Symbol('omit');
 
-function fill(node: unknown, fields: Readonly<Record<string, string>>, preset: string): unknown {
+/**
+ * A column name as a Vega-Lite `field`: a dot or bracket there means a nested
+ * path, so a table's own dotted column (`condition.arm_length_m`) is escaped.
+ */
+export function vegaFieldName(column: string): string {
+  return column.replace(/[.[\]\\]/gu, (char) => `\\${char}`);
+}
+
+function fill(
+  node: unknown,
+  fields: Readonly<Record<string, string>>,
+  preset: string,
+  key = '',
+): unknown {
   if (isJsonObject(node)) {
     if ('$if' in node) {
       const extra = Object.keys(node).filter((key) => !['$if', 'then', 'else'].includes(key));
@@ -96,13 +109,15 @@ function fill(node: unknown, fields: Readonly<Record<string, string>>, preset: s
     }
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(node)) {
-      const filled = fill(value, fields, preset);
+      const filled = fill(value, fields, preset, key);
       if (filled !== OMIT) out[key] = filled;
     }
     return out;
   }
   if (Array.isArray(node)) {
-    return node.map((value) => fill(value, fields, preset)).filter((value) => value !== OMIT);
+    return node
+      .map((value) => fill(value, fields, preset, key))
+      .filter((value) => value !== OMIT);
   }
   if (typeof node === 'string') {
     const slotValue = (slot: string): string => {
@@ -112,7 +127,7 @@ function fill(node: unknown, fields: Readonly<Record<string, string>>, preset: s
       return fields[slot]!;
     };
     const whole = WHOLE_SLOT.exec(node);
-    if (whole) return slotValue(whole[1]!);
+    if (whole) return key === 'field' ? vegaFieldName(slotValue(whole[1]!)) : slotValue(whole[1]!);
     return node.replace(SLOT, (_match, slot: string) => slotValue(slot));
   }
   return node;

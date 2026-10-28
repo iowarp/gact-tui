@@ -1,7 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { providerComponentsSchema, type Session } from '@clio/core/v3';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { fixtureEndpoint, setupWorkspaceBrowser, workspaceUrl } from './workspace-setup';
+import {
+  fixtureEndpoint,
+  setupWorkspaceBrowser,
+  showEvidenceRail,
+  workspaceUrl,
+} from './workspace-setup';
 
 async function settleConversationAtLatest(page: Page) {
   const conversation = page.getByRole('log', { name: 'Conversation' });
@@ -130,7 +135,7 @@ test('opens the unresolved task from the status strip in the actual task view', 
   const tasks = canvas.getByRole('button', { name: 'Background tasks, 1 recorded' });
   if ((await tasks.getAttribute('aria-expanded')) === 'false') await tasks.click();
   await expect(canvas.getByRole('button', { name: 'Task details: Prepare dataset' })).toBeVisible();
-  await expect(canvas.getByText('MCP · Needs inspection')).toBeVisible();
+  await expect(canvas.getByText('Tool: Needs inspection', { exact: true })).toBeVisible();
 });
 
 test('keeps Observability tabs inside the strip and scrolls only their content vertically', async ({
@@ -143,7 +148,7 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await page.reload();
     await waitForArtifactPreview(page);
     await page.evaluate(() => document.fonts.ready);
-    await page.getByRole('button', { name: 'Session rail', exact: true }).click();
+    await showEvidenceRail(page, 'Session');
     await page.getByRole('button', { name: 'Open full details' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
@@ -279,6 +284,7 @@ test('keeps same-named sessions on one line and reveals details on hover or focu
   await page.route(/\/v1\/sessions(?:\?.*)?$/u, async (route) => {
     const response = await route.fetch();
     const payload = (await response.json()) as { sessions: Session[] };
+    if (payload.sessions.length === 0) return route.fulfill({ response, json: payload });
     const original = payload.sessions[0];
     expect(original).toBeDefined();
     await route.fulfill({
@@ -882,7 +888,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await page.addInitScript(() => localStorage.setItem('theme', 'light'));
   await page.goto(workspaceUrl);
 
-  await expect(page.locator('html')).toHaveClass(/light/);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.getByRole('button', { name: 'Open workspace canvas' })).toBeVisible();
   await waitForArtifactPreview(page);
   // Capture a settled transcript. Without this the shot races the scroll to the
@@ -1069,14 +1075,12 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
-  // The top-toolbar retains separate rail controls. The
+  // The top toolbar exposes the evidence layout control. The
   // persistent live region retains work status without a second visible badge.
   const observabilityDock = page.getByRole('button', {
-    name: 'Session rail',
-    exact: true,
+    name: /^Evidence layout: /u,
   });
-  await expect(observabilityDock).toHaveAttribute('title', 'Show session rail');
-  await expect(page.getByRole('button', { name: 'Work rail', exact: true })).toBeVisible();
+  await expect(observabilityDock).toHaveAttribute('aria-haspopup', 'dialog');
   await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Working$/ })).toHaveCount(
     1,
   );

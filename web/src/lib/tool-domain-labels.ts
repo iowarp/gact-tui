@@ -28,7 +28,8 @@ export type ToolDomain =
   | 'workflows'
   | 'skills'
   | 'messaging'
-  | 'interaction';
+  | 'interaction'
+  | 'science';
 
 /** One owner table for every `ToolDomain` token's reader-facing label. */
 export const TOOL_DOMAIN_LABELS: Record<ToolDomain, string> = {
@@ -50,6 +51,7 @@ export const TOOL_DOMAIN_LABELS: Record<ToolDomain, string> = {
   skills: 'Skills',
   messaging: 'Messaging',
   interaction: 'Questions',
+  science: 'Science log',
 };
 
 function isToolDomain(value: string): value is ToolDomain {

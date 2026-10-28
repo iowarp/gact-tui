@@ -43,14 +43,21 @@ const testCatalog = new Catalog(
   [],
 );
 
-function buildSurface(components: Record<string, unknown>[]) {
+function buildSurface(
+  components: Record<string, unknown>[],
+  dataModel?: Record<string, unknown>,
+  onAction: (action: { name: string }) => Promise<void> = async () => undefined,
+) {
   const surfaceId = 'workflow-surface';
-  const processor = new MessageProcessor([testCatalog], async () => undefined, {
+  const processor = new MessageProcessor([testCatalog], onAction as never, {
     version: 'v0.9.1',
   });
   processor.processMessages([
     { version: 'v0.9.1', createSurface: { surfaceId, catalogId: TEST_CATALOG_ID } },
     { version: 'v0.9.1', updateComponents: { surfaceId, components } },
+    ...(dataModel
+      ? [{ version: 'v0.9.1', updateDataModel: { surfaceId, path: '/', value: dataModel } }]
+      : []),
   ] as A2uiMessage[]);
   const surface = processor.model.getSurface(surfaceId);
   if (!surface) throw new Error('Expected the test surface to exist');
@@ -152,5 +159,38 @@ describe('clio.workflow.v1 dataUri rendering', () => {
     render(wrap(<A2uiSurface surface={surface} />));
 
     expect(await screen.findByText(/Workflow unavailable/u)).toBeInTheDocument();
+  });
+
+  it("runs a node's own action on click and follows a bound selected node", async () => {
+    const actions: string[] = [];
+    const surface = buildSurface(
+      [
+        { id: 'root', component: 'Column', children: ['tree'] },
+        {
+          id: 'tree',
+          component: 'clio.workflow.v1',
+          nodes: [
+            { id: 'root', label: 'Question' },
+            {
+              id: 'b1',
+              label: 'Branch 1',
+              action: { event: { name: 'open.branch', context: { node: 'b1' } } },
+            },
+          ],
+          edges: [{ source: 'root', target: 'b1' }],
+          selected: { path: '/branch' },
+        },
+      ],
+      { branch: 'b1' },
+      async (action) => {
+        actions.push(action.name);
+      },
+    );
+    render(wrap(<A2uiSurface surface={surface} />));
+    expect(await screen.findByText(/class node1 selected/u)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Branch 1' }));
+    await vi.waitFor(() => expect(actions).toEqual(['open.branch']));
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Question' }));
+    expect(actions).toEqual(['open.branch']);
   });
 });

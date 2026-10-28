@@ -203,7 +203,7 @@ function ScopedAttentionLookup({
       if (!link) return;
       const selected = link.selections.map((reference) => ({
         reference,
-        label: `Evidence · ${reference.field ?? 'content'}`,
+        label: `Evidence: ${reference.field ?? 'content'}`,
       }));
       setItems(selected);
       setDirection(link.direction);
@@ -281,7 +281,7 @@ function ScopedAttentionLookup({
       className="max-h-[45vh] shrink-0 overflow-y-auto border-b bg-muted/20 px-4 py-2"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">Attention set · {items.length}</span>
+        <span className="text-sm font-medium">Attention set ({items.length})</span>
         <InfoTip label="About attention selections">
           Select more transcript passages to combine them. Overlapping captured tokens count once.
           Heat is a measurement, not evidence of intent or poisoning.

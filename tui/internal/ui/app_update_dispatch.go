@@ -140,47 +140,11 @@ func (a *App) dispatchUpdateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case permissionInspectorRespondedMsg:
 		return a.permission.handleInspectorResponded(m)
 
-	case expertPackActivatedMsg:
-		return a.catalog.handleExpertPackActivated(m)
-
-	case expertPackManagedMsg:
-		return a.catalog.handleExpertPackManaged(m)
-
 	case promptSavedMsg:
 		return a.catalog.handlePromptSaved(m)
 
-	case agentBlueprintActivatedMsg:
-		return a.agent.handleAgentBlueprintActivated(m)
-
-	case agentBlueprintMCPEnabledMsg:
-		return a.agent.handleAgentBlueprintMCPEnabled(m)
-
-	case agentBlueprintHookEnabledMsg:
-		return a.agent.handleAgentBlueprintHookEnabled(m)
-
-	case agentBlueprintManagedMsg:
-		return a.agent.handleAgentBlueprintManaged(m)
-
-	case agentBlueprintSourceManagedMsg:
-		return a.agent.handleAgentBlueprintSourceManaged(m)
-
 	case promptEditLoadedMsg:
 		return a.promptEdit.handleLoaded(m)
-
-	case agentWriteDoneMsg:
-		return a.agentWrite.handleDone(m)
-
-	case agentLoadedForEditMsg:
-		return a.agent.handleAgentLoadedForEdit(m)
-
-	case agentEditedMsg:
-		return a.agent.handleAgentEdited(m)
-
-	case agentDeletedMsg:
-		return a.agent.handleAgentDeleted(m)
-
-	case agentBlueprintManageDoneMsg:
-		return a.agent.handleAgentBlueprintManageDone(m)
 
 	case sessionRewindDoneMsg:
 		return a.session.handleRewindDone(m)

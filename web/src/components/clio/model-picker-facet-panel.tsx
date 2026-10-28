@@ -62,8 +62,8 @@ export function ModelPickerFacetPanel({ tabs, onToggleChip, sliders }: ModelPick
       role="region"
     >
       <Tabs className="min-h-0 flex-1 gap-0" onValueChange={openTab} value={tab}>
-        <div className="shrink-0 overflow-x-auto border-b px-2 pt-2 pb-1.5">
-          <TabsList className="h-8" variant="line">
+        <div className="shrink-0 border-b px-2 pt-2 pb-1.5">
+          <TabsList className="h-auto min-h-8 flex-wrap justify-start" variant="line">
             <TabsTrigger value="main">Main</TabsTrigger>
             {tabs.map((item) => (
               <TabsTrigger key={item.id} value={item.id}>

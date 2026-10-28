@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { htmlPreviewHostDocument } from './html-preview-bridge';
+import { MAX_HTML_PREVIEW_TEXT_CHARS, htmlPreviewHostDocument } from './html-preview-bridge';
 import { htmlPreviewDocument } from './html-preview-policy';
 import { themedSvgBytes } from './html-preview-theme';
 
@@ -22,6 +22,18 @@ it('admits only its nonce-authorized bridge in a sanitized static preview', () =
   expect(html).toContain('frame-1');
   expect(doc.documentElement.classList.contains('dark')).toBe(true);
   expect(doc.querySelector('style')!.textContent).toContain('--foreground: #eeeeee');
+});
+
+it('adds a bounded rendered-text reply to the nonce bridge without changing the sandbox contract', () => {
+  const html = htmlPreviewHostDocument('<body><h1>Rendered</h1></body>', 'copy-channel', theme);
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const script = doc.querySelector('script')?.textContent ?? '';
+
+  expect(script).toContain('clio.html-preview.read-text');
+  expect(script).toContain('document.body?.innerText');
+  expect(script).toContain('clio.html-preview.text-error');
+  expect(script).toContain(String(MAX_HTML_PREVIEW_TEXT_CHARS));
+  expect(doc.querySelector('script')?.getAttribute('nonce')).toBeTruthy();
 });
 
 it('themes a standalone SVG display copy while retaining authored colors and source bytes', () => {

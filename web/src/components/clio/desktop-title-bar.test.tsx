@@ -34,7 +34,7 @@ vi.mock('@/tauri/desktop-lifecycle', () => ({
   listenForCloseFallbackHidden,
 }));
 
-vi.mock('sonner', () => ({ toast: { error: toastError } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: toastError } }));
 
 vi.mock('@/lib/platform', () => ({ isMacOS }));
 
@@ -246,9 +246,9 @@ describe('DesktopTitleBar', () => {
     expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
   });
 
-  it('title_bar_shows_session_context: shows workspace › session with the blueprint badge once a route writes it', () => {
+  it('title_bar_shows_session_context: shows workspace › session with the agent badge once a route writes it', () => {
     useDesktopTitleStore.getState().setTitleContext({
-      blueprint: 'EarthScope (Flat / Haiku)',
+      agent: 'EarthScope (Flat / Haiku)',
       session: 'NDP flatness run',
       workspace: 'flat-ndp',
     });
@@ -261,7 +261,7 @@ describe('DesktopTitleBar', () => {
 
   it('the title context region is a deep Tauri drag region, so clicking its text (not just its padding) drags', () => {
     useDesktopTitleStore.getState().setTitleContext({
-      blueprint: 'EarthScope (Flat / Haiku)',
+      agent: 'EarthScope (Flat / Haiku)',
       session: 'NDP flatness run',
       workspace: 'flat-ndp',
     });
@@ -281,11 +281,11 @@ describe('DesktopTitleBar', () => {
     expect(runDesktopWindowAction).not.toHaveBeenCalledWith('toggleMaximize');
   });
 
-  it('blueprint_badge_opens_blueprint: clicking the blueprint badge calls the route-supplied opener', () => {
-    const onOpenBlueprint = vi.fn();
+  it('agent_badge_opens_agent: clicking the agent badge calls the route-supplied opener', () => {
+    const onOpenAgent = vi.fn();
     useDesktopTitleStore.getState().setTitleContext({
-      blueprint: 'EarthScope (Flat / Haiku)',
-      onOpenBlueprint,
+      agent: 'EarthScope (Flat / Haiku)',
+      onOpenAgent,
       session: 'NDP flatness run',
       workspace: 'flat-ndp',
     });
@@ -293,30 +293,18 @@ describe('DesktopTitleBar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' }));
 
-    expect(onOpenBlueprint).toHaveBeenCalledOnce();
+    expect(onOpenAgent).toHaveBeenCalledOnce();
   });
 
-  it('shows_base_agent_state: shows "Base agent" instead of a badge when the route says there is no blueprint', () => {
+  it('renders no agent badge while the route has not resolved the agent', () => {
     useDesktopTitleStore.getState().setTitleContext({
       session: 'NDP flatness run',
-      showsBaseAgent: true,
       workspace: 'flat-ndp',
     });
     renderTitleBar();
 
     const titleContext = within(screen.getByTestId('desktop-title-context'));
-    expect(titleContext.getByText('Base agent')).toBeInTheDocument();
     expect(titleContext.queryByRole('button')).not.toBeInTheDocument();
-  });
-
-  it('neither a blueprint badge nor "Base agent" renders when the route has not resolved either', () => {
-    useDesktopTitleStore.getState().setTitleContext({
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
-    renderTitleBar();
-
-    expect(screen.queryByText('Base agent')).not.toBeInTheDocument();
   });
 
   it('shortcuts_bind_new_session_settings_fullscreen: Ctrl+N, Ctrl+comma, and F11 all work on Windows/Linux', () => {

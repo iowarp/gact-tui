@@ -1,4 +1,4 @@
-import type { AsyncProcess, SubagentRun, ToolInvocation } from '@clio/core/v3';
+import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
 import { Controls, Handle, Position, ReactFlow, type Edge, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useMemo, useRef } from 'react';
@@ -7,13 +7,7 @@ import { useContainerQuery } from '@/hooks/use-container-query';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { subagentOpenTarget, SUBAGENT_OPEN_HINT } from './subagent-navigation';
-import { workflowDescriptor } from './workflow-tool-presentation';
-import {
-  buildWorkflowExecutionGraph,
-  buildWorkflowGraph,
-  nodeHeight,
-  type WorkflowNode,
-} from './workflow-graph-builders';
+import { buildWorkflowGraph, nodeHeight, type WorkflowNode } from './workflow-graph-builders';
 
 const nodeTypes = { 'clio-workflow': WorkflowNodeCard };
 
@@ -82,77 +76,6 @@ export function ClioWorkflowGraph({
       </div>
       <p className="text-xs text-muted-foreground">
         Select a child to open a workspace tab. Shift-click opens the conversation in the center.
-      </p>
-    </section>
-  );
-}
-
-/** One recorded run_workflow invocation rendered as its ordered execution graph. */
-
-export function ClioWorkflowExecutionGraph({
-  tool,
-  subagents,
-  onOpenSubagent,
-}: {
-  tool: ToolInvocation;
-  subagents: readonly SubagentRun[];
-  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const horizontal = useContainerQuery(containerRef, 560);
-  const direction = horizontal ? 'LR' : 'TB';
-  const descriptor = workflowDescriptor(tool);
-  const graph = useMemo(() => {
-    const next = buildWorkflowExecutionGraph(tool, subagents, direction);
-    return {
-      ...next,
-      nodes: next.nodes.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          openSubagent:
-            node.data.subagent && onOpenSubagent
-              ? (target: SubagentOpenTarget) => onOpenSubagent(node.data.subagent!, target)
-              : undefined,
-        },
-      })),
-    };
-  }, [direction, onOpenSubagent, subagents, tool]);
-  const height = Math.min(720, Math.max(320, graph.nodes.length * (horizontal ? 118 : 136)));
-
-  if (!descriptor || graph.nodes.length < 2) return null;
-
-  return (
-    <section className="min-w-0 space-y-2">
-      <h3 className="text-sm font-medium">Workflow execution</h3>
-      <div
-        aria-label={`Workflow execution graph: ${descriptor.label}`}
-        className="min-h-72 overflow-hidden rounded-lg border bg-background/55"
-        ref={containerRef}
-        role="img"
-        style={{ height }}
-      >
-        <ReactFlow<WorkflowNode, Edge>
-          edges={graph.edges}
-          elementsSelectable
-          fitView
-          fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
-          maxZoom={1.5}
-          minZoom={0.25}
-          nodeTypes={nodeTypes}
-          nodes={graph.nodes}
-          nodesConnectable={false}
-          nodesDraggable={false}
-          panOnDrag
-          proOptions={{ hideAttribution: true }}
-          zoomOnDoubleClick={false}
-        >
-          <Controls aria-label="Workflow execution graph controls" showInteractive={false} />
-        </ReactFlow>
-      </div>
-      <p className="text-xs leading-5 text-muted-foreground">
-        {descriptor.steps.length} ordered {descriptor.steps.length === 1 ? 'step' : 'steps'}
-        {descriptor.request ? ` · ${descriptor.request}` : ''}
       </p>
     </section>
   );

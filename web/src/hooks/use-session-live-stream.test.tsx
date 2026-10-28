@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
   const repository = {
-    sessions: vi.fn(),
     stream: vi.fn(),
     transcript: vi.fn(),
     workspaces: vi.fn(),
@@ -24,6 +23,7 @@ const mocks = vi.hoisted(() => {
     { getState: vi.fn(() => storeState) },
   );
   return {
+    sessionRows: vi.fn(),
     queryClient: {
       invalidateQueries: vi.fn(async () => undefined),
       setQueriesData: vi.fn(),
@@ -32,7 +32,7 @@ const mocks = vi.hoisted(() => {
     repository,
     resume: undefined as (() => void) | undefined,
     storeState,
-    toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
+    toast: { dismiss: vi.fn(), error: vi.fn(), info: vi.fn(), success: vi.fn() },
     useLiveStore,
   };
 });
@@ -59,14 +59,15 @@ vi.mock('@/tauri/desktop-lifecycle', () => ({
 }));
 
 import { queryInvalidationKeysForEvent, useSessionLiveStream } from './use-session-live-stream';
+import { sessionReads } from '@/test/session-reads';
 
 describe('useSessionLiveStream resume recovery', () => {
   beforeEach(() => {
     mocks.storeState.entities.cursor = undefined;
     vi.spyOn(document, 'hasFocus').mockReturnValue(true);
     mocks.repository.stream.mockReset();
-    mocks.repository.sessions.mockReset();
-    mocks.repository.sessions.mockResolvedValue([]);
+    mocks.sessionRows.mockReset();
+    mocks.sessionRows.mockResolvedValue([]);
     mocks.repository.transcript.mockReset();
     mocks.repository.transcript.mockResolvedValue({
       cursor: 'snapshot-9',
@@ -131,13 +132,33 @@ describe('useSessionLiveStream resume recovery', () => {
         workspaceId: 'ws_1',
       }),
     ).toEqual([
+      ['sessions', 'http://127.0.0.1:8790', 'waiting'],
       ['pending-interactions', 'http://127.0.0.1:8790'],
       ['pending-approvals', 'http://127.0.0.1:8790'],
       ['pending-questions', 'http://127.0.0.1:8790'],
       ['session-observability', 'http://127.0.0.1:8790', 'sess_1', 'processes'],
-      ['sessions', 'http://127.0.0.1:8790', 'all'],
+      ['sessions', 'http://127.0.0.1:8790'],
       ['execution-provenance', 'http://127.0.0.1:8790'],
     ]);
+  });
+
+  it('refreshes the transcript only for this session’s own execution task', () => {
+    const event = {
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'task.updated',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+      taskOwnerSessionId: 'sess_1',
+      taskInvocationId: 'call_1',
+    };
+    const transcript = ['transcript', event.endpoint, 'sess_1'];
+    expect(queryInvalidationKeysForEvent(event)).toContainEqual(transcript);
+    expect(
+      queryInvalidationKeysForEvent({ ...event, taskOwnerSessionId: 'child' }),
+    ).not.toContainEqual(transcript);
+    expect(
+      queryInvalidationKeysForEvent({ ...event, taskInvocationId: undefined }),
+    ).not.toContainEqual(transcript);
   });
 
   it('does not skip unseen tool completions when a newer REST snapshot arrives', async () => {
@@ -172,7 +193,7 @@ describe('useSessionLiveStream resume recovery', () => {
     });
 
     expect(keys).toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
-    expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
+    expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790']);
     expect(keys).toContainEqual(['execution-provenance', 'http://127.0.0.1:8790']);
   });
 
@@ -463,7 +484,11 @@ describe('useSessionLiveStream resume recovery', () => {
 
     await waitFor(
       () =>
-        expect(mocks.repository.transcript).toHaveBeenCalledWith('sess_1', expect.any(AbortSignal)),
+        expect(mocks.repository.transcript).toHaveBeenCalledWith(
+          'sess_1',
+          expect.any(AbortSignal),
+          { limit: 40 },
+        ),
       {
         timeout: 3_000,
       },
@@ -565,14 +590,8 @@ describe('useSessionLiveStream resume recovery', () => {
   });
 });
 
-it('refreshes blueprint revisions only on the connected CLIO', () => {
-  const keys = queryInvalidationKeysForEvent({
-    endpoint: 'http://connected-clio',
-    eventName: 'blueprint.revision.changed',
-    sessionId: 's1',
-    workspaceId: 'w1',
-  });
-  expect(keys).toContainEqual(['agent-blueprints', 'http://connected-clio']);
-  expect(keys).toContainEqual(['blueprint-files', 'http://connected-clio']);
-  expect(keys.every((key) => key[1] === 'http://connected-clio')).toBe(true);
-});
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  mocks.repository,
+  sessionReads(() => mocks.sessionRows()),
+);

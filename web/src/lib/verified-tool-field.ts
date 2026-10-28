@@ -16,6 +16,7 @@ function canonical(value: unknown): string {
 /** Captured JSON spacing is retained only when the current arguments still match. */
 export function verifiedToolField(block: AttentionBlock, tool: ToolInvocation): string | undefined {
   let text: string | undefined;
+  const observedResult = tool.submission ? tool.submission.output : tool.output;
   if (block.field === 'input' && block.source_text !== undefined) {
     try {
       if (canonical(JSON.parse(block.source_text)) === canonical(tool.input))
@@ -26,9 +27,9 @@ export function verifiedToolField(block: AttentionBlock, tool: ToolInvocation): 
   } else if (
     block.field === 'result' &&
     block.kind === 'tool_result' &&
-    tool.output !== undefined
+    observedResult !== undefined
   ) {
-    text = toolResultText(tool.output);
+    text = toolResultText(observedResult);
   }
   if (
     text === undefined ||

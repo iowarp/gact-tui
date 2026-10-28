@@ -1,4 +1,5 @@
 import createDOMPurify from 'dompurify';
+import { textFileFormat } from '@/lib/file-presentation';
 
 const PREVIEW_CSP = [
   "default-src 'none'",
@@ -13,9 +14,7 @@ const PREVIEW_CSP = [
 
 /** Recognize HTML by its registered type or ordinary file extension. */
 export function isHtmlFile(name: string, mediaType = ''): boolean {
-  return (
-    mediaType.split(';', 1)[0]?.trim().toLowerCase() === 'text/html' || /\.html?$/iu.test(name)
-  );
+  return textFileFormat(name, mediaType) === 'html';
 }
 
 /** Build an isolated, self-contained display copy without altering the original source. */

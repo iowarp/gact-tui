@@ -1,18 +1,17 @@
 import type {
-  AgentBlueprint,
-  AgentBlueprintReference,
   Artifact as ArtifactEntity,
   SessionDiff,
   SubagentRun,
-  ToolInvocation,
   WorkspaceFileEntry,
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
   ActivityIcon,
+  BotIcon,
   BoxesIcon,
   BoxIcon,
   FileCode2Icon,
+  FlaskConicalIcon,
   FileDiffIcon,
   FolderIcon,
   Layers3Icon,
@@ -52,7 +51,6 @@ import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import type { SubagentOpenTarget } from './subagent-card';
 import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
-import { workflowDescriptor } from './workflow-tool-presentation';
 import { CanvasLauncher, type CanvasResourceKind } from './workbench-resource-browser';
 import { WorkbenchTabContent } from './workbench-tab-content';
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
@@ -60,6 +58,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
+import { scienceLogTab, useScienceLogTab } from './science-log-tab-state';
 
 export interface ClioWorkbenchProps {
   workspaceId: string;
@@ -79,19 +78,21 @@ export interface ClioWorkbenchProps {
   resources?: readonly WorkspaceResource[];
   resourcesPending?: boolean;
   resourcesError?: string;
-  blueprints: readonly AgentBlueprint[];
-  blueprintsPending?: boolean;
-  blueprintsError?: string;
   diffs: readonly SessionDiff[];
   diffActionError?: string;
   diffActionPending?: boolean;
   sessionView: ReactNode;
-  onApplyDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
+  /** The Agent tab before the conversation exists (a new conversation's draft agent). */
+  agentView?: ReactNode;
   onOpenTerminal?: () => void;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  onRejectDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
+  onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   subagents?: readonly SubagentRun[];
+  /** Finished child agents are not loaded yet (they sit behind Show completed work). */
+  finishedWorkHidden?: boolean;
   requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
+  /** The session belongs to a study (its science log read says so); unknown hides the tab. */
+  inStudy?: boolean;
 }
 
 export type ClioWorkbenchOpenRequest =
@@ -105,11 +106,13 @@ export type ClioWorkbenchOpenRequest =
       resource: WorkspaceResource;
       relatedResources?: readonly WorkspaceResource[];
     }
-  | { kind: 'blueprint'; blueprint: AgentBlueprintReference }
   | { kind: 'subagent'; subagent: SubagentRun }
-  | { kind: 'workflow'; tool: ToolInvocation }
+  /** A flow run (a workflow, a council, ...) recorded under the task `handle`. */
+  | { kind: 'flow'; handle: string; label?: string }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
   | { kind: 'session' }
+  /** The Science log tab, as `openView` opens a study view in it. */
+  | { kind: 'science-log' }
   | { kind: 'terminal'; cwd: string };
 
 export interface ClioWorkbenchHandle {
@@ -127,7 +130,10 @@ function isWorkbenchTab(value: unknown): value is WorkbenchTab {
   if (!value || typeof value !== 'object') return false;
   const row = value as Record<string, unknown>;
   return (
-    typeof row.id === 'string' && typeof row.kind === 'string' && typeof row.label === 'string'
+    typeof row.id === 'string' &&
+    typeof row.kind === 'string' &&
+    row.kind in workbenchTabIcons &&
+    typeof row.label === 'string'
   );
 }
 
@@ -150,9 +156,10 @@ function restoredWorkbenchState(
     const storedTabs = Array.isArray(record.tabs)
       ? record.tabs
           .filter(isWorkbenchTab)
+          // Knowledge tabs saved by older builds carry a " (middle dot) Knowledge" suffix.
           .map((tab) =>
             tab.kind === 'knowledge'
-              ? { ...tab, label: tab.label.replace(/ · Knowledge$/, '') }
+              ? { ...tab, label: tab.label.replace(/ \u00b7 Knowledge$/u, '') }
               : tab,
           )
       : [];
@@ -174,11 +181,7 @@ const artifactBrowserTab: WorkbenchTab = {
   kind: 'artifacts',
   label: 'Artifacts',
 };
-const blueprintBrowserTab: WorkbenchTab = {
-  id: 'blueprints',
-  kind: 'blueprints',
-  label: 'Blueprints',
-};
+const agentTab: WorkbenchTab = { id: 'agent', kind: 'agent', label: 'Agent' };
 const resourceBrowserTab: WorkbenchTab = {
   id: 'resources',
   kind: 'resources',
@@ -190,8 +193,9 @@ const canvasResourceTabs = {
   session: sessionTab,
   files: fileBrowserTab,
   artifacts: artifactBrowserTab,
-  blueprints: blueprintBrowserTab,
+  agent: agentTab,
   resources: resourceBrowserTab,
+  'science-log': scienceLogTab,
 } satisfies Record<CanvasResourceKind, WorkbenchTab>;
 
 const workbenchTabIcons = {
@@ -200,16 +204,15 @@ const workbenchTabIcons = {
   session: ActivityIcon,
   files: FolderIcon,
   artifacts: BoxIcon,
-  blueprints: BoxesIcon,
+  agent: BotIcon,
   resources: PaperclipIcon,
+  'science-log': FlaskConicalIcon,
   'workspace-file': FileCode2Icon,
   diff: FileDiffIcon,
-  'blueprint-file': FileCode2Icon,
   artifact: BoxIcon,
   resource: PaperclipIcon,
-  blueprint: BoxesIcon,
   subagent: BoxesIcon,
-  workflow: WorkflowIcon,
+  flow: WorkflowIcon,
   terminal: TerminalSquareIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
@@ -236,19 +239,18 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       resources = [],
       resourcesPending,
       resourcesError,
-      blueprints,
-      blueprintsPending,
-      blueprintsError,
       diffs,
       diffActionError,
       diffActionPending,
       sessionView,
-      onApplyDiff,
+      agentView,
       onOpenTerminal,
       onOpenSubagent,
-      onRejectDiff,
+      onUndoDiff,
       subagents = [],
+      finishedWorkHidden = false,
       requestedOpen,
+      inStudy,
     },
     ref,
   ) {
@@ -280,7 +282,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       return () => onFilesViewActiveChange?.(false);
     }, [activeTabId, onFilesViewActiveChange]);
 
-    useWorkbenchTabVisibility(tabStripRef, activeTabRef, activeTabId, tabs, maximized);
+    const study = useScienceLogTab(inStudy, sessionId, tabs, setTabs, activeTabId);
+    const shown = study;
+    useWorkbenchTabVisibility(tabStripRef, activeTabRef, shown.activeTabId, shown.tabs, maximized);
 
     const openTab = useCallback((tab: WorkbenchTab) => {
       setTabs((current) =>
@@ -415,35 +419,27 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               workspaceId: request.resource.workspace_id || workspaceId,
             });
             return;
-          case 'blueprint':
+          case 'subagent':
+            openSubagentTab(request.subagent);
+            return;
+          case 'flow':
             openTab({
-              id: `blueprint:${request.blueprint.id}`,
-              kind: 'blueprint',
-              label: request.blueprint.display_name,
-              blueprint: request.blueprint,
+              id: `flow:${request.handle}`,
+              kind: 'flow',
+              label: request.label ?? 'Flow run',
+              handle: request.handle,
               sessionId,
               workspaceId,
             });
             return;
-          case 'subagent':
-            openSubagentTab(request.subagent);
-            return;
-          case 'workflow': {
-            const descriptor = workflowDescriptor(request.tool);
-            openTab({
-              id: `workflow:${request.tool.id}`,
-              kind: 'workflow',
-              label: descriptor?.label ?? request.tool.title ?? 'Workflow',
-              tool: request.tool,
-              workspaceId,
-            });
-            return;
-          }
           case 'resources':
             openCanvasResource(request.section ?? 'files');
             return;
           case 'session':
             openTab(sessionTab);
+            return;
+          case 'science-log':
+            openTab(scienceLogTab);
             return;
           case 'terminal':
             openTab({
@@ -473,13 +469,17 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           maximized && 'fixed inset-0 z-[80] bg-background shadow-2xl',
         )}
       >
-        <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTabId} value={activeTabId}>
+        <Tabs
+          className="min-h-0 flex-1 gap-0"
+          onValueChange={setActiveTabId}
+          value={shown.activeTabId}
+        >
           <div
             className="flex h-10 shrink-0 items-center gap-1 border-b bg-background/80 px-1.5"
             data-slot="canvas-header"
           >
             <div
-              className="@container no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+              className="@container no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden data-[scrolled-start=true]:[mask-image:linear-gradient(to_right,transparent,black_2rem)]"
               ref={tabStripRef}
             >
               <Sortable
@@ -487,11 +487,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 getItemValue={workbenchTabId}
                 onValueChange={setTabs}
                 strategy="horizontal"
-                value={tabs}
+                value={shown.tabs}
               >
                 <TabsList className="h-8 w-max justify-start gap-0.5 rounded-lg bg-transparent p-0.5">
-                  {tabs.map((tab) => {
-                    const active = tab.id === activeTabId;
+                  {shown.tabs.map((tab) => {
+                    const active = tab.id === shown.activeTabId;
                     return (
                       // The close button below is a SIBLING, not a child, of TabsTrigger: Radix's
                       // Tabs.Trigger renders a real <button role="tab">, whose content model
@@ -620,6 +620,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               onOpenSubagent={openSubagentTab}
               onOpenTerminal={onOpenTerminal}
               subagents={subagents}
+              finishedWorkHidden={finishedWorkHidden}
+              scienceLog={inStudy === true}
             />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
@@ -642,7 +644,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               )}
             </Button>
           </div>
-          {tabs.map((tab) => (
+          {shown.tabs.map((tab) => (
             <TabsContent className="m-0 min-h-0 overflow-hidden" key={tab.id} value={tab.id}>
               {canvasVisible ? (
                 <WorkbenchTabErrorBoundary label={tab.label} onClose={() => closeTab(tab.id)}>
@@ -678,9 +680,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       artifactsError={artifactsError}
                       artifactsPending={artifactsPending}
                       artifactsTruncated={artifactsTruncated}
-                      blueprints={blueprints}
-                      blueprintsError={blueprintsError}
-                      blueprintsPending={blueprintsPending}
                       diffActionError={diffActionError}
                       diffActionPending={diffActionPending}
                       diffs={diffs}
@@ -691,11 +690,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       filesTruncated={filesTruncated}
                       filesNextOffset={filesNextOffset}
                       maximized={maximized}
-                      onApplyDiff={onApplyDiff}
                       onOpenSubagent={onOpenSubagent}
                       onOpenTab={openTab}
                       onRefreshFiles={onRefreshFiles}
-                      onRejectDiff={onRejectDiff}
+                      onUndoDiff={onUndoDiff}
                       onReplaceTab={replaceTab}
                       onSelectFilesPath={selectFilesPath}
                       onSelectWorkspaceFilePath={selectWorkspaceFilePath}
@@ -704,7 +702,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       resourcesPending={resourcesPending}
                       sessionId={sessionId}
                       sessionView={sessionView}
-                      subagents={subagents}
+                      agentView={agentView}
                       tab={tab}
                       workspaceId={workspaceId}
                     />
@@ -713,7 +711,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               ) : null}
             </TabsContent>
           ))}
-          {tabs.length === 0 ? (
+          {shown.tabs.length === 0 ? (
             <Empty className="h-full border-0">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -721,8 +719,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 </EmptyMedia>
                 <EmptyTitle>Canvas is empty</EmptyTitle>
                 <EmptyDescription>
-                  Use the add button to open observability, files, resources, artifacts, or
-                  blueprints.
+                  Use the add button to open observability, files, resources, artifacts, or the
+                  conversation&apos;s agent.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

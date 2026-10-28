@@ -9,6 +9,7 @@ import { z } from 'zod';
 import type { SelectionState } from '@/components/clio/selection-state';
 import { openExternalUrl } from '@/tauri/external-url';
 import { activeA2uiOpenArtifactRuntime } from './kernel-runtime';
+import { activeA2uiOpenViewRuntime } from './open-view';
 
 /**
  * Catalog FUNCTIONS the kernel renderer implements — split out of
@@ -123,12 +124,55 @@ const focusWorkflowFunction = createFunctionImplementation(
   },
 );
 
+/**
+ * `openView` (clio-workspace/v1): opens a study view (its `view` entry id) or a
+ * dashboard (its `artifact://` URI) from any conversation of the workspace, and
+ * applies `selection` there. The workspace page's runtime does the opening; with
+ * none (an offline review), it says so instead of opening anything.
+ */
+const openViewFunction = createFunctionImplementation(
+  {
+    name: 'openView',
+    returnType: 'void',
+    schema: z.object({
+      view: z.string().regex(/^(e_[0-9a-f]{12}|artifact:\/\/artifact_[A-Za-z0-9_-]+)$/u),
+      // `key`, not `path`: an object with a `path` is a data binding A2UI would resolve.
+      selection: z
+        .object({
+          key: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/u),
+          field: z.string().min(1).max(128),
+          values: z.array(z.string()).max(10_000),
+        })
+        .optional(),
+    }),
+  },
+  ({ view, selection }, context) => {
+    const runtime = activeA2uiOpenViewRuntime();
+    if (!runtime) {
+      void context.surface.dispatchError({
+        code: 'ARTIFACT_UNAVAILABLE',
+        message: 'Opening another view needs a live workspace.',
+      });
+      return;
+    }
+    runtime.openView(
+      view,
+      selection && {
+        path: `/selection/${selection.key}`,
+        field: selection.field,
+        values: selection.values,
+      },
+    );
+  },
+);
+
 const KERNEL_FUNCTION_LIST: FunctionImplementation[] = [
   ...BASIC_FUNCTIONS,
   openUrlFunction,
   openArtifactFunction,
   selectDataFunction,
   focusWorkflowFunction,
+  openViewFunction,
 ];
 
 /** Every kernel function implementation this renderer has, keyed by name. */

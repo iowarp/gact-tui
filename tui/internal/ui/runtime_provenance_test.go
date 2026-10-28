@@ -29,11 +29,10 @@ func sampleRuntimeProvenance() map[string]any {
 			"parent_id":         "data",
 			"route_source":      "lm",
 		},
-		"blueprint": map[string]any{
-			"id":              "marketplace-seismic",
-			"version":         "1.0.0",
-			"scope":           "workspace",
-			"definition_path": "/workspace/demo/AGENT.md",
+		"agent_resolution": map[string]any{
+			"ref":    "user/seismic-review",
+			"kind":   "user",
+			"digest": "r1",
 		},
 		"provider": map[string]any{
 			"provider_id": "alcf",
@@ -172,7 +171,7 @@ func TestRuntimeProvenanceDetailIsStructured(t *testing.T) {
 	for _, want := range []string{
 		"Operator view",
 		"active path: data -> ndp_catalog",
-		"workflow: marketplace-seismic",
+		"agent: user/seismic-review",
 		"tools used: ndp_search_datasets",
 		"handoffs: orchestrator -> data delegating",
 		"Execution summary",
@@ -183,8 +182,8 @@ func TestRuntimeProvenanceDetailIsStructured(t *testing.T) {
 		"workspace root: /workspace/demo",
 		"Agent",
 		"active expert: ndp_catalog",
-		"Workflow",
-		"marketplace-seismic",
+		"Agent plugins",
+		"user/seismic-review",
 		"Tools",
 		"observed: ndp_search_datasets",
 		"Skills",

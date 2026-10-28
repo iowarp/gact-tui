@@ -1,6 +1,6 @@
 import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -19,7 +19,6 @@ const repository = vi.hoisted(() => ({
   removeMcpConfiguration: vi.fn(),
   configureRelay: vi.fn(),
   deleteMcpServer: vi.fn(),
-  installMcpServer: vi.fn(),
   sandboxStatus: vi.fn(),
   setupSandbox: vi.fn(),
 }));
@@ -82,9 +81,9 @@ beforeEach(() => {
       transport: 'stdio',
       tools_count: 0,
       tools: [],
-      source: 'agent_blueprint',
-      agent_blueprint_id: 'earthscope-single-agent',
-      agent_blueprint_name: 'EarthScope Skills',
+      source: 'plugin',
+      plugin: 'ndp',
+      agent_ref: 'clio/earthscope-single-agent',
       session_id: 'sess_demo',
       spec: {},
     },
@@ -106,7 +105,7 @@ beforeEach(() => {
         representation: 'row',
       },
       {
-        name: 'memory_search_sessions',
+        name: 'session_search',
         title: 'Search memory',
         source: 'native',
         representation: 'row',
@@ -139,8 +138,8 @@ beforeEach(() => {
       },
     },
     {
-      id: 'memory_search_sessions',
-      name: 'memory_search_sessions',
+      id: 'session_search',
+      name: 'session_search',
       title: 'Search memory',
       source: 'builtin',
       tags: [],
@@ -162,8 +161,8 @@ beforeEach(() => {
       output_schema: {},
     },
     {
-      id: 'memory_search_sessions',
-      name: 'memory_search_sessions',
+      id: 'session_search',
+      name: 'session_search',
       title: 'Search memory',
       source: 'builtin',
       tags: [],
@@ -287,12 +286,8 @@ describe('InfrastructurePage', () => {
     expect(screen.getByText('artifact_id')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'MCP 1' }));
     expect(screen.getByRole('button', { name: /Search NDP/u })).toBeVisible();
-    expect(screen.getAllByText('EarthScope Skills')).toHaveLength(2);
     expect(screen.getByText('Session')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'EarthScope Skills' })).toHaveAttribute(
-      'href',
-      '/settings/blueprints?blueprint=earthscope-single-agent',
-    );
+    expect(screen.getByRole('link', { name: 'ndp' })).toHaveAttribute('href', '/settings/plugins');
     expect(repository.tools).toHaveBeenCalled();
     expect(repository.catalogTools).toHaveBeenCalled();
     expect(repository.effectiveAgentToolset).toHaveBeenCalledWith(
@@ -341,6 +336,28 @@ describe('InfrastructurePage', () => {
     expect(await screen.findByText('Not verified yet on this computer')).toBeVisible();
     expect(screen.queryByText('Optional')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'CLIO agent' })).not.toBeInTheDocument();
+  });
+
+  it('names what needs attention in the header and on the Local row, not only in a badge', async () => {
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [
+        { name: 'api', status: 'ready' },
+        { name: 'clio_core_daemon_memory', status: 'degraded', required: true },
+        { name: 'cte_metadata_log', status: 'degraded', required: false },
+      ],
+    });
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    expect(
+      await screen.findByText('Running. Memory service process on Local needs attention.'),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole('region', { name: 'Local computer' })).getByText(
+        /Needs attention: Memory service process\./u,
+      ),
+    ).toBeVisible();
   });
 
   it('offers a "Set up protected execution" fix, not just a label', async () => {

@@ -188,7 +188,9 @@ const injectionMessageBlockSchema = additivelyTolerant(
 );
 /**
  * A service notice recorded in the transcript, e.g. a failed compaction
- * (`source: "compaction_failed"`) with its typed `code`.
+ * (`source: "compaction_failed"`) with its typed `code`, or what an answer hook
+ * did (`source: "answer_hook"`): `metadata.hook` names the hook, and a `revised`
+ * notice's `metadata.revises` names the answer part its revision replaces.
  */
 const noticeMessageBlockSchema = additivelyTolerant(
   z
@@ -200,6 +202,10 @@ const noticeMessageBlockSchema = additivelyTolerant(
       code: z.string().optional(),
       trigger: z.enum(['auto', 'manual']).optional(),
       compaction_id: z.string().optional(),
+      metadata: z
+        .object({ hook: z.string().optional(), revises: z.string().optional() })
+        .passthrough()
+        .optional(),
       agent_id: z.string().optional(),
       sequence: z.number().int().positive().optional(),
       stream_source: z.string().optional(),
@@ -264,21 +270,25 @@ export const messageCompletionSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   error_info: z.record(z.string(), z.unknown()).optional(),
+  /** Public metadata the turn settled at its end (e.g. `memory_used`). */
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const messageSchema = z.object({
-  id: z.string(),
-  session_id: z.string(),
-  turn_id: z.string().optional(),
-  run_id: z.string().optional(),
-  role: forwardCompatibleEnum(['user', 'assistant', 'system']),
-  created_at: z.string(),
-  completed_at: z.string().optional(),
-  blocks: z.array(messageBlockSchema),
-  model: z.object({ provider_id: z.string().min(1), model_id: z.string().min(1) }).optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  usage: messageUsageSchema.optional(),
-  cost_usd: z.number().nonnegative().optional(),
-  stop_reason: z.string().optional(),
-  error_info: z.record(z.string(), z.unknown()).optional(),
-}).transform(projectAutomaticMessage);
+export const messageSchema = z
+  .object({
+    id: z.string(),
+    session_id: z.string(),
+    turn_id: z.string().optional(),
+    run_id: z.string().optional(),
+    role: forwardCompatibleEnum(['user', 'assistant', 'system']),
+    created_at: z.string(),
+    completed_at: z.string().optional(),
+    blocks: z.array(messageBlockSchema),
+    model: z.object({ provider_id: z.string().min(1), model_id: z.string().min(1) }).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    usage: messageUsageSchema.optional(),
+    cost_usd: z.number().nonnegative().optional(),
+    stop_reason: z.string().optional(),
+    error_info: z.record(z.string(), z.unknown()).optional(),
+  })
+  .transform(projectAutomaticMessage);

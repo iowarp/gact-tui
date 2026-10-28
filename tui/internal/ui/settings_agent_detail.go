@@ -82,8 +82,8 @@ func agentSourceLabel(source string) string {
 		return "user defined"
 	case "skill":
 		return "installed skill"
-	case "agent_blueprint", "blueprint":
-		return "active blueprint"
+	case "plugin":
+		return "from a plugin"
 	case "":
 		return ""
 	default:

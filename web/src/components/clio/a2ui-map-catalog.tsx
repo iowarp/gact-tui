@@ -16,7 +16,7 @@ import { BoundDataQuery } from './bound-data-query';
 import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
 import { dataViewFlexStyle } from './data-view-layout';
 import { isBoundToPath, type SelectionWriter } from './selection-state';
-import type { TableDataQuery } from './table-query-rows';
+import { TABLE_DATA_URI, type TableDataQuery } from './table-query-rows';
 import { mapCameraSchema, type MapCameraProps } from './map-camera';
 
 const pointSchema = z
@@ -35,10 +35,7 @@ const mapDataProperties = {
   camera: z.union([mapCameraSchema, z.object({ path: z.string().min(1) }).strict()]).optional(),
   title: CommonSchemas.DynamicString.optional(),
   points: z.array(pointSchema).min(1).max(A2UI_MAP_POINTS_MAX).optional(),
-  dataUri: z
-    .string()
-    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
-    .optional(),
+  dataUri: z.string().regex(TABLE_DATA_URI).optional(),
   geojsonUri: z
     .string()
     .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)

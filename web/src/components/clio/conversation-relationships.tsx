@@ -221,7 +221,7 @@ function ConversationCard({ data }: NodeProps<ConversationNode>) {
           <span className="line-clamp-2 text-xs font-semibold leading-4">{data.session.title}</span>
           <span className="mt-1 block text-[10px] text-muted-foreground">
             {conversationRole(data.session)}
-            {data.current ? ' · current' : ''}
+            {data.current ? ' (current)' : ''}
           </span>
         </span>
       </button>

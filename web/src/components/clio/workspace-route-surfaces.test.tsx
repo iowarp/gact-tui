@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createRef, type ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -29,6 +30,13 @@ vi.mock('./live-connection-indicator', () => ({
   LiveConnectionIndicator: () => <span data-testid="live-connection-indicator">Live pill</span>,
 }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: tauri.inTauri }));
+// The usage readout reads the fleet for a session; it stays pending here.
+vi.mock('@/hooks/use-repository', () => ({
+  useRepository: () => ({ fleet: () => new Promise(() => undefined) }),
+}));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://test' } }),
+}));
 
 beforeEach(() => {
   useUpdateFlowStore.getState().reset();
@@ -38,9 +46,11 @@ afterEach(cleanup);
 
 function renderStrip(props: ComponentProps<typeof WorkspaceStatusStrip>) {
   return render(
-    <TooltipProvider>
-      <WorkspaceStatusStrip {...props} />
-    </TooltipProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <WorkspaceStatusStrip {...props} />
+      </TooltipProvider>
+    </QueryClientProvider>,
   );
 }
 

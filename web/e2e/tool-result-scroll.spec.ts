@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { selectFileView } from './file-viewer-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
@@ -9,88 +10,91 @@ async function openFixture(page: Page, type?: string, content?: string, shortTra
   await page.addInitScript((address) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([address]));
   }, endpoint);
-  await page.route(`**/v1/sessions/${session}/messages`, async (route) => {
-    const response = await route.fetch();
-    const data = await response.json();
-    if (shortTranscript) {
-      data.messages = data.messages.slice(-2);
-      data.messages.at(-1).blocks.push({
-        id: 'long-in-flow-answer',
-        type: 'text',
-        text: Array.from(
-          { length: 40 },
-          (_, index) => `Evidence paragraph ${index}: a readable result within a long answer.`,
-        ).join('\n\n'),
-      });
-    }
-    const todos = Array.from({ length: 4 }, (_, i) => ({
-      content: `Task ${i}: ${'Long readable evidence '.repeat(12)}`,
-      status: 'pending',
-    }));
-    data.tools[0].input = type === 'short' ? { value: 'x' } : { todos };
-    data.tools[0].output =
-      type === 'short'
-        ? { value: 'y' }
-        : {
-            todos,
-            observations: Array.from({ length: 50 }, (_, i) => `Row ${i}`),
-          };
-    data.tools[0].presentation =
-      type && type !== 'short'
-        ? {
-            summary: '',
-            blocks: [
-              {
-                id: 'body',
-                type,
-                text:
-                  content ??
-                  Array.from(
-                    { length: 100 },
-                    (_, i) => `line-${i} ${'wide-output-'.repeat(40)}`,
-                  ).join('\n'),
-              },
-            ],
-          }
-        : undefined;
-    if (type === 'diff') {
-      data.tools[0].presentation.action = 'Write';
-      data.tools[0].presentation.subject = 'target';
-      data.tools[0].presentation.blocks.unshift({
-        id: 'target',
-        type: 'link',
-        target: 'file',
-        uri: subjectUri,
-        label: 'long-readable-evidence-filename-that-must-not-push-status-outside-the-row.txt',
-      });
-    }
-    if (type === 'check') {
-      data.tools[0].presentation.blocks = [
-        {
-          id: 'current',
-          type: 'check',
-          state: 'pending',
-          change: 'added',
-          text: 'Inspect evidence',
-        },
-        { id: 'complete', type: 'check', state: 'completed', text: 'Read the source' },
-        ...[
-          'Short task',
-          'Review the exported presentation and its rendered slides before registering the final artifact. '.repeat(
-            3,
-          ),
-          'Check measurements',
-        ].map((text, index) => ({
-          id: `removed-${index}`,
-          type: 'check',
-          state: 'pending',
-          change: 'removed',
-          text,
-        })),
-      ];
-    }
-    await route.fulfill({ response, json: data });
-  });
+  await page.route(
+    (url) => url.pathname === `/v1/sessions/${session}/messages`,
+    async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      if (shortTranscript) {
+        data.messages = data.messages.slice(-2);
+        data.messages.at(-1).blocks.push({
+          id: 'long-in-flow-answer',
+          type: 'text',
+          text: Array.from(
+            { length: 40 },
+            (_, index) => `Evidence paragraph ${index}: a readable result within a long answer.`,
+          ).join('\n\n'),
+        });
+      }
+      const todos = Array.from({ length: 4 }, (_, i) => ({
+        content: `Task ${i}: ${'Long readable evidence '.repeat(12)}`,
+        status: 'pending',
+      }));
+      data.tools[0].input = type === 'short' ? { value: 'x' } : { todos };
+      data.tools[0].output =
+        type === 'short'
+          ? { value: 'y' }
+          : {
+              todos,
+              observations: Array.from({ length: 50 }, (_, i) => `Row ${i}`),
+            };
+      data.tools[0].presentation =
+        type && type !== 'short'
+          ? {
+              summary: '',
+              blocks: [
+                {
+                  id: 'body',
+                  type,
+                  text:
+                    content ??
+                    Array.from(
+                      { length: 100 },
+                      (_, i) => `line-${i} ${'wide-output-'.repeat(40)}`,
+                    ).join('\n'),
+                },
+              ],
+            }
+          : undefined;
+      if (type === 'diff') {
+        data.tools[0].presentation.action = 'Write';
+        data.tools[0].presentation.subject = 'target';
+        data.tools[0].presentation.blocks.unshift({
+          id: 'target',
+          type: 'link',
+          target: 'file',
+          uri: subjectUri,
+          label: 'long-readable-evidence-filename-that-must-not-push-status-outside-the-row.txt',
+        });
+      }
+      if (type === 'check') {
+        data.tools[0].presentation.blocks = [
+          {
+            id: 'current',
+            type: 'check',
+            state: 'pending',
+            change: 'added',
+            text: 'Inspect evidence',
+          },
+          { id: 'complete', type: 'check', state: 'completed', text: 'Read the source' },
+          ...[
+            'Short task',
+            'Review the exported presentation and its rendered slides before registering the final artifact. '.repeat(
+              3,
+            ),
+            'Check measurements',
+          ].map((text, index) => ({
+            id: `removed-${index}`,
+            type: 'check',
+            state: 'pending',
+            change: 'removed',
+            text,
+          })),
+        ];
+      }
+      await route.fulfill({ response, json: data });
+    },
+  );
   await page.goto(`/workspaces/ws_flat_ndp/sessions/${session}`);
   // Wait for the populated transcript and the outgoing welcome animation.
   // Its composer briefly coexists with the docked composer during the transition.
@@ -255,11 +259,20 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
   await expect
     .poll(() => preview.locator('article').evaluate((e) => e.getBoundingClientRect().width))
     .toBeLessThan(500);
-  const markdownView = preview.getByRole('tablist', { name: 'Markdown file view', exact: true });
-  await markdownView.getByRole('tab', { name: 'Source', exact: true }).click();
+  await selectFileView(page, preview, 'Source');
   await expect(preview.getByRole('tabpanel', { name: 'Source', exact: true })).toContainText(
     '# Converted guide',
   );
+  // Source preserves long logical lines until the reader chooses wrapping.
+  await expect
+    .poll(() =>
+      preview
+        .getByRole('region', { name: 'Scrollable code' })
+        .evaluate((e) => e.scrollWidth - e.clientWidth),
+    )
+    .toBeGreaterThan(0);
+  await preview.getByRole('button', { name: 'File actions', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Wrap long lines', exact: true }).click();
   await expect
     .poll(() =>
       preview
@@ -267,7 +280,7 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
         .evaluate((e) => e.scrollWidth - e.clientWidth),
     )
     .toBeLessThan(2);
-  await markdownView.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await selectFileView(page, preview, 'Read document');
   await expect(preview.getByRole('heading', { name: 'Converted guide' })).toBeVisible();
 });
 
@@ -330,7 +343,7 @@ for (const shortTranscript of [false, true]) {
       releaseRefresh = resolve;
     });
     await page.route(
-      `**/v1/sessions/${session}/messages`,
+      (url) => url.pathname === `/v1/sessions/${session}/messages`,
       async (route) => {
         await refreshGate;
         await route.fallback();

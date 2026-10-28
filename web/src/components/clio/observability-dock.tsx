@@ -1,5 +1,7 @@
+import { vocab } from '@/lib/brand-vocabulary';
 import type {
   ExecutionProvenanceDegradation,
+  ExecutionProvenanceResult,
   Message,
   SubagentRun,
   ToolInvocation,
@@ -10,10 +12,11 @@ import {
   ActivityIcon,
   BracesIcon,
   ChartNoAxesGanttIcon,
+  CircleAlertIcon,
   Layers3Icon,
   WaypointsIcon,
 } from 'lucide-react';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -38,6 +41,7 @@ import {
 import { ClioEvidenceView } from './observability-evidence';
 import { ObservabilityWork } from './observability-work';
 import { ClioStatus } from './status';
+import { TechnicalDetails } from './technical-details';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -86,6 +90,7 @@ export function ClioObservabilityView({
   onOpenFile,
   onOpenResource,
   onOpenSubagent,
+  onOpenFlow,
   onCancelTask,
   onControlTask,
   executionProvenance,
@@ -100,6 +105,7 @@ export function ClioObservabilityView({
   sessions,
   familyProvenance,
   familyProvenancePending,
+  onLoadFamilyProvenance,
   requestedView,
   interactions = [],
 }: ClioObservabilityDockProps) {
@@ -107,6 +113,9 @@ export function ClioObservabilityView({
   const [activeView, setActiveView] = useState<ObservabilityView>(
     () => requestedView?.view ?? restoredObservabilityView(sessionId),
   );
+  useEffect(() => {
+    if (activeView === 'work') onLoadFamilyProvenance?.();
+  }, [activeView, onLoadFamilyProvenance]);
   // Reset the restored view when the session identity itself changes, without
   // an effect: adjusting state from a prop change during render (rather than
   // in a post-commit effect) avoids the extra render-then-reset flash.
@@ -168,8 +177,11 @@ export function ClioObservabilityView({
         // event and can sort it away from the delegation it caused.
         if (
           !turnContext &&
-          (tool.name === 'spawn_agent_task' || tool.name === 'spawn_agents_parallel') &&
-          processes.some((candidate) => candidate.kind === 'agent')
+          (((tool.name === 'spawn_agent_task' || tool.name === 'spawn_agents_parallel') &&
+            processes.some((candidate) => candidate.kind === 'agent')) ||
+            // A started flow is its process row, labelled as the flow's run.
+            ((tool.name === 'run_flow' || tool.name === 'run_workflow') &&
+              processes.some((candidate) => candidate.flow)))
         ) {
           return [];
         }
@@ -341,7 +353,10 @@ export function ClioObservabilityView({
           <TabsContent className="m-0 p-4" value="activity">
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
-          <TabsContent className="m-0 grid gap-2 px-3 py-2" value="evidence">
+          <TabsContent
+            className="mx-auto my-0 grid w-full max-w-5xl gap-2 px-3 py-2"
+            value="evidence"
+          >
             <SectionState error={diffsError} label="File changes" pending={diffsPending} />
             <SectionState
               error={contextFilesError}
@@ -349,6 +364,8 @@ export function ClioObservabilityView({
               pending={contextFilesPending}
             />
             <ProvenanceSourceBar
+              execution={executionProvenance}
+              onReview={() => selectView('activity')}
               artifactProvider={artifactProvenanceProvider}
               degradation={provenanceDegradation}
               onProviderChange={onProvenanceProviderChange}
@@ -368,6 +385,7 @@ export function ClioObservabilityView({
               onOpenDiff={onOpenDiff}
               onOpenFile={onOpenFile}
               onOpenResource={onOpenResource}
+              onOpenFlow={onOpenFlow}
               onOpenSubagent={onOpenSubagent}
               processes={processes}
               workPages={workPages}
@@ -421,6 +439,8 @@ export function ClioObservabilityView({
 }
 
 function ProvenanceSourceBar({
+  execution,
+  onReview,
   artifactProvider,
   degradation,
   onProviderChange,
@@ -428,6 +448,8 @@ function ProvenanceSourceBar({
   provider,
   providers,
 }: {
+  execution?: ExecutionProvenanceResult;
+  onReview: () => void;
   artifactProvider?: ArtifactProvenanceProviderSummary;
   degradation?: ExecutionProvenanceDegradation;
   onProviderChange?: (provider: string) => void;
@@ -435,14 +457,15 @@ function ProvenanceSourceBar({
   provider?: string;
   providers?: readonly ProvenanceProviderSummary[];
 }) {
+  const [open, setOpen] = useState(false);
   const selected = providers?.find((item) => item.name === provider);
   const selectedDegradation =
     degradation && degradation.provider === selected?.name ? degradation : undefined;
-  const selectedStatus = selected
-    ? selectedDegradation
-      ? 'degraded'
-      : providerStatus(selected.status, selected.queryable)
-    : undefined;
+  const issue = evidenceRecordIssue(
+    selectedDegradation ?? (!selected ? degradation : undefined),
+    execution,
+    selected,
+  );
   return (
     <div className="grid gap-1 border-b pb-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -452,69 +475,158 @@ function ProvenanceSourceBar({
           {pending ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {providers?.length && provider ? (
+          {providers && providers.length > 1 && provider && onProviderChange ? (
             <Select onValueChange={onProviderChange} value={provider}>
-              <SelectTrigger
-                aria-label="Execution provenance provider"
-                className="w-auto"
-                size="sm"
-              >
+              <SelectTrigger aria-label="Activity record source" className="w-auto" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {providers.map((item) => (
                   <SelectItem key={item.name} value={item.name}>
                     <span className="flex items-center gap-2">
-                      <span>{item.name}</span>
+                      <span>{recordSourceLabel(item.name)}</span>
                     </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           ) : null}
-          {selected ? (
-            <ClioStatus
-              compact
-              detail={selectedDegradation?.reason ?? selected.status}
-              label={`${selected.name} provenance ${selectedDegradation ? 'degraded' : selected.status}`}
-              value={selectedStatus ?? 'unavailable'}
-            />
-          ) : null}
-          <Popover>
+          <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
-                aria-label="Evidence source details"
-                title="Evidence source details"
-                size="icon-xs"
+                aria-label={issue?.label ?? 'About evidence records'}
+                title={issue?.label ?? 'About evidence records'}
+                size={issue ? 'sm' : 'icon-xs'}
                 variant="ghost"
+                className={
+                  issue ? 'h-7 px-1.5 text-xs text-warning-foreground dark:text-warning' : undefined
+                }
               >
-                <InfoIcon aria-hidden="true" />
+                {issue ? (
+                  <>
+                    <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+                    <span>{issue.label}</span>
+                  </>
+                ) : (
+                  <InfoIcon aria-hidden="true" />
+                )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="space-y-2 text-xs">
-              <p className="font-medium">Recorded evidence</p>
-              <p>{selected?.source ?? 'Source unavailable'}</p>
+            <PopoverContent align="end" className="w-80 space-y-3 text-sm leading-6">
+              <p className="font-medium">{issue?.title ?? 'About these records'}</p>
               <p>
-                Execution: {selected?.name ?? 'Unavailable'} · {selected?.status ?? 'Unknown'}
+                {issue?.explanation ??
+                  'This view brings together saved activity, file use and artifact relationships for this conversation.'}
               </p>
-              {artifactProvider ? <p>Artifacts: {artifactProvider.provider}</p> : null}
-              {degradation ? <p>{degradation.reason}</p> : null}
+              {issue ? <p className="text-muted-foreground">{issue.consequence}</p> : null}
+              <dl className="grid gap-2 border-t pt-3">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Activity history</dt>
+                  <dd>{selected ? recordSourceLabel(selected.name) : 'Source unavailable'}</dd>
+                </div>
+                {artifactProvider ? (
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Artifact relationships</dt>
+                    <dd>
+                      {artifactProvider.provider === 'native'
+                        ? `${vocab.agent} artifact registry`
+                        : recordSourceLabel(artifactProvider.provider)}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                onClick={() => {
+                  setOpen(false);
+                  onReview();
+                }}
+              >
+                View activity timeline
+              </Button>
+              <TechnicalDetails title="Technical details" className="text-xs text-muted-foreground">
+                <dl className="grid gap-1">
+                  <div>Provider: {selected?.name ?? provider ?? 'unknown'}</div>
+                  <div>Source: {selected?.source ?? 'unknown'}</div>
+                  <div>Source availability: {selected?.status ?? 'unknown'}</div>
+                  {artifactProvider ? (
+                    <div>Artifact provider: {artifactProvider.provider}</div>
+                  ) : null}
+                </dl>
+                {selectedDegradation ? (
+                  <p className="mt-2 break-words">{selectedDegradation.reason}</p>
+                ) : null}
+                {selected?.health.last_error ? (
+                  <p className="mt-2 break-words">Recording error: {selected.health.last_error}</p>
+                ) : null}
+              </TechnicalDetails>
             </PopoverContent>
           </Popover>
         </div>
       </div>
-      {degradation ? (
-        // Small body text needs the 4.5:1 AA contrast plain text-warning
-        // doesn't clear against a light background (axe color-contrast,
-        // serious); text-warning-foreground is the established fix already
-        // used for warning text elsewhere (document-workspace.tsx,
-        // model-picker.tsx).
-        <p className="text-xs leading-5 text-warning-foreground dark:text-warning">
-          {degradation.reason}
-        </p>
-      ) : null}
     </div>
   );
+}
+
+function recordSourceLabel(provider: string): string {
+  return (
+    (
+      { native: `Built-in ${vocab.agent} records`, flowcept: 'Flowcept', cmf: 'CMF' } as Record<
+        string,
+        string
+      >
+    )[provider] ?? provider
+  );
+}
+
+/** Explain record coverage separately from whether its storage service can be queried. */
+function evidenceRecordIssue(
+  degradation: ExecutionProvenanceDegradation | undefined,
+  execution: ExecutionProvenanceResult | undefined,
+  source: ProvenanceProviderSummary | undefined,
+): { label: string; title: string; explanation: string; consequence: string } | undefined {
+  if (execution?.truncated)
+    return {
+      label: 'Limited history',
+      title: 'Some activity is not shown',
+      explanation: 'The recording source returned a limited number of records.',
+      consequence:
+        'This view cannot show the full sequence of work or all relationships between records.',
+    };
+  if (degradation?.partial && source?.name === 'native' && execution?.complete === false)
+    return {
+      label: 'Unfinished records',
+      title: 'Some activity has no recorded finish',
+      explanation: 'It may still be running, or its final update may be missing.',
+      consequence: 'The history cannot confirm completion or duration for those records.',
+    };
+  if (degradation?.partial || source?.status === 'partial')
+    return {
+      label: 'Partial history',
+      title: 'Activity history is incomplete',
+      explanation:
+        'The recording source cannot confirm that this view contains the full activity history.',
+      consequence:
+        'Some events or relationships may be missing. Review the available records before relying on the full sequence or timings.',
+    };
+  if (source && providerStatus(source.status, source.queryable) === 'degraded')
+    return {
+      label: 'Recording needs attention',
+      title: 'Some records may be missing',
+      explanation: 'The source can be read, but it reports a recording problem.',
+      consequence:
+        'Review the available activity with that limitation in mind. Technical details contain the source diagnostic.',
+    };
+  if (degradation || (source && providerStatus(source.status, source.queryable) !== 'healthy'))
+    return {
+      label: 'Recording unavailable',
+      title: 'Activity records could not be read',
+      explanation: 'The selected recording source is unavailable or reports a problem.',
+      consequence:
+        'The evidence shown here may be limited to records available from other parts of the conversation. Technical details contain the source diagnostic.',
+    };
+  return undefined;
 }
 
 function providerStatus(

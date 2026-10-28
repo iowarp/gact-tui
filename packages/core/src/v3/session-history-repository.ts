@@ -37,6 +37,16 @@ export class SessionHistoryRepository {
     });
   }
 
+  /** The session record as the service reports it, without a workspace scope. */
+  public sessionRecord(sessionId: string, signal?: AbortSignal): Promise<Session> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}`,
+      decode: (value) => sessionSchema.parse(value),
+      signal,
+    });
+  }
+
   public exportSession(sessionId: string, signal?: AbortSignal): Promise<unknown> {
     return this.transport.request({
       method: 'GET',

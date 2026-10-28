@@ -16,6 +16,124 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation content and subject rendering', () => {
+  it('names an inspected task once across the row and expanded result, with one working opener', async () => {
+    const open = vi.fn();
+    render(
+      <PresentationNavigation.Provider
+        value={{
+          workspaceId: 'w',
+          sessionId: 's',
+          artifacts: {},
+          subagents: {
+            child: {
+              id: 'child',
+              session_id: 's',
+              child_session_id: 'child_session',
+              title: 'Deep Researcher',
+              state: 'failed',
+            },
+          },
+          onOpenSubagent: open,
+        }}
+      >
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'observe',
+            session_id: 's',
+            name: 'observe_tasks',
+            title: 'Observe tasks',
+            state: 'succeeded',
+            presentation: {
+              action: 'Inspect',
+              summary: 'Tasks',
+              blocks: [
+                {
+                  id: 'owner',
+                  type: 'link',
+                  target: 'session',
+                  uri: 'child_session',
+                  label: 'Deep Researcher',
+                },
+                {
+                  id: 'assignment',
+                  type: 'text',
+                  label: 'Deep Researcher',
+                  text: 'Investigate the storage decision.',
+                },
+                {
+                  id: 'state',
+                  type: 'text',
+                  label: 'Deep Researcher',
+                  text: 'failed',
+                  severity: 'error',
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    expect(screen.getAllByText('Deep Researcher', { exact: true })).toHaveLength(1);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show result for Check task status' }),
+    );
+    expect(screen.getAllByText('Deep Researcher', { exact: true })).toHaveLength(1);
+    expect(screen.queryByText('Tasks', { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByText('Investigate the storage decision.')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Deep Researcher' }));
+    expect(open).toHaveBeenCalledOnce();
+  });
+  it('gives text subjects the same single-owner expansion as linked subjects', async () => {
+    render(
+      <ClioToolInvocation
+        compact
+        tool={{
+          id: 'text-subject',
+          session_id: 's',
+          name: 'opaque_tool',
+          title: 'Read instructions',
+          state: 'succeeded',
+          presentation: {
+            summary: '',
+            subject: 'identity',
+            blocks: [
+              { id: 'identity', type: 'text', text: 'Planning guide' },
+              { id: 'body', type: 'text', text: 'Read these instructions before planning.' },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(screen.getAllByText('Planning guide', { exact: true })).toHaveLength(1);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show result for Read instructions' }),
+    );
+    expect(screen.getAllByText('Planning guide', { exact: true })).toHaveLength(1);
+    expect(screen.getByText('Read these instructions before planning.')).toBeVisible();
+  });
+  it('keeps task-kind glyphs out of both tool-call surfaces with distinct DOM identities', () => {
+    const tool = {
+      id: 'scoped-read',
+      session_id: 's',
+      name: 'fs_read_file',
+      state: 'succeeded' as const,
+      presentation: { action: 'Read', summary: '710 bytes', blocks: [] },
+    };
+    const view = render(
+      <>
+        <ClioToolInvocation compact tool={tool} />
+        <ClioToolInvocation compact tool={tool} surface="evidence" />
+      </>,
+    );
+    expect(
+      view.container.querySelector('#tool-scoped-read [data-slot="work-kind-status"]'),
+    ).toBeNull();
+    expect(
+      view.container.querySelector('#evidence-tool-scoped-read [data-slot="work-kind-status"]'),
+    ).toBeNull();
+    expect(view.container.querySelectorAll('[data-slot="work-kind-status"]')).toHaveLength(0);
+  });
   it('expands a pending wait into named snapshots without repeating header counts', async () => {
     const user = userEvent.setup();
     render(

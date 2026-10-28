@@ -41,7 +41,7 @@ it('discloses yielded root assignment and provisional recording without calling 
   };
   const control = vi.fn();
   render(<AsyncTaskList processes={[task]} onControlTask={control} />);
-  expect(screen.getByText('Session · Yielded')).toBeVisible();
+  expect(screen.getByText('Session: Yielded')).toBeVisible();
   expect(
     screen.queryByText(
       'The assignment is still open. New messages and task results can continue it.',
@@ -53,9 +53,9 @@ it('discloses yielded root assignment and provisional recording without calling 
       'The assignment is still open. New messages and task results can continue it.',
     ),
   ).toBeVisible();
-  expect(screen.getByRole('status')).toHaveTextContent(
-    'History recording is unconfirmed. Check the task before retrying.',
-  );
+  expect(
+    screen.getByText('History recording is unconfirmed. Check the task before retrying.'),
+  ).toHaveAttribute('role', 'status');
   await userEvent.click(screen.getByRole('button', { name: 'pause Session: Collect results' }));
   expect(control).toHaveBeenCalledWith(task, 'pause');
 });
@@ -102,7 +102,10 @@ it.each(['MCP', 'Subagent', 'Session'] as const)(
       'false',
     );
     expect(screen.queryByText(task.description!)).not.toBeInTheDocument();
-    expect(screen.getByText('Running')).toBeVisible();
+    expect(
+      screen.getByRole('img', { name: `${kind === 'MCP' ? 'Tool' : 'Agent'}: running` }),
+    ).toBeVisible();
+    expect(screen.queryByText('Running', { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByText('Reading owned evidence')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Task details: Owned work' }));
     expect(screen.getByText('Reading owned evidence')).toBeVisible();
@@ -128,7 +131,7 @@ it.each(['MCP', 'Subagent', 'Session'] as const)(
     await user.click(screen.getByRole('button', { name: 'Cancel task' }));
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(cancel).toHaveBeenCalledWith(task);
-    expect(screen.getByText('Cancellation requested')).toBeVisible();
+    expect(screen.getByText(/Cancellation requested$/)).toBeVisible();
     expect(screen.getByRole('button', { name })).toBeDisabled();
     finish();
     await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
@@ -286,7 +289,7 @@ it.each([
     await user.click(screen.getByRole('button', { name: buttonName }));
     await user.click(screen.getByRole('button', { name: 'Cancel task' }));
     expect(cancel).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Subagent · Cancellation requested')).toBeVisible();
+    expect(screen.getByText('Subagent: Cancellation requested')).toBeVisible();
     expect(screen.getByRole('button', { name: buttonName })).toBeDisabled();
     finish();
     await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
@@ -303,7 +306,7 @@ it.each([
         onCancelTask={cancel}
       />,
     );
-    expect(screen.getByText('Subagent · Cancelled')).toBeVisible();
+    expect(screen.getByText('Subagent: Cancelled')).toBeVisible();
     expect(screen.queryByRole('button', { name: buttonName })).toBeNull();
   },
 );

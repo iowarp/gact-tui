@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useLiveSessionTranscript } from '@/hooks/use-live-session-transcript';
 import { ClioConversation } from './conversation';
-import { getChildAgentAssignment } from './child-agent-presentation';
+import { SubagentModel } from './subagent-model';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { ChildConversationFollowup } from './child-conversation-followup';
@@ -32,7 +32,6 @@ export function ClioSubagentCanvasView({
 }: ClioSubagentCanvasViewProps) {
   const navigation = useContext(PresentationNavigation);
   const childSessionId = subagent.child_session_id;
-  const assignment = getChildAgentAssignment(subagent);
   const { entities, messages, transcript } = useLiveSessionTranscript(
     workspaceId,
     childSessionId,
@@ -53,33 +52,33 @@ export function ClioSubagentCanvasView({
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <header className="shrink-0 border-b bg-card/50 px-4 py-3">
-        <div className="flex items-start gap-3">
-          <BotIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-sm font-medium">{subagent.title}</h2>
-              <ClioStatus value={subagent.state} />
-              {entities.stream === 'live' ? null : (
-                <ClioStatus detail="Child transcript connection" value={entities.stream} />
-              )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-1 basis-72 items-center gap-3">
+            <BotIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-sm font-medium">{subagent.title}</h2>
+                <ClioStatus value={subagent.state} />
+                {subagent.agent_id ? (
+                  <span className="text-xs text-muted-foreground">{subagent.agent_id}</span>
+                ) : null}
+                {subagent.model_choice ? <SubagentModel choice={subagent.model_choice} /> : null}
+                {entities.stream === 'live' ? null : (
+                  <ClioStatus detail="Child transcript connection" value={entities.stream} />
+                )}
+              </div>
             </div>
-            <p
-              className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground"
-              title={assignment.detail ?? assignment.label}
-            >
-              {assignment.label}
-            </p>
           </div>
           {childSessionId === activeSessionId ? (
             <ClioStatus
-              className="shrink-0"
+              className="ml-auto shrink-0"
               detail="This child conversation is open in the central column"
               label="Central view"
               value="healthy"
             />
           ) : (
             <Button
-              className="shrink-0"
+              className="ml-auto shrink-0"
               onClick={() => onOpenConversation(subagent)}
               size="sm"
               variant="outline"
@@ -98,6 +97,8 @@ export function ClioSubagentCanvasView({
       ) : null}
       <div className="min-h-0 flex-1">
         <ClioConversation
+          agentName={subagent.title}
+          sessionId={childSessionId}
           actionLifecycles={entities.a2ui_action_lifecycles}
           artifacts={entities.artifacts}
           error={transcript.error?.message}

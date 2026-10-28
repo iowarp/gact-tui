@@ -23,7 +23,7 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import { artifactDeliverables } from '@/lib/artifact-presentation';
-import { BoxesIcon, ListChecksIcon, PanelRightOpenIcon } from 'lucide-react';
+import { BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
 import { useState, useSyncExternalStore, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +42,7 @@ import {
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioInteractiveRow } from './interactive-row';
 import { SessionEvidencePopover } from './session-evidence-popover';
+import { EvidenceLayoutIcon } from './evidence-layout-icon';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { getToolPresentation } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -51,6 +52,7 @@ export interface ClioObservabilityDockProps {
   sessions?: readonly Session[];
   familyProvenance?: ExecutionProvenanceResult;
   familyProvenancePending?: boolean;
+  onLoadFamilyProvenance?: () => void;
   artifacts: readonly Artifact[];
   contextFiles: readonly ContextFile[];
   contextFrames: readonly ContextFrame[];
@@ -86,6 +88,8 @@ export interface ClioObservabilityDockProps {
     autocompact_pct?: number;
   }) => Promise<unknown>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  /** Open a flow run's view: a task that runs a flow opens its run, not a chat. */
+  onOpenFlow?: (handle: string, title: string) => void;
   onOpenCanvas?: (view?: ObservabilityView) => void;
   requestedView?: { key: string; view: ObservabilityView };
   onOpenWork?: () => void;
@@ -183,54 +187,55 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
 
   return (
     <div className="flex min-w-0 items-center gap-1" data-slot="composer-evidence">
-      {(['session', 'work'] as const).map((kind) => (
-        <SessionEvidencePopover evidence={props} key={kind} kind={kind}>
-          {({ visible, buttonRef, panelId, toggle }) => (
-            <Button
-              ref={buttonRef}
-              aria-label={kind === 'session' ? 'Session rail' : 'Work rail'}
-              aria-expanded={visible}
-              aria-controls={panelId}
-              aria-haspopup="dialog"
-              onClick={toggle}
-              className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground"
-              size={props.toolbar ? 'icon-sm' : 'sm'}
-              title={`${visible ? 'Hide' : 'Show'} ${kind} rail`}
-              type="button"
-              variant="ghost"
+      <SessionEvidencePopover evidence={props}>
+        {({ visible, buttonRef, panelId, layout, cycle }) => (
+          <Button
+            ref={buttonRef}
+            aria-label={`Evidence layout: ${layout.charAt(0).toUpperCase() + layout.slice(1)}`}
+            aria-expanded={visible}
+            aria-controls={panelId}
+            aria-haspopup="dialog"
+            data-evidence-layout={layout}
+            onClick={() => cycle(1)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              cycle(-1);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                cycle(event.key === 'ArrowLeft' ? -1 : 1);
+              }
+            }}
+            className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground"
+            size={props.toolbar ? 'icon-sm' : 'sm'}
+            title={`Evidence: ${layout}. Click for next layout; right-click for previous. ${dockLabel}`}
+            type="button"
+            variant="ghost"
+          >
+            <EvidenceLayoutIcon layout={layout} />
+            <span
+              className={
+                props.toolbar
+                  ? 'sr-only'
+                  : 'hidden min-w-0 max-w-40 truncate text-left font-medium @min-[50rem]/composer:inline'
+              }
             >
-              {kind === 'session' ? (
-                <PanelRightOpenIcon className="size-4" />
-              ) : (
-                <ListChecksIcon className="size-4" />
-              )}
-              <span
-                className={
-                  props.toolbar
-                    ? 'sr-only'
-                    : 'hidden min-w-0 max-w-40 truncate text-left font-medium @min-[50rem]/composer:inline'
-                }
-              >
-                {kind === 'session' ? 'Session' : dockLabel}
-              </span>
-              {!props.toolbar && kind === 'work' && presentationOverrideCount ? (
-                <ClioStatus
-                  className="hidden py-0.5 @min-[65rem]/composer:inline-flex"
-                  label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
-                  value="degraded"
-                />
-              ) : null}
-              {!props.toolbar && kind === 'work' && showDockStatusBadge ? (
-                <ClioStatus
-                  className="shrink-0 py-0.5"
-                  label={dockStatus}
-                  value={dockStatusValue}
-                />
-              ) : null}
-            </Button>
-          )}
-        </SessionEvidencePopover>
-      ))}
+              {dockLabel}
+            </span>
+            {!props.toolbar && presentationOverrideCount ? (
+              <ClioStatus
+                className="hidden py-0.5 @min-[65rem]/composer:inline-flex"
+                label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
+                value="degraded"
+              />
+            ) : null}
+            {!props.toolbar && showDockStatusBadge ? (
+              <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value={dockStatusValue} />
+            ) : null}
+          </Button>
+        )}
+      </SessionEvidencePopover>
       {/* Always mounted (not conditionally toggled) so it exists before its text changes, and
           outside the Button so its content never factors into the Button's accessible name. */}
       <span aria-live="polite" className="sr-only">

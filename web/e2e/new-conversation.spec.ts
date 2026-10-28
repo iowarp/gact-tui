@@ -57,8 +57,8 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   await expect(page.getByRole('tab', { name: 'Files', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open a canvas tab' }).click();
-  await page.getByRole('menuitem', { name: 'Agent blueprints' }).click();
-  await expect(page.getByRole('tab', { name: 'Blueprints', exact: true })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Conversation agent' }).click();
+  await expect(page.getByRole('tab', { name: 'Agent', exact: true })).toBeVisible();
   expect(sessionCreations).toEqual([]);
   await page.getByRole('button', { name: 'Close workspace canvas' }).click();
   await composer.fill('This is a temporary draft');
@@ -173,7 +173,7 @@ test('first send creates exactly one session and negotiates interactive UI befor
       await route.fulfill({ json: session });
     } else await route.fulfill({ json: { sessions: created ? [session] : [] } });
   });
-  await page.route(`${endpoint}/v1/sessions/sess_flat_ndp/messages`, async (route) => {
+  await page.route(/\/v1\/sessions\/sess_flat_ndp\/messages(?:\?.*)?$/u, async (route) => {
     if (route.request().method() === 'POST') {
       expect(created).toBe(true);
       const body = route.request().postDataJSON();

@@ -1,6 +1,7 @@
 import type { EntityState, Message, MessageBlock, TransportGap } from './domain.js';
 import type { UsageSnapshot } from './usage-domain.js';
 import type { EventEnvelope } from './schemas.js';
+import { mergeToolInvocation, taskUpdateSchema } from './tool-execution.js';
 import {
   a2uiActionLifecycleSchema,
   a2uiSurfaceSchema,
@@ -414,6 +415,9 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
             cost_usd: payload.cost_usd ?? message.cost_usd,
             stop_reason: payload.stop_reason ?? message.stop_reason,
             error_info: payload.error_info ?? message.error_info,
+            metadata: payload.metadata
+              ? { ...message.metadata, ...payload.metadata }
+              : message.metadata,
             blocks: message.blocks.map((block) =>
               block.type === 'text' || block.type === 'reasoning'
                 ? { ...block, streaming: false }
@@ -426,14 +430,12 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'tool.upserted': {
       const candidate = toolInvocationSchema.parse(envelope.payload);
       const previous = base.tools[candidate.id];
-      const tool = previous
-        ? {
-            ...previous,
-            ...candidate,
-            presentation: candidate.presentation ?? previous.presentation,
-          }
-        : candidate;
+      const tool = mergeToolInvocation(previous, candidate);
       return { ...base, revisions, tools: { ...base.tools, [tool.id]: tool } };
+    }
+    case 'task.updated': {
+      taskUpdateSchema.parse(envelope.payload);
+      return base;
     }
     case 'tool.presentation.delta': {
       const delta = toolPresentationDeltaSchema.parse(envelope.payload);
@@ -691,7 +693,9 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         compactions: reduceCompactionFailed(base, envelope.payload, envelope.occurred_at),
       };
     case 'stream.gap':
-      return { ...base, revisions, stream: 'gapped' };
+      // Counted, not just flagged: a gap that arrives while an earlier one is
+      // still being reconciled must start another reconcile.
+      return { ...base, revisions, stream: 'gapped', streamGaps: (base.streamGaps ?? 0) + 1 };
     case 'stream.live':
       return { ...base, revisions, stream: 'live' };
     default:

@@ -1998,6 +1998,10 @@ const server = createServer(async (request, response) => {
     sendJson(response, { commands: [] });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/memory/summary') {
+    sendJson(response, { enabled: true, inbox: 0, documents: 0 });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/provenance/providers') {
     sendJson(response, {
       schema_version: '1.0',
@@ -2021,7 +2025,53 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/sessions') {
-    sendJson(response, { sessions: [session, ...branchArtifacts.sessions()] });
+    const all = [session, ...branchArtifacts.sessions()];
+    const byId = new Map(all.map((row) => [row.id, row]));
+    const rootOf = (id) => {
+      const seen = new Set();
+      while (byId.get(id)?.parent_session_id && !seen.has(id)) {
+        seen.add(id);
+        id = byId.get(id).parent_session_id;
+      }
+      return id;
+    };
+    const named = url.searchParams.get('ids')?.split(',');
+    const family = url.searchParams.get('family_of');
+    const workspace = url.searchParams.get('workspace_id');
+    const kinds = url.searchParams.get('kinds')?.split(',');
+    const search = url.searchParams.get('q')?.toLowerCase();
+    const waiting = url.searchParams.get('waiting_on_person') === 'true';
+    const waitingIds = new Set();
+    for (const row of all.filter((row) => ['waiting_user', 'waiting_permission'].includes(row.state))) {
+      let id = row.id;
+      while (id && !waitingIds.has(id)) {
+        waitingIds.add(id);
+        id = byId.get(id)?.parent_session_id;
+      }
+    }
+    const rows = all.filter((row) =>
+      (!named || named.includes(row.id)) &&
+      (!family || rootOf(row.id) === rootOf(family)) &&
+      (!waiting || waitingIds.has(row.id)) &&
+      (!workspace || row.workspace_id === workspace) &&
+      (!kinds || kinds.includes(row.session_kind ?? 'conversation')) &&
+      (!search || row.title.toLowerCase().includes(search)) &&
+      Boolean(row.archived) === (url.searchParams.get('archived') === 'true'),
+    );
+    const limit = Number(url.searchParams.get('limit') || rows.length || 1);
+    const offset = Number(url.searchParams.get('cursor') || 0);
+    sendJson(response, {
+      sessions: rows.slice(offset, offset + limit),
+      total: rows.length,
+      next_cursor: offset + limit < rows.length ? String(offset + limit) : null,
+    });
+    return;
+  }
+  const scienceLog = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/science-log$/u);
+  if (request.method === 'GET' && scienceLog &&
+      [session, ...branchArtifacts.sessions()].some((row) => row.id === scienceLog[1])) {
+    // These conversation fixtures have no study; the production read still runs.
+    sendJson(response, { session_id: scienceLog[1], in_study: false });
     return;
   }
   if (
@@ -2267,6 +2317,18 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && url.pathname === '/v1/provider-catalog') {
     sendJson(response, providerCatalog);
+    return;
+  }
+  // The model fleet: no connected account reports usage here, so the composer
+  // shows no usage readout and no model-fit notice (the baselines predate both).
+  if (request.method === 'GET' && url.pathname === '/v1/fleet') {
+    sendJson(response, {
+      observed_at: '2026-01-01T00:00:00+00:00',
+      accounts: [],
+      entries: [],
+      spend_by_model: {},
+      estimated_sessions: 0,
+    });
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
@@ -2695,7 +2757,7 @@ const server = createServer(async (request, response) => {
       memory_scope: 'session',
       writable_scope: 'session',
       cross_session_read_available: true,
-      cross_session_read_endpoint: `/v1/sessions/${sessionId}/memory/tools/search-sessions`,
+      cross_session_read_endpoint: `/v1/sessions/${sessionId}/session-recall/search`,
       requires_user_consent: true,
       notes: [
         'Conversation retrieval and writes are scoped to the active session.',
@@ -2792,7 +2854,7 @@ const server = createServer(async (request, response) => {
       reason: '',
       message: '',
       remedy: '',
-      agent_blueprint_id: 'spotter-ai',
+      agent_ref: 'clio/spotter-ai',
       details: {},
     });
     return;
@@ -2807,12 +2869,39 @@ const server = createServer(async (request, response) => {
       edit_mode: 'diff',
       routing_mode: 'auto',
       approval_mode: 'ask',
-      blueprint_id: '',
+      agent_ref: '',
     });
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/agent-blueprints') {
-    sendJson(response, { agent_blueprints: [] });
+  if (request.method === 'GET' && url.pathname === '/v1/agents') {
+    sendJson(response, {
+      agents: [{ ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' }],
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/plugins') {
+    sendJson(response, { plugins: [], default_marketplace_error: null });
+    return;
+  }
+  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/agent$/u.test(url.pathname)) {
+    sendJson(response, {
+      session_id: url.pathname.split('/')[3],
+      delta: { add: [], remove: [] },
+      subagent: false,
+      resolution: {
+        agent: { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent' },
+        plugins: [
+          {
+            id: 'core',
+            kind: 'plugin',
+            marketplace: 'clio-builtin',
+            provenance: { source: 'core', via: 'core', label: 'core' },
+            removable: false,
+          },
+        ],
+        prompt: { sections: [] },
+      },
+    });
     return;
   }
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/cancel`) {

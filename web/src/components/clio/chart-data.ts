@@ -35,6 +35,27 @@ export function useChartRows(args: {
 }
 
 /**
+ * The source column a Vega-Lite `field` reads: the path's first segment, with
+ * its `\\.` / `\\[` / `\\]` escapes undone (an unescaped dot or bracket starts
+ * a nested path inside that column).
+ */
+export function sourceColumn(field: string): string {
+  let column = '';
+  for (let index = 0; index < field.length; index += 1) {
+    const char = field[index]!;
+    if (char === '\\' && index + 1 < field.length) {
+      column += field[index + 1];
+      index += 1;
+    } else if (char === '.' || char === '[') {
+      break;
+    } else {
+      column += char;
+    }
+  }
+  return column;
+}
+
+/**
  * Source columns a hand-written spec reads: every string `field` in it, minus
  * the names its own transforms create (`as`). A producer that aggregates or
  * computes in ways this cannot see should name `dataQuery.columns`.
@@ -52,7 +73,7 @@ export function specFieldNames(spec: unknown): string[] {
     if (!isJsonObject(node)) continue;
     const children: unknown[] = [];
     for (const [key, value] of Object.entries(node)) {
-      if (key === 'field' && typeof value === 'string') fields.add(value);
+      if (key === 'field' && typeof value === 'string') fields.add(sourceColumn(value));
       else if (key === 'as' && typeof value === 'string') derived.add(value);
       else if (key === 'as' && Array.isArray(value)) {
         for (const name of value) if (typeof name === 'string') derived.add(name);

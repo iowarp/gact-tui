@@ -1,3 +1,4 @@
+import { loadSessionResource, type SessionResourceLoading } from '@/lib/session-resource-loading';
 import type {
   ExecutionProvenanceDegradation,
   ExecutionProvenanceResult,
@@ -11,13 +12,22 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
 
 /** Owns provider discovery and the selected session execution-provenance snapshot. */
-export function useExecutionProvenance(sessionId: string, inheritedProvider?: string) {
+export function useExecutionProvenance(
+  sessionId: string,
+  inheritedProvider?: string,
+  {
+    includeChildren = false,
+    ...loading
+  }: { includeChildren?: boolean } & SessionResourceLoading = {},
+) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const [requestedProvider, setRequestedProvider] = useState<string>();
   const providers = useQuery({
     queryKey: queryKeys.provenanceProviders(settings.endpoint),
-    queryFn: ({ signal }) => repository.provenanceProviders(signal),
+    queryFn: ({ signal }) =>
+      loadSessionResource(loading, signal, () => repository.provenanceProviders(signal)),
+    enabled: loading.enabled !== false,
   });
   const provider = selectProvenanceProvider(
     requestedProvider ?? inheritedProvider,
@@ -25,14 +35,26 @@ export function useExecutionProvenance(sessionId: string, inheritedProvider?: st
     providers.data?.providers,
   );
   const providerSummary = providers.data?.providers.find((item) => item.name === provider);
-  const canQuery = Boolean(sessionId && providerSummary?.configured && providerSummary.queryable);
+  const canQuery = Boolean(
+    sessionId &&
+      providerSummary?.configured &&
+      providerSummary.queryable &&
+      loading.enabled !== false,
+  );
   const execution = useQuery({
-    queryKey: queryKeys.executionProvenance(settings.endpoint, sessionId, provider),
+    // A large optional graph must not evict the small log/work cache on departure.
+    meta: { sessionCache: 'supplementary' },
+    queryKey: [
+      ...queryKeys.executionProvenance(settings.endpoint, sessionId, provider),
+      includeChildren ? 'family' : 'session',
+    ],
     queryFn: ({ signal }) =>
-      repository.executionProvenance(
-        sessionId,
-        { provider, includeChildren: true, limit: EXECUTION_PROVENANCE_LIMIT },
-        signal,
+      loadSessionResource(loading, signal, () =>
+        repository.executionProvenance(
+          sessionId,
+          { provider, includeChildren, limit: EXECUTION_PROVENANCE_LIMIT },
+          signal,
+        ),
       ),
     enabled: canQuery,
   });

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronRightIcon, MessageSquareTextIcon, LoaderCircleIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -65,24 +66,16 @@ export function TranscriptReasoningPassage({
   );
   if (!hasDetails) {
     return (
-      <div
-        aria-busy={streaming || undefined}
-        data-slot="transcript-reasoning"
-        className="flex min-h-7 w-full min-w-0 items-center gap-2 px-1 py-1 pr-7 text-xs font-normal text-foreground"
-      >
-        {icon}
-        <span className="shrink-0 font-medium">Thinking</span>
-        <div
-          className="min-w-0 flex-1 whitespace-pre-wrap break-words text-left [overflow-wrap:anywhere]"
-          data-slot="reasoning-summary"
-        >
-          <TranscriptReasoning text={text} source={source}>
-            {heading}
-          </TranscriptReasoning>
-        </div>
-        {timing}
-        <span aria-hidden="true" className="size-3 shrink-0" />
-      </div>
+      <ReasoningLine
+        open={open}
+        onOpenChange={setOpen}
+        streaming={streaming}
+        icon={icon}
+        timing={timing}
+        text={text}
+        source={source}
+        heading={heading}
+      />
     );
   }
   return (
@@ -134,5 +127,90 @@ export function TranscriptReasoningPassage({
         </div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/** A one-line thought: truncated to one line, and expanded in place on click when cut off. */
+function ReasoningLine({
+  open,
+  onOpenChange,
+  streaming,
+  icon,
+  timing,
+  text,
+  source,
+  heading,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  streaming: boolean;
+  icon: ReactNode;
+  timing: ReactNode;
+  text: string;
+  source?: ThoughtSource;
+  heading: string;
+}) {
+  const summary = useRef<HTMLDivElement>(null);
+  const [clipped, setClipped] = useState(false);
+  useEffect(() => {
+    const node = summary.current;
+    if (!node || open || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setClipped(node.scrollWidth > node.clientWidth + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [open, heading]);
+  const toggles = clipped || open;
+  const toggle = () => onOpenChange(!open);
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggle();
+    }
+  };
+  return (
+    <div
+      aria-busy={streaming || undefined}
+      data-slot="transcript-reasoning"
+      role={toggles ? 'button' : undefined}
+      tabIndex={toggles ? 0 : undefined}
+      aria-expanded={toggles ? open : undefined}
+      aria-label={toggles ? `Thinking: ${heading}` : undefined}
+      onClick={toggles ? toggle : undefined}
+      onKeyDown={toggles ? onKeyDown : undefined}
+      className={cn(
+        'flex min-h-7 w-full min-w-0 gap-2 rounded-sm px-1 py-1 pr-7 text-xs font-normal text-foreground',
+        open ? 'items-start' : 'items-center',
+        toggles && 'cursor-pointer pr-1 hover:bg-accent/50',
+      )}
+    >
+      {icon}
+      <span className="shrink-0 font-medium">Thinking</span>
+      <div
+        ref={summary}
+        className={cn(
+          'min-w-0 flex-1 text-left',
+          open ? 'whitespace-pre-wrap break-words [overflow-wrap:anywhere]' : 'truncate',
+        )}
+        data-slot="reasoning-summary"
+      >
+        <TranscriptReasoning text={text} source={source}>
+          {heading}
+        </TranscriptReasoning>
+      </div>
+      {timing}
+      {toggles ? (
+        <ChevronRightIcon
+          aria-hidden="true"
+          className={cn(
+            'mt-0.5 size-3 shrink-0 text-muted-foreground transition-transform',
+            open && 'rotate-90',
+          )}
+        />
+      ) : (
+        <span aria-hidden="true" className="size-3 shrink-0" />
+      )}
+    </div>
   );
 }

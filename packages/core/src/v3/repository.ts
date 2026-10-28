@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ComposerMessagePart } from './composer-domain.js';
 import { sessionMetadataPatch, type SessionUpdateInput } from './session-metadata-patch.js';
 import { agentTaskRecordSchema } from './agent-task-domain.js';
+import type { AgentDelta } from './plugin-domain.js';
 import type {
   Artifact,
   ArtifactDetail,
@@ -11,8 +12,10 @@ import type {
   ApprovalRequest,
   PermissionLedgerItem,
   Session,
+  SessionPage,
   SessionArtifactListing,
   SessionDefaults,
+  TranscriptPageOptions,
   TranscriptSnapshot,
   TurnAttempt,
   Workspace,
@@ -20,7 +23,6 @@ import type {
   ToolCatalogItem,
   UserQuestion,
 } from './domain.js';
-import type { AgentDefinition } from './agent-domain.js';
 import {
   sessionSchema,
   turnAttemptSchema,
@@ -29,13 +31,13 @@ import {
   userQuestionSchema,
 } from './schemas.js';
 import {
-  agentListSchema,
   artifactDetailSchema,
   artifactLineageSchema,
   sessionArtifactListingSchema,
   permissionListSchema,
   questionListSchema,
   sessionListSchema,
+  sessionPageSchema,
   toolCatalogSchema,
   workspaceFileListSchema,
   workspaceListSchema,
@@ -166,10 +168,29 @@ export class ClioRepository extends WorkRepository {
     });
   }
 
-  public async sessions(workspaceId: string, signal?: AbortSignal): Promise<Session[]> {
+  /**
+   * The conversation tree `sessionId` belongs to: its root, every descendant and
+   * any ancestor between, from every workspace. Bounded by that one conversation.
+   */
+  public async sessionFamily(sessionId: string, signal?: AbortSignal): Promise<Session[]> {
+    return this.sessionList(`family_of=${encodeURIComponent(sessionId)}`, signal);
+  }
+
+  /** The sessions waiting on a person (a permission or an answer) and their ancestors. */
+  public async sessionsWaitingOnPerson(signal?: AbortSignal): Promise<Session[]> {
+    return this.sessionList('waiting_on_person=true', signal);
+  }
+
+  /** The named sessions (unknown ids are left out). */
+  public async sessionsById(ids: readonly string[], signal?: AbortSignal): Promise<Session[]> {
+    if (!ids.length) return [];
+    return this.sessionList(`ids=${ids.map(encodeURIComponent).join(',')}`, signal);
+  }
+
+  private async sessionList(query: string, signal?: AbortSignal): Promise<Session[]> {
     const result = await this.transport.request({
       method: 'GET',
-      path: `/v1/sessions?workspace_id=${encodeURIComponent(workspaceId)}`,
+      path: `/v1/sessions?${query}`,
       decode: (value) => sessionListSchema.parse(value),
       signal,
     });
@@ -183,7 +204,10 @@ export class ClioRepository extends WorkRepository {
       provider_id?: string;
       model_id?: string;
       pinned?: boolean;
-      blueprint_id?: string;
+      /** The agent this session runs (`<marketplace>/<id>`); omitted uses the service default. */
+      agent_ref?: string;
+      /** Plugin changes the session's agent starts with. */
+      agent_delta?: AgentDelta;
       mode?: 'plan' | 'edit' | 'architect';
       routing_mode?: 'auto' | 'chat' | 'experts' | 'reasoning_only';
       approval_mode?: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
@@ -199,12 +223,13 @@ export class ClioRepository extends WorkRepository {
         ...(input.provider_id || input.model_id
           ? { model: { provider_id: input.provider_id ?? '', model_id: input.model_id ?? '' } }
           : {}),
-        ...(input.pinned === undefined && !input.blueprint_id
+        ...(input.pinned === undefined && !input.agent_ref && !input.agent_delta
           ? {}
           : {
               metadata: {
                 ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
-                ...(input.blueprint_id ? { active_agent_blueprint_id: input.blueprint_id } : {}),
+                ...(input.agent_ref ? { agent_ref: input.agent_ref } : {}),
+                ...(input.agent_delta ? { agent_delta: input.agent_delta } : {}),
               },
             }),
         ...(input.mode ? { mode: input.mode } : {}),
@@ -272,14 +297,34 @@ export class ClioRepository extends WorkRepository {
     });
   }
 
-  public async allSessions(signal?: AbortSignal): Promise<Session[]> {
-    const result = await this.transport.request({
+  /**
+   * One page of the conversation list, newest interaction first. `kinds` limits
+   * it to those session kinds (the rail asks for conversations and branches),
+   * `search` to titles containing it; without `workspaceId` every workspace is read.
+   */
+  public sessionPage(
+    input: {
+      workspaceId?: string;
+      kinds?: readonly ('conversation' | 'branch' | 'agent' | 'lookup')[];
+      limit: number;
+      cursor?: string;
+      search?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<SessionPage> {
+    const query = new URLSearchParams(
+      input.workspaceId ? { workspace_id: input.workspaceId } : { include_all_workspaces: 'true' },
+    );
+    query.set('limit', String(input.limit));
+    if (input.kinds?.length) query.set('kinds', input.kinds.join(','));
+    if (input.cursor) query.set('cursor', input.cursor);
+    if (input.search) query.set('q', input.search);
+    return this.transport.request({
       method: 'GET',
-      path: '/v1/sessions?include_all_workspaces=true',
-      decode: (value) => sessionListSchema.parse(value),
+      path: `/v1/sessions?${query.toString()}`,
+      decode: (value) => sessionPageSchema.parse(value) as SessionPage,
       signal,
     });
-    return result.sessions;
   }
 
   public async workspaceFiles(
@@ -358,16 +403,6 @@ export class ClioRepository extends WorkRepository {
     });
     return result.tools as ToolCatalogItem[];
   }
-  public async agents(signal?: AbortSignal): Promise<AgentDefinition[]> {
-    const result = await this.transport.request({
-      method: 'GET',
-      path: '/v1/agents',
-      decode: (value) => agentListSchema.parse(value),
-      signal,
-    });
-    return result.agents as AgentDefinition[];
-  }
-
   public async readArtifactText(
     artifactId: string,
     fetchPath?: string,
@@ -650,10 +685,22 @@ export class ClioRepository extends WorkRepository {
     });
   }
 
-  public async transcript(sessionId: string, signal?: AbortSignal): Promise<TranscriptSnapshot> {
+  /**
+   * A conversation's transcript. Without `page` it is the whole conversation; with
+   * `page.limit` it is the newest `limit` messages (older than `page.before`), and
+   * `next_cursor` names the oldest of them when older messages remain.
+   */
+  public async transcript(
+    sessionId: string,
+    signal?: AbortSignal,
+    page?: TranscriptPageOptions,
+  ): Promise<TranscriptSnapshot> {
+    const query = new URLSearchParams();
+    if (page?.limit) query.set('limit', String(page.limit));
+    if (page?.before) query.set('before', page.before);
     const value = await this.transport.request({
       method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages${query.size ? `?${query}` : ''}`,
       decode: (value) => value,
       signal,
     });

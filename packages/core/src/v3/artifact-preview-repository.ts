@@ -253,6 +253,32 @@ export class ArtifactPreviewRepository extends ProviderRepository {
     });
   }
 
+  /**
+   * A study's live source (`study://<study>/<source>`, Addendum B): the same pipeline
+   * as an artifact table query, built from the study's current record on every read.
+   * A study with no rows yet answers an empty result with `empty: "study_source_empty"`.
+   */
+  public studyTableQuery(
+    study: string,
+    source: string,
+    query: ArtifactTableQueryRequest,
+    signal?: AbortSignal,
+  ): Promise<ArtifactTableQueryResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/studies/${encodeURIComponent(study)}/table-query`,
+      body: { ...query, source, format: 'json' },
+      decode: (value) => {
+        const result = artifactTableQuerySchema.parse(value);
+        if (result.returnedRows > query.limit) {
+          throw new Error('Study source query exceeded the requested row limit.');
+        }
+        return result;
+      },
+      signal,
+    });
+  }
+
   /** The current view or full dataset of a registered CSV/Parquet artifact, serialized for download. */
   public artifactTableExport(
     artifactId: string,

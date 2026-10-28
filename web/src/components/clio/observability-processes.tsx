@@ -190,7 +190,7 @@ export function ClioProcessLanes({
         style={{ height }}
       >
         <GanttNav className="py-1.5">
-          <GanttTitle>{`Execution · ${formatWindow(extent)}`}</GanttTitle>
+          <GanttTitle>{`Execution: ${formatWindow(extent)}`}</GanttTitle>
           <Button
             aria-label="Fit execution"
             onClick={() => setZoomState({ key: ganttKey, value: initialZoom })}
@@ -251,7 +251,7 @@ function ExecutionSelection({
       <span className="text-muted-foreground">
         {span.timing === 'observed'
           ? 'Observed in its containing turn; duration unavailable'
-          : `${duration.toLocaleString(undefined, { maximumFractionDigits: 3 })} s · ${formatClock(span.start)}${span.end === null ? ' · still running' : ` to ${formatClock(span.end)}`}`}
+          : `${duration.toLocaleString(undefined, { maximumFractionDigits: 3 })} s, ${formatClock(span.start)}${span.end === null ? ', still running' : ` to ${formatClock(span.end)}`}`}
       </span>
       {child?.child_session_id && onOpenSubagent ? (
         <Button

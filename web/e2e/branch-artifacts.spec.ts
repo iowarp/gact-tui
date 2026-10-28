@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { showEvidenceRail } from './workspace-setup';
 
 const fixtureEndpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
@@ -19,9 +20,8 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
     await page.request.post(`${fixtureEndpoint}/__test/subagent-navigation`)
   ).json();
   await page.goto(workspaceUrl);
-  const layout = page.getByRole('button', { name: 'Work rail', exact: true });
-  await layout.click();
-  const evidence = page.getByRole('dialog', { name: 'Work rail', exact: true });
+  await showEvidenceRail(page, 'Work');
+  const evidence = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
   await expect(evidence).toHaveAttribute('data-showcase-mode', 'docked');
   const parentWidth = await evidence.evaluate((element) => element.clientWidth);
   const child = evidence.getByRole('button', {
@@ -29,6 +29,7 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
     exact: true,
   });
   await expect(child).not.toBeVisible();
+  await evidence.getByRole('button', { name: 'Completed work', exact: true }).click();
   await evidence
     .getByRole('button', { name: 'Task details: Station analysis worker', exact: true })
     .click();
@@ -39,11 +40,18 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
   await expect(canvas.getByRole('textbox', { name: 'Message this agent' })).toBeVisible();
   await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(canvas).not.toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Open workspace canvas', exact: true }),
+  ).toBeVisible();
   await expect(evidence).toBeVisible();
+  // Closing the canvas resizes/rehosts the rail. Wait for its parent layout
+  // before inspecting an uncontrolled task disclosure from the new host.
+  await expect.poll(() => evidence.evaluate((element) => element.clientWidth)).toBe(parentWidth);
   const reopenedDetails = evidence.getByRole('button', {
     name: 'Task details: Station analysis worker',
     exact: true,
   });
+  await reopenedDetails.click({ trial: true });
   if ((await reopenedDetails.getAttribute('aria-expanded')) !== 'true') {
     await reopenedDetails.click();
   }
@@ -159,7 +167,7 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
 }, testInfo) => {
   await page.request.post(`${fixtureEndpoint}/__test/artifact-navigation`);
   await page.goto(workspaceUrl);
-  await page.getByRole('button', { name: 'Session rail', exact: true }).click();
+  await showEvidenceRail(page, 'Session');
   await page.getByRole('button', { name: 'Open full details' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
@@ -180,7 +188,7 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
   await page.evaluate(() => localStorage.setItem('theme', 'dark'));
   await page.reload();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await page.getByRole('button', { name: 'Session rail', exact: true }).click();
+  await showEvidenceRail(page, 'Session');
   await page.getByRole('button', { name: 'Open full details' }).click();
   await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
   await canvas.getByRole('button', { name: /^Artifacts/ }).click();

@@ -4,9 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { useLocation, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const sessionRows = vi.hoisted(() => vi.fn());
+
 const repository = vi.hoisted(() => ({
   workspaces: vi.fn(),
-  allSessions: vi.fn(),
   workspaceFiles: vi.fn(),
   searchMemory: vi.fn(),
   agents: vi.fn(),
@@ -34,7 +35,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 vi.mock('@/store/live-store', () => ({
   useLiveStore: (selector: (state: unknown) => unknown) =>
-    selector({ entities: { artifacts: { [artifact.id]: artifact } } }),
+    selector({ entities: { artifacts: { [artifact.id]: artifact }, sessions: {} } }),
 }));
 vi.mock('@/tauri/menu-actions', () => ({ useMenuAction: () => undefined }));
 vi.mock('@/hooks/use-known-connections', () => ({
@@ -50,11 +51,12 @@ vi.mock('@/hooks/use-known-connections', () => ({
 vi.mock('@/hooks/use-switch-connection', () => ({
   useSwitchConnection: () => repository.switchConnection,
 }));
-vi.mock('next-themes', () => ({
+vi.mock('@/providers/appearance-provider', () => ({
   useTheme: () => ({ theme: 'light', setTheme: repository.setTheme }),
 }));
 
 import { ClioCommandMenu } from './command-menu';
+import { sessionReads } from '@/test/session-reads';
 
 function LocationProbe() {
   const location = useLocation();
@@ -105,12 +107,13 @@ beforeEach(() => {
   repository.credentialsReady = true;
   repository.agents.mockResolvedValue([
     {
+      ref: 'lab/reviewer',
       id: 'reviewer',
-      title: 'Station Reviewer',
+      name: 'Station Reviewer',
       description: 'Review station measurements.',
-      specialization: 'Science',
-      keywords: ['evidence'],
-      enabled: true,
+      role: 'a science reviewer',
+      kind: 'agent',
+      plugins: [],
     },
   ]);
   repository.infrastructureTargets.mockResolvedValue([{ id: 'delta', label: 'Delta GPU host' }]);
@@ -133,7 +136,7 @@ beforeEach(() => {
       pinned: false,
     },
   ]);
-  repository.allSessions.mockResolvedValue([
+  sessionRows.mockResolvedValue([
     {
       id: 'sess_current',
       workspace_id: 'ws_current',
@@ -201,7 +204,7 @@ describe('ClioCommandMenu workspace search', () => {
     await user.keyboard('revie');
     expect(screen.getByText('Waiting for the default backend…')).toBeVisible();
     expect(repository.workspaces).not.toHaveBeenCalled();
-    expect(repository.allSessions).not.toHaveBeenCalled();
+    expect(sessionRows).not.toHaveBeenCalled();
     expect(repository.agents).not.toHaveBeenCalled();
     expect(repository.infrastructureTargets).not.toHaveBeenCalled();
     repository.credentialsReady = true;
@@ -213,7 +216,7 @@ describe('ClioCommandMenu workspace search', () => {
 
   it.each([
     ['drive', 'Data sources', '/settings/data-sources'],
-    ['reviewer', /Station Reviewer/u, '/settings/agents#agent-reviewer'],
+    ['reviewer', /Station Reviewer/u, '/settings/agents#agent-lab%2Freviewer'],
     ['delta', /Delta GPU host/u, '/infrastructure/services?target=delta'],
   ])(
     'opens a global result for %s while retaining workspace return context',
@@ -257,8 +260,10 @@ describe('ClioCommandMenu workspace search', () => {
     await user.keyboard('{Control>}k{/Control}');
     await user.keyboard('stations');
     await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
-    expect(screen.getByTestId('location')).toHaveTextContent(
-      '/workspaces/ws_current/sessions/sess_current',
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/workspaces/ws_current/sessions/sess_current',
+      ),
     );
     expect(screen.getByTestId('location-state')).toHaveTextContent(
       '"kind":"workspace-file","path":"results/stations.csv"',
@@ -269,7 +274,7 @@ describe('ClioCommandMenu workspace search', () => {
     async (hasSession) => {
       const route = '/workspaces/ws_current/new';
       localStorage.removeItem('clio.last-workspace-route:http%3A%2F%2F127.0.0.1%3A8787');
-      if (!hasSession) repository.allSessions.mockResolvedValue([]);
+      if (!hasSession) sessionRows.mockResolvedValue([]);
       const user = userEvent.setup();
       renderMenu(vi.fn(), route, false);
       await user.keyboard('{Control>}k{/Control}');
@@ -281,8 +286,10 @@ describe('ClioCommandMenu workspace search', () => {
         { excludeServiceStorage: true },
       );
       expect(screen.getByTestId('location')).toHaveTextContent(route);
-      expect(screen.getByTestId('location-state')).toHaveTextContent(
-        '"kind":"workspace-file","path":"results/stations.csv"',
+      await waitFor(() =>
+        expect(screen.getByTestId('location-state')).toHaveTextContent(
+          '"kind":"workspace-file","path":"results/stations.csv"',
+        ),
       );
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     },
@@ -393,3 +400,9 @@ describe('ClioCommandMenu workspace search', () => {
     );
   });
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => sessionRows()),
+);

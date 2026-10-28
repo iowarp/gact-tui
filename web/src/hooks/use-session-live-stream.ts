@@ -3,11 +3,13 @@ import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react
 import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
-import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
+import { STREAM_RECONNECT_BASE_MS, TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { streamNoticeForFrame } from '@/lib/streaming/stream-notices';
+import { ScienceEntryMerger } from '@/lib/streaming/science-log-updates';
+import { taskUpdateForFrame } from '@/lib/streaming/task-updates';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
@@ -31,6 +33,7 @@ export function useSessionLiveStream({
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const streamState = useLiveStore((state) => state.entities.stream);
+  const gapCount = useLiveStore((state) => state.entities.streamGaps ?? 0);
   const streamError = useLiveStore((state) => state.error);
   const applyFrames = useLiveStore((state) => state.applyFrames);
   const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
@@ -81,19 +84,21 @@ export function useSessionLiveStream({
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     const invalidations = new QueryInvalidationBatcher(queryClient);
+    // Science log entries merge into the study read once per display frame.
+    const science = new ScienceEntryMerger(queryClient, settings.endpoint, sessionId);
     let reconnectDelay = STREAM_RECONNECT_BASE_MS;
     let resumeCursor = initialCursor;
     let reconcileBeforeConnect = false;
     const reconcileAfterDisconnect = async () => {
       const [workspaces, sessions, transcript] = await Promise.all([
         repository.workspaces(controller.signal),
-        repository.sessions(workspaceId, controller.signal),
-        repository.transcript(sessionId, controller.signal),
+        repository.sessionFamily(sessionId, controller.signal),
+        repository.transcript(sessionId, controller.signal, { limit: TRANSCRIPT_PAGE_SIZE }),
       ]);
       if (controller.signal.aborted) return;
       queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
-      queryClient.setQueryData(queryKeys.sessions(settings.endpoint, workspaceId), sessions);
-      queryClient.setQueryData(queryKeys.transcript(settings.endpoint, sessionId), transcript);
+      queryClient.setQueryData(queryKeys.sessionFamily(settings.endpoint, sessionId), sessions);
+      queryClient.setQueryData(queryKeys.transcriptPage(settings.endpoint, sessionId), transcript);
       reconcileSnapshots({
         workspaces: recordById(workspaces),
         sessions: recordById(sessions),
@@ -146,15 +151,19 @@ export function useSessionLiveStream({
               clearSessionModelReferences();
             }
             batcher.push(frame);
+            science.push(frame);
             if (frame.eventName === 'message.completed') {
               batcher.flush();
             }
+            const taskUpdate = taskUpdateForFrame(frame);
             invalidations.push(
               ...queryInvalidationKeysForEvent({
                 endpoint: settings.endpoint,
                 eventName: frame.eventName,
                 sessionId,
                 workspaceId,
+                taskOwnerSessionId: taskUpdate?.owner_session_id,
+                taskInvocationId: taskUpdate?.invocation_id,
               }),
             );
             const notice = streamNoticeForFrame(frame);
@@ -185,6 +194,7 @@ export function useSessionLiveStream({
       controller.abort();
       batcher.stop({ flush: true });
       invalidations.stop({ flush: true });
+      science.stop({ flush: true });
     };
   }, [
     applyFrames,
@@ -209,13 +219,16 @@ export function useSessionLiveStream({
       try {
         const [workspaces, sessions, transcript] = await Promise.all([
           repository.workspaces(controller.signal),
-          repository.sessions(workspaceId, controller.signal),
-          repository.transcript(sessionId, controller.signal),
+          repository.sessionFamily(sessionId, controller.signal),
+          repository.transcript(sessionId, controller.signal, { limit: TRANSCRIPT_PAGE_SIZE }),
         ]);
         if (controller.signal.aborted) return;
         queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
-        queryClient.setQueryData(queryKeys.sessions(settings.endpoint, workspaceId), sessions);
-        queryClient.setQueryData(queryKeys.transcript(settings.endpoint, sessionId), transcript);
+        queryClient.setQueryData(queryKeys.sessionFamily(settings.endpoint, sessionId), sessions);
+        queryClient.setQueryData(
+          queryKeys.transcriptPage(settings.endpoint, sessionId),
+          transcript,
+        );
         reconcileSnapshots({
           workspaces: recordById(workspaces),
           sessions: recordById(sessions),
@@ -246,6 +259,7 @@ export function useSessionLiveStream({
     setStreamState,
     settings.endpoint,
     streamState,
+    gapCount, // a later gap restarts the reconcile with a fresh snapshot
     workspaceId,
   ]);
 
@@ -350,6 +364,8 @@ function resourceInvalidationKeys(
 }
 
 interface QueryInvalidationEvent {
+  taskOwnerSessionId?: string;
+  taskInvocationId?: string;
   endpoint: string;
   eventName: string;
   sessionId: string;
@@ -362,27 +378,12 @@ export function queryInvalidationKeysForEvent({
   eventName,
   sessionId,
   workspaceId,
+  taskOwnerSessionId,
+  taskInvocationId,
 }: QueryInvalidationEvent): QueryKey[] {
   const keys: QueryKey[] = [];
-  if (eventName === 'blueprint.operation.changed') {
-    keys.push(queryKeys.key('blueprint-operations', endpoint));
-  }
-  if (eventName === 'blueprint.authoring.changed' || eventName === 'blueprint.revision.changed') {
-    keys.push(
-      queryKeys.key('blueprint-authoring', endpoint),
-      queryKeys.key('blueprint-file', endpoint),
-    );
-  }
-  if (eventName === 'blueprint.revision.changed') {
-    keys.push(
-      queryKeys.agentBlueprints(endpoint),
-      queryKeys.key('agent-blueprint-sources', endpoint),
-      queryKeys.key('blueprint-files', endpoint),
-      queryKeys.key('blueprint-file', endpoint),
-      queryKeys.key('agents', endpoint),
-      queryKeys.key('sessions', endpoint),
-      queryKeys.capabilities(endpoint),
-    );
+  if (eventName === 'task.updated' && taskOwnerSessionId === sessionId && taskInvocationId) {
+    keys.push(queryKeys.transcript(endpoint, sessionId));
   }
   if (isPendingInteractionEvent(eventName)) {
     // Approvals and questions are both read unscoped now (a descendant
@@ -390,6 +391,8 @@ export function queryInvalidationKeysForEvent({
     // endpoint-level prefix each query is actually keyed under, not a
     // per-session key that would never match the shared cache entry.
     keys.push(
+      // The sessions waiting on a person change with every pending interaction.
+      queryKeys.sessionsWaiting(endpoint),
       queryKeys.pendingInteractions(endpoint),
       queryKeys.pendingApprovals(endpoint),
       queryKeys.key('pending-questions', endpoint),
@@ -398,7 +401,7 @@ export function queryInvalidationKeysForEvent({
   if (isProcessEvent(eventName)) {
     keys.push(
       queryKeys.sessionObservabilityDetail(endpoint, sessionId, 'processes'),
-      queryKeys.sessions(endpoint, 'all'),
+      queryKeys.allSessionReads(endpoint),
     );
   }
   if (eventName === 'semantic.event') {
@@ -434,8 +437,7 @@ export function queryInvalidationKeysForEvent({
   if (eventName === 'message.completed') {
     keys.push(
       queryKeys.transcript(endpoint, sessionId),
-      queryKeys.sessions(endpoint, workspaceId),
-      queryKeys.sessions(endpoint, 'all'),
+      queryKeys.allSessionReads(endpoint),
       // Artifact lifecycle records are emitted as semantic events on current
       // runtimes. Reconcile the registry at the authoritative turn boundary so
       // a newly returned resource link never waits for a page reload.
@@ -453,7 +455,7 @@ export function queryInvalidationKeysForEvent({
   // triggers: polling already covers what those approximated, without a
   // hand-maintained event list.
   if (eventName === 'session.status_changed' || eventName === 'session.upserted') {
-    keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));
+    keys.push(queryKeys.allSessionReads(endpoint));
   }
   // Execution provenance is a durable projection over the semantic ledger,
   // child lifecycle and artifact custody records. Refresh its provider-keyed

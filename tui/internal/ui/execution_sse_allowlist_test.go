@@ -37,8 +37,7 @@ func recordSemanticForTest(a *App, eventType, status string) {
 // TestRecordSSESemanticAllowListMatchesServedSet syncs the TUI's semantic
 // allow-list with what the server actually serves — contract/SPEC.md §7.6
 // "Served allow-list": the ReAct trajectory atoms (react step / extract /
-// expert response / expert lifecycle), the delegation atom on BOTH its
-// prefixes (blueprint.delegation.* and plain delegation.*), and
+// expert response / expert lifecycle), the delegation.* atom, and
 // memory.search.completed. Semantic tool.call.* mirrors are filtered
 // server-side (they reach the wire only when failed), so the ledger must not
 // depend on them.
@@ -48,10 +47,6 @@ func TestRecordSSESemanticAllowListMatchesServedSet(t *testing.T) {
 		"expert.extract.completed",
 		"expert.response.completed",
 		"expert.lifecycle.started",
-		"blueprint.delegation.started",
-		"blueprint.delegation.completed",
-		"blueprint.delegation.parent_resumed",
-		"blueprint.delegation.failed",
 		"delegation.started",
 		"delegation.completed",
 		"delegation.parent_resumed",

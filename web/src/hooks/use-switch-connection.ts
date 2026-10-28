@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRepository, type ConnectionSettings } from '@/lib/connection';
 import {
+  connectionCandidateSessions,
   connectionSessionRoute,
   connectionSessionTargetForRoute,
   latestConnectionSessionTarget,
@@ -30,24 +31,17 @@ export function useSwitchConnection() {
     ) => {
       const resolvedConnection = await resolveConnection(connection);
       const repository = createRepository(resolvedConnection);
+      const rememberedRoute = lastWorkspaceRoute(connection.endpoint);
       const [workspaces, sessions] = await Promise.all([
         repository.workspaces(),
-        repository.allSessions(),
+        connectionCandidateSessions(repository, rememberedRoute),
       ]);
       const target =
-        connectionSessionTargetForRoute(
-          lastWorkspaceRoute(connection.endpoint),
-          workspaces,
-          sessions,
-        ) ?? latestConnectionSessionTarget(workspaces, sessions);
+        connectionSessionTargetForRoute(rememberedRoute, workspaces, sessions) ??
+        latestConnectionSessionTarget(workspaces, sessions);
 
       queryClient.setQueryData(queryKeys.key('workspaces', connection.endpoint), workspaces);
-      queryClient.setQueryData(queryKeys.key('sessions', connection.endpoint, 'all'), sessions);
       if (target) {
-        queryClient.setQueryData(
-          queryKeys.key('sessions', connection.endpoint, target.workspace.id),
-          sessions.filter((session) => session.workspace_id === target.workspace.id),
-        );
         rememberWorkspaceRoute(connection.endpoint, target.workspace.id, target.session.id);
       }
 

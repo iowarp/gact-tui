@@ -28,6 +28,30 @@ describe('ClioSubagentCard', () => {
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
   });
 
+  it('names the model a child runs on beside its name', () => {
+    render(
+      <ClioSubagentCard
+        subagent={{
+          id: 'task_small',
+          session_id: 'session_1',
+          agent_id: 'reviewer',
+          title: 'reviewer #1',
+          state: 'running',
+          task: 'Review the draft.',
+          model_choice: {
+            asked: 'claude_code/claude-haiku-5-5',
+            ran: { provider_id: 'claude_code', model_id: 'claude-haiku-5-5' },
+            source: 'explicit',
+            reasons: [],
+            effort: '',
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('claude-haiku-5-5')).toBeVisible();
+  });
+
   it('keeps an interrupted child interrupted instead of relabeling it failed', () => {
     render(
       <ClioSubagentCard

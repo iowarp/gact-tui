@@ -37,12 +37,10 @@ describe('knowledge canvas tabs', () => {
       <ClioWorkbench
         ref={handle}
         artifacts={[]}
-        blueprints={[]}
         diffs={[]}
         files={[]}
-        onApplyDiff={vi.fn()}
         onOpenSubagent={vi.fn()}
-        onRejectDiff={vi.fn()}
+        onUndoDiff={vi.fn()}
         sessionId=""
         sessionView={<p>Session</p>}
         workspaceId="workspace_1"

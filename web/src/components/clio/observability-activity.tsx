@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
+import { flowLabel } from './flow-tool-presentation';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -63,7 +64,15 @@ export interface ObservabilityActivityItem {
   onOpen?: (target: SubagentOpenTarget) => void;
 }
 
-const CAUSAL_COLORS = ['#22d3ee', '#60a5fa', '#a78bfa', '#34d399', '#fb7185', '#facc15'];
+/** Lane colors read the theme's chart and category tokens, so they follow theme changes. */
+const CAUSAL_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-4)',
+  'var(--category-2)',
+  'var(--chart-3)',
+  'var(--chart-5)',
+  'var(--chart-2)',
+];
 
 const PROJECTED_COORDINATION_TOOLS = new Set([
   'spawn_agent_task',
@@ -72,6 +81,9 @@ const PROJECTED_COORDINATION_TOOLS = new Set([
   'wait_agent_tasks',
   'message_agent_task',
   'collect_agent_task',
+  // A started flow is its process row (labelled as the flow's run); the tool row repeats it.
+  'run_flow',
+  'run_workflow',
 ]);
 
 interface CausalLane {
@@ -93,6 +105,7 @@ interface CausalLane {
 export function asyncProcessDetail(process: AsyncProcess): string {
   const reported = process.error_reason?.trim() || process.result?.answer_excerpt?.trim();
   if (reported) return truncate(reported, SUMMARY_TRUNCATE_CHARS);
+  if (process.flow) return `${flowLabel(process.flow.id)} run`;
   if (process.kind === 'agent') return process.placement?.trim() || 'Child agent';
   return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
 }
@@ -175,21 +188,6 @@ const HIGH_SIGNAL_CHILD_KINDS = new Set([
   'interactive_work',
   'resource',
 ]);
-
-const COMMISSION_ACTIVITY = {
-  'blueprint.commission.started': {
-    detail: 'Commissioned blueprint',
-    kind: 'process',
-  },
-  'blueprint.commission.artifact_returned': {
-    detail: 'Registered report returned',
-    kind: 'artifact',
-  },
-  'blueprint.commission.parent_used_artifact': {
-    detail: 'Parent used returned report',
-    kind: 'artifact',
-  },
-} as const satisfies Record<string, { detail: string; kind: ObservabilityActivityItem['kind'] }>;
 
 /**
  * Build durable activity from CLIO's authoritative projection.
@@ -285,31 +283,6 @@ export function childProjectionActivityItems(
 
   for (const span of provenance.spans) {
     const ownerSessionId = span.owner_session_id ?? span.session_id;
-    const commission = COMMISSION_ACTIVITY[span.event_type as keyof typeof COMMISSION_ACTIVITY];
-    if (commission) {
-      const owner = lineageBySession.get(ownerSessionId);
-      const turnId =
-        typeof span.attributes.turn_id === 'string' ? span.attributes.turn_id : undefined;
-      items.push({
-        id: `projected:${span.id}`,
-        kind: commission.kind,
-        label: span.label,
-        detail: commission.detail,
-        state: activityState(span.status),
-        at: timestampString(span.end_time ?? span.start_time),
-        timing: span.start_time === null && span.end_time === null ? undefined : 'event',
-        rootSessionId,
-        ownerSessionId,
-        ownerLabel: owner?.label,
-        parentSessionId: owner?.parent_session_id,
-        taskId: span.task_id || owner?.task_id,
-        taskPath: span.task_path?.length ? span.task_path : owner?.task_path,
-        depth: owner?.depth ?? span.task_path?.length ?? 0,
-        groupId: turnId,
-        lifecycle: 'event',
-      });
-      continue;
-    }
     if (!HIGH_SIGNAL_CHILD_KINDS.has(span.kind)) continue;
     // Transform records and model-step records describe trace assembly. They
     // remain available in technical provenance, but they are not extra user
@@ -522,7 +495,7 @@ function CausalActivityRow({
             return (
               <line
                 key={candidate.id}
-                stroke={candidate.color}
+                style={{ stroke: candidate.color }}
                 strokeOpacity="0.32"
                 strokeWidth="2"
                 x1={lineX}
@@ -537,7 +510,7 @@ function CausalActivityRow({
             <path
               d={`M ${parentX} 0 C ${parentX} 35, ${x} 35, ${x} 50`}
               fill="none"
-              stroke={lane.color}
+              style={{ stroke: lane.color }}
               strokeWidth="2.5"
               vectorEffect="non-scaling-stroke"
             />
@@ -546,7 +519,7 @@ function CausalActivityRow({
             <path
               d={`M ${x} 50 C ${x} 65, ${parentX} 65, ${parentX} 100`}
               fill="none"
-              stroke={lane.color}
+              style={{ stroke: lane.color }}
               strokeWidth="2.5"
               vectorEffect="non-scaling-stroke"
             />

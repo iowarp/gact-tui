@@ -1,5 +1,25 @@
-import type { Session, Workspace } from '@clio/core/v3';
-import { isPrimarySession, sessionInteractionAt } from './recent-sessions';
+import type { ClioRepository, Session, Workspace } from '@clio/core/v3';
+import { isPrimarySession, PRIMARY_SESSION_KINDS, sessionInteractionAt } from './recent-sessions';
+
+/** Recent conversations a connection may open, read as one page (never every session). */
+const CONNECTION_CANDIDATE_LIMIT = 20;
+
+/**
+ * The sessions a connection landing chooses from: the newest page of conversations
+ * across workspaces, plus the session a remembered route names (it may be older).
+ */
+export async function connectionCandidateSessions(
+  repository: Pick<ClioRepository, 'sessionPage' | 'sessionsById'>,
+  rememberedRoute: string,
+): Promise<Session[]> {
+  const remembered = parseWorkspaceRoute(rememberedRoute)?.sessionId;
+  const [recent, named] = await Promise.all([
+    repository.sessionPage({ kinds: PRIMARY_SESSION_KINDS, limit: CONNECTION_CANDIDATE_LIMIT }),
+    remembered ? repository.sessionsById([remembered]) : Promise.resolve([]),
+  ]);
+  const byId = new Map([...recent.sessions, ...named].map((session) => [session.id, session]));
+  return [...byId.values()];
+}
 
 export interface ConnectionSessionTarget {
   session: Session;

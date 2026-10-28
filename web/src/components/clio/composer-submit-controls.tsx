@@ -41,7 +41,9 @@ export function ComposerSubmitControls({
               : 'Submit'
         }
         aria-keyshortcuts={delivery === 'steer' ? 'Control+Enter Meta+Enter' : 'Enter'}
-        className="gap-1.5"
+        // Idle (nothing to send): a muted button with full-strength text, not a faded
+        // primary whose light text washes out on the Notebook theme's paper.
+        className="gap-1.5 disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
         disabled={disabled || (!hasContent && attachments.files.length === 0)}
         onClick={onSubmit}
         title={

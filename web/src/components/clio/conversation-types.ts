@@ -25,10 +25,20 @@ import type { ConversationModelBoundary } from './conversation-model-boundaries'
 import type { ConversationForkOrigin } from './conversation-fork-origin';
 import type { ConversationTurnPresentation } from './conversation-turn-model';
 
+/** Older messages of a paged transcript, loaded when the reader reaches the top. */
+export interface EarlierMessagesControl {
+  hasEarlier: boolean;
+  loading: boolean;
+  error?: string;
+  load: () => void;
+}
+
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
   loading?: boolean;
   error?: string;
+  /** Present when the transcript is paged and older messages can be read. */
+  earlier?: EarlierMessagesControl;
   /**
    * The workspace this transcript is rendering, so a presentation block that
    * does not carry its own `workspace_id` (or a caller composing a message
@@ -37,6 +47,8 @@ export interface ClioConversationProps {
    */
   workspaceId?: string;
   sessionId?: string;
+  /** Recorded/catalog-resolved agent identity for this conversation, separate from the product. */
+  agentName?: string;
   forkOrigin?: ConversationForkOrigin;
   tools: Record<string, ToolInvocation>;
   tasks: Record<string, DomainTask>;
@@ -80,7 +92,8 @@ export interface ClioConversationProps {
   ) => void;
   onOpenReference?: (reference: WorkspaceReference) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  onOpenWorkflow?: (tool: ToolInvocation) => void;
+  /** Open the flow run recorded under a task handle (a workflow, a council, ...). */
+  onOpenFlow?: (handle: string, label?: string) => void;
   pendingMessageIds?: ReadonlySet<string>;
   cancellablePendingMessageIds?: ReadonlySet<string>;
   cancellingPendingMessageId?: string;

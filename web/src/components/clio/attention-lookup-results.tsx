@@ -63,7 +63,7 @@ export function AttentionLookupResults({
       {result.views.map((view, index) => (
         <details key={view.lm_call_id} className="rounded-md border bg-background p-2">
           <summary className="cursor-pointer text-sm">
-            {view.kind === 'source' ? 'Later generation' : 'Generated selection'} ·{' '}
+            {view.kind === 'source' ? 'Later generation' : 'Generated selection'}:{' '}
             {view.kind === 'source'
               ? `${formatSharePercent(view.mass)} retained source mass`
               : `${view.selected_steps.length} captured token${view.selected_steps.length === 1 ? '' : 's'}`}
@@ -93,7 +93,7 @@ export function AttentionLookupResults({
                 <a
                   key={`${reference.message_id}:${reference.part_id}:${reference.field}`}
                   href={attentionEvidenceHash(reference, view.profile_revision, evidence(view))}
-                  className="text-primary underline underline-offset-4"
+                  className="text-link underline underline-offset-4"
                 >
                   Inspect {reference.field === 'thought' ? 'reasoning' : reference.field}
                 </a>
@@ -105,7 +105,7 @@ export function AttentionLookupResults({
                   view.profile_revision,
                   evidence(view),
                 )}
-                className="text-primary underline underline-offset-4"
+                className="text-link underline underline-offset-4"
               >
                 Inspect answer
               </a>
@@ -114,7 +114,7 @@ export function AttentionLookupResults({
           {view.kind === 'source' ? (
             <>
               <p className="my-2 text-xs text-muted-foreground">
-                Highest scoring output tokens · showing {Math.min(32, view.tokens.length)} of{' '}
+                Highest scoring output tokens, showing {Math.min(32, view.tokens.length)} of{' '}
                 {view.step_count}
               </p>
               <div className="flex flex-wrap gap-1">
@@ -142,11 +142,11 @@ export function AttentionLookupResults({
                   <li key={`${block.message_id}:${block.part_id}:${block.field}`}>
                     <a
                       href={attentionEvidenceHash(block, view.profile_revision, evidence(view))}
-                      className="text-primary underline underline-offset-4"
+                      className="text-link underline underline-offset-4"
                     >
                       Inspect {blockLabel(view, block)}
-                    </a>{' '}
-                    · {formatSharePercent(block.share)} retained mass
+                    </a>
+                    , {formatSharePercent(block.share)} retained mass
                   </li>
                 ))}
               </ul>

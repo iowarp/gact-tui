@@ -2,8 +2,8 @@ import type { SubagentRun } from '@clio/core/v3';
 import {
   ActivityIcon,
   BotIcon,
-  BoxesIcon,
   BoxIcon,
+  FlaskConicalIcon,
   FolderIcon,
   PaperclipIcon,
   TerminalSquareIcon,
@@ -29,7 +29,8 @@ export type CanvasResourceKind =
   | 'files'
   | 'resources'
   | 'artifacts'
-  | 'blueprints';
+  | 'agent'
+  | 'science-log';
 
 /** Opens one peer canvas tab instead of nesting unrelated resource types. */
 export function CanvasLauncher({
@@ -37,12 +38,18 @@ export function CanvasLauncher({
   onOpenSubagent,
   onOpenTerminal,
   subagents = [],
+  finishedWorkHidden = false,
+  scienceLog = false,
 }: {
   onOpen: (kind: CanvasResourceKind) => void;
   /** Opens one child agent of this session as a canvas tab beside the conversation. */
   onOpenSubagent?: (subagent: SubagentRun) => void;
   onOpenTerminal?: () => void;
   subagents?: readonly SubagentRun[];
+  /** Finished children are not loaded yet, so an empty list does not mean none ran. */
+  finishedWorkHidden?: boolean;
+  /** The session belongs to a study, so its Science log can open. */
+  scienceLog?: boolean;
 }) {
   const openableSubagents = subagents.filter((subagent) => subagent.child_session_id);
   return (
@@ -66,6 +73,11 @@ export function CanvasLauncher({
         <DropdownMenuItem onSelect={() => onOpen('work')}>
           <ActivityIcon aria-hidden="true" /> Work
         </DropdownMenuItem>
+        {scienceLog ? (
+          <DropdownMenuItem onSelect={() => onOpen('science-log')}>
+            <FlaskConicalIcon aria-hidden="true" /> Science log
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onOpen('files')}>
           <FolderIcon aria-hidden="true" /> File explorer
@@ -76,8 +88,8 @@ export function CanvasLauncher({
         <DropdownMenuItem onSelect={() => onOpen('artifacts')}>
           <BoxIcon aria-hidden="true" /> Session artifacts
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('blueprints')}>
-          <BoxesIcon aria-hidden="true" /> Agent blueprints
+        <DropdownMenuItem onSelect={() => onOpen('agent')}>
+          <BotIcon aria-hidden="true" /> Conversation agent
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {openableSubagents.length && onOpenSubagent ? (
@@ -101,7 +113,9 @@ export function CanvasLauncher({
         ) : (
           <DropdownMenuItem disabled>
             <BotIcon aria-hidden="true" /> Child agent
-            <span className="ml-auto text-[10px] text-muted-foreground">None yet</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {finishedWorkHidden ? 'None running' : 'None yet'}
+            </span>
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

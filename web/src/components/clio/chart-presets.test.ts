@@ -69,3 +69,15 @@ describe('chart presets', () => {
     }
   });
 });
+
+describe('dotted column names', () => {
+  it('escapes a dotted column where a preset puts it in a field, not in prose', () => {
+    const spec = renderChartPreset('scatter', {
+      xField: 'condition.n',
+      yField: 'value',
+      entityField: 'branch',
+    } as ChartPresetFields) as { encoding: { x: { field: string } }; description: string };
+    expect(spec.encoding.x.field).toBe('condition\\.n');
+    expect(spec.description).toContain('condition.n');
+  });
+});

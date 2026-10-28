@@ -12,7 +12,7 @@ import (
 
 func catalogBrowserUsesGuidanceEmptyState(kind catalogBrowserKind, items []catalogItem) bool {
 	switch kind {
-	case catalogKindPrompts, catalogKindSkills, catalogKindExpertPacks:
+	case catalogKindPrompts, catalogKindSkills:
 		return catalogBrowserItemsAreEmptyState(items)
 	default:
 		return false
@@ -76,7 +76,7 @@ func catalogBrowserIntro(kind catalogBrowserKind) string {
 
 func (c *catalogComponent) contextLine(kind catalogBrowserKind) string {
 	switch kind {
-	case catalogKindPrompts, catalogKindSkills, catalogKindExpertPacks:
+	case catalogKindPrompts, catalogKindSkills:
 	default:
 		return ""
 	}
@@ -86,12 +86,10 @@ func (c *catalogComponent) contextLine(kind catalogBrowserKind) string {
 		s := c.app.session.sessions[c.app.session.selected]
 		session = valuefmt.FirstNonEmpty(strings.TrimSpace(s.Title), strings.TrimSpace(s.ID), "selected session")
 	}
-	workflow := "no active workflow blueprint"
-	if id := c.app.agent.activeAgentBlueprintID(); id != "" {
-		workflow = id
-		if scope := c.app.agent.activeAgentBlueprintScope(); scope != "" {
-			workflow += " (" + scope + ")"
-		}
+	agent := "backend default agent"
+	if c.app.session.selected >= 0 && c.app.session.selected < len(c.app.session.sessions) {
+		meta := valuefmt.MapValue(c.app.session.sessions[c.app.session.selected].Metadata)
+		agent = valuefmt.FirstNonEmpty(strings.TrimSpace(valuefmt.StringValue(meta["agent_ref"])), agent)
 	}
-	return "Context: workspace " + workspace + " · session " + session + " · workflow " + workflow
+	return "Context: workspace " + workspace + " · session " + session + " · agent " + agent
 }

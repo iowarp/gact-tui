@@ -235,7 +235,7 @@ describe('TranscriptResourceAttachment availability', () => {
     expect(status).toBeVisible();
     expect(status).toHaveAttribute('data-overlay', 'true');
     expect(status.parentElement).not.toHaveClass('bg-background/85');
-    expect(status.querySelector('svg')).toHaveClass('text-black');
+    expect(status.querySelector('svg')).toHaveClass('text-media-backdrop');
     const preview = await screen.findByRole('img', { name: 'diagram.png' });
     expect(preview).toHaveAttribute('src', 'blob:test-3');
     expect(preview).toHaveAttribute('width', '144');

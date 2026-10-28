@@ -13,6 +13,7 @@ import { useRepository } from './use-repository';
 import { useSelectionAction } from './use-selection-action';
 import { connectionScope } from '@/lib/connection-scope';
 import { hasAttentionCaptures } from '@/lib/attention-availability';
+import { attentionSelectionBody } from '@/lib/attention-selection-body';
 
 export type AttentionModeState =
   | { status: 'idle' }
@@ -107,16 +108,7 @@ export function useAttentionMode(
           target.sessionId,
           target.messageId,
           {
-            text: target.text,
-            ...(target.partId ? { part_id: target.partId } : {}),
-            ...(target.contentRevision ? { content_revision: target.contentRevision } : {}),
-            ...(target.reference?.selection.kind === 'text'
-              ? {
-                  start: target.reference.selection.start,
-                  end: target.reference.selection.end,
-                  field: target.reference.field,
-                }
-              : {}),
+            ...attentionSelectionBody(target),
             ...(selectedProfile ? { profile: selectedProfile } : {}),
           },
           controller.signal,

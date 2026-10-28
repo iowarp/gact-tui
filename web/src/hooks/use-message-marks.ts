@@ -9,7 +9,7 @@ import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
 
 /** Save marks to the service, acknowledging them only after persistence succeeds. */
-export function useMessageMarks(session: Session | undefined, workspaceId: string) {
+export function useMessageMarks(session: Session | undefined) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -26,10 +26,7 @@ export function useMessageMarks(session: Session | undefined, workspaceId: strin
         store.replaceSnapshots({ sessions: { ...store.entities.sessions, [updated.id]: updated } });
       }
       await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sessions(settings.endpoint, workspaceId),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.sessions(settings.endpoint, 'all') }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.allSessionReads(settings.endpoint) }),
       ]);
     },
     onError: (error) => toast.error('Could not save message mark', { description: error.message }),

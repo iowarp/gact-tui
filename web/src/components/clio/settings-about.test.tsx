@@ -4,15 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
   capabilities: vi.fn(),
-  blueprintSourceUpdates: vi.fn(),
-  refreshAgentBlueprintSource: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
 import { AboutSettings } from './settings-about';
 
@@ -41,14 +39,16 @@ const baseCapabilities = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  repository.blueprintSourceUpdates.mockResolvedValue({ sources: [], checked_at: undefined });
 });
 
 afterEach(cleanup);
 
 describe('About panel version rows', () => {
   it('reports build/runtime version rows as unreported, honestly, when the connected service predates versions', async () => {
-    repository.capabilities.mockResolvedValue({ ...baseCapabilities, service: { name: 'clio-agent', version: '0.9.4' } });
+    repository.capabilities.mockResolvedValue({
+      ...baseCapabilities,
+      service: { name: 'clio-agent', version: '0.9.4' },
+    });
 
     renderAbout();
 

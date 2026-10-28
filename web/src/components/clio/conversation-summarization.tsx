@@ -21,7 +21,7 @@ export function CompactionTriggerBadge({ trigger }: { trigger: CompactionTrigger
 }
 
 const toggleClassName =
-  'text-xs font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+  'text-xs font-medium text-link underline-offset-2 hover:text-link/80 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
 /**
  * The record of a compaction: the summary that replaced the earlier context,

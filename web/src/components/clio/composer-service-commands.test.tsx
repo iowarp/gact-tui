@@ -22,7 +22,7 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repositoryMocks 
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
 }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
 
@@ -261,7 +261,7 @@ describe('ClioComposer service commands', () => {
     expect(status).toBeVisible();
     expect(status).toHaveAttribute('data-overlay', 'true');
     expect(status.parentElement).not.toHaveClass('bg-background/85');
-    expect(status.querySelector('svg')).toHaveClass('text-black');
+    expect(status.querySelector('svg')).toHaveClass('text-media-backdrop');
     await user.hover(openAttachment);
     expect(
       await screen.findByRole('status', { name: 'Upload status: Ready locally' }),

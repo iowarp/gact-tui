@@ -61,7 +61,7 @@ export function ArchiveEvidence({
             <article key={tool.call_id} className="rounded-xl border p-4">
               <ExactRecord
                 value={tool}
-                label={`${tool.tool ?? 'Historical tool'} · ${tool.status ?? 'recorded'} · show exact record`}
+                label={`${tool.tool ?? 'Historical tool'} (${tool.status ?? 'recorded'}): show exact record`}
               />
             </article>
           ))}

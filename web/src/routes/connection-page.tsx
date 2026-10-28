@@ -23,11 +23,15 @@ import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-av
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { BrandTagline } from '@/components/clio/brand-tagline';
 import { ClioStatus } from '@/components/clio/status';
+import { ConnectionWaitingNotice } from '@/components/clio/connection-attempt';
+import { availabilityAfterAttempt, useConnectionWaiting } from '@/lib/connection-attempt';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
+import { SavedHostsCheck } from '@/components/clio/saved-hosts-check';
 import { queryKeys } from '@/lib/query-keys';
 import { reportConnectionOutcome } from '@/lib/connection-outcomes';
+import { connectionCapabilities } from '@/lib/connection-capabilities';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +52,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
-import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import {
   createRepository,
   DEFAULT_ENDPOINT,
@@ -57,6 +60,7 @@ import {
   type ConnectionSettings,
 } from '@/lib/connection';
 import {
+  connectionCandidateSessions,
   connectionSessionRoute,
   connectionWorkspaceForRoute,
   connectionSessionTargetForRoute,
@@ -103,35 +107,6 @@ function connectionSourceIcon(source: KnownConnection['source']) {
   if (source === 'managed') return LaptopIcon;
   if (source === 'infrastructure') return ServerIcon;
   return FolderClockIcon;
-}
-
-/**
- * A row's badge normally reflects the independent background probe
- * (`useConnectionAvailabilities`, retried on its own schedule). But a real
- * connect attempt against that SAME endpoint already produced a definitive
- * answer -- there is no honest reason to keep showing "Checking" on the row
- * while the alert right below it already says the service is unreachable.
- * Once a connect attempt to this endpoint has failed, that failure IS the
- * row's availability until something clears it (a new attempt, or the
- * background probe itself catching up and reporting the same thing).
- */
-function withFailedAttemptAvailability(
-  connection: KnownConnection,
-  attempt: { isError: boolean; error: Error | null; variables?: ConnectionSettings },
-): ConnectionAvailability {
-  if (!attempt.isError || !attempt.variables) return connection.availability;
-  let attemptedEndpoint: string;
-  try {
-    attemptedEndpoint = normalizeEndpoint(attempt.variables.endpoint);
-  } catch {
-    return connection.availability;
-  }
-  if (attemptedEndpoint !== connection.endpoint) return connection.availability;
-  return {
-    state: 'unavailable',
-    label: 'Unavailable',
-    detail: attempt.error?.message || 'The service could not be reached.',
-  };
 }
 
 function managedBootStage(status?: ManagedBackendStatus): DesktopBootStage {
@@ -244,7 +219,7 @@ function DesktopBoot({
             (label, index) => (
               <li className="flex min-w-0 items-center gap-1.5 text-[11px]" key={label}>
                 <span
-                  className="grid size-4 shrink-0 place-items-center rounded-full border border-border bg-background text-muted-foreground data-[active=true]:border-primary data-[active=true]:text-primary data-[done=true]:border-emerald-500/50 data-[done=true]:bg-emerald-500/10 data-[done=true]:text-emerald-500"
+                  className="grid size-4 shrink-0 place-items-center rounded-full border border-border bg-background text-muted-foreground data-[active=true]:border-primary data-[active=true]:text-primary data-[done=true]:border-success/50 data-[done=true]:bg-success/10 data-[done=true]:text-success"
                   data-active={index === activeStep}
                   data-done={index < activeStep}
                 >
@@ -326,17 +301,17 @@ export function ConnectionPage() {
         endpoint: normalizeEndpoint(candidate.endpoint),
       });
       const repository = createRepository(next);
-      const capabilities = await repository.capabilities();
+      const capabilities = await connectionCapabilities(repository, next.endpoint);
       if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
         throw new Error(
           `This workspace requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}; the service offers ${capabilities.gact_versions.join(', ') || `no ${PROTOCOL.gact} versions`}.`,
         );
       }
+      const rememberedRoute = lastWorkspaceRoute(next.endpoint);
       const [workspaces, sessions] = await Promise.all([
         repository.workspaces(),
-        repository.allSessions(),
+        connectionCandidateSessions(repository, rememberedRoute),
       ]);
-      const rememberedRoute = lastWorkspaceRoute(next.endpoint);
       const target = connectionSessionTargetForRoute(rememberedRoute, workspaces, sessions);
       const recent = latestConnectionSessionTarget(workspaces, sessions);
       const workspace =
@@ -346,13 +321,6 @@ export function ConnectionPage() {
       await connect(next);
       queryClient.setQueryData(queryKeys.key('capabilities', next.endpoint), capabilities);
       queryClient.setQueryData(queryKeys.key('workspaces', next.endpoint), workspaces);
-      queryClient.setQueryData(queryKeys.sessions(next.endpoint, 'all'), sessions);
-      if (workspace) {
-        queryClient.setQueryData(
-          queryKeys.sessions(next.endpoint, workspace.id),
-          sessions.filter((session) => session.workspace_id === workspace.id),
-        );
-      }
       // Opening a service must never persist an unused conversation. Defer the
       // route transition while search is open, including an in-flight startup.
       const route = target
@@ -403,6 +371,7 @@ export function ConnectionPage() {
     },
   });
 
+  const waiting = useConnectionWaiting(mutation, knownConnections);
   const resolvedRoute = mutation.data?.route;
   useEffect(() => {
     if (resolvedRoute && !searchOpen) navigate(resolvedRoute, { replace: true });
@@ -523,7 +492,7 @@ export function ConnectionPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card/85 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
+        <div className="rounded-2xl border border-border/80 bg-card/85 p-6 shadow-2xl shadow-(color:--shadow-color) backdrop-blur-xl sm:p-8">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <p className="font-heading text-xl font-semibold">
@@ -576,7 +545,7 @@ export function ConnectionPage() {
                     {knownConnections.map((connection) => {
                       const selected = connection.endpoint === selectedEndpoint;
                       const Icon = connectionSourceIcon(connection.source);
-                      const availability = withFailedAttemptAvailability(connection, mutation);
+                      const availability = availabilityAfterAttempt(connection, mutation);
                       return (
                         <div
                           className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center overflow-hidden rounded-xl border bg-background transition-colors data-[selected=true]:border-primary/45 data-[selected=true]:bg-primary/5"
@@ -625,6 +594,7 @@ export function ConnectionPage() {
                       );
                     })}
                   </div>
+                  <SavedHostsCheck />
                   <Button
                     className="justify-start"
                     onClick={() => {
@@ -670,6 +640,7 @@ export function ConnectionPage() {
                   <Field>
                     <FieldLabel htmlFor="endpoint">Connection address</FieldLabel>
                     <Input
+                      aria-describedby="endpoint-hint"
                       autoComplete="url"
                       className="h-11 font-mono text-sm"
                       id="endpoint"
@@ -678,6 +649,10 @@ export function ConnectionPage() {
                       required
                       value={endpointDraft}
                     />
+                    <FieldDescription id="endpoint-hint">
+                      Use the agent service address, for example {DEFAULT_ENDPOINT}. It can differ
+                      from this web page's address.
+                    </FieldDescription>
                   </Field>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -716,10 +691,13 @@ export function ConnectionPage() {
                 </FieldGroup>
               )}
 
-              {mutation.error ? (
+              {mutation.error && waiting.waiting ? (
+                <ConnectionWaitingNotice availability={waiting.availability} />
+              ) : null}
+              {mutation.error && !waiting.waiting ? (
                 <Alert role="alert" variant="destructive">
                   <TriangleAlertIcon aria-hidden="true" />
-                  <AlertTitle>Connection unavailable</AlertTitle>
+                  <AlertTitle>Can't connect</AlertTitle>
                   <AlertDescription>
                     {mutation.error.message}
                     {mutation.error instanceof TransportError && mutation.error.details ? (
@@ -769,7 +747,7 @@ export function ConnectionPage() {
               ) : null}
 
               <Button
-                className="h-11 justify-between bg-action text-white hover:bg-action/90"
+                className="h-11 justify-between bg-action text-background hover:bg-action/90"
                 disabled={mutation.isPending || (!showManualForm && !selectedConnection)}
                 type="submit"
               >

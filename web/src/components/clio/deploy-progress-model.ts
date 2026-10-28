@@ -1,7 +1,9 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import type { SshStepEvent } from '@/tauri/ssh-infrastructure-transport';
+import type { RecoveryProgress } from '@/tauri/ssh-recovery-progress';
 
 export type DeployStageId =
+  | 'recover'
   | 'connect'
   | 'authenticate'
   | 'detect'
@@ -20,6 +22,8 @@ export type DeployStage = {
   state: DeployStageState;
   /** The current substep (the installer's own `==>` line) or the failure reason. */
   detail?: string;
+  /** Why a skipped stage did not run, when the deployment's own events say so. */
+  skipReason?: string;
   startedAt?: number;
   endedAt?: number;
   /**
@@ -37,7 +41,8 @@ export type DeployProgress = {
 
 /** What happened, from the desktop's transport events and the deployment's own calls. */
 export type DeployEvent =
-  | { type: 'start'; at: number }
+  | { type: 'start'; at: number; recovery?: RecoveryProgress }
+  | { type: 'recover'; done: number; total: number; at: number }
   | { type: 'prompt'; at: number }
   | { type: 'connected'; at: number }
   | {
@@ -52,6 +57,7 @@ export type DeployEvent =
   | { type: 'cancel'; at: number };
 
 const STAGES: ReadonlyArray<Pick<DeployStage, 'id' | 'label'>> = [
+  { id: 'recover', label: `Checking saved ${vocab.agent} installs` },
   { id: 'connect', label: 'Connecting over SSH' },
   { id: 'authenticate', label: 'Authenticating' },
   { id: 'detect', label: 'Detecting platform' },
@@ -63,7 +69,12 @@ const STAGES: ReadonlyArray<Pick<DeployStage, 'id' | 'label'>> = [
   { id: 'cleanup', label: 'Cleaning up' },
 ];
 
-const HIDDEN_UNTIL_RUN: ReadonlySet<DeployStageId> = new Set(['authenticate', 'claim', 'cleanup']);
+const HIDDEN_UNTIL_RUN: ReadonlySet<DeployStageId> = new Set([
+  'recover',
+  'authenticate',
+  'claim',
+  'cleanup',
+]);
 
 const STEP_STAGE: Partial<Record<SshStepEvent['kind'], DeployStageId>> = {
   probe: 'detect',
@@ -85,21 +96,56 @@ export const initialDeployProgress: DeployProgress = {
 const order = (id: DeployStageId) => STAGES.findIndex((stage) => stage.id === id);
 
 /**
+ * Why `stage` did not run once the deployment moved on to `next`: the tunnel
+ * when CLIO answered on the direct route, the install and start when the check
+ * for a running CLIO finished and the deployment went straight past them (it
+ * adopted that server). Otherwise unknown, and the stage only reads "Skipped".
+ */
+function skipReason(
+  progress: DeployProgress,
+  stage: DeployStage,
+  next: DeployStageId,
+): string | undefined {
+  if (stage.id === 'tunnel' && next === 'open') return 'Not needed: connected directly';
+  const claim = progress.stages.find((row) => row.id === 'claim');
+  if ((stage.id === 'install' || stage.id === 'start') && claim?.state === 'done')
+    return `Not needed: the ${vocab.agent} already running there was reused`;
+  return undefined;
+}
+
+/**
  * Enter `id`: earlier stages that never ran (authentication with a key, a
- * tunnel the direct route did not need) are marked skipped. A stage is only
- * ever done by its own result: an earlier stage still running stays running.
+ * tunnel the direct route did not need) are marked skipped, with the reason
+ * when it is known. A stage is only ever done by its own result: an earlier
+ * stage still running stays running.
  */
 function enter(progress: DeployProgress, id: DeployStageId, at: number): DeployProgress {
   const target = order(id);
   return {
     ...progress,
     stages: progress.stages.map((stage, index) => {
-      if (index < target && stage.state === 'pending') return { ...stage, state: 'skipped' };
+      if (index < target && stage.state === 'pending') {
+        const reason = skipReason(progress, stage, id);
+        return { ...stage, state: 'skipped', ...(reason ? { skipReason: reason } : {}) };
+      }
       if (index === target && stage.state !== 'running')
         return { ...stage, state: 'running', startedAt: at, endedAt: undefined, hidden: false };
       return stage;
     }),
   };
+}
+
+/**
+ * The desktop's check of its saved hosts, which a deployment waits for: `2/3`
+ * while it runs, then done, and the connection starts.
+ */
+function recover(progress: DeployProgress, check: RecoveryProgress, at: number): DeployProgress {
+  const detail = `${Math.min(check.done, check.total)}/${check.total}`;
+  if (check.done < check.total)
+    return update(enter(progress, 'recover', at), 'recover', { detail });
+  const recovering = progress.stages.find((stage) => stage.id === 'recover');
+  if (recovering?.state !== 'running') return progress;
+  return enter(update(progress, 'recover', { state: 'done', detail, endedAt: at }), 'connect', at);
 }
 
 function update(
@@ -136,7 +182,11 @@ export function deployProgressReducer(
 ): DeployProgress {
   switch (event.type) {
     case 'start':
-      return enter(initialDeployProgress, 'connect', event.at);
+      return event.recovery
+        ? recover(initialDeployProgress, event.recovery, event.at)
+        : enter(initialDeployProgress, 'connect', event.at);
+    case 'recover':
+      return recover(progress, event, event.at);
     case 'prompt': {
       const auth = progress.stages.find((stage) => stage.id === 'authenticate');
       return auth?.state === 'running' ? progress : enter(progress, 'authenticate', event.at);

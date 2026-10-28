@@ -10,8 +10,8 @@ type appConfigState struct {
 
 	VoiceCommand string
 
-	DefaultAgentBlueprintID string
-	DefaultExpertPackID     string
+	// DefaultAgentRef is the agent new sessions run (`<marketplace>/<id>`); empty = backend default.
+	DefaultAgentRef string
 
 	ReloadConfig          func() (string, error)
 	SaveConfig            func() error

@@ -53,7 +53,7 @@ vi.mock('@/tauri/desktop-updater', () => ({
 }));
 vi.mock('@/tauri/managed-backend', () => ({ restartClio, updateManagedClio }));
 vi.mock('@/tauri/external-url', () => ({ openExternalUrl: vi.fn() }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn() } }));
 
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { useUpdateFlowStore } from '@/store/update-flow-store';

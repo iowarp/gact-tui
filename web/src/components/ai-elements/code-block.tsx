@@ -23,7 +23,7 @@ import {
   useState,
 } from 'react';
 import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki';
-import { createHighlighter } from 'shiki';
+import { createCssVariablesTheme, createHighlighter } from 'shiki';
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -56,7 +56,6 @@ const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
 // Token rendering component
 const TokenSpan = ({ token }: { token: ThemedToken }) => (
   <span
-    className="dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)]"
     style={
       {
         backgroundColor: token.bgColor,
@@ -156,6 +155,15 @@ const getTokensCacheKey = (code: string, language: BundledLanguage) => {
   return `${language}:${code.length}:${start}:${end}`;
 };
 
+// Token colors are `var(--syntax-*)` references, so highlighting follows the
+// active theme (web/src/theme/themes.css) without re-tokenizing.
+const syntaxTheme = createCssVariablesTheme({
+  name: 'clio-syntax',
+  variablePrefix: '--syntax-',
+  variableDefaults: {},
+  fontStyle: true,
+});
+
 const getHighlighter = (
   language: BundledLanguage,
 ): Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> => {
@@ -166,7 +174,7 @@ const getHighlighter = (
 
   const highlighterPromise = createHighlighter({
     langs: [language],
-    themes: ['github-light', 'github-dark'],
+    themes: [syntaxTheme],
   });
 
   highlighterCache.set(language, highlighterPromise);
@@ -221,10 +229,7 @@ export const highlightCode = (
 
       const result = highlighter.codeToTokens(code, {
         lang: langToUse,
-        themes: {
-          dark: 'github-dark',
-          light: 'github-light',
-        },
+        theme: 'clio-syntax',
       });
 
       const tokenized: TokenizedCode = {
@@ -279,7 +284,7 @@ const CodeBlockBody = memo(
     return (
       <pre
         className={cn(
-          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 w-full min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] p-4 text-sm',
+          'm-0 w-full min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] p-4 text-sm',
           className,
         )}
         style={preStyle}

@@ -8,7 +8,7 @@ import type { SessionAttention } from '@/lib/session-attention';
 import { NotificationPreferencesProvider } from '@/providers/notification-preferences-provider';
 import { ClioAttentionNotifier } from './attention-center';
 
-vi.mock('sonner', () => ({ toast: { warning: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), warning: vi.fn() } }));
 vi.mock('@/lib/attention-sound', () => ({ playAttentionSound: vi.fn(async () => true) }));
 
 const baseSession: Session = {

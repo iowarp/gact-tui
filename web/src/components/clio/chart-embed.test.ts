@@ -84,6 +84,54 @@ describe('responsive chart embedding', () => {
       view.finalize();
     }
   });
+  it('draws a faceted spec with the renderer’s selection, brush and zoom on its plot unit', async () => {
+    // A plugin's fixed spec (the bench readings view): one panel per input.
+    const facetRows = [0.5, 1.0].map((arm, __row) => ({
+      __row,
+      arm,
+      mass: 0.2,
+      period: 1.4 + arm,
+    }));
+    const faceted = {
+      data: { name: 'source' },
+      transform: [{ fold: ['arm', 'mass'], as: ['input', 'setting'] }],
+      facet: { field: 'input', type: 'nominal' },
+      columns: 2,
+      resolve: { scale: { x: 'independent' } },
+      spec: {
+        width: 260,
+        height: 170,
+        mark: { type: 'point', filled: true },
+        encoding: {
+          x: { field: 'setting', type: 'quantitative' },
+          y: { field: 'period', type: 'quantitative' },
+        },
+      },
+    };
+    const selected = withChartPointSelection(faceted, 'sel', '__row');
+    const brush = withChartBoxSelection(selected, {
+      pointParam: 'sel',
+      xField: 'setting',
+      yField: 'period',
+    });
+    const zoom = withManualChartZoom(brush.spec, {
+      pointParam: 'sel',
+      xField: 'setting',
+      yField: 'period',
+    });
+    // Every selection sits on the plot unit; a facet-root one would not compile.
+    expect(zoom.spec).not.toHaveProperty('params');
+    const prepared = prepareChartSpec(zoom.spec, { width: 800, height: 500, rows: facetRows });
+    const compiled = compile(prepared as unknown as Parameters<typeof compile>[0]).spec;
+    const view = new View(parse(compiled), { renderer: 'none' });
+    try {
+      await view.runAsync();
+      for (const name of ['sel', 'sel_box', 'sel_zoom']) expect(view.signal(name)).toBeDefined();
+      expect(await view.toSVG()).toContain('role="graphics-symbol"');
+    } finally {
+      view.finalize();
+    }
+  });
   it.each([
     [440, 360],
     [1100, 780],
@@ -92,7 +140,7 @@ describe('responsive chart embedding', () => {
     async (width, height) => {
       const prepared = prepareChartSpec(authored, { width, height, rows });
       const compiled = compile(prepared as unknown as Parameters<typeof compile>[0], {
-        config: chartPresentationConfig(true),
+        config: chartPresentationConfig(),
       }).spec;
       const view = new View(parse(compiled), { renderer: 'none' });
       try {

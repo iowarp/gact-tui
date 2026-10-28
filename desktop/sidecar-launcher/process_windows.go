@@ -117,3 +117,13 @@ func crashCleanupArgv(rt *resolvedRuntime) []string {
 	}
 	return append(append([]string{}, rt.Argv...), "--cleanup-runtime-after-crash")
 }
+
+// stopAfterDesktopExit leaves the backend to the KILL_ON_JOB_CLOSE Job Object:
+// it is still alive until this launcher exits and closes the job. A breakaway
+// helper starts first; it waits for that backend client to disappear, then
+// prunes its registry lease and stops the shared runtime if no independent
+// CLIO client remains.
+func stopAfterDesktopExit(_ *exec.Cmd, _ <-chan error, rt *resolvedRuntime) int {
+	startCrashCleanupAfterExit(rt)
+	return exitExecFailed
+}

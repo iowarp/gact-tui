@@ -1,5 +1,5 @@
 import type { ChartAxisType } from './chart-box-selection';
-import type { ChartRow } from './chart-data';
+import { sourceColumn, type ChartRow } from './chart-data';
 import { isJsonObject } from './chart-spec-guard';
 
 /** Vega stamps its own id onto each tuple, so it gets copies, never the data model's rows. */
@@ -62,7 +62,8 @@ export function chartChannelField(
   if (!spec) return undefined;
   const fields = chartChannelDefinitions(spec, channel).map((definition) => definition?.field);
   if (!fields.length || fields.some((field) => typeof field !== 'string' || !field)) return;
-  return new Set(fields).size === 1 ? (fields[0] as string) : undefined;
+  // A Vega-Lite field may escape a dotted column (`condition\\.n`); callers read rows by column.
+  return new Set(fields).size === 1 ? sourceColumn(fields[0] as string) : undefined;
 }
 
 export function chartAxisType(
@@ -91,5 +92,6 @@ export function describeChart(
   if (loading) return 'Loading rows…';
   const summary = spec && typeof spec.description === 'string' ? spec.description : '';
   const count = rows ? `${rows.length.toLocaleString()} rows` : '';
-  return [summary, count].filter(Boolean).join(' · ') || (note ? note : 'No rows');
+  if (summary && count) return `${summary} (${count})`;
+  return summary || count || (note ? note : 'No rows');
 }

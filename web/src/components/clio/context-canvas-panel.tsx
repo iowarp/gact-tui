@@ -114,13 +114,15 @@ export function ClioContextCanvasPanel({
                           ? 'User request'
                           : item.role === 'assistant'
                             ? 'Assistant response'
-                            : humanizeProtocolValue(item.kind)}
+                            : item.kind === 'injection' && item.source_id === 'memory'
+                              ? 'Memory'
+                              : humanizeProtocolValue(item.kind)}
                       </p>
                     )}
                     <p className="text-muted-foreground">
-                      {item.included ? 'Included' : 'Excluded'} · ≈
+                      {item.included ? 'Included' : 'Excluded'}, ≈
                       {contextTokens(item.tokens_estimated)} tokens
-                      {item.reason ? ` · ${humanizeProtocolValue(item.reason)}` : ''}
+                      {item.reason ? `, ${humanizeProtocolValue(item.reason)}` : ''}
                     </p>
                   </li>
                 ))}

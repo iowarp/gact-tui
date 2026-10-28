@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSessionBehaviorMenu } from './session-behavior-menu';
 
 vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() },
 }));
 
 afterEach(cleanup);

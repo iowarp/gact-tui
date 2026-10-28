@@ -127,8 +127,6 @@ func promptMetadataLabel(key string) string {
 		return "agent"
 	case "behavior_profile":
 		return "behavior profile"
-	case "blueprint_id":
-		return "blueprint"
 	case "prompt_family":
 		return "prompt family"
 	case "prompt_id":

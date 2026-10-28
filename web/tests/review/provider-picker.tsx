@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { useMemo, useState } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import type { LanguageModelConfiguration, ProviderComponentUpdate } from '@clio/core/v3';
 import '../../src/index.css';
 import { ArchiveConnectionProvider } from '../../src/providers/connection-provider';
@@ -219,7 +219,7 @@ function Review() {
   );
 }
 createRoot(document.getElementById('root')!).render(
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+  <ForcedTheme theme="dark">
     <ArchiveConnectionProvider>
       <MemoryRouter>
         <QueryClientProvider client={queryClient}>
@@ -227,5 +227,5 @@ createRoot(document.getElementById('root')!).render(
         </QueryClientProvider>
       </MemoryRouter>
     </ArchiveConnectionProvider>
-  </ThemeProvider>,
+  </ForcedTheme>,
 );

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { recentSessionsWith } from '@/lib/session-pages';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceAuth } from './connected-source-auth';
@@ -67,7 +68,7 @@ export function ConnectedSourceDetail({
   const trackingSessions = useQuery({
     queryKey: ['source-task-sessions', settings.endpoint, workspaceId],
     enabled: !sessionId,
-    queryFn: ({signal}) => repository.sessions(workspaceId, signal),
+    queryFn: ({signal}) => recentSessionsWith(repository, {workspaceId}, signal),
   });
   const queryClient = useQueryClient();
   const [folder, setFolder] = useState(initialFolder);
@@ -560,9 +561,9 @@ export function ConnectedSourceDetail({
                           key={index}
                           className={
                             line.startsWith('+') && !line.startsWith('+++')
-                              ? 'block text-emerald-600 dark:text-emerald-400'
+                              ? 'block text-success'
                               : line.startsWith('-') && !line.startsWith('---')
-                                ? 'block text-red-600 dark:text-red-400'
+                                ? 'block text-destructive'
                                 : 'block text-muted-foreground'
                           }
                         >

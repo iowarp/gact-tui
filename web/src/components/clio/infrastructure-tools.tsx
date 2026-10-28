@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { vocab } from '@/lib/brand-vocabulary';
 import { CatalogToolset } from './catalog-toolset';
+import { ConversationMcpServers } from './conversation-mcp-servers';
 
 /** Keep actual session availability distinct from browsing the agent catalog. */
 export function InfrastructureTools({
@@ -42,6 +43,9 @@ export function InfrastructureTools({
             All agent tools
           </Button>
         </div>
+      ) : null}
+      {sessionId && sessionScoped ? (
+        <ConversationMcpServers servers={servers} sessionId={sessionId} tools={tools} />
       ) : null}
       {pending ? (
         <div aria-label="Loading tool catalog" className="grid gap-3" role="status">

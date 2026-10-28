@@ -39,6 +39,7 @@ import {
   openSshConnectionTest,
   recoverInfrastructureSshTransports,
 } from './ssh-infrastructure-transport';
+import { onInfrastructureRecovery } from './ssh-recovery-progress';
 
 const target = {
   id: 'homelab-recovery',
@@ -114,6 +115,41 @@ describe('SSH infrastructure recovery', () => {
     });
     expect(repo.managedServiceCatalog).toHaveBeenCalledWith(target.id);
     expect(repo.setInfrastructureTransportState).toHaveBeenLastCalledWith(target.id, 'connected');
+  });
+
+  it('checks every saved host at once and counts them as they finish', async () => {
+    const hosts = ['one', 'two', 'three'].map((id) => ({ ...target, id, label: id }));
+    const repo = {
+      ...repository(),
+      infrastructureTargets: vi.fn().mockResolvedValue(hosts),
+      // Every host's reconcile waits until all three have been asked: a serial
+      // check would never get past the first.
+      managedServiceCatalog: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            if (repo.managedServiceCatalog.mock.calls.length === hosts.length) release();
+            void all.then(() => resolve({ facts: {}, services: [] }));
+          }),
+      ),
+    };
+    let release!: () => void;
+    const all = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    native.invoke.mockResolvedValue({
+      session_id: 'ssh-recovery',
+      state: 'connected',
+      reused: false,
+      output: '',
+    });
+    const counts: number[] = [];
+    const stop = onInfrastructureRecovery((progress) => counts.push(progress.done));
+
+    await recoverInfrastructureSshTransports(repo as never, 'http://127.0.0.1:17800', 'token');
+    stop();
+
+    expect(repo.managedServiceCatalog).toHaveBeenCalledTimes(3);
+    expect(counts).toEqual([0, 1, 2, 3, 3]);
   });
 
   it('reports reauthentication instead of retrying destructive work', async () => {

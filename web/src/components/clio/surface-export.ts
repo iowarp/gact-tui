@@ -1,3 +1,4 @@
+import { readThemeColor } from '@/theme/runtime';
 /**
  * Generic, renderer-owned export helpers shared by every data-view component
  * (G0: "built-in data-view affordances, owned by the renderer" -- download is
@@ -103,7 +104,7 @@ export function rowsToJson(
 }
 
 /** Whether a CSS `background-color` computed value paints nothing (transparent, or `rgba(...,0)`). */
-function isTransparentColor(color: string): boolean {
+export function isTransparentColor(color: string): boolean {
   if (!color || color === 'transparent') return true;
   const alpha = /^rgba?\([^)]*,\s*([\d.]+)\s*\)$/u.exec(color)?.[1];
   return alpha !== undefined && Number(alpha) === 0;
@@ -113,7 +114,7 @@ function isTransparentColor(color: string): boolean {
  * The nearest actual (non-transparent) background color behind `node`, by
  * walking up its own ancestors -- the real color a viewer's eye would see
  * behind the component, not an assumption about which element happens to set
- * it. Falls back to the document's own background, then white, so an export
+ * it. Falls back to the document's own background, then the theme's, so an export
  * composited onto this is never accidentally transparent (#516 review item
  * 13: a dark theme's light-colored chart text is unreadable once exported
  * transparent onto a typical white viewer).
@@ -124,7 +125,7 @@ export function resolveCardBackground(node: Element | null): string {
     if (!isTransparentColor(color)) return color;
   }
   const documentBackground = getComputedStyle(document.documentElement).backgroundColor;
-  return isTransparentColor(documentBackground) ? '#ffffff' : documentBackground;
+  return isTransparentColor(documentBackground) ? readThemeColor('background') : documentBackground;
 }
 
 /** Copies text after a user gesture, including on local HTTP previews without the async Clipboard API. */

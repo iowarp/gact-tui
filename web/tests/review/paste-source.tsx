@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import { MemoryRouter } from 'react-router-dom';
 import type { WorkspaceResource } from '@clio/core/v3';
 import '../../src/index.css';
@@ -103,9 +103,9 @@ createRoot(document.getElementById('root')!).render(
       <RepositoryOverride.Provider value={repository}>
         <AppearanceProvider>
           <MemoryRouter>
-            <ThemeProvider attribute="class" forcedTheme="light" enableSystem={false}>
+            <ForcedTheme theme="light">
               <Review />
-            </ThemeProvider>
+            </ForcedTheme>
           </MemoryRouter>
         </AppearanceProvider>
       </RepositoryOverride.Provider>

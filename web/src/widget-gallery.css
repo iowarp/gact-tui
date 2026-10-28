@@ -71,7 +71,7 @@
   z-index: 0;
   inset: -1.5rem -1rem auto;
   height: 33rem;
-  background: radial-gradient(ellipse at 25% 25%, color-mix(in srgb, #18a8b5 16%, transparent), transparent 65%);
+  background: radial-gradient(ellipse at 25% 25%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 65%);
   content: "";
   pointer-events: none;
 }
@@ -103,10 +103,10 @@
 
 .gallery-intro-live {
   flex: none;
-  border: 1px solid color-mix(in srgb, #18a8b5 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
   border-radius: 999px;
   padding: 0.4rem 0.7rem;
-  color: color-mix(in srgb, #18a8b5 75%, var(--foreground));
+  color: color-mix(in srgb, var(--primary) 75%, var(--foreground));
   font-size: 0.7rem;
   font-weight: 650;
 }
@@ -125,7 +125,7 @@
   border-radius: 1.1rem;
   background: var(--background);
   padding: clamp(0.85rem, 2vw, 1.25rem);
-  box-shadow: 0 18px 44px color-mix(in srgb, #071f2a 9%, transparent);
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--shadow-color) 9%, transparent);
 }
 
 .gallery-intro-panel-heading {
@@ -136,7 +136,7 @@
 }
 
 .gallery-intro-number {
-  color: color-mix(in srgb, #18a8b5 72%, var(--foreground));
+  color: color-mix(in srgb, var(--primary) 72%, var(--foreground));
   font-size: 0.75rem;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
@@ -152,9 +152,9 @@
   display: grid;
   gap: 0.6rem;
   margin-top: 1rem;
-  border: 1px solid color-mix(in srgb, #18a8b5 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
   border-radius: 0.75rem;
-  background: color-mix(in srgb, #18a8b5 7%, var(--background));
+  background: color-mix(in srgb, var(--primary) 7%, var(--background));
   padding: 0.85rem;
   font-size: 0.75rem;
 }
@@ -178,7 +178,7 @@
   padding: 0.9rem 0.2rem 0;
 }
 
-.gallery-intro-flow svg { flex: none; width: 1rem; height: 1rem; color: color-mix(in srgb, #18a8b5 75%, var(--foreground)); }
+.gallery-intro-flow svg { flex: none; width: 1rem; height: 1rem; color: color-mix(in srgb, var(--primary) 75%, var(--foreground)); }
 .gallery-intro-flow span { display: grid; gap: 0.25rem; }
 .gallery-intro-flow strong { font-size: 0.8rem; }
 .gallery-intro-flow small { color: var(--muted-foreground); font-size: 0.73rem; line-height: 1.45; }
@@ -216,7 +216,7 @@ html.gallery-skill-preview [data-slot="dialog-overlay"] {
   right: -2rem;
   left: -2rem;
   height: 36rem;
-  background: radial-gradient(ellipse at 55% 24%, color-mix(in srgb, #27a7b5 15%, transparent), transparent 68%);
+  background: radial-gradient(ellipse at 55% 24%, color-mix(in srgb, var(--primary) 15%, transparent), transparent 68%);
   content: "";
   pointer-events: none;
 }
@@ -230,8 +230,8 @@ html.gallery-skill-preview [data-slot="dialog-overlay"] {
   padding: clamp(1rem, 3vw, 2rem);
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 1.25rem;
-  background: linear-gradient(125deg, color-mix(in srgb, #0e6d86 13%, var(--background)), var(--background) 62%);
-  box-shadow: 0 16px 46px color-mix(in srgb, #071f2a 10%, transparent);
+  background: linear-gradient(125deg, color-mix(in srgb, var(--primary) 13%, var(--background)), var(--background) 62%);
+  box-shadow: 0 16px 46px color-mix(in srgb, var(--shadow-color) 10%, transparent);
 }
 
 .gallery-hurricane-intro > div:first-child {
@@ -239,7 +239,7 @@ html.gallery-skill-preview [data-slot="dialog-overlay"] {
 }
 
 .gallery-hurricane-kicker {
-  color: color-mix(in srgb, #0098a9 75%, var(--foreground));
+  color: color-mix(in srgb, var(--primary) 75%, var(--foreground));
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -292,7 +292,7 @@ html.gallery-skill-preview [data-slot="dialog-overlay"] {
   border-radius: 1.25rem;
   background: var(--background);
   padding: clamp(0.75rem, 2vw, 1.5rem);
-  box-shadow: 0 18px 42px color-mix(in srgb, #071f2a 9%, transparent);
+  box-shadow: 0 18px 42px color-mix(in srgb, var(--shadow-color) 9%, transparent);
 }
 
 @media (min-width: 1100px) {

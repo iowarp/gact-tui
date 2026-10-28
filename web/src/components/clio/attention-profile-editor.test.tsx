@@ -37,6 +37,22 @@ describe('AttentionProfileEditor', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('offers the SPOTTER preset with unnormalized decayed maximum', () => {
+    const apply = vi.fn();
+    render(<AttentionProfileEditor profile={profile} onApply={apply} />);
+    fireEvent.click(screen.getByRole('button', { name: /Heat profile/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'SPOTTER' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply profile' }));
+    expect(apply).toHaveBeenCalledWith({
+      ...profile,
+      name: 'attn-analytics',
+      metric: 'max',
+      weighting: 'exponential',
+      weight_normalization: 'none',
+      block_reduction: 'max',
+    });
+  });
+
   it('refuses invalid decay and discards unapplied edits when reopened', () => {
     const apply = vi.fn();
     render(<AttentionProfileEditor profile={profile} onApply={apply} />);

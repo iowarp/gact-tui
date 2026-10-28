@@ -32,6 +32,9 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         queryClient.invalidateQueries({
           queryKey: queryKeys.key('sessions', settings.endpoint, targetWorkspaceId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('session-pages', settings.endpoint),
+        }),
       ]);
     },
     [queryClient, settings.endpoint, workspaceId],
@@ -89,7 +92,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       createSession: async ({
         title,
         workspaceId: targetWorkspaceId,
-        blueprintId,
+        agentRef,
         mode,
         routingMode,
         approvalMode,
@@ -100,7 +103,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
           mode,
           routing_mode: routingMode,
           approval_mode: approvalMode,
-          blueprint_id: blueprintId,
+          agent_ref: agentRef,
         });
         await refreshNavigation(targetWorkspaceId);
         await navigate(
@@ -122,6 +125,10 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       revokeWorkspaceFolder: async (targetWorkspaceId, path) => {
         await repository.revokeWorkspaceFolder(targetWorkspaceId, path);
         await refreshWorkspaceFolders(targetWorkspaceId);
+      },
+      workspaceMemory: (targetWorkspaceId) => repository.workspaceMemory(targetWorkspaceId),
+      setWorkspaceMemory: async (targetWorkspaceId, useAccountMemory) => {
+        await repository.setWorkspaceMemory(targetWorkspaceId, useAccountMemory);
       },
       renameSession: async (targetSessionId, title) => {
         await updateSessionIdentity(targetSessionId, { title });

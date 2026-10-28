@@ -101,8 +101,6 @@ var helpTabs = []struct {
 			{"/skills", "help.commands.skills"},
 			{"/experts", "help.commands.agents"},
 			{"/prompts", "help.commands.prompts"},
-			{"/expert-packs", "help.commands.expert_packs"},
-			{"/agent-blueprints", "help.commands.agent_blueprints"},
 			{"/sessions", "help.commands.sessions"},
 			{"/theme", "help.commands.theme"},
 			{"/agent", "help.commands.agent"},

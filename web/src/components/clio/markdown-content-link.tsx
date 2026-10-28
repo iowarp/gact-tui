@@ -8,8 +8,8 @@ import {
   parseMarkdownContentReference,
 } from '@/lib/markdown-content-reference';
 import { cn } from '@/lib/utils';
-import { vocab } from '@/lib/brand-vocabulary';
 import { PresentationNavigation } from './presentation-navigation';
+import { ScopedDocumentNavigation, SCOPED_DOCUMENT_LINK } from './scoped-document-navigation';
 import { SourceCitation } from './source-citation';
 import { messageSearchHash } from '@/lib/search-matches';
 
@@ -33,9 +33,10 @@ export function MarkdownContentLink({
   ...props
 }: ContentLinkProps) {
   const navigation = useContext(PresentationNavigation);
+  const bundle = useContext(ScopedDocumentNavigation);
   const inRouter = useInRouterContext();
   const style = cn(
-    presentation === 'citation' && 'wrap-anywhere font-medium text-primary no-underline',
+    presentation === 'citation' && 'wrap-anywhere font-medium text-link no-underline',
     className,
   );
   const parts = Array.isArray(children) ? children : [children];
@@ -45,15 +46,34 @@ export function MarkdownContentLink({
   const numbered = text !== undefined && /^\d+$/u.test(text);
   const label = numbered ? undefined : text;
   const linkText = numbered ? `[${text}]` : children;
-  const cite = (link: ReactElement, title: string, detail: string, description: string) =>
+  const cite = (link: ReactElement<ComponentProps<'a'>>, title: string, detail: string) =>
     presentation === 'source' ? (
       link
     ) : (
-      <SourceCitation href={href ?? ''} title={title} detail={detail} description={description}>
+      <SourceCitation href={href ?? ''} title={title} detail={detail}>
         {link}
       </SourceCitation>
     );
   if (!href) return <a {...props}>{children}</a>;
+  if (href.startsWith(SCOPED_DOCUMENT_LINK)) {
+    const path = decoded(href.slice(SCOPED_DOCUMENT_LINK.length));
+    return bundle?.files.includes(path) ? (
+      <a
+        {...props}
+        className={style}
+        href="#"
+        target={undefined}
+        onClick={(event) => {
+          event.preventDefault();
+          bundle.open(path);
+        }}
+      >
+        {children}
+      </a>
+    ) : (
+      <span>{children}</span>
+    );
+  }
   const uri = href.startsWith(CONTENT_REFERENCE_PATH)
     ? decoded(href.slice(CONTENT_REFERENCE_PATH.length))
     : isMarkdownContentReference(href)
@@ -75,7 +95,6 @@ export function MarkdownContentLink({
           </Link>,
           label ?? 'Conversation',
           href,
-          `Open this conversation in ${vocab.product}.`,
         )
       ) : (
         <span
@@ -99,13 +118,12 @@ export function MarkdownContentLink({
     } catch {
       return external;
     }
-    return cite(external, label ?? host, href, 'Open the original web source.');
+    return cite(external, label ?? host, href);
   }
   const reference = parseMarkdownContentReference(uri);
   let open: (() => void) | undefined;
   let title = label ?? 'Source';
   let detail = '';
-  let description = '';
   if (
     reference?.kind === 'file' &&
     (navigation?.onOpenFileReference ||
@@ -121,7 +139,6 @@ export function MarkdownContentLink({
         : navigation.onOpenFile?.(reference.path);
     title = label ?? reference.path.split(/[\\/]/u).at(-1) ?? 'Workspace file';
     detail = reference.path;
-    description = `Open this file in ${vocab.product}'s source panel.`;
   } else if (reference?.kind === 'artifact' && navigation?.onOpenArtifact) {
     const artifacts = Object.values(navigation.artifacts);
     const exact = artifacts.find(
@@ -136,7 +153,6 @@ export function MarkdownContentLink({
       open = () => navigation.onOpenArtifact?.(artifact);
       title = artifact.name;
       detail = `Saved artifact, version ${artifact.version}`;
-      description = `Open this recorded version in ${vocab.product}'s source panel.`;
     }
   } else if (reference?.kind === 'resource' && navigation?.onOpenResource) {
     const resource = navigation.resources?.[reference.id];
@@ -144,7 +160,6 @@ export function MarkdownContentLink({
       open = () => navigation.onOpenResource?.(resource);
       title = resource.name;
       detail = 'Registered workspace resource';
-      description = `Open this source in ${vocab.product}'s source panel.`;
     }
   } else if (reference?.kind === 'session' && inRouter) {
     const route =
@@ -158,7 +173,6 @@ export function MarkdownContentLink({
       </Link>,
       label ?? 'Conversation',
       reference.messageId ? 'Referenced conversation message' : 'Conversation',
-      `Open this conversation in ${vocab.product}.`,
     );
   }
   if (!open) {
@@ -182,12 +196,11 @@ export function MarkdownContentLink({
         event.preventDefault();
         open();
       }}
-      title={reference?.kind === 'file' ? reference.path : `Open source in ${vocab.product}`}
+      title={reference?.kind === 'file' ? reference.path : undefined}
     >
       {linkText}
     </a>,
     title,
     detail,
-    description,
   );
 }

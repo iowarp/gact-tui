@@ -17,11 +17,73 @@ class RecordingTransport implements ClioTransport {
     _cursor?: string,
     _signal?: AbortSignal,
   ): AsyncIterable<TransportFrame> {
-    return;
+    yield* [];
   }
 }
 
 describe('memory administration repository', () => {
+  it('creates explicit memory and reads paged creation attempts without inventing unknown usage', async () => {
+    const memory = {
+      name: 'project/ws_lab/preferences/report-style',
+      scope: 'project/ws_lab',
+      category: 'preferences',
+      slug: 'report-style',
+      description: 'Report style',
+      aliases: [],
+      updated: '2026-10-25',
+      sha: 'a'.repeat(64),
+      text: 'saved',
+      forgotten: [],
+      facts: [],
+    };
+    const run = {
+      id: 'mr_1',
+      origin: 'session:sess_1',
+      source_session: 'sess_1',
+      curator_session: '',
+      handle: '',
+      state: 'failed',
+      reason: 'memory_extract_failed',
+      started_at: '2026-10-25T10:00:00Z',
+      completed_at: '2026-10-25T10:00:04Z',
+      models: {
+        extract: { provider_id: 'codex', model_id: 'test-model', source: 'fleet' },
+        curator: null,
+      },
+      usage: { input_tokens: null, output_tokens: null, cost_usd: null, cost_known: false },
+      extract: null,
+      proposal_counts: { accepted: 0, pending: 0, rejected: 0 },
+    };
+    const transport = new RecordingTransport([
+      memory,
+      {
+        runs: [run],
+        next_cursor: 'earlier',
+        background: { last_tick: '2026-10-25T10:00:00Z', skipped: { not_idle_yet: 1 } },
+      },
+      { runs: [], next_cursor: null, background: null },
+    ]);
+    const repository = new ClioRepository(transport);
+    const input = {
+      scope: 'project/ws_lab',
+      category: 'preferences' as const,
+      slug: 'report-style',
+      description: 'Report style',
+      facts: ['Use SI units.'],
+    };
+    expect(await repository.createMemoryDocument(input)).toEqual(memory);
+    const page = await repository.memoryCreationRuns();
+    expect(page.runs[0]?.usage.cost_usd).toBeNull();
+    expect(page.runs[0]?.models.curator).toBeNull();
+    expect(page.background?.skipped).toEqual({ not_idle_yet: 1 });
+    await repository.memoryCreationRuns(page.next_cursor!);
+    expect(transport.requests.map(({ method, path, body }) => ({ method, path, body }))).toEqual([
+      { method: 'POST', path: '/v1/memory/documents', body: input },
+      { method: 'GET', path: '/v1/memory/creation-runs?limit=50', body: undefined },
+      { method: 'GET', path: '/v1/memory/creation-runs?limit=50&cursor=earlier', body: undefined },
+    ]);
+  });
+
   it('decodes session retention and its bounded compaction history', async () => {
     const event = {
       id: 'mem_1',
@@ -72,4 +134,42 @@ describe('memory administration repository', () => {
       '/v1/sessions/sess_1/memory/events/mem_1',
     ]);
   });
+});
+
+it('retains the original proposal and actual applied correction independently', async () => {
+  const proposed = { id: 'purple', kind: 'updated', before: 'green', after: 'purple' };
+  const applied = { id: 'violet', kind: 'updated', before: 'green', after: 'violet' };
+  const row = {
+    id: 'p',
+    target: 'project/lab/topics/colors',
+    change: 'supersede',
+    facts: ['violet'],
+    replaces: ['green'],
+    merge_from: [],
+    description: 'Colors',
+    evidence: [],
+    sources: ['user'],
+    rationale: 'Correction',
+    origin: 'session:s',
+    handle: 'task',
+    status: 'accepted',
+    decided_by: 'user',
+    created_at: '2026-10-25',
+    decided_at: '2026-10-25',
+    base_text: 'green',
+    proposed_text: 'purple',
+    needs_review: false,
+    changes: [proposed],
+    applied_changes: [applied],
+    applied_before_text: 'green',
+    applied_text: 'violet',
+    target_label: 'Colors',
+  };
+  const repository = new ClioRepository(new RecordingTransport([{ proposals: [row] }]));
+  const decoded = (await repository.memoryProposals('all'))[0]!;
+  expect(decoded.changes).toEqual([proposed]);
+  expect(decoded.applied_changes).toEqual([applied]);
+  expect(decoded.proposed_text).toBe('purple');
+  expect(decoded.applied_text).toBe('violet');
+  expect(decoded.target_label).toBe('Colors');
 });

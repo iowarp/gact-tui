@@ -1,10 +1,49 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it } from 'vitest';
+import '@/components/ai-elements/markdown';
 import { HarnessInjection } from './conversation-harness-injection';
 import { injectionPresentation } from './injection-presentation';
 
 afterEach(cleanup);
+
+it('shows committed question answers as readable text while retaining the exact reply', async () => {
+  const user = userEvent.setup();
+  const reply = {
+    schema_version: 1,
+    answer: 'What times work?\n09:00–16:00.\n\nWhich format?\nLocal.',
+    metadata: { answers: { hours: { answer: '09:00–16:00.' }, format: { answer: 'Local.' } } },
+    responder_human: 'human_id',
+  };
+  const text = `[CLIO; question_answer; Question task_question: completed; notification mail_question]\n${JSON.stringify(reply)}`;
+  const { container } = render(
+    <HarnessInjection
+      block={{ id: 'answer', type: 'injection', source: 'question_answer', text }}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: 'Injection Your answers' }));
+  expect(container.textContent).toContain('What times work?');
+  expect(container.textContent).toContain('09:00–16:00.');
+  expect(container.textContent).not.toContain('schema_version');
+  expect(container.textContent).not.toContain('responder_human');
+  expect(container.querySelector('[data-slot="harness-injection"] pre')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Technical details for Your answers' }));
+  expect(screen.getByRole('dialog').querySelector('pre')?.textContent).toBe(text);
+});
+
+it('shows selections and declines without serializing their bookkeeping', () => {
+  const header =
+    '[CLIO; question_answer; Question task_question: completed; notification mail_question]\n';
+  expect(
+    injectionPresentation(
+      'question_answer',
+      header + JSON.stringify({ selected_options: ['Local'] }),
+    ),
+  ).toMatchObject({ label: 'Your answer', text: 'Selected: Local', format: 'text' });
+  expect(
+    injectionPresentation('question_answer', header + JSON.stringify({ action: 'decline' })),
+  ).toMatchObject({ text: 'You declined to answer.' });
+});
 
 function notification(kind: string, value: unknown, status = 'completed'): string {
   return `[CLIO; task_result; ${kind} task_example: ${status}; notification outcome:example]\n${JSON.stringify(value)}`;
@@ -143,14 +182,16 @@ it('renders peer message content while retaining sender and reply metadata in ex
     '[Agent session sess_peer; peer; notification mail_example]\n' +
     JSON.stringify({ text: 'Please keep **accessibility support**.', reply_to: 'mail_original' });
   render(<HarnessInjection block={{ id: 'peer', type: 'injection', source: 'peer', text }} />);
-  await user.click(screen.getByRole('button', { name: 'Injection Agent message' }));
-  expect(screen.getByText('From session sess_peer')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Received message from an agent' }));
+  expect(screen.queryByText('From session sess_peer')).toBeNull();
   expect(await screen.findByText('accessibility support')).toHaveAttribute(
     'data-streamdown',
     'strong',
   );
   expect(screen.queryByText(/reply_to/u)).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Technical details for Agent message' }));
+  await user.click(
+    screen.getByRole('button', { name: 'Technical details for Received message from an agent' }),
+  );
   expect(screen.getByRole('dialog').querySelector('pre')?.textContent).toBe(text);
 });
 

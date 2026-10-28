@@ -75,20 +75,17 @@ func TestRightSidebarAgentRowRightClickOpensDetailWithoutConversationLeak(t *tes
 	if !ok {
 		t.Fatal("missing right sidebar agent row hit target")
 	}
-	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
 		X:      rightRow.rect.x,
 		Y:      rightRow.rect.y,
 		Button: tea.MouseRight,
 	}))
 	a = model.(*App)
-	if cmd == nil {
-		t.Fatal("right sidebar agent right-click should dispatch agent detail load")
-	}
 	if a.focus != FocusRightSidebar || a.sidebar.sectionFocus != sidebarSectionAgents || a.sidebar.sectionCursor {
 		t.Fatalf("agent right-click focus = %v section=%v cursor=%v, want right agent row", a.focus, a.sidebar.sectionFocus, a.sidebar.sectionCursor)
 	}
-	if !a.catalog.open || a.catalog.current == nil || a.catalog.current.agentID != "data" {
-		t.Fatalf("right sidebar agent right-click should open agent detail, open=%v browser=%+v", a.catalog.open, a.catalog.current)
+	if !a.detail.visible || a.detail.ref == nil || a.detail.ref.title != "Data expert" {
+		t.Fatalf("right sidebar agent right-click should open agent detail, visible=%v ref=%+v", a.detail.visible, a.detail.ref)
 	}
 	if a.conversation.actions.open || a.conversation.bodySelMsgIdx != 0 || a.conversation.bodySelPartIdx != 0 {
 		t.Fatalf("right sidebar agent right-click leaked into conversation: msg=%d part=%d actions=%v", a.conversation.bodySelMsgIdx, a.conversation.bodySelPartIdx, a.conversation.actions.open)

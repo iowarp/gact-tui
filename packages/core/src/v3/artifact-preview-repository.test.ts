@@ -91,6 +91,36 @@ describe('ArtifactPreviewRepository', () => {
     );
   });
 
+  it("reads a study's live source through its own route, with the source in the body", async () => {
+    const request = vi.fn(async (input: TransportRequest<unknown>) =>
+      input.decode({
+        study: 'e_1',
+        source: 'measurements',
+        schema: [],
+        columns: {},
+        totalRows: 0,
+        returnedRows: 0,
+        truncated: false,
+        downsample: { mode: 'none' },
+        empty: 'study_source_empty',
+        cached: false,
+      }),
+    );
+    const transport = { request, stream: vi.fn() } as unknown as ClioTransport;
+    const repository = new ArtifactPreviewRepository(transport);
+
+    await expect(
+      repository.studyTableQuery('e_1', 'measurements', { columns: ['value'], limit: 10 }),
+    ).resolves.toMatchObject({ totalRows: 0, empty: 'study_source_empty' });
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/v1/studies/e_1/table-query',
+        body: { columns: ['value'], limit: 10, source: 'measurements', format: 'json' },
+      }),
+    );
+  });
+
   it('refuses a table query whose columns disagree with the returned row count', async () => {
     const request = vi.fn(async (input: TransportRequest<unknown>) =>
       input.decode({

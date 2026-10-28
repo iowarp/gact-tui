@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { InfoTip } from './info-tip';
+import { SPOTTER_PROFILE } from '@/lib/attention-profiles';
 
 /** Edits resolved numerical assumptions; Apply reuses the existing capture. */
 export function AttentionProfileEditor({
@@ -55,7 +56,14 @@ export function AttentionProfileEditor({
           <DialogTitle>Attention heat profile</DialogTitle>
           <DialogDescription>Recompute this selection from its existing capture.</DialogDescription>
         </DialogHeader>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDraft({ ...profile, ...SPOTTER_PROFILE })}
+          >
+            SPOTTER
+          </Button>
           <Button
             variant="outline"
             size="sm"

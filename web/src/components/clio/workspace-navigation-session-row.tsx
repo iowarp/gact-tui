@@ -1,4 +1,4 @@
-import type { AgentBlueprintReference, Session, SessionExportMode } from '@clio/core/v3';
+import type { Session, SessionExportMode } from '@clio/core/v3';
 import { BellRingIcon, GitForkIcon, LoaderCircleIcon, PinIcon, PinOffIcon } from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { sessionInteractionAt } from '@/lib/recent-sessions';
 import { isSessionRunning, isUserBranch } from '@/lib/session-state';
 import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
 import { cn } from '@/lib/utils';
+import { conversationForkOrigin, forkAuthorLabel } from './conversation-fork-origin';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
@@ -28,7 +29,8 @@ interface SessionNavigationRowProps {
   workspaceId: string;
   activeSessionId: string;
   seenRevision?: string;
-  blueprint?: AgentBlueprintReference;
+  /** The name of the agent the conversation runs. */
+  agentLabel?: string;
   actions: ResourceActions;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
@@ -36,6 +38,8 @@ interface SessionNavigationRowProps {
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisit: (session: Session) => void;
   attention?: SessionAttention;
+  /** How many agent forks deep this row sits under its origin's row. */
+  nestedDepth?: number;
 }
 
 export function SessionNavigationRow({
@@ -43,7 +47,7 @@ export function SessionNavigationRow({
   workspaceId,
   activeSessionId,
   seenRevision,
-  blueprint,
+  agentLabel,
   actions,
   onRename,
   onDelete,
@@ -51,7 +55,61 @@ export function SessionNavigationRow({
   onAction,
   onVisit,
   attention,
+  nestedDepth = 0,
 }: SessionNavigationRowProps) {
+  const forkLabel = forkAuthorLabel(conversationForkOrigin(session));
+  const row = (
+    <SessionRow
+      actions={actions}
+      activeSessionId={activeSessionId}
+      agentLabel={agentLabel}
+      attention={attention}
+      forkLabel={forkLabel}
+      onAction={onAction}
+      onDelete={onDelete}
+      onDownloadSession={onDownloadSession}
+      onRename={onRename}
+      onVisit={onVisit}
+      seenRevision={seenRevision}
+      session={session}
+      workspaceId={workspaceId}
+    />
+  );
+  if (!forkLabel && !nestedDepth) return row;
+  // An agent's fork sits under its origin and names its author and note in text.
+  return (
+    <div
+      className={cn('grid min-w-0', nestedDepth > 0 && 'ml-3 border-l border-sidebar-border pl-1')}
+      data-slot="agent-fork-row"
+    >
+      {row}
+      {forkLabel ? (
+        <p
+          className="truncate px-2 pb-1 text-[11px] leading-4 text-muted-foreground"
+          title={forkLabel}
+        >
+          {forkLabel}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function SessionRow({
+  session,
+  workspaceId,
+  activeSessionId,
+  seenRevision,
+  agentLabel,
+  actions,
+  onRename,
+  onDelete,
+  onDownloadSession,
+  onAction,
+  onVisit,
+  attention,
+  forkLabel,
+}: Omit<SessionNavigationRowProps, 'nestedDepth'> & { forkLabel?: string }) {
   const running = isSessionRunning(session.state);
   const needsAttention = Boolean(attention?.total);
   const unseen =
@@ -119,7 +177,7 @@ export function SessionNavigationRow({
           >
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}
             {isUserBranch(session) ? (
-              <span title="Conversation branch" className="inline-flex shrink-0">
+              <span title={forkLabel ?? 'Conversation branch'} className="inline-flex shrink-0">
                 <GitForkIcon aria-hidden="true" className="size-3" />
               </span>
             ) : null}
@@ -193,6 +251,12 @@ export function SessionNavigationRow({
             </Button>
           </div>
           <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
+            {forkLabel ? (
+              <>
+                <span className="text-muted-foreground">Origin</span>
+                <span className="[overflow-wrap:anywhere]">{forkLabel}</span>
+              </>
+            ) : null}
             <span className="text-muted-foreground">Started</span>
             <span>{startedLabel(session.created_at)}</span>
             {session.message_count !== undefined ? (
@@ -202,9 +266,7 @@ export function SessionNavigationRow({
               </>
             ) : null}
             <span className="text-muted-foreground">Agent</span>
-            <span className="truncate">
-              {blueprint?.display_name || session.agent_id || 'Agent unavailable'}
-            </span>
+            <span className="truncate">{agentLabel || 'Agent unavailable'}</span>
             <span className="text-muted-foreground">Model</span>
             <span className="truncate">{session.model_id || 'Inherited workspace default'}</span>
             <span className="text-muted-foreground">Last interaction</span>

@@ -23,6 +23,7 @@ import { OperationLogTerminal } from './operation-log-terminal';
 import {
   operationElapsedSeconds,
   reuseNote,
+  skippedStepReason,
   stepCounter,
   stepFraction,
 } from './operation-progress-model';
@@ -32,7 +33,7 @@ const STEP_STATE_LABELS: Record<OperationStepState, string> = {
   running: 'Running',
   succeeded: 'Done',
   reused: 'Reused',
-  skipped: 'Not needed',
+  skipped: 'Skipped',
   failed: 'Failed',
   cancelled: 'Cancelled',
 };
@@ -142,10 +143,8 @@ export function OperationProgress({
             <span className="font-medium">{OPERATION_STATE_LABELS[state]}</span>
             {progressText ? (
               <>
-                <span aria-hidden="true" className="text-muted-foreground">
-                  {' · '}
-                </span>
-                <span className="text-muted-foreground">{progressText}</span>
+                {' '}
+                <span className="ml-1 text-muted-foreground">{progressText}</span>
               </>
             ) : null}
           </p>
@@ -169,9 +168,15 @@ export function OperationProgress({
           {steps.map((step, index) => {
             const counter = stepCounter(step.progress);
             const time = stepElapsed(step, now);
+            const note =
+              step.state === 'skipped'
+                ? skippedStepReason(step, state)
+                : [counter, step.message].filter(Boolean).join(', ');
             return (
               <li
-                aria-label={`${step.label}: ${STEP_STATE_LABELS[step.state]}`}
+                aria-label={`${step.label}: ${STEP_STATE_LABELS[step.state]}${
+                  step.state === 'skipped' && note ? `. ${note}` : ''
+                }`}
                 className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-start gap-x-2"
                 data-state={step.state}
                 key={`${step.id}:${index}`}
@@ -198,15 +203,14 @@ export function OperationProgress({
                       step.state === 'failed' && 'text-destructive',
                     )}
                   >
-                    {step.label}
-                    <span className="text-xs text-muted-foreground">
-                      {' '}
-                      · {STEP_STATE_LABELS[step.state]}
+                    {step.label}{' '}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {STEP_STATE_LABELS[step.state]}
                     </span>
                   </p>
-                  {step.message || counter ? (
-                    <p className="truncate text-xs text-muted-foreground" title={step.message}>
-                      {[counter, step.message].filter(Boolean).join(' · ')}
+                  {note ? (
+                    <p className="truncate text-xs text-muted-foreground" title={note}>
+                      {note}
                     </p>
                   ) : null}
                   {step.state === 'running' && running ? (

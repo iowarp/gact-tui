@@ -227,7 +227,7 @@ function NumberFieldScrubArea({
       <Label className="cursor-ew-resize" htmlFor={context.fieldId}>
         {label}
       </Label>
-      <NumberFieldPrimitive.ScrubAreaCursor className="drop-shadow-[0_1px_1px_#0008] filter">
+      <NumberFieldPrimitive.ScrubAreaCursor className="drop-shadow-[0_1px_1px_var(--shadow-color)] filter">
         <CursorGrowIcon />
       </NumberFieldPrimitive.ScrubAreaCursor>
     </NumberFieldPrimitive.ScrubArea>
@@ -237,9 +237,8 @@ function NumberFieldScrubArea({
 function CursorGrowIcon(props: React.ComponentProps<"svg">) {
   return (
     <svg
-      fill="black"
+      className="fill-foreground stroke-background"
       height="14"
-      stroke="white"
       viewBox="0 0 24 14"
       width="26"
       xmlns="http://www.w3.org/2000/svg"

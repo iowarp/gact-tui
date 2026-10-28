@@ -13,13 +13,12 @@ describe('ClioDraftActions', () => {
     for (const [label, section] of [
       ['Workspace files', 'files'],
       ['Attached resources', 'resources'],
-      ['Agent blueprints', 'blueprints'],
     ]) {
       await user.click(screen.getByRole('button', { name: 'New conversation actions' }));
       await user.click(screen.getByRole('menuitem', { name: label }));
       expect(onOpen).toHaveBeenLastCalledWith(section);
     }
-    expect(onOpen).toHaveBeenCalledTimes(3);
+    expect(onOpen).toHaveBeenCalledTimes(2);
   });
 
   it('only offers a system terminal when the host supports it', async () => {

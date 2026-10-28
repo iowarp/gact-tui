@@ -55,6 +55,13 @@ export const modelSearchSchema = z.object({
     }),
   ),
 });
+export const modelSearchPageSchema = modelSearchSchema.extend({
+  next_cursor: z.string().nullable(),
+  scope: z.string(),
+});
+export const modelRegistryCardStatusSchema = z
+  .enum(['complete', 'truncated', 'missing', 'access_required', 'unavailable', 'unknown'])
+  .default('unknown');
 export const modelRegistryDetailsSchema = z.object({
   repository: z.string(),
   metadata_repository: z.string(),
@@ -67,6 +74,12 @@ export const modelRegistryDetailsSchema = z.object({
   hub_tags: z.array(z.string()),
   card_url: z.string(),
   card_markdown: z.string(),
+  // Older servers omit these; unknown completeness must never be upgraded to complete.
+  card_repository: z.string().optional(),
+  card_revision: z.string().optional(),
+  card_status: modelRegistryCardStatusSchema,
+  /** Characters included in card_markdown, not the upstream README's unknown full length. */
+  card_chars: z.number().int().nonnegative().optional(),
 });
 export type RegistryModel = z.infer<typeof modelSearchSchema>['models'][number];
 export type ModelRegistryDetails = z.infer<typeof modelRegistryDetailsSchema>;

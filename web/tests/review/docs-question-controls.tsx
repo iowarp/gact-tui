@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import type { PendingInteraction } from '@clio/core/v3';
 import { QuestionResponse } from '../../src/components/clio/pending-interaction-question-response';
 import { ClioPendingInteractions } from '../../src/components/clio/pending-interactions';
@@ -107,7 +107,7 @@ if (mode === 'confirmation') {
 }
 
 createRoot(document.getElementById('root')!).render(
-  <ThemeProvider attribute="class" forcedTheme={theme}>
+  <ForcedTheme theme={theme}>
     <main className="min-h-dvh bg-background p-6 text-foreground">
       <div className="max-w-3xl space-y-4">
         <header>
@@ -136,5 +136,5 @@ createRoot(document.getElementById('root')!).render(
         <output className="sr-only" id="receipt" aria-label="Fixture response receipt" />
       </div>
     </main>
-  </ThemeProvider>,
+  </ForcedTheme>,
 );

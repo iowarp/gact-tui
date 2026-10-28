@@ -212,8 +212,9 @@ export const versionConflictDetailSchema = z.object({
   pid: z.string(),
   // "healthy" answered its own health check; "unresponsive"/"unknown" did
   // not (or could not be asked) -- never, on its own, a reason it was
-  // stopped. A `"connect"` answer only makes sense when `"healthy"`.
-  health: z.enum(['healthy', 'unresponsive', 'unknown']).default('unknown'),
+  // stopped. "stopped": installed under `owner` but not running; a
+  // `"connect"` answer then starts it as it is.
+  health: z.enum(['healthy', 'unresponsive', 'unknown', 'stopped']).default('unknown'),
   target_version: z.string().optional(),
   owner: z.string().optional(),
   port: z.number().optional(),
@@ -379,6 +380,13 @@ export const infrastructureInventorySchema = z.object({
       connection_url: z.string().nullish(),
       updated_at: z.string(),
       configuration: z.record(z.string()).default({}),
+      /** What the computer last reported; the same source the catalog shows. */
+      observation: serviceObservationSchema.nullish().transform((value) => value ?? undefined),
+      /** Why the agent's startup did not start this service (it is not installed). */
+      auto_start_skipped: z
+        .object({ reason: z.string(), detail: z.string(), recorded_at: z.string() })
+        .nullish()
+        .transform((value) => value ?? undefined),
     }),
   ),
   connections: z.array(externalServiceConnectionSchema),
@@ -394,6 +402,7 @@ export type EffectiveParameter = z.infer<typeof effectiveParameterSchema>;
 export type OwnedResource = z.infer<typeof ownedResourceSchema>;
 export type ServiceAccess = z.infer<typeof serviceAccessSchema>;
 export type ManagedServiceDefinition = z.infer<typeof managedServiceDefinitionSchema>;
+export type ServiceObservation = z.infer<typeof serviceObservationSchema>;
 export type ManagedServiceCatalog = z.infer<typeof managedServiceCatalogSchema>;
 export type InfrastructureOperation = z.infer<typeof infrastructureOperationSchema>;
 export type OperationStep = z.infer<typeof operationStepSchema>;

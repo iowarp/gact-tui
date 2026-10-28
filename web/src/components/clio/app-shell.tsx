@@ -254,7 +254,8 @@ export function ClioAppShell({
             <SheetHeader className="sr-only">
               <SheetTitle>Workspace canvas</SheetTitle>
               <SheetDescription>
-                Session activity, child conversations, files, artifacts, and agent blueprints.
+                Session activity, child conversations, files, artifacts, and the conversation’s
+                agent.
               </SheetDescription>
             </SheetHeader>
             {visibleWorkbench}

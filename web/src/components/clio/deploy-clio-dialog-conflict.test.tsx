@@ -300,6 +300,36 @@ describe('DeployClioDialog found-CLIO conflict', () => {
     },
   );
 
+  it('offers start, update or a new one for an agent installed but stopped, and never replace', async () => {
+    const user = userEvent.setup();
+    const onReady = renderDialog();
+    await chooseRemoteHost(user);
+    mocks.runManagedServiceAction.mockResolvedValueOnce({
+      ...runningOperation,
+      state: 'failed',
+      error: 'clio_deploy_version_conflict',
+      conflict: {
+        installed_version: '0.9.4.1',
+        target_version: '0.9.5b1',
+        pid: '',
+        health: 'stopped',
+        owner: '/home/alice/clio',
+        port: 17800,
+      },
+    });
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    expect(await screen.findByRole('button', { name: 'Update and connect' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Start a new one' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Stop and replace' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Start it and connect (0.9.4.1)' }));
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(mocks.runManagedServiceAction.mock.calls.at(-1)?.[1].configuration).toMatchObject({
+      on_conflict: 'connect',
+      conflict_root: '/home/alice/clio',
+      conflict_state: 'stopped',
+    });
+  });
+
   it('asks "Connect" or "Replace" when claiming the port finds another healthy CLIO, and continues on Connect', async () => {
     const user = userEvent.setup();
     const onReady = renderDialog();

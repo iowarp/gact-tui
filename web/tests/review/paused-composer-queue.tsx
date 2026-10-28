@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import type { QueuedMessage } from '@clio/core/v3';
 import '../../src/index.css';
 import { ClioComposerQueue } from '../../src/components/clio/composer-queue';
@@ -79,11 +79,11 @@ export function Review() {
 }
 
 createRoot(document.getElementById('root')!).render(
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+  <ForcedTheme theme="dark">
     <AppearanceProvider>
       <ClioMotionProvider>
         <Review />
       </ClioMotionProvider>
     </AppearanceProvider>
-  </ThemeProvider>,
+  </ForcedTheme>,
 );

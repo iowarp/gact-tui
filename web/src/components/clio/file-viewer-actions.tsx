@@ -1,10 +1,9 @@
-import { useMutation } from '@tanstack/react-query';
-import { CopyPlusIcon, DownloadIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { CopyPlusIcon, LoaderCircleIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -30,6 +29,7 @@ import { downloadBytes } from './surface-export';
 import { ToolbarAction } from './viewer-toolbar';
 import { WorkspaceResourceRemoveDialog } from './workspace-resource-remove';
 import { NativeFileOpenMenu } from './native-file-open-menu';
+import { FileDownloadControl } from './file-download-control';
 
 /** Shared original-file actions for uploads, artifacts and workspace files. */
 export function FileViewerActions({
@@ -52,75 +52,34 @@ export function FileViewerActions({
   const [removeOpen, setRemoveOpen] = useState(false);
   const [informationOpen, setInformationOpen] = useState(false);
   const identity = fileViewerIdentity(source);
-  const download = useMutation({
-    mutationFn: async () =>
-      downloadBytes(
-        await readFileViewerBytes(repository, source),
-        identity.mediaType,
-        identity.name,
-      ),
-    onError: (error: Error) => toast.error(error.message),
-  });
-  const exportDownload = useMutation({
-    mutationFn: async (action: FileViewerAction) => action.onSelect(),
-    onError: (error: Error) => toast.error(error.message),
-  });
   const downloadFormats = formatActions.filter((action) => action.kind === 'download');
   const otherActions = formatActions.filter((action) => action.kind !== 'download');
-  const downloading = download.isPending || exportDownload.isPending;
-  const downloadButton = (
-    <ToolbarAction
-      label={downloading ? 'Downloading file…' : 'Download file'}
-      disabled={!identity.available || downloading}
-      aria-busy={downloading}
-      onClick={downloadFormats.length ? undefined : () => download.mutate()}
-    >
-      <DownloadIcon aria-hidden="true" />
-    </ToolbarAction>
-  );
+  const pending = otherActions.some((action) => action.pending);
   const canRemove =
     source.kind === 'resource' &&
     ['ready', 'failed', 'quarantined'].includes(source.resource.state);
   return (
     <>
       {!hasDocumentActions ? <NativeFileOpenMenu source={source} /> : null}
-      {downloadFormats.length ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>{downloadButton}</DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
-            {downloadFormats.map((action) => (
-              <DropdownMenuItem
-                key={action.label}
-                disabled={action.disabled || downloading}
-                onSelect={() => exportDownload.mutate(action)}
-              >
-                <action.icon />
-                {action.label}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => download.mutate()} disabled={downloading}>
-              <DownloadIcon />
-              Original file
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        downloadButton
-      )}
-      <ToolbarAction
-        label="File information"
-        className="@max-[480px]/viewer:hidden"
-        onClick={() => setInformationOpen(true)}
-      >
-        <InfoIcon aria-hidden="true" />
-      </ToolbarAction>
+      <FileDownloadControl
+        name={identity.name}
+        mediaType={identity.mediaType}
+        disabled={!identity.available}
+        formats={downloadFormats}
+        onDownload={async () =>
+          downloadBytes(
+            await readFileViewerBytes(repository, source),
+            identity.mediaType,
+            identity.name,
+          )
+        }
+      />
       <Dialog open={informationOpen} onOpenChange={setInformationOpen}>
         <DialogContent className="space-y-2">
           <DialogHeader>
             <DialogTitle className="break-words pr-6">{identity.name}</DialogTitle>
             <DialogDescription>
-              {identity.origin} ·{' '}
+              {identity.origin},{' '}
               {identity.size === undefined ? 'Size unavailable' : formatBytes(identity.size)}
             </DialogDescription>
           </DialogHeader>
@@ -134,26 +93,59 @@ export function FileViewerActions({
           <div className="space-y-1.5" ref={onInformationHost} />
         </DialogContent>
       </Dialog>
-      <ToolbarAction
-        label={fullscreen ? 'Exit file fullscreen' : 'View file fullscreen'}
-        className="@max-[480px]/viewer:hidden"
-        onClick={onFullscreen}
-      >
-        {fullscreen ? <Minimize2Icon aria-hidden="true" /> : <Maximize2Icon aria-hidden="true" />}
-      </ToolbarAction>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <ToolbarAction label="File actions">
-            <MoreIcon aria-hidden="true" />
+          <ToolbarAction label="File actions" aria-busy={pending}>
+            {pending ? (
+              <LoaderCircleIcon
+                aria-hidden="true"
+                className="animate-spin motion-reduce:animate-none"
+              />
+            ) : (
+              <MoreIcon aria-hidden="true" />
+            )}
           </ToolbarAction>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
-          {otherActions.map(({ label, icon: Icon, onSelect, disabled }) => (
-            <DropdownMenuItem key={label} onSelect={onSelect} disabled={disabled}>
-              <Icon />
-              {label}
-            </DropdownMenuItem>
-          ))}
+          {otherActions.map(
+            ({
+              label,
+              description,
+              icon: Icon,
+              onSelect,
+              disabled,
+              kind,
+              selected,
+              pending: actionPending,
+            }) =>
+              kind === 'view' ? (
+                <DropdownMenuCheckboxItem
+                  key={label}
+                  checked={selected}
+                  onSelect={onSelect}
+                  disabled={disabled}
+                  title={description}
+                >
+                  <Icon />
+                  {label}
+                </DropdownMenuCheckboxItem>
+              ) : (
+                <DropdownMenuItem
+                  key={label}
+                  onSelect={onSelect}
+                  disabled={disabled}
+                  aria-busy={actionPending}
+                  title={description}
+                >
+                  <Icon
+                    className={
+                      actionPending ? 'animate-spin motion-reduce:animate-none' : undefined
+                    }
+                  />
+                  {label}
+                </DropdownMenuItem>
+              ),
+          )}
           {otherActions.length ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onSelect={() => setInformationOpen(true)}>
             <InfoIcon />

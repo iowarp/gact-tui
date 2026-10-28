@@ -1,15 +1,20 @@
 import { subagentOpenTarget, SUBAGENT_OPEN_HINT } from './subagent-navigation';
 import type { MessageBlock, SubagentRun } from '@clio/core/v3';
-import { BotIcon, ChevronRightIcon, ShieldCheckIcon } from 'lucide-react';
+import { BotIcon, ChevronRightIcon, MessageSquareIcon, ShieldCheckIcon } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
 import { formatDuration, truncate } from '@/lib/format';
 import { SUBAGENT_RESULT_TRUNCATE_CHARS, SUBAGENT_TASK_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { getChildAgentAssignment } from './child-agent-presentation';
-import { ActivityRow } from './activity-row';
 import { ClioToolInvocation } from './tool-invocation';
 import { ClioStatus } from './status';
+import { SubagentModel } from './subagent-model';
+import { useTranscriptDisclosure } from './transcript-disclosure-context';
+import { BoundedResult } from './bounded-result';
+import { GroundedMessageResponse } from './grounded-message-response';
+import { Button } from '@/components/ui/button';
+import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -137,34 +142,46 @@ export function ClioSubagentProgressLine({ subagent, onOpen }: ClioSubagentCardP
 
 /** One message delivered to a child, kept at its recorded transcript position. */
 export function ClioAgentMessageLine({ block, subagent, onOpen }: ClioAgentMessageLineProps) {
+  const [expanded, setExpanded] = useTranscriptDisclosure(`agent-message:${block.id}`);
+  const lines = useTranscriptPreviewLines();
   const interactive = Boolean(subagent?.child_session_id && onOpen);
-  const recipient = subagent?.title || block.label || 'Child agent';
+  const recipient = subagent?.title || block.label || 'an agent';
+  const label = `${block.status === 'failed' ? 'Message could not be sent to' : 'Sent message to'} ${recipient}`;
   return (
-    <button
-      aria-label={interactive ? `Open child conversation ${recipient}` : undefined}
-      className={cn(
-        'group flex w-full min-w-0 items-start rounded-md px-1 py-0.5 text-left text-sm',
-        interactive
-          ? 'cursor-pointer outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50'
-          : 'cursor-default',
-      )}
-      disabled={!interactive}
-      onClick={(event) => {
-        if (subagent && interactive) onOpen?.(subagent, subagentOpenTarget(event));
-      }}
-      type="button"
-    >
-      <ActivityRow
-        icon={<BotIcon aria-hidden="true" className="size-4 text-primary" />}
-        title={<>Message to {recipient}</>}
-        detail={compactText(block.message, SUBAGENT_TASK_TRUNCATE_CHARS)}
-        action={
-          <span className="text-xs text-muted-foreground">
-            {block.action === 'wake' ? 'Follow-up started' : 'Queued'}
-          </span>
-        }
-      />
-    </button>
+    <section className="min-w-0" data-slot="agent-message">
+      <Button
+        variant="ghost"
+        type="button"
+        aria-label={label}
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+        className="h-auto min-h-7 w-full min-w-0 justify-start gap-2 px-1 py-1 text-left text-xs font-normal text-muted-foreground"
+      >
+        <MessageSquareIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <ChevronRightIcon
+          aria-hidden="true"
+          className={cn('size-3 shrink-0 transition-transform', expanded && 'rotate-90')}
+        />
+      </Button>
+      {expanded ? (
+        <div className="min-w-0 space-y-2 px-1 py-2">
+          <BoundedResult lines={lines} title={label}>
+            <GroundedMessageResponse mode="static">{block.message}</GroundedMessageResponse>
+          </BoundedResult>
+          {interactive && subagent ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-7 px-0"
+              onClick={(event) => onOpen?.(subagent, subagentOpenTarget(event))}
+            >
+              Open conversation
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -226,6 +243,9 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
           state: toTheoState(subagent.state),
           duration:
             subagent.duration_ms === undefined ? undefined : formatDuration(subagent.duration_ms),
+          model: subagent.model_choice ? (
+            <SubagentModel choice={subagent.model_choice} />
+          ) : undefined,
           result: subagent.result
             ? compactText(subagent.result, SUBAGENT_RESULT_TRUNCATE_CHARS)
             : undefined,

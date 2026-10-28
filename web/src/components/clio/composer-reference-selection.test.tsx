@@ -15,7 +15,7 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repositoryMocks 
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
 }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
 

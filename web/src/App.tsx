@@ -19,6 +19,7 @@ import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
+import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -90,18 +91,8 @@ export default function App() {
     if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);
     else navigate('/settings/about', { state: settingsReturnState });
   });
-  useEffect(() => {
-    // Title comes from index.html's brand-driven <title> (vite-plugin-brand.ts's
-    // transformIndexHtml) now, not a runtime patch here — no route in this
-    // app currently overrides it with a session-specific title.
-    for (const [token, value] of Object.entries(brand.themeTokens)) {
-      document.documentElement.style.setProperty(token, value);
-    }
-    if (brand.accent) {
-      document.documentElement.style.setProperty('--brand-accent', brand.accent);
-      document.documentElement.style.setProperty('--action', brand.accent);
-    }
-  }, []);
+
+  if (location.pathname === '/oauth/mcp') return <McpOAuthReturn />;
 
   const appContent = (
     <>
@@ -116,6 +107,7 @@ export default function App() {
           <Route element={<RunsPage />} path="/runs" />
           <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
           <Route element={<SettingsPage />} path="/settings/:section" />
+          <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
           <Route element={<UnknownRouteRedirect />} path="*" />
         </Routes>
       </Suspense>

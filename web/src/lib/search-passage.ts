@@ -47,7 +47,7 @@ export function highlightSearchPassage(
   };
   // Each mounted view owns its paint; no other conversation's highlights are cleared.
   const style = document.createElement('style');
-  style.textContent = `::highlight(${name}) { background-color: #93c5fd; color: #172554; }`;
+  style.textContent = `::highlight(${name}) { background-color: var(--highlight); color: var(--highlight-foreground); }`;
   document.head.append(style);
   const observer = new MutationObserver(() => {
     cancelAnimationFrame(frame);

@@ -23,22 +23,28 @@ function DocumentViews({ markdown }: { markdown: boolean }) {
 it('keeps the selected view and every document detail available through the compact menu', async () => {
   const user = userEvent.setup();
   render(<DocumentViews markdown />);
-  await user.click(screen.getByRole('button', { name: 'Document views' }));
+  await user.click(screen.getByRole('button', { name: 'File representations' }));
   expect(screen.getByRole('menuitemradio', { name: 'Read document' })).toBeChecked();
-  await user.click(screen.getByRole('menuitemradio', { name: 'Read raw' }));
+  await user.click(screen.getByRole('menuitemradio', { name: 'Source' }));
   expect(screen.getByText('Original Markdown')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Document views' }));
-  expect(screen.getByRole('menuitemradio', { name: 'Read raw' })).toBeChecked();
-  expect(screen.getByRole('menuitemradio', { name: 'Reviews, 2' })).toBeVisible();
-  await user.click(screen.getByRole('menuitemradio', { name: 'Document safety' }));
+  await user.click(screen.getByRole('button', { name: 'File representations' }));
+  expect(screen.getByRole('menuitemradio', { name: 'Source' })).toBeChecked();
+  expect(screen.queryByRole('menuitemradio', { name: 'Reviews, 2' })).toBeNull();
+  await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('button', { name: 'Document actions' }));
+  expect(screen.getByRole('menuitemcheckbox', { name: 'Reviews, 2' })).toBeVisible();
+  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Document safety' }));
   expect(screen.getByText('Document safety details')).toBeVisible();
 });
 
 it('offers only applicable views for an Office document', async () => {
   const user = userEvent.setup();
   render(<DocumentViews markdown={false} />);
-  await user.click(screen.getByRole('button', { name: 'Document views' }));
-  expect(screen.queryByRole('menuitemradio', { name: 'Read raw' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('menuitemradio', { name: 'Reviews, 2' }));
+  expect(screen.queryByRole('button', { name: 'File representations' })).toBeNull();
+  expect(screen.queryByRole('menuitemradio', { name: 'Source' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Document actions' }));
+  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Reviews, 2' }));
   expect(screen.getByText('Document reviews')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Read document' }));
+  expect(screen.getByText('Rendered document')).toBeVisible();
 });

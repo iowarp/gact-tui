@@ -13,7 +13,7 @@ import { ArchiveConnectionProvider } from './providers/connection-provider';
 import { RepositoryOverrideProvider } from './providers/repository-override';
 import { ArchiveTransport } from './lib/session-export/archive-transport';
 import { ArchiveFileList } from './lib/session-export/archive-file-list';
-import { archiveFileHref } from './lib/session-export/archive-file-reference';
+import { archiveFileHref, archiveFolderPath } from './lib/session-export/archive-file-reference';
 import { ArchiveEvidence } from './lib/session-export/archive-evidence';
 import {
   type RecordedPart,
@@ -35,6 +35,19 @@ import {
 import { ArtifactView, TextResourceView } from './components/clio/resource-viewers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { DashboardView } from './components/clio/dashboard-view';
+import {
+  ArchiveScienceLog,
+  ArchiveSessionHeader,
+} from './lib/session-export/archive-orchestration';
+import {
+  archiveMessageDomId,
+  archiveSessionOrder,
+  archiveSpawnCalls,
+  useArchiveSections,
+  type ArchiveSpawnCall,
+  type ArchiveRelationship,
+  type ArchiveTarget,
+} from './lib/session-export/archive-orchestration-model';
 
 declare global {
   interface Window {
@@ -44,11 +57,12 @@ declare global {
 }
 configureArchiveMapWorker(import.meta.env.VITE_CLIO_ARCHIVE_MAP_WORKER);
 interface TranscriptRow {
-  session: { id: string; title: string; metadata?: Record<string, unknown> };
+  session: { id: string; title: string; created_at?: string; metadata?: Record<string, unknown> };
   messages: { id: string; role: string; created_at?: string; parts: RecordedPart[] }[];
   tool_records: RecordedTool[];
   loaded_skills: { event_id: string; skill_id?: string; file?: string; content?: string }[];
   recording: unknown;
+  relationship?: ArchiveRelationship;
 }
 interface ArchiveData {
   transcript_views: Record<string, ArchiveTranscriptView>;
@@ -66,6 +80,8 @@ interface ArchiveData {
 let data: ArchiveData;
 let rows: TranscriptRow[];
 let ids: string[];
+/** The recorded call that started each exported child session. */
+let spawnCalls: Map<string, ArchiveSpawnCall>;
 
 export function SavedView({ value }: { value: unknown }) {
   const result = a2uiSurfaceSchema.safeParse(value);
@@ -114,27 +130,72 @@ export function Review() {
         ? 'files'
         : location.hash === '#results'
           ? 'results'
-          : 'conversation',
+          : location.hash === '#science' || location.hash === '#views'
+            ? location.hash.slice(1)
+            : 'conversation',
   );
   useEffect(() => {
     const fallback = document.getElementById('archive-document');
     if (fallback) fallback.hidden = true;
     document.getElementById('root')!.hidden = false;
   }, []);
+  // A node folder opens the Files section filtered to that folder's included files.
+  const [filesSearch, setFilesSearch] = useState('');
+  const folderAvailable = (path: string) =>
+    data.manifest.mode !== 'transcript' && archiveFolderPath(path, data.manifest) !== undefined;
+  const openFolder = (path: string) => {
+    const folder = archiveFolderPath(path, data.manifest);
+    if (!folder || data.manifest.mode === 'transcript') return;
+    setFilesSearch(folder);
+    setSection('files');
+    history.replaceState(null, '', '#included-files');
+  };
+  // Each exported session's folder in an isolated run, as its record carries it.
+  const nodeFolder = (sessionId: string) => {
+    const value = rows.find((row) => row.session.id === sessionId)?.session.metadata?.[
+      'node_folder'
+    ];
+    return typeof value === 'string' && value ? value : undefined;
+  };
+  const sections = useArchiveSections(data.transcript.session.id);
+  // Go to a session's section, or to one message (and tool call) in it.
+  const open = (target: ArchiveTarget) => {
+    setSection('conversation');
+    const anchor = target.messageId
+      ? `${archiveMessageDomId(target.messageId)}${target.callId ? `/activity-${target.callId}` : ''}`
+      : target.sessionId;
+    history.replaceState(null, '', `#${anchor}`);
+    requestAnimationFrame(() => {
+      // The saved document fallback repeats these ids while hidden; look in the review only.
+      const root = document.getElementById('root');
+      const find = (id: string) => root?.querySelector(`[id="${CSS.escape(id)}"]`);
+      const node =
+        (target.messageId && find(archiveMessageDomId(target.messageId))) ||
+        root?.querySelector(`[data-archive-session="${CSS.escape(target.sessionId)}"]`);
+      node?.scrollIntoView({ block: 'start' });
+    });
+  };
+  // The call that started a flow's run, for the run's steps and members to return to.
+  const flowRunCall = (sessionId: string | undefined) => {
+    const call = sessionId ? spawnCalls.get(sessionId) : undefined;
+    return call?.flow ? call : undefined;
+  };
+  const titleOf = (sessionId: string | undefined) =>
+    rows.find((other) => other.session.id === sessionId)?.session.title ?? '';
   const tools = rows.reduce((count, row) => count + row.tool_records.length, 0);
   const skills = rows.reduce((count, row) => count + row.loaded_skills.length, 0);
   return (
     <main className="mx-auto min-w-0 max-w-5xl space-y-6 p-4 text-foreground sm:p-6">
       <header className="border-b pb-6">
         <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {vocab.product} · Session archive
+          {vocab.product} session archive
         </p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight">
           {data.transcript.session.title}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          {data.manifest.mode[0].toUpperCase() + data.manifest.mode.slice(1)} ·{' '}
-          {rows.reduce((n, row) => n + row.messages.length, 0)} messages · {tools} tool records ·{' '}
+          {data.manifest.mode[0].toUpperCase() + data.manifest.mode.slice(1)},{' '}
+          {rows.reduce((n, row) => n + row.messages.length, 0)} messages, {tools} tool records,{' '}
           {skills} skill loads
         </p>
         <p className="mt-3 text-sm">
@@ -166,6 +227,11 @@ export function Review() {
             <TabsTrigger className="h-auto whitespace-normal px-3 py-2" value="results">
               Results
             </TabsTrigger>
+            {sections.science && (
+              <TabsTrigger className="h-auto whitespace-normal px-3 py-2" value="science">
+                Science log
+              </TabsTrigger>
+            )}
             {data.manifest.mode !== 'transcript' && (
               <TabsTrigger className="h-auto whitespace-normal px-3 py-2" value="files">
                 Files
@@ -178,16 +244,53 @@ export function Review() {
         </div>
         <TabsContent value="conversation">
           {rows.map((row) => (
-            <ArchiveConversation
-              key={row.session.id}
-              sessionId={row.session.id}
-              metadata={row.session.metadata}
-              view={data.transcript_views[row.session.id]}
-              snapshot={data.snapshot}
-              onOpenArtifact={setOpened}
-              onOpenFile={setOpened}
-            />
+            <div key={row.session.id} className="space-y-4" data-archive-session={row.session.id}>
+              {(row.relationship || spawnCalls.has(row.session.id)) && (
+                <ArchiveSessionHeader
+                  call={spawnCalls.get(row.session.id)}
+                  flowCall={flowRunCall(row.relationship?.parent_session_id)}
+                  onOpen={open}
+                  parentTitle={titleOf(
+                    spawnCalls.get(row.session.id)?.sessionId ??
+                      row.relationship?.parent_session_id,
+                  )}
+                  parentView={
+                    row.relationship
+                      ? data.transcript_views[row.relationship.parent_session_id]
+                      : undefined
+                  }
+                  row={row}
+                  view={data.transcript_views[row.session.id]}
+                />
+              )}
+              <ArchiveConversation
+                sessionId={row.session.id}
+                metadata={row.session.metadata}
+                view={data.transcript_views[row.session.id]}
+                snapshot={data.snapshot}
+                onOpenArtifact={setOpened}
+                onOpenFile={setOpened}
+                folderAvailable={folderAvailable}
+                nodeFolder={nodeFolder}
+                onOpenFolder={openFolder}
+                onOpenSession={(sessionId) => open({ sessionId })}
+                sessionAvailable={(sessionId) => ids.includes(sessionId)}
+                onOpenSubagent={(subagent) => {
+                  if (subagent.child_session_id && ids.includes(subagent.child_session_id))
+                    open({ sessionId: subagent.child_session_id });
+                }}
+              />
+            </div>
           ))}
+        </TabsContent>
+        <TabsContent value="science">
+          <ArchiveScienceLog
+            inventory={data.manifest.mode === 'transcript' ? undefined : data.manifest}
+            onOpen={open}
+            onOpenFolder={openFolder}
+            sessionId={data.transcript.session.id}
+            views={data.transcript_views}
+          />
         </TabsContent>
         <TabsContent value="results">
           <h2 className="mb-3 text-2xl font-semibold">Saved results</h2>
@@ -211,7 +314,11 @@ export function Review() {
             Transcript contains the recorded work. Effects adds touched artifacts and inputs. Full
             also includes the workspace snapshot.
           </p>
-          <ArchiveFileList files={data.manifest.files} />
+          <ArchiveFileList
+            files={data.manifest.files}
+            initialSearch={filesSearch}
+            key={filesSearch}
+          />
         </TabsContent>
         <TabsContent value="evidence">
           <ArchiveEvidence
@@ -276,8 +383,8 @@ export function Review() {
           </div>
         </DialogContent>
       </Dialog>
-      <footer className="border-t pt-5 text-xs text-muted-foreground">
-        Exported {new Date(data.transcript.exported_at).toLocaleString()} ·{' '}
+      <footer className="flex flex-wrap gap-x-4 gap-y-1 border-t pt-5 text-xs text-muted-foreground">
+        <span>Exported {new Date(data.transcript.exported_at).toLocaleString()}</span>
         {data.manifest.mode === 'transcript' ? (
           <button className="underline" onClick={() => setSection('evidence')}>
             Embedded transcript and skills
@@ -286,8 +393,7 @@ export function Review() {
           <>
             <a className="underline" href="transcript.json">
               Raw transcript
-            </a>{' '}
-            ·{' '}
+            </a>
             <a className="underline" href="manifest.json">
               File inventory and checksums
             </a>
@@ -356,10 +462,17 @@ async function mountReview(): Promise<void> {
     : undefined;
   if (!dashboard) {
     data = decodedData as ArchiveData;
-    rows = [data.transcript, ...data.transcript.children];
+    spawnCalls = archiveSpawnCalls(data.transcript_views);
+    // Each child below the session that started it, in the order they started.
+    rows = archiveSessionOrder([data.transcript, ...data.transcript.children], spawnCalls);
     ids = rows.map((row) => row.session.id);
   }
-  const repository = new ClioRepository(new ArchiveTransport(dashboard?.snapshot ?? data.snapshot));
+  const repository = new ClioRepository(
+    dashboard
+      ? new ArchiveTransport(dashboard.snapshot)
+      : // Message reads are answered from the transcripts the archive carries.
+        new ArchiveTransport(data.snapshot, { views: data.transcript_views }),
+  );
   document.documentElement.classList.remove('dark');
   createRoot(document.getElementById('root')!).render(
     <ReviewBoundary>

@@ -47,6 +47,7 @@ describe('deploy progress', () => {
       ),
     ).toMatchObject({ state: 'done', startedAt: 66_000, endedAt: 67_000 });
     expect(states(progress)).toEqual({
+      recover: 'skipped',
       connect: 'done',
       authenticate: 'skipped',
       detect: 'done',
@@ -57,6 +58,7 @@ describe('deploy progress', () => {
       open: 'running',
       cleanup: 'pending',
     });
+    expect(progress.stages.find((stage) => stage.id === 'recover')?.hidden).toBe(true);
     expect(progress.stages.find((stage) => stage.id === 'claim')?.hidden).toBe(true);
     expect(progress.stages.find((stage) => stage.id === 'cleanup')?.hidden).toBe(true);
     expect(progress.stages.find((stage) => stage.id === 'authenticate')?.hidden).toBe(true);
@@ -97,6 +99,11 @@ describe('deploy progress', () => {
       { type: 'open', at: 3 },
     ]);
     expect(states(progress).tunnel).toBe('skipped');
+    expect(progress.stages.find((row) => row.id === 'tunnel')?.skipReason).toBe(
+      'Not needed: connected directly',
+    );
+    // No check ran, so nothing says why the install was not run.
+    expect(progress.stages.find((row) => row.id === 'install')?.skipReason).toBeUndefined();
   });
 
   it('a failed step owns the failure and its one-line reason', () => {
@@ -149,6 +156,9 @@ describe('deploy progress', () => {
       detail: 'Reusing the running CLIO (pid 7, /home/a/.local/share/clio)',
     });
     expect(states(progress)).toMatchObject({ install: 'skipped', start: 'skipped' });
+    const reasons = Object.fromEntries(progress.stages.map((row) => [row.id, row.skipReason]));
+    expect(reasons.install).toMatch(/^Not needed: the .+ already running there was reused$/u);
+    expect(reasons.start).toBe(reasons.install);
   });
 
   it('cleanup after a failure appears as its own stage and keeps the failure', () => {
@@ -191,6 +201,37 @@ describe('deploy progress', () => {
     });
     const tunnel = progress.stages.find((stage) => stage.id === 'tunnel');
     expect((tunnel?.endedAt ?? 0) - (tunnel?.startedAt ?? 0)).toBe(15_000);
+  });
+
+  it('waits for the check of saved installs, counting it, before connecting', () => {
+    const progress = run([
+      { type: 'start', at: 0, recovery: { done: 0, total: 3 } },
+      { type: 'recover', done: 1, total: 3, at: 400 },
+      { type: 'recover', done: 2, total: 3, at: 900 },
+    ]);
+    const recovering = progress.stages.find((stage) => stage.id === 'recover');
+    expect(recovering).toMatchObject({ state: 'running', detail: '2/3', hidden: false });
+    expect(recovering?.label).toMatch(/^Checking saved .+ installs$/u);
+    expect(states(progress).connect).toBe('pending');
+
+    const connecting = deployProgressReducer(progress, {
+      type: 'recover',
+      done: 3,
+      total: 3,
+      at: 1_200,
+    });
+    expect(connecting.stages.find((stage) => stage.id === 'recover')).toMatchObject({
+      state: 'done',
+      detail: '3/3',
+      endedAt: 1_200,
+    });
+    expect(states(connecting).connect).toBe('running');
+  });
+
+  it('lists no check of saved installs when none is running', () => {
+    const progress = run([{ type: 'start', at: 0 }]);
+    expect(progress.stages.find((stage) => stage.id === 'recover')?.hidden).toBe(true);
+    expect(states(progress).connect).toBe('running');
   });
 
   it('formats reasons and elapsed times for people', () => {

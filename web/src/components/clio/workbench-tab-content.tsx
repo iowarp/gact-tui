@@ -1,6 +1,5 @@
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import type {
-  AgentBlueprint,
   Artifact as ArtifactEntity,
   SessionDiff,
   SubagentRun,
@@ -12,18 +11,17 @@ import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
+import { workspaceFilePath } from '@/lib/workspace-file-path';
+import { useLiveStore } from '@/store/live-store';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
-import { ClioWorkflowCanvasView } from './workflow-canvas-view';
-import {
-  ArtifactBrowser,
-  BlueprintBrowser,
-  BlueprintView,
-  FileBrowser,
-} from './workbench-resource-browser';
+import { AgentCompositionView } from './agent-composition-view';
+import { FlowRunView } from './flow-run-view';
+import { ScienceLogTab } from './science-log-tab';
+import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
@@ -32,9 +30,6 @@ import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from '.
 
 const ArtifactView = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.ArtifactView })),
-);
-const BlueprintFileEditor = lazy(() =>
-  loadResourceViewers().then((module) => ({ default: module.BlueprintFileEditor })),
 );
 const WorkspaceResourceCarousel = lazy(() =>
   import('./workspace-resource-view').then((module) => ({
@@ -66,18 +61,15 @@ export interface WorkbenchTabContentProps {
   resources: readonly WorkspaceResource[];
   resourcesPending?: boolean;
   resourcesError?: string;
-  blueprints: readonly AgentBlueprint[];
-  blueprintsPending?: boolean;
-  blueprintsError?: string;
   diffs: readonly SessionDiff[];
   diffActionError?: string;
   diffActionPending?: boolean;
   sessionView: ReactNode;
+  /** The Agent tab before the conversation exists (a new conversation's draft agent). */
+  agentView?: ReactNode;
   maximized: boolean;
-  subagents: readonly SubagentRun[];
-  onApplyDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  onRejectDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
+  onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   onOpenTab: (tab: WorkbenchTab) => void;
   onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
   onSelectFilesPath: (tabId: string, path: string) => void;
@@ -106,18 +98,14 @@ export function WorkbenchTabContent({
   resources,
   resourcesPending,
   resourcesError,
-  blueprints,
-  blueprintsPending,
-  blueprintsError,
   diffs,
   diffActionError,
   diffActionPending,
   sessionView,
+  agentView,
   maximized,
-  subagents,
-  onApplyDiff,
   onOpenSubagent,
-  onRejectDiff,
+  onUndoDiff,
   onOpenTab,
   onReplaceTab,
   onSelectFilesPath,
@@ -134,6 +122,27 @@ export function WorkbenchTabContent({
       );
     case 'session':
       return sessionView;
+    case 'science-log':
+      return (
+        <ScienceLogTab
+          key={sessionId}
+          onOpenFolder={(path) =>
+            onOpenTab({
+              id: 'files',
+              kind: 'files',
+              label: 'Files',
+              workspaceId,
+              directory: workspaceFilePath(
+                path,
+                useLiveStore.getState().entities.workspaces[workspaceId]?.path,
+              ),
+            })
+          }
+          onOpenSubagent={onOpenSubagent}
+          sessionId={sessionId}
+          workspaceId={workspaceId}
+        />
+      );
     case 'files':
       return (
         <FileBrowser
@@ -194,25 +203,15 @@ export function WorkbenchTabContent({
           workspaceId={workspaceId}
         />
       );
-    case 'blueprints':
-      return (
-        <BlueprintBrowser
-          blueprints={blueprints}
-          blueprintsError={blueprintsError}
-          blueprintsPending={blueprintsPending}
-          onOpenBlueprint={(blueprint, event) => {
-            const blueprintTab: WorkbenchTab = {
-              id: `blueprint:${blueprint.id}`,
-              kind: 'blueprint',
-              label: blueprint.display_name,
-              blueprint,
-              sessionId,
-              workspaceId,
-            };
-            if (event.shiftKey) onOpenTab(blueprintTab);
-            else onReplaceTab(tab.id, blueprintTab);
-          }}
-        />
+    case 'agent':
+      return sessionId ? (
+        <AgentCompositionView key={sessionId} sessionId={sessionId} />
+      ) : agentView ? (
+        agentView
+      ) : (
+        <p className="p-6 text-sm text-muted-foreground">
+          The conversation&apos;s agent appears after you send your first message.
+        </p>
       );
     case 'workspace-file':
       return (
@@ -237,11 +236,10 @@ export function WorkbenchTabContent({
         <DiffCanvasView
           diff={
             tab.sessionId === sessionId
-              ? (diffs.find((candidate) => candidate.path === tab.diff.path) ?? tab.diff)
+              ? (diffs.find((candidate) => candidate.id === tab.diff.id) ?? tab.diff)
               : tab.diff
           }
           error={diffActionError}
-          onApply={(path) => onApplyDiff(tab.sessionId, tab.workspaceId, path)}
           onOpenFile={(path) =>
             onOpenTab({
               id: `workspace-file:${tab.workspaceId}:${path}`,
@@ -251,26 +249,24 @@ export function WorkbenchTabContent({
               workspaceId: tab.workspaceId,
             })
           }
-          onReject={(path) => onRejectDiff(tab.sessionId, tab.workspaceId, path)}
+          onUndo={(changeId) => onUndoDiff(tab.sessionId, tab.workspaceId, changeId)}
           pending={diffActionPending}
         />
-      );
-    case 'blueprint-file':
-      return (
-        <Suspense fallback={<CanvasLoading label="Loading blueprint file" />}>
-          <BlueprintFileEditor
-            blueprintId={tab.blueprintId}
-            path={tab.path}
-            sessionId={tab.sessionId}
-            workspaceId={tab.workspaceId}
-          />
-        </Suspense>
       );
     case 'artifact':
       return (
         <Suspense fallback={<CanvasLoading label="Loading artifact" />}>
           <ArtifactView
             artifact={tab.artifact}
+            onOpenWorkspaceFile={(path) =>
+              onOpenTab({
+                id: `workspace-file:${tab.workspaceId}:${path}`,
+                kind: 'workspace-file',
+                label: fileName(path),
+                path,
+                workspaceId: tab.workspaceId,
+              })
+            }
             files={tab.workspaceId === workspaceId ? files : []}
             onOpenArtifact={(artifact) =>
               onOpenTab({
@@ -294,14 +290,6 @@ export function WorkbenchTabContent({
             workspaceId={tab.workspaceId}
           />
         </Suspense>
-      );
-    case 'blueprint':
-      return (
-        <BlueprintView
-          blueprint={tab.blueprint}
-          sessionId={tab.sessionId}
-          workspaceId={tab.workspaceId}
-        />
       );
     case 'subagent':
       return (
@@ -341,12 +329,13 @@ export function WorkbenchTabContent({
           workspaceId={tab.workspaceId}
         />
       );
-    case 'workflow':
+    case 'flow':
       return (
-        <ClioWorkflowCanvasView
+        <FlowRunView
+          handle={tab.handle}
+          label={tab.label}
           onOpenSubagent={onOpenSubagent}
-          subagents={subagents}
-          tool={tab.tool}
+          sessionId={tab.sessionId}
         />
       );
     case 'terminal':
@@ -364,6 +353,7 @@ function ScopedWorkspaceFileBrowser({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const foreign = sourceWorkspaceId !== props.workspaceId;
+  const workspaceRoot = useLiveStore((state) => state.entities.workspaces[props.workspaceId]?.path);
   const listing = useQuery({
     queryKey: [
       'workspace-files',
@@ -378,6 +368,11 @@ function ScopedWorkspaceFileBrowser({
   return (
     <FileBrowser
       {...props}
+      selectedPath={
+        props.selectedPath === undefined
+          ? undefined
+          : workspaceFilePath(props.selectedPath, workspaceRoot)
+      }
       {...(foreign
         ? {
             files: listing.data?.entries ?? [],

@@ -160,41 +160,6 @@ func TestMouseWheelOpenDetailScrollsDetailNotConversation(t *testing.T) {
 	}
 }
 
-func TestMouseClickCatalogBrowserUsesRenderedDescRowGeometry(t *testing.T) {
-	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
-	a.width = 120
-	a.height = 36
-	a.stage = StageReady
-	a.catalog.open = true
-	a.catalog.current = &catalogBrowserState{
-		kind:  catalogKindAgentDetail,
-		title: "Agent detail",
-		items: []catalogItem{
-			{id: "summary", title: "Summary", desc: "long summary row consumes an extra visual line"},
-			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
-		},
-	}
-	_ = a.View()
-	target, ok := findHitTargetForTest(a, "catalog:item:1")
-	if !ok {
-		t.Fatal("missing semantic catalog target")
-	}
-
-	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      target.rect.x,
-		Y:      target.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-
-	if !a.detail.visible || a.detail.ref == nil {
-		t.Fatal("catalog click should open detail view")
-	}
-	if a.detail.ref.title != "Handoffs" {
-		t.Fatalf("clicked rendered second row opened %q, want Handoffs", a.detail.ref.title)
-	}
-}
-
 func TestMouseClickFilePickerInsertsClickedRow(t *testing.T) {
 	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
 	a.width = 100
@@ -267,4 +232,39 @@ func pointInsideOutsideRect(inside mouseRect, outside mouseRect) (int, int, bool
 		}
 	}
 	return 0, 0, false
+}
+
+func TestMouseClickCatalogBrowserUsesRenderedDescRowGeometry(t *testing.T) {
+	a := NewWithTheme("http://127.0.0.1:18777", ThemeForMode(ModeDark))
+	a.width = 120
+	a.height = 36
+	a.stage = StageReady
+	a.catalog.open = true
+	a.catalog.current = &catalogBrowserState{
+		kind:  catalogKindMcpDetail,
+		title: "MCP detail",
+		items: []catalogItem{
+			{id: "summary", title: "Summary", desc: "long summary row consumes an extra visual line"},
+			{id: "handoffs", title: "Handoffs", desc: "routes to downstream experts"},
+		},
+	}
+	_ = a.View()
+	target, ok := findHitTargetForTest(a, "catalog:item:1")
+	if !ok {
+		t.Fatal("missing semantic catalog target")
+	}
+
+	model, _ := a.Update(tea.MouseClickMsg(tea.Mouse{
+		X:      target.rect.x,
+		Y:      target.rect.y,
+		Button: tea.MouseLeft,
+	}))
+	a = model.(*App)
+
+	if !a.detail.visible || a.detail.ref == nil {
+		t.Fatal("catalog click should open detail view")
+	}
+	if a.detail.ref.title != "Handoffs" {
+		t.Fatalf("clicked rendered second row opened %q, want Handoffs", a.detail.ref.title)
+	}
 }

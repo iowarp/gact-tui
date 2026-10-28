@@ -33,7 +33,7 @@
         "delegation_lifecycle": "sync",
         "depth": 0,
         "execute": true,
-        "execution_mode": "blueprint_react",
+        "execution_mode": "react",
         "pack_id": "earthscope-gnss-region",
         "pack_version": "0.1.0",
         "parent_id": "main",

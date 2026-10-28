@@ -24,6 +24,7 @@ import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processo
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { AutoDatasetSelectionProvider } from '@/lib/a2ui/auto-dataset-selection';
 import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
+import { useOpenedViewSelection } from '@/lib/a2ui/open-view';
 import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
 import { dataSourceIntent } from '@/lib/a2ui/data-source-action';
@@ -303,6 +304,7 @@ function ClioA2UISurfaceContent({
   );
   const visualRoot = useRef<HTMLDivElement>(null);
   useA2uiVisualViewer(visualRoot, surface, model, captureArtifactId, visualFeedback);
+  useOpenedViewSelection(surface.session_id, surface.id, model);
   const reportUrlViolation = useCallback(
     (componentId: string, propName: string, message: string) => {
       void model?.dispatchError({

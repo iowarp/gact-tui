@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { copyText } from '@/lib/clipboard';
+import gmailMark from '../../../../branding/provider-logos/gmail.svg';
+import outlookMark from '../../../../branding/provider-logos/outlook.svg';
 
 const versionSchema = z
   .object({
@@ -45,29 +47,13 @@ type EditableDraft = {
   body: string;
 };
 
+/** Provider marks keep their own brand colors; they are images, not theme surfaces. */
 function GmailMark() {
-  return (
-    <svg aria-hidden="true" className="size-5 shrink-0" viewBox="0 0 24 24">
-      <path d="M2 19V5l10 8 10-8v14" fill="none" stroke="#4285F4" strokeWidth="3.5" />
-      <path d="M2 5l10 8 10-8" fill="none" stroke="#EA4335" strokeWidth="3.5" />
-      <path d="M2 9v10" stroke="#34A853" strokeWidth="3.5" />
-      <path d="M22 9v10" stroke="#FBBC04" strokeWidth="3.5" />
-    </svg>
-  );
+  return <img alt="" aria-hidden="true" className="size-5 shrink-0" src={gmailMark} />;
 }
 
 function OutlookMark() {
-  return (
-    <svg aria-hidden="true" className="size-5 shrink-0" viewBox="0 0 24 24">
-      <path d="M9 4h12v15H9z" fill="#0078D4" />
-      <path d="M9 10l6 4 6-4" fill="none" stroke="#D7EEFF" strokeWidth="1.2" />
-      <path d="M3 6l12-2v17L3 19z" fill="#0067B8" />
-      <path
-        d="M9 8c-2 0-3.5 1.5-3.5 4s1.5 4 3.5 4 3.5-1.5 3.5-4S11 8 9 8zm0 2c.9 0 1.5.8 1.5 2S9.9 14 9 14s-1.5-.8-1.5-2S8.1 10 9 10z"
-        fill="white"
-      />
-    </svg>
-  );
+  return <img alt="" aria-hidden="true" className="size-5 shrink-0" src={outlookMark} />;
 }
 
 function editableVersion(version: Version): EditableDraft {

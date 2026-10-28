@@ -1,6 +1,14 @@
 import { TransportError } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { artifactIdFromDataUri, columnarToRows, tableQueryErrorMessage } from './table-query-rows';
+import { STUDY_VIEW_POLL_MS } from '@/lib/runtime-limits';
+import {
+  TABLE_DATA_URI,
+  artifactIdFromDataUri,
+  columnarToRows,
+  studySourceFromDataUri,
+  studySourceQueryOptions,
+  tableQueryErrorMessage,
+} from './table-query-rows';
 
 describe('artifactIdFromDataUri', () => {
   it('extracts the artifact id from a well-formed dataUri', () => {
@@ -11,6 +19,45 @@ describe('artifactIdFromDataUri', () => {
     expect(artifactIdFromDataUri('artifact_stations01')).toBeUndefined();
     expect(artifactIdFromDataUri('https://example.test/data.csv')).toBeUndefined();
     expect(artifactIdFromDataUri(undefined)).toBeUndefined();
+  });
+});
+
+describe('study sources', () => {
+  it('reads the study and source of a study:// reference, and nothing else', () => {
+    expect(studySourceFromDataUri('study://e_abc123/measurements')).toEqual({
+      study: 'e_abc123',
+      source: 'measurements',
+    });
+    expect(studySourceFromDataUri('study://e_abc123/records/board')).toEqual({
+      study: 'e_abc123',
+      source: 'records/board',
+    });
+    expect(studySourceFromDataUri('study://e_abc123/notes')).toBeUndefined();
+    expect(studySourceFromDataUri('artifact://artifact_a')).toBeUndefined();
+    expect(artifactIdFromDataUri('study://e_abc123/entries')).toBeUndefined();
+  });
+
+  it('accepts a study source wherever a tabular dataUri is accepted', () => {
+    expect(TABLE_DATA_URI.test('artifact://artifact_a')).toBe(true);
+    expect(TABLE_DATA_URI.test('study://e_1/entries')).toBe(true);
+    expect(TABLE_DATA_URI.test('study://e_1/records/readings')).toBe(true);
+    expect(TABLE_DATA_URI.test('study://e_1/records/a/b')).toBe(false);
+    expect(TABLE_DATA_URI.test('https://example.test/a.csv')).toBe(false);
+  });
+
+  it('is never cached as immutable; plugin records also poll while shown', () => {
+    const measurements = studySourceQueryOptions({ study: 'e_1', source: 'measurements' });
+    expect(measurements.staleTime).toBe(0);
+    expect(measurements.refetchInterval).toBe(false);
+    const records = studySourceQueryOptions({ study: 'e_1', source: 'records/board' });
+    expect(records.staleTime).toBe(0);
+    expect(records.refetchInterval).toBe(STUDY_VIEW_POLL_MS);
+    expect(records.refetchIntervalInBackground).toBe(false);
+  });
+
+  it('says when the study is not on this server', () => {
+    const error = new TransportError('no study', 404, 'study_not_found');
+    expect(tableQueryErrorMessage(error)).toBe('the study is not on this server.');
   });
 });
 

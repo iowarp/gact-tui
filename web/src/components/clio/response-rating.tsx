@@ -1,3 +1,4 @@
+import { useNearViewport } from '@/hooks/use-near-viewport';
 import type { Message, RateResponseInput } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LoaderCircleIcon, MessageSquareIcon, ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react';
@@ -45,9 +46,11 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
   const queryClient = useQueryClient();
   const [commentOpen, setCommentOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const near = useNearViewport(triggerRef);
   const queryKey = ['response-feedback', connectionScope(settings), sessionId, messageId];
   const stored = useQuery({
     queryKey,
+    enabled: near,
     queryFn: ({ signal }) => repository.responseFeedback(sessionId, messageId, signal),
     retry: false,
   });

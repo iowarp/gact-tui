@@ -64,7 +64,7 @@ export function ClioChildSessionFooter({
         className="pointer-events-auto mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-2"
       >
         {pendingInteractions}
-        <div className="min-w-0 overflow-hidden rounded-2xl border border-border/40 bg-card/80 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-border/40 bg-card/80 shadow-[0_12px_32px_-18px_var(--shadow-color)] backdrop-blur-xl">
           <div className="flex min-w-0 flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-start gap-2.5">
               <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">

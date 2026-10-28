@@ -112,7 +112,7 @@ describe('WorkspaceResourceView', () => {
     expect(screen.queryByText(/Static preview ·/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
     expect(container.querySelector('[data-language="html"]')).toHaveTextContent('originalSource()');
-    await userEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'HTML preview' }));
     expect(screen.getByTitle('HTML preview of report.txt')).toBeVisible();
     expect(repository.resourcePreview).toHaveBeenCalledTimes(1);
   });
@@ -358,7 +358,8 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+    await user.click(screen.getByRole('button', { name: 'File actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Provenance' }));
 
     expect(await screen.findByText('Resource lineage')).toBeVisible();
     expect(screen.getByLabelText('Loading model delivery records')).toBeVisible();
@@ -393,7 +394,8 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+    await user.click(screen.getByRole('button', { name: 'File actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Provenance' }));
 
     expect(await screen.findByText('Resource lineage')).toBeVisible();
     expect(screen.getByText('Uploaded')).toBeVisible();
@@ -448,7 +450,8 @@ describe('WorkspaceResourceView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+    await user.click(screen.getByRole('button', { name: 'File actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Provenance' }));
 
     expect(await screen.findByText('Unknown (holographic)')).toBeVisible();
   });

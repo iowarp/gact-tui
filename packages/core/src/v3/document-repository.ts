@@ -9,7 +9,7 @@ import type {
   SubmitArtifactReviewInput,
 } from './document-domain.js';
 import { readBytesPath } from './artifact-custody.js';
-import { BlueprintRepository } from './blueprint-repository.js';
+import { PluginRepository } from './plugin-repository.js';
 
 /**
  * Budget for a document rendition. Unit: milliseconds.
@@ -162,7 +162,7 @@ const editorHealthSchema = z.object({
 });
 
 /** Immutable document review, rendition, and working-copy workflows. */
-export class DocumentRepository extends BlueprintRepository {
+export class DocumentRepository extends PluginRepository {
   public documentManifest(artifactId: string, signal?: AbortSignal): Promise<DocumentManifest> {
     return this.transport.request({
       method: 'GET',

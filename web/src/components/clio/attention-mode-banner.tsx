@@ -10,6 +10,7 @@ import { formatSharePercent as pct } from '@/lib/attention-text';
 import { truncate } from '@/lib/format';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { AttentionProfileEditor } from './attention-profile-editor';
+import { AttentionPromptMap } from './attention-prompt-map';
 import { InfoTip } from './info-tip';
 import type { AttentionProfile } from '@clio/core/v3';
 
@@ -71,8 +72,13 @@ export function AttentionModeBanner({
           </p>
         ) : null}
         {state.status === 'shown' ? <AttentionBreakdown data={state.data} /> : null}
-        {state.status === 'shown' && state.data.profile && onProfileChange ? (
-          <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
+        {state.status === 'shown' ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {state.data.profile && onProfileChange ? (
+              <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
+            ) : null}
+            <AttentionPromptMap selection={state.selection} profile={state.data.profile} />
+          </div>
         ) : null}
       </div>
     </div>

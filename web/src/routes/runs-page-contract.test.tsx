@@ -17,6 +17,7 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://localhost:8790' } }),
 }));
 import { RunsPage } from './runs-page';
+import { sessionReads } from '@/test/session-reads';
 
 const description =
   'A long original assignment with retained exact meaning and enough detail to require progressive disclosure.';
@@ -229,3 +230,9 @@ it('confirms subtree cancellation and prevents duplicate requests while settleme
   expect(repository.cancelTasks).toHaveBeenCalledTimes(1);
   expect(screen.queryByText(/Detach|Dismiss from explorer/u)).not.toBeInTheDocument();
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => repository.allSessions()),
+);

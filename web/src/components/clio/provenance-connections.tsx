@@ -119,6 +119,9 @@ function ConnectionRow({
           This {vocab.agent} connects to the service; its deployment and data stay under the service
           owner's control. Verification writes a small provenance record and reads it back.
           Attention readiness needs a separate instrumented inference check.
+          {row.service_id === 'flowcept'
+            ? ' In use, it is also where SPOTTER and the provenance views read from.'
+            : null}
         </InfoTip>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">

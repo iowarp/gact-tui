@@ -72,6 +72,13 @@ export function PresentationLink({
     open = () => navigation.onOpenResource?.(resource);
   else if (block.target === 'session' && child && navigation?.onOpenSubagent)
     open = (event) => navigation.onOpenSubagent?.(child, subagentOpenTarget(event));
+  else if (
+    block.target === 'session' &&
+    uri &&
+    navigation?.onOpenSession &&
+    navigation.sessionAvailable?.(uri)
+  )
+    open = () => navigation.onOpenSession?.(uri);
   else if (block.target === 'work' && navigation?.onOpenWork) open = navigation.onOpenWork;
   else if (block.target === 'surface' && navigation?.surfaces?.[uri])
     open = () => {
@@ -124,10 +131,26 @@ export function PresentationLink({
         {text}
       </Link>,
     );
+  if (block.target === 'memory' && uri && hasRouter)
+    return withTooltip(
+      <Link
+        className={cn(className, 'underline')}
+        aria-label={iconOnly ? `Open ${label} in memory` : undefined}
+        to={`/settings/memory?${memoryLinkParams(uri)}`}
+      >
+        {text}
+      </Link>,
+    );
   if (iconOnly) return null;
   return withTooltip(
     <span className={className} tabIndex={compact ? 0 : undefined}>
       {text}
     </span>,
   );
+}
+
+/** ``<document>#<fact id>`` opens the memory page on that fact; a bare name on the document. */
+function memoryLinkParams(uri: string): URLSearchParams {
+  const [doc = uri, fact] = uri.split('#', 2);
+  return new URLSearchParams(fact ? { doc, fact } : { doc });
 }

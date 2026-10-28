@@ -15,6 +15,9 @@ import { pendingInteractionDomId, respondFromControl } from './interaction-contr
 import { OwnerAttribution, ResponseErrorNotice } from './pending-interaction-notices';
 import { TechnicalDetails } from './technical-details';
 import { PermissionOperationDetails } from './permission-operation-details';
+import { permissionOperationLabel } from './permission-operation-labels';
+import { FlowTrustDetails } from './flow-trust-details';
+import { flowTrustRequest } from '@/lib/plugin-review';
 
 const SCOPES = [
   { action: 'allow', label: 'Once', button: 'Allow once' },
@@ -39,8 +42,13 @@ export function PermissionResponse({
   responseError?: Error;
   showOwner: boolean;
 }) {
+  // Running a flow from a plugin not trusted yet: the decision is trusting its
+  // plugin, which lasts, so it is offered once ("Trust and run") without a duration.
+  const flowTrust = flowTrustRequest(interaction);
   const scopes = SCOPES.filter(
-    (scope) => !interaction.actions || interaction.actions.includes(scope.action),
+    (scope) =>
+      (!interaction.actions || interaction.actions.includes(scope.action)) &&
+      (!flowTrust || scope.action === 'allow'),
   );
   const [scopeAction, setScopeAction] = useAttentionDraft(`${interaction.id}:scope`, 'allow');
   const scope = scopes.find((scope) => scope.action === scopeAction) ?? scopes[0];
@@ -52,15 +60,19 @@ export function PermissionResponse({
       : {};
   const legacyTitle =
     interaction.title === `destructive tool call: ${toolName}` ||
-    interaction.title === `tool call: ${toolName}`;
-  const title =
-    legacyTitle && toolName === 'connected_data_connect'
+    interaction.title === `tool call: ${toolName}` ||
+    interaction.title === `external MCP tool call: ${toolName}`;
+  const title = flowTrust
+    ? `Running flow ${flowTrust.flow}`
+    : legacyTitle && toolName === 'connected_data_connect'
       ? typeof input.label === 'string' && input.label.trim()
         ? `Connect ${input.label}`
         : 'Connect source'
       : legacyTitle && toolName === 'connected_data_download'
         ? 'Download source'
-        : interaction.title;
+        : legacyTitle
+          ? (permissionOperationLabel(toolName ?? '', input) ?? interaction.title)
+          : interaction.title;
   return (
     <section
       className="min-w-0 px-3 pb-3"
@@ -84,10 +96,18 @@ export function PermissionResponse({
           <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
         </div>
       </div>
-      <PermissionOperationDetails interaction={interaction} />
+      {flowTrust ? (
+        <FlowTrustDetails request={flowTrust} />
+      ) : (
+        <PermissionOperationDetails interaction={interaction} />
+      )}
       {toolName || toolCall?.input !== undefined ? (
         <TechnicalDetails className="mt-3 text-xs text-muted-foreground" title="Technical details">
           {toolName ? <p className="font-mono">{toolName}</p> : null}
+          {(toolName === 'web_fetch' || toolName === 'web_search') &&
+          interaction.payload?.execution?.cwd ? (
+            <p className="my-2 break-all">Working folder: {interaction.payload.execution.cwd}</p>
+          ) : null}
           {toolCall?.input === undefined ? null : (
             <CodeBlock
               className="mt-2 max-h-40"
@@ -100,7 +120,7 @@ export function PermissionResponse({
         </TechnicalDetails>
       ) : null}
       <ResponseErrorNotice error={responseError} />
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+      <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 bg-background/95 py-2 backdrop-blur-sm">
         {!interaction.actions || interaction.actions.includes('deny') ? (
           <Button
             size="sm"
@@ -126,16 +146,16 @@ export function PermissionResponse({
                   ))}
                 </SelectContent>
               </Select>
-            ) : (
+            ) : flowTrust ? null : (
               <span className="text-xs text-muted-foreground">{scope.label}</span>
             )}
             <Button
               size="sm"
               disabled={disabled}
-              aria-label={scope.button}
+              aria-label={flowTrust ? 'Trust and run' : scope.button}
               onClick={() => respondFromControl(onResponse(interaction, { action: scope.action }))}
             >
-              Allow
+              {flowTrust ? 'Trust and run' : 'Allow'}
             </Button>
           </>
         ) : null}

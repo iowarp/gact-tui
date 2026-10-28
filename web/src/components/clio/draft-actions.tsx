@@ -1,4 +1,4 @@
-import { BotIcon, ExternalLinkIcon, FolderIcon, PaperclipIcon } from 'lucide-react';
+import { ExternalLinkIcon, FolderIcon, PaperclipIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,7 +16,7 @@ export function ClioDraftActions({
   onOpenSystemTerminal,
 }: {
   disabled?: boolean;
-  onOpen: (section: 'files' | 'resources' | 'blueprints') => void;
+  onOpen: (section: 'files' | 'resources') => void;
   onOpenSystemTerminal?: () => Promise<void>;
 }) {
   return (
@@ -37,9 +37,6 @@ export function ClioDraftActions({
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => onOpen('resources')}>
           <PaperclipIcon aria-hidden="true" /> Attached resources
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpen('blueprints')}>
-          <BotIcon aria-hidden="true" /> Agent blueprints
         </DropdownMenuItem>
         {onOpenSystemTerminal ? (
           <>

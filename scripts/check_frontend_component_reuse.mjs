@@ -79,7 +79,14 @@ const requiredImports = {
     '@/components/ai-elements/artifact',
     '@/components/ai-elements/attachments',
   ],
-  'web/src/components/clio/resource-viewers.tsx': ['@/components/ai-elements/code-block'],
+  // Text-file rendering moved to the shared file-text-view (#681), which composes
+  // CodeBlock and renders Markdown through content-markdown's MessageResponse.
+  'web/src/components/clio/resource-viewers.tsx': ['./file-text-view'],
+  'web/src/components/clio/file-text-view.tsx': [
+    '@/components/ai-elements/code-block',
+    './content-markdown',
+  ],
+  'web/src/components/clio/content-markdown.tsx': ['@/components/ai-elements/message'],
   'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
   // October 16 attention redesign: Queue owns the shared pager boundary. The
   // extracted permission decision composes the existing Button/Select rather
@@ -153,10 +160,11 @@ const requiredImports = {
     '@/components/ai-elements/code-block',
     '@/components/clio/settings-frame',
   ],
+  // Its readable view is the shared file-text-view (#681); the LaTeX source keeps CodeBlock.
   'web/src/components/clio/document-workspace.tsx': [
     '@/components/ai-elements/code-block',
-    '@/components/ai-elements/message',
     '@/components/reui/timeline',
+    './file-text-view',
   ],
 };
 

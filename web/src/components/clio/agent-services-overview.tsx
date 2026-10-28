@@ -20,11 +20,12 @@ export function AgentServicesOverview({
   onManageWebSearch?: () => void;
 }) {
   const webSearchUrl = remoteUrlFromSpec(webSearch?.spec);
+  const localProcess = !webSearchUrl && typeof webSearch?.spec?.command === 'string';
   const agent = agentIdentity(agentLabel, agentLocation);
   return (
     <section aria-labelledby="agent-services-title">
       <header className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-        <span>Connected {vocab.agent} ·</span>
+        <span>Connected {vocab.agent}:</span>
         <h2 id="agent-services-title" className="font-medium text-foreground">
           {agent}
         </h2>
@@ -43,8 +44,14 @@ export function AgentServicesOverview({
                 : undefined
             }
             error={!webSearchConnected ? webSearch?.error : undefined}
-            detail={webSearchUrl ?? 'No service address configured'}
-            location={serviceLocation(webSearchUrl, agentLocation)}
+            detail={
+              webSearchUrl ?? (localProcess ? 'Local MCP process' : 'No service address configured')
+            }
+            location={
+              localProcess
+                ? displayName(agentLocation?.trim() || 'this computer')
+                : serviceLocation(webSearchUrl, agentLocation)
+            }
             name={`${vocab.agent} Web Search`}
             status={
               webSearchConnected

@@ -14,14 +14,18 @@ const initialDefaults = {
   edit_mode: 'diff' as const,
   routing_mode: 'auto' as const,
   approval_mode: 'ask' as const,
-  blueprint_id: '',
+  agent_ref: '',
 };
 
 const repository = vi.hoisted(() => ({
   sessionDefaults: vi.fn(),
   updateSessionDefaults: vi.fn(),
   languageModelConfiguration: vi.fn(),
-  agentBlueprints: vi.fn(),
+  agents: vi.fn(),
+  capabilities: vi.fn(async () => ({
+    capabilities: { x_clio_agent_plugins: true },
+    gact_versions: [],
+  })),
   providerModels: vi.fn(),
   providerCatalog: vi.fn(),
   updateLanguageModelConfiguration: vi.fn(),
@@ -98,7 +102,7 @@ function renderSettings(
       },
     ],
   });
-  repository.agentBlueprints.mockResolvedValue([]);
+  repository.agents.mockResolvedValue([]);
   repository.providerCatalog.mockResolvedValue(providerCatalog);
   repository.spotterAvailability.mockResolvedValue({ available: true });
   repository.providerComponents.mockResolvedValue(

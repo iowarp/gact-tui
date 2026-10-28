@@ -13,6 +13,13 @@ import {
 import type { ContentSelection } from './storage-contract.js';
 import { contentSelectionSchema } from './attention-lookup-contract.js';
 import { z } from 'zod';
+import {
+  attentionItemsExportSchema,
+  attentionItemsResultSchema,
+  type AttentionItemsExport,
+  type AttentionItemsRequest,
+  type AttentionItemsResult,
+} from './attention-items.js';
 
 /**
  * "Understand attention": which earlier transcript text the model drew on to
@@ -106,6 +113,38 @@ export class AttentionRepository extends SessionHistoryRepository {
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/attention`,
       body: selection,
       decode: (value) => attentionResultSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** One attention vector per answer item over the whole prompt, by line (the SPOTTER view). */
+  public getAttentionItems(
+    sessionId: string,
+    messageId: string,
+    input: AttentionItemsRequest,
+    signal?: AbortSignal,
+  ): Promise<AttentionItemsResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/attention/items`,
+      body: input,
+      decode: (value) => attentionItemsResultSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** The same items as `attn_analytics.py` CSV rows (one per item, scores per prompt token). */
+  public exportAttentionItems(
+    sessionId: string,
+    messageId: string,
+    input: AttentionItemsRequest,
+    signal?: AbortSignal,
+  ): Promise<AttentionItemsExport> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/attention/items/export`,
+      body: input,
+      decode: (value) => attentionItemsExportSchema.parse(value),
       signal,
     });
   }

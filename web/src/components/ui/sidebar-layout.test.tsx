@@ -42,6 +42,24 @@ describe('sidebar vertical layout', () => {
       'overflow-y-auto',
     );
   });
+
+  it('lands collapsed menu buttons on the rail centre without animating their size', () => {
+    // The rail snaps to its width; a button that still animated its width and
+    // padding would slide its icon in off the shared centre line.
+    render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarMenuButton>Settings</SidebarMenuButton>
+        </Sidebar>
+      </SidebarProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveClass(
+      'group-data-[collapsible=icon]:mx-auto',
+      'group-data-[collapsible=icon]:size-8!',
+      'group-data-[collapsible=icon]:transition-none',
+    );
+  });
 });
 
 function SidebarState() {

@@ -168,6 +168,109 @@ const ast: MdastExtension = {
   },
 };
 
+/**
+ * Escape unmatched inline `$$` examples before remark-math scans prose.
+ *
+ * The remark-math text tokenizer treats an unmatched double-dollar marker as
+ * an opener and can assert when it reaches another dollar later in the same
+ * paragraph. Paired inline formulas and standalone display fences remain
+ * untouched; code and ordinary single-dollar text are never rewritten.
+ */
+export function normalizeMathMarkdown(markdown: string): string {
+  if (!markdown.includes('$$')) return markdown;
+
+  const tree = fromMarkdown(markdown);
+  const codeRanges: { start: number; end: number }[] = [];
+  interface PositionedNode {
+    type: string;
+    position?: { start: { offset?: number }; end: { offset?: number } };
+    children?: PositionedNode[];
+  }
+  const visit = (node: PositionedNode): void => {
+    if (node.type === 'code' || node.type === 'inlineCode') {
+      const start = node.position?.start.offset;
+      const end = node.position?.end.offset;
+      if (start !== undefined && end !== undefined) codeRanges.push({ start, end });
+    }
+    node.children?.forEach(visit);
+  };
+  visit(tree);
+  codeRanges.sort((left, right) => left.start - right.start);
+
+  const lines = markdown.match(/[^\r\n]*(?:\r\n|\r|\n|$)/gu) ?? [markdown];
+  const unmatched: { start: number; end: number }[] = [];
+  let offset = 0;
+  let paragraphStart: number | undefined;
+  const collectParagraph = (paragraphEnd: number): void => {
+    if (paragraphStart === undefined) return;
+    const markers: { start: number; end: number }[] = [];
+    let segmentStart = paragraphStart;
+    for (const range of codeRanges) {
+      if (range.end <= segmentStart) continue;
+      if (range.start >= paragraphEnd) break;
+      const codeStart = Math.max(segmentStart, range.start);
+      collectDollarMarkers(markdown, segmentStart, codeStart, markers);
+      segmentStart = Math.max(segmentStart, Math.min(paragraphEnd, range.end));
+    }
+    collectDollarMarkers(markdown, segmentStart, paragraphEnd, markers);
+    if (markers.length % 2 === 1) unmatched.push(markers[markers.length - 1]);
+    paragraphStart = undefined;
+  };
+
+  for (const line of lines) {
+    const content = line.replace(/(?:\r\n|\r|\n)$/u, '');
+    const lineOffset = offset;
+    offset += line.length;
+    if (/^\s*$/u.test(content) || isStandaloneMathFence(content)) {
+      collectParagraph(lineOffset);
+    } else if (paragraphStart === undefined) {
+      paragraphStart = lineOffset;
+    }
+  }
+  collectParagraph(markdown.length);
+
+  for (let index = unmatched.length - 1; index >= 0; index--) {
+    const marker = unmatched[index];
+    markdown = `${markdown.slice(0, marker.start)}\\$\\$${markdown.slice(marker.end)}`;
+  }
+  return markdown;
+}
+
+function isStandaloneMathFence(line: string): boolean {
+  let content = line.trimStart();
+  for (let depth = 0; depth < 8; depth++) {
+    const quote = content.match(/^>\s?/u);
+    const listItem = content.match(/^(?:[-+*]|\d+[.)])[ \t]+/u);
+    const prefix = quote ?? listItem;
+    if (!prefix) break;
+    content = content.slice(prefix[0].length).trimStart();
+  }
+  return content === '$$';
+}
+
+function collectDollarMarkers(
+  markdown: string,
+  start: number,
+  end: number,
+  output: { start: number; end: number }[],
+): void {
+  for (let index = start; index < end - 1; index++) {
+    if (
+      markdown[index] !== '$' ||
+      markdown[index + 1] !== '$' ||
+      markdown[index - 1] === '$' ||
+      markdown[index + 2] === '$'
+    ) {
+      continue;
+    }
+    let backslashes = 0;
+    for (let cursor = index - 1; cursor >= start && markdown[cursor] === '\\'; cursor--)
+      backslashes++;
+    if (backslashes % 2 === 0) output.push({ start: index, end: index + 2 });
+    index++;
+  }
+}
+
 /** Add standard LaTeX delimiters without rewriting saved messages or literal code. */
 export function remarkStandardMath(this: Processor): void {
   const data = this.data();
@@ -177,9 +280,10 @@ export function remarkStandardMath(this: Processor): void {
 
 /** Keep equations together when Streamdown's preliminary Markdown lexer splits them. */
 export function parseMathMarkdownBlocks(markdown: string): string[] {
-  const blocks = parseMarkdownIntoBlocks(markdown);
-  if (blocks.length < 2 || !/\$|\\[([]/u.test(markdown)) return blocks;
-  const tree = fromMarkdown(markdown, { extensions: [syntax], mdastExtensions: [ast] });
+  const normalized = normalizeMathMarkdown(markdown);
+  const blocks = parseMarkdownIntoBlocks(normalized);
+  if (blocks.length < 2 || !/\$|\\[([]/u.test(normalized)) return blocks;
+  const tree = fromMarkdown(normalized, { extensions: [syntax], mdastExtensions: [ast] });
   const ranges: { start: number; end: number }[] = [];
   interface MathNode {
     type: string;
@@ -198,7 +302,7 @@ export function parseMathMarkdownBlocks(markdown: string): string[] {
   if (!ranges.length) return blocks;
   // Marked currently preserves raw source. If that contract changes, avoid
   // inventing offsets and render the whole response with the real parser.
-  if (blocks.join('') !== markdown) return [markdown];
+  if (blocks.join('') !== normalized) return [normalized];
   const merged: string[] = [];
   let offset = 0;
   let rangeIndex = 0;

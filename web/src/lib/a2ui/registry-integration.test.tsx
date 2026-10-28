@@ -24,7 +24,7 @@ const KERNEL = { components: KERNEL_COMPONENTS, functions: KERNEL_FUNCTIONS };
 const PACK_ROW: A2uiCatalogRow = {
   catalogId: 'https://packs.example/earthscope/v1',
   protocolVersion: '0.9.1',
-  source: 'blueprint',
+  source: 'plugin',
   checksum: 'pack-checksum',
   componentNames: ['MultiPicker'],
   functionNames: [],

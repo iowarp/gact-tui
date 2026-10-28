@@ -9,7 +9,7 @@ import { WorkspaceResourceRemoveAction } from './workspace-resource-remove';
 const ENDPOINT = 'http://127.0.0.1:8790';
 
 const repository = vi.hoisted(() => ({ deleteResource: vi.fn() }));
-const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+const toast = vi.hoisted(() => ({ dismiss: vi.fn(), error: vi.fn(), success: vi.fn() }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({

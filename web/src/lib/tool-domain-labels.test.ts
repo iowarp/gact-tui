@@ -21,6 +21,7 @@ const ALL_TOOL_DOMAINS: ToolDomain[] = [
   'skills',
   'messaging',
   'interaction',
+  'science',
 ];
 
 describe('tool domain labels', () => {
@@ -35,6 +36,7 @@ describe('tool domain labels', () => {
   it('resolves a recognized token through toolDomainLabel', () => {
     expect(toolDomainLabel('planning')).toBe('Planning');
     expect(toolDomainLabel('interaction')).toBe('Questions');
+    expect(toolDomainLabel('science')).toBe('Science log');
   });
 
   it('returns undefined for null, absent, or unrecognized domains', () => {

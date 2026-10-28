@@ -92,15 +92,6 @@ function withOneUnitParam(
   return { ...spec, params: [...existing, param] };
 }
 
-function withRootParam(
-  spec: Record<string, unknown>,
-  param: Record<string, unknown>,
-): Record<string, unknown> {
-  const existing = Array.isArray(spec.params) ? spec.params : [];
-  if (existing.some((entry) => isJsonObject(entry) && entry.name === param.name)) return spec;
-  return { ...spec, params: [...existing, param] };
-}
-
 /** Give a custom Vega-Lite chart the same point selection as the presets. */
 export function withChartPointSelection(
   spec: Record<string, unknown>,
@@ -361,9 +352,11 @@ export function withManualChartZoom(
   const param = chartZoomParamName(pointParam);
   return {
     param,
-    // Layer-root selections expand into every child and duplicate tuple
-    // signals. A unit selection binds the shared scales exactly once.
-    spec: (Array.isArray(spec.layer) ? withOneUnitParam : withRootParam)(spec, {
+    // A selection belongs to a plot unit: a layer-root one expands into every
+    // child and duplicates tuple signals, and a facet- or concat-root one does
+    // not compile (the faceted chart then fails to draw). The first unit's
+    // selection binds the shared scales exactly once.
+    spec: withOneUnitParam(spec, {
       bind: 'scales',
       name: param,
       select: {

@@ -53,6 +53,10 @@ export async function downloadServerTableExport({
   filenameStem: string;
 }): Promise<void> {
   const artifactId = artifactIdFromDataUri(dataUri);
+  if (!artifactId && dataUri.startsWith('study://'))
+    throw new Error(
+      'a live study source has no file to download yet; export its rows from the study.',
+    );
   if (!artifactId) throw new Error('the data source is not a registered artifact id.');
   const bytes = await repository.artifactTableExport(artifactId, { ...query, format, scope });
   downloadBytes(bytes, EXPORT_MIME_TYPES[format], `${filenameStem}.${scope}.${format}`);

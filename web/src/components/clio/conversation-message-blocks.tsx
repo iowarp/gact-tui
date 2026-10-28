@@ -49,10 +49,14 @@ import { TranscriptResourceAttachments } from './transcript-resource-attachment'
 import { TranscriptTextBlock } from './transcript-text-block';
 import { toolOutputDiffKey } from './declared-diff-key';
 import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
+import { AnswerHookNotice } from './answer-hook-notice';
+import { ANSWER_HOOK_SOURCE, answerRevisions } from './answer-revisions';
 import { SummarizationInjection, TranscriptNotice } from './conversation-summarization';
 import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
+import { BoundedResult } from './bounded-result';
+import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -184,6 +188,7 @@ function MessageBlockView({
   onInteractionResponse,
   compactReferences,
 }: MessageBlockViewProps) {
+  const previewLines = useTranscriptPreviewLines();
   switch (block.type) {
     case 'text': {
       return (
@@ -315,27 +320,29 @@ function MessageBlockView({
       );
     case 'diff':
       return (
-        <CodeBlock code={block.unified_diff} language="diff" showLineNumbers>
-          <CodeBlockHeader>
-            <CodeBlockTitle>
-              <FileCode2Icon aria-hidden="true" className="size-3.5" />
-              <CodeBlockFilename>{block.path}</CodeBlockFilename>
-            </CodeBlockTitle>
-            <CodeBlockActions>
-              {onOpenFile ? (
-                <Button
-                  aria-label={`Open ${block.path} in workspace`}
-                  onClick={() => onOpenFile(block.path)}
-                  size="icon-xs"
-                  variant="ghost"
-                >
-                  <PanelsTopLeftIcon aria-hidden="true" />
-                </Button>
-              ) : null}
-              <CodeBlockCopyButton aria-label={`Copy diff for ${block.path}`} />
-            </CodeBlockActions>
-          </CodeBlockHeader>
-        </CodeBlock>
+        <BoundedResult lines={previewLines} title="File changes">
+          <CodeBlock code={block.unified_diff} language="diff" showLineNumbers>
+            <CodeBlockHeader>
+              <CodeBlockTitle>
+                <FileCode2Icon aria-hidden="true" className="size-3.5" />
+                <CodeBlockFilename>{block.path}</CodeBlockFilename>
+              </CodeBlockTitle>
+              <CodeBlockActions>
+                {onOpenFile ? (
+                  <Button
+                    aria-label={`Open ${block.path} in workspace`}
+                    onClick={() => onOpenFile(block.path)}
+                    size="icon-xs"
+                    variant="ghost"
+                  >
+                    <PanelsTopLeftIcon aria-hidden="true" />
+                  </Button>
+                ) : null}
+                <CodeBlockCopyButton aria-label={`Copy diff for ${block.path}`} />
+              </CodeBlockActions>
+            </CodeBlockHeader>
+          </CodeBlock>
+        </BoundedResult>
       );
     case 'error':
       return (
@@ -417,10 +424,13 @@ function MessageBlockView({
 
 export function MessageBlockSequence({
   blocks,
+  messageBlocks,
   resourcesFirst = false,
   ...props
 }: Omit<MessageBlockViewProps, 'block'> & {
   blocks: readonly MessageBlock[];
+  /** The whole message's blocks, when `blocks` is one segment of it. */
+  messageBlocks?: readonly MessageBlock[];
   resourcesFirst?: boolean;
 }) {
   const uniqueBlocks = responseArtifactBlocks(
@@ -441,12 +451,42 @@ export function MessageBlockSequence({
       return key ? [key] : [];
     }),
   );
+  // An answer a hook revised folds behind the hook's `revised` notice.
+  const revisions = answerRevisions(messageBlocks ?? orderedBlocks);
   let index = 0;
 
   while (index < orderedBlocks.length) {
     const block = orderedBlocks[index];
     if (!block) break;
     const keyIndex = index;
+
+    if (block.type === 'text' && revisions.has(block.id)) {
+      index += 1;
+      continue;
+    }
+
+    if (block.type === 'notice' && block.source === ANSWER_HOOK_SOURCE) {
+      const original = block.metadata?.revises ? revisions.get(block.metadata.revises) : undefined;
+      // A check recorded before a later revision judged the original answer, not the one shown.
+      const revisedLater = orderedBlocks
+        .slice(index + 1)
+        .some(
+          (later) =>
+            later.type === 'notice' &&
+            later.source === ANSWER_HOOK_SOURCE &&
+            later.code === 'revised',
+        );
+      rendered.push(
+        <AnswerHookNotice
+          block={block}
+          checkedOriginal={revisedLater && String(block.code ?? '').startsWith('check_')}
+          key={`${block.id}-${keyIndex}`}
+          original={original}
+        />,
+      );
+      index += 1;
+      continue;
+    }
 
     if (block.type === 'diff' && inlineDiffs.has(`${block.path}\u0000${block.unified_diff}`)) {
       index += 1;

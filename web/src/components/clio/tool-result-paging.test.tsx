@@ -21,7 +21,7 @@ beforeEach(() => {
   );
 });
 
-function view() {
+function view(resultSha256?: string) {
   return render(
     <ClioToolInvocation
       tool={{
@@ -42,6 +42,7 @@ function view() {
                 block_id: 'body',
                 cursor: 6,
                 total_chars: 17,
+                result_sha256: resultSha256,
               },
             },
           ],
@@ -113,6 +114,7 @@ describe('full presentation viewer paging', () => {
       'content',
       6,
       expect.any(AbortSignal),
+      undefined,
     );
   });
   it('keeps file metadata and paged Markdown in one surface and one expansion', async () => {
@@ -165,7 +167,14 @@ describe('full presentation viewer paging', () => {
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('Name: Readable document')).toBeVisible();
     expect(await within(dialog).findByText('first complete body')).toBeVisible();
-    expect(page).toHaveBeenCalledWith('session', 'call', 'body', 6, expect.any(AbortSignal));
+    expect(page).toHaveBeenCalledWith(
+      'session',
+      'call',
+      'body',
+      6,
+      expect.any(AbortSignal),
+      undefined,
+    );
   });
   it('retains skill metadata when the full instructions need paging', async () => {
     page.mockResolvedValueOnce({
@@ -215,7 +224,14 @@ describe('full presentation viewer paging', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveTextContent('When to use: Use for scientific observation queries.');
     expect(await within(dialog).findByText('first complete procedure')).toBeVisible();
-    expect(page).toHaveBeenCalledWith('session', 'call', 'content', 6, expect.any(AbortSignal));
+    expect(page).toHaveBeenCalledWith(
+      'session',
+      'call',
+      'content',
+      6,
+      expect.any(AbortSignal),
+      undefined,
+    );
   });
   it('one user action fetches contiguous pages and renders the complete result outside the transcript', async () => {
     page
@@ -227,8 +243,8 @@ describe('full presentation viewer paging', () => {
     const dialog = screen.getByRole('dialog');
     await waitFor(() => expect(within(dialog).getByText('first second last')).toBeVisible());
     expect(page.mock.calls).toEqual([
-      ['session', 'call', 'body', 6, expect.any(AbortSignal)],
-      ['session', 'call', 'body', 13, expect.any(AbortSignal)],
+      ['session', 'call', 'body', 6, expect.any(AbortSignal), undefined],
+      ['session', 'call', 'body', 13, expect.any(AbortSignal), undefined],
     ]);
     expect(container).not.toContainElement(dialog);
   });
@@ -260,7 +276,29 @@ describe('full presentation viewer paging', () => {
     await waitFor(() =>
       expect(within(screen.getByRole('dialog')).getByText('first second last')).toBeVisible(),
     );
-    expect(page.mock.calls[1]).toEqual(['session', 'call', 'body', 6, expect.any(AbortSignal)]);
+    expect(page.mock.calls[1]).toEqual([
+      'session',
+      'call',
+      'body',
+      6,
+      expect.any(AbortSignal),
+      undefined,
+    ]);
+  });
+  it('binds every fetched page to the recorded result digest', async () => {
+    const digest = 'a'.repeat(64);
+    page
+      .mockResolvedValueOnce({ text: 'second ', cursor: 6, next_cursor: 13, total_chars: 17 })
+      .mockResolvedValueOnce({ text: 'last', cursor: 13, next_cursor: null, total_chars: 17 });
+    view(digest);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Show more' }));
+    await waitFor(() =>
+      expect(within(screen.getByRole('dialog')).getByText('first second last')).toBeVisible(),
+    );
+    expect(page.mock.calls).toEqual([
+      ['session', 'call', 'body', 6, expect.any(AbortSignal), digest],
+      ['session', 'call', 'body', 13, expect.any(AbortSignal), digest],
+    ]);
   });
   it('surfaces a discontinuous cursor without appending incorrect content', async () => {
     page.mockResolvedValueOnce({ text: 'wrong', cursor: 5, next_cursor: null, total_chars: 17 });

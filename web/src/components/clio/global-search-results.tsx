@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { BotIcon, CableIcon, ServerIcon } from 'lucide-react';
-import { useTheme } from 'next-themes';
 import { CommandGroup, CommandItem, CommandShortcut } from '@/components/ui/command';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
@@ -15,6 +14,7 @@ import {
   matchesGlobalSearch,
 } from '@/lib/global-search-commands';
 import { SearchHighlight } from './search-highlight';
+import { useTheme } from '@/providers/appearance-provider';
 
 /** Global navigation and actions are mounted only while the normal palette is open. */
 export function GlobalSearchResults({
@@ -56,15 +56,7 @@ export function GlobalSearchResults({
   const matchedAgents = query.trim()
     ? (agents.data ?? [])
         .filter((item) =>
-          matchesGlobalSearch(
-            query,
-            'agents',
-            item.id,
-            item.title,
-            item.description,
-            item.specialization,
-            ...item.keywords,
-          ),
+          matchesGlobalSearch(query, 'agents', item.ref, item.name, item.description, item.role),
         )
         .slice(0, 20)
     : [];
@@ -141,20 +133,20 @@ export function GlobalSearchResults({
         <CommandGroup heading="Agents">
           {matchedAgents.map((item) => (
             <CommandItem
-              key={item.id}
-              value={`agent:${item.id}`}
-              onSelect={() => onRoute(`/settings/agents#${agentSearchTarget(item.id)}`)}
+              key={item.ref}
+              value={`agent:${item.ref}`}
+              onSelect={() => onRoute(`/settings/agents#${agentSearchTarget(item.ref)}`)}
             >
               <BotIcon aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate">
-                  <SearchHighlight text={item.title} query={query} />
+                  <SearchHighlight text={item.name || item.id} query={query} />
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  {item.description || item.id}
+                  {item.description || item.ref}
                 </span>
               </span>
-              <CommandShortcut>{item.enabled ? 'Agent' : 'Disabled'}</CommandShortcut>
+              <CommandShortcut>{item.kind === 'user' ? 'Your agent' : 'Agent'}</CommandShortcut>
             </CommandItem>
           ))}
         </CommandGroup>

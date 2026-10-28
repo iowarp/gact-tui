@@ -13,8 +13,8 @@ func appendRuntimeOperatorView(rows []string, rp map[string]any) []string {
 	if route := runtimeProvenanceRouteSummary(rp); route != "" {
 		fields = append(fields, detailField{"active path", route})
 	}
-	if workflow := runtimeScalar(valuefmt.MapValue(rp["blueprint"])["id"]); workflow != "" {
-		fields = append(fields, detailField{"workflow", workflow})
+	if agent := runtimeScalar(valuefmt.MapValue(rp["agent_resolution"])["ref"]); agent != "" {
+		fields = append(fields, detailField{"agent", agent})
 	}
 	if tools := runtimeProvenanceToolSummary(rp); tools != "" {
 		fields = append(fields, detailField{"tools used", tools})

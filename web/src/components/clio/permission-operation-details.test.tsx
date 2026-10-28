@@ -7,6 +7,43 @@ import { PermissionOperationDetails } from './permission-operation-details';
 
 afterEach(cleanup);
 
+it('shows a child researcher source and intent before expanding technical details', () => {
+  const interaction: PendingInteraction = {
+    id: 'read-parquet-docs',
+    kind: 'permission',
+    status: 'pending',
+    title: 'external MCP tool call: web_fetch',
+    owner_session_id: 'researcher-child',
+    attended_session_id: 'research-parent',
+    source: { protocol: 'native', tool_name: 'web_fetch' },
+    created_at: '2026-10-25T05:25:00Z',
+    payload: {
+      tool_call: {
+        tool_name: 'web_fetch',
+        input: {
+          target: 'https://arrow.apache.org/docs/python/parquet.html',
+          to_file: false,
+          _clio_task_description: 'Read observation table filtering and partition documentation',
+        },
+      },
+    },
+  };
+  render(
+    <ClioPendingInteractions
+      interactions={[interaction]}
+      viewedSessionId="research-parent"
+      onResponse={vi.fn(async () => undefined)}
+    />,
+  );
+  expect(screen.getByText('Source')).toBeVisible();
+  expect(screen.getByText('https://arrow.apache.org/docs/python/parquet.html')).toBeVisible();
+  expect(
+    screen.getByText('Read observation table filtering and partition documentation'),
+  ).toBeVisible();
+  expect(screen.queryByText('external MCP tool call: web_fetch')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Allow once' })).toBeVisible();
+});
+
 const request: PendingInteraction = {
   id: 'permission:folder-review',
   kind: 'permission',
@@ -38,6 +75,29 @@ const request: PendingInteraction = {
     },
   },
 };
+
+it('describes a web fetch that writes a file as saving the source', () => {
+  render(
+    <PermissionOperationDetails
+      interaction={{
+        ...request,
+        payload: {
+          tool_call: {
+            tool_name: 'web_fetch',
+            input: {
+              target: 'https://example.org/report.pdf',
+              to_file: true,
+              output_dir: 'D:\\Research\\Reports',
+            },
+          },
+        },
+      }}
+    />,
+  );
+  expect(screen.getByText('Save web source')).toBeVisible();
+  expect(screen.getByText('Output folder')).toBeVisible();
+  expect(screen.getByText('D:\\Research\\Reports')).toBeVisible();
+});
 
 it('shows command, computer, folders, reason and real duration before technical details', async () => {
   const respond = vi.fn();

@@ -1,4 +1,5 @@
 import type { Workspace } from '@clio/core/v3';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -7,6 +8,13 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ResourceActions } from './resource-dialogs';
 import { WorkspaceNavigation } from './workspace-navigation';
+import { sessionReads } from '@/test/session-reads';
+
+const repository = sessionReads(() => []);
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://owned-service' } }),
+}));
 
 afterEach(cleanup);
 
@@ -40,27 +48,31 @@ it('keeps workspace disclosure separate from the common action and overflow menu
     importSession: vi.fn(),
   };
   render(
-    <MemoryRouter>
-      <TooltipProvider>
-        <SidebarProvider>
-          <WorkspaceNavigation
-            actions={actions}
-            activeSessionId=""
-            activeWorkspaceId={workspace.id}
-            attentions={{}}
-            blueprints={[]}
-            onAction={vi.fn()}
-            onCreateSession={onCreateSession}
-            onDelete={vi.fn()}
-            onDownloadSession={vi.fn().mockResolvedValue(undefined)}
-            onEditWorkspace={onEditWorkspace}
-            onRename={vi.fn()}
-            sessions={[]}
-            workspaces={[workspace]}
-          />
-        </SidebarProvider>
-      </TooltipProvider>
-    </MemoryRouter>,
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <MemoryRouter>
+        <TooltipProvider>
+          <SidebarProvider>
+            <WorkspaceNavigation
+              actions={actions}
+              activeSessionId=""
+              activeWorkspaceId={workspace.id}
+              attentions={{}}
+              agents={[]}
+              onAction={vi.fn()}
+              onCreateSession={onCreateSession}
+              onDelete={vi.fn()}
+              onDownloadSession={vi.fn().mockResolvedValue(undefined)}
+              onEditWorkspace={onEditWorkspace}
+              onRename={vi.fn()}
+              sessions={[]}
+              workspaces={[workspace]}
+            />
+          </SidebarProvider>
+        </TooltipProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
   const disclosure = screen.getByRole('button', { name: 'Collapse workspace Reports' });

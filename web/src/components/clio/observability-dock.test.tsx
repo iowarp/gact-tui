@@ -169,25 +169,34 @@ describe('ClioObservabilityView', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Session rail' }));
-    expect(screen.getByRole('dialog', { name: 'Session rail' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Session rail' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
-    await user.click(screen.getByRole('button', { name: 'Session rail' }));
-    expect(screen.queryByRole('dialog', { name: 'Session rail' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Session rail' }));
-    await user.click(screen.getByRole('button', { name: 'Hide session rail' }));
+    expect(screen.queryByRole('button', { name: 'Work rail' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Evidence layout: None' }));
+    expect(screen.getByRole('dialog', { name: 'Activity and evidence' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Session rail' })).not.toBeInTheDocument();
+    const launcher = screen.getByRole('button', { name: 'Evidence layout: Bottom' });
+    expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.contextMenu(launcher);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Session rail' }));
+    fireEvent.keyDown(launcher, { key: 'ArrowLeft' });
+    expect(launcher).toHaveAccessibleName('Evidence layout: Both');
+    expect(screen.getByRole('region', { name: 'Session rail' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Hide session rail' }));
+    expect(launcher).toHaveAccessibleName('Evidence layout: Bottom');
+    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Hide work rail' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.keyDown(launcher, { key: 'ArrowRight' });
+    fireEvent.keyDown(launcher, { key: 'ArrowRight' });
+    expect(launcher).toHaveAccessibleName('Evidence layout: Top');
     await user.click(screen.getByRole('button', { name: 'Open full details' }));
 
     expect(onOpenCanvas).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('restores an old Data-only rail preference without filtering out individual work sections', async () => {
+  it('restores the old top preference and keeps its customized sections when both are shown', async () => {
     localStorage.setItem(
       'clio.evidence-disclosures.v1',
       JSON.stringify({
@@ -220,7 +229,11 @@ describe('ClioObservabilityView', () => {
         />
       </QueryClientProvider>,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Session rail' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Evidence layout: Top' }));
+    expect(screen.getByRole('button', { name: 'Evidence layout: Both' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.getByRole('region', { name: 'Context section' })).toBeVisible();
     expect(screen.getByRole('region', { name: 'Tool calls section' })).toBeVisible();
   });
@@ -298,7 +311,7 @@ describe('ClioObservabilityView', () => {
     expect(liveRegion).not.toBeNull();
     expect(liveRegion).toHaveTextContent('No active work');
     expect(liveRegion).not.toHaveTextContent('Up to date');
-    const button = screen.getByRole('button', { name: 'Session rail' });
+    const button = screen.getByRole('button', { name: 'Evidence layout: None' });
     expect(button.contains(liveRegion)).toBe(false);
 
     rerender(
@@ -430,7 +443,7 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText('2 background activities')).toBeVisible();
-    const evidenceControl = screen.getByRole('button', { name: 'Work rail' });
+    const evidenceControl = screen.getByRole('button', { name: 'Evidence layout: None' });
     expect(within(evidenceControl).getByText('Settled')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Browse child conversations' }));
     await user.click(
@@ -485,9 +498,11 @@ describe('ClioObservabilityView', () => {
         ]}
         diffs={[
           {
+            id: 'chg_1',
             path: 'src/analysis.py',
-            status: 'pending',
-            applied: false,
+            status: 'applied',
+            created: false,
+            undo_available: true,
             unified_diff: '@@ -1 +1 @@\n-old\n+new',
           },
         ]}
@@ -588,7 +603,7 @@ describe('ClioObservabilityView', () => {
     // Renders once as the owner group's row title and once as the span's own
     // event label.
     for (const element of screen.getAllByText('ndp #1')) expect(element).toBeVisible();
-    // GanttTitle now appends the visible time window ("Execution · <range>").
+    // GanttTitle now appends the visible time window ("Execution: <range>").
     expect(screen.getByText(/^Execution/u)).toBeVisible();
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
@@ -619,10 +634,10 @@ describe('ClioObservabilityView', () => {
     expect(openResource).toHaveBeenCalledWith(expect.objectContaining({ id: 'resource_pdf' }));
 
     await user.click(
-      screen.getByRole('button', { name: 'Review diff for src/analysis.py in canvas' }),
+      screen.getByRole('button', { name: 'Open the change to src/analysis.py in canvas' }),
     );
     expect(openDiff).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'src/analysis.py', status: 'pending' }),
+      expect.objectContaining({ id: 'chg_1', path: 'src/analysis.py', status: 'applied' }),
     );
   });
 
@@ -754,6 +769,8 @@ describe('ClioObservabilityView', () => {
     expect(screen.queryByText('https://legacy.invalid/scraped')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Artifacts, 1 recorded' }));
+    expect(screen.queryByText('Generated by Evidence critic')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Provenance for / }));
     expect(screen.getByText('Generated by Evidence critic')).toBeVisible();
   });
 });

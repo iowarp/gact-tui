@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { toast } from 'sonner';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   Dialog,
   DialogClose,
@@ -11,9 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogTitle } from './alert-dialog';
 import { Button } from './button';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('shared dialog controls', () => {
   it('preserves the full accessible title and restores the trigger after Escape', async () => {
@@ -65,5 +70,33 @@ describe('shared dialog controls', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open review' })).toHaveFocus();
+  });
+
+  it('clears the toasts shown before a dialog opens, so none sits on its title or actions', async () => {
+    const dismiss = vi.spyOn(toast, 'dismiss');
+    const user = userEvent.setup();
+    render(
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button>Open review</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogTitle>Document review</DialogTitle>
+          <DialogDescription>Review the document before continuing.</DialogDescription>
+        </DialogContent>
+      </Dialog>,
+    );
+    expect(dismiss).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Open review' }));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    cleanup();
+    render(
+      <AlertDialog open>
+        <AlertDialogContent>
+          <AlertDialogTitle>Remove shell?</AlertDialogTitle>
+        </AlertDialogContent>
+      </AlertDialog>,
+    );
+    expect(dismiss).toHaveBeenCalledTimes(2);
   });
 });

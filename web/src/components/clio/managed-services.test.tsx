@@ -19,6 +19,10 @@ const connection = vi.hoisted(() => ({
   settings: { endpoint: 'http://127.0.0.1:17800', token: 'test-token' },
 }));
 const repository = vi.hoisted(() => ({
+  workspaces: vi.fn(),
+  mcpServers: vi.fn(),
+  savedMcpServices: vi.fn(),
+  tools: vi.fn(),
   infrastructureInventory: vi.fn(),
   infrastructureTargets: vi.fn(),
   createInfrastructureTarget: vi.fn(),
@@ -62,7 +66,7 @@ vi.mock('@/tauri/ssh-credentials', () => ({
 }));
 
 import { ManagedServices } from './managed-services';
-import { services } from '@/test-fixtures/managed-services';
+import { localServiceFacts, services } from '@/test-fixtures/managed-services';
 
 function renderServices(props: ComponentProps<typeof ManagedServices> = {}) {
   return render(
@@ -75,20 +79,16 @@ function renderServices(props: ComponentProps<typeof ManagedServices> = {}) {
 }
 
 beforeEach(() => {
+  repository.workspaces.mockResolvedValue([]);
+  repository.mcpServers.mockResolvedValue([]);
+  repository.savedMcpServices.mockResolvedValue([]);
+  repository.tools.mockResolvedValue([]);
   repository.infrastructureInventory.mockResolvedValue({ operations: [] });
   localStorage.clear();
   runtime.desktop = true;
   connection.isManagedConnection = true;
   deployment.managedServiceCatalog.mockResolvedValue({
-    facts: {
-      target: 'local',
-      os: 'windows',
-      arch: 'x86_64',
-      accelerator: 'none',
-      docker_available: true,
-      docker_installed: true,
-      uv_available: true,
-    },
+    facts: localServiceFacts,
     services,
   });
   deployment.listSshProfiles.mockResolvedValue([]);
@@ -258,27 +258,32 @@ describe('ManagedServices', () => {
 
   it('summarizes connected MCP services before deployment controls', async () => {
     renderServices({
-      connectedAgentLabel: 'Ares Research',
       connectedAgentLocation: 'Ares',
-      webSearchConnected: true,
-      webSearchConnection: {
-        name: 'web',
-        configured: true,
-        scope: 'user',
-        status: 'ready',
-        tools_count: 3,
-        tools: ['fetch', 'fetch_events', 'search'],
-        retryable: false,
-        spec: {
-          args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
-        },
-      },
     });
 
-    expect(screen.getByRole('heading', { name: 'Ares › Research' })).toBeVisible();
-    expect(screen.getByText('http://127.0.0.1:8089')).toBeVisible();
-    expect(screen.getByText('Runs on Ares')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add MCP' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Install service' })).toBeVisible();
+  });
+
+  it('identifies a command-backed connection on the agent without requiring a service URL', async () => {
+    repository.mcpServers.mockResolvedValue([
+      {
+        id: 'mcp_ext_web',
+        name: 'Web search',
+        transport: 'stdio',
+        status: 'ready',
+        tools: ['fetch', 'search'],
+        tools_count: 2,
+        spec: { command: 'web-mcp', args: [] },
+      },
+    ]);
+    renderServices({
+      connectedAgentLocation: 'Ares',
+    });
+    expect(await screen.findByRole('heading', { name: 'Web search' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
+    expect(screen.queryByText('No service address configured')).toBeNull();
   });
 
   it('shows installed inventory before choosing a new runtime', async () => {
@@ -763,15 +768,7 @@ describe('ManagedServices', () => {
   it('does not show the finish-setup banner once llama.cpp is actually installed', async () => {
     installerInfra.installerRequestedLlamaCpp.mockResolvedValue(true);
     deployment.managedServiceCatalog.mockResolvedValue({
-      facts: {
-        target: 'local',
-        os: 'windows',
-        arch: 'x86_64',
-        accelerator: 'none',
-        docker_available: true,
-        docker_installed: true,
-        uv_available: true,
-      },
+      facts: localServiceFacts,
       services: services.map((service) =>
         service.id === 'llama_cpp' ? { ...service, state: 'stopped' as const } : service,
       ),

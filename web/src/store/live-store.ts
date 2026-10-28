@@ -1,6 +1,8 @@
+import { withoutSessionData } from '@/lib/session-entity-retention';
 import {
   createEntityState,
   mergeVariantRuns,
+  isToolExecutionSnapshot,
   type VariantRuns,
   type EntityState,
   type StreamState,
@@ -43,6 +45,7 @@ interface LiveStore {
    * live ones: what the stream wrote wins, the trace fills what it never saw.
    */
   hydrateVariantRuns: (runs: VariantRuns) => void;
+  dropSessionData: (sessionId: string) => void;
   reset: () => void;
 }
 
@@ -109,7 +112,11 @@ function mergeEntityMap(
       'updated_at' in entity &&
       'updated_at' in previous &&
       String(entity.updated_at) >= String(previous.updated_at);
-    merged[id] = streamOwned.has(id) && id in current && !terminalSessionSnapshot ? previous : entity;
+    const executionSnapshot = mapKey === 'tools' && isToolExecutionSnapshot(previous, entity);
+    merged[id] =
+      streamOwned.has(id) && id in current && !terminalSessionSnapshot && !executionSnapshot
+        ? previous
+        : entity;
   }
   for (const [id, entity] of Object.entries(current)) {
     if (!(id in merged) && streamOwned.has(id)) merged[id] = entity;
@@ -219,5 +226,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
         variant_runs: mergeVariantRuns(state.entities.variant_runs, runs),
       },
     })),
+  dropSessionData: (sessionId) =>
+    set((state) => ({ entities: withoutSessionData(state.entities, sessionId) })),
   reset: () => set({ entities: createEntityState(), frameGaps: [], error: undefined }),
 }));

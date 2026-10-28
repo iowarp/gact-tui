@@ -11,10 +11,10 @@ const fixtures = vi.hoisted(() => ({
   token: 'one',
   location: '',
   infrastructure: undefined as { targetId: string; serviceId: 'clio_agent' } | undefined,
+  sessionRows: vi.fn(),
   openLogin: vi.fn(),
   cancelLogin: vi.fn(),
   repository: {
-    sessions: vi.fn(),
     connectedSources: vi.fn(),
     storageProviders: vi.fn(),
     signOutStorageAccount: vi.fn(),
@@ -52,6 +52,7 @@ vi.mock('@/providers/connection-provider', () => ({
   }),
 }));
 import { ConnectedSourcePicker } from './connected-source-picker';
+import { sessionReads } from '@/test/session-reads';
 
 const source = {
   id: 's1',
@@ -72,7 +73,13 @@ const source = {
 };
 beforeEach(() => {
   vi.resetAllMocks();
-  fixtures.repository.sessions.mockResolvedValue([{ id: 'session_sources', title: 'Source work' }]);
+  Object.assign(
+    fixtures.repository,
+    sessionReads(() => fixtures.sessionRows()),
+  );
+  fixtures.sessionRows.mockResolvedValue([
+    { id: 'session_sources', workspace_id: 'w', title: 'Source work' },
+  ]);
   fixtures.endpoint = 'https://clio-one';
   fixtures.token = 'one';
   fixtures.location = '';

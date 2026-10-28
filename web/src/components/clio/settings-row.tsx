@@ -11,6 +11,7 @@ export function SettingsRow({
   info,
   children,
   htmlFor,
+  inlineControl = false,
 }: {
   title: string;
   description?: ReactNode;
@@ -18,12 +19,19 @@ export function SettingsRow({
   info?: ReactNode;
   children: ReactNode;
   htmlFor?: string;
+  /** Small controls such as switches can stay beside their label at narrow widths. */
+  inlineControl?: boolean;
 }) {
   return (
     <div className="@container">
       <div
         data-slot="settings-row"
-        className="grid items-center gap-3 border-b border-border/60 py-4 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]"
+        className={cn(
+          'grid items-center gap-3 border-b border-border/60 py-4',
+          inlineControl
+            ? 'grid-cols-[minmax(0,1fr)_auto]'
+            : '@2xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]',
+        )}
       >
         <div className="min-w-0 pr-4">
           <div className="flex items-center gap-1.5">
@@ -44,7 +52,10 @@ export function SettingsRow({
         </div>
         <div
           data-slot="settings-control"
-          className="flex w-full min-w-0 items-center justify-start @2xl:justify-end"
+          className={cn(
+            'flex w-full min-w-0 items-center justify-start @2xl:justify-end',
+            inlineControl && 'self-start pt-0.5',
+          )}
         >
           {children}
         </div>
@@ -86,7 +97,9 @@ export function SettingsChoice({
           htmlFor={`${id}-${option}`}
           title={description}
           className={cn(
-            'flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-0.5 py-1.5 text-center text-sm text-muted-foreground @2xs:flex-row has-focus-visible:ring-2 has-focus-visible:ring-ring',
+            'flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-0.5 py-1.5 text-center text-sm text-muted-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring',
+            // Four or more labelled icons do not fit side by side in the control column.
+            (options.length < 4 || !Icon) && '@2xs:flex-row',
             value === option && 'bg-background text-foreground shadow-sm',
           )}
         >

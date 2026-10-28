@@ -8,7 +8,7 @@ import { checkChartSpecSchemaRules } from './chart-spec-guard';
 import { BoundDataQuery } from './bound-data-query';
 import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
 import { isBoundToPath, type SelectionWriter } from './selection-state';
-import { geoJsonGeometrySchema } from './table-query-rows';
+import { TABLE_DATA_URI, geoJsonGeometrySchema } from './table-query-rows';
 
 // vega, vega-lite and vega-embed are only fetched once a surface contains a chart.
 const LazyChart = lazy(() =>
@@ -50,10 +50,7 @@ const chartShape = {
     )
     .max(guardRules.maxInlineRows)
     .optional(),
-  dataUri: z
-    .string()
-    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
-    .optional(),
+  dataUri: z.string().regex(TABLE_DATA_URI).optional(),
   dataQuery: chartDataQuerySchema.optional(),
   selection: CommonSchemas.DynamicValue.optional(),
   selectionParam: z.string().regex(new RegExp(guardRules.selectionParamPattern, 'u')).optional(),

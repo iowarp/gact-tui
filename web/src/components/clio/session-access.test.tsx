@@ -3,10 +3,11 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+const sessionRows = vi.hoisted(() => vi.fn());
+
 const repository = vi.hoisted(() => ({
   coordinationGrants: vi.fn(),
   workspaces: vi.fn(),
-  sessions: vi.fn(),
   grantSessionAccess: vi.fn(),
   revokeSessionAccess: vi.fn(),
 }));
@@ -17,11 +18,16 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { SessionAccess } from './session-access';
+import { sessionReads } from '@/test/session-reads';
 
 let queryClient: QueryClient;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  Object.assign(
+    repository,
+    sessionReads(() => sessionRows()),
+  );
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -29,9 +35,9 @@ beforeEach(() => {
   repository.workspaces.mockResolvedValue([
     { id: 'workspace', name: 'Research', display_name: 'Research' },
   ]);
-  repository.sessions.mockResolvedValue([
-    { id: 'owner', title: 'Owning conversation' },
-    { id: 'peer', title: 'Peer analysis' },
+  sessionRows.mockResolvedValue([
+    { id: 'owner', workspace_id: 'workspace', title: 'Owning conversation' },
+    { id: 'peer', workspace_id: 'workspace', title: 'Peer analysis' },
   ]);
   repository.grantSessionAccess.mockResolvedValue({ id: 'grant' });
   repository.revokeSessionAccess.mockResolvedValue(undefined);

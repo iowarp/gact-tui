@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { artifactSchema, type WorkspaceResource } from '@clio/core/v3';
+// These assertions exercise routed sources, after the real Markdown renderer loads.
+import '@/components/ai-elements/markdown';
 import { groundedMessageSegments } from '@/lib/grounded-message-sources';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { PresentationNavigation } from './presentation-navigation';

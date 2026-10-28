@@ -1,12 +1,10 @@
-import { queryKeys } from '@/lib/query-keys';
-import type { AgentDefinition } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BotIcon, SparklesIcon, WrenchIcon } from 'lucide-react';
-import { AddIcon, DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import type { AgentEntry } from '@clio/core/v3';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { BotIcon, UserRoundIcon, ChevronRightIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { agentSearchTarget } from '@/lib/global-search-commands';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,237 +15,253 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useRepository } from '@/hooks/use-repository';
-import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation';
+import { useAgentPluginsSupported, useInstalledAgents } from '@/hooks/use-session-agent';
+import { agentSearchTarget } from '@/lib/global-search-commands';
+import { DeleteIcon } from '@/lib/icon-vocabulary';
+import { agentDisplayName } from '@/lib/plugin-presentation';
+import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { AgentEditorDialog } from './agent-editor-dialog';
-import { ClioInteractiveRow } from './interactive-row';
+import { DraftAgentCompositionView } from './agent-composition-view';
+import { CatalogGroup } from './catalog-group';
+import type { DraftAgent } from '@/hooks/use-draft-agent-change';
 import { SettingsSectionHeading } from './settings-section-heading';
-import { ClioStatus } from './status';
 
+/** Installed agents and the person's own agents (a parent plus a delta). */
 export function AgentSettings() {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const location = useLocation();
-  const [editing, setEditing] = useState<AgentDefinition | null>();
-  const [deleting, setDeleting] = useState<AgentDefinition>();
-  const agents = useQuery({
-    queryKey: queryKeys.key('agents', settings.endpoint),
-    queryFn: ({ signal }) => repository.agents(signal),
-  });
-  const tools = useQuery({
-    queryKey: queryKeys.key('tools', settings.endpoint),
-    queryFn: ({ signal }) => repository.tools(signal),
-  });
+  const supported = useAgentPluginsSupported();
+  const agents = useInstalledAgents();
+  const [deleting, setDeleting] = useState<AgentEntry>();
+  const [previewing, setPreviewing] = useState<AgentEntry>();
   useEffect(() => {
     if (!location.hash.startsWith('#agent-')) return;
     const row = document.getElementById(location.hash.slice(1));
     row?.scrollIntoView({ block: 'center' });
     row?.focus({ preventScroll: true });
   }, [location.key, location.hash, agents.data]);
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) });
-  const save = useMutation({
-    mutationFn: (agent: AgentDefinition) =>
-      editing ? repository.updateAgent(editing.id, agent) : repository.createAgent(agent),
-    onSuccess: async (agent) => {
-      setEditing(undefined);
-      await invalidate();
-      toast.success(`${agent.title} saved`);
-    },
-  });
   const remove = useMutation({
-    mutationFn: (agent: AgentDefinition) => repository.deleteAgent(agent.id),
+    mutationFn: (agent: AgentEntry) => repository.deleteUserAgent(agent.id),
     onSuccess: async (_value, agent) => {
       setDeleting(undefined);
-      await invalidate();
-      toast.success(`${agent.title} removed`);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) });
+      toast.success(`Deleted ${agent.name || agent.ref}`);
     },
   });
-
+  if (supported === false) {
+    return (
+      <Alert>
+        <AlertTitle>Plugins are not available on this service</AlertTitle>
+        <AlertDescription>
+          The connected service does not compose agents from plugins.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
+  const installed = agents.data?.filter((agent) => agent.kind !== 'user') ?? [];
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <SettingsSectionHeading
-          description="Manage the agents available to your sessions. Built-in agents are read-only; you can add and edit your own."
-          title="Agents"
-        />
-        <Button onClick={() => setEditing(null)}>
-          <AddIcon aria-hidden="true" /> New agent
-        </Button>
-      </div>
+      <SettingsSectionHeading
+        description="Explore an agent’s plugins and prompt, change its composition, and save your own local variation."
+        title="Agents"
+      />
       {agents.error ? (
         <Alert variant="destructive">
-          <AlertTitle>Agent registry unavailable</AlertTitle>
+          <AlertTitle>Agents unavailable</AlertTitle>
           <AlertDescription>{agents.error.message}</AlertDescription>
         </Alert>
       ) : null}
-      <div className="grid gap-2">
-        {agents.data?.map((agent) => (
-          <AgentRow
-            agent={agent}
-            key={agent.id}
-            onDelete={() => setDeleting(agent)}
-            onEdit={() => setEditing(agent)}
-          />
-        ))}
-      </div>
-
-      {editing !== undefined ? (
-        <AgentEditorDialog
-          agent={editing}
-          error={save.error?.message}
-          key={editing?.id ?? 'new-agent'}
-          onClose={() => setEditing(undefined)}
-          onSave={save.mutateAsync}
-          pending={save.isPending}
-          tools={tools.data ?? []}
-          toolsError={tools.error?.message}
-          toolsPending={tools.isPending}
-        />
+      {agents.isPending ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Loading agents…
+        </p>
       ) : null}
-
+      {agents.data ? (
+        <>
+          <section aria-label="Your agents" className="grid gap-2">
+            <h2 className="text-sm font-semibold">Your agents</h2>
+            {!mine.length ? (
+              <p className="text-sm text-muted-foreground">
+                Open an installed agent to explore it and save your own variation.
+              </p>
+            ) : null}
+            <ul className="grid gap-2">
+              {mine.map((agent) => (
+                <AgentRow
+                  agent={agent}
+                  agents={agents.data ?? []}
+                  key={agent.ref}
+                  onDelete={() => setDeleting(agent)}
+                  onPreview={() => setPreviewing(agent)}
+                />
+              ))}
+            </ul>
+          </section>
+          <section aria-label="Installed agents" className="grid gap-2">
+            <h2 className="text-sm font-semibold">Installed agents</h2>
+            {[...new Set(installed.map((agent) => agent.marketplace))].map((marketplace) => (
+              <CatalogGroup
+                key={marketplace}
+                name={marketplace}
+                count={installed.filter((agent) => agent.marketplace === marketplace).length}
+              >
+                <ul className="grid gap-2">
+                  {installed
+                    .filter((agent) => agent.marketplace === marketplace)
+                    .map((agent) => (
+                      <AgentRow
+                        key={agent.ref}
+                        agent={agent}
+                        agents={agents.data ?? []}
+                        onPreview={() => setPreviewing(agent)}
+                      />
+                    ))}
+                </ul>
+              </CatalogGroup>
+            ))}
+          </section>
+        </>
+      ) : null}
       <AlertDialog
-        onOpenChange={(open) => !open && setDeleting(undefined)}
         open={Boolean(deleting)}
+        onOpenChange={(open) => (open ? undefined : setDeleting(undefined))}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {deleting?.title}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {deleting?.name || deleting?.ref}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The agent definition will be removed from future routing. Existing session history is
-              preserved.
+              New conversations can no longer choose it. Conversations already using it keep their
+              pinned plugins.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {remove.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>Agent was not removed</AlertTitle>
-              <AlertDescription>{remove.error.message}</AlertDescription>
-            </Alert>
+            <p className="text-sm text-destructive" role="alert">
+              {remove.error.message}
+            </p>
           ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel>Keep agent</AlertDialogCancel>
             <AlertDialogAction
               disabled={remove.isPending}
-              onClick={() => deleting && remove.mutate(deleting)}
-              variant="destructive"
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleting) remove.mutate(deleting);
+              }}
             >
-              Remove agent
+              Delete agent
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {previewing ? (
+        <AgentPreviewDialog
+          key={previewing.ref}
+          agent={previewing}
+          onClose={() => setPreviewing(undefined)}
+        />
+      ) : null}
     </div>
   );
 }
 
 function AgentRow({
   agent,
+  agents,
+  onPreview,
   onDelete,
-  onEdit,
 }: {
-  agent: AgentDefinition;
-  onDelete: () => void;
-  onEdit: () => void;
+  agent: AgentEntry;
+  agents: readonly AgentEntry[];
+  onPreview: () => void;
+  onDelete?: () => void;
 }) {
-  const editable = agent.source === 'user';
-  const invalid = agent.validation_errors.length > 0;
-  const status = invalid ? 'unavailable' : agent.enabled ? 'healthy' : 'degraded';
-  const statusLabel = invalid ? 'Needs attention' : agent.enabled ? 'Available' : 'Disabled';
-  const description = agentDescription(agent);
-  const providerName = agent.default_provider
-    ? providerDisplayName(undefined, agent.default_provider)
-    : undefined;
+  const Icon = agent.kind === 'user' ? UserRoundIcon : BotIcon;
   return (
-    <ClioInteractiveRow
-      id={agentSearchTarget(agent.id)}
+    <li
+      className="relative flex min-w-0 items-start gap-3 rounded-lg border px-3 py-3 hover:bg-muted/40 target:border-primary/50 target:bg-primary/10"
+      id={agentSearchTarget(agent.ref)}
       tabIndex={-1}
-      className="target:border-primary/50 target:bg-primary/10"
-      actions={
-        editable ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button aria-label={`Actions for ${agent.title}`} size="icon-sm" variant="ghost">
-                <MoreIcon aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48">
-              <DropdownMenuItem onSelect={onEdit}>Edit agent</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onDelete} variant="destructive">
-                <DeleteIcon aria-hidden="true" /> Remove agent
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null
-      }
     >
-      <div className="flex items-start gap-3">
-        <BotIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+      <button
+        type="button"
+        aria-label={`Explore ${agent.name || agent.id}`}
+        onClick={onPreview}
+        className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">{agent.title}</p>
-            <ClioStatus
-              detail={invalid ? agent.validation_errors.join(' ') : undefined}
-              label={statusLabel}
-              value={status}
-            />
-            <Badge variant="outline">{editable ? 'Custom' : 'Built in'}</Badge>
-          </div>
-          <p
-            className="mt-1 text-sm leading-6 text-muted-foreground"
-            title={description === agent.description ? undefined : agent.description}
-          >
-            {description}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <WrenchIcon aria-hidden="true" className="size-3.5" />
-              {agent.tools.length} {agent.tools.length === 1 ? 'tool' : 'tools'}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <SparklesIcon aria-hidden="true" className="size-3.5" />
-              {agent.skills.length ? `${agent.skills.length} skills` : 'No skills'}
-            </span>
-            <Badge variant="secondary">{tierLabel(agent.tier)}</Badge>
-            {agent.default_model ? (
-              <Badge className="gap-1.5" title={providerName} variant="outline">
-                {agent.default_provider ? (
-                  <ModelSelectorLogo provider={providerLogoId(agent.default_provider)} />
-                ) : null}
-                <span>{providerName}</span>
-                <span className="text-muted-foreground">{agent.default_model}</span>
-              </Badge>
+            <span className="font-medium">{agent.name || agent.id}</span>
+            <span className="font-mono text-xs text-muted-foreground">{agent.ref}</span>
+            {agent.version ? (
+              <span className="text-xs text-muted-foreground">{agent.version}</span>
+            ) : null}
+            {agent.flow && agent.flow.id !== 'react' ? (
+              <Badge variant="outline">Flow {agent.flow.id}</Badge>
             ) : null}
           </div>
+          {agent.description ? (
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{agent.description}</p>
+          ) : null}
+          {agent.kind === 'user' && agent.extends ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Starts from {agentDisplayName(agent.extends, agents)}
+              {agent.delta?.add.length ? `; adds ${agent.delta.add.join(', ')}` : ''}
+              {agent.delta?.remove.length ? `; removes ${agent.delta.remove.join(', ')}` : ''}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {agent.plugins.length} {agent.plugins.length === 1 ? 'plugin' : 'plugins'}
+            </p>
+          )}
         </div>
+        <ChevronRightIcon
+          aria-hidden="true"
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+        />
+      </button>
+      <div className="relative z-10 flex items-center gap-1">
+        {onDelete ? (
+          <Button
+            aria-label={`Delete ${agent.name || agent.ref}`}
+            onClick={onDelete}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <DeleteIcon aria-hidden="true" />
+          </Button>
+        ) : null}
       </div>
-    </ClioInteractiveRow>
+    </li>
   );
 }
 
-function agentDescription(agent: AgentDefinition): string {
-  if (agent.source === 'builtin' && agent.id === 'main') {
-    return 'Coordinates sessions that do not use a domain blueprint.';
-  }
-  return agent.description || 'No description provided.';
-}
-
-function tierLabel(tier: number): string {
-  if (tier === 0) return 'General agent';
-  if (tier === 1) return 'Coordinator';
-  if (tier === 3) return 'Focused worker';
-  return 'Specialist';
+function AgentPreviewDialog({ agent, onClose }: { agent: AgentEntry; onClose: () => void }) {
+  const [draft, setDraft] = useState<DraftAgent>({
+    ref: agent.ref,
+    delta: { add: [], remove: [] },
+  });
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+        <DialogTitle className="sr-only">{agent.name || agent.ref}</DialogTitle>
+        <DialogDescription className="sr-only">
+          Explore this agent and save a local variation.
+        </DialogDescription>
+        <DraftAgentCompositionView draft={draft} onChange={setDraft} library />
+      </DialogContent>
+    </Dialog>
+  );
 }

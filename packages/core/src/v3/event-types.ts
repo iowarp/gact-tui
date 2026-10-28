@@ -45,6 +45,7 @@ export const GACT_V3_EVENT_TYPES = [
   'stream.live',
   'subagent.upserted',
   'task.upserted',
+  'task.updated',
   'tool.upserted',
   'tool.presentation.delta',
   'variant.closed',

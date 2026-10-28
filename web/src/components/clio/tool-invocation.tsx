@@ -1,3 +1,5 @@
+import { INLINE_MEMORY_TOOLS } from './memory-presentation';
+import { toolResultRecord, asRecord } from './tool-result-shared';
 import type { AttentionBlock, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
 import { WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
@@ -18,10 +20,11 @@ import {
   getToolCompactMetadata,
   getToolStatus,
   getToolFailureDetail,
+  getToolInterruptionDetail,
   isA2uiCatalogLookup,
 } from './tool-presentation';
 import { PagedBlock } from './tool-result-primitives';
-import { withWorkflowPresentation, workflowDescriptor } from './workflow-tool-presentation';
+import { flowToolDescriptor } from './flow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 import { ToolAttentionField } from './tool-attention-fields';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
@@ -32,6 +35,14 @@ import { withTaskWaitPresentation } from './task-wait-presentation';
 import { withTodoPresentation } from './todo-tool-presentation';
 import { withStorageToolPresentation } from './storage-tool-presentation';
 import { withSkillPresentation } from './skill-tool-presentation';
+import { withQuestionPresentation } from './question-tool-presentation';
+import { useQuestionAnswer } from './question-answer-context';
+import {
+  agentMessageName,
+  sentAgentMessage,
+  withAgentMessagePresentation,
+} from './agent-message-presentation';
+import { useLiveStore } from '@/store/live-store';
 
 export function ClioToolInvocation({
   attention,
@@ -40,19 +51,27 @@ export function ClioToolInvocation({
   tool,
   defaultOpen,
   compact = false,
+  surface = 'transcript',
 }: {
   tool?: ToolInvocation;
   defaultOpen?: boolean;
   embedded?: boolean;
   compact?: boolean;
+  /** Evidence reuses the same results with its own list density and kind/status glyphs. */
+  surface?: 'transcript' | 'evidence';
   /** Attention-mode badge: this tool call's share of the selection's attention, and its intensity bucket. */
   attention?: { share: number; bucket: number };
   attentionFields?: readonly AttentionBlock[];
   sessionId?: string;
 }) {
   const navigation = useContext(PresentationNavigation);
+  const questionContext = useQuestionAnswer();
+  const sentMessage = sentAgentMessage(tool);
+  const recipientTitle = useLiveStore(
+    (state) => state.entities.sessions[sentMessage?.sessionId ?? sentMessage?.target ?? '']?.title,
+  );
   const [open, setOpen] = useState(defaultOpen ?? false);
-  const [resultOpen, setResultOpen] = useState(false);
+  const [resultOpen, setResultOpen] = useState(() => INLINE_MEMORY_TOOLS.has(tool?.name ?? ''));
   const duration = useToolDuration(tool);
   useEffect(() => {
     let frame = 0;
@@ -79,15 +98,27 @@ export function ClioToolInvocation({
     };
   }, [attentionFields]);
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
-  const workflow = workflowDescriptor(tool);
-  const presentedTool = withMemoryPresentation(
-    withResourcePresentation(
-      withWorkflowPresentation(
-        withSkillPresentation(
-          withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
+  const flow = flowToolDescriptor(tool);
+  const openFlow =
+    flow?.handle && navigation?.onOpenFlow
+      ? () => navigation.onOpenFlow?.(flow.handle!, `${flow.label} run`)
+      : undefined;
+  const presentedTool = withAgentMessagePresentation(
+    withQuestionPresentation(
+      withMemoryPresentation(
+        withResourcePresentation(
+          withSkillPresentation(
+            withTaskWaitPresentation(withTodoPresentation(withStorageToolPresentation(tool))),
+          ),
+          navigation?.resources,
         ),
       ),
-      navigation?.resources,
+      questionContext?.interactions,
+    ),
+    agentMessageName(
+      sentMessage?.sessionId ?? sentMessage?.target,
+      navigation?.subagents,
+      recipientTitle,
     ),
   );
   const subject = getToolSubject(presentedTool);
@@ -136,7 +167,7 @@ export function ClioToolInvocation({
       <div
         className="flex min-w-0 scroll-m-6 flex-col gap-0.5 rounded-sm focus:outline-2 focus:outline-offset-2 focus:outline-primary"
         data-slot="tool-activity"
-        id={`tool-${tool.id}`}
+        id={`${surface === 'evidence' ? 'evidence-tool' : 'tool'}-${tool.id}`}
         tabIndex={-1}
       >
         {compact ? (
@@ -146,13 +177,16 @@ export function ClioToolInvocation({
                 tool={presentedTool}
                 expanded={resultOpen}
                 duration={duration}
+                surface={surface}
                 attention={
                   attention ? (
                     <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
                   ) : null
                 }
               />
-              {subject?.type === 'link' &&
+              {surface !== 'evidence' &&
+              !resultOpen &&
+              subject?.type === 'link' &&
               ['file', 'resource', 'artifact', 'session', 'url'].includes(subject.target ?? '') ? (
                 <PresentationLink block={subject} compact iconOnly />
               ) : null}
@@ -174,18 +208,13 @@ export function ClioToolInvocation({
                     {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
                   </p>
                 ) : null}
+                {openFlow ? (
+                  <Button variant="link" className="h-auto justify-start p-0" onClick={openFlow}>
+                    Open {flow!.label.toLowerCase()} run
+                  </Button>
+                ) : null}
                 {subject && presentedTool.presentation?.subject !== 'wait-targets' ? (
-                  workflow && navigation?.onOpenWorkflow ? (
-                    <Button
-                      variant="link"
-                      className="h-auto justify-start p-0"
-                      onClick={() => navigation.onOpenWorkflow?.(tool)}
-                    >
-                      Open workflow {workflow.label}
-                    </Button>
-                  ) : (
-                    <PresentationLink block={subject} />
-                  )
+                  <PresentationLink block={subject} />
                 ) : null}
                 {isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
                   <p className="text-muted-foreground">
@@ -211,34 +240,34 @@ export function ClioToolInvocation({
           </Collapsible>
         ) : (
           <ActivityRow
-            icon={
-              workflow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />
-            }
+            icon={flow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />}
             title={
               <span
                 className="flex w-full min-w-0 items-center gap-1"
                 data-slot="tool-action-label"
               >
                 <span className="mr-1 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {workflow ? 'Workflow' : 'Tool'}
+                  {flow ? 'Flow' : 'Tool'}
                 </span>
                 <span className="min-w-0 [overflow-wrap:anywhere]">{actionLabel}</span>
-                {subject ? (
+                {openFlow ? (
                   <>
                     <span aria-hidden="true">(</span>
-                    {workflow && navigation?.onOpenWorkflow ? (
-                      <Button
-                        aria-label={`Open workflow ${workflow.label}`}
-                        className="h-auto min-w-0 max-w-[42ch] shrink justify-start truncate p-0 text-left text-sm"
-                        onClick={() => navigation.onOpenWorkflow?.(tool)}
-                        title={workflow.label}
-                        variant="link"
-                      >
-                        <span className="truncate">{workflow.label}</span>
-                      </Button>
-                    ) : (
-                      <PresentationLink block={subject} compact />
-                    )}
+                    <Button
+                      aria-label={`Open ${flow!.label.toLowerCase()} run`}
+                      className="h-auto min-w-0 max-w-[42ch] shrink justify-start truncate p-0 text-left text-sm"
+                      onClick={openFlow}
+                      title={`Open ${flow!.label.toLowerCase()} run`}
+                      variant="link"
+                    >
+                      <span className="truncate">{flow!.label} run</span>
+                    </Button>
+                    <span aria-hidden="true">)</span>
+                  </>
+                ) : subject ? (
+                  <>
+                    <span aria-hidden="true">(</span>
+                    <PresentationLink block={subject} compact />
                     <span aria-hidden="true">)</span>
                   </>
                 ) : null}
@@ -246,7 +275,10 @@ export function ClioToolInvocation({
             }
             metadata={headerMetadata}
             status={status}
-            statusDetail={failure}
+            statusDetail={
+              (status === 'interrupted' ? getToolInterruptionDetail(presentedTool) : undefined) ||
+              failure
+            }
             duration={duration}
             attention={
               attention ? (
@@ -264,7 +296,7 @@ export function ClioToolInvocation({
           />
         ) : null}
         {!compact &&
-        tool.state === 'failed' &&
+        status === 'failed' &&
         tool.error &&
         !tool.presentation?.blocks.some(
           (block) => block.severity === 'error' || block.text === tool.error,
@@ -283,21 +315,19 @@ export function ClioToolInvocation({
               {formatDuration(duration, 'tenths')}
             </p>
           ) : null}
-          {compact && subject ? (
-            workflow && navigation?.onOpenWorkflow ? (
-              <Button
-                variant="link"
-                className="h-auto justify-start p-0"
-                onClick={() => {
-                  setOpen(false);
-                  navigation.onOpenWorkflow?.(tool);
-                }}
-              >
-                Open workflow {workflow.label}
-              </Button>
-            ) : (
-              <PresentationLink block={subject} />
-            )
+          {compact && openFlow ? (
+            <Button
+              variant="link"
+              className="h-auto justify-start p-0"
+              onClick={() => {
+                setOpen(false);
+                openFlow();
+              }}
+            >
+              Open {flow!.label.toLowerCase()} run
+            </Button>
+          ) : compact && subject ? (
+            <PresentationLink block={subject} />
           ) : null}
           {open && catalogContent.length ? (
             <section aria-label="Loaded widget catalog" className="min-w-0 space-y-2">
@@ -352,26 +382,69 @@ export function ClioToolInvocation({
           {attentionFields?.some((entry) => entry.kind === 'tool_result') && tool.error ? (
             <p role="alert">{String(tool.error)}</p>
           ) : null}
+          {tool.execution_task && attentionFields?.some((entry) => entry.kind === 'tool_result') ? (
+            <section aria-label="Execution result">
+              <p>Execution result</p>
+              <ToolOutput output={tool.output as never} errorText={tool.error} />
+            </section>
+          ) : null}
           {tool.presentation?.diagnostic ? <p>{tool.presentation.diagnostic}</p> : null}
+          {tool.submission ? (
+            <details>
+              <summary className="cursor-pointer">Submission response</summary>
+              <ToolOutput
+                output={tool.submission.output as never}
+                errorText={tool.submission.error}
+              />
+            </details>
+          ) : null}
         </ToolDetailsContent>
       </div>
     </Dialog>
   );
 }
 
+const MEMORY_ACTIONS: Record<string, string> = {
+  session_search: 'Search past sessions',
+  session_read_summary: 'Read session summary',
+  session_read_context_frame: 'Read retained context',
+  memory_search: 'Search memory',
+  memory_read: 'Read memory',
+  create_memory: 'Remember',
+  update_memory: 'Correct memory',
+  forget_memory: 'Forget',
+  propose_memory_change: 'Propose memory change',
+};
+
 function withMemoryPresentation(tool: ToolInvocation): ToolInvocation {
-  const action =
-    tool.name === 'memory_search_sessions'
-      ? 'Search session memory'
-      : tool.name === 'memory_read_session_summary'
-        ? 'Read session summary'
-        : tool.name === 'memory_read_context_frame'
-          ? 'Read retained context'
-          : undefined;
+  const action = MEMORY_ACTIONS[tool.name];
   if (!action || !tool.presentation) return tool;
+  const row = toolResultRecord(tool.output);
+  const notice = asRecord(row?.memory);
+  const label =
+    typeof row?.description === 'string'
+      ? row.description
+      : typeof notice?.description === 'string'
+        ? notice.description
+        : undefined;
+  const blocks = tool.presentation.blocks.map((block) =>
+    block.target === 'memory'
+      ? {
+          ...block,
+          label:
+            label ||
+            (block.label || block.uri || '').split('#')[0]!.split('/').at(-1)?.replaceAll('-', ' '),
+        }
+      : block,
+  );
   return {
     ...tool,
-    presentation: { ...tool.presentation, action },
+    presentation: {
+      ...tool.presentation,
+      action,
+      subject: blocks.some((block) => block.id === 'memory') ? 'memory' : tool.presentation.subject,
+      blocks,
+    },
   };
 }
 
@@ -450,21 +523,4 @@ function withResourcePresentation(
         }
       : tool.presentation,
   };
-}
-
-function toolResultRecord(value: unknown): Record<string, unknown> | undefined {
-  const output = asRecord(value);
-  if (!output) return undefined;
-  return (
-    asRecord(output.structuredContent) ??
-    asRecord(output.structured_content) ??
-    asRecord(output.result) ??
-    output
-  );
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
 }

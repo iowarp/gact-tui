@@ -55,8 +55,8 @@ export function FramePanel({ className, ...props }: ComponentProps<typeof ReuiFr
     <ReuiFramePanel
       {...props}
       className={cn(
-        className,
         'rounded-none border-0 bg-transparent px-0 py-2 shadow-none before:hidden',
+        className,
       )}
     />
   );

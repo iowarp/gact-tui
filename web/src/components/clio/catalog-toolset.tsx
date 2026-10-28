@@ -1,3 +1,4 @@
+import { SchemaSection } from './tool-schema-section';
 import type { McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
 import {
   ChevronDownIcon,
@@ -64,7 +65,7 @@ export function CatalogToolset({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid min-w-0 gap-4" data-slot="tool-catalog">
       <div className="flex flex-wrap items-center gap-3 lg:hidden">
         <Button onClick={() => setBrowserOpen(true)}>
           <ListFilterIcon aria-hidden="true" /> View tool list
@@ -73,8 +74,8 @@ export function CatalogToolset({
           Choose from {tools.length} available tool{tools.length === 1 ? '' : 's'}.
         </p>
       </div>
-      <div className="border-y bg-card lg:grid lg:h-[min(42rem,calc(100dvh-16rem))] lg:min-h-[22rem] lg:grid-cols-[minmax(13rem,17rem)_minmax(0,1fr)]">
-        <aside className="hidden min-h-0 min-w-0 overflow-hidden border-r lg:flex">
+      <div className="lg:grid lg:grid-cols-[minmax(14rem,17rem)_minmax(0,1fr)] lg:gap-8">
+        <aside className="hidden min-h-0 min-w-0 self-start overflow-hidden lg:sticky lg:top-0 lg:flex lg:max-h-[calc(100dvh-4rem)]">
           <ToolBrowser
             bundles={bundles}
             catalog={catalog}
@@ -85,7 +86,7 @@ export function CatalogToolset({
             selected={selected}
           />
         </aside>
-        <div className="clio-scrollbar min-h-0 min-w-0 lg:overflow-y-auto">
+        <div className="min-h-0 min-w-0">
           {selected ? (
             <ToolContract key={toolKey(selected)} tool={selected} />
           ) : (
@@ -142,7 +143,7 @@ function ToolBrowser({
     .flatMap((bundle) => bundle.domains);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="space-y-3 border-b p-3">
+      <div className="grid gap-3 p-1 pb-4">
         <label className="relative block">
           <SearchIcon
             aria-hidden="true"
@@ -156,7 +157,11 @@ function ToolBrowser({
             value={query}
           />
         </label>
-        <div aria-label="Tool source" className="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
+        <div
+          aria-label="Tool source"
+          role="group"
+          className="grid grid-cols-3 items-stretch gap-0.5 rounded-lg border p-0.5"
+        >
           <SourceButton
             active={catalog === 'all'}
             count={(counts.builtin ?? 0) + (counts.mcp ?? 0)}
@@ -177,7 +182,7 @@ function ToolBrowser({
           />
         </div>
       </div>
-      <div className="clio-scrollbar min-h-0 flex-1 overflow-y-auto">
+      <div className="clio-scrollbar grid min-h-0 flex-1 grid-cols-1 content-start gap-2 overflow-y-auto px-1 pb-2">
         {domains.map((domain, index) => (
           <ToolDomainGroup
             defaultOpen={Boolean(query) || index === 0 || domain.tools.includes(selected!)}
@@ -222,15 +227,15 @@ function SourceButton({
   return (
     <button
       aria-pressed={active}
-      className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors ${
+      className={`inline-flex min-w-0 items-baseline justify-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-2 text-sm leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active
-          ? 'bg-background font-medium shadow-sm'
+          ? 'bg-accent font-medium text-accent-foreground'
           : 'text-muted-foreground hover:text-foreground'
       }`}
       onClick={onClick}
       type="button"
     >
-      {label} <span className="text-xs tabular-nums">{count}</span>
+      <span>{label}</span> <span className="font-normal tabular-nums">{count}</span>
     </button>
   );
 }
@@ -249,32 +254,30 @@ function ToolDomainGroup({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <details
-      className="group border-b"
+      className="group min-w-0"
       onToggle={(event) => setOpen(event.currentTarget.open)}
       open={open}
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-3">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
         <ChevronDownIcon
           aria-hidden="true"
           className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180"
         />
-        <span className="min-w-0 flex-1 truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
           {domain.title}
         </span>
         {domain.server ? <McpOriginBadge server={domain.server} /> : null}
-        <span className="text-[11px] tabular-nums text-muted-foreground">
-          {domain.tools.length}
-        </span>
+        <span className="text-xs tabular-nums text-muted-foreground">{domain.tools.length}</span>
       </summary>
       {domain.server ? <McpProvenance server={domain.server} /> : null}
-      <div className="pb-2">
+      <div className="grid gap-0.5 pb-1">
         {domain.tools.map((tool) => {
           const current = selected && toolKey(selected) === toolKey(tool);
           return (
             <button
               aria-current={current ? 'true' : undefined}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                current ? 'bg-primary/10 text-foreground' : 'hover:bg-muted/60'
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${
+                current ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
               }`}
               key={toolKey(tool)}
               onClick={() => onSelect(tool)}
@@ -301,7 +304,7 @@ function ToolDomainGroup({
 
 function McpOriginBadge({ server }: { server: McpServerDefinition }) {
   const label =
-    server.agent_blueprint_id || server.session_id
+    server.plugin || server.session_id
       ? 'Session'
       : isBuiltinMcp(server)
         ? 'Built in'
@@ -310,17 +313,14 @@ function McpOriginBadge({ server }: { server: McpServerDefinition }) {
 }
 
 function McpProvenance({ server }: { server: McpServerDefinition }) {
-  if (server.agent_blueprint_id) {
+  if (server.plugin) {
     return (
       <p className="px-8 pb-2 text-xs text-muted-foreground">
-        Enabled by{' '}
-        <Link
-          className="font-medium text-primary hover:underline"
-          to={`/settings/blueprints?blueprint=${encodeURIComponent(server.agent_blueprint_id)}`}
-        >
-          {server.agent_blueprint_name || server.agent_blueprint_id}
-        </Link>
-        {server.session_id ? ' for this session' : ''}.
+        From the{' '}
+        <Link className="font-medium text-primary hover:underline" to="/settings/plugins">
+          {server.plugin}
+        </Link>{' '}
+        plugin{server.session_id ? ' of this conversation’s agent' : ''}.
       </p>
     );
   }
@@ -334,26 +334,25 @@ function ToolContract({ tool }: { tool: ToolCatalogItem }) {
   const [expanded, setExpanded] = useState(false);
   const description = tool.description?.trim() || 'This provider did not supply a description.';
   return (
-    <article className="p-5 sm:p-7 [&>section]:-mx-5 [&>section]:px-5 sm:[&>section]:-mx-7 sm:[&>section]:px-7">
-      <div className="-mx-5 flex flex-wrap items-start justify-between gap-3 border-b px-5 pb-5 sm:-mx-7 sm:px-7">
+    <article className="grid min-w-0 content-start gap-7 py-1">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">Tool</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">{title}</h2>
+          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
           <code className="mt-1 block break-all text-xs text-muted-foreground">{tool.name}</code>
         </div>
-        <Badge variant="outline">{toolDomainTitle(tool)}</Badge>
+        <span className="text-sm text-muted-foreground">{toolDomainTitle(tool)}</span>
       </div>
 
-      <section className="border-b py-5">
+      <section className="grid gap-2">
         <h3 className="text-sm font-semibold">Description</h3>
         <p
-          className={`mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground ${description.length > 420 && !expanded ? 'line-clamp-4' : ''}`}
+          className={`whitespace-pre-wrap text-sm leading-6 ${description.length > 420 && !expanded ? 'line-clamp-4' : ''}`}
         >
           {description}
         </p>
         {description.length > 420 ? (
           <Button
-            className="mt-2"
+            className="h-auto justify-self-start px-0 py-1"
             size="sm"
             variant="ghost"
             aria-expanded={expanded}
@@ -376,7 +375,7 @@ function ToolContract({ tool }: { tool: ToolCatalogItem }) {
       />
 
       <TechnicalDetails
-        className="-mx-5 border-t px-5 py-4 text-xs sm:-mx-7 sm:px-7"
+        className="text-sm"
         summaryClassName="font-medium"
         title="Provider metadata and raw schemas"
       >
@@ -395,63 +394,6 @@ function ToolContract({ tool }: { tool: ToolCatalogItem }) {
         </pre>
       </TechnicalDetails>
     </article>
-  );
-}
-
-function SchemaSection({
-  empty,
-  schema,
-  title,
-}: {
-  empty: string;
-  schema: Record<string, unknown>;
-  title: string;
-}) {
-  const properties = schemaProperties(schema);
-  const required = new Set(Array.isArray(schema.required) ? schema.required.map(String) : []);
-  return (
-    <section className="border-b py-5 last:border-b-0">
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {schemaType(schema) ? (
-          <code className="text-[11px] text-muted-foreground">{schemaType(schema)}</code>
-        ) : null}
-      </div>
-      {properties.length ? (
-        <dl className="mt-3 divide-y border-y">
-          {properties.map(([name, value]) => (
-            <div
-              className="grid gap-1 py-3 sm:grid-cols-[minmax(9rem,0.35fr)_minmax(0,1fr)]"
-              key={name}
-            >
-              <dt className="min-w-0">
-                <code className="break-all text-xs font-semibold text-foreground">{name}</code>
-                {required.has(name) ? (
-                  <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-primary">
-                    required
-                  </span>
-                ) : (
-                  <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    optional
-                  </span>
-                )}
-              </dt>
-              <dd className="min-w-0 text-xs leading-5 text-muted-foreground">
-                <code className="mr-2 text-foreground">{schemaType(value)}</code>
-                {schemaDescription(value)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : Object.keys(schema).length ? (
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          {schemaDescription(schema) ||
-            `Declared as ${schemaType(schema) || 'a structured value'}.`}
-        </p>
-      ) : (
-        <p className="mt-2 text-sm text-muted-foreground">{empty}</p>
-      )}
-    </section>
   );
 }
 
@@ -551,7 +493,8 @@ function clioDomainForName(name: string): string | undefined {
     ],
     [/^(create_a2ui|update_a2ui|a2ui_|raise_alert_card)/u, `${PROTOCOL.a2ui} surfaces`],
     [/^(provider_|refresh_provider)/u, 'Models'],
-    [/^(workflow_|run_workflow)/u, 'Workflows'],
+    [/^(run_flow|run_workflow|workflow_add_step|workflow_cancel_step)/u, 'Flows'],
+    [/^(log_entry|link|set_status|query_log|export_measurements)$/u, 'Science log'],
   ];
   return groups.find(([pattern]) => pattern.test(name))?.[1];
 }
@@ -568,7 +511,6 @@ function serverTitle(server: McpServerDefinition | undefined, fallback: string):
   if (!server) return humanize(fallback.replace(/^mcp_/u, ''));
   const title = server.spec.title;
   if (typeof title === 'string' && title.trim()) return title;
-  if (server.agent_blueprint_name?.trim()) return server.agent_blueprint_name;
   return humanize(server.name);
 }
 
@@ -585,49 +527,6 @@ function domainDescription(server: McpServerDefinition): string | undefined {
   if (isBuiltinMcp(server))
     return `Included with ${vocab.agent} and available in this ${vocab.workspace}.`;
   return serverDescription(server);
-}
-
-function schemaProperties(
-  schema: Record<string, unknown>,
-): Array<[string, Record<string, unknown>]> {
-  const value = schema.properties;
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
-  return Object.entries(value).map(([name, property]) => [
-    name,
-    property && typeof property === 'object' && !Array.isArray(property)
-      ? (property as Record<string, unknown>)
-      : {},
-  ]);
-}
-
-function schemaType(schema: Record<string, unknown>): string {
-  if (Array.isArray(schema.type)) return schema.type.join(' | ');
-  if (typeof schema.type === 'string') {
-    if (schema.type === 'array' && schema.items && typeof schema.items === 'object') {
-      return `${schemaType(schema.items as Record<string, unknown>) || 'value'}[]`;
-    }
-    return schema.type;
-  }
-  if (Array.isArray(schema.enum)) return schema.enum.map(String).join(' | ');
-  if (Array.isArray(schema.anyOf)) {
-    return schema.anyOf
-      .filter(
-        (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object',
-      )
-      .map(schemaType)
-      .filter(Boolean)
-      .join(' | ');
-  }
-  return '';
-}
-
-function schemaDescription(schema: Record<string, unknown>): string {
-  const description = typeof schema.description === 'string' ? schema.description.trim() : '';
-  const choices = Array.isArray(schema.enum)
-    ? `Options: ${schema.enum.map(String).join(', ')}.`
-    : '';
-  const fallback = schema.default === undefined ? '' : `Default: ${String(schema.default)}.`;
-  return [description, choices, fallback].filter(Boolean).join(' ');
 }
 
 function toolTitleSort(left: ToolCatalogItem, right: ToolCatalogItem): number {

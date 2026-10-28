@@ -38,7 +38,7 @@ export function ToolAttentionField({
   return (
     <section className="space-y-2">
       <h4 className="text-xs font-medium uppercase text-muted-foreground">
-        {block.field === 'input' ? 'Arguments' : 'Result'} · attention
+        Attention on {block.field === 'input' ? 'arguments' : 'result'}
       </h4>
       <pre
         className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-xs"

@@ -27,10 +27,11 @@ export class PresentationRepository extends McpAppRepository {
     blockId: string,
     cursor: number,
     signal?: AbortSignal,
+    resultSha256?: string,
   ) {
     return this.transport.request({
       method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(callId)}/presentation/${encodeURIComponent(blockId)}?cursor=${cursor}`,
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(callId)}/presentation/${encodeURIComponent(blockId)}?cursor=${cursor}${resultSha256 ? `&result_sha256=${encodeURIComponent(resultSha256)}` : ''}`,
       decode: (value) => pageSchema.parse(value),
       signal,
     });

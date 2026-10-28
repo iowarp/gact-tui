@@ -179,7 +179,7 @@ export function WebSearchSetup({
             <p className="text-xs text-muted-foreground">
               Health: {external.reachable ? 'reachable' : 'unreachable'}
               {external.checked_at
-                ? ` · checked ${new Date(external.checked_at).toLocaleString()}`
+                ? `, checked ${new Date(external.checked_at).toLocaleString()}`
                 : ''}
             </p>
           ) : null}

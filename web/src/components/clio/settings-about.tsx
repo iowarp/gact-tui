@@ -11,7 +11,6 @@ import { queryKeys } from '@/lib/query-keys';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SettingsSectionHeading as SectionHeading } from './settings-section-heading';
-import { MarketplaceUpdatesCheck } from './settings-marketplace-updates';
 
 export function AboutSettings() {
   const repository = useRepository();
@@ -85,11 +84,6 @@ export function AboutSettings() {
               <AlertDescription>{capabilities.error.message}</AlertDescription>
             </Alert>
           ) : null}
-        </FramePanel>
-      </Frame>
-      <Frame spacing="sm">
-        <FramePanel>
-          <MarketplaceUpdatesCheck />
         </FramePanel>
       </Frame>
       {brand.homeUrl ? (

@@ -118,6 +118,43 @@ describe('OperationProgress', () => {
     expect(screen.getByText('3 layers')).toBeVisible();
   });
 
+  it('says why a step was skipped: its own message, else how the operation ended', async () => {
+    repository.infrastructureOperationEvents.mockImplementation(
+      streamOf([
+        {
+          id: 0,
+          type: 'operation.snapshot',
+          operation: record({
+            state: 'failed',
+            error: 'The image pull failed',
+            steps: [
+              { id: 'pull', label: 'Pull image', state: 'failed' },
+              { id: 'build', label: 'Build environment', state: 'skipped' },
+              {
+                id: 'cache',
+                label: 'Warm cache',
+                state: 'skipped',
+                message: 'The cache is already warm',
+              },
+            ],
+          }),
+        },
+      ]),
+    );
+    render(<OperationProgress operationId="op-1" title="vLLM install" />);
+    const steps = await screen.findByRole('list', { name: 'Steps' });
+    expect(
+      within(steps)
+        .getAllByRole('listitem')
+        .map((item) => item.getAttribute('aria-label')),
+    ).toEqual([
+      'Pull image: Failed',
+      'Build environment: Skipped. Not run because the operation failed first',
+      'Warm cache: Skipped. The cache is already warm',
+    ]);
+    expect(screen.queryByText('Not needed')).not.toBeInTheDocument();
+  });
+
   it('shows reuse notes and offers a reinstall from scratch once finished', async () => {
     const onReinstall = vi.fn();
     const reuse = {

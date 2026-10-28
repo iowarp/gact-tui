@@ -67,6 +67,33 @@ describe('offline archive transport', () => {
       transport.request({ method: 'POST', path: '/v1/sessions/x/a2ui/actions', decode: (v) => v }),
     ).rejects.toThrow('offline review');
   });
+  it("reads a dashboard export's files from the page's inert blocks, once each", async () => {
+    const reads: string[] = [];
+    const blocks: Record<string, string> = { 'clio-bytes-0': btoa('mesh bytes') };
+    const transport = new ArchiveTransport(
+      {
+        ...snapshot,
+        responses: {
+          'GET /v1/artifacts/artifact_mesh/bytes': { embedded: 'clio-bytes-0' },
+          'GET /v1/artifacts/artifact_gone/bytes': { embedded: 'clio-bytes-9' },
+        },
+      },
+      {},
+      (id) => {
+        reads.push(id);
+        return blocks[id];
+      },
+    );
+    const repository = new ClioRepository(transport);
+    for (let i = 0; i < 2; i += 1)
+      expect(new TextDecoder().decode(await repository.readArtifactBytes('artifact_mesh'))).toBe(
+        'mesh bytes',
+      );
+    expect(reads).toEqual(['clio-bytes-0']);
+    await expect(repository.readArtifactBytes('artifact_gone')).rejects.toMatchObject({
+      code: 'archive_content_unavailable',
+    });
+  });
   it('filters, sorts, aggregates and pages captured source rows independently', async () => {
     const transport = new ArchiveTransport(snapshot);
     const query = (body: unknown) =>

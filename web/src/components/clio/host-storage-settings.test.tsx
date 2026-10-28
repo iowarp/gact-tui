@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+const notices = vi.hoisted(() => ({ success: vi.fn() }));
+vi.mock('sonner', () => ({ toast: notices }));
 
 const repository = vi.hoisted(() => ({
   hostStorageSettings: vi.fn(),
@@ -100,13 +102,15 @@ describe('host storage settings', () => {
       expect(screen.getByRole('button', { name: 'Save locations' })).toBeEnabled(),
     );
     await user.click(screen.getByRole('button', { name: 'Save locations' }));
-    await screen.findByText('Locations saved for new deployments.');
+    await waitFor(() =>
+      expect(notices.success).toHaveBeenCalledWith('Locations saved for new deployments.'),
+    );
     expect(repository.saveHostStorageSettings).toHaveBeenCalledWith('homelab', {
       ...requested,
       root: '/data/new',
     });
     await user.type(root, '-draft');
-    expect(screen.queryByText('Locations saved for new deployments.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Storage locations')).toBeNull();
     rendered.rerender(view('ares'));
     await waitFor(() => expect(screen.getByLabelText('Storage root')).toHaveValue('/data/old'));
     expect(repository.hostStorageSettings).toHaveBeenCalledWith('ares', expect.any(AbortSignal));

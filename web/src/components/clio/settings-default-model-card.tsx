@@ -59,7 +59,9 @@ export function SettingsDefaultModelCard({
             {name || 'No model chosen yet'}
           </p>
           <p className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-            <span className="truncate">{providerName ?? 'Choose a model to start new work with'}</span>
+            <span className="truncate">
+              {providerName ?? 'Choose a model to start new work with'}
+            </span>
             {group ? (
               <Badge
                 data-slot="default-model-status"

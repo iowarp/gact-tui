@@ -73,7 +73,6 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 		defer cancel()
 		var items []catalogItem
 		var errs []string
-		agents, _ := c.ListAgentsScoped(ctx, scope)
 		servers, _ := c.ListMcpServers(ctx)
 		handshake, _ := c.McpHandshake(ctx, scope)
 		servers = annotateMcpServersWithHandshake(servers, handshake)
@@ -96,12 +95,6 @@ func loadMcpDetailCmd(c *client.Client, scope client.RuntimeScope, serverID stri
 			for _, t := range tools {
 				toolID := valuefmt.FirstNonEmpty(t.ID, t.Name)
 				desc := mcpDetailToolSummary(t)
-				if owners := owningAgentsForTool(t, agents); len(owners) > 0 {
-					if desc != "" {
-						desc += " · "
-					}
-					desc += "agents: " + strings.Join(owners, ", ")
-				}
 				items = append(items, catalogItem{
 					id:        "tool/" + toolID,
 					title:     "Tool · " + valuefmt.FirstNonEmpty(t.Name, toolID),

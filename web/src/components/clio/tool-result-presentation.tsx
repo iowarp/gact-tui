@@ -1,3 +1,5 @@
+import { MemoryToolResult } from './memory-tool-result';
+import { INLINE_MEMORY_TOOLS } from './memory-presentation';
 import { CircleAlertIcon, FileIcon } from 'lucide-react';
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { Shimmer } from '@/components/ai-elements/shimmer';
@@ -28,11 +30,18 @@ import { ToolTerminalResult } from './tool-terminal-result';
 import { TodoList } from './todo-list';
 import { SkillToolResult } from './skill-tool-result';
 import { belongsToTerminal, savedOutputsAfter } from './tool-result-saved-output-blocks';
-import { getToolStatus, isA2uiCatalogLookup } from './tool-presentation';
+import {
+  getToolStatus,
+  getToolSummary,
+  getToolResultBlocks,
+  isA2uiCatalogLookup,
+} from './tool-presentation';
+import { withQuestionPresentation } from './question-tool-presentation';
+import { useQuestionAnswer } from './question-answer-context';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
-  tool,
+  tool: recordedTool,
   subjectId,
   summaryInHeader = false,
 }: {
@@ -40,7 +49,11 @@ export function ToolResultPresentation({
   subjectId?: string;
   summaryInHeader?: boolean;
 }) {
+  const questionContext = useQuestionAnswer();
+  const tool = withQuestionPresentation(recordedTool, questionContext?.interactions);
   const lines = useTranscriptPreviewLines();
+  if (INLINE_MEMORY_TOOLS.has(tool.name) && getToolStatus(tool) === 'succeeded')
+    return <MemoryToolResult tool={tool} />;
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
   const resourceDocument =
     tool.name === 'workspace_resource_read' && subject?.target === 'resource';
@@ -50,11 +63,10 @@ export function ToolResultPresentation({
       : subject?.target === 'resource'
         ? subject.label || subject.uri || ''
         : '';
-  const blocks = (tool.presentation?.blocks ?? [])
+  const blocks = getToolResultBlocks(tool, subjectId)
     .filter(
       (block) =>
-        block.id !== subjectId &&
-        (!['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref),
+        !['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref,
     )
     .map((block) => {
       if (resourceDocument && block.type === 'text')
@@ -63,7 +75,7 @@ export function ToolResultPresentation({
         ? { ...block, language: languageForPath(subjectPath) }
         : block;
     });
-  const summary = summaryInHeader ? '' : (tool.presentation?.summary?.trim() ?? '');
+  const summary = summaryInHeader ? '' : (getToolSummary(tool) ?? '');
   // The schema itself is useful to the agent, but it overwhelms the human
   // activity lane. The info button on the tool row retains the exact result.
   if (isA2uiCatalogLookup(tool) && getToolStatus(tool) === 'succeeded') return null;
@@ -81,7 +93,7 @@ export function ToolResultPresentation({
     contentBlocks.length > 0 &&
     contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
   if (document) {
-    const budget = contentBlocks.some((block) => block.type === 'diff') ? lines * 2 : lines;
+    const budget = lines;
     return (
       <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
         {summary ? (
@@ -181,14 +193,14 @@ export function ToolResultPresentation({
       </div>
     );
   }
-  if (tool.name === 'memory_search_sessions') {
+  if (tool.name === 'session_search') {
     return (
       <div className="ml-7 min-w-0" data-slot="tool-human-result">
         <MemorySearchResults blocks={blocks} summary={summary} />
       </div>
     );
   }
-  if (tool.name === 'memory_read_session_summary' && tool.state === 'succeeded') {
+  if (tool.name === 'session_read_summary' && tool.state === 'succeeded') {
     return (
       <div className="ml-7 min-w-0" data-slot="tool-human-result">
         <MemorySessionSummary blocks={blocks} summary={summary} />
@@ -220,11 +232,7 @@ export function ToolResultPresentation({
         const collectedChildOutput =
           (tool.name === 'get_agent_task_output' || tool.presentation?.action === 'Collect') &&
           block.type === 'markdown';
-        const budget = collectedChildOutput
-          ? Math.min(lines, 2)
-          : block.type === 'diff'
-            ? lines * 2
-            : lines;
+        const budget = collectedChildOutput ? Math.min(lines, 2) : lines;
         const running = block.type === 'terminal' && tool.state === 'running';
         if (block.type === 'link') {
           if (belongsToTerminal(blocks, index)) return null;

@@ -12,12 +12,14 @@ import {
 } from '@/tauri/documents';
 import { downloadBytes } from './surface-export';
 import { vocab } from '@/lib/brand-vocabulary';
+import { copyText } from '@/lib/clipboard';
 // Load the real lazy renderer during collection, outside the rendering test's timer.
 import '../ai-elements/markdown';
 
 const host = vi.hoisted(() => ({ native: true }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => host.native }));
 vi.mock('./surface-export', () => ({ downloadBytes: vi.fn() }));
+vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn(async () => {}) }));
 
 const manifest = {
   artifact_id: 'artifact_3',
@@ -104,6 +106,34 @@ function renderWorkspace(
 }
 
 describe('ClioDocumentWorkspace', () => {
+  it('keeps Copy in the toolbar for readable and exact source views without a second filename header', async () => {
+    const source = '# Agenda\n\nPractice **first**.\n';
+    repository.documentManifest.mockResolvedValue(manifest);
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
+    repository.artifactReviews.mockResolvedValue([]);
+    const user = userEvent.setup();
+    const { container } = renderWorkspace();
+    await screen.findByRole('heading', { name: 'Agenda' });
+    const copy = screen.getByRole('button', { name: 'Copy evidence.md' });
+    expect(copy.closest('[data-slot="document-controls"]')).not.toBeNull();
+    await user.click(copy);
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.'));
+    vi.mocked(copyText).mockClear();
+    await user.click(screen.getByRole('tab', { name: 'Source' }));
+    const raw = screen.getByRole('region', { name: 'Raw Markdown for evidence.md' });
+    expect(raw.querySelector('button')).toBeNull();
+    expect(raw).not.toHaveTextContent('evidence.md');
+    expect(
+      container.querySelectorAll(
+        '[data-slot="document-controls"] button[aria-label="Copy evidence.md"]',
+      ),
+    ).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Copy evidence.md' }));
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith(source));
+    await user.click(screen.getByRole('tab', { name: 'Read document' }));
+    expect(screen.getByRole('button', { name: 'Copy evidence.md' })).toBeVisible();
+  });
+
   it('renders inline dollar math in a Markdown artifact without converting it to PDF', async () => {
     repository.documentManifest.mockResolvedValue(manifest);
     repository.documentContent.mockResolvedValue(
@@ -165,8 +195,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     renderWorkspace({}, first.queryClient);
     expect(await screen.findByText('Rendering PDF preview…')).toBeVisible();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Download PDF' }));
+    await user.click(await screen.findByRole('button', { name: 'Export to…' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'PDF' }));
     expect(downloadBytes).not.toHaveBeenCalled();
     await act(async () =>
       finish({
@@ -261,8 +291,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       'pdf-app',
     );
     expect(await screen.findByText('Source stays here')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Open in' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Download PDF' }));
+    await user.click(screen.getByRole('button', { name: 'Export to…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'PDF' }));
     expect(await screen.findByText('PDF downloaded.')).toBeInTheDocument();
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
     expect(downloadBytes).toHaveBeenCalledWith(
@@ -356,8 +386,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
   it.each([
-    ['notes.md', 'markdown', 'Read raw', 'Raw Markdown for notes.md'],
-    ['article.tex', 'latex', 'LaTeX source', 'LaTeX source for article.tex'],
+    ['notes.md', 'markdown', 'Source', 'Raw Markdown for notes.md'],
+    ['article.tex', 'latex', 'Source', 'LaTeX source for article.tex'],
   ] as const)(
     'opens the original source from the %s menu',
     async (name, profile, action, region) => {
@@ -390,7 +420,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
     expect(frame).toHaveAttribute('src', 'http://127.0.0.1:8790/v1/html-renderer');
     const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: 'HTML source' }));
+    await user.click(screen.getByRole('tab', { name: 'Source' }));
     expect(container.querySelector('[data-language="html"]')).toHaveTextContent(
       'window.original = true;',
     );
@@ -439,8 +469,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       expect(screen.queryByText('PDF document')).not.toBeInTheDocument();
       expect(repository.documentContent).toHaveBeenCalledWith('artifact_pdf', expect.anything());
       expect(repository.createDocumentRendition).not.toHaveBeenCalled();
-      await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
-      expect(screen.getByRole('menuitem', { name: 'Download PDF' })).toBeVisible();
+      await userEvent.click(screen.getByRole('button', { name: 'Export to…' }));
+      expect(screen.getByRole('menuitem', { name: 'PDF' })).toBeVisible();
     },
   );
 
@@ -461,9 +491,12 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     await user.click(screen.getByRole('button', { name: 'Document information' }));
     expect(screen.getByText(`Version 3, ${manifest.sha256}`)).toBeVisible();
     await user.keyboard('{Escape}');
-    expect(screen.getByRole('tablist', { name: 'Document details' })).toBeVisible();
+    expect(screen.getByRole('tablist', { name: 'File representations' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Preview' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Document safety' }));
+    await user.click(screen.getByRole('button', { name: 'Document actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Document safety' }));
+    expect(screen.getByRole('tabpanel', { name: 'Document safety' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Document safety' })).toBeVisible();
     expect(screen.getByText('Immutable document boundary')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Read document' }));
     const claim = screen.getByText('Bounded claim from the source.');
@@ -506,11 +539,11 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(await screen.findByText('Groups')).toBeVisible();
     expect(screen.queryByText(/\uF0B7 Groups/u)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'Read raw' }));
+    await user.click(screen.getByRole('tab', { name: 'Source' }));
     expect(screen.getByRole('region', { name: 'Raw Markdown for evidence.md' })).toHaveTextContent(
       '\uF0B7 Groups',
     );
-    expect(screen.getByRole('button', { name: 'Copy raw evidence.md' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Copy evidence.md' })).toBeVisible();
   });
 
   it('settles into a readable preview-only state when the registered revision is gone', async () => {

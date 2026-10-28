@@ -9,7 +9,6 @@ import type {
 } from '@clio/core/v3';
 import {
   ActivityIcon,
-  BoxesIcon,
   BoxIcon,
   FileDiffIcon,
   FileTextIcon,
@@ -27,7 +26,7 @@ import { SessionSummaryRow } from './session-summary-row';
 import { clioStatusLabel } from './status';
 import { ClioToolInvocation } from './tool-invocation';
 import { AsyncTaskList } from './async-task-list';
-import { taskActivity } from './task-activity';
+import { isSettledTaskActivity, taskActivity } from './task-activity';
 
 import type { SessionRailItem } from './session-rail-layout';
 import { ArtifactRailRow } from './artifact-rail-row';
@@ -39,6 +38,7 @@ export type SessionEvidenceSummaryProps = Pick<
   | 'onOpenDiff'
   | 'onOpenResource'
   | 'onOpenSubagent'
+  | 'onOpenFlow'
   | 'onOpenWork'
   | 'onOpenActivity'
   | 'onCancelTask'
@@ -57,10 +57,6 @@ export type SessionEvidenceSummaryProps = Pick<
   backgroundProcesses: readonly AsyncProcess[];
 };
 
-function isChildTask(process: AsyncProcess): boolean {
-  return process.task_kind === 'Subagent' || (!process.task_kind && process.kind === 'agent');
-}
-
 /** Shared row content for the compact inventory and configurable session rail. */
 export function sessionEvidenceItems({
   outputs,
@@ -75,23 +71,13 @@ export function sessionEvidenceItems({
   backgroundProcesses,
   ...actions
 }: SessionEvidenceSummaryProps): SessionRailItem[] {
-  const childProcesses = backgroundProcesses.filter(isChildTask);
-  const processes = backgroundProcesses.filter((process) => !isChildTask(process));
-  const childCount = taskActivity(childProcesses, subagents).length;
   const history = actions.workPages?.history;
-  const childHistory = history?.items.filter(isChildTask) ?? [];
-  const backgroundPages = actions.workPages && {
-    ...actions.workPages,
-    history: history && {
-      ...history,
-      items: history.items.filter((process) => !isChildTask(process)),
-    },
-  };
-  const childPages = actions.workPages && {
-    ...actions.workPages,
-    hasMore: false,
-    history: history && { ...history, items: childHistory },
-  };
+  const activity = taskActivity(backgroundProcesses, subagents);
+  const activeCount = history
+    ? activity.filter((entry) => !isSettledTaskActivity(entry)).length
+    : activity.length;
+  // Finished work sits behind Completed work: a count of 0 would read as none ever ran.
+  const finishedWorkHidden = Boolean(actions.workPages?.hasMore || history);
   return [
     ...(runs.length
       ? [
@@ -145,29 +131,6 @@ export function sessionEvidenceItems({
           },
         ]
       : []),
-    ...(childCount || (history?.visible && childHistory.length)
-      ? [
-          {
-            id: 'child-agents' as const,
-            icon: BoxesIcon,
-            count: childCount,
-            defaultOpen: true,
-            content: (
-              <>
-                <AsyncTaskList
-                  compact
-                  processes={childProcesses}
-                  subagents={subagents}
-                  onOpenSubagent={actions.onOpenSubagent}
-                  onCancelTask={actions.onCancelTask}
-                  onControlTask={actions.onControlTask}
-                  pagination={childPages}
-                />
-              </>
-            ),
-          },
-        ]
-      : []),
     ...(tools.length
       ? [
           {
@@ -185,22 +148,25 @@ export function sessionEvidenceItems({
           },
         ]
       : []),
-    ...(processes.length || actions.workPages?.hasMore || actions.workPages?.history
+    ...(activity.length || actions.workPages?.hasMore || history
       ? [
           {
             id: 'background' as const,
             icon: ServerIcon,
-            count: processes.length,
+            count: activeCount,
+            summary: !activeCount && finishedWorkHidden ? 'none running' : undefined,
             defaultOpen: true,
             content: (
               <>
                 <AsyncTaskList
                   compact
-                  processes={processes}
+                  processes={backgroundProcesses}
+                  subagents={subagents}
                   onOpenSubagent={actions.onOpenSubagent}
+                  onOpenFlow={actions.onOpenFlow}
                   onCancelTask={actions.onCancelTask}
                   onControlTask={actions.onControlTask}
-                  pagination={backgroundPages}
+                  pagination={actions.workPages}
                 />
               </>
             ),
@@ -242,7 +208,7 @@ export function sessionEvidenceItems({
               <>
                 {diffs.map((diff) => (
                   <SessionSummaryRow
-                    key={diff.path}
+                    key={diff.id}
                     icon={<FileDiffIcon />}
                     label={diff.path}
                     metadata={friendlyStatus(diff.status) || clioStatusLabel(diffStatus(diff))}

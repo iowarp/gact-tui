@@ -69,15 +69,24 @@ describe('task compatibility projection pages', () => {
     await expect(
       repository.asyncProcessesPage(
         'sess',
-        { cursor: 'before', limit: 3, activeOnly: true },
+        { cursor: 'before', limit: 3, activeOnly: true, includeDescendants: false },
         signal,
       ),
     ).resolves.toEqual({ items: [], cursor: 'continue', total: null, revision: 7 });
     expect(transport.requests).toHaveLength(1);
     expect(transport.requests[0]!.path).toBe(
-      '/v1/sessions/sess/async-processes?cursor=before&limit=3&active_only=true',
+      '/v1/sessions/sess/async-processes?cursor=before&limit=3&active_only=true&include_descendants=false',
     );
     expect(transport.requests[0]!.signal).toBe(signal);
+  });
+
+  it('requests descendants only for an explicit full-tree inspection', async () => {
+    const transport = new RecordingTransport([{ processes: [], cursor: null }]);
+    const repository = new ClioRepository(transport);
+    await repository.asyncProcessesPage('parent', { includeDescendants: true });
+    expect(transport.requests[0]!.path).toBe(
+      '/v1/sessions/parent/async-processes?include_descendants=true',
+    );
   });
 
   it('rejects a repeated cursor instead of looping or silently truncating', async () => {

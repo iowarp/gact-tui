@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { ThemeProvider } from 'next-themes';
+import { ForcedTheme } from '../../src/theme/forced-theme';
 import type { RunState } from '@clio/core/v3';
 import '../../src/index.css';
 import { ArchiveConnectionProvider } from '../../src/providers/connection-provider';
@@ -86,14 +86,11 @@ function Review() {
 createRoot(document.getElementById('root')!).render(
   <ArchiveConnectionProvider>
     <RepositoryOverrideProvider repository={repository}>
-      <ThemeProvider
-        attribute="class"
-        forcedTheme={
-          new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'
-        }
+      <ForcedTheme
+        theme={new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'}
       >
         <Review />
-      </ThemeProvider>
+      </ForcedTheme>
     </RepositoryOverrideProvider>
   </ArchiveConnectionProvider>,
 );

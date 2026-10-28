@@ -13,7 +13,7 @@ import type {
   SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { QueuedMessageReorderConflictError } from '@clio/core/v3';
+import { QueuedMessageReorderConflictError, type AgentDelta } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -44,6 +44,10 @@ interface UseSessionMutationsInput {
   workspaceId: string;
   /** A presentation-only entry composer materializes a session on first send. */
   createOnSend?: boolean;
+  /** The agent a session created on first send runs; omitted uses the service default. */
+  draftAgentRef?: string;
+  /** Plugin changes made to the draft's agent before the first message. */
+  draftAgentDelta?: AgentDelta;
   interactionRootSessionId?: string;
   supportsUnifiedInteractions?: boolean;
 }
@@ -61,6 +65,8 @@ export interface SessionSendInput {
   answersQuestionId?: string;
   /** Task questions deliver their answer directly, including authorized resources. */
   answersQuestionTask?: boolean;
+  /** Turn long-term memory off for the conversation this send creates. */
+  memoryOff?: boolean;
 }
 
 function sessionModeForExecution(
@@ -80,6 +86,8 @@ export function useSessionMutations({
   sessionId,
   workspaceId,
   createOnSend = false,
+  draftAgentRef,
+  draftAgentDelta,
   interactionRootSessionId = sessionId,
   supportsUnifiedInteractions = false,
 }: UseSessionMutationsInput) {
@@ -128,8 +136,7 @@ export function useSessionMutations({
       queryKeys.pendingSteers(settings.endpoint, sessionId),
       queryKeys.workspaceResources(settings.endpoint, workspaceId),
       queryKeys.transcript(settings.endpoint, sessionId),
-      queryKeys.sessions(settings.endpoint, workspaceId),
-      queryKeys.sessions(settings.endpoint, 'all'),
+      queryKeys.allSessionReads(settings.endpoint),
     ]);
   };
 
@@ -261,12 +268,17 @@ export function useSessionMutations({
             mode: sessionModeForExecution(value.behavior.execution_mode),
             routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
             approval_mode: value.behavior.confirmation_policy,
+            ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),
+            ...(draftAgentDelta && draftAgentDelta.add.length + draftAgentDelta.remove.length
+              ? { agent_delta: draftAgentDelta }
+              : {}),
           })
           .catch((error: unknown) => {
             draftSession.current = null;
             throw error;
           });
         target = await draftSession.current;
+        if (value.memoryOff) await repository.turnMemoryOff(target.id);
       }
       const targetId = sessionId || target?.id;
       if (!targetId) throw new Error('Open a conversation before sending.');
@@ -328,12 +340,13 @@ export function useSessionMutations({
   });
 
   function openStartedSession(created: Session, controller: AbortController | null) {
-    for (const scope of [workspaceId, 'all']) {
-      queryClient.setQueryData<Session[]>(
-        queryKeys.sessions(settings.endpoint, scope),
-        (current = []) => [...current.filter((item) => item.id !== created.id), created],
-      );
-    }
+    // The new conversation is its own family and the newest row of its workspace's rail.
+    queryClient.setQueryData<Session[]>(queryKeys.sessionFamily(settings.endpoint, created.id), [
+      created,
+    ]);
+    invalidateQueriesInBackground(queryClient, [
+      queryKeys.key('session-pages', settings.endpoint, created.workspace_id),
+    ]);
     // A submitted turn may finish after navigation. Preserve its real session,
     // but never pull the person back from Settings or another conversation.
     if (!controller || controller.signal.aborted) return;
@@ -539,10 +552,7 @@ export function useSessionMutations({
           queryKey: queryKeys.key('pending-questions', settings.endpoint),
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.sessions(settings.endpoint, workspaceId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sessions(settings.endpoint, 'all'),
+          queryKey: queryKeys.allSessionReads(settings.endpoint),
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.transcript(

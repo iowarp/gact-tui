@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({ toast: { success: mocks.success, warning: mocks.warning } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: mocks.success, warning: mocks.warning } }));
 vi.mock('@/lib/connection', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/connection')>()),
   createRepository: () => ({

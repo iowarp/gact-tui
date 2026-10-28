@@ -43,10 +43,9 @@ func loadToolDetailCmd(c *client.Client, scope client.RuntimeScope, toolID strin
 		if err != nil {
 			return catalogDetailLoadedMsg{title: "Tool · " + toolID, err: err}
 		}
-		agents, _ := c.ListAgentsScoped(ctx, scope)
 		return catalogDetailLoadedMsg{
 			title: "Tool · " + valuefmt.FirstNonEmpty(tool.Title, tool.Name, tool.ID),
-			text:  formatToolDetailWithAgents(tool, agents),
+			text:  formatToolDetail(tool),
 		}
 	}
 }
@@ -91,8 +90,6 @@ func sanitizeCatalogDetailLine(line string) string {
 
 func catalogDetailLabel(key string) string {
 	switch strings.TrimSpace(key) {
-	case "agent_blueprint_id":
-		return "workflow"
 	case "base64_data":
 		return "base64 data"
 	case "default_model":

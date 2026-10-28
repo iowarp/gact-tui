@@ -477,15 +477,15 @@ function heatLook(mark: AttentionMinimapMark | undefined): LandmarkLook {
 function landmarkLook(message: Message): LandmarkLook {
   const look = (color: string, base: number): LandmarkLook => ({ color, base, opacity: 0.6 });
   if (message.blocks.some((block) => block.type === 'error')) return look('bg-destructive', 12);
-  if (message.blocks.some((block) => block.type === 'a2ui')) return look('bg-violet-500', 10);
-  if (message.blocks.some((block) => block.type === 'artifact')) return look('bg-amber-500', 10);
+  if (message.blocks.some((block) => block.type === 'a2ui')) return look('bg-category-2', 10);
+  if (message.blocks.some((block) => block.type === 'artifact')) return look('bg-category-11', 10);
   if (message.blocks.some((block) => block.type === 'action_card')) {
-    return look('bg-orange-500', 10);
+    return look('bg-chart-2', 10);
   }
   if (
     message.blocks.some((block) => ['reasoning', 'task', 'tool', 'subagent'].includes(block.type))
   ) {
-    return look('bg-cyan-500', 8);
+    return look('bg-category-5', 8);
   }
   return message.role === 'user' ? look('bg-primary', 12) : look('bg-muted-foreground', 10);
 }

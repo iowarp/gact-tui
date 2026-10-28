@@ -49,8 +49,8 @@ export async function installSearchFixture(page, endpoint, theme = 'light') {
     title: 'CLIO Search',
     session_kind: 'lookup',
     model_id: 'Fleet search model',
-    active_blueprint_id: 'clio-search',
     metadata: {
+      agent_ref: 'clio/clio-search',
       search_session: { ephemeral: true },
       side_session: { read_only: true, ephemeral: true },
     },
@@ -105,7 +105,7 @@ export async function installSearchFixture(page, endpoint, theme = 'light') {
       );
     if (path === `/v1/sessions/${archivedSession.id}/messages`)
       return json(snapshot([archiveMessage]));
-    if (path === '/v1/memory/search') {
+    if (path === '/v1/session-recall/search') {
       const query = url.searchParams.get('query') ?? url.searchParams.get('q') ?? '';
       const matches = phrase.toLowerCase().includes(query.toLowerCase());
       return json({

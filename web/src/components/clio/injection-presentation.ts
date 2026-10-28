@@ -1,13 +1,15 @@
-import type { ToolPresentationBlock } from '@clio/core/v3';
+import type { PendingInteraction, ToolPresentationBlock } from '@clio/core/v3';
 import { humanizeProtocolValue } from './presentation-labels';
+import { questionAnswerPresentation } from './question-answer-presentation';
 
 export interface InjectionPresentation {
   label: string;
   terminal?: ToolPresentationBlock;
   text?: string;
-  format?: 'markdown' | 'json';
+  format?: 'markdown' | 'json' | 'text';
   notice?: string;
   attribution?: string;
+  senderSessionId?: string;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -17,7 +19,11 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 /** Project a recorded mailbox envelope for readers without changing its evidence. */
-export function injectionPresentation(source: string, text: string): InjectionPresentation | null {
+export function injectionPresentation(
+  source: string,
+  text: string,
+  interactions: readonly PendingInteraction[] = [],
+): InjectionPresentation | null {
   const header = /^\[(?:CLIO|Agent session [^;\]\n]+); ([a-z_]+); /u.exec(text);
   if (header?.[1] !== source) return null;
   const boundary = text.indexOf('\n');
@@ -31,8 +37,8 @@ export function injectionPresentation(source: string, text: string): InjectionPr
   const body = record(payload);
   if (source === 'peer' && typeof body?.text === 'string')
     return {
-      label: 'Agent message',
-      attribution: `From session ${/^\[Agent session ([^;\]\n]+);/u.exec(text)?.[1] ?? 'unknown'}`,
+      label: 'Received message from an agent',
+      senderSessionId: /^\[Agent session ([^;\]\n]+);/u.exec(text)?.[1],
       text: body.text,
       format: 'markdown',
     };
@@ -60,6 +66,14 @@ export function injectionPresentation(source: string, text: string): InjectionPr
     }
   }
   const shell = record(output);
+  if (source === 'question_answer' && task[1] === 'Question' && shell) {
+    const handle = /; Question ([^\s:]+):/u.exec(text)?.[1];
+    const interaction = interactions.find((row) => row.task_id === handle);
+    return {
+      ...questionAnswerPresentation(shell, interaction),
+      format: 'text',
+    };
+  }
   if (task[1] === 'Shell' && typeof shell?.command === 'string') {
     const stdout = typeof shell.stdout === 'string' ? shell.stdout : '';
     const stderr = typeof shell.stderr === 'string' ? shell.stderr : '';

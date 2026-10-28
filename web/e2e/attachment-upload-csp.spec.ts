@@ -253,7 +253,7 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
   expect(geometry.height).toBeLessThanOrEqual(40);
   expect(geometry.scroll).toBeLessThanOrEqual(geometry.width);
   const download = page.waitForEvent('download');
-  await toolbar.getByRole('button', { name: 'Download file', exact: true }).click();
+  await toolbar.getByRole('button', { name: 'Download PNG', exact: true }).click();
   const saved = await download;
   expect(saved.suggestedFilename()).toBe('sent-figure.png');
   const savedPath = await saved.path();

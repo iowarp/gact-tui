@@ -65,6 +65,57 @@ it('keeps unmatched injections at their own boundary until a following response 
   expect(view.residualBlocks).toEqual([]);
 });
 
+it('retains parent delegation at its message boundary instead of hiding it in assistant activity', () => {
+  const delegation: Message = {
+    ...injection,
+    id: 'parent',
+    blocks: [
+      { id: 'assignment', type: 'injection', source: 'delegation', text: 'Inspect the dataset.' },
+    ],
+  };
+  const placed = placeHarnessInjections([delegation, injection, answer]);
+  expect(placed.grouped.has('parent')).toBe(false);
+  expect(placed.before.get(answer.id)).toEqual([injection]);
+  expect(delegation.role).toBe('system');
+});
+
+it('keeps delegation parts at their recorded boundaries inside an assistant turn', () => {
+  const turn: Message = {
+    ...answer,
+    blocks: [
+      {
+        id: 'first-parent',
+        type: 'injection',
+        source: 'delegation',
+        text: 'Inspect the data.',
+        sequence: 1,
+      },
+      { id: 'read', type: 'tool', tool_id: 'read', sequence: 2 },
+      {
+        id: 'followup',
+        type: 'injection',
+        source: 'delegation',
+        text: 'Also check its schema.',
+        sequence: 3,
+      },
+      { id: 'final', type: 'text', text: 'The schema is consistent.', sequence: 4 },
+    ],
+  };
+  const presentation = conversationTurnPresentation(turn, {
+    read: { id: 'read', session_id: 's', name: 'fs_read_file', state: 'succeeded' },
+  });
+  expect(
+    presentation.segments.map((segment) =>
+      segment.kind === 'block' ? segment.block.id : segment.kind,
+    ),
+  ).toEqual(['first-parent', 'iterations', 'followup', 'final']);
+  expect(
+    presentation.iterations.flatMap((iteration) => iteration.activity.map((entry) => entry.id)),
+  ).toEqual(['read']);
+  expect(turn.role).toBe('assistant');
+  expect(turn.blocks).toHaveLength(4);
+});
+
 it('does not move an injection across a human message or another conversation', () => {
   const human: Message = { ...answer, id: 'human', role: 'user', blocks: [] };
   expect(placeHarnessInjections([injection, human, answer]).grouped.size).toBe(0);

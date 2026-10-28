@@ -16,9 +16,8 @@ import (
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // modalStatusRows renders the shared error + busy-spinner status block used by
-// the text-entry modals (mcp-install, expert-pack-install, agent-blueprint-
-// manage, …). An empty errText omits the error line; busy==false omits the
-// spinner line. busyLabel is the text shown after the spinner glyph (e.g.
+// the text-entry modals (mcp-install, …). An empty errText omits the error
+// line; busy==false omits the spinner line. busyLabel is the text shown after the spinner glyph (e.g.
 // "installing…"). Returns an empty slice when neither row applies.
 func (m *modalkit) modalStatusRows(errText string, busy bool, busyLabel string) []string {
 	t := m.app.Theme

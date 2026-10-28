@@ -1,16 +1,15 @@
 package ui
 
-// catalog_tool_detail.go formats a tool's detail text, including provider, annotations, and owning agents.
+// catalog_tool_detail.go formats a tool's detail text, including provider and annotations.
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
-func formatToolDetailWithAgents(tool gact.Tool, agents []gact.AgentDef) string {
+func formatToolDetail(tool gact.Tool) string {
 	summary := []detailField{
 		{"name", valuefmt.FirstNonEmpty(tool.Name, tool.ID)},
 		{"comes from", toolProviderLabel(tool)},
@@ -35,13 +34,6 @@ func formatToolDetailWithAgents(tool gact.Tool, agents []gact.AgentDef) string {
 	}
 	if len(tool.Tags) > 0 {
 		availability = append(availability, detailField{"tagged", strings.Join(tool.Tags, ", ")})
-	}
-	if owners := owningAgentsForTool(tool, agents); len(owners) > 0 {
-		ownerRows := make([]string, 0, len(owners))
-		for _, owner := range owners {
-			ownerRows = append(ownerRows, "- "+owner)
-		}
-		availability = append(availability, detailField{"used by", strings.Join(ownerRows, "\n") + "\n"})
 	}
 	if len(availability) > 0 {
 		rows = appendDetailSection(rows, "Availability", availability...)
@@ -100,50 +92,4 @@ func appendToolAnnotationsSection(rows []string, annotations *gact.ToolAnnotatio
 	}
 	fields = append(fields, detailField{"hints", hintText})
 	return appendDetailSection(rows, "Safety", fields...)
-}
-
-func owningAgentsForTool(tool gact.Tool, agents []gact.AgentDef) []string {
-	toolIDs := map[string]bool{}
-	for _, id := range []string{tool.ID, tool.Name, tool.Title} {
-		id = strings.TrimSpace(id)
-		if id != "" {
-			toolIDs[id] = true
-		}
-	}
-	visible := map[string]bool{}
-	for _, id := range tool.VisibleTo {
-		id = strings.TrimSpace(id)
-		if id != "" {
-			visible[id] = true
-		}
-	}
-	owners := make([]string, 0)
-	seen := map[string]bool{}
-	for _, agent := range agents {
-		if agent.ID == "" {
-			continue
-		}
-		usesTool := visible[agent.ID]
-		for _, declared := range agent.Tools {
-			if toolIDs[strings.TrimSpace(declared)] {
-				usesTool = true
-				break
-			}
-		}
-		if !usesTool {
-			continue
-		}
-		label := operatorAgentTitle(agent)
-		if agent.Specialization != "" {
-			label += " · " + agent.Specialization
-		} else if agent.Tier > 0 {
-			label += " · tier " + itoa2(agent.Tier)
-		}
-		if !seen[label] {
-			seen[label] = true
-			owners = append(owners, label)
-		}
-	}
-	sort.Strings(owners)
-	return owners
 }

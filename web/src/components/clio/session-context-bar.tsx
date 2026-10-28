@@ -1,21 +1,23 @@
-import type { AgentBlueprintReference, Session } from '@clio/core/v3';
+import type { Session } from '@clio/core/v3';
 import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { canForkSession, showsBaseAgent } from '@/lib/session-state';
+import { canForkSession } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { ClioSessionActions } from './session-actions';
 import { ClioDownloadsButton } from './downloads-button';
+import { SessionAgentControl } from './session-agent-control';
 import type { ClioSessionActionsProps } from './session-actions';
 
 export interface ClioSessionContextBarProps {
   session?: Session;
   parentSession?: Session;
-  activeBlueprint?: AgentBlueprintReference;
+  /** The agent's name while its resolution loads (from the session's pinned reference). */
+  agentLabel?: string;
   actionsPending: boolean;
   management?: ClioSessionActionsProps['management'];
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
-  onOpenBlueprint: (blueprint: AgentBlueprintReference) => void;
+  onOpenAgent: () => void;
   /** Secondary escape hatch: opens the workspace in the OS's own terminal
    * app instead of the embedded tab. */
   onOpenSystemTerminal?: () => Promise<void>;
@@ -27,19 +29,17 @@ export interface ClioSessionContextBarProps {
 export function ClioSessionContextBar({
   session,
   parentSession,
-  activeBlueprint,
+  agentLabel,
   actionsPending,
   management,
   onCompact,
   onFork,
-  onOpenBlueprint,
+  onOpenAgent,
   onOpenSystemTerminal,
   onShare,
   onReturnToParent,
   onUndo,
 }: ClioSessionContextBarProps) {
-  const isBaseAgent = showsBaseAgent(session, activeBlueprint);
-
   return (
     <div className="flex min-w-0 items-center gap-2 overflow-hidden">
       {parentSession ? (
@@ -55,41 +55,33 @@ export function ClioSessionContextBar({
         </Button>
       ) : null}
       {/* The desktop title bar's centre already shows `workspace › session`
-          plus the blueprint badge (see DesktopTitleContext /
+          plus the agent badge (see DesktopTitleContext /
           useDesktopTitleStore) when running in Tauri, so this in-page
           duplicate of the same heading is hidden there — the actions to
           its right (fork/compact/share/undo/terminal) are NOT chrome, so
           they still render regardless of host. */}
       {inTauri() ? null : (
         <div className="flex min-w-0 items-center gap-1.5">
-          <h1 className="truncate text-sm font-medium">
+          {/* The title gives way first, so the agent's name stays readable on a phone. */}
+          <h1 className="min-w-[4ch] shrink-[3] truncate text-sm font-medium">
             {session?.title ?? 'Session unavailable'}
           </h1>
-          {activeBlueprint ? (
+          {session ? (
             <>
               <span aria-hidden="true" className="shrink-0 text-muted-foreground">
                 /
               </span>
-              <Button
-                className="h-7 min-w-0 max-w-full justify-start px-1.5 text-xs font-normal text-muted-foreground"
-                onClick={() => onOpenBlueprint(activeBlueprint)}
-                size="xs"
-                title={`Open ${activeBlueprint.display_name}`}
-                variant="ghost"
-              >
-                <span className="truncate">{activeBlueprint.display_name}</span>
-              </Button>
-            </>
-          ) : isBaseAgent ? (
-            <>
-              <span aria-hidden="true" className="shrink-0 text-muted-foreground">
-                /
-              </span>
-              <span className="truncate px-1.5 text-xs text-muted-foreground">Base agent</span>
+              <SessionAgentControl
+                fallbackLabel={agentLabel}
+                onOpenAgent={onOpenAgent}
+                sessionId={session.id}
+              />
             </>
           ) : null}
         </div>
       )}
+      {/* A rule keeps the conversation's actions apart from the agent's + control. */}
+      <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
       <ClioSessionActions
         disabled={!session || actionsPending}
         management={management}

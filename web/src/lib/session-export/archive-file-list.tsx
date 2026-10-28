@@ -11,9 +11,16 @@ interface ArchiveFile {
 const PAGE_SIZE = 100;
 
 /** Keep large workspace snapshots navigable without rendering every file. */
-export function ArchiveFileList({ files }: { files: ArchiveFile[] }) {
+export function ArchiveFileList({
+  files,
+  initialSearch = '',
+}: {
+  files: ArchiveFile[];
+  /** Start filtered, for example to one folder's files. */
+  initialSearch?: string;
+}) {
   const searchId = useId();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch);
   const [page, setPage] = useState(0);
   const matches = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -39,7 +46,7 @@ export function ArchiveFileList({ files }: { files: ArchiveFile[] }) {
         />
       </div>
       <p role="status" className="text-sm text-muted-foreground">
-        {matches.length.toLocaleString()} of {files.length.toLocaleString()} files · Page{' '}
+        {matches.length.toLocaleString()} of {files.length.toLocaleString()} files, page{' '}
         {current + 1} of {pages.toLocaleString()}
       </p>
       <ul className="space-y-2">

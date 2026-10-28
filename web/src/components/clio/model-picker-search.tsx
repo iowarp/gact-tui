@@ -24,6 +24,8 @@ interface ModelPickerSearchProps {
   /** Models matching the search text AND every token, of `total`. */
   shown: number;
   total: number;
+  /** Remote discovery counts loaded rows rather than a complete Hub inventory. */
+  countScope?: 'loaded';
   /** The filter panel's tabs (chips from the listed models' own tags). */
   facetTabs: readonly FacetTab[];
   /** Whether the filter panel is open (the picker owns it: Escape closes it first). */
@@ -59,6 +61,7 @@ export function ModelPickerSearch({
   availableTokens,
   shown,
   total,
+  countScope,
   facetTabs,
   facetsOpen,
   onFacetsOpenChange,
@@ -193,11 +196,12 @@ export function ModelPickerSearch({
           )}
         </div>
         <span
-          aria-label={`${shown} of ${total} models match`}
+          aria-label={`${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`}
           className="shrink-0 px-1 text-xs text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
           {shown} / {total}
+          {countScope === 'loaded' ? ' loaded' : ''}
         </span>
       </div>
       {suggestions.length ? (

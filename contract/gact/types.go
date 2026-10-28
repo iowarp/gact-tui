@@ -36,7 +36,7 @@ type MemoryStats struct {
 }
 
 // MemorySearchHit is one provenance-heavy transcript memory match returned by
-// CLIO's /v1/memory/search endpoint.
+// CLIO's /v1/session-recall/search endpoint.
 type MemorySearchHit struct {
 	SessionID    string         `json:"session_id"`
 	SessionTitle string         `json:"session_title,omitempty"`
@@ -52,7 +52,7 @@ type MemorySearchHit struct {
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
-// MemorySearchResponse is returned by GET /v1/memory/search.
+// MemorySearchResponse is returned by GET /v1/session-recall/search.
 type MemorySearchResponse struct {
 	Query               string            `json:"query"`
 	IncludeCrossSession bool              `json:"include_cross_session"`
@@ -197,8 +197,7 @@ type CapabilityFlags struct {
 	XClioStreamFallbackReasons     map[string]any `json:"x_clio_stream_fallback_reasons,omitempty"`
 	XClioDirectDeletePermissions   bool           `json:"x_clio_direct_delete_permissions,omitempty"`
 	XClioPromptRegistry            bool           `json:"x_clio_prompt_registry"`
-	XClioExpertPacks               bool           `json:"x_clio_expert_packs,omitempty"`
-	XClioAgentBlueprints           bool           `json:"x_clio_agent_blueprints,omitempty"`
+	XClioAgentPlugins              bool           `json:"x_clio_agent_plugins,omitempty"`
 	XClioUserQuestions             bool           `json:"x_clio_user_questions,omitempty"`
 	XClioRetryAttempts             bool           `json:"x_clio_retry_attempts,omitempty"`
 	XClioContextFrames             bool           `json:"x_clio_context_frames,omitempty"`

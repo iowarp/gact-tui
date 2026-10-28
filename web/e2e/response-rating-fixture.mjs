@@ -22,28 +22,30 @@ export async function installResponseRatingFixture(page, endpoint) {
   await page.route(`${endpoint}/v1/sessions/${session.id}`, (route) =>
     route.fulfill({ json: session }),
   );
-  await page.route(`${endpoint}/v1/sessions/${session.id}/messages`, (route) =>
-    route.fulfill({
-      json: {
-        messages: [
-          {
-            id: messageId,
-            session_id: session.id,
-            role: 'assistant',
-            created_at: session.created_at,
-            completed_at: session.updated_at,
-            stop_reason: 'end_turn',
-            blocks: [{ id: 'rating_text', type: 'text', text }],
-          },
-        ],
-        tools: [],
-        tasks: [],
-        subagents: [],
-        artifacts: [],
-        surfaces: [],
-        runs: [],
-      },
-    }),
+  await page.route(
+    (url) => url.origin === endpoint && url.pathname === `/v1/sessions/${session.id}/messages`,
+    (route) =>
+      route.fulfill({
+        json: {
+          messages: [
+            {
+              id: messageId,
+              session_id: session.id,
+              role: 'assistant',
+              created_at: session.created_at,
+              completed_at: session.updated_at,
+              stop_reason: 'end_turn',
+              blocks: [{ id: 'rating_text', type: 'text', text }],
+            },
+          ],
+          tools: [],
+          tasks: [],
+          subagents: [],
+          artifacts: [],
+          surfaces: [],
+          runs: [],
+        },
+      }),
   );
   await page.route(
     `${endpoint}/v1/sessions/${session.id}/messages/${messageId}/feedback`,

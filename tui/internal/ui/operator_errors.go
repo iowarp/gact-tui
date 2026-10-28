@@ -28,13 +28,6 @@ func operatorErrorMessage(err error) string {
 func stripOperatorErrorPrefix(msg string) string {
 	lower := strings.ToLower(msg)
 	for _, prefix := range []string{
-		"agent create failed:",
-		"agent extraction failed:",
-		"agent edit failed:",
-		"agent delete failed:",
-		"expert pack install failed:",
-		"expert pack update failed:",
-		"expert pack delete failed:",
 		"auth failed:",
 		"cancel failed:",
 		"session create failed:",

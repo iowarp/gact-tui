@@ -189,3 +189,28 @@ describe('session navigation state', () => {
     expect(screen.queryByText('Started')).not.toBeInTheDocument();
   });
 });
+
+describe('agent fork row', () => {
+  it('names the agent as the author of a fork of the conversation', () => {
+    renderRow({
+      ...session,
+      id: 'sess_fork',
+      title: 'Evidence review (fork)',
+      parent_session_id: 'sess_review',
+      session_kind: 'branch',
+      metadata: {
+        fork_origin: {
+          session_id: 'sess_review',
+          message_id: 'msg_1',
+          message_count: 3,
+          created_at: '2026-08-23T01:00:00Z',
+          author: { kind: 'agent', agent_id: 'clio/standard' },
+          note: 'pursue H4 instead',
+        },
+      },
+    } as Session);
+    expect(screen.getByText('Forked by the agent: pursue H4 instead')).toBeVisible();
+    // The fork mark beside the title says the same, not an unexplained icon.
+    expect(screen.getAllByTitle('Forked by the agent: pursue H4 instead')).toHaveLength(2);
+  });
+});

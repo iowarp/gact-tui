@@ -18,7 +18,7 @@ export function sessionDefaultsPatch(value: SessionDefaults): SessionDefaultsPat
   const patch: SessionDefaultsPatch = {
     provider_id: value.provider_id,
     model_id: value.model_id,
-    blueprint_id: value.blueprint_id,
+    agent_ref: value.agent_ref,
     effort: value.effort && value.effort !== 'unknown' ? value.effort : null,
   };
   if (value.mode !== 'unknown') patch.mode = value.mode;

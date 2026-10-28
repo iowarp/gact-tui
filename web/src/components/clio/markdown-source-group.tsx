@@ -160,7 +160,8 @@ function groupSourceLinks(children: ReactNode): ReactNode {
     let end = index;
     while (end + 1 < parts.length) {
       let next = end + 1;
-      if (typeof parts[next] === 'string' && /^[\s·,;|]*$/u.test(parts[next] as string)) next += 1;
+      if (typeof parts[next] === 'string' && /^[\s\u00b7,;|]*$/u.test(parts[next] as string))
+        next += 1;
       if (!isSourceLink(parts[next])) break;
       links.push(parts[next] as SourceLink);
       end = next;

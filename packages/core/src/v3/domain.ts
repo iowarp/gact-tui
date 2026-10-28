@@ -1,6 +1,5 @@
 import type { ContextSnapshot } from './context-domain.js';
-export type { ContextSnapshot, PromptSection } from './context-domain.js';
-export type { AgentBlueprintSource } from './blueprint-domain.js';
+export type { ContextSnapshot, ContextPromptSection } from './context-domain.js';
 import type { A2UIActionLifecycle } from './a2ui/lifecycle.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
@@ -11,6 +10,7 @@ import type { CapabilityNegotiation } from './capability-domain.js';
 import type { PendingCompaction } from './compaction-domain.js';
 import type { VariantRun } from './variant-domain.js';
 import type { UsageSnapshot } from './usage-domain.js';
+import type { McpServerPreparation } from './mcp-preparation-domain.js';
 import type { RunState } from './run-domain.js';
 export type { RunState } from './run-domain.js';
 
@@ -106,10 +106,6 @@ export interface Session {
   /** Conversation ownership is distinct from provenance parentage. */
   session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup'>;
   agent_id?: string;
-  active_blueprint_id?: string;
-  active_blueprint_name?: string;
-  active_blueprint_version?: string;
-  active_blueprint_scope?: string;
   metadata?: Record<string, unknown>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
@@ -128,7 +124,10 @@ export interface SessionDefaults {
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
   routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;
   approval_mode: WireValue<'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai'>;
-  blueprint_id: string;
+  /** The agent new sessions run (`<marketplace>/<id>`); empty means the service default. */
+  agent_ref: string;
+  /** The agent a new session runs when it names none: `agent_ref` or the service default. */
+  default_agent_ref?: string;
 }
 
 /** A server-owned instruction that will be submitted to one session at a future time. */
@@ -243,6 +242,25 @@ export interface ToolInvocation {
   completed_at?: string;
   duration_ms?: number;
   error?: string;
+  /** The original submission RPC remains inspectable when execution is asynchronous. */
+  submission?: {
+    state: ToolState;
+    output?: unknown;
+    error?: string;
+    completed_at?: string;
+    duration_ms?: number | null;
+  };
+  execution_task?: {
+    handle: string;
+    status: string;
+    activity: string;
+    updated_at: string;
+    accepted_at: string;
+    terminal_at: string | null;
+    cancellation_requested_at: string | null;
+    result_sha256: string | null;
+  };
+  execution_problem?: string;
 }
 
 export interface ApprovalRequest {
@@ -287,6 +305,15 @@ export interface Task {
   detail?: string;
 }
 
+/** The model a child session runs on and why (the server's `model_choice`). */
+export interface ModelChoice {
+  asked: string;
+  ran: { provider_id?: string; model_id?: string };
+  source: string;
+  reasons: string[];
+  effort: string;
+}
+
 export interface SubagentRun {
   id: string;
   session_id: string;
@@ -299,6 +326,7 @@ export interface SubagentRun {
   task?: string;
   result?: string;
   duration_ms?: number;
+  model_choice?: ModelChoice;
   origin?: {
     kind: 'skill';
     name: string;
@@ -306,125 +334,42 @@ export interface SubagentRun {
   };
 }
 
-export interface Artifact {
-  id: string;
-  session_id: string;
-  workspace_id?: string;
-  name: string;
-  media_type: string;
-  uri: string;
-  fetch_path?: string;
-  custody?: string;
-  sha256?: string;
-  size?: number;
-  version?: number;
-  created_at?: string;
-  session_relation?: 'produced' | 'used';
-  producer?: Record<string, unknown>;
-}
-
-export interface ArtifactVersion {
-  media_type?: string;
-  artifact_id: string;
-  workspace_id: string;
-  name: string;
-  version: number;
-  kind: string;
-  custody: string;
-  mechanism: string;
-  evidence_class: string;
-  sha256?: string;
-  size_bytes?: number;
-  authority?: string;
-  path?: string;
-  created_at: string;
-  annotation?: string;
-  producer: Record<string, unknown>;
-  prior_version?: number;
-  prior_sha256?: string;
-  kind_warning?: string;
-  custody_gap?: boolean | Record<string, unknown>;
-  uri: string;
-  fetch_url: string;
-}
-
-export interface ArtifactRecord {
-  workspace_id: string;
-  name: string;
-  kind: string;
-  latest_version: number;
-  head_artifact_id: string;
-  aliases: Record<string, number>;
-  versions: ArtifactVersion[];
-  producing_session_ids?: string[];
-}
-
-export interface SessionArtifactListing {
-  artifacts: ArtifactRecord[];
-  used: ArtifactRecord[];
-  count: number;
-  include_children: boolean;
-  child_session_ids: string[];
-  truncated?: 'page_cap_reached' | 'cursor_cycle_detected';
-}
-
-export interface ArtifactDetail {
-  artifact: ArtifactRecord;
-  resolved: ArtifactVersion;
-}
-
-export interface ArtifactLineageNode {
-  id: string;
-  type: 'artifact' | 'activity' | 'gap';
-  [key: string]: unknown;
-}
-
-export interface ArtifactLineageEdge {
-  from: string;
-  to: string;
-  type: 'used' | 'generated' | 'revision_of';
-  evidence: string;
-}
-
-export interface ArtifactLineage {
-  root: string;
-  direction: 'upstream' | 'downstream' | 'both';
-  depth: number;
-  nodes: ArtifactLineageNode[];
-  edges: ArtifactLineageEdge[];
-  truncated?: { reason: string; nodes?: number; at_depth?: number };
-}
-
-export interface WorkspaceFileEntry {
-  path: string;
-  display_path?: string;
-  type: WireValue<'file' | 'dir'>;
-  internal: boolean;
-  media_type?: string;
-  source?: WireValue<'workspace' | 'managed_input'>;
-  resource_id?: string;
-  size?: number;
-  modified?: string;
-  /** A typed reason (e.g. "sandbox_child_cache") the server never walked this
-   * directory's contents — the folder itself is still listed, just empty. */
-  redacted?: string;
-}
-
-export interface WorkspaceFileListing {
-  entries: WorkspaceFileEntry[];
-  /** Whether the server's capped walk stopped before enumerating everything. */
-  truncated: boolean;
-  /** Next page in directory mode; absent on older recursive listing services. */
-  next_offset?: number | null;
-}
-
+export type {
+  Artifact,
+  ArtifactVersion,
+  ArtifactRecord,
+  SessionArtifactListing,
+  ArtifactDetail,
+  ArtifactLineageNode,
+  ArtifactLineageEdge,
+  ArtifactLineage,
+  WorkspaceFileEntry,
+  WorkspaceFileListing,
+} from './artifact-domain.js';
+import type { Artifact } from './artifact-domain.js';
+/**
+ * One file the agent changed (``fs_write_file`` / ``fs_edit_file``), as the
+ * session's change ledger records it. ``status`` is ``applied`` until the
+ * person's Undo (``POST /v1/sessions/{sid}/diffs/revert``) makes it ``reverted``.
+ * ``undo_unavailable_reason`` names why Undo cannot restore it when
+ * ``undo_available`` is false.
+ */
 export interface SessionDiff {
+  id: string;
   path: string;
-  status: string;
-  applied: boolean;
+  status: 'applied' | 'reverted';
+  created: boolean;
   unified_diff?: string;
+  lines_added?: number;
+  lines_removed?: number;
+  undo_available: boolean;
+  undo_unavailable_reason?: string;
   message_id?: string;
   part_id?: string;
+  call_id?: string;
+  tool_name?: string;
+  recorded_at?: string;
+  reverted_at?: string;
 }
 
 export interface ContextFile {
@@ -503,30 +448,22 @@ export interface AsyncProcess {
   created_at?: string;
   updated_at?: string;
   error_reason?: string;
+  /** Set when the task's child conversation runs a flow (a workflow, council, arena...). */
+  flow?: {
+    id: string;
+    status?: string;
+    outcome?: { reason?: string; message?: string } | null;
+    previous_handle?: string;
+    detail?: string;
+  };
+  /** The model the child conversation runs on and why. */
+  model_choice?: ModelChoice;
   result?: {
     answer?: string;
     answer_excerpt?: string;
     message_ref?: string;
     workflow_state?: Record<string, unknown>;
   };
-  metadata: Record<string, unknown>;
-}
-
-export interface AgentBlueprint {
-  materialized?: boolean;
-  registry_id?: string;
-  id: string;
-  identity?: string;
-  source_id?: string;
-  blueprint_id?: string;
-  version: string;
-  title: string;
-  display_name: string;
-  description?: string;
-  scope: string;
-  enabled: boolean;
-  validation_errors: string[];
-  kind: WireValue<'blueprint' | 'pack'>;
   metadata: Record<string, unknown>;
 }
 
@@ -578,14 +515,17 @@ export interface McpServerDefinition {
   id: string;
   name: string;
   status: string;
+  reason?: string;
+  preparation?: McpServerPreparation;
   transport?: string;
   tools_count: number;
   tools: string[];
   error?: string;
   source?: string;
   enabled?: boolean;
-  agent_blueprint_id?: string;
-  agent_blueprint_name?: string;
+  /** The plugin that declares this server, for servers the session's agent brings. */
+  plugin?: string;
+  agent_ref?: string;
   session_id?: string;
   spec: Record<string, unknown>;
 }
@@ -594,32 +534,15 @@ export interface McpUserConfiguration {
   name: string;
   configured: boolean;
   scope: 'user';
-  status: 'ready' | 'degraded' | 'local_fallback';
+  status: 'ready' | 'degraded' | 'auth_required' | 'local_fallback';
   transport?: string;
   tools_count: number;
   tools: string[];
+  tool_details?: Array<Record<string, unknown>>;
   spec?: Record<string, unknown>;
   error?: string;
   retryable: boolean;
   removed?: boolean;
-}
-
-export interface ExpertPackDefinition {
-  id: string;
-  version: string;
-  title: string;
-  display_name?: string;
-  description: string;
-  scope: string;
-  enabled: boolean;
-  validation_errors: string[];
-  kind: 'pack';
-  root?: string;
-  root_path?: string;
-  manifest_path?: string;
-  definition_path?: string;
-  defaults: Record<string, unknown>;
-  metadata: Record<string, unknown>;
 }
 
 export interface PermissionPolicy {
@@ -714,6 +637,8 @@ export interface PermissionLedgerItem {
 
 export interface TranscriptSnapshot {
   cursor?: string;
+  /** Set on a bounded page when older messages remain: request `before` this id. */
+  next_cursor?: string | null;
   messages: Message[];
   tools: ToolInvocation[];
   tasks: Task[];
@@ -722,10 +647,27 @@ export interface TranscriptSnapshot {
   surfaces: A2UISurface[];
 }
 
+/** One page of the conversation list, newest interaction first. */
+export interface SessionPage {
+  sessions: Session[];
+  /** Pass back as `cursor` for the next page; absent on the last page. */
+  next_cursor?: string | null;
+  /** How many sessions match the filters in all pages. */
+  total?: number | null;
+}
+
+/** The newest messages of a conversation, or the ones before `before`. */
+export interface TranscriptPageOptions {
+  limit?: number;
+  before?: string;
+}
+
 export interface EntityState {
   connection?: Connection;
   capabilities?: CapabilityNegotiation;
   stream: StreamState;
+  /** How many `stream.gap` frames this stream reported; each one asks for a reconcile. */
+  streamGaps?: number;
   cursor?: string;
   workspaces: Record<string, Workspace>;
   sessions: Record<string, Session>;

@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { TransportError, type ClioTransport, type TransportRequest } from './transport.js';
 import { captureSessionReview } from './session-export-snapshot.js';
 
-it('captures the authored dashboard only, including references in inactive tabs', async () => {
+it('captures the authored dashboard only, naming files in inactive tabs by reference', async () => {
   const requests: string[] = [];
   const transport: ClioTransport = {
     async request<T>(request: TransportRequest<T>): Promise<T> {
@@ -18,7 +18,7 @@ it('captures the authored dashboard only, including references in inactive tabs'
           fetch_path: '/v1/artifacts/detail-image/bytes',
         });
       if (request.path === '/v1/artifacts/detail-image/bytes')
-        return request.decode(new Uint8Array([1, 2, 3]));
+        throw new Error('A dashboard export names its files; it never reads them whole');
       if (request.path.endsWith('/a2ui/surfaces') || request.path.includes('/interactions'))
         throw new Error('Unrelated chat state must not enter a dashboard bundle');
       return request.decode({});
@@ -41,9 +41,11 @@ it('captures the authored dashboard only, including references in inactive tabs'
   };
   const snapshot = await captureSessionReview(transport, ['s'], undefined, { s: [surface] });
   expect(snapshot.sessions.s).toEqual([surface]);
-  expect(snapshot.responses['GET /v1/artifacts/detail-image/bytes']?.bytes).toBe(
-    btoa('\u0001\u0002\u0003'),
-  );
+  // The server streams the file into the page by reference (#1823).
+  expect(snapshot.responses['GET /v1/artifacts/detail-image/bytes']).toEqual({
+    artifact: 'detail-image',
+  });
+  expect(requests).not.toContain('/v1/artifacts/detail-image/bytes');
   expect(snapshot.failures).toEqual([]);
   expect(requests).toContain('/v1/sessions/s/a2ui/catalogs');
   expect(requests).toContain('/v1/sessions/s/a2ui/capabilities');

@@ -18,52 +18,66 @@ class RecordingTransport implements ClioTransport {
     _cursor?: string,
     _signal?: AbortSignal,
   ): AsyncIterable<TransportFrame> {
-    return;
+    yield* [];
   }
 }
 
-describe('SessionObservabilityRepository diff mutations', () => {
-  it('applies and rejects only the explicitly selected server paths', async () => {
+describe('SessionObservabilityRepository diff undo', () => {
+  it('reverts exactly the selected recorded change and decodes the settled row', async () => {
     const transport = new RecordingTransport([
-      { applied: ['src/analysis.py'] },
-      { rejected: ['notes/draft.md'] },
+      {
+        reverted: {
+          id: 'chg_1',
+          path: 'src/analysis.py',
+          status: 'reverted',
+          created: false,
+          undo_available: false,
+          unified_diff: '@@ -1 +1 @@\n-old\n+new',
+          reverted_at: '2026-10-23T00:00:00Z',
+        },
+      },
     ]);
     const repository = new ClioRepository(transport);
 
-    await expect(repository.applySessionDiffs('sess 1', ['src/analysis.py'])).resolves.toEqual({
-      applied: ['src/analysis.py'],
-    });
-    await expect(repository.rejectSessionDiffs('sess 1', ['notes/draft.md'])).resolves.toEqual({
-      rejected: ['notes/draft.md'],
+    await expect(repository.revertSessionDiff('sess 1', 'chg_1')).resolves.toMatchObject({
+      id: 'chg_1',
+      status: 'reverted',
+      undo_available: false,
     });
 
     expect(transport.requests.map(({ method, path, body }) => ({ method, path, body }))).toEqual([
       {
         method: 'POST',
-        path: '/v1/sessions/sess%201/diffs/apply',
-        body: { paths: ['src/analysis.py'] },
-      },
-      {
-        method: 'POST',
-        path: '/v1/sessions/sess%201/diffs/reject',
-        body: { paths: ['notes/draft.md'] },
+        path: '/v1/sessions/sess%201/diffs/revert',
+        body: { id: 'chg_1' },
       },
     ]);
   });
 
-  it('preserves per-path write failures from the server', async () => {
+  it('decodes a change whose undo is unavailable with its typed reason', async () => {
     const transport = new RecordingTransport([
       {
-        applied: [],
-        write_errors: { 'src/analysis.py': 'permission denied' },
+        diffs: [
+          {
+            id: 'chg_2',
+            path: 'big.csv',
+            status: 'applied',
+            created: false,
+            undo_available: false,
+            undo_unavailable_reason: 'previous_content_too_large',
+          },
+        ],
       },
     ]);
     const repository = new ClioRepository(transport);
 
-    await expect(repository.applySessionDiffs('sess', ['src/analysis.py'])).resolves.toEqual({
-      applied: [],
-      write_errors: { 'src/analysis.py': 'permission denied' },
-    });
+    await expect(repository.sessionDiffs('sess')).resolves.toEqual([
+      expect.objectContaining({
+        id: 'chg_2',
+        undo_available: false,
+        undo_unavailable_reason: 'previous_content_too_large',
+      }),
+    ]);
   });
 });
 
@@ -122,7 +136,7 @@ describe('SessionObservabilityRepository agent tasks', () => {
             task_id: 'task_watch',
             parent_session_id: 'sess 1',
             child_session_id: 'sess_watch',
-            agent_ref: { expert_id: 'spotter_watcher', blueprint_id: 'spotter-ai' },
+            agent_ref: { expert_id: 'spotter_watcher' },
             run_index: 0,
             run_label: 'SPOTTER watcher',
             status: 'running',
@@ -144,7 +158,6 @@ describe('SessionObservabilityRepository agent tasks', () => {
       child_session_id: 'sess_watch',
       parent_turn_id: '',
       expert_id: 'spotter_watcher',
-      blueprint_id: 'spotter-ai',
       run_index: 0,
       run_label: 'SPOTTER watcher',
       status: 'running',
@@ -155,4 +168,19 @@ describe('SessionObservabilityRepository agent tasks', () => {
       answer_excerpt: '',
     });
   });
+});
+
+it('retains an owning tasks flow outcome and no-op predecessor independently from task completion', async () => {
+  const process = {
+    id: 'followup',
+    kind: 'agent',
+    title: 'Research',
+    live_state: 'completed',
+    status: 'completed',
+    flow: { id: 'deep-research', status: 'not_run', previous_handle: 'earlier' },
+  };
+  const repository = new ClioRepository(
+    new RecordingTransport([{ processes: [process], cursor: null, total: 1, revision: 1 }]),
+  );
+  expect((await repository.asyncProcessesPage('parent')).items[0]?.flow).toEqual(process.flow);
 });

@@ -10,7 +10,7 @@ const known: SessionDefaults = {
   edit_mode: 'diff',
   routing_mode: 'auto',
   approval_mode: 'ask',
-  blueprint_id: '',
+  agent_ref: '',
 };
 
 describe('sessionDefaultsPatch', () => {
@@ -22,8 +22,8 @@ describe('sessionDefaultsPatch', () => {
     } as unknown as SessionDefaults;
 
     expect(Object.keys(sessionDefaultsPatch(withExtras)).sort()).toEqual([
+      'agent_ref',
       'approval_mode',
-      'blueprint_id',
       'edit_mode',
       'effort',
       'mode',

@@ -17,6 +17,7 @@ import { refinedStrictObject } from './a2ui-refined-schema';
 import { useArtifactText } from './artifact-text-query';
 import { ClioMermaidDiagram } from './mermaid-diagram';
 import { buildZoneReference } from './data-zone-reference';
+import { readThemeColor, useThemeKey } from '@/theme/runtime';
 
 const workflowNode = z
   .object({
@@ -26,6 +27,12 @@ const workflowNode = z
     detail: z.string().optional(),
   })
   .strict();
+/**
+ * An inline node may carry an `action`, run when it is clicked (opening the view of
+ * the branch it stands for, say). The binder turns it into a callable; a node read
+ * from a file has none.
+ */
+const inlineWorkflowNode = workflowNode.extend({ action: CommonSchemas.Action.optional() });
 const workflowEdge = z
   .object({ source: z.string(), target: z.string(), label: z.string().optional() })
   .strict();
@@ -38,7 +45,7 @@ const workflowFileSchema = z
   })
   .strict();
 
-type WorkflowNode = z.infer<typeof workflowNode>;
+type WorkflowNode = z.infer<typeof workflowNode> & { action?: () => void };
 type WorkflowEdge = z.infer<typeof workflowEdge>;
 
 function mermaidLabel(value: string): string {
@@ -47,6 +54,36 @@ function mermaidLabel(value: string): string {
     .replace(/\s+/gu, ' ')
     .trim();
   return truncate(line, DIAGRAM_LABEL_TRUNCATE_CHARS);
+}
+
+/** A node's free-text state, read as a science state or a failure, for its color. */
+type StateTone = 'supported' | 'running' | 'refuted' | 'superseded' | 'failed';
+const STATE_TONES: Record<string, StateTone> = {
+  completed: 'supported',
+  complete: 'supported',
+  done: 'supported',
+  succeeded: 'supported',
+  supported: 'supported',
+  running: 'running',
+  active: 'running',
+  in_progress: 'running',
+  refuted: 'refuted',
+  cancelled: 'superseded',
+  canceled: 'superseded',
+  skipped: 'superseded',
+  superseded: 'superseded',
+  failed: 'failed',
+  error: 'failed',
+};
+
+/** Pele and Mermaid parse these colors themselves, so they get the theme's resolved values. */
+function toneClassDef(tone: StateTone): string {
+  if (tone === 'failed') {
+    const color = readThemeColor('destructive');
+    return `  classDef failed fill:${readThemeColor('card')},stroke:${color},color:${color}`;
+  }
+  const text = readThemeColor(`status-${tone}-foreground`);
+  return `  classDef ${tone} fill:${readThemeColor(`status-${tone}`)},stroke:${text},color:${text}`;
 }
 
 function workflowSource(
@@ -71,9 +108,21 @@ function workflowSource(
         : `  ${source} --> ${target}`,
     );
   }
+  // The label already says the state in words; the color repeats it.
+  const tones = new Map<StateTone, string[]>();
+  for (const node of nodes) {
+    const tone = node.state ? STATE_TONES[node.state.toLowerCase()] : undefined;
+    if (tone) tones.set(tone, [...(tones.get(tone) ?? []), identifiers.get(node.id)!]);
+  }
+  for (const [tone, ids] of tones) {
+    lines.push(toneClassDef(tone));
+    lines.push(`  class ${ids.join(',')} ${tone}`);
+  }
   const selectedId = selected ? identifiers.get(selected) : undefined;
   if (selectedId) {
-    lines.push('  classDef selected fill:#2d2418,stroke:#f39a55,stroke-width:3px');
+    lines.push(
+      `  classDef selected fill:${readThemeColor('accent')},stroke:${readThemeColor('action')},stroke-width:3px`,
+    );
     lines.push(`  class ${selectedId} selected`);
   }
   return lines.join('\n');
@@ -99,8 +148,13 @@ function ClioWorkflowDiagram({
   selected,
 }: ClioWorkflowDiagramProps) {
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  // The source carries resolved theme colors; re-render it when the theme changes.
+  useThemeKey();
   const interactiveNodes = useMemo(() => nodes.map(({ id, label }) => ({ id, label })), [nodes]);
   const selectNode = (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
+    // A plain click runs the node's own action; a modified click only extends the selection.
+    if (!modifiers.shiftKey && !modifiers.ctrlKey && !modifiers.metaKey)
+      void nodes.find((node) => node.id === id)?.action?.();
     setSelectedNodeIds((previous) => {
       if (modifiers.shiftKey || modifiers.ctrlKey || modifiers.metaKey) {
         return previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id];
@@ -214,10 +268,10 @@ function ClioWorkflowArtifactSource({
 }
 
 const workflowDataProperties = {
-  nodes: z.array(workflowNode).min(1).max(A2UI_WORKFLOW_NODES_MAX).optional(),
+  nodes: z.array(inlineWorkflowNode).min(1).max(A2UI_WORKFLOW_NODES_MAX).optional(),
   edges: z.array(workflowEdge).max(A2UI_WORKFLOW_EDGES_MAX).optional(),
   dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
-  selected: z.string().optional(),
+  selected: CommonSchemas.DynamicString.optional(),
   action: CommonSchemas.Action.optional(),
   accessibility: CommonSchemas.AccessibilityAttributes.optional(),
   weight: z.number().optional(),
@@ -259,7 +313,7 @@ export const ClioWorkflowCatalogComponent = createComponentImplementation(
         accessibility={props.accessibility}
         action={props.action ? () => void props.action?.() : undefined}
         edges={props.edges!}
-        nodes={props.nodes!}
+        nodes={props.nodes! as unknown as WorkflowNode[]}
         selected={props.selected}
       />
     ),

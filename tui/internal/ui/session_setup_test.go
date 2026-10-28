@@ -13,168 +13,110 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
-func TestSessionSetupCreateBindsBlueprintAndExpertPack(t *testing.T) {
-	var createdWorkspace, boundBlueprint, boundPack string
+func TestSessionSetupCreateRunsTheChosenAgent(t *testing.T) {
+	var requests []client.CreateSessionRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/v1/sessions":
-			if r.Method != http.MethodPost {
-				t.Fatalf("sessions method = %s", r.Method)
-			}
-			var req client.CreateSessionRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				t.Fatalf("decode create session: %v", err)
-			}
-			createdWorkspace = req.WorkspaceID
-			_ = json.NewEncoder(w).Encode(gact.Session{
-				ID:          "sess_1",
-				WorkspaceID: req.WorkspaceID,
-				Title:       req.Title,
-				Agent:       gact.AgentRef{ID: "default"},
-				Metadata:    map[string]any{},
-			})
-		case "/v1/sessions/sess_1/agent-blueprint":
-			if r.Method != http.MethodPost {
-				t.Fatalf("agent-blueprint method = %s", r.Method)
-			}
-			var req gact.SetSessionAgentBlueprintRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				t.Fatalf("decode blueprint bind: %v", err)
-			}
-			boundBlueprint = req.BlueprintID
-			_ = json.NewEncoder(w).Encode(gact.SessionAgentBlueprintState{
-				SessionID:              "sess_1",
-				WorkspaceID:            "ws1",
-				ActiveAgentBlueprintID: req.BlueprintID,
-			})
-		case "/v1/sessions/sess_1/expert-pack":
-			if r.Method != http.MethodPost {
-				t.Fatalf("expert-pack method = %s", r.Method)
-			}
-			var req gact.SetSessionExpertPackRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				t.Fatalf("decode expert-pack bind: %v", err)
-			}
-			boundPack = req.PackID
-			_ = json.NewEncoder(w).Encode(gact.SessionExpertPackState{
-				SessionID:          "sess_1",
-				WorkspaceID:        "ws1",
-				ActiveExpertPackID: req.PackID,
-			})
-		default:
+		if r.URL.Path != "/v1/sessions" || r.Method != http.MethodPost {
 			t.Fatalf("unexpected %s %s", r.Method, r.URL.Path)
 		}
+		var req client.CreateSessionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode create session: %v", err)
+		}
+		requests = append(requests, req)
+		_ = json.NewEncoder(w).Encode(gact.Session{
+			ID:          "sess_1",
+			WorkspaceID: req.WorkspaceID,
+			Title:       req.Title,
+			Agent:       gact.AgentRef{ID: "standard"},
+			Metadata:    map[string]any{"agent_ref": "user/my-analyst"},
+		})
 	}))
 	defer srv.Close()
 
-	msg := createSessionWithSemanticsCmd(client.New(srv.URL), "ws1", sessionSetupSelection{
-		BlueprintID: "earthscope-gnss-region",
-		PackID:      "ndp-tools",
-	})()
+	msg := createSessionWithAgentCmd(client.New(srv.URL), "ws1", "user/my-analyst")()
 	created, ok := msg.(sessionCreatedMsg)
 	if !ok {
 		t.Fatalf("message = %T, want sessionCreatedMsg", msg)
 	}
-	if created.semanticWarning != "" {
-		t.Fatalf("semanticWarning = %q", created.semanticWarning)
+	if got := created.session.Metadata["agent_ref"]; got != "user/my-analyst" {
+		t.Fatalf("session agent_ref = %v", got)
 	}
-	if createdWorkspace != "ws1" || boundBlueprint != "earthscope-gnss-region" || boundPack != "ndp-tools" {
-		t.Fatalf("bindings = workspace %q blueprint %q pack %q", createdWorkspace, boundBlueprint, boundPack)
+	_ = createSessionWithAgentCmd(client.New(srv.URL), "ws1", "")()
+	if len(requests) != 2 {
+		t.Fatalf("requests = %d, want 2", len(requests))
 	}
-	if got := created.session.Metadata["active_agent_blueprint_id"]; got != "earthscope-gnss-region" {
-		t.Fatalf("session active_agent_blueprint_id = %v", got)
+	if requests[0].WorkspaceID != "ws1" || requests[0].Agent == nil || requests[0].Agent.ID != "user/my-analyst" {
+		t.Fatalf("chosen agent request = %+v", requests[0])
 	}
-	if got := created.session.Metadata["active_expert_pack_id"]; got != "ndp-tools" {
-		t.Fatalf("session active_expert_pack_id = %v", got)
-	}
-}
-
-func TestSessionSetupFiltersPackKindFromBlueprintChoices(t *testing.T) {
-	got := filterSessionSetupBlueprints([]gact.AgentBlueprintDefinition{
-		{ID: "workflow", Kind: "blueprint"},
-		{ID: "legacy-pack", Kind: "pack"},
-		{ID: "plain"},
-	})
-	if len(got) != 2 || got[0].ID != "workflow" || got[1].ID != "plain" {
-		t.Fatalf("filtered blueprints = %#v", got)
+	if requests[1].Agent != nil {
+		t.Fatalf("backend-default request should name no agent, got %+v", requests[1].Agent)
 	}
 }
 
-func TestSessionSetupRendersSeparatedWorkflowSectionsAndButtons(t *testing.T) {
+func TestSessionSetupRendersInstalledAgentsAndButtons(t *testing.T) {
 	a := New("http://example.test")
 	a.stage = StageReady
 	a.width, a.height = 120, 36
 	a.session.setupOpen = true
 	a.session.setup = &sessionSetupState{
-		blueprints: []gact.AgentBlueprintDefinition{{
-			ID:          "earthscope-gnss-region",
-			Title:       "EarthScope GNSS",
-			Description: "GNSS benchmark workflow",
-		}},
-		packs: []gact.ExpertPackDefinition{{
-			ID:          "ndp-tools",
-			Title:       "NDP tools",
-			Description: "NDP tools",
-		}},
+		agents: []gact.PluginAgent{
+			{Ref: "clio/standard", ID: "standard", Name: "CLIO", Kind: "agent"},
+			{Ref: "user/my-analyst", ID: "my-analyst", Name: "My analyst", Kind: "user"},
+		},
 	}
 
 	out := a.session.viewSetup()
-	for _, want := range []string{"Workflow blueprint", "Expert pack", "EarthScope GNSS", "NDP tools", "start session", "cancel"} {
+	for _, want := range []string{"Agent", "backend default", "CLIO  clio/standard", "My analyst  user/my-analyst (yours)", "start session", "cancel"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("new-session setup missing %q:\n%s", want, out)
 		}
 	}
-	for _, old := range []string{"←/→ change", "Start session  [Enter]"} {
+	for _, old := range []string{"Workflow blueprint", "Expert pack"} {
 		if strings.Contains(out, old) {
-			t.Fatalf("new-session setup still looks like old row cycler %q:\n%s", old, out)
+			t.Fatalf("new-session setup still shows removed section %q:\n%s", old, out)
 		}
 	}
 }
 
-func TestSessionSetupMouseSelectsBlueprintAndExpertPackRows(t *testing.T) {
+func TestSessionSetupMouseSelectsAgentRow(t *testing.T) {
 	a := New("http://example.test")
 	a.stage = StageReady
 	a.width, a.height = 120, 36
 	a.session.setupOpen = true
 	a.session.setup = &sessionSetupState{
-		blueprints: []gact.AgentBlueprintDefinition{{ID: "earthscope-gnss-region", Title: "EarthScope GNSS"}},
-		packs:      []gact.ExpertPackDefinition{{ID: "ndp-tools", Title: "NDP tools"}},
+		agents: []gact.PluginAgent{{Ref: "clio/standard", ID: "standard", Name: "CLIO"}},
 	}
 
 	_ = a.View()
-	blueprintTarget, ok := findHitTargetForTest(a, "session-setup:blueprint:1")
+	target, ok := findHitTargetForTest(a, "session-setup:agent:1")
 	if !ok {
-		t.Fatal("missing blueprint row hit target")
+		t.Fatal("missing agent row hit target")
 	}
 	model, cmd := a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      blueprintTarget.rect.x,
-		Y:      blueprintTarget.rect.y,
+		X:      target.rect.x,
+		Y:      target.rect.y,
 		Button: tea.MouseLeft,
 	}))
 	a = model.(*App)
 	if cmd != nil {
-		t.Fatal("blueprint row click should not dispatch backend command")
+		t.Fatal("agent row click should not dispatch backend command")
 	}
-	if a.session.setup.blueprintSel != 1 || a.session.setup.row != 0 {
-		t.Fatalf("blueprint click selection = row %d sel %d", a.session.setup.row, a.session.setup.blueprintSel)
+	if a.session.setup.agentSel != 1 || a.session.setupSelectedAgentRef() != "clio/standard" {
+		t.Fatalf("agent click selection = %d (%q)", a.session.setup.agentSel, a.session.setupSelectedAgentRef())
 	}
+}
 
-	_ = a.View()
-	packTarget, ok := findHitTargetForTest(a, "session-setup:pack:1")
-	if !ok {
-		t.Fatal("missing expert-pack row hit target")
-	}
-	model, cmd = a.Update(tea.MouseClickMsg(tea.Mouse{
-		X:      packTarget.rect.x,
-		Y:      packTarget.rect.y,
-		Button: tea.MouseLeft,
-	}))
-	a = model.(*App)
-	if cmd != nil {
-		t.Fatal("expert-pack row click should not dispatch backend command")
-	}
-	if a.session.setup.packSel != 1 || a.session.setup.row != 1 {
-		t.Fatalf("pack click selection = row %d sel %d", a.session.setup.row, a.session.setup.packSel)
+func TestSessionSetupSeedsTheDefaultAgent(t *testing.T) {
+	a := New("http://example.test")
+	a.DefaultAgentRef = "user/my-analyst"
+	a.session.setup = &sessionSetupState{}
+	a.session.handleSetupLoaded(sessionSetupLoadedMsg{agents: []gact.PluginAgent{
+		{Ref: "clio/standard", ID: "standard"},
+		{Ref: "user/my-analyst", ID: "my-analyst"},
+	}})
+	if got := a.session.setupSelectedAgentRef(); got != "user/my-analyst" {
+		t.Fatalf("seeded agent = %q, want user/my-analyst", got)
 	}
 }
 
@@ -184,10 +126,8 @@ func TestSessionSetupEnterRunsPrimaryInsteadOfCyclingSelection(t *testing.T) {
 	a.width, a.height = 120, 36
 	a.session.setupOpen = true
 	a.session.setup = &sessionSetupState{
-		row:          0,
-		blueprintSel: 1,
-		blueprints:   []gact.AgentBlueprintDefinition{{ID: "earthscope-gnss-region", Title: "EarthScope GNSS"}},
-		packs:        []gact.ExpertPackDefinition{{ID: "ndp-tools", Title: "NDP tools"}},
+		agentSel: 1,
+		agents:   []gact.PluginAgent{{Ref: "clio/standard", ID: "standard", Name: "CLIO"}},
 	}
 
 	_, cmd := a.session.handleSetupKey(tea.KeyPressMsg{Code: tea.KeyEnter})

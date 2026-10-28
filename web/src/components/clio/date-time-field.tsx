@@ -49,7 +49,7 @@ export function DateTimeField({
   const parsed = day ? parseISO(day) : undefined;
   const validDay = parsed && !Number.isNaN(parsed.getTime());
   const caption = validDay
-    ? `${format(parsed, 'PPP')}${enableTime && time ? ` · ${time}` : ''}`
+    ? `${format(parsed, 'PPP')}${enableTime && time ? ` at ${time}` : ''}`
     : 'Choose a date';
   return (
     <div className="grid min-w-0 gap-2" data-slot="date-time-field">

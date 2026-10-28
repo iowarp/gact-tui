@@ -106,7 +106,7 @@ func TestLoadCommandsCmdUsesActiveSessionScope(t *testing.T) {
 		}
 		gotQuery = r.URL.RawQuery
 		writeJSONForTest(t, w, map[string]any{"commands": []gact.Command{{
-			ID: "/validate-dataset", Title: "Validate Dataset", CommandSource: "agent_blueprint", AgentBlueprintID: "qc-agent",
+			ID: "/validate-dataset", Title: "Validate Dataset", CommandSource: "plugin", Plugin: "qc-tools",
 		}}})
 	}))
 	defer srv.Close()
@@ -122,7 +122,7 @@ func TestLoadCommandsCmdUsesActiveSessionScope(t *testing.T) {
 	if loaded.sessionID != "s1" || loaded.workspaceID != "ws1" {
 		t.Fatalf("scope = %q/%q, want s1/ws1", loaded.sessionID, loaded.workspaceID)
 	}
-	if len(loaded.commands) != 1 || loaded.commands[0].AgentBlueprintID != "qc-agent" {
+	if len(loaded.commands) != 1 || loaded.commands[0].Plugin != "qc-tools" {
 		t.Fatalf("commands = %#v", loaded.commands)
 	}
 	for _, want := range []string{"workspace_id=ws1", "session_id=s1"} {
@@ -148,7 +148,7 @@ func TestCommandsLoadedMsgIgnoresStaleSessionAndAppliesCurrent(t *testing.T) {
 
 	_, _ = a.Update(commandsLoadedMsg{
 		sessionID: "s1", workspaceID: "ws1",
-		commands: []gact.Command{{ID: "/validate-dataset", Title: "Validate Dataset", CommandSource: "agent_blueprint"}},
+		commands: []gact.Command{{ID: "/validate-dataset", Title: "Validate Dataset", CommandSource: "plugin"}},
 	})
 	if len(a.cmdPalette.commands) != 1 || a.cmdPalette.commands[0].ID != "/validate-dataset" {
 		t.Fatalf("current command response not applied: %#v", a.cmdPalette.commands)

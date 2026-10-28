@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { archiveFileHref } from './archive-file-reference';
+import { archiveFileHref, archiveFolderPath } from './archive-file-reference';
 
 it('links actual recorded artifacts and inputs from their original file identity', () => {
   const inventory = {
@@ -25,4 +25,24 @@ it('resolves full snapshot paths only for exact inventoried files', () => {
   );
   expect(archiveFileHref('D:/Source/../private.csv', inventory)).toBeUndefined();
   expect(archiveFileHref('D:/Source/not-recorded.csv', inventory)).toBeUndefined();
+});
+
+it("finds a node folder's included files, from a snapshot or recorded inputs", () => {
+  const snapshot = {
+    files: [
+      { archive_path: 'workspace/w/0/runs/r1/a/result.txt' },
+      { archive_path: 'workspace/w/0/runs/r1/a/sub/notes.md' },
+      { archive_path: 'workspace/w/0/runs/r1/b/result.txt' },
+    ],
+    artifacts: [],
+    workspace_folders: [{ source_path: '/ws', archive_path: 'workspace/w/0' }],
+  };
+  expect(archiveFolderPath('/ws/runs/r1/a', snapshot)).toBe('workspace/w/0/runs/r1/a');
+  expect(archiveFolderPath('/ws/runs/r1/c', snapshot)).toBeUndefined();
+  const recorded = {
+    files: [{ archive_path: 'effects/inputs/data.csv', source_path: '/ws/runs/r1/a/data.csv' }],
+    artifacts: [],
+  };
+  expect(archiveFolderPath('/ws/runs/r1/a', recorded)).toBe('effects/inputs');
+  expect(archiveFolderPath('/ws/runs/r1/b', recorded)).toBeUndefined();
 });

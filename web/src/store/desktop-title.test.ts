@@ -13,9 +13,9 @@ describe('useDesktopTitleStore', () => {
   it('replaces the whole context on setTitleContext, not a per-field merge', () => {
     useDesktopTitleStore
       .getState()
-      .setTitleContext({ blueprint: 'EarthScope', session: 'NDP demo', workspace: 'flat-ndp' });
+      .setTitleContext({ agent: 'EarthScope', session: 'NDP demo', workspace: 'flat-ndp' });
     expect(useDesktopTitleStore.getState().context).toEqual({
-      blueprint: 'EarthScope',
+      agent: 'EarthScope',
       session: 'NDP demo',
       workspace: 'flat-ndp',
     });

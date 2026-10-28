@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
  * border-(--frame-panel-border-color). This means:
  *
  *   - variant="inverse" overrides those vars on Frame → all panels pick it up
- *   - <FramePanel className="bg-blue-50"> adds a direct utility on the element
+ *   - <FramePanel className="bg-muted"> adds a direct utility on the element
  *     which wins over bg-(--frame-panel-bg) by Tailwind source order — no
  *     :not() or !important needed
  */
@@ -123,8 +123,8 @@ function FramePanel({
         "relative overflow-hidden rounded-(--frame-panel-radius) border border-(--frame-panel-border-color) bg-(--frame-panel-bg) bg-clip-padding shadow-xs",
         // `fit` sizes the panel to its content; otherwise it grows to fill the frame.
         !fit && "grow",
-        "before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--frame-panel-radius)_-_1px)] before:shadow-black/5",
-        "dark:bg-clip-border dark:before:shadow-white/5",
+        "before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--frame-panel-radius)_-_1px)] before:shadow-foreground/5",
+        "dark:bg-clip-border",
         "px-(--frame-panel-px) py-(--frame-panel-py)",
         className
       )}

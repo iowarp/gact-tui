@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   error: vi.fn(),
   locationState: null as unknown,
   navigate: vi.fn(),
+  agents: [] as Array<Record<string, unknown>>,
 }));
 vi.mock('@/tauri/downloads', () => ({ openDownloads: mocks.downloads }));
 vi.mock('@/hooks/use-connection-indicator-state', () => ({
@@ -44,13 +45,17 @@ vi.mock('@/components/clio/connected-source-picker', () => ({
     </div>
   ),
 }));
-vi.mock('sonner', () => ({ toast: { error: mocks.error } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: mocks.error } }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
 }));
 vi.mock('@/hooks/use-repository', () => ({
   useRepository: () => ({
-    sessionDefaults: async () => ({ provider_id: 'codex', model_id: 'gpt-6-luna' }),
+    sessionDefaults: async () => ({
+      provider_id: 'codex',
+      model_id: 'gpt-6-luna',
+      default_agent_ref: 'clio/standard',
+    }),
   }),
 }));
 vi.mock('@/hooks/use-composer-draft', () => ({
@@ -70,7 +75,7 @@ vi.mock('@/hooks/use-workspace-data', () => ({
     attentionInteractions: [],
     workspaceFiles: {},
     workspaceResources: { data: [] },
-    agentBlueprints: {},
+    installedAgents: { data: mocks.agents },
     providerCatalog: {},
   }),
 }));
@@ -88,7 +93,7 @@ vi.mock('@/hooks/use-session-mutations', () => ({
   }),
 }));
 vi.mock('@/hooks/use-session-diff-actions', () => ({
-  useSessionDiffActions: () => ({ apply: {}, reject: {} }),
+  useSessionDiffActions: () => ({ undo: {} }),
 }));
 vi.mock('@/hooks/use-workspace-navigation-actions', () => ({
   useWorkspaceNavigationActions: () => ({ navigationActions: {} }),
@@ -153,6 +158,7 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   mocks.locationState = null;
+  mocks.agents = [];
 });
 
 describe('new conversation reference navigation', () => {
@@ -229,5 +235,34 @@ describe('new conversation reference navigation', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Open notes reference' }));
     await waitFor(() => expect(mocks.openFile).toHaveBeenCalledWith('notes.md'));
     expect(mocks.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('new conversation agent choice', () => {
+  it('groups your agents apart from installed ones and marks the default once', async () => {
+    mocks.agents = [
+      { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent', description: 'General' },
+      { ref: 'clio/science', id: 'science', name: 'Scientist', kind: 'agent', description: '' },
+      { ref: 'user/mine', id: 'mine', name: 'My analyst', kind: 'user', description: 'Mine' },
+    ];
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NewConversationPage />
+      </QueryClientProvider>,
+    );
+    const picker = await screen.findByRole('combobox', { name: 'Conversation agent' });
+    await waitFor(() => expect(picker).toHaveValue('clio/standard'));
+    const groups = screen.getAllByRole('group');
+    expect(groups.map((group) => group.getAttribute('label'))).toEqual([
+      'Your agents',
+      'Installed agents',
+    ]);
+    expect(screen.getByRole('option', { name: 'CLIO (default)' })).toHaveAttribute(
+      'title',
+      'General',
+    );
+    expect(screen.queryByRole('option', { name: 'Default agent' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Customize the agent' }));
+    expect(mocks.revealWorkbench).toHaveBeenCalledWith({ kind: 'resources', section: 'agent' });
   });
 });

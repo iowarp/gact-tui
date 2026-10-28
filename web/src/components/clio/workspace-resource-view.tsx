@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   BracesIcon,
   EyeIcon,
-  FileCode2Icon,
   FilesIcon,
   GitBranchIcon,
   FileInputIcon,
@@ -49,7 +48,6 @@ import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { ImageResourceView, TextResourceView } from './resource-viewers';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { FileViewerShell } from './file-viewer-shell';
-import { isHtmlFile } from './html-preview-policy';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 
 interface WorkspaceResourceViewProps {
@@ -144,10 +142,8 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const endpoint = settings.endpoint;
-  const html =
-    isTextMediaType(resource.detected_mime) && isHtmlFile(resource.name, resource.detected_mime);
   const [activeTab, setActiveTab] = useState('preview');
-  const selectedTab = activeTab === 'source' && !html ? 'preview' : activeTab;
+  const selectedTab = activeTab === 'source' ? 'preview' : activeTab;
   const preview = useQuery({
     queryKey: queryKeys.workspaceResourcePreview(
       endpoint,
@@ -212,28 +208,9 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
                 bytes={preview.data}
                 error={preview.error?.message}
                 resource={resource}
-                htmlView={html ? 'preview' : undefined}
               />
             ),
           },
-          ...(html
-            ? [
-                {
-                  value: 'source',
-                  label: 'Source',
-                  icon: FileCode2Icon,
-                  title: 'Read the original HTML source',
-                  content: (
-                    <ResourcePreview
-                      bytes={preview.data}
-                      error={preview.error?.message}
-                      resource={resource}
-                      htmlView="source"
-                    />
-                  ),
-                },
-              ]
-            : []),
           {
             value: 'structure',
             label: 'Structure',
@@ -252,6 +229,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           },
           {
             value: 'derivatives',
+            secondary: true,
             label: 'Derivatives',
             icon: FilesIcon,
             title: 'Inspect converted representations',
@@ -268,6 +246,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           },
           {
             value: 'provenance',
+            secondary: true,
             label: 'Provenance',
             icon: GitBranchIcon,
             title: 'Trace upload, processing, and model delivery',
@@ -383,7 +362,7 @@ function NativeMediaPreview({
   if (error) return <ResourceUnavailable detail={error} label="Preview unavailable" />;
   if (!url) return <ResourceLoading className="p-4" label={`Loading ${resource.name}`} />;
   if (resource.detected_mime.startsWith('video/')) {
-    return <video className="size-full bg-black object-contain" controls src={url} />;
+    return <video className="size-full bg-media-backdrop object-contain" controls src={url} />;
   }
   if (resource.detected_mime.startsWith('audio/')) {
     return (

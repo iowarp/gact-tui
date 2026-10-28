@@ -3,8 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { useDesktopTitleStore } from '@/store/desktop-title';
 
 /**
- * The desktop title bar's centre: `workspace › session`, with the active
- * blueprint as a small badge, read from `useDesktopTitleStore` — written by
+ * The desktop title bar's centre: `workspace › session`, with the
+ * conversation's agent as a small badge, read from `useDesktopTitleStore` — written by
  * the workspace route as its data resolves. Falls back to the product name
  * on any route that never calls `setTitleContext` (connection, runs,
  * infrastructure, settings).
@@ -12,19 +12,17 @@ import { useDesktopTitleStore } from '@/store/desktop-title';
  * This is the bar's one genuinely empty area, so it carries
  * `data-tauri-drag-region="deep"`: clicking and dragging ANYWHERE in this
  * region — not just its own empty padding, but the workspace/session text
- * and the "Base agent" label too — moves the window, and Tauri's drag
+ * moves the window, and Tauri's drag
  * handling (src-tauri's pinned tauri crate, window/scripts/drag.js) already
  * maximizes/restores on a double-click inside a drag region natively, so
- * this needs no double-click handler of its own. The blueprint badge is a
+ * this needs no double-click handler of its own. The agent badge is a
  * real `<button>` (rendered via `Badge asChild`), which that same drag
  * script excludes from the drag region automatically because it is a
  * clickable tag — no explicit `data-tauri-drag-region="false"` opt-out
  * needed.
  */
 export function DesktopTitleContext() {
-  const { blueprint, onOpenBlueprint, session, showsBaseAgent, workspace } = useDesktopTitleStore(
-    (state) => state.context,
-  );
+  const { agent, onOpenAgent, session, workspace } = useDesktopTitleStore((state) => state.context);
   const hasContext = Boolean(workspace || session);
 
   return (
@@ -42,14 +40,12 @@ export function DesktopTitleContext() {
             </span>
           ) : null}
           {session ? <span className="truncate text-foreground">{session}</span> : null}
-          {blueprint ? (
+          {agent ? (
             <Badge asChild className="shrink-0" variant="secondary">
-              <button onClick={onOpenBlueprint} title={`Open ${blueprint}`} type="button">
-                {blueprint}
+              <button onClick={onOpenAgent} title={`Open agent ${agent}`} type="button">
+                {agent}
               </button>
             </Badge>
-          ) : showsBaseAgent ? (
-            <span className="shrink-0 truncate text-muted-foreground/70">Base agent</span>
           ) : null}
         </>
       ) : (
