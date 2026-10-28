@@ -169,6 +169,10 @@ export const memoryCreationLogSchema = z.object({
       started: z.number().optional(),
       skipped: z.record(z.string(), z.number()).optional(),
       off: z.boolean().optional(),
+      /** Why no background pass ran at all (`lm_provider_unconfigured`: no model to run on). */
+      skipped_reason: z.string().optional(),
+      /** The fleet roles that reason names (`memory_extract`, `memory_consolidate`). */
+      roles: z.array(z.string()).optional(),
     })
     .nullish(),
 });

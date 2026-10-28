@@ -22,6 +22,8 @@ export type DeployStage = {
   state: DeployStageState;
   /** The current substep (the installer's own `==>` line) or the failure reason. */
   detail?: string;
+  /** Why a skipped stage did not run, when the deployment's own events say so. */
+  skipReason?: string;
   startedAt?: number;
   endedAt?: number;
   /**
@@ -94,16 +96,38 @@ export const initialDeployProgress: DeployProgress = {
 const order = (id: DeployStageId) => STAGES.findIndex((stage) => stage.id === id);
 
 /**
+ * Why `stage` did not run once the deployment moved on to `next`: the tunnel
+ * when CLIO answered on the direct route, the install and start when the check
+ * for a running CLIO finished and the deployment went straight past them (it
+ * adopted that server). Otherwise unknown, and the stage only reads "Skipped".
+ */
+function skipReason(
+  progress: DeployProgress,
+  stage: DeployStage,
+  next: DeployStageId,
+): string | undefined {
+  if (stage.id === 'tunnel' && next === 'open') return 'Not needed: connected directly';
+  const claim = progress.stages.find((row) => row.id === 'claim');
+  if ((stage.id === 'install' || stage.id === 'start') && claim?.state === 'done')
+    return `Not needed: the ${vocab.agent} already running there was reused`;
+  return undefined;
+}
+
+/**
  * Enter `id`: earlier stages that never ran (authentication with a key, a
- * tunnel the direct route did not need) are marked skipped. A stage is only
- * ever done by its own result: an earlier stage still running stays running.
+ * tunnel the direct route did not need) are marked skipped, with the reason
+ * when it is known. A stage is only ever done by its own result: an earlier
+ * stage still running stays running.
  */
 function enter(progress: DeployProgress, id: DeployStageId, at: number): DeployProgress {
   const target = order(id);
   return {
     ...progress,
     stages: progress.stages.map((stage, index) => {
-      if (index < target && stage.state === 'pending') return { ...stage, state: 'skipped' };
+      if (index < target && stage.state === 'pending') {
+        const reason = skipReason(progress, stage, id);
+        return { ...stage, state: 'skipped', ...(reason ? { skipReason: reason } : {}) };
+      }
       if (index === target && stage.state !== 'running')
         return { ...stage, state: 'running', startedAt: at, endedAt: undefined, hidden: false };
       return stage;

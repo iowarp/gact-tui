@@ -99,6 +99,11 @@ describe('deploy progress', () => {
       { type: 'open', at: 3 },
     ]);
     expect(states(progress).tunnel).toBe('skipped');
+    expect(progress.stages.find((row) => row.id === 'tunnel')?.skipReason).toBe(
+      'Not needed: connected directly',
+    );
+    // No check ran, so nothing says why the install was not run.
+    expect(progress.stages.find((row) => row.id === 'install')?.skipReason).toBeUndefined();
   });
 
   it('a failed step owns the failure and its one-line reason', () => {
@@ -151,6 +156,9 @@ describe('deploy progress', () => {
       detail: 'Reusing the running CLIO (pid 7, /home/a/.local/share/clio)',
     });
     expect(states(progress)).toMatchObject({ install: 'skipped', start: 'skipped' });
+    const reasons = Object.fromEntries(progress.stages.map((row) => [row.id, row.skipReason]));
+    expect(reasons.install).toMatch(/^Not needed: the .+ already running there was reused$/u);
+    expect(reasons.start).toBe(reasons.install);
   });
 
   it('cleanup after a failure appears as its own stage and keeps the failure', () => {

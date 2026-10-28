@@ -171,3 +171,20 @@ export function operationElapsedSeconds(
   }
   return operation.elapsed_seconds;
 }
+
+/**
+ * Why a skipped step did not run: the step's own message when the service
+ * gave one, else what the operation's end says (it failed or was cancelled
+ * before reaching the step). A step passed over while the operation still
+ * runs, or left over when it succeeded, has no known reason.
+ */
+export function skippedStepReason(
+  step: OperationStep,
+  operationState: InfrastructureOperation['state'],
+): string | undefined {
+  if (step.state !== 'skipped') return undefined;
+  if (step.message) return step.message;
+  if (operationState === 'failed') return 'Not run because the operation failed first';
+  if (operationState === 'cancelled') return 'Not run because the operation was cancelled';
+  return undefined;
+}

@@ -220,6 +220,34 @@ describe('memory page', () => {
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
   });
 
+  it('says why the background pass is off when no model is set, and where to set one', async () => {
+    repository.memoryCreationRuns.mockResolvedValue({
+      runs: [],
+      next_cursor: null,
+      background: {
+        last_tick: '2026-10-25T10:00:00Z',
+        skipped_reason: 'lm_provider_unconfigured',
+        roles: ['memory_extract', 'memory_consolidate'],
+      },
+    });
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    await user.click(screen.getByRole('tab', { name: 'Memory creation log' }));
+    expect(
+      await screen.findByText(
+        /Background memory is off because no model is set for noticing facts and organizing memories/u,
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Fleet settings' })).toHaveAttribute(
+      'href',
+      '/settings/fleet',
+    );
+    expect(screen.getByRole('link', { name: 'model provider' })).toHaveAttribute(
+      'href',
+      '/settings/providers',
+    );
+  });
+
   it('imports into the selected workspace and opens the creation log without promising review', async () => {
     repository.workspaces.mockResolvedValue([{ id: 'ws_lab', name: 'Synthetic lab' }]);
     const user = userEvent.setup();

@@ -68,4 +68,29 @@ describe('DeployStageList', () => {
     );
     expect(within(stage('Starting server')).getByText('42s')).toBeVisible();
   });
+
+  it('says why an adopted server skipped the install and start', () => {
+    const t0 = Date.now();
+    const step = (kind: 'probe' | 'claim' | 'tunnel', detail = ''): DeployEvent => ({
+      type: 'step',
+      step: { kind, phase: 'done', detail },
+      at: t0,
+    });
+    render(
+      <DeployStageList
+        progress={run([
+          { type: 'start', at: t0 - 5_000 },
+          { type: 'connected', at: t0 - 4_000 },
+          step('probe'),
+          step('claim', 'Reusing the running CLIO (pid 7, /home/a/.local/share/clio)'),
+          step('tunnel'),
+        ])}
+      />,
+    );
+    const start = stage('Starting server');
+    expect(start).toHaveAccessibleName(/^Starting server: Skipped\. Not needed: the .+ reused$/u);
+    expect(within(start).getByText('Skipped')).toBeVisible();
+    expect(within(start).getByText(/already running there was reused/u)).toBeVisible();
+    expect(screen.queryByText('Not needed')).not.toBeInTheDocument();
+  });
 });

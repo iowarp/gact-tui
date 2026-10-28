@@ -40,6 +40,33 @@ const REASONS: Record<string, string> = {
     'The curator finished, but its memory tools failed and no changes were saved or proposed.',
   curator_task_unavailable: 'The recorded curator task cannot be loaded. Its outcome is unknown.',
 };
+/** The background-pass roles, as Settings > Fleet names what they do. */
+const ROLE_WORK: Record<string, string> = {
+  memory_extract: 'noticing facts',
+  memory_consolidate: 'organizing memories',
+};
+
+/** Why the background pass did not run at all, and where to fix it. */
+function BackgroundBlocked({ reason, roles }: { reason?: string; roles?: string[] }) {
+  if (reason !== 'lm_provider_unconfigured') return null;
+  const work = (roles ?? []).map((role) => ROLE_WORK[role] ?? role.replaceAll('_', ' '));
+  const named = work.length ? work.join(' and ') : 'creating memories';
+  return (
+    <p data-slot="memory-background-blocked">
+      Background memory is off because no model is set for {named}. Choose a model for{' '}
+      {work.length === 1 ? 'that role' : work.length ? 'those roles' : 'the memory roles'} in{' '}
+      <Link className="text-primary underline-offset-4 hover:underline" to="/settings/fleet">
+        Fleet settings
+      </Link>
+      , or select a{' '}
+      <Link className="text-primary underline-offset-4 hover:underline" to="/settings/providers">
+        model provider
+      </Link>{' '}
+      to use its default model.
+    </p>
+  );
+}
+
 const time = (stamp: string) =>
   stamp && !Number.isNaN(Date.parse(stamp))
     ? new Date(stamp).toLocaleString()
@@ -239,6 +266,7 @@ export function MemoryCreationLog({
                 ? `Last checked ${time(background.last_tick)}`
                 : 'No background check recorded yet.'}
           </p>
+          <BackgroundBlocked reason={background.skipped_reason} roles={background.roles} />
           {waiting.length ? (
             <p>{waiting.map(([reason, n]) => `${REASONS[reason]} (${n})`).join(', ')}</p>
           ) : null}
