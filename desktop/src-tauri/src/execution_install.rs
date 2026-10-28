@@ -40,6 +40,8 @@ pub(crate) fn install_command(
     workspace: &Path,
     user: &Path,
 ) -> Result<Command, String> {
+    #[cfg(windows)]
+    crate::execution_install_job::ensure_owned_job()?;
     let mut command = Command::new(bundled_python(runtime)?);
     command
         .args([
