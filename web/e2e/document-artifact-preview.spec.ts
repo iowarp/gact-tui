@@ -276,8 +276,8 @@ for (const layout of [
         }));
         expect(toolbarGeometry.height).toBeLessThanOrEqual(40);
         expect(toolbarGeometry.scroll).toBeLessThanOrEqual(toolbarGeometry.width);
+        await expect(toolbar.getByRole('button', { name: 'Zoom in', exact: true })).toBeVisible();
         await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
-        await expect(page.getByRole('menuitem', { name: 'Zoom in', exact: true })).toBeVisible();
         await page
           .getByRole('menuitem', { name: 'Copy to another workspace', exact: true })
           .click();
@@ -286,7 +286,10 @@ for (const layout of [
         ).toBeVisible();
         await page.getByRole('button', { name: 'Cancel', exact: true }).click();
         const download = page.waitForEvent('download');
-        await toolbar.getByRole('button', { name: 'Download file', exact: true }).click();
+        await toolbar
+          .getByRole('group', { name: 'File download', exact: true })
+          .getByRole('button', { name: /^Download /u })
+          .click();
         const saved = await download;
         expect(saved.suggestedFilename()).toBe(name);
         const savedPath = await saved.path();
@@ -320,11 +323,7 @@ for (const layout of [
           }),
         ).toBeVisible();
         await expect(canvas.getByRole('button', { name: 'Use paged PDF view' })).toHaveCount(0);
-        if (layout.name === 'desktop') {
-          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
-        } else {
-          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeHidden();
-        }
+        await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
         await expect(document.getByText(item.text, { exact: true })).toBeVisible();
         await expect(document.locator('.react-pdf__Page__canvas').first()).toBeVisible();
         const pageCanvas = document.locator('.react-pdf__Page__canvas').first();
@@ -370,12 +369,10 @@ for (const layout of [
             }),
           )
           .toBeGreaterThanOrEqual(0.99);
-        await canvas.getByRole('button', { name: 'Export', exact: true }).click();
-        await expect(
-          page.getByRole('menuitem', { name: 'Download PDF', exact: true }),
-        ).toBeVisible();
+        await canvas.getByRole('button', { name: 'Export to…', exact: true }).click();
+        await expect(page.getByRole('menuitem', { name: 'PDF', exact: true })).toBeVisible();
         const pdfDownload = page.waitForEvent('download');
-        await page.getByRole('menuitem', { name: 'Download PDF', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'PDF', exact: true }).click();
         const downloadedPdf = await pdfDownload;
         expect(downloadedPdf.suggestedFilename()).toMatch(/\.pdf$/u);
         const downloadedStream = await downloadedPdf.createReadStream();

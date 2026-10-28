@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { selectFileView } from './file-viewer-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
@@ -9,7 +10,7 @@ async function openFixture(page: Page, type?: string, content?: string, shortTra
   await page.addInitScript((address) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([address]));
   }, endpoint);
-  await page.route(`**/v1/sessions/${session}/messages`, async (route) => {
+  await page.route((url) => url.pathname === `/v1/sessions/${session}/messages`, async (route) => {
     const response = await route.fetch();
     const data = await response.json();
     if (shortTranscript) {
@@ -255,8 +256,7 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
   await expect
     .poll(() => preview.locator('article').evaluate((e) => e.getBoundingClientRect().width))
     .toBeLessThan(500);
-  const markdownView = preview.getByRole('tablist', { name: 'Markdown file view', exact: true });
-  await markdownView.getByRole('tab', { name: 'Source', exact: true }).click();
+  await selectFileView(page, preview, 'Source');
   await expect(preview.getByRole('tabpanel', { name: 'Source', exact: true })).toContainText(
     '# Converted guide',
   );
@@ -267,7 +267,7 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
         .evaluate((e) => e.scrollWidth - e.clientWidth),
     )
     .toBeLessThan(2);
-  await markdownView.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await selectFileView(page, preview, 'Preview');
   await expect(preview.getByRole('heading', { name: 'Converted guide' })).toBeVisible();
 });
 
@@ -330,7 +330,7 @@ for (const shortTranscript of [false, true]) {
       releaseRefresh = resolve;
     });
     await page.route(
-      `**/v1/sessions/${session}/messages`,
+      (url) => url.pathname === `/v1/sessions/${session}/messages`,
       async (route) => {
         await refreshGate;
         await route.fallback();

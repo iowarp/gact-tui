@@ -4,6 +4,22 @@ const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799',
 export const fixtureEndpoint = `http://127.0.0.1:${fixturePort}`;
 export const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
 
+/** Select a rail through the shipped evidence-layout keyboard control. */
+export async function showEvidenceRail(page: Page, kind: 'Session' | 'Work'): Promise<void> {
+  const launcher = page.getByRole('button', { name: /^Evidence layout: /u });
+  const desired = `Evidence layout: ${kind === 'Session' ? 'Top' : 'Bottom'}`;
+  for (let step = 0; step < 4; step += 1) {
+    if (
+      (await launcher.getAttribute('aria-label')) === desired &&
+      (await launcher.getAttribute('aria-expanded')) === 'true'
+    )
+      break;
+    await launcher.press('ArrowRight');
+  }
+  await expect(launcher).toHaveAttribute('aria-label', desired);
+  await expect(page.getByRole('region', { name: `${kind} rail`, exact: true })).toBeVisible();
+}
+
 /** Reset the shared server and retain browser error checks for each workspace case. */
 export function setupWorkspaceBrowser(): void {
   const unexpectedErrors = new WeakMap<Page, string[]>();

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { showEvidenceRail } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -30,9 +31,8 @@ test('compact Session rows open source, tool and Context details, with Work kept
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await openSession(page);
-  const toggle = page.getByRole('button', { name: 'Session rail', exact: true });
-  const panel = page.getByRole('dialog', { name: 'Session rail', exact: true });
-  await toggle.click();
+  await showEvidenceRail(page, 'Session');
+  const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
   await expect(panel).toHaveAttribute('data-showcase-mode', 'docked');
   await expect(panel.getByRole('button', { name: 'Open Sensor repository' })).toBeVisible();
   await expect(panel.getByRole('region', { name: 'Todos section', exact: true })).toHaveCount(0);
@@ -67,10 +67,10 @@ test('compact Session rows open source, tool and Context details, with Work kept
   await expect(view.getByRole('tab', { name: 'Context' })).toHaveAttribute('data-state', 'active');
   await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(panel).toBeVisible();
-  await page.getByRole('button', { name: 'Work rail', exact: true }).click();
-  const work = page.getByRole('dialog', { name: 'Work rail', exact: true });
+  await showEvidenceRail(page, 'Work');
+  const work = page.getByRole('region', { name: 'Work rail', exact: true });
   await expect(work).toBeVisible();
-  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Session rail', exact: true })).toHaveCount(0);
   await expect(work.getByRole('button', { name: 'Open Check the report' })).toBeVisible();
   await work.getByRole('button', { name: 'Open Check the report', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Work', exact: true })).toHaveAttribute(
@@ -89,9 +89,8 @@ test('temporary Session links survive technical-dialog dismissal and open source
   page,
 }) => {
   await openSession(page, 390);
-  const toggle = page.getByRole('button', { name: 'Session rail', exact: true });
-  await toggle.click();
-  const panel = page.getByRole('dialog', { name: 'Session rail', exact: true });
+  await showEvidenceRail(page, 'Session');
+  const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
   await panel.getByRole('button', { name: 'Expand Tool calls', exact: true }).click();
   await panel
     .getByRole('button', { name: /^Technical details for/ })
@@ -119,8 +118,8 @@ for (const width of [1920, 390]) {
     await openSession(page, width);
     const input = page.locator('[data-slot="clio-composer-stack"] [contenteditable="true"]');
     await input.fill('Keep this draft while I arrange the rail.');
-    await page.getByRole('button', { name: 'Session rail', exact: true }).click();
-    const panel = page.getByRole('dialog', { name: 'Session rail', exact: true });
+    await showEvidenceRail(page, 'Session');
+    const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
     await expect(panel.getByRole('region', { name: 'Files section', exact: true })).toBeVisible();
     const sectionOrder = () =>
       panel
@@ -163,7 +162,7 @@ for (const width of [1920, 390]) {
     await panel.getByRole('button', { name: 'Hide session rail', exact: true }).click();
     await expect(input).toHaveText('Keep this draft while I arrange the rail.');
     await page.reload();
-    await page.getByRole('button', { name: 'Session rail', exact: true }).click();
+    await showEvidenceRail(page, 'Session');
     await expect.poll(sectionOrder).toEqual(expectedOrder);
     await expect(
       context.getByRole('button', { name: 'Collapse Context', exact: true }),
@@ -179,8 +178,8 @@ for (const density of ['both', 'work']) {
     page.on('pageerror', (error) => errors.push(error.message));
     await openSession(page, 1920, density);
     for (const kind of ['Session', 'Work'] as const) {
-      await page.getByRole('button', { name: `${kind} rail`, exact: true }).click();
-      const panel = page.getByRole('dialog', { name: `${kind} rail`, exact: true });
+      await showEvidenceRail(page, kind);
+      const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
       await expect(panel).toHaveAttribute('data-showcase-mode', 'docked');
       const scroll = panel.locator('[data-slot="session-rail-scroll"]');
       expect(await panel.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);

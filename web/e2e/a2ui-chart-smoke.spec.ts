@@ -115,7 +115,7 @@ test('renders a clio.chart.v1 scatter preset over inline data', async ({ page })
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
   // Wait past "Loading rows…" so the card's final (taller) height is what
   // gets captured, not a mid-load layout.
-  await expect(surfaceSection.getByRole('img', { name: /· 9 rows$/u })).toBeVisible();
+  await expect(surfaceSection.getByRole('img', { name: /\(9 rows\)$/u })).toBeVisible();
 
   // Screenshot the surface card itself, not the whole page — the seeded
   // transcript around it (pending interactions, the input footer) is noise
@@ -171,7 +171,7 @@ test('the chart still renders in full screen, and again after exiting (#1551/#51
   const chartFrame = surfaceSection.locator('[data-slot="a2ui-chart"]');
   const chartView = chartFrame.locator('[data-slot="a2ui-chart-view"]');
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
-  await expect(chartFrame.getByRole('img', { name: /· 9 rows$/u })).toBeVisible();
+  await expect(chartFrame.getByRole('img', { name: /\(9 rows\)$/u })).toBeVisible();
   await expectRenderedChart(chartView);
 
   // `SurfaceFullScreenHost` moves the view's own DOM node to a different
@@ -218,7 +218,7 @@ test('links selection between clio.chart.v1 and clio.data-table.v1 sharing one p
   const surfaceSection = await revealSurface(page);
   const chartView = surfaceSection.locator('[data-slot="a2ui-chart-view"]');
   await expect(chartView.locator('canvas, svg')).toHaveCount(1, { timeout: 10_000 });
-  await expect(surfaceSection.getByRole('img', { name: /· 9 rows$/u })).toBeVisible();
+  await expect(surfaceSection.getByRole('img', { name: /\(9 rows\)$/u })).toBeVisible();
 
   // Click a table row (a real DOM element; the chart's own canvas marks are
   // not a reliable pixel click target headless) — its selection write goes
