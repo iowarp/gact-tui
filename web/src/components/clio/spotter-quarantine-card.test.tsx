@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { ActionAlertCard } from './action-alert-card';
 import { SpotterQuarantineCard } from './spotter-quarantine-card';
+
+afterEach(cleanup);
 
 const quarantine = {
   title: 'Answer follows text planted in a tool result',
