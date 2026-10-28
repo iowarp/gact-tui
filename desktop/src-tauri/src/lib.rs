@@ -17,8 +17,6 @@ mod document_apps;
 mod document_path;
 mod downloads;
 mod execution_install;
-#[cfg(windows)]
-mod execution_install_job;
 mod file_reveal;
 mod gact_http;
 mod gact_http_response;

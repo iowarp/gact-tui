@@ -11,6 +11,9 @@ use std::{
 
 use crate::sidecar_setup::{BUNDLED_RUNTIME_ENV, CLIO_AGENT_HOME_ENV, CLIO_USER_DIR_ENV};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 pub(crate) const LAUNCHER_HOST: &str = "127.0.0.1";
 const ARC_FILE_CAPACITY_ENV: &str = "CLIO_ARC_CTE_FILE_CAPACITY";
 const DESKTOP_MANAGED_ENV: &str = "CLIO_DESKTOP_MANAGED";
@@ -97,7 +100,7 @@ pub(crate) fn launcher_spawn_command(
     // Job Object reaps the backend tree instead of orphaning it.
     command.env(DESKTOP_PARENT_PID_ENV, std::process::id().to_string());
     #[cfg(windows)]
-    crate::execution_install_job::configure_launcher(&mut command);
+    command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     command
 }
 
