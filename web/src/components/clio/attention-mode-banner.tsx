@@ -4,13 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { AttentionModeState } from '@/hooks/use-attention-mode';
+import type { AttentionItemFocus, AttentionModeState } from '@/hooks/use-attention-mode';
 import { attentionDomainColor } from '@/lib/attention-domain-colors';
 import { formatSharePercent as pct } from '@/lib/attention-text';
 import { truncate } from '@/lib/format';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { AttentionProfileEditor } from './attention-profile-editor';
-import { AttentionPromptMap } from './attention-prompt-map';
+import { AttentionItemChips } from './attention-item-chips';
 import { InfoTip } from './info-tip';
 import type { AttentionProfile } from '@clio/core/v3';
 
@@ -30,10 +30,12 @@ export function AttentionModeBanner({
   onDismiss,
   state,
   onProfileChange,
+  onFocusItem,
 }: {
   onDismiss: () => void;
   state: AttentionModeState;
   onProfileChange?: (profile: AttentionProfile) => void;
+  onFocusItem?: (focus: AttentionItemFocus | undefined) => void;
 }) {
   if (state.status === 'idle') return null;
   return (
@@ -51,9 +53,14 @@ export function AttentionModeBanner({
             </div>
             <p
               className="mt-0.5 truncate text-xs text-muted-foreground"
-              title={state.selection.text}
+              title={state.focus ? state.focus.span.text : state.selection.text}
             >
-              “{truncate(state.selection.text, QUOTE_TRUNCATE_CHARS)}”
+              {state.focus ? `Item ${state.focus.index + 1}: ` : null}“
+              {truncate(
+                state.focus ? state.focus.span.text : state.selection.text,
+                QUOTE_TRUNCATE_CHARS,
+              )}
+              ”
             </p>
           </div>
           <Button
@@ -72,12 +79,20 @@ export function AttentionModeBanner({
           </p>
         ) : null}
         {state.status === 'shown' ? <AttentionBreakdown data={state.data} /> : null}
-        {state.status === 'shown' ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {state.data.profile && onProfileChange ? (
+        {onFocusItem ? (
+          <AttentionItemChips
+            focus={state.focus}
+            onFocus={onFocusItem}
+            profile={state.status === 'shown' ? state.data.profile : undefined}
+            selection={state.selection}
+          >
+            {state.status === 'shown' && state.data.profile && onProfileChange ? (
               <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
             ) : null}
-            <AttentionPromptMap selection={state.selection} profile={state.data.profile} />
+          </AttentionItemChips>
+        ) : state.status === 'shown' && state.data.profile && onProfileChange ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
           </div>
         ) : null}
       </div>
