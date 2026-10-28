@@ -80,16 +80,25 @@ pub(crate) enum PackageLaunch {
     CheckingAlongside,
 }
 
-/// The per-launch package step (B4). The agent never waits for it outside Windows:
-/// an unchanged installation (launch stamp) is re-checked after the agent is ready,
-/// and a changed or first installation (a .deb/.rpm/.dmg has no per-user install
-/// step, so its first launch installs Office and the document tools) runs alongside
-/// the agent, which reports those tools as preparing until it finishes.
+/// Verify Windows protection first, then prepare document packages alongside the agent.
+/// An older runtime without a separate fence command retains the full blocking check.
 pub(crate) fn prepare_packages(
     runtime: &Path,
     workspace: &Path,
     user: &Path,
 ) -> Result<PackageLaunch, String> {
+    #[cfg(windows)]
+    {
+        let mut help = install_command(runtime, workspace, user)?;
+        help.arg("--help");
+        let mut fence = install_command(runtime, workspace, user)?;
+        fence.arg("--protected-execution-only");
+        if !check_fence(help, fence, &boot_log_line)? {
+            boot_log_line("Runtime predates independent protected execution; checking managed packages before start");
+            run_check(runtime, workspace, user, true, &boot_log_line)?;
+            return Ok(PackageLaunch::Checked);
+        }
+    }
     match package_stamp::launch_check(runtime, workspace, user) {
         LaunchCheck::Unchanged => {
             boot_log_line(
@@ -97,13 +106,6 @@ pub(crate) fn prepare_packages(
                  checking them again after the agent starts",
             );
             Ok(PackageLaunch::CheckAfterStart)
-        }
-        LaunchCheck::Required(reason) if cfg!(windows) => {
-            boot_log_line(&format!(
-                "Checking managed packages before start reason={reason}"
-            ));
-            run_check(runtime, workspace, user, true, &boot_log_line)?;
-            Ok(PackageLaunch::Checked)
         }
         LaunchCheck::Required(reason) => {
             boot_log_line(&format!(
@@ -118,6 +120,20 @@ pub(crate) fn prepare_packages(
             Ok(PackageLaunch::CheckingAlongside)
         }
     }
+}
+
+/// A failed or unsupported fence is never replaced with an optimistic ready state.
+#[cfg(any(windows, test))]
+fn check_fence(
+    probe: Command,
+    check: Command,
+    log: &(impl Fn(&str) + Sync),
+) -> Result<bool, String> {
+    if !supports_installer_argument(probe, "--protected-execution-only")? {
+        return Ok(false);
+    }
+    run_install(check, log)?;
+    Ok(true)
 }
 
 /// The full check for a launch that did not wait for it. It installs a first or
@@ -197,10 +213,18 @@ fn record_stamp(runtime: &Path, workspace: &Path, user: &Path) {
 /// Run the startup check; `Ok(true)` when it verified the packages, `Ok(false)` when
 /// the runtime predates package reuse and nothing was checked.
 fn prepare_startup(
-    mut probe: Command,
+    probe: Command,
     startup: Command,
     log: &(impl Fn(&str) + Sync),
 ) -> Result<bool, String> {
+    if !supports_installer_argument(probe, "--reuse-installed")? {
+        log("This CLIO runtime predates package reuse. Keeping its installed packages; update CLIO from System version.");
+        return Ok(false);
+    }
+    run_install(startup, log).map(|()| true)
+}
+
+fn supports_installer_argument(mut probe: Command, argument: &str) -> Result<bool, String> {
     let help = probe
         .output()
         .map_err(|error| format!("inspect managed package setup: {error}"))?;
@@ -211,14 +235,9 @@ fn prepare_startup(
             String::from_utf8_lossy(&help.stderr)
         ));
     }
-    if !String::from_utf8_lossy(&help.stdout)
+    Ok(String::from_utf8_lossy(&help.stdout)
         .split_whitespace()
-        .any(|arg| arg.trim_matches(|c: char| matches!(c, '[' | ']' | ',')) == "--reuse-installed")
-    {
-        log("This CLIO runtime predates package reuse. Keeping its installed packages; update CLIO from System version.");
-        return Ok(false);
-    }
-    run_install(startup, log).map(|()| true)
+        .any(|arg| arg.trim_matches(|c: char| matches!(c, '[' | ']' | ',')) == argument))
 }
 
 fn startup_command(runtime: &Path, workspace: &Path, user: &Path) -> Result<Command, String> {
@@ -372,6 +391,10 @@ mod tests {
                 println!("usage: document_install.py [--reuse-installed]");
                 std::process::exit(0);
             }
+            Ok("fence") => {
+                println!("usage: document_install.py [--protected-execution-only]");
+                std::process::exit(0);
+            }
             Ok("failed") => {
                 eprintln!("ImportError: package setup could not load");
                 std::process::exit(2);
@@ -420,6 +443,35 @@ mod tests {
             .env("CLIO_INSTALL_OUTPUT_FIXTURE", "1");
         let error = prepare_startup(help_fixture("modern"), startup, &|_| {}).unwrap_err();
         assert!(error.contains("permission preparation failed"));
+    }
+
+    #[test]
+    fn old_runtimes_require_the_full_check_instead_of_skipping_the_fence() {
+        assert!(!check_fence(
+            help_fixture("modern"),
+            Command::new("must-not-run-unsupported-argument"),
+            &|_| {},
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn independent_fence_verification_preserves_a_real_setup_failure() {
+        let mut check = Command::new(std::env::current_exe().unwrap());
+        check
+            .args([
+                "--exact",
+                "execution_install::tests::installer_output_fixture",
+                "--nocapture",
+            ])
+            .env("CLIO_INSTALL_OUTPUT_FIXTURE", "1");
+        let error = check_fence(help_fixture("fence"), check, &|_| {}).unwrap_err();
+        assert!(error.contains("permission preparation failed"));
+    }
+
+    #[test]
+    fn independent_fence_verification_requires_success_before_packages_may_defer() {
+        assert!(check_fence(help_fixture("fence"), help_fixture("legacy"), &|_| {}).unwrap());
     }
 
     #[test]
