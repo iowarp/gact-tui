@@ -57,6 +57,26 @@ export const targetIdentitySchema = z.object({
   gid: z.number().int().default(-1),
 });
 
+/**
+ * One GPU the target reported. `index` is the device number the engines'
+ * `*_devices` parameters take (CUDA_VISIBLE_DEVICES and its peers).
+ */
+export const gpuFactSchema = z.object({
+  index: z.number().int(),
+  name: z.string().default(''),
+  vendor: z
+    .enum(['nvidia', 'amd', 'intel'])
+    .nullish()
+    .catch(undefined)
+    .transform((value) => value ?? undefined),
+  memory_total_mib: z
+    .number()
+    .nullish()
+    .catch(undefined)
+    .transform((value) => value ?? undefined),
+  uuid: z.string().default(''),
+});
+
 export const targetFactsSchema = z.object({
   target_id: z.string(),
   label: z.string(),
@@ -72,6 +92,12 @@ export const targetFactsSchema = z.object({
   uv_available: z.boolean(),
   transport_state: infrastructureTransportStateSchema,
   container_runtimes: z.array(containerRuntimeFactSchema).default([]),
+  /** The GPUs the target exposes; absent from older servers (no GPU pickers then). */
+  gpus: z
+    .array(gpuFactSchema)
+    .nullish()
+    .catch(undefined)
+    .transform((value) => value ?? undefined),
 });
 
 const serviceVariantSchema = z.object({
@@ -193,6 +219,21 @@ export const managedServiceDefinitionSchema = z.object({
   access: serviceAccessSchema.nullish().transform((value) => value ?? undefined),
   definition_version: z.string().optional(),
   observation: serviceObservationSchema.nullish().transform((value) => value ?? undefined),
+  /** A base engine row (e.g. `vllm`) that can be deployed again as named instances. */
+  supports_instances: z
+    .boolean()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  /** Set on an instance row (`vllm@spotter`): the engine it is an instance of. */
+  instance_of: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  /** Set on an instance row: its name (`spotter`). */
+  instance_name: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
 });
 
 export const managedServiceCatalogSchema = z.object({
@@ -397,6 +438,7 @@ export type InfrastructureInventory = z.infer<typeof infrastructureInventorySche
 export type InfrastructureTarget = z.infer<typeof infrastructureTargetSchema>;
 export type TargetFacts = z.infer<typeof targetFactsSchema>;
 export type ContainerRuntimeFact = z.infer<typeof containerRuntimeFactSchema>;
+export type GpuFact = z.infer<typeof gpuFactSchema>;
 export type ServerParameter = z.infer<typeof serverParameterSchema>;
 export type EffectiveParameter = z.infer<typeof effectiveParameterSchema>;
 export type OwnedResource = z.infer<typeof ownedResourceSchema>;

@@ -4,11 +4,16 @@ import { ClioStatus } from './status';
 import { BrandIcon } from './brand-icon';
 import { vocab } from '@/lib/brand-vocabulary';
 import { managedServiceStatus } from '@/lib/managed-service-status';
+import { engineId } from './managed-service-gpus';
 
 /** Packaged provider marks, with a neutral capability icon when no vendor mark exists. */
-export function ManagedServiceLogo({ service }: { service: Pick<ManagedServiceDefinition, 'id'> }) {
+export function ManagedServiceLogo({
+  service,
+}: {
+  service: Pick<ManagedServiceDefinition, 'id'> & { instance_of?: string };
+}) {
   const marks: Record<string, string> = { vllm: 'vllm', llama_cpp: 'llama-cpp', ollama: 'ollama' };
-  const modelLogo = marks[service.id];
+  const modelLogo = marks[engineId(service)];
   return (
     <span className="grid size-10 shrink-0 place-items-center rounded-lg border bg-background p-2">
       {modelLogo ? (

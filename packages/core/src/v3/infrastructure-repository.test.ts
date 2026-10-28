@@ -62,6 +62,34 @@ describe('infrastructure repository', () => {
     ]);
   });
 
+  it('addresses a named instance of an engine by its encoded service id', async () => {
+    const transport = new RecordingTransport([
+      {
+        id: 'operation-2',
+        service_id: 'vllm@spotter',
+        target_id: 'local',
+        action: 'install',
+        state: 'queued',
+        progress: 'Queued',
+        logs: '',
+        created_at: '2026-09-21T00:00:00Z',
+        updated_at: '2026-09-21T00:00:00Z',
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+    const body = {
+      target_id: 'local',
+      action: 'install' as const,
+      variant_id: 'cuda',
+      configuration: { model: 'Qwen/Qwen3-8B', 'param.cuda_devices': '1' },
+    };
+
+    await repository.runManagedServiceAction('vllm@spotter', body);
+
+    expect(transport.requests[0]?.path).toBe('/v1/infrastructure/services/vllm%40spotter/actions');
+    expect(transport.requests[0]?.body).toEqual(body);
+  });
+
   it('edits targets and manages connection-only services without desktop drivers', async () => {
     const target = {
       id: 'homelab',

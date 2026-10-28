@@ -41,6 +41,7 @@ import {
   waitForOperation,
 } from './managed-service-target-utils';
 import { ManagedServiceInventory } from './managed-service-inventory';
+import { engineId, servicesWithInstances } from './managed-service-gpus';
 
 /** Desktop controls for CLIO-managed providers and supporting resources. */
 export function ManagedServices({
@@ -109,6 +110,12 @@ export function ManagedServices({
   const [configuration, setConfiguration] = useInfrastructureState<
     Record<string, Record<string, string>>
   >(settings.endpoint, `${targetId}:configuration`, {});
+  // Named instances set up here (`vllm@spotter` -> `vllm`) until CLIO reports them.
+  const [instances, setInstances] = useInfrastructureState<Record<string, string>>(
+    settings.endpoint,
+    `${targetId}:instances`,
+    {},
+  );
   const [results, setResults] = useInfrastructureState<Record<string, ServiceActionFeedback>>(
     settings.endpoint,
     `${targetId}:results`,
@@ -294,7 +301,8 @@ export function ManagedServices({
     setSelectedProvider,
     setDeploying,
   ]);
-  const services = catalog.data?.services ?? [];
+  const services = servicesWithInstances(catalog.data?.services ?? [], instances);
+  const gpus = catalog.data?.facts.gpus ?? [];
   // The installer banner follows observed installation state across navigation.
   const llamaCppService = services.find((service) => service.id === 'llama_cpp');
   const llamaCppInstalled =
@@ -305,7 +313,7 @@ export function ManagedServices({
   ): ComponentProps<typeof ManagedServiceCard>['connectionAction'] => {
     const agentConnectionUrl = service.connection_url;
     const configuredModelServer = agentConnectionUrl
-      ? modelRuntimeServer(savedServers.servers.data, service.id, agentConnectionUrl)
+      ? modelRuntimeServer(savedServers.servers.data, engineId(service), agentConnectionUrl)
       : undefined;
     const webSearchTargetConnected =
       service.id === 'web_search' &&
@@ -346,7 +354,7 @@ export function ManagedServices({
                 savedServers.save.mutate({
                   address: agentConnectionUrl,
                   label: `${service.label} (${executionHostLabel})`,
-                  presetId: service.id,
+                  presetId: engineId(service),
                 }),
             }
         : service.id === 'web_search' && (webSearchTargetConnected || service.state === 'running')
@@ -373,6 +381,7 @@ export function ManagedServices({
     const agentConnectionUrl = service.connection_url;
     return (
       <ManagedServiceCard
+        gpus={gpus}
         setup={setup}
         hostLabel={executionHostLabel}
         targetId={targetId}
@@ -605,6 +614,13 @@ export function ManagedServices({
           })
         }
         busyService={action.isPending ? action.variables?.service_id : undefined}
+        gpus={gpus}
+        onAddInstance={(base, name) => {
+          const id = `${base.id}@${name}`;
+          setInstances((current) => ({ ...current, [id]: base.id }));
+          setDeploying(true);
+          setSelectedProvider(id);
+        }}
         feedback={results}
         loading={catalog.isFetching}
         unavailable={!catalog.data || Boolean(catalog.error)}

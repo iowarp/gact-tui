@@ -1,5 +1,5 @@
-import type { ManagedServiceDefinition, ModelAcquisition } from '@clio/core/v3';
-import { useRef, type ReactNode, type ComponentProps } from 'react';
+import type { GpuFact, ManagedServiceDefinition, ModelAcquisition } from '@clio/core/v3';
+import { useRef, useState, type ReactNode, type ComponentProps } from 'react';
 import { Link } from 'react-router-dom';
 import { PlugIcon, ServerIcon, ArrowLeftIcon } from 'lucide-react';
 import { ManagedServiceCard, type ServiceActionFeedback } from './service-management-panel';
@@ -21,6 +21,8 @@ import {
 import { InfoTip } from './info-tip';
 import { ServiceMethodAvailability } from './service-installation-method';
 import { managedServiceStatus } from '@/lib/managed-service-status';
+import { AddInstanceForm } from './managed-service-instance';
+import { deploymentDevices, engineId, instanceName } from './managed-service-gpus';
 
 const groups = [
   { id: 'model_runtime', label: 'Inference' },
@@ -49,6 +51,8 @@ export function ManagedServiceInventory({
   busyService,
   feedback = {},
   model,
+  gpus = [],
+  onAddInstance,
 }: {
   endpoint: string;
   targetId: string;
@@ -70,8 +74,14 @@ export function ManagedServiceInventory({
   busyService?: string;
   feedback?: Record<string, ServiceActionFeedback>;
   model?: ModelAcquisition;
+  /** The host's GPUs; each GPU deployment's row names the ones it uses. */
+  gpus?: GpuFact[];
+  /** Set up a named instance (`<engine>@<name>`) of an engine that supports them. */
+  onAddInstance?: (service: ManagedServiceDefinition, name: string) => void;
 }) {
   const dialog = useRef<HTMLDivElement>(null);
+  // The engine whose "Add instance" name field is open, and where.
+  const [naming, setNaming] = useState<{ id: string; where: 'inventory' | 'chooser' }>();
   const inventory = services.filter(
     (service) =>
       service.state === 'running' ||
@@ -81,9 +91,24 @@ export function ManagedServiceInventory({
   );
   const current = services.find((service) => service.id === selected);
   const close = () => {
+    setNaming(undefined);
     onSelected('');
     onDeploying(false);
   };
+  const canAddInstance = (service: ManagedServiceDefinition) =>
+    Boolean(onAddInstance && service.supports_instances && !instanceName(service));
+  const addInstance = (service: ManagedServiceDefinition, where: 'inventory' | 'chooser') =>
+    naming?.id === service.id && naming.where === where ? (
+      <AddInstanceForm
+        existing={inventory.map((row) => row.id)}
+        onCancel={() => setNaming(undefined)}
+        onSubmit={(name) => {
+          setNaming(undefined);
+          onAddInstance?.(service, name);
+        }}
+        service={service}
+      />
+    ) : null;
   return (
     <section aria-label={`Services on ${hostLabel}`} className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -134,6 +159,7 @@ export function ManagedServiceInventory({
               {rows.map((service) => {
                 const connection = connectionFor?.(service);
                 const status = managedServiceStatus(service);
+                const devices = deploymentDevices(service, { gpus });
                 const manage = () => {
                   onDeploying(false);
                   onSelected(service.id);
@@ -168,6 +194,14 @@ export function ManagedServiceInventory({
                     </div>
                     <div className="flex flex-wrap items-center gap-2 max-sm:pl-[3.25rem]">
                       <ManagedServiceState service={service} />
+                      {devices ? (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          title="The GPUs this deployment may use"
+                        >
+                          {devices}
+                        </span>
+                      ) : null}
                       {connection?.connected !== undefined ? (
                         <span
                           className="text-xs text-muted-foreground"
@@ -231,6 +265,17 @@ export function ManagedServiceInventory({
                           Operation in progress
                         </span>
                       ) : null}
+                      {canAddInstance(service) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Add ${service.label} instance`}
+                          onClick={() => setNaming({ id: service.id, where: 'inventory' })}
+                        >
+                          <AddIcon />
+                          Add instance
+                        </Button>
+                      ) : null}
                       <Button
                         variant="outline"
                         size="sm"
@@ -240,6 +285,7 @@ export function ManagedServiceInventory({
                         Manage
                       </Button>
                     </div>
+                    {addInstance(service, 'inventory')}
                   </div>
                 );
               })}
@@ -306,56 +352,83 @@ export function ManagedServiceInventory({
                       <h3 className="mb-2 text-sm font-semibold">{group.label}</h3>
                       <div className="space-y-2">
                         {services
-                          .filter((service) => groupFor(service) === group.id)
+                          .filter(
+                            (service) =>
+                              groupFor(service) === group.id &&
+                              // Instances not on this computer are set up through Add instance.
+                              (!instanceName(service) ||
+                                inventory.some((row) => row.id === service.id)),
+                          )
                           .map((service) => (
-                            <button
-                              key={service.id}
-                              aria-label={
-                                inventory.some((row) => row.id === service.id)
-                                  ? `Manage ${service.label}`
-                                  : service.variants.some((row) => row.compatible)
-                                    ? `Set up ${service.label}`
-                                    : `${service.label} unavailable`
-                              }
-                              disabled={
-                                (!inventory.some((row) => row.id === service.id) &&
-                                  !service.variants.some((row) => row.compatible)) ||
-                                Boolean(model && modelRuntimeRequirement(service, model))
-                              }
-                              className="flex w-full items-center gap-3 border-b py-3 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-100 disabled:[&_svg]:opacity-40"
-                              onClick={() => {
-                                onSelected(service.id);
-                                if (inventory.some((row) => row.id === service.id))
-                                  onDeploying(false);
-                              }}
-                            >
-                              <ManagedServiceLogo service={service} />
-                              <span className="flex-1">
-                                <span className="font-medium">{service.label}</span>
-                                <span className="mt-1 block text-xs text-muted-foreground">
-                                  {service.description}
+                            <div key={service.id}>
+                              <button
+                                aria-label={
+                                  inventory.some((row) => row.id === service.id)
+                                    ? `Manage ${service.label}`
+                                    : service.variants.some((row) => row.compatible)
+                                      ? `Set up ${service.label}`
+                                      : `${service.label} unavailable`
+                                }
+                                disabled={
+                                  (!inventory.some((row) => row.id === service.id) &&
+                                    !service.variants.some((row) => row.compatible)) ||
+                                  Boolean(model && modelRuntimeRequirement(service, model))
+                                }
+                                className="flex w-full items-center gap-3 border-b py-3 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-100 disabled:[&_svg]:opacity-40"
+                                onClick={() => {
+                                  onSelected(service.id);
+                                  if (inventory.some((row) => row.id === service.id))
+                                    onDeploying(false);
+                                }}
+                              >
+                                <ManagedServiceLogo service={service} />
+                                <span className="flex-1">
+                                  <span className="font-medium">{service.label}</span>
+                                  <span className="mt-1 block text-xs text-muted-foreground">
+                                    {service.description}
+                                  </span>
+                                  <ServiceMethodAvailability service={service} />
+                                  {model && modelRuntimeRequirement(service, model) ? (
+                                    <span className="mt-1 block text-xs text-warning-foreground">
+                                      {modelRuntimeRequirement(service, model)}
+                                    </span>
+                                  ) : !service.variants.some((row) => row.compatible) ? (
+                                    <span className="mt-1 block text-xs text-warning-foreground">
+                                      {service.variants.find(
+                                        (row) => row.id === service.recommended_variant,
+                                      )?.reason || service.variants[0]?.reason}
+                                    </span>
+                                  ) : null}
                                 </span>
-                                <ServiceMethodAvailability service={service} />
-                                {model && modelRuntimeRequirement(service, model) ? (
-                                  <span className="mt-1 block text-xs text-warning-foreground">
-                                    {modelRuntimeRequirement(service, model)}
-                                  </span>
-                                ) : !service.variants.some((row) => row.compatible) ? (
-                                  <span className="mt-1 block text-xs text-warning-foreground">
-                                    {service.variants.find(
-                                      (row) => row.id === service.recommended_variant,
-                                    )?.reason || service.variants[0]?.reason}
-                                  </span>
-                                ) : null}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {inventory.some((row) => row.id === service.id)
-                                  ? 'Manage'
-                                  : service.variants.some((row) => row.compatible)
-                                    ? 'Set up'
-                                    : 'Unavailable'}
-                              </span>
-                            </button>
+                                <span className="text-xs text-muted-foreground">
+                                  {inventory.some((row) => row.id === service.id)
+                                    ? 'Manage'
+                                    : service.variants.some((row) => row.compatible)
+                                      ? 'Set up'
+                                      : 'Unavailable'}
+                                </span>
+                              </button>
+                              {canAddInstance(service) &&
+                              service.variants.some((row) => row.compatible) &&
+                              !(model && modelRuntimeRequirement(service, model)) ? (
+                                naming?.id === service.id && naming.where === 'chooser' ? (
+                                  <div className="border-b py-3 pl-[3.25rem]">
+                                    {addInstance(service, 'chooser')}
+                                  </div>
+                                ) : (
+                                  <Button
+                                    aria-label={`Add ${service.label} instance`}
+                                    className="mt-1 ml-[3.25rem]"
+                                    onClick={() => setNaming({ id: service.id, where: 'chooser' })}
+                                    size="sm"
+                                    variant="ghost"
+                                  >
+                                    <AddIcon />
+                                    Add named instance
+                                  </Button>
+                                )
+                              ) : null}
+                            </div>
                           ))}
                       </div>
                     </section>
@@ -397,9 +470,10 @@ function modelRuntimeRequirement(
   service: ManagedServiceDefinition,
   model: ModelAcquisition,
 ): string | undefined {
-  if (service.id === 'llama_cpp' && !model.file_path?.endsWith('.gguf'))
+  const engine = engineId(service);
+  if (engine === 'llama_cpp' && !model.file_path?.endsWith('.gguf'))
     return 'llama.cpp needs a GGUF file. This download does not identify one.';
-  if (service.id === 'ollama') return 'Import these files into Ollama before serving them there.';
+  if (engine === 'ollama') return 'Import these files into Ollama before serving them there.';
   if (service.id === 'model_router')
     return 'The router connects running model servers; it does not load downloaded files.';
   return undefined;

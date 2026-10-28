@@ -1,7 +1,12 @@
 import { vocab } from './brand-vocabulary';
 
-/** Product names for the installed services exposed in the inventory. */
+/**
+ * Product names for the installed services exposed in the inventory. A named
+ * instance (`vllm@spotter`) reads "vLLM · spotter".
+ */
 export function infrastructureServiceName(id: string): string {
+  const [engine, instance] = id.split('@', 2);
+  if (instance) return `${infrastructureServiceName(engine!)} · ${instance}`;
   const names: Record<string, string> = {
     searxng: 'SearXNG',
     web_search: `${vocab.agent} Web Search`,
