@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { CloseIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
-import type { RunRow } from '@/routes/runs-page';
+import type { RunRow } from '@/routes/runs-rows';
 import {
   DropdownMenu,
   DropdownMenuContent,
