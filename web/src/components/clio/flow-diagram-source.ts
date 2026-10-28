@@ -84,7 +84,7 @@ export function workflowAgentflowSource(
       .join(', ');
     const third = step.addedBy && step.kind !== 'proposal' ? `added by ${step.addedBy}` : '';
     const name = step.forkOf
-      ? `${step.label ?? step.id} · fork of ${step.forkOf}`
+      ? `${step.label ?? step.id} (fork of ${step.forkOf})`
       : (step.label ?? step.id);
     const label = [name, second, third].filter(Boolean).map(quoteSafe).join('\\n');
     lines.push(`  ${ids.get(step.id)}${shape(step.kind, label)}:::st-${step.status.tone}`);

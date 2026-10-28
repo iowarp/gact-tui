@@ -84,9 +84,7 @@ export function FlowEdits({
           {questions.map((question) => (
             <li className="grid min-w-0 gap-0.5" key={question.id}>
               <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                <span className="text-muted-foreground">
-                  Question · {questionSubject(question)}
-                </span>
+                <span className="text-muted-foreground">Question: {questionSubject(question)}</span>
                 {question.step ? open(question.step, 'where it was asked') : null}
               </p>
               <p className="min-w-0 [overflow-wrap:anywhere]">{question.prompt}</p>
@@ -133,7 +131,7 @@ function EditRow({
             ({edit.reason})
           </span>
         ) : null}
-        {edit.note ? <span className="text-muted-foreground"> · {edit.note}</span> : null}
+        {edit.note ? <span className="text-muted-foreground"> ({edit.note})</span> : null}
       </p>
     </li>
   );
