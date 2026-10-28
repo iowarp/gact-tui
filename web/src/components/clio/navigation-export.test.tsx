@@ -1,4 +1,5 @@
 import type { Session, Workspace } from '@clio/core/v3';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -101,22 +102,26 @@ it.each([
       clicked.push(this);
     });
     render(
-      <MemoryRouter>
-        <TooltipProvider>
-          <SidebarProvider>
-            <ClioNavigation
-              endpoint="http://localhost/proxy/"
-              workspaces={[workspace]}
-              sessions={[session]}
-              activeWorkspaceId={workspace.id}
-              activeSessionId={session.id}
-              actions={actions}
-              agents={[]}
-              attentions={{}}
-            />
-          </SidebarProvider>
-        </TooltipProvider>
-      </MemoryRouter>,
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MemoryRouter>
+          <TooltipProvider>
+            <SidebarProvider>
+              <ClioNavigation
+                endpoint="http://localhost/proxy/"
+                workspaces={[workspace]}
+                sessions={[session]}
+                activeWorkspaceId={workspace.id}
+                activeSessionId={session.id}
+                actions={actions}
+                agents={[]}
+                attentions={{}}
+              />
+            </SidebarProvider>
+          </TooltipProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Session actions for Export example' }));

@@ -3,8 +3,9 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+const sessionRows = vi.hoisted(() => vi.fn());
+
 const repository = vi.hoisted(() => ({
-  sessions: vi.fn(),
   connectedSources: vi.fn(),
   storageProviders: vi.fn(),
   hostStorageSettings: vi.fn(),
@@ -27,7 +28,13 @@ afterEach(cleanup);
 
 beforeEach(() => {
   vi.resetAllMocks();
-  repository.sessions.mockResolvedValue([{ id: 'session_sources', title: 'Source work' }]);
+  Object.assign(
+    repository,
+    sessionReads(() => sessionRows()),
+  );
+  sessionRows.mockResolvedValue([
+    { id: 'session_sources', workspace_id: 'w', title: 'Source work' },
+  ]);
   repository.connectedSources.mockResolvedValue([
     {
       id: 's1',
@@ -181,9 +188,3 @@ it('opens a summary-selected source directly without changing the composer selec
   expect(repository.beginSourceDraft).not.toHaveBeenCalled();
   client.clear();
 });
-
-// The bounded session reads, answered from this test's session list.
-Object.assign(
-  repository,
-  sessionReads(() => repository.sessions()),
-);
