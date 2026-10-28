@@ -357,6 +357,17 @@ export function WorkspacePage() {
       />
     );
   }
+  // Sending from the welcome screen starts the conversation; a failed first send returns to it.
+  const leaveWelcomeWhile = async (send: () => Promise<unknown>) => {
+    const startedFromWelcome = showConversationWelcome;
+    if (startedFromWelcome) setConversationStarted(true);
+    try {
+      await send();
+    } catch (error) {
+      if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
+      throw error;
+    }
+  };
   if (!session) {
     return (
       <WorkspaceUnavailable
@@ -426,16 +437,7 @@ export function WorkspacePage() {
           modelCatalogStatus={modelCatalogStatus}
           modelOptions={modelOptions}
           pendingInteractions={pendingInteractionsPanel}
-          onCommand={async (value) => {
-            const startedFromWelcome = showConversationWelcome;
-            if (startedFromWelcome) setConversationStarted(true);
-            try {
-              await run(value);
-            } catch (error) {
-              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-              throw error;
-            }
-          }}
+          onCommand={(value) => leaveWelcomeWhile(() => run(value))}
           onRetryModelCatalog={(providerId) => void providerCatalog.refreshCatalog(providerId)}
           onBehaviorChange={async (behavior) => {
             await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
@@ -447,16 +449,7 @@ export function WorkspacePage() {
           onPrepareFiles={prepareFiles}
           onDiscardFiles={discardFiles}
           onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
-          onSubmit={async (value) => {
-            const startedFromWelcome = showConversationWelcome;
-            if (startedFromWelcome) setConversationStarted(true);
-            try {
-              await questionAnswering.submit(value);
-            } catch (error) {
-              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-              throw error;
-            }
-          }}
+          onSubmit={(value) => leaveWelcomeWhile(() => questionAnswering.submit(value))}
           onStop={() => cancel.mutate()}
           onOpenResource={openWorkspaceResource}
           onOpenReference={(reference) => void openComposerReference(reference)}
