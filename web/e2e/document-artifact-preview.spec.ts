@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { selectFileView } from './file-viewer-setup';
 
 // Synthetic editable documents and real LibreOffice PDF renditions, produced by
 // clio-agent's locked document_stack/smoke.py. Only API transport is a fixture:
@@ -423,11 +424,7 @@ for (const layout of [
           path: testInfo.outputPath(`${item.extension}-preview-lineage.png`),
           fullPage: true,
         });
-        await toolbar.getByRole('tab', { name: 'Versions', exact: true }).click();
-        await expect(toolbar.getByRole('tab', { name: 'Versions', exact: true })).toHaveAttribute(
-          'data-state',
-          'active',
-        );
+        await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
         await previewTab.click();
         holdRefresh = true;
         await canvas

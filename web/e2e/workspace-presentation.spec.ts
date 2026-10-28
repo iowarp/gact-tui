@@ -90,7 +90,7 @@ for (const width of [1280, 1600]) {
     await expect(viewer.locator('[data-language="html"]')).toContainText(
       '__htmlPreviewRan = true;',
     );
-    await toolbar.getByRole('tab', { name: 'Preview', exact: true }).click();
+    await selectFileView(page, viewer, 'HTML preview');
     await expect(frame).toBeVisible();
     expect(reads).toBe(1);
     await page.screenshot({ path: testInfo.outputPath(`html-toolbar-${width}.png`) });
@@ -132,9 +132,9 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.width);
   await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeVisible();
   await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
-  for (const name of ['Versions', 'Lineage'])
-    await expect(page.getByRole('menuitemcheckbox', { name, exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitemcheckbox', { name: 'Versions', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(toolbar.getByRole('tab', { name: 'Lineage', exact: true })).toBeVisible();
   const zoom = canvas.getByRole('button', { name: 'Reset image zoom', exact: true });
   const before = await zoom.innerText();
   await toolbar.getByRole('button', { name: 'Zoom in', exact: true }).click();

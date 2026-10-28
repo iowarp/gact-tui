@@ -135,7 +135,7 @@ test('opens the unresolved task from the status strip in the actual task view', 
   const tasks = canvas.getByRole('button', { name: 'Background tasks, 1 recorded' });
   if ((await tasks.getAttribute('aria-expanded')) === 'false') await tasks.click();
   await expect(canvas.getByRole('button', { name: 'Task details: Prepare dataset' })).toBeVisible();
-  await expect(canvas.getByText('Needs inspection', { exact: true })).toBeVisible();
+  await expect(canvas.getByText('Tool: Needs inspection', { exact: true })).toBeVisible();
 });
 
 test('keeps Observability tabs inside the strip and scrolls only their content vertically', async ({
