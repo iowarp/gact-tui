@@ -27,11 +27,27 @@
 export const ACTIVE_SESSION_POLL_MS = 1_500;
 
 /**
+ * Messages per transcript page. Opening a conversation reads this many of its
+ * newest messages; scrolling to the top reads the same number of older ones.
+ * Larger pages mean fewer requests while scrolling back and a slower first paint.
+ */
+export const TRANSCRIPT_PAGE_SIZE = 40;
+
+/**
+ * Refetch cadence for the sessions waiting on a person (the attention badges of
+ * conversations that are not open). The live stream and every pending-interaction
+ * event refresh it sooner. Unit: milliseconds.
+ */
+export const WAITING_SESSIONS_POLL_MS = 10_000;
+
+/**
  * Refetch cadence for infrastructure inventories (relays, MCP servers, hosts).
  * Unit: milliseconds. These change on human timescales, so the cadence exists to
  * notice an operator's out-of-band change, not to track live progress.
  */
 export const INFRASTRUCTURE_POLL_MS = 20_000;
+/** How often a server list is re-read while one of its MCP servers is being prepared. */
+export const MCP_PREPARING_POLL_MS = 2_000;
 
 /**
  * Refetch cadence for operations/administration panels (schedules, health,
@@ -71,6 +87,25 @@ export const MANAGED_BACKEND_POLL_MS = 150;
  * exists to notice a service coming back, not to track it.
  */
 export const CONNECTION_PROBE_POLL_MS = 30_000;
+
+/**
+ * Re-probe cadence while a remembered service is starting, or has not answered yet
+ * (it may have been started together with this page). Unit: milliseconds.
+ */
+export const CONNECTION_PROBE_STARTING_MS = 1_000;
+
+/**
+ * Failed probes re-checked at the starting cadence before falling back to the slow
+ * poll, about two minutes. Unit: probe attempts.
+ */
+export const CONNECTION_PROBE_FAST_ATTEMPTS = 120;
+
+/**
+ * How long a connect attempt that nothing answered is treated as a service still
+ * starting (the page waits and connects by itself) before it is shown as a failure.
+ * Unit: milliseconds.
+ */
+export const CONNECTION_WAIT_FOR_START_MS = 120_000;
 
 /**
  * Poll cadence while waiting out a sandbox setup already in flight

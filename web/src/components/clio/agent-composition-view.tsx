@@ -167,7 +167,7 @@ function AgentComposition({
               {!library ? (
                 <span className="font-mono text-xs font-normal text-muted-foreground">
                   {resolution.agent.ref}
-                  {resolution.agent.version ? ` · ${resolution.agent.version}` : ''}
+                  {resolution.agent.version ? `, version ${resolution.agent.version}` : ''}
                 </span>
               ) : null}
             </h2>
@@ -186,7 +186,7 @@ function AgentComposition({
                   ) : null}
                   <p className="break-words text-xs text-muted-foreground">
                     {resolution.agent.ref}
-                    {resolution.agent.version ? ` · ${resolution.agent.version}` : ''}
+                    {resolution.agent.version ? `, version ${resolution.agent.version}` : ''}
                   </p>
                 </div>
               </details>

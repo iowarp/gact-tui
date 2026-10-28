@@ -308,7 +308,7 @@ describe('VariantTabsBlock after a reload', () => {
     renderRuns({ message: messages[1]!, messages });
 
     const block = screen.getByRole('group', { name: 'Alternative drafts' });
-    expect(within(block).getByText('Refine, up to 3 tries · you pick')).toBeInTheDocument();
+    expect(within(block).getByText('Refine, up to 3 tries — you pick')).toBeInTheDocument();
     expect(within(block).getByRole('status')).toHaveTextContent('Draft 3 selected');
     const tabs = within(block).getAllByRole('tab');
     expect(tabs.map((tab) => tab.textContent)).toEqual([
@@ -400,7 +400,7 @@ describe('VariantTabsBlock after a reload', () => {
       'Draft 1Score 0.4',
       'Draft 2Score 0.9Selected',
     ]);
-    expect(screen.getByText('Best of 2 · judged by the model')).toBeInTheDocument();
+    expect(screen.getByText('Best of 2 — judged by the model')).toBeInTheDocument();
   });
 });
 

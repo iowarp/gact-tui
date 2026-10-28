@@ -25,8 +25,8 @@ export function ConversationForkCheckpoint({
       <span className="min-w-0 text-xs leading-5 text-muted-foreground">
         <strong className="font-medium text-foreground">
           {isAgentFork(origin) ? 'Forked by the agent here' : 'Branched here'}
-        </strong>
-        {' · '}
+        </strong>{' '}
+        from{' '}
         {workspaceId ? (
           <Link
             className="underline decoration-border underline-offset-4 hover:text-primary"

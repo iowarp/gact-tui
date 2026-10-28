@@ -52,6 +52,7 @@ vi.mock('@/providers/connection-provider', () => ({
   }),
 }));
 import { ConnectedSourcePicker } from './connected-source-picker';
+import { sessionReads } from '@/test/session-reads';
 
 const source = {
   id: 's1',
@@ -749,3 +750,9 @@ describe('connected source picker', () => {
     },
   );
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  fixtures.repository,
+  sessionReads(() => fixtures.repository.sessions()),
+);

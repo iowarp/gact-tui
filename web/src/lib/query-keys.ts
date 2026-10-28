@@ -76,6 +76,8 @@ export type ClioQueryNamespace =
   | 'session-diffs'
   | 'session-observability'
   | 'session-toolset'
+  | 'session-directory'
+  | 'session-pages'
   | 'sessions'
   | 'spotter-availability'
   | 'pending-steers'
@@ -154,6 +156,16 @@ export const queryKeys = {
       | 'processes',
   ) => [...queryKeys.sessionObservability(endpoint, sessionId), detail] as const,
   sessions: (endpoint: string, scope: string) => ['sessions', endpoint, scope] as const,
+  /** Every bounded session read of one service (family, waiting): a refresh after a change. */
+  allSessionReads: (endpoint: string) => ['sessions', endpoint] as const,
+  /** The open conversation's tree (`GET /v1/sessions?family_of=`). */
+  sessionFamily: (endpoint: string, sessionId: string) =>
+    ['sessions', endpoint, 'family', sessionId] as const,
+  /** Sessions waiting on a person, with their ancestors (`?waiting_on_person=true`). */
+  sessionsWaiting: (endpoint: string) => ['sessions', endpoint, 'waiting'] as const,
+  /** The conversation view's newest page; older pages merge into the live store. */
+  transcriptPage: (endpoint: string, sessionId: string) =>
+    ['transcript', endpoint, sessionId, 'latest-page'] as const,
   transcript: (endpoint: string, sessionId: string, view?: string) =>
     view
       ? (['transcript', endpoint, sessionId, view] as const)

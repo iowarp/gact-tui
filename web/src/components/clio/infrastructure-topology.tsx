@@ -104,7 +104,7 @@ export function InfrastructureTopology({
                   {host.label}
                 </Link>
                 <p className="text-xs text-muted-foreground">
-                  SSH · {computerConnectionLabel(host.transport_state)}
+                  SSH: {computerConnectionLabel(host.transport_state)}
                 </p>
                 {servicesOn(host.id)}
               </div>

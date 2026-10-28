@@ -55,6 +55,7 @@ vi.mock('@/providers/appearance-provider', () => ({
 }));
 
 import { ClioCommandMenu } from './command-menu';
+import { sessionReads } from '@/test/session-reads';
 
 function LocationProbe() {
   const location = useLocation();
@@ -394,3 +395,9 @@ describe('ClioCommandMenu workspace search', () => {
     );
   });
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => repository.allSessions()),
+);

@@ -1,6 +1,6 @@
 import type { Session, TaskSnapshot, TranscriptSnapshot, Workspace } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { buildFlowRows } from './runs-page';
+import { buildFlowRows } from './runs-rows';
 
 const session: Session = {
   id: 'session_root',

@@ -21,4 +21,8 @@ export interface ServiceHealth {
   tool_hooks_installed?: boolean;
   /** Where the agent's context lives; "history" = no clio-core, memory only. */
   context_mode?: 'clio_core' | 'history';
+  /** `starting` until the service can serve every request correctly, then `ready`. */
+  readiness?: 'starting' | 'ready';
+  /** What is still coming up while `readiness` is `starting` (task_runtime, marketplace, agent). */
+  starting?: string[];
 }

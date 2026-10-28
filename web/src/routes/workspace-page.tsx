@@ -77,9 +77,8 @@ export function WorkspacePage() {
   useReferenceThisSelectionAction(composerDraft, focusComposerForAnswer);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
-  // "Is the Files view currently the mounted tab" -- gates workspaceFiles'
-  // poll (use-workspace-data.ts's refetchInterval) so it only runs while
-  // someone could actually see a stale listing, not for every open session.
+  // Whether the Files tab is mounted: gates workspaceFiles' poll (use-workspace-data.ts)
+  // to when someone could see a stale listing, not every open session.
   const [filesViewActive, setFilesViewActive] = useState(false);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
@@ -742,6 +741,7 @@ export function WorkspacePage() {
                       attentionData={attention.heat}
                       bottomInset={dockedComposerHeight}
                       error={transcriptError}
+                      hasEarlierMessages={Boolean(transcript.data?.next_cursor)}
                       loading={transcript.isFetching}
                       onActionCardAction={actionCard.mutateAsync}
                       {...conversationNavigation}

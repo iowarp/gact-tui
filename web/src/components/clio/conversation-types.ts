@@ -25,10 +25,20 @@ import type { ConversationModelBoundary } from './conversation-model-boundaries'
 import type { ConversationForkOrigin } from './conversation-fork-origin';
 import type { ConversationTurnPresentation } from './conversation-turn-model';
 
+/** Older messages of a paged transcript, loaded when the reader reaches the top. */
+export interface EarlierMessagesControl {
+  hasEarlier: boolean;
+  loading: boolean;
+  error?: string;
+  load: () => void;
+}
+
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
   loading?: boolean;
   error?: string;
+  /** Present when the transcript is paged and older messages can be read. */
+  earlier?: EarlierMessagesControl;
   /**
    * The workspace this transcript is rendering, so a presentation block that
    * does not carry its own `workspace_id` (or a caller composing a message

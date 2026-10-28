@@ -83,7 +83,7 @@ it('paints the capture heat as soon as a selection is added and removes it when 
   );
   // No Inspect sources > expand > Show transcript heat detour: adding inspects and paints.
   await waitFor(() => expect(heat).toHaveBeenLastCalledWith(generated));
-  await screen.findByText('Generated selection · 2 captured tokens');
+  await screen.findByText('Generated selection: 2 captured tokens');
   fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
   expect(heat).toHaveBeenLastCalledWith(undefined);
 });
@@ -169,7 +169,7 @@ it('does not resurrect an old evidence link after clearing and remounting with n
     </SelectionActionsContext.Provider>
   );
   const mounted = render(content);
-  await screen.findByText('Generated selection · 2 captured tokens');
+  await screen.findByText('Generated selection: 2 captured tokens');
   fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
   const next = {
     ...target,
@@ -186,7 +186,7 @@ it('does not resurrect an old evidence link after clearing and remounting with n
   mocks.lookup.mockClear();
   render(content);
   expect(screen.getByText('New source')).toBeInTheDocument();
-  expect(screen.queryByText('Evidence · text')).toBeNull();
+  expect(screen.queryByText('Evidence: text')).toBeNull();
   expect(mocks.lookup).not.toHaveBeenCalled();
 });
 
@@ -208,7 +208,7 @@ it('retains the basket across navigation without re-reading captures', async () 
   await waitFor(() => expect(mocks.lookup).toHaveBeenCalledTimes(1));
   first.unmount();
   render(view());
-  expect(screen.getByText('Attention set · 1')).toBeVisible();
+  expect(screen.getByText('Attention set (1)')).toBeVisible();
   expect(mocks.lookup).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
   expect(sessionStorage.length).toBe(0);
@@ -241,7 +241,7 @@ it('deduplicates selections and sends the exact source reference and requested d
       .run(target);
   act(add);
   act(add);
-  expect(screen.getByText('Attention set · 1')).toBeVisible();
+  expect(screen.getByText('Attention set (1)')).toBeVisible();
   // The add's own lookup settles first; Trace later use then asks the other direction.
   await screen.findByText('No captured image patches.');
   fireEvent.click(screen.getByRole('button', { name: 'Trace later use' }));

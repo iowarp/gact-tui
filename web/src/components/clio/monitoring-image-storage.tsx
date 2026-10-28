@@ -44,7 +44,7 @@ export function MonitoringImageStorage({
         <SelectContent>
           <SelectItem value="engine">Engine storage</SelectItem>
           <SelectItem value="service" disabled={runtime !== 'podman'}>
-            Service folder · Podman
+            Service folder (Podman)
           </SelectItem>
         </SelectContent>
       </Select>

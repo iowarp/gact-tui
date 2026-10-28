@@ -165,7 +165,7 @@ describe('ClioScientificMapView zone selection', () => {
       features: [{ id: 'lake' }],
     });
     expect(
-      view.getByText('Offline map · Natural Earth land outline · saved scientific data'),
+      view.getByText('Offline map: Natural Earth land outline and saved scientific data'),
     ).toBeVisible();
   });
 

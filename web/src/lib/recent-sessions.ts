@@ -2,6 +2,9 @@ import type { Session } from '@clio/core/v3';
 import { isManagedChildSession } from './session-state';
 
 const DEFAULT_RECENT_LIMIT = 8;
+
+/** The session kinds a person opens from lists (``kinds=`` of a server page). */
+export const PRIMARY_SESSION_KINDS = ['conversation', 'branch'] as const;
 const SEARCH_LIMIT = 20;
 
 export function visibleWorkspaceSessions(

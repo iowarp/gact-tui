@@ -13,13 +13,13 @@ describe('large archive file lists', () => {
     render(<ArchiveFileList files={files} />);
     expect(screen.getAllByRole('link')).toHaveLength(100);
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByRole('status')).toHaveTextContent('Page 2 of 1,351');
+    expect(screen.getByRole('status')).toHaveTextContent('files, page 2 of 1,351');
     fireEvent.change(screen.getByLabelText('Search included files'), {
       target: { value: 'FRAME-135000' },
     });
     expect(screen.getAllByRole('link')).toHaveLength(1);
     expect(screen.getByRole('link')).toHaveTextContent('frame-135000.png');
-    expect(screen.getByRole('status')).toHaveTextContent('Page 1 of 1');
+    expect(screen.getByRole('status')).toHaveTextContent('files, page 1 of 1');
   });
 
   it('preserves special characters in relative file links and reports empty searches', () => {

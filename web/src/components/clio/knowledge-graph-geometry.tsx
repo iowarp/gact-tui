@@ -117,7 +117,7 @@ export const KnowledgeGraphGeometry = memo(function KnowledgeGraphGeometry({
             }}
           >
             <title>
-              {node.title} · {node.degree} linked notes
+              {node.title} ({node.degree} linked notes)
             </title>
           </circle>
         </g>

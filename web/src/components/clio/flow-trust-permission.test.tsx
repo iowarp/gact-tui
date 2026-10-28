@@ -98,7 +98,7 @@ describe('flow trust permission', () => {
     const user = userEvent.setup();
     const onResponse = renderCard(permission());
     expect(screen.getByText('Running flow debate')).toBeInTheDocument();
-    expect(screen.getByText(`Authored by ${vocab.agent} · not trusted yet`)).toBeInTheDocument();
+    expect(screen.getByText(`Authored by ${vocab.agent}, not trusted yet`)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'debate.py' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
     // Trust lasts, so there is no duration to pick.
@@ -113,7 +113,7 @@ describe('flow trust permission', () => {
 
   it('names a marketplace plugin by where it came from', () => {
     renderCard(permission({ author: 'iowarp', authored_by_clio: false }));
-    expect(screen.getByText('From iowarp · not trusted yet')).toBeInTheDocument();
+    expect(screen.getByText('From iowarp, not trusted yet')).toBeInTheDocument();
   });
 
   it('leaves other permissions as they were', () => {

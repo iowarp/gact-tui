@@ -41,7 +41,7 @@ it('discloses yielded root assignment and provisional recording without calling 
   };
   const control = vi.fn();
   render(<AsyncTaskList processes={[task]} onControlTask={control} />);
-  expect(screen.getByText('Session · Yielded')).toBeVisible();
+  expect(screen.getByText('Session: Yielded')).toBeVisible();
   expect(
     screen.queryByText(
       'The assignment is still open. New messages and task results can continue it.',
@@ -289,7 +289,7 @@ it.each([
     await user.click(screen.getByRole('button', { name: buttonName }));
     await user.click(screen.getByRole('button', { name: 'Cancel task' }));
     expect(cancel).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Subagent · Cancellation requested')).toBeVisible();
+    expect(screen.getByText('Subagent: Cancellation requested')).toBeVisible();
     expect(screen.getByRole('button', { name: buttonName })).toBeDisabled();
     finish();
     await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
@@ -306,7 +306,7 @@ it.each([
         onCancelTask={cancel}
       />,
     );
-    expect(screen.getByText('Subagent · Cancelled')).toBeVisible();
+    expect(screen.getByText('Subagent: Cancelled')).toBeVisible();
     expect(screen.queryByRole('button', { name: buttonName })).toBeNull();
   },
 );

@@ -151,7 +151,7 @@ describe('ManagedServiceContextControl', () => {
     expect(input).toMatchObject({ target_id: 'local', variant_id: 'cuda' });
     expect(input.configuration.model).toBe('Qwen/Qwen3-4B');
     expect(await screen.findByRole('combobox', { name: 'Fit to GPU' })).toBeVisible();
-    expect(screen.getByText(/Default: 65,536 tokens · KV cache fits/u)).toBeVisible();
+    expect(screen.getByText(/Default: 65,536 tokens \(KV cache fits/u)).toBeVisible();
     // The context parameter is not duplicated among the plain server parameters.
     expect(screen.queryByRole('spinbutton', { name: 'vLLM Context length' })).toBeNull();
     expect(screen.getByLabelText('vLLM GPU memory share')).toBeInTheDocument();

@@ -1,5 +1,6 @@
 import type { MemoryCreationRun } from '@clio/core/v3';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
@@ -39,6 +40,33 @@ const REASONS: Record<string, string> = {
     'The curator finished, but its memory tools failed and no changes were saved or proposed.',
   curator_task_unavailable: 'The recorded curator task cannot be loaded. Its outcome is unknown.',
 };
+/** The background-pass roles, as Settings > Fleet names what they do. */
+const ROLE_WORK: Record<string, string> = {
+  memory_extract: 'noticing facts',
+  memory_consolidate: 'organizing memories',
+};
+
+/** Why the background pass did not run at all, and where to fix it. */
+function BackgroundBlocked({ reason, roles }: { reason?: string; roles?: string[] }) {
+  if (reason !== 'lm_provider_unconfigured') return null;
+  const work = (roles ?? []).map((role) => ROLE_WORK[role] ?? role.replaceAll('_', ' '));
+  const named = work.length ? work.join(' and ') : 'creating memories';
+  return (
+    <p data-slot="memory-background-blocked">
+      Background memory is off because no model is set for {named}. Choose a model for{' '}
+      {work.length === 1 ? 'that role' : work.length ? 'those roles' : 'the memory roles'} in{' '}
+      <Link className="text-primary underline-offset-4 hover:underline" to="/settings/fleet">
+        Fleet settings
+      </Link>
+      , or select a{' '}
+      <Link className="text-primary underline-offset-4 hover:underline" to="/settings/providers">
+        model provider
+      </Link>{' '}
+      to use its default model.
+    </p>
+  );
+}
+
 const time = (stamp: string) =>
   stamp && !Number.isNaN(Date.parse(stamp))
     ? new Date(stamp).toLocaleString()
@@ -77,7 +105,7 @@ function Run({
     counts.rejected ? `${counts.rejected} rejected` : '',
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join(', ');
   const failed = ['failed', 'error', 'missing'].includes(run.state);
   return (
     <li className="border-b last:border-b-0">
@@ -120,7 +148,7 @@ function Run({
               <dt className="text-muted-foreground">Total model usage</dt>
               <dd>
                 {run.usage.input_tokens !== null || run.usage.output_tokens !== null
-                  ? `${run.usage.input_tokens?.toLocaleString() ?? '—'} input · ${run.usage.output_tokens?.toLocaleString() ?? '—'} output tokens`
+                  ? `${run.usage.input_tokens?.toLocaleString() ?? '—'} input, ${run.usage.output_tokens?.toLocaleString() ?? '—'} output tokens`
                   : 'Token usage unavailable'}
               </dd>
               <dt className="text-muted-foreground">Total cost</dt>
@@ -135,7 +163,7 @@ function Run({
                   <dd>
                     {run.extract.kept} kept of {run.extract.returned}
                     {Object.values(run.extract.dropped).some(Boolean)
-                      ? ` · ${Object.values(run.extract.dropped).reduce((sum, n) => sum + n, 0)} excluded`
+                      ? `, ${Object.values(run.extract.dropped).reduce((sum, n) => sum + n, 0)} excluded`
                       : ''}
                   </dd>
                 </>
@@ -191,10 +219,13 @@ export function MemoryCreationLog({
   sessionHref,
   sessionTitle,
   targetLabel,
+  onSessionIds,
 }: {
   sessionHref: (id: string) => string | undefined;
   sessionTitle: (id: string) => string;
   targetLabel: (name: string) => string;
+  /** The sessions the shown runs name, so their titles and links can be resolved. */
+  onSessionIds?: (sessionIds: readonly string[]) => void;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -205,7 +236,10 @@ export function MemoryCreationLog({
     getNextPageParam: (page) => page.next_cursor || undefined,
     refetchInterval: 10_000,
   });
-  const runs = log.data?.pages.flatMap((page) => page.runs) ?? [];
+  const runs = useMemo(() => log.data?.pages.flatMap((page) => page.runs) ?? [], [log.data]);
+  useEffect(() => {
+    onSessionIds?.(runs.flatMap((run) => [run.source_session, run.curator_session]));
+  }, [onSessionIds, runs]);
   const background = log.data?.pages[0]?.background;
   const waiting = Object.entries(background?.skipped ?? {}).filter(([reason]) => REASONS[reason]);
   return (
@@ -232,8 +266,9 @@ export function MemoryCreationLog({
                 ? `Last checked ${time(background.last_tick)}`
                 : 'No background check recorded yet.'}
           </p>
+          <BackgroundBlocked reason={background.skipped_reason} roles={background.roles} />
           {waiting.length ? (
-            <p>{waiting.map(([reason, n]) => `${REASONS[reason]} (${n})`).join(' · ')}</p>
+            <p>{waiting.map(([reason, n]) => `${REASONS[reason]} (${n})`).join(', ')}</p>
           ) : null}
         </div>
       ) : null}

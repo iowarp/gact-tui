@@ -1,5 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
-import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
+import { INFRASTRUCTURE_POLL_MS, MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
+import { anyServerPreparing } from '@/lib/mcp-preparation';
 import type { McpServerDefinition } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { workspaceIdFromRoute } from '@/lib/workspace-route-memory';
 import { serviceTitle } from '@/lib/mcp-service-presentation';
+import { mcpServerPreparation } from '@/lib/mcp-preparation';
 import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL, isHistoryMode } from '@/lib/context-mode';
 
 type InfrastructureState = 'checking' | 'healthy' | 'degraded' | 'failed' | 'unavailable';
@@ -57,7 +59,8 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   const servers = useQuery({
     queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'infrastructure'),
     queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal),
-    refetchInterval: INFRASTRUCTURE_POLL_MS,
+    refetchInterval: (query) =>
+      anyServerPreparing(query.state.data) ? MCP_PREPARING_POLL_MS : INFRASTRUCTURE_POLL_MS,
   });
 
   const items = useMemo<InfrastructureItem[]>(() => {
@@ -193,6 +196,16 @@ function serverItem(server: McpServerDefinition): InfrastructureItem {
   const label = serviceTitle(server);
   if (server.status === 'ready') {
     return { id: server.id, label, state: 'healthy', stateLabel: 'Ready' };
+  }
+  const preparation = mcpServerPreparation(server);
+  if (preparation) {
+    return {
+      id: server.id,
+      label,
+      state: preparation.state === 'preparing' ? 'checking' : 'failed',
+      stateLabel: preparation.label,
+      detail: preparation.sentence,
+    };
   }
   if (server.error) {
     return {

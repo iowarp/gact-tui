@@ -88,7 +88,7 @@ function ObsidianAccountForm() {
         </div>
       ) : status.data?.authenticated ? (
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm">Signed in to Obsidian · Client {status.data.version}</p>
+          <p className="text-sm">Signed in to Obsidian, client {status.data.version}</p>
           <Button
             type="button"
             variant="outline"

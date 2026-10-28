@@ -35,7 +35,7 @@ const STATE_LABELS: Record<DeployStageState, string> = {
   done: 'Done',
   failed: 'Failed',
   cancelled: 'Cancelled',
-  skipped: 'Not needed',
+  skipped: 'Skipped',
 };
 
 function StageIcon({ state }: { state: DeployStageState }) {
@@ -63,7 +63,9 @@ export function DeployStageList({ progress }: { progress: DeployProgress }) {
         const elapsed = stageElapsed(stage, now);
         return (
           <TimelineItem
-            aria-label={`${stage.label}: ${STATE_LABELS[stage.state]}`}
+            aria-label={`${stage.label}: ${STATE_LABELS[stage.state]}${
+              stage.state === 'skipped' && stage.skipReason ? `. ${stage.skipReason}` : ''
+            }`}
             className="group-data-[orientation=vertical]/timeline:not-last:pb-3"
             data-state={stage.state}
             key={stage.id}
@@ -101,6 +103,10 @@ export function DeployStageList({ progress }: { progress: DeployProgress }) {
             {stage.detail && (stage.state === 'running' || stage.state === 'done') ? (
               <TimelineContent className="truncate text-xs" title={stage.detail}>
                 {stage.detail}
+              </TimelineContent>
+            ) : stage.state === 'skipped' && stage.skipReason ? (
+              <TimelineContent className="truncate text-xs" title={stage.skipReason}>
+                {stage.skipReason}
               </TimelineContent>
             ) : null}
           </TimelineItem>

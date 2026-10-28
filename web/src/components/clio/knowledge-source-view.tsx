@@ -134,7 +134,7 @@ export function KnowledgeSourceView({
       {source?.connection === 'headless_sync' && (
         <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
           <span>
-            Sync: {sync.data?.state ?? 'checking'} · {sync.data?.mode ?? 'pull-only'}
+            Sync: {sync.data?.state ?? 'checking'}, {sync.data?.mode ?? 'pull-only'}
           </span>
           <Button
             size="sm"
@@ -321,7 +321,7 @@ export function KnowledgeSourceView({
                       </Button>
                     </div>
                     <p className="mb-2 break-all text-xs text-muted-foreground">
-                      {note.data.note.path} · Captured revision{' '}
+                      {note.data.note.path}, captured revision{' '}
                       {note.data.note.revision.slice(0, 12)}
                     </p>
                     <div className="min-h-64 flex-1">
@@ -359,7 +359,7 @@ export function KnowledgeSourceView({
                               </Button>
                             ) : (
                               <span className="break-all text-muted-foreground">
-                                {link.target} · {link.status}
+                                {link.target} ({link.status})
                                 {link.candidates?.length ? `: ${link.candidates.join(', ')}` : ''}
                               </span>
                             )}

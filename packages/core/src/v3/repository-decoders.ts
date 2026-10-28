@@ -24,8 +24,15 @@ import { optionalWireString } from './schema-utils.js';
 
 export const workspaceListSchema = z.object({ workspaces: z.array(workspaceSchema) });
 export const sessionListSchema = z.object({ sessions: z.array(sessionSchema) });
+/** A page of the conversation list (`GET /v1/sessions?limit=`), newest interaction first. */
+export const sessionPageSchema = sessionListSchema.extend({
+  next_cursor: z.string().nullable().optional(),
+  total: z.number().int().nonnegative().nullable().optional(),
+});
 export const transcriptSchema = z.object({
   cursor: z.string().optional(),
+  /** Oldest message id of a bounded page when older messages remain (`before=` it). */
+  next_cursor: z.string().nullable().optional(),
   messages: z.array(messageSchema),
   tools: z.array(toolInvocationSchema).default([]),
   tasks: z.array(taskSchema).default([]),

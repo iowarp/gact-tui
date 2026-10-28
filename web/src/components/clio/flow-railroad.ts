@@ -182,7 +182,7 @@ export function workflowRailroadExpr(
 /** A step's drawn name; a fork carries its mark in words: "draft~1 · fork of draft". */
 export function stepName(step: Pick<FlowStep, 'id' | 'label' | 'forkOf'>): string {
   const name = step.label ?? step.id;
-  return step.forkOf ? `${name} · fork of ${step.forkOf}` : name;
+  return step.forkOf ? `${name} (fork of ${step.forkOf})` : name;
 }
 
 /** The tooltip's fork sentences: a fork's note, and the forks a dependent also waits on. */

@@ -67,7 +67,7 @@ export function ScienceLogPanel({
         {heading || (
           <>
             Log of <span className="text-foreground">{branchTitle}</span>
-            {` · ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`}
+            {` (${entries.length} ${entries.length === 1 ? 'entry' : 'entries'})`}
           </>
         )}
       </h3>
@@ -132,7 +132,7 @@ function ScienceEntryCard({
         {entryReference(target, id)}
         {elsewhere ? (
           <span className="text-muted-foreground">
-            {` · in ${titles.get(target.branch) || target.branch}`}
+            {` (in ${titles.get(target.branch) || target.branch})`}
           </span>
         ) : null}
       </button>

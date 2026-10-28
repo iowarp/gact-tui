@@ -79,7 +79,7 @@ export function FileViewerActions({
           <DialogHeader>
             <DialogTitle className="break-words pr-6">{identity.name}</DialogTitle>
             <DialogDescription>
-              {identity.origin} ·{' '}
+              {identity.origin},{' '}
               {identity.size === undefined ? 'Size unavailable' : formatBytes(identity.size)}
             </DialogDescription>
           </DialogHeader>

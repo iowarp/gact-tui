@@ -59,7 +59,7 @@ export function ContextUsage({
         </div>
       ) : null}
       <p className="mb-2 text-[11px] leading-4 text-muted-foreground">
-        {estimated ? 'Estimated usage' : 'Provider-reported usage'} · Last request
+        {estimated ? 'Estimated usage' : 'Provider-reported usage'} for the last request
         {context?.usage_recorded_at
           ? ` at ${new Date(context.usage_recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
           : ''}
@@ -133,7 +133,7 @@ export function ContextUsage({
         <p className="mt-2 text-[11px] text-muted-foreground">
           Prompt cache: {contextTokens(cacheRead)} reused ({contextPercent(cacheRead, used)})
           {context.cache_write_tokens
-            ? ` · ${contextTokens(context.cache_write_tokens)} written`
+            ? `, ${contextTokens(context.cache_write_tokens)} written`
             : ''}
         </p>
       ) : null}

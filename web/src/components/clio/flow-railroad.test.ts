@@ -545,12 +545,12 @@ describe('workflow forks', () => {
     const diagram = diagramOf(workflow(steps));
     if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
     expect(diagram.railroad.source).toContain(
-      'sequence(choice(terminal("draft"), terminal("draft~1 · fork of draft")), terminal("review"))',
+      'sequence(choice(terminal("draft"), terminal("draft~1 (fork of draft)")), terminal("review"))',
     );
     const fork = diagram.railroad.marks.find((mark) => mark.key === 'draft~1')!;
     expect(fork.fork).toBe(true);
     expect(fork.title).toBe(
-      'draft~1 · fork of draft: Running. Runs this agent. Fork of draft: pursue H4 instead.',
+      'draft~1 (fork of draft): Running. Runs this agent. Fork of draft: pursue H4 instead.',
     );
     // Whoever waited on the step also waits on its fork.
     const review = diagram.railroad.marks.find((mark) => mark.key === 'review')!;

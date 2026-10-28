@@ -134,6 +134,14 @@ const serviceHealthSchema = z.object({
     .enum(['clio_core', 'history'])
     .nullish()
     .transform((value) => value ?? undefined),
+  readiness: z
+    .enum(['starting', 'ready'])
+    .nullish()
+    .transform((value) => value ?? undefined),
+  starting: z
+    .array(z.string())
+    .nullish()
+    .transform((value) => value ?? undefined),
 });
 const sandboxStatusSchema = z.object({
   name: z.string().default('sandbox'),

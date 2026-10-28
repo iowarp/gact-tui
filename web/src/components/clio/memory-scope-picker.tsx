@@ -39,7 +39,7 @@ export function MemoryScopePicker({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="user">Account · across workspaces</SelectItem>
+          <SelectItem value="user">Account (across workspaces)</SelectItem>
           {workspaces
             .filter((workspace) => workspace.id !== 'ws_global')
             .map((workspace) => (

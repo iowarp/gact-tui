@@ -3,7 +3,7 @@ import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react
 import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
-import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
+import { STREAM_RECONNECT_BASE_MS, TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
@@ -92,13 +92,13 @@ export function useSessionLiveStream({
     const reconcileAfterDisconnect = async () => {
       const [workspaces, sessions, transcript] = await Promise.all([
         repository.workspaces(controller.signal),
-        repository.sessions(workspaceId, controller.signal),
-        repository.transcript(sessionId, controller.signal),
+        repository.sessionFamily(sessionId, controller.signal),
+        repository.transcript(sessionId, controller.signal, { limit: TRANSCRIPT_PAGE_SIZE }),
       ]);
       if (controller.signal.aborted) return;
       queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
-      queryClient.setQueryData(queryKeys.sessions(settings.endpoint, workspaceId), sessions);
-      queryClient.setQueryData(queryKeys.transcript(settings.endpoint, sessionId), transcript);
+      queryClient.setQueryData(queryKeys.sessionFamily(settings.endpoint, sessionId), sessions);
+      queryClient.setQueryData(queryKeys.transcriptPage(settings.endpoint, sessionId), transcript);
       reconcileSnapshots({
         workspaces: recordById(workspaces),
         sessions: recordById(sessions),
@@ -219,13 +219,16 @@ export function useSessionLiveStream({
       try {
         const [workspaces, sessions, transcript] = await Promise.all([
           repository.workspaces(controller.signal),
-          repository.sessions(workspaceId, controller.signal),
-          repository.transcript(sessionId, controller.signal),
+          repository.sessionFamily(sessionId, controller.signal),
+          repository.transcript(sessionId, controller.signal, { limit: TRANSCRIPT_PAGE_SIZE }),
         ]);
         if (controller.signal.aborted) return;
         queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
-        queryClient.setQueryData(queryKeys.sessions(settings.endpoint, workspaceId), sessions);
-        queryClient.setQueryData(queryKeys.transcript(settings.endpoint, sessionId), transcript);
+        queryClient.setQueryData(queryKeys.sessionFamily(settings.endpoint, sessionId), sessions);
+        queryClient.setQueryData(
+          queryKeys.transcriptPage(settings.endpoint, sessionId),
+          transcript,
+        );
         reconcileSnapshots({
           workspaces: recordById(workspaces),
           sessions: recordById(sessions),
@@ -388,6 +391,8 @@ export function queryInvalidationKeysForEvent({
     // endpoint-level prefix each query is actually keyed under, not a
     // per-session key that would never match the shared cache entry.
     keys.push(
+      // The sessions waiting on a person change with every pending interaction.
+      queryKeys.sessionsWaiting(endpoint),
       queryKeys.pendingInteractions(endpoint),
       queryKeys.pendingApprovals(endpoint),
       queryKeys.key('pending-questions', endpoint),
@@ -396,7 +401,7 @@ export function queryInvalidationKeysForEvent({
   if (isProcessEvent(eventName)) {
     keys.push(
       queryKeys.sessionObservabilityDetail(endpoint, sessionId, 'processes'),
-      queryKeys.sessions(endpoint, 'all'),
+      queryKeys.allSessionReads(endpoint),
     );
   }
   if (eventName === 'semantic.event') {
@@ -432,8 +437,7 @@ export function queryInvalidationKeysForEvent({
   if (eventName === 'message.completed') {
     keys.push(
       queryKeys.transcript(endpoint, sessionId),
-      queryKeys.sessions(endpoint, workspaceId),
-      queryKeys.sessions(endpoint, 'all'),
+      queryKeys.allSessionReads(endpoint),
       // Artifact lifecycle records are emitted as semantic events on current
       // runtimes. Reconcile the registry at the authoritative turn boundary so
       // a newly returned resource link never waits for a page reload.
@@ -451,7 +455,7 @@ export function queryInvalidationKeysForEvent({
   // triggers: polling already covers what those approximated, without a
   // hand-maintained event list.
   if (eventName === 'session.status_changed' || eventName === 'session.upserted') {
-    keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));
+    keys.push(queryKeys.allSessionReads(endpoint));
   }
   // Execution provenance is a durable projection over the semantic ledger,
   // child lifecycle and artifact custody records. Refresh its provider-keyed

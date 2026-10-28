@@ -20,10 +20,10 @@ export function FlowUsageSummary({ usage }: { usage?: FlowRunUsage }) {
       className="min-w-0 text-xs text-muted-foreground"
       title={several ? shares : undefined}
     >
-      {several ? `${usage.models.map((row) => shortModel(row.model)).join(', ')} · ` : ''}
+      {several ? `${usage.models.map((row) => shortModel(row.model)).join(', ')}: ` : ''}
       {/* The run and the work it started, cache reads included: say so beside the count. */}
       {formatTokens(tokens)} tokens with cache reads
-      {cost >= 0.01 ? ` · $${cost.toFixed(2)}` : cost > 0 ? ' · under $0.01' : ''}
+      {cost >= 0.01 ? `, $${cost.toFixed(2)}` : cost > 0 ? ', under $0.01' : ''}
     </p>
   );
 }

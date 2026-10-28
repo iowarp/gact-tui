@@ -353,7 +353,7 @@ export function ExtensionAddDialog({
                     >
                       <option value="auto">Detect when connecting</option>
                       <option value="oauth">Sign in with OAuth</option>
-                      <option value="none">No OAuth · open access or request headers</option>
+                      <option value="none">No OAuth (open access or request headers)</option>
                     </select>
                   </Label>
                   <Label className="grid gap-2">

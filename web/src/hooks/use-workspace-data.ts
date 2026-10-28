@@ -13,8 +13,10 @@ import { buildModelOptions } from '@/lib/model-options';
 import { cachedModelFacts } from '@/components/clio/model-picker-fact-cache';
 import {
   ACTIVE_SESSION_POLL_MS,
+  WAITING_SESSIONS_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_CAP,
   PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
+  TRANSCRIPT_PAGE_SIZE,
 } from '@/lib/runtime-limits';
 import { sessionArtifactEntities, sessionArtifactVersionEntities } from '@/lib/session-artifacts';
 import {
@@ -38,6 +40,7 @@ import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 import { useRepository } from './use-repository';
 import { useRequestedSessionLookup } from './use-requested-session-lookup';
+import { useKnownSessions } from './use-known-sessions';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
@@ -114,8 +117,8 @@ export function useWorkspaceData({
     [settings.endpoint],
   );
   const reloadSessions = useMemo(
-    () => readReloadSessions(settings.endpoint, workspaceId),
-    [settings.endpoint, workspaceId],
+    () => (sessionId ? readReloadSessions(settings.endpoint, `family:${sessionId}`) : undefined),
+    [settings.endpoint, sessionId],
   );
   const reloadAllSessions = useMemo(
     () => readReloadAllSessions(settings.endpoint),
@@ -131,10 +134,12 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.workspaces(signal),
     placeholderData: reloadWorkspaces,
   });
+  // The open conversation's tree only (its root, every descendant, any ancestor
+  // between): no view loads every session (R3). Bounded by this conversation.
   const sessions = useQuery({
-    queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
-    queryFn: ({ signal }) => repository.sessions(workspaceId, signal),
-    enabled: Boolean(workspaceId),
+    queryKey: queryKeys.sessionFamily(settings.endpoint, sessionId),
+    queryFn: ({ signal }) => repository.sessionFamily(sessionId, signal),
+    enabled: Boolean(sessionId),
     placeholderData: reloadSessions,
     refetchIntervalInBackground: true,
     refetchInterval: (query) => {
@@ -142,23 +147,26 @@ export function useWorkspaceData({
       return current && isSessionActive(current.state) ? ACTIVE_SESSION_POLL_MS : false;
     },
   });
-  const allSessions = useQuery({
-    queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
-    queryFn: ({ signal }) => repository.allSessions(signal),
+  // Sessions waiting on a person (a permission or an answer) and their ancestors:
+  // what the attention surfaces place under each root, from one small query.
+  const waitingSessions = useQuery({
+    queryKey: queryKeys.sessionsWaiting(settings.endpoint),
+    queryFn: ({ signal }) => repository.sessionsWaitingOnPerson(signal),
     placeholderData: reloadAllSessions,
+    refetchInterval: WAITING_SESSIONS_POLL_MS,
   });
-  const hierarchySessions = useMemo(
-    () => allSessions.data ?? sessions.data ?? [],
-    [allSessions.data, sessions.data],
-  );
+  const allSessions = useKnownSessions(sessions, waitingSessions, Boolean(sessionId));
+  const hierarchySessions = useMemo(() => allSessions.data ?? [], [allSessions.data]);
   const attendedSessionRoot = useMemo(
     () => interactionRootSessionId(sessionId, hierarchySessions),
     [hierarchySessions, sessionId],
   );
   const attendedSessionId = attendedSessionRoot.id;
   const transcript = useQuery({
-    queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
-    queryFn: ({ signal }) => repository.transcript(sessionId, signal),
+    queryKey: queryKeys.transcriptPage(settings.endpoint, sessionId),
+    // The newest page only: older messages load on scroll (useEarlierMessages).
+    queryFn: ({ signal }) =>
+      repository.transcript(sessionId, signal, { limit: TRANSCRIPT_PAGE_SIZE }),
     enabled: Boolean(sessionId),
     placeholderData: reloadTranscript,
     // A provider can finish without emitting visible stream chunks. Keep the
@@ -186,8 +194,12 @@ export function useWorkspaceData({
     // A terminal session snapshot can arrive even if its final stream frame did not.
     // Reconcile the transcript before active-session polling stops.
     const completionKey = `${sessionId}:${current.updated_at}:${current.message_count ?? 0}`;
+    // A bounded page holds fewer messages than the session by design; only a
+    // complete transcript (no older page) can be missing messages.
     const missingMessages =
-      !active && (current.message_count ?? 0) > (transcript.data?.messages.length ?? 0);
+      !active &&
+      !transcript.data?.next_cursor &&
+      (current.message_count ?? 0) > (transcript.data?.messages.length ?? 0);
     if (
       (wasActive && !active) ||
       current.state === 'failed' ||
@@ -196,7 +208,13 @@ export function useWorkspaceData({
       terminalReconciliation.current = completionKey;
       void refetchTranscript();
     }
-  }, [refetchTranscript, sessionId, sessions.data, transcript.data?.messages.length]);
+  }, [
+    refetchTranscript,
+    sessionId,
+    sessions.data,
+    transcript.data?.messages.length,
+    transcript.data?.next_cursor,
+  ]);
   const sessionArtifacts = useQuery({
     queryKey: queryKeys.key('session-artifacts', settings.endpoint, sessionId),
     queryFn: ({ signal }) =>
@@ -247,9 +265,7 @@ export function useWorkspaceData({
     queryFn: ({ signal }) =>
       repository.pendingInteractionProjection(attendedSessionId, true, signal),
     enabled:
-      Boolean(attendedSessionId) &&
-      (allSessions.data !== undefined || sessions.data !== undefined) &&
-      supportsUnifiedInteractions,
+      Boolean(attendedSessionId) && allSessions.data !== undefined && supportsUnifiedInteractions,
     refetchInterval: ACTIVE_SESSION_POLL_MS,
   });
   const attentionRootSessionIds = useMemo(() => {
@@ -350,15 +366,15 @@ export function useWorkspaceData({
     if (sessions.data) mergeSnapshots({ sessions: recordById(sessions.data) });
   }, [mergeSnapshots, sessions.data]);
   useEffect(() => {
-    if (sessions.data && !sessions.isPlaceholderData) {
-      writeReloadSessions(settings.endpoint, workspaceId, sessions.data);
+    if (sessionId && sessions.data && !sessions.isPlaceholderData) {
+      writeReloadSessions(settings.endpoint, `family:${sessionId}`, sessions.data);
     }
-  }, [sessions.data, sessions.isPlaceholderData, settings.endpoint, workspaceId]);
+  }, [sessionId, sessions.data, sessions.isPlaceholderData, settings.endpoint]);
   useEffect(() => {
-    if (allSessions.data && !allSessions.isPlaceholderData) {
-      writeReloadAllSessions(settings.endpoint, allSessions.data);
+    if (waitingSessions.data && !waitingSessions.isPlaceholderData) {
+      writeReloadAllSessions(settings.endpoint, waitingSessions.data);
     }
-  }, [allSessions.data, allSessions.isPlaceholderData, settings.endpoint]);
+  }, [settings.endpoint, waitingSessions.data, waitingSessions.isPlaceholderData]);
   useEffect(() => {
     if (!transcript.data) return;
     mergeSnapshots({

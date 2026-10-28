@@ -40,6 +40,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
 import { isPrimarySession } from '@/lib/recent-sessions';
+import { recentSessionsWith } from '@/lib/session-pages';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus } from './status';
@@ -128,8 +129,13 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   }, []);
 
   const sessions = useQuery({
-    queryKey: queryKeys.key('sessions', 'all', settings.endpoint),
-    queryFn: ({ signal }) => repository.allSessions(signal),
+    queryKey: queryKeys.key(
+      'session-pages',
+      settings.endpoint,
+      'schedules',
+      initialSessionId ?? '',
+    ),
+    queryFn: ({ signal }) => recentSessionsWith(repository, { ids: [initialSessionId] }, signal),
   });
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint),

@@ -31,7 +31,7 @@ export function ConversationInspector({
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <ConversationRoleIcon session={session} className="size-3.5" />
         {conversationRole(session)}
-        {isManagedChildSession(session) ? ' · parent owned' : ''}
+        {isManagedChildSession(session) ? ' (parent owned)' : ''}
       </div>
       <h3 className="mt-1 break-words text-sm font-semibold">{session.title}</h3>
       {parent ? (
@@ -62,7 +62,7 @@ export function ConversationInspector({
           <div className="flex items-center gap-2 text-[11px] text-primary">
             <GitBranchIcon className="size-3.5" />
             <span>
-              {history.boundaryRetained ? 'Branched here' : 'Saved fork point · history rewound'}
+              {history.boundaryRetained ? 'Branched here' : 'Saved fork point, history rewound'}
             </span>
             <span className="flex-1 border-t" />
           </div>
@@ -102,7 +102,7 @@ export function ConversationInspector({
         {isManagedChildSession(session)
           ? 'Controlled by the parent agent'
           : session.parent_session_id
-            ? 'Independent conversation · shared files'
+            ? 'Independent conversation with shared files'
             : 'Shared workspace files'}
       </p>
     </aside>

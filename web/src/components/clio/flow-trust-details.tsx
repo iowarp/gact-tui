@@ -13,7 +13,7 @@ export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
   const file = fileName(request.file);
   return (
     <div className="grid min-w-0 justify-items-start gap-0.5 text-sm" data-slot="flow-trust">
-      <p className="text-muted-foreground">{`${flowTrustAuthor(request)} · not trusted yet`}</p>
+      <p className="text-muted-foreground">{`${flowTrustAuthor(request)}, not trusted yet`}</p>
       {request.reviewUrl ? (
         <>
           <Button

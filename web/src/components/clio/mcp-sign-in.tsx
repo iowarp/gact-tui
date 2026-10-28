@@ -226,7 +226,7 @@ export function McpSignInDialog({
           ) : null}
           {flow?.state === 'connected' ? (
             <p role="status">
-              Connected · {flow.tools.length} {flow.tools.length === 1 ? 'tool' : 'tools'} available
+              Connected, {flow.tools.length} {flow.tools.length === 1 ? 'tool' : 'tools'} available
             </p>
           ) : null}
           {error || flow?.error || state.error ? (

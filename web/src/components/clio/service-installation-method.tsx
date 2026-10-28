@@ -118,7 +118,7 @@ export function ServiceInstallationMethod({
           <SelectContent>
             {rows.map((row) => (
               <SelectItem key={row.id} value={row.id} disabled={!row.compatible}>
-                {row.label} · {row.version}
+                {row.label}, {row.version}
                 {row.compatible ? '' : ' (unavailable)'}
               </SelectItem>
             ))}
@@ -126,7 +126,7 @@ export function ServiceInstallationMethod({
         </Select>
       ) : selected ? (
         <p className="text-xs text-muted-foreground">
-          {selected.label} · {selected.version}
+          {selected.label}, {selected.version}
         </p>
       ) : null}
       {selected?.install_type === 'supervised_stack' ? (
@@ -150,7 +150,7 @@ export function ServiceInstallationMethod({
               .filter((row) => !row.compatible)
               .map((row) => (
                 <li key={row.id}>
-                  {labels[installationMethod(row)]} · {row.label}: {row.reason}
+                  {labels[installationMethod(row)]} ({row.label}): {row.reason}
                 </li>
               ))}
           </ul>

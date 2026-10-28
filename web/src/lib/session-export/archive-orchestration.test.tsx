@@ -551,7 +551,7 @@ describe('exported orchestration', () => {
     expect(await screen.findByText('Workflow run')).toBeVisible();
     expect(await screen.findByText(/3 steps, 3 done/u)).toBeVisible();
     expect(
-      screen.getByRole('button', { name: /^draft~1 · fork of draft: Completed\./u }),
+      screen.getByRole('button', { name: /^draft~1 \(fork of draft\): Completed\./u }),
     ).toHaveAttribute('aria-label', expect.stringContaining('Fork of draft: try a shorter draft'));
     await user.click(screen.getByRole('button', { name: /^draft: Completed\./u }));
     const details = screen.getByRole('region', { name: 'draft: Completed' });
@@ -682,7 +682,7 @@ describe('exported orchestration', () => {
     expect(within(draft).getByText(/Approval question/u)).toBeVisible();
     expect(draft).toHaveTextContent('You answered: Yes');
     await user.click(
-      screen.getByRole('button', { name: /^draft~1 · fork of draft: Completed\./u }),
+      screen.getByRole('button', { name: /^draft~1 \(fork of draft\): Completed\./u }),
     );
     const fork = screen.getByRole('region', { name: 'draft~1: Completed' });
     await user.click(

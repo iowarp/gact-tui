@@ -57,9 +57,10 @@ function useDebouncedValue(value: string, delay: number): string {
 }
 
 function conciseDetail(reference: WorkspaceReference): string {
+  // The server joins reference details with a middle dot; never show it (UI copy rule).
   return reference.detail
-    .replace(/\s+·\s+(?:source|sha256):[^\s]+$/i, '')
-    .replace(/\s+·\s+/g, ' — ');
+    .replace(/\s+\u00b7\s+(?:source|sha256):[^\s]+$/iu, '')
+    .replace(/\s+\u00b7\s+/gu, ' — ');
 }
 
 export function ClioComposerReferenceMenu({
@@ -311,7 +312,7 @@ export function ClioComposerReferenceMenu({
         })}
       </PromptInputCommandList>
       <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-        Reference existing material. Type to search · ↑↓ to choose · Enter to add · Esc to close
+        Reference existing material. Type to search, ↑↓ to choose, Enter to add, Esc to close.
       </div>
       {unreadable + listing.unsupported > 0 ? (
         <div

@@ -25,7 +25,7 @@ export function AgentServicesOverview({
   return (
     <section aria-labelledby="agent-services-title">
       <header className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-        <span>Connected {vocab.agent} ·</span>
+        <span>Connected {vocab.agent}:</span>
         <h2 id="agent-services-title" className="font-medium text-foreground">
           {agent}
         </h2>

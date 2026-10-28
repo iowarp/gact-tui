@@ -82,6 +82,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { MemorySettings } from './settings-memory';
+import { sessionReads } from '@/test/session-reads';
 
 function renderPage(children: ReactNode, path = '/settings/memory') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -164,7 +165,7 @@ describe('memory page', () => {
     ).toBeVisible();
     expect(within(inbox).getByText('Wants results emailed to x@example.com')).toBeVisible();
     expect(within(inbox).queryByText(/Prefers SI units|updated:/u)).not.toBeInTheDocument();
-    expect(within(inbox).getByText('Account · preferences')).toBeVisible();
+    expect(within(inbox).getByText('Account: preferences')).toBeVisible();
     expect(within(inbox).getByRole('link', { name: 'From a web page' })).not.toBeVisible();
     await user.click(within(inbox).getByText('Source facts (1)'));
     expect(within(inbox).getByRole('link', { name: 'From a web page' })).toHaveAttribute(
@@ -217,6 +218,34 @@ describe('memory page', () => {
     expect(screen.getByText(/Last checked/u)).toBeVisible();
     expect(screen.getByText(/Waiting for the configured delay/u)).toBeVisible();
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+  });
+
+  it('says why the background pass is off when no model is set, and where to set one', async () => {
+    repository.memoryCreationRuns.mockResolvedValue({
+      runs: [],
+      next_cursor: null,
+      background: {
+        last_tick: '2026-10-25T10:00:00Z',
+        skipped_reason: 'lm_provider_unconfigured',
+        roles: ['memory_extract', 'memory_consolidate'],
+      },
+    });
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    await user.click(screen.getByRole('tab', { name: 'Memory creation log' }));
+    expect(
+      await screen.findByText(
+        /Background memory is off because no model is set for noticing facts and organizing memories/u,
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Fleet settings' })).toHaveAttribute(
+      'href',
+      '/settings/fleet',
+    );
+    expect(screen.getByRole('link', { name: 'model provider' })).toHaveAttribute(
+      'href',
+      '/settings/providers',
+    );
   });
 
   it('imports into the selected workspace and opens the creation log without promising review', async () => {
@@ -306,3 +335,9 @@ describe('memory page', () => {
     expect(screen.queryByText('Search in session')).not.toBeInTheDocument();
   });
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  repository,
+  sessionReads(() => repository.allSessions()),
+);

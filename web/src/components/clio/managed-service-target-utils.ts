@@ -100,7 +100,7 @@ export class VersionConflictError extends Error {
   constructor(
     public readonly installedVersion: string,
     public readonly pid: string,
-    public readonly health: 'healthy' | 'unresponsive' | 'unknown' = 'unknown',
+    public readonly health: ConflictHealth = 'unknown',
     public readonly targetVersion?: string,
     public readonly owner?: string,
     public readonly port?: number,
@@ -108,17 +108,22 @@ export class VersionConflictError extends Error {
     super(
       health === 'healthy'
         ? `${vocab.agent} ${installedVersion} is already running (pid ${pid}).`
-        : `A ${vocab.agent}-looking process (pid ${pid}) is on the port but isn't answering.`,
+        : health === 'stopped'
+          ? `${vocab.agent} ${installedVersion} is installed but not running.`
+          : `A ${vocab.agent}-looking process (pid ${pid}) is on the port but isn't answering.`,
     );
     this.name = 'VersionConflictError';
   }
 }
 
-/** A healthy CLIO the claim step found running, awaiting "Connect" or "Replace". */
+/** How the found agent answered: running, not answering, or installed but stopped. */
+export type ConflictHealth = 'healthy' | 'unresponsive' | 'unknown' | 'stopped';
+
+/** An agent the claim step found on the host, awaiting the person's choice. */
 export type FoundConflict = {
   installedVersion: string;
   pid: string;
-  health: 'healthy' | 'unresponsive' | 'unknown';
+  health: ConflictHealth;
   targetVersion?: string;
   owner?: string;
   port?: number;
@@ -181,6 +186,7 @@ export async function claimClioAgent(
         on_conflict: choice,
         ...(found.pid ? { conflict_pid: found.pid } : {}),
         ...(found.owner ? { conflict_root: found.owner } : {}),
+        ...(found.health === 'stopped' ? { conflict_state: 'stopped' } : {}),
       };
     }
   }

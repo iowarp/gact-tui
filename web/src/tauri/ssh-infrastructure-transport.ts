@@ -2,7 +2,16 @@ import type { InfrastructureTarget, SshRoute } from '@clio/core/v3';
 import type { ClioRepository } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { trackInfrastructureRecovery } from './ssh-recovery-progress';
 import { infrastructureSocket, waitForAttachment } from './ssh-transport-attachment';
+
+let core: Promise<typeof import('@tauri-apps/api/core')> | undefined;
+
+/** The native bridge, loaded once: saved hosts are reattached concurrently. */
+function tauriCore(): Promise<typeof import('@tauri-apps/api/core')> {
+  core ??= import('@tauri-apps/api/core');
+  return core;
+}
 
 /** An OpenSSH authentication question: only real prompts, never `ssh>` or a shell. */
 export type SshPrompt = {
@@ -87,7 +96,7 @@ const attachments = new Map<string, Promise<SshTransportStatus>>();
 export async function openSshConnectionTest(route: SshRoute): Promise<SshConnectionTest> {
   if (!inTauri()) throw new Error(`Interactive SSH testing requires ${vocab.product}.`);
   const targetId = `ssh-test-${crypto.randomUUID()}`;
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   const status = await invoke<SshTransportStatus>('ssh_transport_open', {
     request: { target_id: targetId, route, interactive: true },
   });
@@ -96,7 +105,7 @@ export async function openSshConnectionTest(route: SshRoute): Promise<SshConnect
 
 /** Close an isolated connection test without disturbing a compatible shared transport. */
 export async function closeSshConnectionTest(test: SshConnectionTest): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   await invoke('ssh_transport_close', {
     sessionId: test.status.session_id,
     targetId: test.targetId,
@@ -149,7 +158,7 @@ async function attachTransport(
     bridges.delete(target.id);
     existing.socket.close();
   } else if (existing) await closeInfrastructureSshTransport(target.id);
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   const status = await invoke<SshTransportStatus>('ssh_transport_open', {
     request: {
       target_id: target.id,
@@ -183,25 +192,25 @@ async function attachTransport(
 
 /** Return current native state for one reusable OpenSSH session. */
 export async function sshTransportStatus(sessionId: string): Promise<SshTransportStatus> {
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   return invoke<SshTransportStatus>('ssh_transport_status', { sessionId });
 }
 
 /** Send one response to the exact prompt currently displayed by OpenSSH. */
 export async function writeSshTransport(sessionId: string, data: string): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   await invoke('ssh_transport_write', { sessionId, data });
 }
 
 /** Kill the session's OpenSSH process tree now, whoever else shares it. */
 export async function cancelSshTransport(sessionId: string): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   await invoke('ssh_transport_cancel', { sessionId });
 }
 
 /** The session's log with terminal control sequences and transport markers removed. */
 export async function sshTransportLog(sessionId: string): Promise<string> {
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   return invoke<string>('ssh_transport_log', { sessionId });
 }
 
@@ -211,7 +220,7 @@ export async function closeInfrastructureSshTransport(targetId: string): Promise
   if (!bridge) return;
   bridges.delete(targetId);
   bridge.socket.close();
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   await invoke('ssh_transport_close', { sessionId: bridge.sessionId, targetId });
 }
 
@@ -237,34 +246,47 @@ export async function recoverInfrastructureSshTransports(
   const targets = (await repository.infrastructureTargets()).filter(
     (target) => target.kind === 'ssh' && target.auto_reconnect,
   );
-  for (const target of targets) {
-    await repository.setInfrastructureTransportState(target.id, 'reconnecting');
-    try {
-      let status = await attachInfrastructureSshTransport(endpoint, token, target, {
-        interactive: false,
-      });
-      for (
-        let attempt = 0;
-        (status.state === 'reconnecting' || status.state === 'state_unknown') && attempt < 15;
-        attempt += 1
-      ) {
-        await new Promise((resolve) => window.setTimeout(resolve, 200));
-        status = await sshTransportStatus(status.session_id);
-      }
-      await repository.setInfrastructureTransportState(target.id, status.state);
-      if (status.state === 'connected') {
-        await attachInfrastructureSshTransport(endpoint, token, target);
-        try {
-          await repository.managedServiceCatalog(target.id);
-        } catch (error) {
-          console.error(`Could not reconcile infrastructure on ${target.label}`, error);
-        }
-        continue;
-      }
-      await repository.setInfrastructureTransportState(target.id, 'reauthentication_required');
-    } catch {
-      await repository.setInfrastructureTransportState(target.id, 'reauthentication_required');
+  // Every saved host is checked at once; each answers on its own session.
+  await trackInfrastructureRecovery(targets.length, (advance) =>
+    Promise.allSettled(
+      targets.map((target) => recoverTarget(repository, endpoint, token, target).finally(advance)),
+    ).then(() => undefined),
+  );
+}
+
+/** Reattach one saved host without prompting, then reconcile its services. */
+async function recoverTarget(
+  repository: Pick<ClioRepository, 'managedServiceCatalog' | 'setInfrastructureTransportState'>,
+  endpoint: string,
+  token: string | undefined,
+  target: InfrastructureTarget,
+): Promise<void> {
+  await repository.setInfrastructureTransportState(target.id, 'reconnecting');
+  try {
+    let status = await attachInfrastructureSshTransport(endpoint, token, target, {
+      interactive: false,
+    });
+    for (
+      let attempt = 0;
+      (status.state === 'reconnecting' || status.state === 'state_unknown') && attempt < 15;
+      attempt += 1
+    ) {
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
+      status = await sshTransportStatus(status.session_id);
     }
+    await repository.setInfrastructureTransportState(target.id, status.state);
+    if (status.state === 'connected') {
+      await attachInfrastructureSshTransport(endpoint, token, target);
+      try {
+        await repository.managedServiceCatalog(target.id);
+      } catch (error) {
+        console.error(`Could not reconcile infrastructure on ${target.label}`, error);
+      }
+      return;
+    }
+    await repository.setInfrastructureTransportState(target.id, 'reauthentication_required');
+  } catch {
+    await repository.setInfrastructureTransportState(target.id, 'reauthentication_required');
   }
 }
 
@@ -277,7 +299,7 @@ async function handleBridgeMessage(bridge: ActiveBridge, event: MessageEvent): P
   }
   // The v2 `attached` frame (and anything newer) is not a bridge request.
   if (message.type !== 'exec' && message.type !== 'forward') return;
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await tauriCore();
   if (message.type === 'exec') {
     try {
       const result = await invoke<CommandResult>('ssh_transport_exec', {

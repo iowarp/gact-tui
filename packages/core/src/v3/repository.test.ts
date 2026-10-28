@@ -62,6 +62,53 @@ describe('ClioRepository interaction contracts', () => {
     });
   });
 
+  it('reads bounded transcript pages and session list pages', async () => {
+    const transport = new RecordingTransport([
+      { cursor: '7', next_cursor: 'msg_10', messages: [] },
+      { sessions: [], next_cursor: 'c2', total: 31 },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(
+      repository.transcript('sess_1', undefined, { limit: 40, before: 'msg_50' }),
+    ).resolves.toMatchObject({ next_cursor: 'msg_10' });
+    await expect(
+      repository.sessionPage({
+        workspaceId: 'ws_1',
+        kinds: ['conversation', 'branch'],
+        limit: 30,
+        cursor: 'c1',
+      }),
+    ).resolves.toEqual({ sessions: [], next_cursor: 'c2', total: 31 });
+    expect(transport.requests.map((request) => request.path)).toEqual([
+      '/v1/sessions/sess_1/messages?limit=40&before=msg_50',
+      '/v1/sessions?workspace_id=ws_1&limit=30&kinds=conversation%2Cbranch&cursor=c1',
+    ]);
+  });
+
+  it('reads sessions only by bounded queries', async () => {
+    const transport = new RecordingTransport([
+      { sessions: [] },
+      { sessions: [] },
+      { sessions: [] },
+      { sessions: [], next_cursor: null, total: 0 },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await repository.sessionFamily('sess_1');
+    await repository.sessionsWaitingOnPerson();
+    await repository.sessionsById(['sess_1', 'sess 2']);
+    await repository.sessionPage({ limit: 10, search: 'fan out' });
+    expect(transport.requests.map((request) => request.path)).toEqual([
+      '/v1/sessions?family_of=sess_1',
+      '/v1/sessions?waiting_on_person=true',
+      '/v1/sessions?ids=sess_1,sess%202',
+      '/v1/sessions?include_all_workspaces=true&limit=10&q=fan+out',
+    ]);
+    await expect(repository.sessionsById([])).resolves.toEqual([]);
+    expect(transport.requests).toHaveLength(4);
+  });
+
   it('contains an unreadable block inside its message instead of failing the transcript', async () => {
     const transport = new RecordingTransport([
       {

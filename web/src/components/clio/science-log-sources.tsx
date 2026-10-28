@@ -144,7 +144,7 @@ function CallRecord({
       <Fact label="Environment">
         {environment.tier || 'not recorded'}
         {versions.length ? (
-          <span className="text-muted-foreground"> · {versions.join(', ')}</span>
+          <span className="text-muted-foreground"> ({versions.join(', ')})</span>
         ) : null}
       </Fact>
       <Fact label="Script">
@@ -153,7 +153,7 @@ function CallRecord({
         ) : (
           'no script recorded'
         )}
-        {instrument.cmd ? <span className="font-mono"> · {instrument.cmd}</span> : null}
+        {instrument.cmd ? <span className="font-mono">, run as {instrument.cmd}</span> : null}
       </Fact>
       {files ? (
         <ul className="grid min-w-0 gap-0.5">

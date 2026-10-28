@@ -17,7 +17,7 @@ it('offers a deployment-owned store only for Podman and explains the volume dist
     />,
   );
   await userEvent.click(screen.getByRole('combobox', { name: 'Container image storage' }));
-  expect(screen.getByRole('option', { name: 'Service folder · Podman' })).toHaveAttribute(
+  expect(screen.getByRole('option', { name: 'Service folder (Podman)' })).toHaveAttribute(
     'aria-disabled',
     'true',
   );
@@ -32,7 +32,7 @@ it('offers a deployment-owned store only for Podman and explains the volume dist
     />,
   );
   await userEvent.click(screen.getByRole('combobox', { name: 'Container image storage' }));
-  await userEvent.click(screen.getByRole('option', { name: 'Service folder · Podman' }));
+  await userEvent.click(screen.getByRole('option', { name: 'Service folder (Podman)' }));
   expect(onChange).toHaveBeenCalledWith('service');
   await userEvent.click(screen.getByRole('button', { name: 'About container image storage' }));
   expect(await screen.findByText(/including on another disk/u)).toBeVisible();
@@ -49,5 +49,5 @@ it('keeps the existing image store fixed while data is retained', () => {
     />,
   );
   expect(screen.getByRole('combobox', { name: 'Container image storage' })).toBeDisabled();
-  expect(screen.getByText('Service folder · Podman')).toBeVisible();
+  expect(screen.getByText('Service folder (Podman)')).toBeVisible();
 });

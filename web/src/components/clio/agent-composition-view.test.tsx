@@ -224,7 +224,7 @@ describe('AgentCompositionView', () => {
     expect(within(active).getByText('Required by pdf')).toBeVisible();
     const members = within(active).getByRole('list', { name: 'Members of documents' });
     expect(within(members).getByText('In pack documents')).toBeVisible();
-    expect(within(members).getByText('xlsx · not in this conversation')).toBeVisible();
+    expect(within(members).getByText('xlsx (not in this conversation)')).toBeVisible();
     expect(within(active).getByText('1 of 2 members in this conversation')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Remove core' })).toBeNull();
     expect(screen.getByText('Removed by you')).toBeVisible();
@@ -233,7 +233,7 @@ describe('AgentCompositionView', () => {
   it('summarizes what each plugin adds on its line', async () => {
     renderView();
     const active = await screen.findByRole('list', { name: 'Active plugins' });
-    expect(within(active).getByText('1 tool · 1 skill · 1 prompt part')).toBeVisible();
+    expect(within(active).getByText('1 tool, 1 skill, 1 prompt part')).toBeVisible();
     expect(within(active).getByText('1 MCP server')).toBeVisible();
     expect(within(active).getByText('1 tool')).toBeVisible();
     expect(within(active).getAllByText('Nothing of its own')).toHaveLength(1);
@@ -253,8 +253,8 @@ describe('AgentCompositionView', () => {
     expect(within(details).getByText('gh-releases')).toBeVisible();
     expect(within(details).getByText('Cut a release with gh.')).toBeVisible();
     expect(within(details).getByText('shell.prefer-gh')).toBeVisible();
-    expect(within(details).getByText('Capabilities · about 12 tokens')).toBeVisible();
-    expect(within(details).getByText('Version 1.0.0 · from clio')).toBeVisible();
+    expect(within(details).getByText('Capabilities, about 12 tokens')).toBeVisible();
+    expect(within(details).getByText('Version 1.0.0, from clio')).toBeVisible();
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('group', { name: 'shell details' })).toBeNull();

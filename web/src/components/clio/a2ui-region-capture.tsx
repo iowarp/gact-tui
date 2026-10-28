@@ -436,8 +436,8 @@ export function A2uiRegionCaptureProvider({
             file,
             filename: file.name,
             text: captureText(surface, target, regions),
-            title: `Region capture · ${target.title}`,
-            summary: `${regions.map((region) => region.id).join(', ')} · ${regions.length} labelled region${regions.length === 1 ? '' : 's'}`,
+            title: `Region capture: ${target.title}`,
+            summary: `${regions.length} labelled region${regions.length === 1 ? '' : 's'}: ${regions.map((region) => region.id).join(', ')}`,
           },
         }),
       );
@@ -617,7 +617,7 @@ export function A2uiRegionCaptureProvider({
                         }}
                         type="button"
                       >
-                        {region.id} · {region.comment || 'Add a comment'}
+                        {region.id}: {region.comment || 'Add a comment'}
                       </button>
                     ))
                   ) : (
@@ -723,7 +723,7 @@ export function A2uiRegionCaptureProvider({
                 }}
               >
                 <p className="mb-2 text-sm font-semibold">
-                  {editorRegion.id} · {target.title}
+                  {editorRegion.id} — {target.title}
                 </p>
                 <RegionCoordinateInputs
                   box={displayedRegion(target.element, editorRegion)}

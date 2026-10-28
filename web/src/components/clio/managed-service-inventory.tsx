@@ -128,7 +128,7 @@ export function ManagedServiceInventory({
         return (
           <section key={group.id}>
             <h3 className="text-xs font-medium text-muted-foreground">
-              {group.label} · {rows.length}
+              {group.label} ({rows.length})
             </h3>
             <div className="divide-y border-b">
               {rows.map((service) => {

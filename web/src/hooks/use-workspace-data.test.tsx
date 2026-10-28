@@ -116,6 +116,7 @@ vi.mock('@/store/live-store', () => {
 });
 
 import { useWorkspaceData } from './use-workspace-data';
+import { sessionReads } from '@/test/session-reads';
 
 const approval = {
   id: 'perm_1',
@@ -680,3 +681,12 @@ describe('useWorkspaceData background polls', () => {
     expect(renders).toBe(settled);
   });
 });
+
+// The bounded session reads, answered from this test's session list.
+Object.assign(
+  mocks.repository,
+  sessionReads(async () => [
+    ...((await mocks.repository.sessions()) ?? []),
+    ...((await mocks.repository.allSessions()) ?? []),
+  ]),
+);

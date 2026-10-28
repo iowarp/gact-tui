@@ -48,7 +48,7 @@ function SavedOutputText({ text }: { text: string }) {
       {pages > 1 && (
         <div className="my-2 flex items-center gap-3 text-xs">
           <span>
-            Complete output · page {page + 1} of {pages}
+            Complete output, page {page + 1} of {pages}
           </span>
           <Button
             size="sm"
@@ -157,10 +157,9 @@ export function RecordedValue({
               Open complete saved output
             </a>
           )}
-          {saved.embedded && <span>Complete saved output</span>}
-          <span className="text-xs text-muted-foreground">
-            {' '}
-            · {saved.bytes.toLocaleString()} bytes
+          {saved.embedded && <span>Complete saved output</span>}{' '}
+          <span className="ml-1 text-xs text-muted-foreground">
+            {saved.bytes.toLocaleString()} bytes
           </span>
           {saved.text !== undefined && <SavedOutputText text={saved.text} />}
         </div>
@@ -239,7 +238,7 @@ export function RecordedActivity({
         <h4 className="text-sm font-semibold">{name.replaceAll('_', ' ')}</h4>
         <p className="text-xs text-muted-foreground">
           {result ? (tool?.status ?? (part.is_error ? 'Failed' : 'Returned')) : 'Request'}
-          {result && part.duration_ms ? ` · ${(part.duration_ms / 1000).toFixed(2)} s` : ''}
+          {result && part.duration_ms ? `, ${(part.duration_ms / 1000).toFixed(2)} s` : ''}
         </p>
       </div>
       <div

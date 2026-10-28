@@ -26,7 +26,7 @@ import { OpenQuestionsTracker } from './open-questions-tracker';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
-import type { ClioConversationProps } from './conversation-types';
+import type { ClioConversationProps, EarlierMessagesControl } from './conversation-types';
 import {
   foldA2UIRevisionBlocks,
   conversationResponseContinuity,
@@ -63,6 +63,31 @@ import {
   liveActivityIterationId,
 } from './conversation-activity-placement';
 
+/** Within this distance of the top, a paged transcript reads its next older page. */
+const EARLIER_LOAD_THRESHOLD_PX = 600;
+
+/** Shows that older messages exist, are loading, or failed; also loads them on click. */
+function EarlierMessagesRow({ earlier }: { earlier: EarlierMessagesControl }) {
+  return (
+    <div className="mx-auto flex w-full max-w-4xl justify-center px-5 py-2">
+      {earlier.loading ? (
+        <span
+          aria-live="polite"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+          role="status"
+        >
+          <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
+          Loading earlier messages…
+        </span>
+      ) : (
+        <Button onClick={earlier.load} size="sm" type="button" variant="ghost">
+          {earlier.error ? 'Earlier messages did not load. Try again' : 'Load earlier messages'}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function ClioConversation(props: ClioConversationProps) {
   const inRouter = useInRouterContext();
   return (
@@ -83,6 +108,7 @@ function ConversationBody({
   messages: sourceMessages,
   loading,
   error,
+  earlier,
   bottomInset = 0,
   compactions,
   preparation,
@@ -335,6 +361,9 @@ function ConversationBody({
     const element = scrollRef.current;
     if (!element) return;
     onAutoscroll();
+    // Reaching the top of a paged transcript reads its next older page.
+    if (earlier?.hasEarlier && !earlier.loading && element.scrollTop < EARLIER_LOAD_THRESHOLD_PX)
+      earlier.load();
     if (followingRef.current) {
       readingAnchorRef.current = null;
       setActiveMessageIndex(messages.length - 1);
@@ -347,7 +376,7 @@ function ConversationBody({
     // Layout scrolls after expanding a disclosure must retain its exact row.
     // New wheel/key/pointer navigation clears the anchor before this handler.
     if (!readingAnchorRef.current?.disclosure) captureReadingAnchor();
-  }, [messages.length, virtualizer, captureReadingAnchor, onAutoscroll, followingRef]);
+  }, [messages.length, virtualizer, captureReadingAnchor, onAutoscroll, followingRef, earlier]);
 
   const jumpToMessage = useCallback(
     (index: number) => {
@@ -605,72 +634,77 @@ function ConversationBody({
             />
           </>
         ) : (
-          <div
-            ref={(node) => {
-              autoscroll.observeContent(node);
-              messagesContainerRef.current = node;
-            }}
-            data-slot="transcript-column"
-            className={`${virtualized ? 'relative' : ''} mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
-            style={
-              virtualized
-                ? { height: virtualizer.getTotalSize() + virtualizedRowsOverflow }
-                : undefined
-            }
-          >
-            {(virtualized
-              ? virtualRows.map((virtualRow) => ({
-                  index: virtualRow.index,
-                  start: virtualRow.start,
-                }))
-              : messages.map((_, index) => ({ index, start: undefined }))
-            ).map(({ index, start }) => {
-              const message = messages[index];
-              if (!message) return null;
-              return (
-                <ConversationMessageRow
-                  liveActivityId={liveActivityId}
-                  feedbackMessages={feedback.get(message.id)}
-                  injectionMessages={injectionPlacement.before.get(message.id)}
-                  injectionsGrouped={injectionPlacement.grouped.has(message.id)}
-                  responseContinued={responseContinuity.continued.has(message.id)}
-                  responseContinuation={responseContinuity.continuations.has(message.id)}
-                  userContinuation={
-                    canGroupUserMessages(messages[index - 1], message) &&
-                    !modelBoundaries.has(message.id)
-                  }
-                  userContinued={Boolean(
-                    messages[index + 1] &&
-                      canGroupUserMessages(message, messages[index + 1]) &&
-                      !modelBoundaries.has(messages[index + 1].id),
-                  )}
-                  turnPresentation={activityPlacement.get(message.id)}
-                  active={
-                    (preparation?.sessionState === 'running' ||
-                      preparation?.sessionState === 'queued' ||
-                      preparation?.sessionState === 'waiting_permission' ||
-                      preparation?.sessionState === 'waiting_user') &&
-                    (message.run_id ?? message.turn_id) === preparation?.activeTurnId &&
-                    Boolean(preparation?.activeTurnId)
-                  }
-                  {...entities}
-                  activeMcpAppId={activeMcpAppId}
-                  displayMode={turnDisplayModes[message.id] ?? 'chain'}
-                  index={index}
-                  key={message.id}
-                  measureElement={virtualizer.measureElement}
-                  message={message}
-                  mcpAppResponse={mcpAppResponses.get(message.id)}
-                  messageCompactions={compactionPlacement.byMessage.get(message.id)}
-                  modelBoundary={modelBoundaries.get(message.id)}
-                  onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
-                  recent={index >= messages.length - 2}
-                  start={start}
-                  virtualized={virtualized}
-                />
-              );
-            })}
-          </div>
+          <>
+            {earlier && (earlier.hasEarlier || earlier.loading || earlier.error) ? (
+              <EarlierMessagesRow earlier={earlier} />
+            ) : null}
+            <div
+              ref={(node) => {
+                autoscroll.observeContent(node);
+                messagesContainerRef.current = node;
+              }}
+              data-slot="transcript-column"
+              className={`${virtualized ? 'relative' : ''} mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+              style={
+                virtualized
+                  ? { height: virtualizer.getTotalSize() + virtualizedRowsOverflow }
+                  : undefined
+              }
+            >
+              {(virtualized
+                ? virtualRows.map((virtualRow) => ({
+                    index: virtualRow.index,
+                    start: virtualRow.start,
+                  }))
+                : messages.map((_, index) => ({ index, start: undefined }))
+              ).map(({ index, start }) => {
+                const message = messages[index];
+                if (!message) return null;
+                return (
+                  <ConversationMessageRow
+                    liveActivityId={liveActivityId}
+                    feedbackMessages={feedback.get(message.id)}
+                    injectionMessages={injectionPlacement.before.get(message.id)}
+                    injectionsGrouped={injectionPlacement.grouped.has(message.id)}
+                    responseContinued={responseContinuity.continued.has(message.id)}
+                    responseContinuation={responseContinuity.continuations.has(message.id)}
+                    userContinuation={
+                      canGroupUserMessages(messages[index - 1], message) &&
+                      !modelBoundaries.has(message.id)
+                    }
+                    userContinued={Boolean(
+                      messages[index + 1] &&
+                        canGroupUserMessages(message, messages[index + 1]) &&
+                        !modelBoundaries.has(messages[index + 1].id),
+                    )}
+                    turnPresentation={activityPlacement.get(message.id)}
+                    active={
+                      (preparation?.sessionState === 'running' ||
+                        preparation?.sessionState === 'queued' ||
+                        preparation?.sessionState === 'waiting_permission' ||
+                        preparation?.sessionState === 'waiting_user') &&
+                      (message.run_id ?? message.turn_id) === preparation?.activeTurnId &&
+                      Boolean(preparation?.activeTurnId)
+                    }
+                    {...entities}
+                    activeMcpAppId={activeMcpAppId}
+                    displayMode={turnDisplayModes[message.id] ?? 'chain'}
+                    index={index}
+                    key={message.id}
+                    measureElement={virtualizer.measureElement}
+                    message={message}
+                    mcpAppResponse={mcpAppResponses.get(message.id)}
+                    messageCompactions={compactionPlacement.byMessage.get(message.id)}
+                    modelBoundary={modelBoundaries.get(message.id)}
+                    onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
+                    recent={index >= messages.length - 2}
+                    start={start}
+                    virtualized={virtualized}
+                  />
+                );
+              })}
+            </div>
+          </>
         )}
         {preparation ? (
           <div

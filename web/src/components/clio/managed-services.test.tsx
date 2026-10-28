@@ -261,7 +261,7 @@ describe('ManagedServices', () => {
       connectedAgentLocation: 'Ares',
     });
 
-    expect(screen.getByRole('heading', { name: 'MCP services · Ares' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add MCP' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Install service' })).toBeVisible();
   });
@@ -282,7 +282,7 @@ describe('ManagedServices', () => {
       connectedAgentLocation: 'Ares',
     });
     expect(await screen.findByRole('heading', { name: 'Web search' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'MCP services · Ares' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
     expect(screen.queryByText('No service address configured')).toBeNull();
   });
 

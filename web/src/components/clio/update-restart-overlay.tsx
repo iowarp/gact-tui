@@ -121,8 +121,8 @@ export function UpdateRestartOverlay() {
           <div className="mt-4">
             <Progress value={percent} />
             <p className="mt-1 text-xs text-muted-foreground">
-              {percent}% · {formatBytes(progress.downloadedBytes)}
-              {progress.totalBytes ? ` of ${formatBytes(progress.totalBytes)}` : ''}
+              {percent}% ({formatBytes(progress.downloadedBytes)}
+              {progress.totalBytes ? ` of ${formatBytes(progress.totalBytes)}` : ''})
             </p>
           </div>
         ) : null}

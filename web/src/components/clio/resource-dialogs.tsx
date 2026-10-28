@@ -398,7 +398,7 @@ function SessionFields(props: SessionFieldsProps) {
             {props.agents.map((agent) => (
               <SelectItem key={agent.ref} value={agent.ref}>
                 {agent.name || agent.id}
-                {agent.kind === 'user' ? ' · yours' : ''}
+                {agent.kind === 'user' ? ' (yours)' : ''}
               </SelectItem>
             ))}
           </SelectContent>

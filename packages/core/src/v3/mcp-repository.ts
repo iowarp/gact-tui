@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServerDefinition, McpUserConfiguration } from './domain.js';
 import { DocumentRepository } from './document-repository.js';
 import { mcpServerListSchema } from './repository-decoders.js';
-import { mcpServerDefinitionSchema } from './schemas.js';
+import { mcpServerDefinitionSchema, mcpServerPreparationSchema } from './schemas.js';
 
 const mcpUserConfigurationSchema = z.object({
   name: z.string(),
@@ -75,6 +75,15 @@ export interface McpSignInInput {
   client_secret?: string;
   client_metadata_url?: string;
 }
+
+const mcpSessionServerReconnectSchema = z.object({
+  session_id: z.string(),
+  namespace: z.string(),
+  state: z.string(),
+  preparation: mcpServerPreparationSchema.nullable().optional(),
+});
+/** The immediate answer to a conversation server reconnect. */
+export type McpSessionServerReconnect = z.infer<typeof mcpSessionServerReconnectSchema>;
 
 /** Narrows an MCP server listing to the tools one session holds open. */
 export interface McpServerListOptions {
@@ -230,6 +239,24 @@ export class McpRepository extends DocumentRepository {
       method: 'POST',
       path: `/v1/mcp/servers/${encodeURIComponent(serverId)}/reconnect`,
       decode: (value) => mcpServerDefinitionSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * Prepare one of a conversation's MCP servers again: its current connection stops, a
+   * failure is cleared, and it is provisioned, started and listed in the background.
+   * The answer is immediate; the server listing then shows its progress.
+   */
+  public reconnectSessionMcpServer(
+    sessionId: string,
+    namespace: string,
+    signal?: AbortSignal,
+  ): Promise<McpSessionServerReconnect> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp/${encodeURIComponent(namespace)}/reconnect`,
+      decode: (value) => mcpSessionServerReconnectSchema.parse(value),
       signal,
     });
   }

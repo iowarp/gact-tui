@@ -1,6 +1,6 @@
 import type { MemoryProposal } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -165,15 +165,25 @@ function ProposalCard({
 export function MemoryInbox({
   sessionHref,
   targetLabel,
+  onSessionIds,
 }: {
   sessionHref: SessionHref;
   targetLabel: (name: string) => string;
+  /** The sessions the shown proposals cite, so their links can be resolved. */
+  onSessionIds?: (sessionIds: readonly string[]) => void;
 }) {
   const repository = useRepository();
   const proposals = useQuery({
     queryKey: ['memory', 'proposals', 'pending'],
     queryFn: ({ signal }) => repository.memoryProposals('pending', signal),
   });
+  useEffect(() => {
+    if (proposals.data) {
+      onSessionIds?.(
+        proposals.data.flatMap((proposal) => proposal.evidence.map((item) => item.session)),
+      );
+    }
+  }, [onSessionIds, proposals.data]);
   if (proposals.isPending) return <Skeleton className="h-20 w-full" />;
   if (proposals.error)
     return (
