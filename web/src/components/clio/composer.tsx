@@ -35,6 +35,7 @@ import { ClioModelPicker } from './model-picker';
 import { ModelFitNotice } from './model-fit-notice';
 import { useComposerModelSelection } from './use-composer-model-selection';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
+import { useSpotterModelSelection } from '@/hooks/use-spotter-model-selection';
 import { cn } from '@/lib/utils';
 import { COMPOSER_ATTACHMENT_MAX_BYTES } from '@/lib/composer-paste';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
@@ -120,12 +121,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
     spotterModel?: string;
   }) => Promise<void>;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
-  /** The session's SPOTTER model reference; empty uses the conversation's model. */
   spotterModel?: string;
-  /**
-   * Store a SPOTTER model on the open session (empty clears it). Without it the
-   * choice is kept with the draft and sent when the conversation is created.
-   */
+  /** Stores the session's SPOTTER model (empty: conversation model); else the draft keeps it. */
   onSpotterModelChange?: (ref: string) => Promise<void>;
   onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
   onPrepareFiles?: (
@@ -279,25 +276,7 @@ export function ClioComposer({
       });
     });
   };
-  // The person's pick in this mount, until the session reports a different one.
-  const [spotterSelection, setSpotterSelection] = useState({
-    value: spotterModel,
-    authoritative: spotterModel,
-  });
-  const selectedSpotterModel =
-    spotterSelection.authoritative === spotterModel ? spotterSelection.value : spotterModel;
-  const setSpotterModel = (next: string) => {
-    const previous = selectedSpotterModel;
-    if (next === previous) return;
-    setSpotterSelection({ value: next, authoritative: spotterModel });
-    if (!onSpotterModelChange) return;
-    void onSpotterModelChange(next).catch((error: unknown) => {
-      setSpotterSelection({ value: previous, authoritative: spotterModel });
-      toast.error('SPOTTER model was not changed', {
-        description: error instanceof Error ? error.message : 'The service rejected the change.',
-      });
-    });
-  };
+  const spotter = useSpotterModelSelection(spotterModel, onSpotterModelChange);
   // Kept apart from `behavior`, which must always carry a value the message
   // contract accepts. The control names this rather than showing the default as
   // though the service had asked for it.
@@ -618,9 +597,9 @@ export function ClioComposer({
                 },
                 ...(variant === 'welcome' && memoryOff ? { memoryOff } : {}),
                 ...(variant === 'welcome' &&
-                selectedSpotterModel &&
+                spotter.value &&
                 messageBehavior.confirmation_policy === 'spotter-ai'
-                  ? { spotterModel: selectedSpotterModel }
+                  ? { spotterModel: spotter.value }
                   : {}),
               });
             } catch (error) {
@@ -731,10 +710,10 @@ export function ClioComposer({
                 <ComposerSpotterModel
                   catalogStatus={modelCatalogStatus}
                   disabled={disabled}
-                  onChange={setSpotterModel}
+                  onChange={spotter.set}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
-                  value={selectedSpotterModel}
+                  value={spotter.value}
                 />
               }
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}

@@ -57,6 +57,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReferenceOrToast } from '@/lib/composer-reference-navigation';
 import { canForkSession, isManagedChildSession } from '@/lib/session-state';
+import { sessionSpotterModel } from '@/lib/spotter-model-ref';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
@@ -439,11 +440,7 @@ export function WorkspacePage() {
           onBehaviorChange={async (behavior) => {
             await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
           }}
-          spotterModel={
-            typeof session.metadata?.spotter_model === 'string'
-              ? session.metadata.spotter_model
-              : ''
-          }
+          spotterModel={sessionSpotterModel(session.metadata)}
           onSpotterModelChange={async (ref) => {
             await updateSessionBehavior.mutateAsync({ spotter_model: ref });
           }}

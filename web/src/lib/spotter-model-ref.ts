@@ -13,3 +13,8 @@ export function parseSpotterModelRef(
   if (!ref || separator <= 0 || separator === ref.length - 1) return undefined;
   return { providerId: ref.slice(0, separator), modelId: ref.slice(separator + 1) };
 }
+
+/** A session's stored SPOTTER model reference (`metadata.spotter_model`), or empty. */
+export function sessionSpotterModel(metadata: Record<string, unknown> | undefined): string {
+  return typeof metadata?.spotter_model === 'string' ? metadata.spotter_model : '';
+}
