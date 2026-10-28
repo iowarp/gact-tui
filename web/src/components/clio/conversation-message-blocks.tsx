@@ -1,4 +1,4 @@
-import { ActionCardButton } from './action-card-button';
+import { ActionAlertCard } from './action-alert-card';
 import { responseArtifactBlocks } from '@/lib/artifact-presentation';
 import type {
   A2UIActionLifecycle,
@@ -262,23 +262,7 @@ function MessageBlockView({
       );
     }
     case 'action_card':
-      return (
-        <Alert variant={block.severity === 'critical' ? 'destructive' : 'default'}>
-          <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>{block.title}</AlertTitle>
-          <AlertDescription>
-            {block.detail}
-            {block.source ? (
-              <span className="mt-2 block text-xs">Raised by {block.source}</span>
-            ) : null}
-          </AlertDescription>
-          <div className="col-start-2 mt-3 flex flex-wrap gap-2">
-            {block.actions.map((action) => (
-              <ActionCardButton action={action} key={action.id} onAction={onActionCardAction} />
-            ))}
-          </div>
-        </Alert>
-      );
+      return <ActionAlertCard block={block} onAction={onActionCardAction} />;
     case 'a2ui': {
       const surface = surfaces[block.surface_id];
       if (surfaceAwaitsPendingResponse(interactions, block.surface_id)) return null;
