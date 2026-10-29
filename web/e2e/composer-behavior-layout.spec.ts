@@ -33,7 +33,7 @@ for (const width of [320, 390, 1280]) {
       await expect(menu).toBeVisible();
       if (name.startsWith('Confirmation')) {
         await expect(menu.getByRole('menuitemradio', { name: /SPOTTER review/ })).toBeDisabled();
-        await expect(menu.getByText(/configure provenance.agentic.providers/)).toBeVisible();
+        await expect(menu.getByText('Not available here.', { exact: true })).toBeVisible();
       }
       await page.evaluate(() => document.fonts.ready);
       const clipped = await menu.getByRole('menuitemradio').evaluateAll((rows) =>
