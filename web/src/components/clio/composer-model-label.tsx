@@ -24,10 +24,10 @@ export function ComposerModelButton({
               <>
                 <ModelSelectorLogo provider={providerLogoId(option.providerId)} />
                 <span
-                  className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 text-left"
+                  className="grid min-w-0 flex-1 grid-cols-[minmax(0,max-content)_auto_minmax(0,1fr)] items-center gap-1 text-left"
                   data-slot="model-choice-label"
                 >
-                  <span className="truncate" data-slot="model-choice-provider">
+                  <span className="max-w-32 truncate" data-slot="model-choice-provider">
                     {option.providerName}
                   </span>
                   <span aria-hidden="true"> / </span>
