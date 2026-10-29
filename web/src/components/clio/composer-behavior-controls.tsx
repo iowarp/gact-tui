@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { approvalOptionViews } from './approval-option-availability';
+import { BehaviorMenuItem } from './behavior-menu-item';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
 type BehaviorMenu = 'approval' | 'effort' | 'mode';
@@ -153,13 +154,7 @@ export function ClioComposerBehaviorControls({
             value={selectedMode?.value ?? ''}
           >
             {SESSION_MODE_OPTIONS.map((option) => (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <option.icon className="size-4" />
-                <span>
-                  <span className="block font-medium">{option.label}</span>
-                  <span className="block text-xs text-muted-foreground">{option.description}</span>
-                </span>
-              </DropdownMenuRadioItem>
+              <BehaviorMenuItem key={option.value} option={option} />
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
@@ -194,18 +189,12 @@ export function ClioComposerBehaviorControls({
             value={selectedApproval?.value ?? ''}
           >
             {approvalOptions.map((option) => (
-              <DropdownMenuRadioItem
+              <BehaviorMenuItem
                 disabled={option.disabled}
                 key={option.value}
+                option={option}
                 title={option.unavailableDetail || undefined}
-                value={option.value}
-              >
-                <option.icon className="size-4" />
-                <span>
-                  <span className="block font-medium">{option.label}</span>
-                  <span className="block text-xs text-muted-foreground">{option.description}</span>
-                </span>
-              </DropdownMenuRadioItem>
+              />
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>

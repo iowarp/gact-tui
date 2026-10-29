@@ -17,16 +17,15 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   SESSION_APPROVAL_OPTIONS,
   SESSION_MODE_OPTIONS,
   SESSION_MODE_PATCHES,
-  type SessionBehaviorOption,
   type SessionBehaviorPatch,
 } from './session-behavior-options';
+import { BehaviorMenuItem } from './behavior-menu-item';
 
 export type { SessionBehaviorPatch } from './session-behavior-options';
 
@@ -158,32 +157,5 @@ export function ClioSessionBehaviorMenu({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
-}
-
-function BehaviorMenuItem<T extends string>({
-  destructive,
-  disabled,
-  option,
-}: {
-  destructive?: boolean;
-  disabled?: boolean;
-  option: SessionBehaviorOption<T>;
-}) {
-  const Icon = option.icon;
-  return (
-    <DropdownMenuRadioItem
-      className={destructive ? 'text-destructive focus:text-destructive' : undefined}
-      disabled={disabled}
-      value={option.value}
-    >
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className="min-w-0">
-        <span className="block text-sm font-medium">{option.label}</span>
-        <span className="block text-xs font-normal text-muted-foreground">
-          {option.description}
-        </span>
-      </span>
-    </DropdownMenuRadioItem>
   );
 }
