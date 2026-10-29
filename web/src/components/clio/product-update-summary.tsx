@@ -28,7 +28,7 @@ export interface ProductVersionDetail {
   testId?: string;
 }
 
-/** One check/install control and a read-only version list, shared by both update entry points. */
+/** Shared update status, supported actions, and a read-only version list. */
 export function ProductUpdateSummary({
   state,
   message,
@@ -45,7 +45,7 @@ export function ProductUpdateSummary({
   updating?: boolean;
   disabled?: boolean;
   onCheck: () => unknown | Promise<unknown>;
-  onUpdate: () => unknown | Promise<unknown>;
+  onUpdate?: () => unknown | Promise<unknown>;
   children?: ReactNode;
 }) {
   const heading = {
@@ -74,7 +74,7 @@ export function ProductUpdateSummary({
           </p>
           {detail ? <p className="text-sm text-muted-foreground">{detail}</p> : null}
         </div>
-        {state === 'available' || updating ? (
+        {(state === 'available' || updating) && onUpdate ? (
           <Button size="sm" disabled={disabled || updating} onClick={() => void onUpdate()}>
             {updating ? (
               <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />

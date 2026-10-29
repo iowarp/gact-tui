@@ -4,13 +4,6 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
@@ -61,7 +54,7 @@ async function runUpdate(): Promise<void> {
   }
 }
 
-/** One bottom-bar control for checking and updating both installed products. */
+/** Show connected versions and offer installation only in the desktop app. */
 export function SystemVersionStatus() {
   const updateChannel = useUpdateChannel();
   const repository = useRepository();
@@ -71,7 +64,6 @@ export function SystemVersionStatus() {
   // was the endless "Version" spinner in a plain browser.
   const [desktopShell] = useState(inTauri);
   const [desktopVersion, setDesktopVersion] = useState<string>();
-  const [serviceUpdateOpen, setServiceUpdateOpen] = useState(false);
   const updateFlowStep = useUpdateFlowStore((state) => state.step);
   const updateFlowAction = useUpdateFlowStore((state) => state.action);
   // Any in-flight step (including the post-restart `reconnecting` window)
@@ -150,7 +142,7 @@ export function SystemVersionStatus() {
   const desktopTargetVersion = displayReleaseVersion(
     snapshot.status === 'available' ? snapshot.update.version : undefined,
   );
-  const desktopUpdateAvailable = snapshot.status === 'available';
+  const desktopUpdateAvailable = desktopShell && snapshot.status === 'available';
   const agentTargetVersion = desktopShell
     ? (desktopTargetVersion ?? displayedDesktopVersion)
     : latestClioVersion;
@@ -160,8 +152,7 @@ export function SystemVersionStatus() {
       agentTargetVersion &&
       compareReleaseVersions(agentVersion, agentTargetVersion) < 0,
   );
-  // Knowing the agent is behind is a fact; being ALLOWED to push a remote
-  // update is a separate, narrower permission (only a managed connection can).
+  // Browsers can compare connected versions; installation belongs to the desktop app.
   const latestClioReleaseChecking =
     !desktopShell && credentialsReady && latestClioRelease.isPending;
   const agentIssue = agentCheckIssue(latestClioRelease.data, latestClioRelease.isError);
@@ -192,7 +183,7 @@ export function SystemVersionStatus() {
       (desktopShell && !displayedDesktopVersion) ||
       capabilities.isPending ||
       latestClioReleaseChecking ||
-      snapshot.status === 'checking'
+      (desktopShell && snapshot.status === 'checking')
     ) {
       return 'checking';
     }
@@ -212,7 +203,6 @@ export function SystemVersionStatus() {
 
   const updateAll = (): void => {
     if (desktopShell && desktopUpdateAvailable) void runUpdate();
-    else if (!desktopShell && agentBehindLatest) setServiceUpdateOpen(true);
     else void recheck();
   };
 
@@ -252,11 +242,11 @@ export function SystemVersionStatus() {
           <p className="mb-4 text-sm font-semibold">Updates</p>
           <ProductUpdateSummary
             state={state}
-            updating={Boolean(updating)}
+            updating={desktopShell && Boolean(updating)}
             onCheck={recheck}
-            onUpdate={updateAll}
+            onUpdate={desktopShell ? updateAll : undefined}
             message={
-              desktopIssue?.text ??
+              (desktopShell ? desktopIssue?.text : undefined) ??
               (agentRowState === 'unavailable' ? agentIssue?.text : undefined) ??
               (capabilities.isError ? 'The connected runtime could not be reached.' : undefined)
             }
@@ -266,13 +256,13 @@ export function SystemVersionStatus() {
                 version: displayedDesktopVersion,
                 targetVersion: desktopUpdateAvailable ? desktopTargetVersion : undefined,
                 releaseUrl:
-                  brand.desktopReleaseUrl && displayedDesktopVersion
+                  desktopShell && brand.desktopReleaseUrl && displayedDesktopVersion
                     ? `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`
                     : undefined,
                 testId: 'version-row-desktop',
               },
               {
-                label: 'Runtime',
+                label: desktopShell ? 'Runtime' : 'Connected runtime',
                 version: agentVersion,
                 targetVersion: agentBehindLatest ? agentTargetVersion : undefined,
                 releaseUrl:
@@ -282,32 +272,31 @@ export function SystemVersionStatus() {
                 testId: 'version-row-agent',
               },
             ]}
-          />
+          >
+            {!desktopShell ? (
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <p className="break-all">Connected to {settings.endpoint}</p>
+                {agentBehindLatest ? (
+                  <p>
+                    Install runtime updates on that computer, then reload this page.
+                    {brand.agentReleaseUrl && latestClioVersion ? (
+                      <>
+                        {' '}
+                        <ExternalLink
+                          className="text-primary hover:underline"
+                          href={`${brand.agentReleaseUrl}/tag/${releaseTag(latestClioVersion)}`}
+                        >
+                          View release
+                        </ExternalLink>
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </ProductUpdateSummary>
         </PopoverContent>
       </Popover>
-      <Dialog open={serviceUpdateOpen} onOpenChange={setServiceUpdateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update {vocab.agent}</DialogTitle>
-            <DialogDescription>
-              Update the installation serving this workspace. Its runtime and browser interface come
-              from the same release.
-            </DialogDescription>
-          </DialogHeader>
-          <p className="break-all text-sm">{settings.label ?? settings.endpoint}</p>
-          <p className="text-sm text-muted-foreground">
-            This browser cannot run the host’s installer. Use the installation’s existing location
-            and the selected release, then reload the workspace after the service restarts.
-          </p>
-          {brand.agentReleaseUrl && latestClioVersion ? (
-            <Button asChild>
-              <ExternalLink href={`${brand.agentReleaseUrl}/tag/${releaseTag(latestClioVersion)}`}>
-                Open {vocab.agent} {latestClioVersion}
-              </ExternalLink>
-            </Button>
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

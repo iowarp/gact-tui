@@ -378,22 +378,48 @@ describe('SystemVersionStatus in a plain browser', () => {
     expect(screen.queryByRole('button', { name: 'Checking versions' })).not.toBeInTheDocument();
   });
 
-  it('does not invoke native installers from a plain browser', async () => {
+  it('offers release information and checking without a browser install action', async () => {
     repository.capabilities.mockResolvedValue({ service: { version: '0.11.2.24' } });
     renderStatus();
     fireEvent.click(await screen.findByRole('button', { name: 'Software update available' }));
-    fireEvent.click(await screen.findByRole('button', { name: `Update ${vocab.agent}` }));
-    expect(await screen.findByRole('heading', { name: `Update ${vocab.agent}` })).toBeVisible();
-    expect(
-      screen.getByText(/runtime and browser interface come from the same release/),
-    ).toBeVisible();
-    expect(screen.getByRole('link', { name: `Open ${vocab.agent} 0.11.2.25` })).toHaveAttribute(
+    expect(screen.queryByRole('button', { name: `Update ${vocab.agent}` })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: `Update ${vocab.agent}` })).toBeNull();
+    expect(screen.getByText('Connected runtime')).toBeVisible();
+    expect(screen.getByText('Connected to http://127.0.0.1:8123')).toBeVisible();
+    expect(screen.getByText(/Install runtime updates on that computer/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'View release' })).toHaveAttribute(
       'href',
       expect.stringContaining('/tag/v0.11.2.25'),
     );
+    expect(within(screen.getByTestId('version-row-desktop')).queryByRole('link')).toBeNull();
+    const checks = repository.capabilities.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }));
+    await waitFor(() => expect(repository.capabilities.mock.calls.length).toBeGreaterThan(checks));
     expect(updateManagedClio).not.toHaveBeenCalled();
     expect(desktop.install).not.toHaveBeenCalled();
+    expect(desktop.check).not.toHaveBeenCalled();
   });
+
+  it.each(['checking', 'available', 'error'] as const)(
+    'ignores a desktop updater snapshot of %s in a browser',
+    async (status) => {
+      desktop.snapshot =
+        status === 'available'
+          ? { status, update: { currentVersion: '0.11.2.24', version: '99.0.0' } }
+          : status === 'error'
+            ? { status, message: 'Native updater unavailable', reason: 'unreachable' }
+            : { status };
+      renderStatus();
+      fireEvent.click(await screen.findByRole('button', { name: `${vocab.agent} is up to date` }));
+      expect(screen.getByRole('status', { name: 'Update status' })).toHaveTextContent(
+        `${vocab.agent} is up to date`,
+      );
+      expect(screen.queryByRole('button', { name: `Update ${vocab.agent}` })).toBeNull();
+      expect(screen.queryByText('Native updater unavailable')).toBeNull();
+      expect(screen.queryByText(/99\.0\.0/)).toBeNull();
+      expect(desktop.check).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('SystemVersionStatus in the desktop app', () => {
