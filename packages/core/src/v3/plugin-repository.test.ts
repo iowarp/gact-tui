@@ -39,6 +39,31 @@ const resolution = {
 };
 
 describe('PluginRepository contracts', () => {
+  it('decodes local folders and saved agent definitions without installation', async () => {
+    const library = {
+      root: 'D:/clio/config/plugins',
+      agents_directory: 'D:/clio/config/plugins/user-agents',
+      plugins_directory: 'D:/clio/config/plugins/local/private-local/plugins',
+      agents: [
+        {
+          ref: 'user/mine',
+          path: 'D:/clio/config/plugins/user-agents/mine.json',
+          definition: {
+            id: 'mine',
+            name: 'Mine',
+            description: '',
+            extends: 'clio/standard',
+            add: [],
+            remove: ['memory'],
+          },
+        },
+      ],
+    };
+    const transport = new RecordingTransport([library]);
+    const repository = new ClioRepository(transport);
+    expect(await repository.localLibrary()).toEqual(library);
+    expect(transport.requests[0]).toMatchObject({ method: 'GET', path: '/v1/plugins/local' });
+  });
   it('reads plugins, marketplaces and agents with forward-compatible values', async () => {
     const transport = new RecordingTransport([
       {

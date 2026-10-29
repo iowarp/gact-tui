@@ -6,7 +6,7 @@ import { McpServiceList } from './settings-mcp-services';
 import { McpConnectionDetails } from './mcp-connection-details';
 import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import { mcpServiceEntries } from '@/lib/mcp-service-entries';
-import { anyServerPreparing } from '@/lib/mcp-preparation';
+import { anyServerPreparing, reconnectableNamespace } from '@/lib/mcp-preparation';
 import { MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
 import type { McpServerDefinition, SavedMcpService, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -79,12 +79,18 @@ function connectionLabel(server: McpServerDefinition) {
 
 export function ToolsSettings({
   initialWorkspaceId,
+  initialSessionId,
   embedded = false,
   computerLabel,
+  filter = '',
+  showAdd = true,
 }: {
   initialWorkspaceId?: string;
+  initialSessionId?: string;
   embedded?: boolean;
   computerLabel?: string;
+  filter?: string;
+  showAdd?: boolean;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -106,9 +112,10 @@ export function ToolsSettings({
     workspaces.data?.find((workspace) => workspace.id === requestedWorkspaceId)?.id ||
     workspaces.data?.[0]?.id ||
     '';
+  const sessionId = workspaceId === initialWorkspaceId ? initialSessionId : undefined;
   const servers = useQuery({
-    queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'global'),
-    queryFn: ({ signal }) => repository.mcpServers(workspaceId || undefined, signal),
+    queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'global', sessionId),
+    queryFn: ({ signal }) => repository.mcpServers(workspaceId || undefined, signal, { sessionId }),
     refetchInterval: (query) =>
       anyServerPreparing(query.state.data) ? MCP_PREPARING_POLL_MS : false,
   });
@@ -176,6 +183,15 @@ export function ToolsSettings({
     },
     onError: (error) => toast.error(error.message),
   });
+  const reconnectSession = useMutation({
+    mutationFn: (server: McpServerDefinition) =>
+      repository.reconnectSessionMcpServer(sessionId!, reconnectableNamespace(server)),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success('Preparing conversation MCP again');
+    },
+    onError: (error) => toast.error(error.message),
+  });
   const remove = useMutation({
     mutationFn: (server: McpServerDefinition) => repository.deleteMcpServer(server.id),
     onSuccess: async () => {
@@ -197,9 +213,11 @@ export function ToolsSettings({
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold" id="mcp-services-heading">
-              {embedded
-                ? `MCP services on ${computerLabel || settings.location || 'the connected computer'}`
-                : 'Services and their tools'}
+              {sessionId
+                ? 'MCP services in this conversation'
+                : embedded
+                  ? `MCP services on ${computerLabel || settings.location || 'the connected computer'}`
+                  : 'Services and their tools'}
             </h2>
             {!embedded ? (
               <p className="mt-1 text-sm text-muted-foreground">
@@ -226,7 +244,7 @@ export function ToolsSettings({
                 </Select>
               </Field>
             ) : null}
-            <ExtensionAddMenu mcpOnly onChoose={setAdding} />
+            {showAdd ? <ExtensionAddMenu mcpOnly onChoose={setAdding} /> : null}
           </div>
         </div>
         {servers.isPending || tools.isPending ? <ToolCatalogLoading /> : null}
@@ -245,12 +263,33 @@ export function ToolsSettings({
         {servers.data ? (
           entries.length ? (
             <McpServiceList
-              entries={entries}
+              entries={entries.filter(
+                (row) =>
+                  !filter ||
+                  [
+                    row.server?.name,
+                    row.saved?.label,
+                    row.saved?.name,
+                    ...row.tools.map((tool) => tool.name),
+                  ]
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(filter),
+              )}
               onDetails={setDetailServer}
               onDisconnect={setDeleteServer}
               onReconnect={(server) => reconnect.mutate(server)}
+              onReconnectSession={
+                sessionId ? (server) => reconnectSession.mutate(server) : undefined
+              }
               onRemoveSaved={setRemovingSaved}
-              reconnecting={reconnect.isPending ? reconnect.variables?.id : undefined}
+              reconnecting={
+                reconnectSession.isPending
+                  ? reconnectSession.variables?.id
+                  : reconnect.isPending
+                    ? reconnect.variables?.id
+                    : undefined
+              }
               defaultOpen={!embedded}
               showConnection={!embedded}
             />

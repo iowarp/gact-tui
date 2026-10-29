@@ -1,7 +1,8 @@
 import type { MarketplaceSummary, PluginCheckReport, PluginMarketplace } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { StoreIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { CatalogItem } from './catalog-item';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -46,7 +47,13 @@ function summaryText(summary: MarketplaceSummary): string {
 }
 
 /** The single owner of marketplace installation, trust, updates and removal. */
-export function MarketplaceSettings({ onBackup }: { onBackup?: () => void }) {
+export function MarketplaceSettings({
+  onBackup,
+  localCollection,
+}: {
+  onBackup?: () => void;
+  localCollection?: ReactNode;
+}) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -163,6 +170,7 @@ export function MarketplaceSettings({ onBackup }: { onBackup?: () => void }) {
               checking={check.isPending && check.variables === marketplace.name}
               key={marketplace.name}
               marketplace={marketplace}
+              localCollection={marketplace.name === 'private-local' ? localCollection : undefined}
               onCheck={() => check.mutate(marketplace.name)}
               onTrust={() => setConfirm({ kind: 'trust', marketplace })}
               pendingUpdates={
@@ -176,6 +184,17 @@ export function MarketplaceSettings({ onBackup }: { onBackup?: () => void }) {
               updating={update.isPending && update.variables === marketplace.name}
             />
           ))}
+          {localCollection && !marketplaces.data?.some((row) => row.name === 'private-local') ? (
+            <li className="min-w-0">
+              <CatalogItem
+                label="Private local marketplace"
+                icon={<StoreIcon />}
+                metadata="On this host"
+              >
+                {localCollection}
+              </CatalogItem>
+            </li>
+          ) : null}
         </ul>
       </section>
       {report ? <CheckReport onClose={() => setReport(undefined)} report={report} /> : null}
@@ -249,6 +268,7 @@ function MarketplaceRow({
   onCheck,
   onUninstall,
   onBackup,
+  localCollection,
 }: {
   marketplace: PluginMarketplace;
   busy: boolean;
@@ -261,40 +281,91 @@ function MarketplaceRow({
   onCheck: () => void;
   onUninstall: () => void;
   onBackup?: () => void;
+  localCollection?: ReactNode;
 }) {
   const errors = marketplace.diagnostics.filter((row) => row.severity === 'error').length;
   return (
-    <li className="flex min-w-0 flex-wrap items-start gap-3 rounded-lg border px-3 py-3">
-      <StoreIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">
-            {marketplace.name === 'private-local' ? 'Private local marketplace' : marketplace.name}
-          </span>
-          <ClioStatus
-            label={marketplace.trusted ? 'Trusted' : 'Not trusted'}
-            value={marketplace.trusted ? 'healthy' : 'degraded'}
-            detail={
-              marketplace.trusted
-                ? marketplace.trust_reason === 'default_marketplace'
-                  ? 'Shipped with the service'
-                  : 'Trusted by you'
-                : 'Its plugins load after the trust step'
-            }
-          />
-          {marketplace.default ? <Badge variant="secondary">Shipped</Badge> : null}
-          {marketplace.parent ? <Badge variant="outline">Via {marketplace.parent}</Badge> : null}
-          {marketplace.trusted && pendingUpdates ? (
-            <Badge variant="outline">
-              {pendingUpdates === 1 ? '1 update waits' : `${pendingUpdates} updates wait`} for trust
-            </Badge>
-          ) : null}
-          {errors ? (
-            <Badge variant="destructive">
-              {errors} {errors === 1 ? 'problem' : 'problems'}
-            </Badge>
-          ) : null}
-        </div>
+    <li className="min-w-0">
+      <CatalogItem
+        label={
+          marketplace.name === 'private-local' ? 'Private local marketplace' : marketplace.name
+        }
+        icon={<StoreIcon />}
+        metadata={
+          <>
+            {' '}
+            <ClioStatus
+              label={marketplace.trusted ? 'Trusted' : 'Not trusted'}
+              value={marketplace.trusted ? 'healthy' : 'degraded'}
+              detail={
+                marketplace.trusted
+                  ? marketplace.trust_reason === 'default_marketplace'
+                    ? 'Shipped with the service'
+                    : 'Trusted by you'
+                  : 'Its plugins load after the trust step'
+              }
+            />
+            {marketplace.default ? <Badge variant="secondary">Shipped</Badge> : null}
+            {marketplace.parent ? <Badge variant="outline">Via {marketplace.parent}</Badge> : null}
+            {marketplace.trusted && pendingUpdates ? (
+              <Badge variant="outline">
+                {pendingUpdates === 1 ? '1 update waits' : `${pendingUpdates} updates wait`} for
+                trust
+              </Badge>
+            ) : null}
+            {errors ? (
+              <Badge variant="destructive">
+                {errors} {errors === 1 ? 'problem' : 'problems'}
+              </Badge>
+            ) : null}
+          </>
+        }
+        actions={
+          <div className="flex items-center gap-1">
+            {!marketplace.trusted ? (
+              <Button disabled={busy} onClick={onTrust} size="sm">
+                Trust
+              </Button>
+            ) : pendingUpdates ? (
+              <Button
+                aria-label={`Trust the update from ${marketplace.name}`}
+                disabled={busy}
+                onClick={onTrust}
+                size="sm"
+              >
+                Trust update
+              </Button>
+            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  aria-label={`Actions for ${marketplace.name}`}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <MoreIcon aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-48">
+                <DropdownMenuItem disabled={busy} onSelect={onUpdate}>
+                  <RefreshIcon aria-hidden="true" /> {updating ? 'Updating…' : 'Update'}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={checking} onSelect={onCheck}>
+                  {checking ? 'Checking…' : 'Check plugins'}
+                </DropdownMenuItem>
+                {marketplace.default ? null : (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled={busy} onSelect={onUninstall} variant="destructive">
+                      <DeleteIcon aria-hidden="true" /> Uninstall
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        }
+      >
         {onBackup ? (
           <Button className="mt-2" size="sm" variant="outline" onClick={onBackup}>
             Back up with GitHub
@@ -325,46 +396,9 @@ function MarketplaceRow({
             </ul>
           </details>
         ) : null}
-      </div>
-      <div className="flex items-center gap-1">
-        {!marketplace.trusted ? (
-          <Button disabled={busy} onClick={onTrust} size="sm">
-            Trust
-          </Button>
-        ) : pendingUpdates ? (
-          <Button
-            aria-label={`Trust the update from ${marketplace.name}`}
-            disabled={busy}
-            onClick={onTrust}
-            size="sm"
-          >
-            Trust update
-          </Button>
-        ) : null}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button aria-label={`Actions for ${marketplace.name}`} size="icon-sm" variant="ghost">
-              <MoreIcon aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem disabled={busy} onSelect={onUpdate}>
-              <RefreshIcon aria-hidden="true" /> {updating ? 'Updating…' : 'Update'}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={checking} onSelect={onCheck}>
-              {checking ? 'Checking…' : 'Check plugins'}
-            </DropdownMenuItem>
-            {marketplace.default ? null : (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={busy} onSelect={onUninstall} variant="destructive">
-                  <DeleteIcon aria-hidden="true" /> Uninstall
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+
+        {localCollection}
+      </CatalogItem>
     </li>
   );
 }

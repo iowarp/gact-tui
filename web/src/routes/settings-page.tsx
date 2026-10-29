@@ -518,8 +518,10 @@ function SettingsSection({
   if (section === 'models') return <ModelsSettings />;
   if (section === 'usage') return <UsageSettings />;
   if (section === 'agents') return <AgentSettings />;
-  if (section === 'plugins') return <PluginSettings />;
-  if (section === 'tools') return <ToolsSettings initialWorkspaceId={workspaceId} />;
+  if (section === 'plugins')
+    return <PluginSettings initialWorkspaceId={workspaceId} initialSessionId={sessionId} />;
+  if (section === 'tools')
+    return <ToolsSettings initialWorkspaceId={workspaceId} initialSessionId={sessionId} />;
   if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
   if (section === 'relays') return <RelaySettings />;
