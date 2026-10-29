@@ -14,6 +14,7 @@
  * - Delete: destroy an item. Remove: take an item out of a list (a filter
  *   token, a hop). Close: dismiss or cancel.
  * - Refresh: fetch or check again (refresh, reload, re-check).
+ * - Connection check: check a provider's connection and sign-in.
  * - Retry: try a failed step again, regenerate, reset to the start.
  * - Info: an explanation behind hover. Help: guidance about a control.
  * - More: the overflow menu of an item.
@@ -29,6 +30,7 @@ export {
   XIcon as RemoveIcon,
   XIcon as CloseIcon,
   RefreshCwIcon as RefreshIcon,
+  PlugZapIcon as CheckConnectionIcon,
   RotateCcwIcon as RetryIcon,
   InfoIcon,
   CircleHelpIcon as HelpIcon,

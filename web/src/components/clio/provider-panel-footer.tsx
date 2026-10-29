@@ -2,6 +2,7 @@ import { LoaderCircleIcon, LogOutIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { RefreshButton } from './refresh-button';
 import { Button } from '@/components/ui/button';
+import { CheckConnectionIcon } from '@/lib/icon-vocabulary';
 import type { ProviderActions } from './provider-setup-state';
 
 export interface ProviderLogOut {
@@ -24,7 +25,7 @@ interface ProviderPanelFooterProps {
 
 /**
  * The single action row under a usable provider's models: Refresh (check the
- * provider again), Reload models (rediscover its model list), Settings, and Log out /
+ * provider again), Reload (rediscover its model list), Settings, and Log out /
  * Remove key only where the provider supports it. A running action's stage
  * shows at the end of the row -- the row is what it affects.
  */
@@ -44,6 +45,8 @@ export function ProviderPanelFooter({
       <RefreshButton
         className="px-1.5"
         label="Refresh"
+        idleIcon={CheckConnectionIcon}
+        title="Check connection, sign-in and available models"
         refreshing={actions.handshake.isPending}
         disabled={busy}
         onRefresh={() => actions.handshake.mutateAsync()}
@@ -56,6 +59,7 @@ export function ProviderPanelFooter({
       <RefreshButton
         className="px-1.5"
         label="Reload models"
+        title="Rediscover models; update the provider client first if needed"
         refreshing={actions.refreshModels.isPending}
         disabled={busy}
         onRefresh={() => actions.refreshModels.mutateAsync()}
@@ -63,7 +67,7 @@ export function ProviderPanelFooter({
         type="button"
         variant="ghost"
       >
-        Reload models
+        Reload
       </RefreshButton>
       {settings}
       {logOut ? (
