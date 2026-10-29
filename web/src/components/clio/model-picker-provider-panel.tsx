@@ -88,31 +88,33 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
   }, [open, groupId, needsCheck, providerBusy]);
 
   if (!group) return { column: {} satisfies ProviderPanelColumn, stage };
+  const settings = (
+    <Button asChild className="px-1.5" size="xs" type="button" variant="ghost">
+      {inRouter ? (
+        <Link
+          aria-label="Provider settings"
+          to={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
+          onClick={onClose}
+        >
+          Settings
+        </Link>
+      ) : (
+        <a
+          aria-label="Provider settings"
+          href={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
+          onClick={onClose}
+        >
+          Settings
+        </a>
+      )}
+    </Button>
+  );
   const setup = (
     <>
       {preset ? (
         <ProviderEndpointEditor key={group.id} preset={preset} endpoint={group.endpoint} />
       ) : null}
       {componentStatus}
-      <div className="flex shrink-0 border-t px-2 py-1.5">
-        <Button asChild size="sm" type="button" variant="ghost">
-          {inRouter ? (
-            <Link
-              to={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
-              onClick={onClose}
-            >
-              Provider settings
-            </Link>
-          ) : (
-            <a
-              href={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
-              onClick={onClose}
-            >
-              Provider settings
-            </a>
-          )}
-        </Button>
-      </div>
     </>
   );
 
@@ -133,6 +135,7 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
               actions={providerActions}
               error={notice ?? providerActionError(providerActions, group)}
               info={providerActions.refreshNotice}
+              settings={settings}
               logOut={logOut}
             />
           </>
@@ -140,7 +143,12 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
       }
     : {
         empty: <ProviderConnectState actions={providerActions} group={group} preset={preset} />,
-        footer: setup,
+        footer: (
+          <>
+            {setup}
+            <div className="flex shrink-0 border-t px-2 py-1.5">{settings}</div>
+          </>
+        ),
       };
   return { column, stage };
 }

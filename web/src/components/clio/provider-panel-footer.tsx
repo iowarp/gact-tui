@@ -1,4 +1,5 @@
 import { LoaderCircleIcon, LogOutIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { RefreshButton } from './refresh-button';
 import { Button } from '@/components/ui/button';
 import type { ProviderActions } from './provider-setup-state';
@@ -13,6 +14,7 @@ export interface ProviderLogOut {
 interface ProviderPanelFooterProps {
   /** The provider-level actions (Refresh and Reload models act on the whole provider). */
   actions: ProviderActions;
+  settings?: ReactNode;
   /** Present only when the provider supports it. */
   logOut?: ProviderLogOut;
   /** The latest provider-level failure, as one sentence. */
@@ -22,41 +24,57 @@ interface ProviderPanelFooterProps {
 
 /**
  * The single action row under a usable provider's models: Refresh (check the
- * provider again), Reload models (rediscover its model list), and Log out /
+ * provider again), Reload models (rediscover its model list), Settings, and Log out /
  * Remove key only where the provider supports it. A running action's stage
  * shows at the end of the row -- the row is what it affects.
  */
-export function ProviderPanelFooter({ actions, logOut, error, info }: ProviderPanelFooterProps) {
+export function ProviderPanelFooter({
+  actions,
+  settings,
+  logOut,
+  error,
+  info,
+}: ProviderPanelFooterProps) {
   const busy = Boolean(actions.stage) || Boolean(logOut?.busy);
   return (
     <div
-      className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-t px-2 py-1.5"
+      className="flex min-w-0 shrink-0 flex-wrap items-center border-t px-2 py-1.5"
       data-slot="provider-panel-footer"
     >
       <RefreshButton
+        className="px-1.5"
         label="Refresh"
         refreshing={actions.handshake.isPending}
         disabled={busy}
         onRefresh={() => actions.handshake.mutateAsync()}
-        size="sm"
+        size="xs"
         type="button"
         variant="ghost"
       >
         Refresh
       </RefreshButton>
       <RefreshButton
+        className="px-1.5"
         label="Reload models"
         refreshing={actions.refreshModels.isPending}
         disabled={busy}
         onRefresh={() => actions.refreshModels.mutateAsync()}
-        size="sm"
+        size="xs"
         type="button"
         variant="ghost"
       >
         Reload models
       </RefreshButton>
+      {settings}
       {logOut ? (
-        <Button disabled={busy} onClick={logOut.run} size="sm" type="button" variant="ghost">
+        <Button
+          className="px-1.5"
+          disabled={busy}
+          onClick={logOut.run}
+          size="xs"
+          type="button"
+          variant="ghost"
+        >
           <LogOutIcon data-icon="inline-start" />
           {logOut.label}
         </Button>

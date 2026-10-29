@@ -1,7 +1,6 @@
 import { LoaderCircleIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -20,7 +19,7 @@ function providerClientLabel(group: ProviderGroup): string | undefined {
 
 /**
  * The provider's SDK version fact and, when a newer release is installable,
- * "Update available: <version>" with a one-click Update. A running update
+ * a one-click "Update to <version>". A running update
  * shows its stage here (and on the provider heartbeat); a finished one that
  * needs a restart offers it, and a failed one says what it kept.
  */
@@ -37,9 +36,13 @@ export function ProviderComponentStatus({
   const label = providerClientLabel(group);
   const { components, stage, outcome } = state;
   if (!label && !components && !state.checkError) return null;
+  // Compare the installed component with its update target. Claude Code's
+  // separate CLI version remains in the details alongside its source and path.
+  const version = components?.components[0]?.installed_version || group.client?.version;
   const details = components?.components
     .map((item) => `${item.distribution} ${item.installed_version} → ${item.latest_version}`)
     .join('\n');
+  const clientDetails = [label, group.client?.path, details].filter(Boolean).join('\n');
   const failure = outcome?.stage === 'failed' ? outcome : undefined;
   const kept = failure ? Object.values(failure.from_versions)[0] : undefined;
   const restart = outcome?.stage === 'done' && outcome.restart_required && !stage;
@@ -59,23 +62,27 @@ export function ProviderComponentStatus({
 
   return (
     <div
-      className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-t px-3 py-1.5 text-xs text-muted-foreground"
+      className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-t px-2 py-1.5 text-xs text-muted-foreground"
       data-slot="provider-component-status"
     >
-      {label ? (
+      {version || label ? (
         <span
           className="truncate"
           data-slot="provider-client-fact"
-          title={group.client?.path || undefined}
+          title={clientDetails || details}
         >
-          {label}
+          {version ? `Version ${version}` : label}
         </span>
       ) : null}
-      {!label && components?.components[0] ? (
-        <span>
-          {group.name} client {components.components[0].installed_version}
-        </span>
-      ) : null}
+      <Button
+        disabled={busy || Boolean(stage) || state.checking}
+        onClick={state.check}
+        size="xs"
+        type="button"
+        variant="ghost"
+      >
+        {state.checking ? 'Checking updates…' : 'Check updates'}
+      </Button>
       {stage ? (
         <span
           className="flex items-center gap-1"
@@ -86,24 +93,18 @@ export function ProviderComponentStatus({
           {stage}
         </span>
       ) : components?.update_available ? (
-        <>
-          <Badge data-slot="provider-update-available" title={details} variant="outline">
-            Update available: {components.target_version}
-          </Badge>
-          <Button disabled={busy} onClick={state.update} size="xs" type="button" variant="outline">
-            Update
-          </Button>
-        </>
+        <Button
+          data-slot="provider-update-available"
+          disabled={busy}
+          onClick={state.update}
+          size="xs"
+          title={details}
+          type="button"
+          variant="outline"
+        >
+          Update to {components.target_version}
+        </Button>
       ) : null}
-      <Button
-        disabled={busy || Boolean(stage) || state.checking}
-        onClick={state.check}
-        size="xs"
-        type="button"
-        variant="ghost"
-      >
-        {state.checking ? 'Checking updates…' : 'Check for updates'}
-      </Button>
       {noCompatibleRelease ? (
         <span role="status">No compatible client update is available yet.</span>
       ) : state.checkError || components?.error?.message ? (
