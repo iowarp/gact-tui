@@ -37,6 +37,18 @@ export function ClioSubagentCanvasView({
     childSessionId,
     'canvas',
   );
+  // The child's live turn, as the main conversation knows its own: the running
+  // activity stays open step by step and folds once the answer begins.
+  const activeTurnId = childSessionId ? entities.active_turns[childSessionId] : undefined;
+  const preparation = {
+    sessionState:
+      (childSessionId ? entities.sessions[childSessionId]?.state : undefined) ??
+      (subagent.state === 'running' ? ('running' as const) : undefined),
+    activeTurnId,
+    activeTurnResponded: Boolean(
+      activeTurnId && childSessionId && entities.responded_turns[childSessionId] === activeTurnId,
+    ),
+  };
 
   if (!childSessionId) {
     return (
@@ -108,6 +120,7 @@ export function ClioSubagentCanvasView({
           onOpenFile={onOpenFile}
           onOpenFileReference={navigation?.onOpenFileReference}
           onOpenSubagent={onOpenSubagent}
+          preparation={preparation}
           subagents={entities.subagents}
           surfaces={entities.surfaces}
           tasks={entities.tasks}

@@ -42,7 +42,8 @@ export function TranscriptReasoningPassage({
     : id
       ? `thinking:${id}`
       : undefined;
-  const [open, setOpen] = useTranscriptDisclosure(key);
+  // Open while the thought streams and closed once it settles, unless the reader chose.
+  const [open, setOpen] = useTranscriptDisclosure(key, streaming);
   const title = text.match(
     /^\s*(?:#{1,6}[^\S\r\n]+[^\r\n]+|\*\*[^\r\n]+\*\*|__[^\r\n]+__)[^\S\r\n]*(?:\r?\n|$)/u,
   );

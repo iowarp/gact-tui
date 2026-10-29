@@ -145,3 +145,25 @@ it('shows a long one-line thought on one line and expands it in place on click',
     vi.unstubAllGlobals();
   }
 });
+
+it('stays open while the thought streams and folds once it settles', async () => {
+  const text = 'Comparing the rounds\nRound 1 peaked at t100; round 5 must agree.';
+  const view = render(<TranscriptReasoningPassage id="r1" streaming text={text} />);
+  expect(screen.getByRole('button', { name: 'Thinking: Comparing the rounds' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  view.rerender(<TranscriptReasoningPassage id="r1" text={text} />);
+  expect(screen.getByRole('button', { name: 'Thinking: Comparing the rounds' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  // A reader's choice outlasts the default.
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Thinking: Comparing the rounds' }));
+  view.rerender(<TranscriptReasoningPassage id="r1" streaming text={text} />);
+  view.rerender(<TranscriptReasoningPassage id="r1" text={text} />);
+  expect(screen.getByRole('button', { name: 'Thinking: Comparing the rounds' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+});
