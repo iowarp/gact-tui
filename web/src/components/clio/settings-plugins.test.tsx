@@ -218,4 +218,34 @@ describe('MarketplaceSettings', () => {
     expect(within(report).getByText(/prompt\/missing.md is missing/u)).toBeVisible();
     expect(repository.checkPlugins).toHaveBeenCalledWith({ installed: 'lab' });
   });
+
+  it('keeps an installed private marketplace focused on its collection instead of source metadata', async () => {
+    repository.pluginMarketplaces.mockResolvedValue([
+      {
+        name: 'private-local',
+        source: 'D:/clio/config/plugins/local/private-local',
+        format: 'agent-plugins',
+        trusted: true,
+        default: false,
+        parent: '',
+        trust_reason: 'local',
+        commit: '',
+        installed_at: '',
+        diagnostics: [],
+      },
+    ]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MarketplaceSettings localCollection={<p>Saved local items</p>} onBackup={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Private local marketplace/ }));
+    expect(screen.getByText('Saved local items')).toBeVisible();
+    expect(screen.queryByText('D:/clio/config/plugins/local/private-local')).toBeNull();
+    expect(screen.queryByText(/Agent Plugins format/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Back up with GitHub' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Actions for private-local' })).toBeVisible();
+  });
 });

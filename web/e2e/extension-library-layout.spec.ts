@@ -155,16 +155,61 @@ for (const width of [390, 1280]) {
 
     await page.getByRole('button', { name: 'Marketplaces', exact: true }).click();
     await page.getByRole('button', { name: /Private local marketplace/ }).click();
-    await expect(
-      page.getByText('D:/CLIO/config/plugins/user-agents', { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText('D:/CLIO/config/plugins/user-agents', { exact: true })).toHaveCount(
+      0,
+    );
     await expect(page.getByText('Dememory Clio', { exact: true })).toBeVisible();
-    await page.getByText('Saved definition: user/dememory-clio').click();
-    await expect(
-      page.getByText('D:/CLIO/config/plugins/user-agents/dememory-clio.json'),
-    ).toBeVisible();
+    await expect(page.getByText('No local skills or plugins yet.')).toHaveCount(0);
+    await expect(page.getByText(/"remove":/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Back up/ })).toHaveCount(0);
-    await page.screenshot({ path: testInfo.outputPath(`local-marketplace-${width}.png`) });
+    const marketplacePanel = page
+      .getByRole('region', { name: 'Marketplaces', exact: true })
+      .locator('..');
+    await marketplacePanel.screenshot({
+      path: testInfo.outputPath(`local-marketplace-${width}.png`),
+    });
+    await page.getByRole('button', { name: 'Dememory Clio Agent', exact: true }).click();
+    await expect(page.getByText(/Starts from Factorio; removes memory/)).toBeVisible();
+    await marketplacePanel.screenshot({
+      path: testInfo.outputPath(`local-agent-details-${width}.png`),
+    });
+    await page.getByRole('button', { name: 'View saved file' }).click();
+    const savedFile = page.getByRole('dialog', { name: 'Dememory Clio: saved file' });
+    await expect(
+      savedFile.getByText('D:/CLIO/config/plugins/user-agents/dememory-clio.json'),
+    ).toBeVisible();
+    await expect(savedFile.locator('[data-slot="file-viewer"]')).toContainText('"memory"');
+    const fileGeometry = await savedFile.evaluate((dialog) => {
+      const bounds = dialog.getBoundingClientRect();
+      const title = dialog.querySelector('[data-slot="dialog-title"]')!.getBoundingClientRect();
+      const close = dialog.querySelector('[data-slot="dialog-close"]')!.getBoundingClientRect();
+      return {
+        top: bounds.top,
+        bottom: bounds.bottom,
+        titleTop: title.top,
+        closeTop: close.top,
+        scrollTop: dialog.scrollTop,
+        height: bounds.height,
+        scrollHeight: dialog.scrollHeight,
+      };
+    });
+    await testInfo.attach(`saved-file-geometry-${width}.json`, {
+      body: JSON.stringify(fileGeometry),
+      contentType: 'application/json',
+    });
+    expect(fileGeometry.titleTop).toBeGreaterThanOrEqual(fileGeometry.top);
+    expect(fileGeometry.closeTop).toBeGreaterThanOrEqual(fileGeometry.top);
+    expect(fileGeometry.scrollTop).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath(`local-agent-source-${width}.png`) });
+    await savedFile.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('button', { name: 'Marketplace details' }).click();
+    const marketplaceDetails = page.getByRole('dialog', { name: 'Local marketplace details' });
+    await expect(
+      marketplaceDetails.getByText('D:/CLIO/config/plugins/user-agents', { exact: true }),
+    ).toBeVisible();
+    await expect(marketplaceDetails.getByText('Dememory Clio')).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath(`local-storage-${width}.png`) });
+    await marketplaceDetails.getByRole('button', { name: 'Close', exact: true }).click();
 
     await page.getByRole('button', { name: 'MCP connections', exact: true }).click();
     const mcp = page.getByRole('button', { name: 'Show the tools of ndp' });

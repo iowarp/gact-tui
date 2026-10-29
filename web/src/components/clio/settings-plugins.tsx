@@ -60,6 +60,7 @@ export function MarketplaceSettings({
   const [installing, setInstalling] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>();
   const [report, setReport] = useState<PluginCheckReport>();
+  const [localOpen, setLocalOpen] = useState(false);
   const supported = useAgentPluginsSupported();
   const marketplaces = usePluginMarketplaces();
   const catalog = usePluginCatalog();
@@ -134,7 +135,7 @@ export function MarketplaceSettings({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SettingsSectionHeading
           title="Marketplaces"
-          description="Sources for your skills and plugins. Manage trust and updates here."
+          description="Sources for your agents, skills and plugins."
         />
         <Button onClick={() => setInstalling(true)}>
           <AddIcon aria-hidden="true" /> Add marketplace
@@ -160,7 +161,7 @@ export function MarketplaceSettings({
             Loading marketplaces…
           </p>
         ) : null}
-        {marketplaces.data?.length === 0 ? (
+        {marketplaces.data?.length === 0 && !localCollection ? (
           <p className="text-sm text-muted-foreground">No marketplaces are installed.</p>
         ) : null}
         <ul className="grid gap-2">
@@ -171,6 +172,10 @@ export function MarketplaceSettings({
               key={marketplace.name}
               marketplace={marketplace}
               localCollection={marketplace.name === 'private-local' ? localCollection : undefined}
+              open={marketplace.name === 'private-local' && localCollection ? localOpen : undefined}
+              onOpenChange={
+                marketplace.name === 'private-local' && localCollection ? setLocalOpen : undefined
+              }
               onCheck={() => check.mutate(marketplace.name)}
               onTrust={() => setConfirm({ kind: 'trust', marketplace })}
               pendingUpdates={
@@ -184,12 +189,16 @@ export function MarketplaceSettings({
               updating={update.isPending && update.variables === marketplace.name}
             />
           ))}
-          {localCollection && !marketplaces.data?.some((row) => row.name === 'private-local') ? (
+          {localCollection &&
+          !marketplaces.isPending &&
+          !marketplaces.data?.some((row) => row.name === 'private-local') ? (
             <li className="min-w-0">
               <CatalogItem
                 label="Private local marketplace"
                 icon={<StoreIcon />}
                 metadata="On this host"
+                open={localOpen}
+                onOpenChange={setLocalOpen}
               >
                 {localCollection}
               </CatalogItem>
@@ -269,6 +278,8 @@ function MarketplaceRow({
   onUninstall,
   onBackup,
   localCollection,
+  open,
+  onOpenChange,
 }: {
   marketplace: PluginMarketplace;
   busy: boolean;
@@ -282,11 +293,15 @@ function MarketplaceRow({
   onUninstall: () => void;
   onBackup?: () => void;
   localCollection?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const errors = marketplace.diagnostics.filter((row) => row.severity === 'error').length;
   return (
     <li className="min-w-0">
       <CatalogItem
+        open={open}
+        onOpenChange={onOpenChange}
         label={
           marketplace.name === 'private-local' ? 'Private local marketplace' : marketplace.name
         }
@@ -366,21 +381,25 @@ function MarketplaceRow({
           </div>
         }
       >
-        {onBackup ? (
+        {onBackup && !localCollection ? (
           <Button className="mt-2" size="sm" variant="outline" onClick={onBackup}>
             Back up with GitHub
           </Button>
         ) : null}
-        <p
-          className="mt-1 truncate font-mono text-xs text-muted-foreground"
-          title={marketplace.source}
-        >
-          {marketplace.source}
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {marketplace.format === 'claude-code' ? 'Claude Code format' : 'Agent Plugins format'}
-          {marketplace.commit ? `, commit ${marketplace.commit.slice(0, 12)}` : ''}
-        </p>
+        {!localCollection ? (
+          <>
+            <p
+              className="mt-1 truncate font-mono text-xs text-muted-foreground"
+              title={marketplace.source}
+            >
+              {marketplace.source}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {marketplace.format === 'claude-code' ? 'Claude Code format' : 'Agent Plugins format'}
+              {marketplace.commit ? `, commit ${marketplace.commit.slice(0, 12)}` : ''}
+            </p>
+          </>
+        ) : null}
         {marketplace.diagnostics.length ? (
           <details className="mt-1 text-xs">
             <summary className="cursor-pointer text-muted-foreground">

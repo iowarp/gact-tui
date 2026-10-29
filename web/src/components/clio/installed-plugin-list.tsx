@@ -39,6 +39,7 @@ export function InstalledPluginList({
   onTrustUpdate,
   hideFilter = false,
   flat = false,
+  hideHeading = false,
 }: {
   plugins: readonly PluginEntry[];
   pending: boolean;
@@ -48,6 +49,7 @@ export function InstalledPluginList({
   onTrustUpdate?: (marketplace: string) => void;
   hideFilter?: boolean;
   flat?: boolean;
+  hideHeading?: boolean;
 }) {
   const [filter, setFilter] = useState('');
   const [inspecting, setInspecting] = useState<PluginEntry>();
@@ -57,20 +59,24 @@ export function InstalledPluginList({
   const marketplaces = [...new Set(plugins.map((plugin) => plugin.marketplace))];
   return (
     <section aria-label="Installed plugins" className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">
-          Installed plugins {plugins.length ? `(${plugins.length})` : ''}
-        </h2>
-        {!hideFilter ? (
-          <Input
-            aria-label="Filter plugins"
-            className="h-8 w-full sm:w-64"
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder="Filter plugins"
-            value={filter}
-          />
-        ) : null}
-      </div>
+      {!hideHeading || !hideFilter ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {!hideHeading ? (
+            <h2 className="text-sm font-semibold">
+              Installed plugins {plugins.length ? `(${plugins.length})` : ''}
+            </h2>
+          ) : null}
+          {!hideFilter ? (
+            <Input
+              aria-label="Filter plugins"
+              className="h-8 w-full sm:w-64"
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder="Filter plugins"
+              value={filter}
+            />
+          ) : null}
+        </div>
+      ) : null}
       {pending ? (
         <p className="text-sm text-muted-foreground" role="status">
           Loading plugins…
@@ -197,9 +203,7 @@ function CatalogNode({
         }
       >
         {plugin.description ? (
-          <span className="mt-0.5 block text-sm text-muted-foreground">
-            {plugin.description}
-          </span>
+          <span className="mt-0.5 block text-sm text-muted-foreground">{plugin.description}</span>
         ) : null}
         <span className="mt-0.5 block text-xs text-muted-foreground">
           {pack ? `Brings ${plugin.members.join(', ') || 'no members'}` : contributions(plugin)}

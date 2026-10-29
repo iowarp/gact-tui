@@ -1,6 +1,6 @@
 import type { AgentEntry } from '@clio/core/v3';
 import { BotIcon, UserRoundIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import type { DraftAgent } from '@/hooks/use-draft-agent-change';
@@ -16,11 +16,15 @@ export function AgentRow({
   agents,
   onPreview,
   onDelete,
+  onViewSource,
+  metadata,
 }: {
   agent: AgentEntry;
   agents: readonly AgentEntry[];
   onPreview: () => void;
   onDelete?: () => void;
+  onViewSource?: () => void;
+  metadata?: ReactNode;
 }) {
   const Icon = agent.kind === 'user' ? UserRoundIcon : BotIcon;
   return (
@@ -33,11 +37,13 @@ export function AgentRow({
         label={agent.name || agent.id}
         icon={<Icon />}
         metadata={
-          <span className="truncate">
-            {agent.kind === 'user'
-              ? 'Yours'
-              : `${agent.plugins.length} ${agent.plugins.length === 1 ? 'plugin' : 'plugins'}`}
-          </span>
+          metadata ?? (
+            <span className="truncate">
+              {agent.kind === 'user'
+                ? 'Yours'
+                : `${agent.plugins.length} ${agent.plugins.length === 1 ? 'plugin' : 'plugins'}`}
+            </span>
+          )
         }
         actions={
           onDelete ? (
@@ -67,15 +73,22 @@ export function AgentRow({
         {agent.flow && agent.flow.id !== 'react' ? (
           <p className="text-xs">Flow: {agent.flow.id}</p>
         ) : null}
-        <Button
-          className="justify-self-start"
-          size="xs"
-          variant="outline"
-          aria-label={`Explore ${agent.name || agent.id}`}
-          onClick={onPreview}
-        >
-          Explore agent
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            className="justify-self-start"
+            size="xs"
+            variant="outline"
+            aria-label={`Explore ${agent.name || agent.id}`}
+            onClick={onPreview}
+          >
+            Explore agent
+          </Button>
+          {onViewSource ? (
+            <Button size="xs" variant="ghost" onClick={onViewSource}>
+              View saved file
+            </Button>
+          ) : null}
+        </div>
       </CatalogItem>
     </li>
   );
