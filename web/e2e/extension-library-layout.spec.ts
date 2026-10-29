@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { setupWorkspaceBrowser } from './workspace-setup';
 
 setupWorkspaceBrowser();
@@ -111,6 +112,12 @@ for (const width of [390, 1280]) {
         },
       }),
     );
+    // Browser byte-transfer proof; real agent export/import is tested by the API.
+    const zip = Buffer.alloc(22);
+    zip.writeUInt32LE(0x06054b50);
+    await page.route('**/v1/plugins/local/export', (route) =>
+      route.fulfill({ contentType: 'application/zip', body: zip }),
+    );
     await page.route('**/v1/mcp/servers?*', (route) =>
       route.fulfill({
         json: {
@@ -161,7 +168,7 @@ for (const width of [390, 1280]) {
     await expect(page.getByText('Dememory Clio', { exact: true })).toBeVisible();
     await expect(page.getByText('No local skills or plugins yet.')).toHaveCount(0);
     await expect(page.getByText(/"remove":/)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /Back up/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Back up with GitHub' })).toBeVisible();
     const marketplacePanel = page
       .getByRole('region', { name: 'Marketplaces', exact: true })
       .locator('..');
@@ -210,6 +217,20 @@ for (const width of [390, 1280]) {
     await expect(marketplaceDetails.getByText('Dememory Clio')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`local-storage-${width}.png`) });
     await marketplaceDetails.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('button', { name: 'Back up with GitHub' }).click();
+    const backup = page.getByRole('dialog', { name: 'Back up to GitHub' });
+    await expect(backup.getByRole('button', { name: 'Download marketplace ZIP' })).toBeEnabled();
+    await expect(backup.getByRole('link', { name: 'Create GitHub repository' })).toHaveAttribute(
+      'href',
+      'https://github.com/new',
+    );
+    await page.screenshot({ path: testInfo.outputPath(`local-github-backup-${width}.png`) });
+    const download = page.waitForEvent('download');
+    await backup.getByRole('button', { name: 'Download marketplace ZIP' }).click();
+    const saved = await download;
+    expect(saved.suggestedFilename()).toBe('private-local-marketplace.zip');
+    expect(await readFile((await saved.path())!)).toEqual(zip);
+    await backup.getByRole('button', { name: 'Close', exact: true }).click();
 
     await page.getByRole('button', { name: 'MCP connections', exact: true }).click();
     const mcp = page.getByRole('button', { name: 'Show the tools of ndp' });

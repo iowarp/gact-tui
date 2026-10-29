@@ -78,7 +78,7 @@ it('keeps the browse view about saved items, with storage and source requested s
   expect(repository.localLibrary).not.toHaveBeenCalled();
   expect(screen.queryByText(/No local skills/)).toBeNull();
   expect(screen.queryByText(/"remove":/)).toBeNull();
-  expect(screen.queryByRole('button', { name: /Back up/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Back up with GitHub' })).toBeVisible();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Dememory Clio Agent' }));
   expect(screen.getByText(/Starts from/)).toHaveTextContent('removes memory');
@@ -136,7 +136,16 @@ it('shows one empty state instead of competing empty categories', async () => {
   expect(screen.queryByText(/No local skills/)).toBeNull();
 });
 
-it('keeps optional backup in marketplace details alongside storage management', async () => {
+it('keeps GitHub backup visible for a collection containing only an agent', async () => {
+  const onBackup = vi.fn();
+  view(onBackup);
+  await screen.findByText('Dememory Clio');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Back up with GitHub' }));
+  expect(onBackup).toHaveBeenCalledOnce();
+  expect(repository.localLibrary).not.toHaveBeenCalled();
+});
+
+it('offers GitHub backup directly for local plugins as well', async () => {
   const onBackup = vi.fn();
   repository.plugins.mockResolvedValue({
     plugins: [
@@ -151,12 +160,9 @@ it('keeps optional backup in marketplace details alongside storage management', 
   view(onBackup);
   expect(await screen.findByText('local-skill')).toBeVisible();
   expect(screen.queryByText('Installed plugins')).toBeNull();
-  expect(screen.queryByRole('button', { name: /Back up/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Back up with GitHub' })).toBeVisible();
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Marketplace details' }));
-  await user.click(
-    await screen.findByRole('button', { name: 'Back up skills and plugins with GitHub' }),
-  );
+  await user.click(screen.getByRole('button', { name: 'Back up with GitHub' }));
   expect(onBackup).toHaveBeenCalledOnce();
   expect(screen.queryByRole('dialog')).toBeNull();
 });

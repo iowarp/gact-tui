@@ -21,14 +21,12 @@ export function LocalMarketplaceDetails({
   error,
   onClose,
   onRetry,
-  onBackup,
 }: {
   library?: LocalLibrary;
   pending: boolean;
   error?: string;
   onClose: () => void;
   onRetry: () => void;
-  onBackup?: () => void;
 }) {
   return (
     <Dialog
@@ -49,13 +47,6 @@ export function LocalMarketplaceDetails({
             <HostFolder label="Agents" path={library.agents_directory} />
             <HostFolder label="Skills and plugins" path={library.plugins_directory} />
           </section>
-        ) : null}
-        {onBackup ? (
-          <div className="border-t pt-3">
-            <Button size="sm" variant="outline" onClick={onBackup}>
-              Back up skills and plugins with GitHub
-            </Button>
-          </div>
         ) : null}
       </DialogContent>
     </Dialog>

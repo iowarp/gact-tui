@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { GitBranchIcon } from 'lucide-react';
 import type { AgentEntry } from '@clio/core/v3';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
@@ -71,7 +72,10 @@ export function PrivateLocalLibrary({ onBackup }: { onBackup: () => void }) {
           <p className="py-2 text-muted-foreground">Nothing saved here yet.</p>
         ) : null}
       </section>
-      <div className="flex justify-end border-t border-border/60 pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-1 border-t border-border/60 pt-1">
+        <Button size="xs" variant="ghost" className="text-muted-foreground" onClick={onBackup}>
+          <GitBranchIcon aria-hidden="true" /> Back up with GitHub
+        </Button>
         <Button
           size="xs"
           variant="ghost"
@@ -91,14 +95,6 @@ export function PrivateLocalLibrary({ onBackup }: { onBackup: () => void }) {
           pending={local.isPending}
           onRetry={() => void local.refetch()}
           onClose={() => setDetailsOpen(false)}
-          onBackup={
-            plugins.length
-              ? () => {
-                  setDetailsOpen(false);
-                  onBackup();
-                }
-              : undefined
-          }
         />
       ) : null}
       {sourceAgent ? (

@@ -18,8 +18,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import {
   usePluginCatalog,
-  usePluginMarketplaces,
   useExtensionsSupported,
+  useInstalledAgents,
+  usePluginMarketplaces,
 } from '@/hooks/use-session-agent';
 import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import { connectionScope } from '@/lib/connection-scope';
@@ -79,6 +80,7 @@ function ExtensionLibraryContents({
   const scope = connectionScope(settings);
   const client = useQueryClient();
   const catalog = usePluginCatalog();
+  const marketplaces = usePluginMarketplaces();
   const supported = useExtensionsSupported();
   const [view, setView] = useState('yours');
   const [kind, setKind] = useState<NonNullable<ExtensionAdd['category']>>('mcp');
@@ -91,7 +93,11 @@ function ExtensionLibraryContents({
   const [exporting, setExporting] = useState(false);
   const [skill, setSkill] = useState<string>();
   const [exploring, setExploring] = useState<string>();
-  const marketplaces = usePluginMarketplaces();
+  const agents = useInstalledAgents();
+  const hasLocalItems = Boolean(
+    catalog.data?.plugins.some((plugin) => plugin.marketplace === 'private-local') ||
+      agents.data?.some((agent) => agent.kind === 'user'),
+  );
   const saved = useSavedMcpServices();
   const registry = useQuery({
     queryKey: ['extension-discovery', scope, registrySearch, cursor],
@@ -393,9 +399,9 @@ function ExtensionLibraryContents({
         <Dialog open onOpenChange={setBackup}>
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
-              <DialogTitle>Back up your private marketplace</DialogTitle>
+              <DialogTitle>Back up to GitHub</DialogTitle>
               <DialogDescription>
-                Export portable source files to a private GitHub repository you control.
+                Export your saved agents, skills and plugins to a repository you control.
               </DialogDescription>
             </DialogHeader>
             <ol className="list-decimal space-y-3 pl-5 text-sm">
@@ -415,9 +421,7 @@ function ExtensionLibraryContents({
             </p>
             <div className="flex flex-wrap gap-3">
               <Button
-                disabled={
-                  exporting || !marketplaces.data?.some((row) => row.name === 'private-local')
-                }
+                disabled={exporting || !hasLocalItems}
                 onClick={async () => {
                   setExporting(true);
                   try {
@@ -441,10 +445,8 @@ function ExtensionLibraryContents({
                 Create GitHub repository
               </ExternalLink>
             </div>
-            {!marketplaces.data?.some((row) => row.name === 'private-local') ? (
-              <p className="text-sm text-muted-foreground">
-                Create or upload a skill or plugin first.
-              </p>
+            {!hasLocalItems ? (
+              <p className="text-sm text-muted-foreground">Save an agent, skill or plugin first.</p>
             ) : null}
           </DialogContent>
         </Dialog>
