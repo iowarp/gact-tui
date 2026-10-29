@@ -1,19 +1,23 @@
 # CLIO in Docker
 
+The legacy TUI is **frozen and unsupported**. Do not run old TUI binaries or
+images for current CLIO, including from Claude Code. Source is retained for a
+future upgrade, but new releases publish only Web and API images. For current
+CLIO installation, start at **[clio.iowarp.ai](https://clio.iowarp.ai/)**.
+
 Container images for the CLIO stack. This is an **addition** to the existing
 install-script / desktop-installer distribution (the `clio-desktop-v*` release
 installers built by `.github/workflows/apps.yml`; see `desktop/README.md`), not
 a replacement — use whichever fits your environment.
 
-Three images, all built from this repo:
+Two supported images, built from this repo:
 
 | Image | What runs inside | Port | How you use it |
 |-------|------------------|------|----------------|
 | `clio-api` | `clio-agent-gact` (GACT REST + SSE server) | `7777` | Headless backend for any GACT client |
 | `clio-web` | `clio-agent-gact` (loopback) + **nginx serving the web UI** with `/v1` proxied | `80` | Browser UI, one container, no CORS setup |
-| `clio-tui` | `clio-agent-gact` (loopback) + the **Bubbletea TUI** | — | `docker run -it` for a terminal client |
 
-All three are based on `python:3.12-slim`. clio-agent pulls in a large
+These are based on `python:3.12-slim`. clio-agent pulls in a large
 scientific Python stack (numpy / pyarrow / matplotlib / h5py via DSPy), so the
 images land around **~1.0 GB** — that floor is set by clio-agent's own
 dependencies, not the packaging here.
@@ -22,7 +26,7 @@ dependencies, not the packaging here.
 
 ## Quick start
 
-> Replace `clio-api` / `clio-web` / `clio-tui` with
+> Replace `clio-api` / `clio-web` with
 > `ghcr.io/iowarp/clio-api` (etc.) to pull the published images instead of
 > building locally.
 
@@ -43,7 +47,7 @@ curl -X POST http://127.0.0.1:17800/v1/sessions   # -> creates a session
 docker stop clio-api && docker rm clio-api
 ```
 
-Point the TUI or the pure-web bundle at `http://localhost:17800`.
+Point Desktop or Web at `http://localhost:17800`.
 
 ### 2. `clio-web` — agent + browser UI in one container
 
@@ -71,22 +75,10 @@ form — just enter `http://localhost:8080` there; nginx proxies it correctly.
 docker stop clio-web && docker rm clio-web
 ```
 
-### 3. `clio-tui` — agent + terminal UI in one interactive container
+### Legacy TUI
 
-```sh
-docker build -f docker/Dockerfile.clio-tui -t clio-tui .
-
-# MUST be interactive — the TUI needs a TTY:
-docker run -it --rm clio-tui
-
-# pass flags / subcommands straight through to gact:
-docker run -it --rm clio-tui --theme light
-docker run --rm clio-tui --help          # fast path: does not boot clio
-```
-
-The entrypoint starts clio on loopback, waits for `/v1/capabilities`, then
-exec's `gact` with `GACT_BACKEND` already pointed at it. Exiting the TUI stops
-the container and tears clio down.
+The old TUI image is frozen and unsupported. Its Dockerfile remains for future
+upgrade work; it is not a current deployment or release path.
 
 ---
 
@@ -105,8 +97,7 @@ docker compose --profile web logs -f
 docker compose --profile web down
 ```
 
-`clio-tui` is interactive and is intentionally not a compose service — run it
-with `docker run -it --rm clio-tui`.
+Use the Web profile for an interactive workspace.
 
 Override the host port or clio ref with env vars (or an `--env-file`):
 
@@ -186,9 +177,8 @@ and desktop surfaces show).
 ## Security notes
 
 - **Bind scope.** `clio-api` binds `0.0.0.0:7777` so the published port is
-  reachable; in `clio-web` and `clio-tui`, clio binds **loopback only** and is
-  never exposed — the browser reaches it through the nginx `/v1` proxy and the
-  TUI over localhost inside the container.
+  reachable; in `clio-web`, clio binds **loopback only** and is
+  never exposed — the browser reaches it through the nginx `/v1` proxy inside the container.
 - **Auth.** By default clio uses `trust_socket` auth (any local caller is
   trusted). When you publish `clio-api` beyond localhost, set a bearer:
   ```sh
@@ -197,7 +187,7 @@ and desktop surfaces show).
   Clients then send `Authorization: Bearer <token>`. The `clio-web` nginx
   config forwards `Authorization` through to clio, and the web Connect form has
   a token field.
-- **Non-root.** `clio-api` and `clio-tui` run as the unprivileged `clio`
+- **Non-root.** `clio-api` runs as the unprivileged `clio`
   (uid 10001). `clio-web`'s nginx master starts as root only to bind `:80`;
   the clio process is dropped to the `clio` user.
 - **Secrets.** Pass API keys via `-e` / `--env-file` / a secrets manager —
@@ -220,12 +210,8 @@ and desktop surfaces show).
 - **`clio-web`** builds the `@clio/workspace` bundle in a Node stage
   (`pnpm install --filter "@clio/workspace..."` + `pnpm --filter @clio/workspace build`,
   pnpm pinned to `9.15.9` to match `.github/workflows/apps.yml`).
-- **`clio-tui`** builds the deprecated `gact` binary in a `golang:1.25` stage.
-  The image copies the independent contract modules and builds the TUI explicitly
-  with `GOWORK=off`; the retired emulator is not part of the image or workspace.
-- The repo-root **`.dockerignore`** keeps the build context lean (excludes
-  `research/`, `node_modules`, `.venv`, `target/`, `dist/`, screenshots,
-  `*.png`/`*.gif`, `.git`). Without it the context is multiple GB.
+- **Legacy TUI:** the Dockerfile is retained as frozen source only. It is not
+  built or published by the release workflow.
 
 ### CI
 
