@@ -38,7 +38,7 @@ export function ProviderPanelFooter({
   const busy = Boolean(actions.stage) || Boolean(logOut?.busy);
   return (
     <div
-      className="flex min-w-0 shrink-0 flex-wrap items-center border-t px-2 py-1.5"
+      className="flex min-w-0 shrink-0 flex-wrap items-center border-t px-1 py-1.5"
       data-slot="provider-panel-footer"
     >
       <RefreshButton

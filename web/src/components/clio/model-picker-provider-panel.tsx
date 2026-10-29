@@ -5,6 +5,7 @@ import { ProviderComponentStatus } from './provider-component-status';
 import { useProviderComponentUpdate } from './provider-component-update';
 import { ProviderConnectState } from './provider-connect-state';
 import { providerCredentialKind } from '@/lib/provider-availability';
+import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useProviderActions } from './provider-actions';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
 import { providerActionError } from './provider-setup-state';
@@ -89,13 +90,14 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
 
   if (!group) return { column: {} satisfies ProviderPanelColumn, stage };
   const settings = (
-    <Button asChild className="px-1.5" size="xs" type="button" variant="ghost">
+    <Button asChild className="px-1" size="xs" type="button" variant="ghost">
       {inRouter ? (
         <Link
           aria-label="Provider settings"
           to={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
           onClick={onClose}
         >
+          <SettingsIcon aria-hidden="true" />
           Settings
         </Link>
       ) : (
@@ -104,6 +106,7 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
           href={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
           onClick={onClose}
         >
+          <SettingsIcon aria-hidden="true" />
           Settings
         </a>
       )}
