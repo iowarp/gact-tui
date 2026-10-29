@@ -46,6 +46,7 @@ it('warms only the first bounded history page and shares it when the rail opens'
   try {
     await waitFor(() => expect(result.current.workPages.history.items).toHaveLength(1));
     expect(result.current.workPages.history.visible).toBe(false);
+    expect(result.current.workPages.history.loaded).toBe(true);
     expect(repository.asyncProcessesPage).toHaveBeenCalledWith(
       'sess',
       {

@@ -26,6 +26,7 @@ import { SessionSummaryRow } from './session-summary-row';
 import { clioStatusLabel } from './status';
 import { ClioToolInvocation } from './tool-invocation';
 import { AsyncTaskList } from './async-task-list';
+import { showCompletedWork } from './task-history';
 import { isSettledTaskActivity, taskActivity } from './task-activity';
 
 import type { SessionRailItem } from './session-rail-layout';
@@ -77,7 +78,8 @@ export function sessionEvidenceItems({
     ? activity.filter((entry) => !isSettledTaskActivity(entry)).length
     : activity.length;
   // Finished work sits behind Completed work: a count of 0 would read as none ever ran.
-  const finishedWorkHidden = Boolean(actions.workPages?.hasMore || history);
+  const completedWork = showCompletedWork(history, activity);
+  const finishedWorkHidden = Boolean(actions.workPages?.hasMore || completedWork);
   return [
     ...(runs.length
       ? [
@@ -148,7 +150,7 @@ export function sessionEvidenceItems({
           },
         ]
       : []),
-    ...(activity.length || actions.workPages?.hasMore || history
+    ...(activity.length || actions.workPages?.hasMore || completedWork
       ? [
           {
             id: 'background' as const,
