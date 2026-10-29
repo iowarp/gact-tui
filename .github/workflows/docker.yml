@@ -1,10 +1,11 @@
 name: docker
 
-# Builds the three CLIO container images (clio-api, clio-web, clio-tui).
+# Builds the supported CLIO container images (clio-api, clio-web).
+# The retained legacy TUI Dockerfile is frozen and unsupported, and is not published.
 #
-#  - On PRs that touch docker/** (or this workflow): build all three to verify
+#  - On PRs that touch docker/** (or this workflow): build both to verify
 #    the Dockerfiles, but do NOT push.
-#  - On clio-desktop-v* tags: build AND push to ghcr.io/iowarp/clio-{api,web,tui}.
+#  - On clio-desktop-v* tags: build AND push to ghcr.io/iowarp/clio-{api,web}.
 #
 # This is separate from apps.yml (desktop/web installers) and ci.yml (Go).
 
@@ -16,7 +17,6 @@ on:
     paths:
       - 'docker/**'
       - '.dockerignore'
-      - 'tui/**'
       - 'contract/**'
       - 'web/**'
       - 'packages/**'
@@ -37,7 +37,7 @@ on:
 env:
   REGISTRY: ghcr.io
   # Image namespace. Repo lives under iowarp/ on GitHub; images publish to
-  # ghcr.io/iowarp/clio-{api,web,tui} on release tags.
+  # ghcr.io/iowarp/clio-{api,web} on release tags.
   IMAGE_NAMESPACE: iowarp
   CLIO_REF: develop
 
@@ -58,8 +58,6 @@ jobs:
             dockerfile: docker/Dockerfile.clio-api
           - image: clio-web
             dockerfile: docker/Dockerfile.clio-web
-          - image: clio-tui
-            dockerfile: docker/Dockerfile.clio-tui
 
     steps:
       - uses: actions/checkout@v4
@@ -92,8 +90,7 @@ jobs:
       - name: Build (and push on tags)
         uses: docker/build-push-action@v6
         with:
-          # Build context is the REPO ROOT: the TUI image needs the go.work
-          # workspace and the web image needs the root pnpm workspace.
+          # Build context is the REPO ROOT: Web needs the root pnpm workspace.
           context: .
           file: ${{ matrix.dockerfile }}
           # Push only for release tags; PRs and branch pushes build-only.
