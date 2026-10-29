@@ -17,9 +17,11 @@ The active product surfaces are at the top level:
 - [`contract/gact/`](contract/gact/) — independent Go wire types used by remaining
   Go consumers.
 
-The Go TUI remains under [`tui/`](tui/) for compatibility but is deprecated and
-is not the primary product. The old web applications and reference emulator have
-been removed.
+The legacy Go TUI is **frozen and unsupported**. It remains under [`tui/`](tui/)
+for a future upgrade, but is not a valid way to install, run or verify current
+CLIO. Do not use its old binaries or Docker image, including from Claude Code or
+other assistants. New releases do not publish TUI payloads. Use Web or Desktop;
+CLIO downloads and installation guidance are at **[clio.iowarp.ai](https://clio.iowarp.ai/)**.
 
 ## Development
 
@@ -47,15 +49,16 @@ pnpm build
 is not represented as a skipped unit test. Run it only against an authorized real
 service with `pnpm --filter @clio/core test:live`.
 
-The remaining contract and adapter Go modules have a separate gate. The
-deprecated TUI may still be built explicitly:
+The remaining contract and adapter Go modules have a separate gate:
 
 ```sh
 make test-go
-make build-tui
 ```
 
 No default build or test target starts an emulator.
+
+Legacy TUI source and compatibility tests are retained for future development.
+They do not qualify the TUI as a supported product interface.
 
 ## Product branding
 
