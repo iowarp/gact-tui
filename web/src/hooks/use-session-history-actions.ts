@@ -99,5 +99,6 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
       toast.error('Unable to create a share link', { description: error.message }),
   });
 
-  return { compact, fork, rewind, share, undo };
+  const isPending = [compact, fork, rewind, share, undo].some((action) => action.isPending);
+  return { compact, fork, rewind, share, undo, isPending };
 }

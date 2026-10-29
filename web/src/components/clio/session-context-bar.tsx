@@ -1,4 +1,4 @@
-import type { Session } from '@clio/core/v3';
+import { sessionAgentRef, type Session } from '@clio/core/v3';
 import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { canForkSession } from '@/lib/session-state';
@@ -13,6 +13,7 @@ export interface ClioSessionContextBarProps {
   parentSession?: Session;
   /** The agent's name while its resolution loads (from the session's pinned reference). */
   agentLabel?: string;
+  workspaceLabel?: string;
   actionsPending: boolean;
   management?: ClioSessionActionsProps['management'];
   onCompact: () => Promise<void>;
@@ -30,6 +31,7 @@ export function ClioSessionContextBar({
   session,
   parentSession,
   agentLabel,
+  workspaceLabel,
   actionsPending,
   management,
   onCompact,
@@ -54,33 +56,32 @@ export function ClioSessionContextBar({
           <ArrowLeftIcon aria-hidden="true" />
         </Button>
       ) : null}
-      {/* The desktop title bar's centre already shows `workspace › session`
-          plus the agent badge (see DesktopTitleContext /
-          useDesktopTitleStore) when running in Tauri, so this in-page
-          duplicate of the same heading is hidden there — the actions to
-          its right (fork/compact/share/undo/terminal) are NOT chrome, so
-          they still render regardless of host. */}
+      {/* Native window chrome owns the passive title. Agent controls remain
+          available in the workspace toolbar in every host. */}
       {inTauri() ? null : (
         <div className="flex min-w-0 items-center gap-1.5">
-          {/* The title gives way first, so the agent's name stays readable on a phone. */}
           <h1 className="min-w-[4ch] shrink-[3] truncate text-sm font-medium">
             {session?.title ?? 'Session unavailable'}
           </h1>
-          {session ? (
-            <>
-              <span aria-hidden="true" className="shrink-0 text-muted-foreground">
-                /
+          {workspaceLabel ? (
+            <span className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex">
+              <span className="text-muted-foreground">in</span>
+              <span className="max-w-28 truncate" title={workspaceLabel}>
+                {workspaceLabel}
               </span>
-              <SessionAgentControl
-                fallbackLabel={agentLabel}
-                onOpenAgent={onOpenAgent}
-                sessionId={session.id}
-              />
-            </>
+            </span>
           ) : null}
         </div>
       )}
-      {/* A rule keeps the conversation's actions apart from the agent's + control. */}
+      {session ? (
+        <SessionAgentControl
+          agentRef={sessionAgentRef(session)}
+          fallbackLabel={agentLabel}
+          onOpenAgent={onOpenAgent}
+          sessionId={session.id}
+        />
+      ) : null}
+      {/* Keep conversation actions apart from agent customization. */}
       <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
       <ClioSessionActions
         disabled={!session || actionsPending}

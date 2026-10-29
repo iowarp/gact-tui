@@ -139,7 +139,7 @@ describe('ClioSessionContextBar', () => {
     expect(screen.queryByRole('button', { name: 'Open downloads' })).toBeNull();
   });
 
-  it('hides its own session-title heading inside Tauri, where the desktop title bar already shows it', () => {
+  it('keeps agent controls in Tauri while the native window owns the passive title', () => {
     Object.assign(window, { __TAURI_INTERNALS__: {} });
     try {
       render(
@@ -157,10 +157,7 @@ describe('ClioSessionContextBar', () => {
       );
 
       expect(screen.queryByRole('heading', { name: session.title })).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: 'EarthScope (Flat / Haiku)' }),
-      ).not.toBeInTheDocument();
-      // The actions beside it are not chrome, so they still render.
+      expect(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' })).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: `Actions for ${session.title}` }),
       ).toBeInTheDocument();
