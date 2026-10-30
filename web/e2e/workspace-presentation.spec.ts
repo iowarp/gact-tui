@@ -261,11 +261,14 @@ test('SVG previews stay at the top and horizontally centered through pane resizi
         image.evaluate((element) => {
           const viewport = element.closest('[data-slot="image-viewport"]')!;
           const bounds = element.getBoundingClientRect();
-          return Math.round(
-            bounds.left +
-              bounds.width / 2 -
-              viewport.getBoundingClientRect().left -
-              viewport.clientWidth / 2,
+          // Math.round(-0.4) is -0, which toBe(0) rejects; the sign of a centred offset is noise.
+          return Math.abs(
+            Math.round(
+              bounds.left +
+                bounds.width / 2 -
+                viewport.getBoundingClientRect().left -
+                viewport.clientWidth / 2,
+            ),
           );
         }),
       )
