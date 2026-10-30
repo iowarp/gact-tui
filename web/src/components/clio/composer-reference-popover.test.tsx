@@ -284,7 +284,8 @@ describe('composer reference placement', () => {
     expect(token?.nextSibling?.textContent).toBe(' after');
     expect(document.querySelector('input[name="message"]')).toHaveValue('before  after');
     await waitFor(() => expect(editor).toHaveFocus());
-    expect(editorCaretOffset(editor)).toBe('before '.length);
+    // Past the space after the reference, so the next word does not touch it.
+    expect(editorCaretOffset(editor)).toBe('before  '.length);
   });
 
   it('opens and replaces the mention under the caret in the middle of a draft', async () => {

@@ -1,12 +1,6 @@
 import { ActionCardButton } from './action-card-button';
 import { responseArtifactBlocks } from '@/lib/artifact-presentation';
-import type {
-  A2UIActionLifecycle,
-  A2UISurface,
-  Artifact,
-  MessageBlock,
-  WorkspaceReference,
-} from '@clio/core/v3';
+import type { A2UIActionLifecycle, A2UISurface, Artifact, MessageBlock } from '@clio/core/v3';
 import {
   AlertTriangleIcon,
   ExternalLinkIcon,
@@ -14,7 +8,7 @@ import {
   PanelsTopLeftIcon,
   RouteIcon,
 } from 'lucide-react';
-import { createElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -40,9 +34,10 @@ import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import { ReferencedArtifact } from './referenced-artifact';
 import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
-import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
-import { referenceKindIcon } from './composer-reference-presentation';
+import { ContextReferenceLink } from './context-reference-link';
+import { inlinedReferenceIds, type ContextReferenceBlock } from '@/lib/sent-inline-references';
+import { sentDataReferences } from '@/lib/sent-data-references';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
@@ -161,6 +156,8 @@ type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
   messageSessionId?: string;
   reasoningDefaultOpen?: boolean;
   compactReferences?: boolean;
+  /** Reference blocks a sent message can show at their `@mention` in its text. */
+  inlineReferences?: readonly ContextReferenceBlock[];
 };
 
 function MessageBlockView({
@@ -187,6 +184,7 @@ function MessageBlockView({
   interactions,
   onInteractionResponse,
   compactReferences,
+  inlineReferences,
 }: MessageBlockViewProps) {
   const previewLines = useTranscriptPreviewLines();
   switch (block.type) {
@@ -196,6 +194,8 @@ function MessageBlockView({
           block={block}
           messageId={messageId}
           compactReferences={compactReferences}
+          inlineReferences={inlineReferences}
+          onOpenReference={onOpenReference}
         />
       );
     }
@@ -374,40 +374,8 @@ function MessageBlockView({
           resources={resources}
         />
       );
-    case 'context_reference': {
-      const reference: WorkspaceReference = {
-        kind: block.ref_kind,
-        id: block.ref_id,
-        label: block.label,
-        // The transcript block carries no description of its own. Repeating the
-        // label here would invent one, and every surface downstream would read
-        // it as something the service said.
-        detail: '',
-        media_type: block.media_type,
-        revision: block.revision,
-        navigation: block.navigation,
-      };
-      const kind = referenceKindLabel(block.ref_kind);
-      return (
-        <button
-          aria-label={`Open referenced ${kind} ${block.label}`}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          // The revision is an addressing token, not something to read. It stays
-          // available for support and correlation without being shown.
-          data-reference-revision={block.revision}
-          disabled={!onOpenReference}
-          onClick={() => onOpenReference?.(reference)}
-          title={kind}
-          type="button"
-        >
-          {createElement(referenceKindIcon(block.ref_kind), {
-            'aria-hidden': 'true',
-            className: 'size-3.5 shrink-0',
-          })}
-          <span className="truncate">{block.label}</span>
-        </button>
-      );
-    }
+    case 'context_reference':
+      return <ContextReferenceLink block={block} onOpenReference={onOpenReference} />;
     case 'unknown':
       return (
         <Alert>
@@ -420,6 +388,16 @@ function MessageBlockView({
         </Alert>
       );
   }
+}
+
+function sentInlineReferences(blocks: readonly MessageBlock[]) {
+  const references = blocks.filter(
+    (block): block is ContextReferenceBlock => block.type === 'context_reference',
+  );
+  const texts = blocks.flatMap((block) =>
+    block.type === 'text' && !block.streaming ? [sentDataReferences(block.text).text] : [],
+  );
+  return { references, shown: inlinedReferenceIds(texts, references) };
 }
 
 export function MessageBlockSequence({
@@ -453,6 +431,10 @@ export function MessageBlockSequence({
   );
   // An answer a hook revised folds behind the hook's `revised` notice.
   const revisions = answerRevisions(messageBlocks ?? orderedBlocks);
+  // A sent message shows each reference where it was typed; the rest stay below it.
+  const inline = props.compactReferences
+    ? sentInlineReferences(messageBlocks ?? orderedBlocks)
+    : undefined;
   let index = 0;
 
   while (index < orderedBlocks.length) {
@@ -488,6 +470,11 @@ export function MessageBlockSequence({
       continue;
     }
 
+    if (block.type === 'context_reference' && inline?.shown.has(block.id)) {
+      index += 1;
+      continue;
+    }
+
     if (block.type === 'diff' && inlineDiffs.has(`${block.path}\u0000${block.unified_diff}`)) {
       index += 1;
       continue;
@@ -514,7 +501,14 @@ export function MessageBlockSequence({
     }
 
     if (block.type !== 'artifact' || !props.artifacts[block.artifact_id]) {
-      rendered.push(<MessageBlockView block={block} key={`${block.id}-${keyIndex}`} {...props} />);
+      rendered.push(
+        <MessageBlockView
+          block={block}
+          inlineReferences={inline?.references}
+          key={`${block.id}-${keyIndex}`}
+          {...props}
+        />,
+      );
       index += 1;
       continue;
     }
