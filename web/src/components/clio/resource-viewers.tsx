@@ -10,7 +10,7 @@ import {
   GitBranchIcon,
   FileCode2Icon,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FileTextView } from './file-text-view';
@@ -19,6 +19,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRepository } from '@/hooks/use-repository';
+import { useHdf5ViewerSupported } from '@/hooks/use-hdf5-viewer-supported';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { formatBytes } from '@/lib/format';
 import { isTextMediaType } from '@/lib/media-types';
@@ -63,6 +64,7 @@ export function WorkspaceFileView({
   embedded?: boolean;
 }) {
   const detected = mediaType || inferredWorkspaceMediaType(path);
+  const hdf5Viewer = useHdf5ViewerSupported();
   const html =
     detected !== 'application/pdf' && !detected.startsWith('image/') && isHtmlFile(path, detected);
   const preview =
@@ -72,6 +74,10 @@ export function WorkspaceFileView({
       <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
     ) : isTextMediaType(detected) || html ? (
       <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
+    ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
+      <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />}>
+        <Hdf5ViewerFrame path={path} workspaceId={workspaceId} />
+      </Suspense>
     ) : (
       <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
     );
@@ -83,6 +89,12 @@ export function WorkspaceFileView({
     />
   );
 }
+
+const HDF5_MEDIA_TYPE = 'application/x-hdf5';
+
+const Hdf5ViewerFrame = lazy(() =>
+  import('./hdf5-viewer-frame').then((module) => ({ default: module.Hdf5ViewerFrame })),
+);
 
 function WorkspacePdfView({
   workspaceId,
@@ -606,6 +618,9 @@ function inferredWorkspaceMediaType(path: string): string {
   if (isImagePath(path)) return imageMediaType(path);
   if (extension === 'json') return 'application/json';
   if (extension === 'xml') return 'application/xml';
+  // HDF5 and formats built on it (HDF-EOS5, NeXus). `.hdf` is left out: it is
+  // usually HDF4.
+  if (['h5', 'hdf5', 'he5', 'nxs'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
   if (isTextArtifact('', path)) return 'text/plain';
   return 'application/octet-stream';
 }
