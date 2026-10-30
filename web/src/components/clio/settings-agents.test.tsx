@@ -139,6 +139,7 @@ describe('AgentSettings', () => {
 it('opens the full agent row, resolves draft changes and saves a new local variation', async () => {
   const user = userEvent.setup();
   renderSettings();
+  await user.click(await screen.findByRole('button', { name: 'CLIO 1 plugin' }));
   await user.click(await screen.findByRole('button', { name: 'Explore CLIO' }));
   const explorer = await screen.findByRole('dialog', { name: 'CLIO' });
   await user.click(await within(explorer).findByRole('button', { name: 'Add plugin' }));
@@ -174,6 +175,7 @@ it('lets a person save an unchanged agent as a local starting point and collapse
   await user.click(within(installed).getByRole('button', { name: /clio 1/u }));
   expect(within(installed).queryByRole('button', { name: 'Explore CLIO' })).not.toBeInTheDocument();
   await user.click(within(installed).getByRole('button', { name: /clio 1/u }));
+  await user.click(within(installed).getByRole('button', { name: 'CLIO 1 plugin' }));
   await user.click(within(installed).getByRole('button', { name: 'Explore CLIO' }));
   expect(await screen.findByRole('button', { name: 'Save local variation' })).toBeEnabled();
 });

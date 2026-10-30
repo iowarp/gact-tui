@@ -1,5 +1,5 @@
 import type { MessageBehavior, ReasoningEffort, SpotterAvailability } from '@clio/core/v3';
-import { BrainIcon, type LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { AdjustIcon, HelpIcon } from '@/lib/icon-vocabulary';
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { approvalOptionViews } from './approval-option-availability';
+import { BehaviorMenuItem } from './behavior-menu-item';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
 type BehaviorMenu = 'approval' | 'effort' | 'mode';
@@ -37,9 +38,6 @@ interface ClioComposerBehaviorControlsProps {
   unrecognizedEffort?: string;
   /** What the service reports about arming SPOTTER review here (undefined: unknown). */
   spotterAvailability?: SpotterAvailability;
-  /** Only a new conversation offers this: once off, memory stays off for it. */
-  memoryOff?: boolean;
-  onMemoryOffChange?: (off: boolean) => void;
 }
 
 /** ReUI Button Group composition for per-message behavior controls. */
@@ -52,8 +50,6 @@ export function ClioComposerBehaviorControls({
   defaultEffortLabel = 'Model default',
   unrecognizedEffort,
   spotterAvailability,
-  memoryOff = false,
-  onMemoryOffChange,
 }: ClioComposerBehaviorControlsProps) {
   const approvalOptions = approvalOptionViews(SESSION_APPROVAL_OPTIONS, spotterAvailability);
   // Once an effort is chosen here the reported value is answered, so the
@@ -158,13 +154,7 @@ export function ClioComposerBehaviorControls({
             value={selectedMode?.value ?? ''}
           >
             {SESSION_MODE_OPTIONS.map((option) => (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <option.icon className="size-4" />
-                <span>
-                  <span className="block font-medium">{option.label}</span>
-                  <span className="block text-xs text-muted-foreground">{option.description}</span>
-                </span>
-              </DropdownMenuRadioItem>
+              <BehaviorMenuItem key={option.value} option={option} />
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
@@ -199,42 +189,16 @@ export function ClioComposerBehaviorControls({
             value={selectedApproval?.value ?? ''}
           >
             {approvalOptions.map((option) => (
-              <DropdownMenuRadioItem
+              <BehaviorMenuItem
                 disabled={option.disabled}
                 key={option.value}
+                option={option}
                 title={option.unavailableDetail || undefined}
-                value={option.value}
-              >
-                <option.icon className="size-4" />
-                <span>
-                  <span className="block font-medium">{option.label}</span>
-                  <span className="block text-xs text-muted-foreground">{option.description}</span>
-                </span>
-              </DropdownMenuRadioItem>
+              />
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      {onMemoryOffChange ? (
-        <Button
-          aria-label={memoryOff ? 'Memory off for this conversation' : 'Memory on'}
-          aria-pressed={memoryOff}
-          className="gap-1.5 px-2"
-          disabled={disabled}
-          onClick={() => onMemoryOffChange(!memoryOff)}
-          size="sm"
-          title={
-            memoryOff
-              ? 'This conversation will neither read nor write memory'
-              : 'Turn memory off for this conversation'
-          }
-          type="button"
-          variant={memoryOff ? 'secondary' : 'outline'}
-        >
-          <BrainIcon className={memoryOff ? 'opacity-50' : undefined} />
-          <span className="hidden lg:inline">{memoryOff ? 'Memory off' : 'Memory'}</span>
-        </Button>
-      ) : null}
     </ButtonGroup>
   );
 }

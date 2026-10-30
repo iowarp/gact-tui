@@ -164,6 +164,28 @@ export const agentEntrySchema = z.object({
 
 export type AgentEntry = z.infer<typeof agentEntrySchema>;
 
+/** Host locations and portable definitions of the person's private collection. */
+export const localLibrarySchema = z.object({
+  root: z.string(),
+  agents_directory: z.string(),
+  plugins_directory: z.string(),
+  agents: z.array(
+    z.object({
+      ref: z.string(),
+      path: z.string(),
+      definition: z.object({
+        id: z.string(),
+        name: z.string(),
+        description: z.string(),
+        extends: z.string(),
+        add: strings,
+        remove: strings,
+      }),
+    }),
+  ),
+});
+export type LocalLibrary = z.infer<typeof localLibrarySchema>;
+
 /**
  * Where an active plugin came from: `core` (every agent), `agent` (an agent
  * layer such as standard or science, named by `via`), `pack` (a member of the

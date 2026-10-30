@@ -218,4 +218,93 @@ describe('MarketplaceSettings', () => {
     expect(within(report).getByText(/prompt\/missing.md is missing/u)).toBeVisible();
     expect(repository.checkPlugins).toHaveBeenCalledWith({ installed: 'lab' });
   });
+
+  it('keeps an installed private marketplace focused on its collection instead of source metadata', async () => {
+    repository.pluginMarketplaces.mockResolvedValue([
+      {
+        name: 'private-local',
+        source: 'D:/clio/config/plugins/local/private-local',
+        format: 'agent-plugins',
+        trusted: true,
+        default: false,
+        parent: '',
+        trust_reason: 'local',
+        commit: '',
+        installed_at: '',
+        diagnostics: [],
+      },
+    ]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MarketplaceSettings localCollection={<p>Saved local items</p>} onBackup={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Private local marketplace/ }));
+    expect(screen.getByText('Saved local items')).toBeVisible();
+    expect(screen.queryByText('D:/clio/config/plugins/local/private-local')).toBeNull();
+    expect(screen.queryByText(/Agent Plugins format/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Back up with GitHub' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Actions for private-local' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Actions for private-local' }));
+    expect(screen.getByRole('menuitem', { name: 'Back up with GitHub…' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Add remote marketplace…' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Update' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Check plugins' })).toBeVisible();
+  });
+
+  it('keeps source actions available while an agent-only local collection is collapsed', async () => {
+    const onBackup = vi.fn();
+    const onExport = vi.fn();
+    const onLocalDetails = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MarketplaceSettings
+          localCollection={<p>Saved local items</p>}
+          onBackup={onBackup}
+          onExport={onExport}
+          onLocalDetails={onLocalDetails}
+        />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    const actions = await screen.findByRole('button', { name: 'Actions for private-local' });
+    expect(screen.queryByText('Saved local items')).toBeNull();
+    await user.click(actions);
+    expect(screen.queryByRole('menuitem', { name: 'Update' })).toBeNull();
+    await user.click(screen.getByRole('menuitem', { name: 'Back up with GitHub…' }));
+    expect(onBackup).toHaveBeenCalledOnce();
+    await user.click(actions);
+    await user.click(screen.getByRole('menuitem', { name: 'Download marketplace ZIP' }));
+    expect(onExport).toHaveBeenCalledOnce();
+    await user.click(actions);
+    await user.click(screen.getByRole('menuitem', { name: 'Marketplace details' }));
+    expect(onLocalDetails).toHaveBeenCalledOnce();
+    expect(screen.getByText('Saved local items')).toBeVisible();
+    await user.click(actions);
+    await user.click(screen.getByRole('menuitem', { name: 'Add remote marketplace…' }));
+    const install = screen.getByRole('dialog', { name: 'Install a marketplace' });
+    expect(within(install).getByRole('textbox', { name: 'Source' })).toBeVisible();
+    expect(repository.installPluginMarketplace).not.toHaveBeenCalled();
+  });
+
+  it('retains repository, source, update and check actions on remote marketplaces', async () => {
+    const user = userEvent.setup();
+    renderSettings();
+    await user.click(await screen.findByRole('button', { name: 'Actions for lab' }));
+    expect(screen.getByRole('menuitem', { name: 'Open repository' })).toHaveAttribute(
+      'href',
+      'https://example.org/lab',
+    );
+    await user.click(screen.getByRole('menuitem', { name: 'Copy source' }));
+    expect(await navigator.clipboard.readText()).toBe('https://example.org/lab.git');
+    await user.click(screen.getByRole('button', { name: 'Actions for lab' }));
+    expect(screen.getByRole('menuitem', { name: 'Update' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Check plugins' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Uninstall' })).toBeVisible();
+    await user.click(screen.getByRole('menuitem', { name: 'Marketplace details' }));
+    expect(screen.getByText('https://example.org/lab.git')).toBeVisible();
+  });
 });

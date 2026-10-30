@@ -1,6 +1,6 @@
 import type { AgentEntry } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BotIcon, UserRoundIcon, ChevronRightIcon } from 'lucide-react';
+
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -15,19 +15,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+
 import { useRepository } from '@/hooks/use-repository';
 import { useAgentPluginsSupported, useInstalledAgents } from '@/hooks/use-session-agent';
-import { agentSearchTarget } from '@/lib/global-search-commands';
-import { DeleteIcon } from '@/lib/icon-vocabulary';
-import { agentDisplayName } from '@/lib/plugin-presentation';
+
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { DraftAgentCompositionView } from './agent-composition-view';
+import { AgentRow, AgentPreviewDialog } from './agent-library-row';
 import { CatalogGroup } from './catalog-group';
-import type { DraftAgent } from '@/hooks/use-draft-agent-change';
+
 import { SettingsSectionHeading } from './settings-section-heading';
 
 /** Installed agents and the person's own agents (a parent plus a delta). */
@@ -168,100 +164,5 @@ export function AgentSettings() {
         />
       ) : null}
     </div>
-  );
-}
-
-function AgentRow({
-  agent,
-  agents,
-  onPreview,
-  onDelete,
-}: {
-  agent: AgentEntry;
-  agents: readonly AgentEntry[];
-  onPreview: () => void;
-  onDelete?: () => void;
-}) {
-  const Icon = agent.kind === 'user' ? UserRoundIcon : BotIcon;
-  return (
-    <li
-      className="relative flex min-w-0 items-start gap-3 rounded-lg border px-3 py-3 hover:bg-muted/40 target:border-primary/50 target:bg-primary/10"
-      id={agentSearchTarget(agent.ref)}
-      tabIndex={-1}
-    >
-      <button
-        type="button"
-        aria-label={`Explore ${agent.name || agent.id}`}
-        onClick={onPreview}
-        className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{agent.name || agent.id}</span>
-            <span className="font-mono text-xs text-muted-foreground">{agent.ref}</span>
-            {agent.version ? (
-              <span className="text-xs text-muted-foreground">{agent.version}</span>
-            ) : null}
-            {agent.flow && agent.flow.id !== 'react' ? (
-              <Badge variant="outline">Flow {agent.flow.id}</Badge>
-            ) : null}
-          </div>
-          {agent.description ? (
-            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{agent.description}</p>
-          ) : null}
-          {agent.kind === 'user' && agent.extends ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Starts from {agentDisplayName(agent.extends, agents)}
-              {agent.delta?.add.length ? `; adds ${agent.delta.add.join(', ')}` : ''}
-              {agent.delta?.remove.length ? `; removes ${agent.delta.remove.join(', ')}` : ''}
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {agent.plugins.length} {agent.plugins.length === 1 ? 'plugin' : 'plugins'}
-            </p>
-          )}
-        </div>
-        <ChevronRightIcon
-          aria-hidden="true"
-          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-        />
-      </button>
-      <div className="relative z-10 flex items-center gap-1">
-        {onDelete ? (
-          <Button
-            aria-label={`Delete ${agent.name || agent.ref}`}
-            onClick={onDelete}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <DeleteIcon aria-hidden="true" />
-          </Button>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
-function AgentPreviewDialog({ agent, onClose }: { agent: AgentEntry; onClose: () => void }) {
-  const [draft, setDraft] = useState<DraftAgent>({
-    ref: agent.ref,
-    delta: { add: [], remove: [] },
-  });
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
-        <DialogTitle className="sr-only">{agent.name || agent.ref}</DialogTitle>
-        <DialogDescription className="sr-only">
-          Explore this agent and save a local variation.
-        </DialogDescription>
-        <DraftAgentCompositionView draft={draft} onChange={setDraft} library />
-      </DialogContent>
-    </Dialog>
   );
 }

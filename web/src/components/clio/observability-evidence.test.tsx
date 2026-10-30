@@ -76,6 +76,7 @@ it.each([false, true])(
         pending: false,
         loadMore: vi.fn(async () => {}),
         history: {
+          loaded: false,
           visible: false,
           toggle: vi.fn(),
           items: [],
@@ -691,7 +692,7 @@ describe('ClioEvidenceView child agents', () => {
     expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
   });
 
-  it('uses one completed-work disclosure without claiming that no child agents ever ran', async () => {
+  it('omits background and completed-work categories when their loaded history is empty', () => {
     render(
       <ClioEvidenceView
         artifacts={[]}
@@ -719,10 +720,8 @@ describe('ClioEvidenceView child agents', () => {
     expect(screen.queryByText('No child agents in this session yet.')).not.toBeInTheDocument();
     // History has one owner; a second child section must not duplicate its toggle.
     expect(screen.queryByRole('button', { name: /^Child agents,/ })).toBeNull();
-    const background = screen.getByRole('button', { name: 'Background tasks, none running' });
-    if (background.getAttribute('aria-expanded') === 'false') await userEvent.click(background);
-    expect(screen.getAllByRole('button', { name: 'Completed work' })).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Background tasks, none running' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Completed work' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Background tasks,/ })).toBeNull();
   });
 
   it('opens a workspace tab on click and the center on Shift-click', async () => {

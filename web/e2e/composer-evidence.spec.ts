@@ -31,7 +31,9 @@ test('keeps response preparation in the transcript beside the evidence-layout la
   await openSession(page, 1280);
   const composer = page.locator('[data-slot="clio-composer-stack"]');
   const header = page.locator('[data-slot="workspace-header"]');
-  await expect(header.getByRole('button', { name: 'Evidence layout: None', exact: true })).toBeVisible();
+  await expect(
+    header.getByRole('button', { name: 'Evidence layout: None', exact: true }),
+  ).toBeVisible();
   await expect(composer.getByRole('button', { name: /^Evidence layout: /u })).toHaveCount(0);
   await expect(
     header.getByRole('button', { name: 'Open workspace canvas', exact: true }),
@@ -170,7 +172,7 @@ for (const [width, height] of [
       await showEvidenceRail(page, kind);
       const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
       await expect(panel).toHaveAttribute('data-showcase-mode', 'temporary');
-      const scroll = panel.locator('[data-slot="session-rail-scroll"]');
+      const scroll = panel.locator('[data-slot="evidence-regions"]');
       await expect
         .poll(() => scroll.evaluate((node) => node.scrollHeight > node.clientHeight))
         .toBe(true);
@@ -195,5 +197,77 @@ for (const [width, height] of [
       await expect(panel).toHaveCount(0);
       await expect(toggle).toBeFocused();
     }
+  });
+}
+
+test('an empty bounded history does not leave a Completed work category', async ({
+  page,
+}, testInfo) => {
+  let readHistory = false;
+  await page.route('**/v1/sessions/*/async-processes*', async (route) => {
+    if (new URL(route.request().url()).searchParams.get('active_only') === 'false')
+      readHistory = true;
+    await route.fulfill({ json: { processes: [], cursor: null, total: 0, revision: 1 } });
+  });
+  await page.route('**/v1/sessions/*/agent-tasks*', (route) =>
+    route.fulfill({ json: { tasks: [], cursor: null, total: 0, revision: 1 } }),
+  );
+  // The base transcript fixture records a completed child; this case has no such history.
+  await page.route('**/v1/sessions/*/messages*', async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    await route.fulfill({ json: { ...data, subagents: [] } });
+  });
+  await openSession(page, 640, 620);
+  await showEvidenceRail(page, 'Work');
+  await expect.poll(() => readHistory).toBe(true);
+  const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
+  await expect(panel.getByRole('button', { name: 'Completed work', exact: true })).toHaveCount(0);
+  await expect(
+    panel.getByRole('button', { name: /^(?:Expand|Collapse) Background tasks$/ }),
+  ).toHaveCount(0);
+  await panel.screenshot({ path: testInfo.outputPath('empty-work-history.png') });
+});
+
+for (const [width, height] of [
+  [640, 620],
+  [390, 500],
+]) {
+  test(`combined evidence wheel reaches Work without collapsing Session at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await openSession(page, width!, height!, true);
+    const launcher = page.getByRole('button', { name: /^Evidence layout: /u });
+    for (let step = 0; step < 4; step++) {
+      if ((await launcher.getAttribute('aria-label')) === 'Evidence layout: Both') break;
+      await launcher.press('ArrowRight');
+    }
+    const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
+    await expect(panel).toHaveAttribute('data-showcase-mode', 'temporary');
+    const scroll = panel.locator('[data-slot="evidence-regions"]');
+    await expect
+      .poll(() => scroll.evaluate((node) => node.scrollHeight > node.clientHeight))
+      .toBe(true);
+    expect(
+      await panel
+        .locator('[data-slot="session-rail-scroll"]')
+        .evaluateAll((nodes) =>
+          nodes.every((node) => !['auto', 'scroll'].includes(getComputedStyle(node).overflowY)),
+        ),
+    ).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`combined-session-${width}.png`) });
+    await expect(panel.getByText('Review station 60', { exact: true })).toBeAttached();
+    const bounds = (await scroll.boundingBox())!;
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 40);
+    await page.mouse.wheel(0, 10000);
+    await expect(panel.getByText('Review station 60', { exact: true })).toBeInViewport();
+    expect(await scroll.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+    await expect(
+      panel.getByRole('button', { name: 'Collapse Context', exact: true }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    await expect(
+      panel.getByRole('button', { name: 'Collapse Connected sources', exact: true }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    await page.screenshot({ path: testInfo.outputPath(`combined-work-${width}.png`) });
   });
 }

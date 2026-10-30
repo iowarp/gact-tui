@@ -561,18 +561,13 @@ export function WorkspacePage() {
           contextBar={
             <ClioSessionContextBar
               agentLabel={agentLabel}
+              workspaceLabel={activeWorkspace?.display_name}
               management={
                 session
                   ? { session, actions: navigationActions, endpoint: settings.endpoint }
                   : undefined
               }
-              actionsPending={
-                sessionHistory.fork.isPending ||
-                sessionHistory.compact.isPending ||
-                sessionHistory.undo.isPending ||
-                sessionHistory.rewind.isPending ||
-                sessionHistory.share.isPending
-              }
+              actionsPending={sessionHistory.isPending}
               onCompact={async () => {
                 await sessionHistory.compact.mutateAsync();
               }}

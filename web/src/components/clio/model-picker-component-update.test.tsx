@@ -190,7 +190,7 @@ describe('ClioModelPicker: provider SDK update (Claude Code)', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    expect(await screen.findByText('Codex client 0.157.1')).toBeVisible();
+    expect(await screen.findByText('Version 0.157.1')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Reload models' }));
     await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']));
     expect(repository.updateProviderComponents).toHaveBeenCalledWith('codex');
@@ -199,13 +199,18 @@ describe('ClioModelPicker: provider SDK update (Claude Code)', () => {
     );
     expect(await screen.findByText('Found 1 new model after updating the client.')).toBeVisible();
   });
-  it('shows the version fact and "Update available" next to it', async () => {
+  it('shows the version, update check and available update together', async () => {
     repository.providerComponents.mockResolvedValue(components());
     await openClaudeCode();
 
-    expect(await within(statusRow()).findByText('Update available: 0.1.64')).toBeVisible();
-    expect(within(statusRow()).getByText('Installed Claude Code 2.1.276')).toBeVisible();
-    expect(within(statusRow()).getByRole('button', { name: 'Update' })).toBeVisible();
+    expect(
+      await within(statusRow()).findByRole('button', { name: 'Update to 0.1.64' }),
+    ).toBeVisible();
+    expect(within(statusRow()).getByText('Version 0.1.63')).toHaveAttribute(
+      'title',
+      'Installed Claude Code 2.1.276\nC:/npm/claude.exe\nclaude-agent-sdk 0.1.63 → 0.1.64',
+    );
+    expect(within(statusRow()).getByRole('button', { name: 'Check updates' })).toBeVisible();
     expect(repository.providerComponents).toHaveBeenCalledWith(
       'claude_code',
       { refresh: true },
@@ -219,10 +224,12 @@ describe('ClioModelPicker: provider SDK update (Claude Code)', () => {
     );
     await openClaudeCode({ ...installedClient, source: 'bundled', version: '2.1.270' });
 
-    expect(await within(statusRow()).findByText('Bundled Claude Code 2.1.270')).toBeVisible();
+    expect(await within(statusRow()).findByText('Version 0.1.63')).toHaveAttribute(
+      'title',
+      'Bundled Claude Code 2.1.270\nC:/npm/claude.exe\nclaude-agent-sdk 0.1.63 → 0.1.64',
+    );
     await waitFor(() => expect(repository.providerComponents).toHaveBeenCalled());
-    expect(within(statusRow()).queryByRole('button', { name: 'Update' })).toBeNull();
-    expect(within(statusRow()).queryByText(/Update available/u)).toBeNull();
+    expect(within(statusRow()).queryByRole('button', { name: /^Update to /u })).toBeNull();
   });
 
   it('checks known provider components even without a CLI client badge', async () => {
@@ -235,7 +242,7 @@ describe('ClioModelPicker: provider SDK update (Claude Code)', () => {
         expect.anything(),
       ),
     );
-    expect(await screen.findByText('Update available: 0.1.64')).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Update to 0.1.64' })).toBeVisible();
   });
 
   it('Update shows each stage in the panel and on the yellow heartbeat, then re-checks the provider', async () => {
@@ -247,7 +254,7 @@ describe('ClioModelPicker: provider SDK update (Claude Code)', () => {
       .mockResolvedValue(job({ stage: 'done', running: false, changed: true, finished_at: 'x' }));
     const user = await openClaudeCode();
 
-    await user.click(await within(statusRow()).findByRole('button', { name: 'Update' }));
+    await user.click(await within(statusRow()).findByRole('button', { name: 'Update to 0.1.64' }));
 
     expect(await within(statusRow()).findByText('Downloading…')).toBeVisible();
     expect(claudeCodeHeartbeat()).toHaveAttribute('data-state', 'checking');

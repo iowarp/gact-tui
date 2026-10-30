@@ -85,6 +85,7 @@ export function useSessionObservability(
     pending: processes.isFetchingNextPage,
     loadMore: () => processes.fetchNextPage({ throwOnError: true }),
     history: {
+      loaded: history.isFetched,
       visible: showHistory,
       toggle: () => setHistorySession((value) => (value === sessionId ? null : sessionId)),
       items: history.data?.pages.flatMap((page) => page.items) ?? [],

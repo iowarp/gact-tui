@@ -47,32 +47,31 @@ export const SESSION_APPROVAL_OPTIONS = [
   {
     value: 'ask',
     label: 'Ask first',
-    description: 'Pause before protected actions.',
+    description: 'Ask before edits or commands.',
     icon: HelpIcon,
   },
   {
     value: 'auto-edits',
     label: 'Workspace edits',
-    description: 'Make workspace edits without a separate confirmation.',
+    description: 'Edit files without asking.',
     icon: FolderCheckIcon,
   },
   {
     value: 'ai-review',
     label: 'AI review',
-    description: 'Continue when automated review accepts the action.',
+    description: 'Let AI review each action.',
     icon: BotIcon,
   },
   {
     value: 'spotter-ai',
     label: 'SPOTTER review',
-    description: 'Require the configured SPOTTER policy.',
+    description: 'An AI agent watches the session.',
     icon: RadarIcon,
   },
   {
     value: 'bypass',
     label: 'Bypass checks',
-    description:
-      'Skip action approvals. Protected execution and source-access restrictions still apply.',
+    description: 'Run without asking.',
     icon: ShieldOffIcon,
   },
 ] satisfies readonly SessionBehaviorOption<Session['approval_mode']>[];

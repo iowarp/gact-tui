@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useEvidenceDisclosure } from '@/hooks/use-evidence-disclosures';
 import { useSessionRailLayout } from '@/hooks/use-session-rail-layout';
+import { cn } from '@/lib/utils';
 import { SessionRailCustomize } from './session-rail-customize';
 import {
   SESSION_RAIL_SECTIONS,
@@ -17,18 +18,24 @@ export function SessionRail({
   actions,
   title = 'Session',
   sections,
+  scrollable = true,
 }: {
   items: SessionRailItem[];
   actions?: ReactNode;
   title?: string;
   sections?: readonly SessionRailSectionId[];
+  /** A combined flyout owns the scrollbar for both rails. */
+  scrollable?: boolean;
 }) {
   const { layout, save, reset } = useSessionRailLayout();
   const visible = layout.order.filter(
     (id) => !layout.hidden.includes(id) && items.some((item) => item.id === id),
   );
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-slot="session-rail">
+    <div
+      className={cn('flex min-w-0 flex-col', scrollable && 'min-h-0 flex-1')}
+      data-slot="session-rail"
+    >
       <div className="flex h-9 shrink-0 items-center gap-1 px-1">
         <span className="mr-auto pl-1 text-xs font-medium">{title}</span>
         <SessionRailCustomize
@@ -42,7 +49,7 @@ export function SessionRail({
       </div>
       <div
         data-slot="session-rail-scroll"
-        className="clio-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pb-2"
+        className={cn('px-1 pb-2', scrollable && 'clio-scrollbar min-h-0 flex-1 overflow-y-auto')}
       >
         <div className="grid divide-y divide-border/60">
           {visible.map((id) => (
@@ -51,7 +58,9 @@ export function SessionRail({
         </div>
         {!visible.length ? (
           <p className="px-2 py-4 text-xs text-muted-foreground">
-            No sections to show. Add sections with Customize.
+            {title === 'Work' && !items.length
+              ? 'No work recorded in this conversation yet.'
+              : 'No sections to show. Add sections with Customize.'}
           </p>
         ) : null}
       </div>
