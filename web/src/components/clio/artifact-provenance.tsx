@@ -135,7 +135,7 @@ export function ArtifactProvenance({
           message="History is not available for this result. Its saved content remains readable."
         />
       ) : (
-        <p className="text-sm text-muted-foreground">Loading version history…</p>
+        <ResourceLoading label="Loading version history" variant="line" />
       )}
     </section>
   );

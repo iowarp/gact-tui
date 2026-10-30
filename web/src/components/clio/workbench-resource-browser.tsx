@@ -35,6 +35,7 @@ import { WorkspaceFileView } from './resource-viewers';
 import { FileSearchPassage } from './file-search-passage';
 import type { FileSearchLocation } from '@/lib/search-matches';
 import { WorkspaceDirectoryTree } from './workspace-directory-tree';
+import { ResourceLoading } from './resource-states';
 
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
@@ -393,12 +394,6 @@ export function ArtifactBrowser({
         artifactList
       )}
     </section>
-  );
-}
-
-function ResourceLoading({ label }: { label: string }) {
-  return (
-    <div className="grid h-full place-items-center p-6 text-sm text-muted-foreground">{label}…</div>
   );
 }
 
