@@ -5,6 +5,7 @@ import {
   type InlineReferenceSelection,
 } from '@/lib/composer-reference-domain';
 import { editorCaretOffset } from './composer-editor-model';
+import { hdf5DrillQuery } from './composer-hdf5-references';
 
 /**
  * The `@` mention the person is in the middle of typing. It is applied only to
@@ -114,9 +115,7 @@ export function useComposerReferenceController({
   const [caret, setCaret] = useState<number>();
 
   const mention = referenceMentionAt(input, caret);
-  const mentionIdentity = mention
-    ? JSON.stringify([input, mention.start, mention.end])
-    : undefined;
+  const mentionIdentity = mention ? JSON.stringify([input, mention.start, mention.end]) : undefined;
   const open =
     contextReferences &&
     Boolean(workspaceId) &&
@@ -209,6 +208,39 @@ export function useComposerReferenceController({
     ],
   );
 
+  /**
+   * Tab on an HDF5 file or group lists its contents instead of adding it: the
+   * mention becomes `file.h5::/group/`, so the typed text and the listing agree.
+   */
+  const drill = useCallback(
+    (reference: WorkspaceReference): boolean => {
+      const next = hdf5DrillQuery(reference);
+      if (!next) return false;
+      setActiveReferenceId(undefined);
+      if (pickerOpen) {
+        setSearchQuery(next);
+        return true;
+      }
+      if (!mention) return false;
+      const nextInput = `${input.slice(0, mention.start + 1)}${next}${input.slice(mention.end)}`;
+      const shift = nextInput.length - input.length;
+      const offset = mention.start + 1 + next.length;
+      setSelectedReferences(
+        selectedReferences.map((selection) =>
+          selection.offset >= mention.end
+            ? { ...selection, offset: selection.offset + shift }
+            : selection,
+        ),
+      );
+      setInput(nextInput);
+      caretRef.current = offset;
+      setCaret(offset);
+      focusEditor(offset);
+      return true;
+    },
+    [focusEditor, input, mention, pickerOpen, selectedReferences, setInput, setSelectedReferences],
+  );
+
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>): boolean => {
       if (!open) return false;
@@ -234,12 +266,14 @@ export function useComposerReferenceController({
         !event.nativeEvent.isComposing
       ) {
         event.preventDefault();
-        select(options[Math.max(activeIndex, 0)]!);
+        const active = options[Math.max(activeIndex, 0)]!;
+        if (event.key === 'Tab' && drill(active)) return true;
+        select(active);
         return true;
       }
       return false;
     },
-    [dismiss, effectiveActiveReferenceId, open, options, select],
+    [dismiss, drill, effectiveActiveReferenceId, open, options, select],
   );
 
   const onCaretChange = useCallback((offset: number | undefined) => {

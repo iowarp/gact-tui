@@ -89,6 +89,17 @@ describe('navigateComposerReference resolves every reference kind', () => {
     expect(calls.openWorkspaceFile).toHaveBeenCalledWith('data/stations.csv');
   });
 
+  it('opens an HDF5 reference on the object it names', async () => {
+    const { calls, run } = harness();
+
+    const outcome = await run(
+      reference('workspace_file', { path: 'data/run.h5', locator: '/entry/data' }),
+    );
+
+    expect(outcome).toEqual({ status: 'opened' });
+    expect(calls.openWorkspaceFile).toHaveBeenCalledWith('data/run.h5', { locator: '/entry/data' });
+  });
+
   it('opens an artifact already loaded in the session', async () => {
     const artifact = { id: 'artifact_1', name: 'Plot' } as unknown as Artifact;
     const { calls, run } = harness({ artifacts: [artifact] });

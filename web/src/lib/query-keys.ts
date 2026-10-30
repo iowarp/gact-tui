@@ -27,6 +27,7 @@ export type ClioQueryNamespace =
   | 'document-manifest'
   | 'document-pdf'
   | 'execution-provenance'
+  | 'hdf5-reference-rows'
   | 'hook-inspection'
   | 'language-model-configuration'
   | 'latest-release'

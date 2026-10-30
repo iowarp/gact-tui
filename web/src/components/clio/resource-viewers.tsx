@@ -51,12 +51,15 @@ export function WorkspaceFileView({
   size,
   mediaType,
   initialPage,
+  locator,
   embedded = false,
 }: {
   workspaceId: string;
   path: string;
   size?: number;
   mediaType?: string;
+  /** HDF5 only: the object to open on, from an `@file.h5::/path` reference. */
+  locator?: string;
   /** PDF only: the page to open on, when the caller already knows which page
    * matters (e.g. the page range an agent's view_pdf call actually viewed). */
   initialPage?: number;
@@ -76,7 +79,7 @@ export function WorkspaceFileView({
       <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
     ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
       <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />}>
-        <Hdf5ViewerFrame path={path} workspaceId={workspaceId} />
+        <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
       </Suspense>
     ) : (
       <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
