@@ -33,12 +33,19 @@ function desktopCsp(): string {
 }
 
 /**
- * Serve water.h5 from the fixture workspace: list it among the files and
- * answer the workspace h5grove route from the recording.
+ * Serve water.h5 from the fixture workspace: advertise the HDF5 data route,
+ * list the file among the workspace files and answer the h5grove route from
+ * the recording.
  */
 async function serveHdf5(page: Page) {
   const calls: string[] = [];
   const problems: string[] = [];
+  await page.route(`${endpoint}/v1/capabilities`, async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as { capabilities: Record<string, unknown> };
+    body.capabilities.x_clio_hdf5_viewer = true;
+    await route.fulfill({ response, json: body });
+  });
   await page.route(`${endpoint}/v1/workspaces/ws_flat_ndp/files*`, async (route) => {
     const response = await route.fetch();
     const body = (await response.json()) as { entries: unknown[] };
