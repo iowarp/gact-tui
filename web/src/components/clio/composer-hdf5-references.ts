@@ -69,7 +69,7 @@ export function readableDtype(dtype: string | undefined): string | undefined {
 function childDetail(child: GroupChild): string {
   if (child.kind === 'dataset') {
     const shape = child.shape?.length ? child.shape.join('×') : 'scalar';
-    return ['dataset', shape, readableDtype(child.type?.dtype)].filter(Boolean).join(' · ');
+    return ['dataset', shape, readableDtype(child.type?.dtype)].filter(Boolean).join(', ');
   }
   if (child.kind === 'external_link') return 'link to another file';
   if (child.kind === 'soft_link') return 'link';

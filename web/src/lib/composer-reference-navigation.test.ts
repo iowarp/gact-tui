@@ -86,7 +86,7 @@ describe('navigateComposerReference resolves every reference kind', () => {
     const outcome = await run(reference('workspace_file', { path: 'data/stations.csv' }));
 
     expect(outcome).toEqual({ status: 'opened' });
-    expect(calls.openWorkspaceFile).toHaveBeenCalledWith('data/stations.csv', undefined);
+    expect(calls.openWorkspaceFile).toHaveBeenCalledWith('data/stations.csv');
   });
 
   it('opens an HDF5 reference on the object it names', async () => {

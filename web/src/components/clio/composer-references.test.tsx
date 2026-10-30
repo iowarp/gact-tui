@@ -91,7 +91,7 @@ describe('composer reference presentation', () => {
 
     expect(await screen.findByText('Inside run.h5 — /entry')).toBeVisible();
     const dataset = await screen.findByRole('option', {
-      name: /\/entry\/I dataset — 3×4 — float32/,
+      name: /\/entry\/I dataset, 3×4, float32/,
     });
     expect(screen.getByRole('option', { name: /\/entry\/image group/ })).toHaveTextContent(
       'Tab to look inside',

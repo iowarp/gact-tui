@@ -101,7 +101,8 @@ export async function navigateComposerReference({
       const path = stringNavigation(reference, 'path') || reference.id;
       if (!path) return unresolved('This reference names no workspace path.');
       const locator = stringNavigation(reference, 'locator');
-      openWorkspaceFile(path, locator ? { locator } : undefined);
+      if (locator) openWorkspaceFile(path, { locator });
+      else openWorkspaceFile(path);
       return OPENED;
     }
     case 'resource': {
