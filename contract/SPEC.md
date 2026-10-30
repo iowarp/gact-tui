@@ -1011,7 +1011,20 @@ Status codes follow standard HTTP conventions: 400 validation, 401 auth, 403 per
 > always include a **derived `storage_root`**. `PATCH` accepts
 > `{name?, root_path?, metadata?}` plus `config` as a metadata alias,
 > and **merges** metadata (no key removal); a malformed body is
-> ignored. `DELETE` returns **409 `permission_error` for `ws_default`**
+> ignored. One workspace per folder: `POST`, and a `PATCH` that changes
+> `root_path`, return **409 `workspace_root_conflict`** when another
+> workspace already pins the same folder. Roots are compared after `~`,
+> `..`, trailing separators and symlinks are resolved (and case-insensitively
+> where the filesystem is), so `/data/x`, `/data/x/` and a symlink to it are
+> one folder; workspaces without a root never conflict. `details` names the
+> owner (`workspace_id`, `workspace_name`, `workspace_root`) next to the
+> requested `root_path`, and nothing is changed or created on disk. A rename,
+> or a `PATCH` that resends the current `root_path`, never returns 409. The
+> default workspace follows the same rule: a named workspace on its folder
+> gets 409 naming `ws_default`, and sessions in the default workspace share its
+> folder. Rows that already shared a root before this rule stay as they are
+> (the server logs a warning).
+> `DELETE` returns **409 `permission_error` for `ws_default`**
 > (the implicit default workspace is undeletable), runs the
 > direct-destructive-action permission policy (§6.11 — a policy `deny`
 > auto-denies with 403) and records a resolved audit row in
@@ -3133,6 +3146,7 @@ add vendor-specific types prefixed `x_<vendor>_`.
 | `bad_request`                                                                                | 400/409/422              | Malformed or state-invalid request (question routes, §6.23)                                                                                                                   |
 | `conflict`                                                                                   | 409                      | State conflict (e.g. rollback while `running`)                                                                                                                                |
 | `permission_error`                                                                           | 401/403                  | Policy/scope rejected the request (incl. `details.scope: "other_workspace"`, direct-destructive `policy_deny`)                                                                |
+| `workspace_root_conflict`                                                                    | 409                      | Another workspace already pins this folder (§6.1); `details.workspace_id` names it                                                                                            |
 | `unsupported`                                                                                | 405/501                  | Method or model/vision capability not supported                                                                                                                               |
 | `not_implemented`                                                                            | 501                      | Endpoint recognised but not implemented                                                                                                                                       |
 | `agent_not_available`                                                                        | 503                      | No agent built (`details.agent_status`, `details.recovery_actions[]`)                                                                                                         |
