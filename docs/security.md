@@ -21,5 +21,7 @@ interface preferences. No secrets.
 The Solid frontend used from May to August 2026 kept its backend registry,
 bearer tokens included, in `localStorage` under `clio.backends.v1`. The current
 app removes that key on every start (`web/src/lib/legacy-credential-storage.ts`),
-so an installed app upgraded from one of those releases does not keep the old
-tokens on disk.
+so it no longer reads or keeps those tokens. Removing a `localStorage` key is not
+a secure erase: the browser engine may leave the old bytes in its storage files
+until it compacts them. If you used one of those releases, rotate (revoke and
+reissue) the bearer tokens you saved with it.
