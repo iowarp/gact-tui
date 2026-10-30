@@ -7,6 +7,7 @@ import {
   type ToolState,
   type PendingSteer,
   type AsyncProcess,
+  TransportError,
 } from '@clio/core/v3';
 
 /** Name only owners discovered through this session's hierarchy. */
@@ -98,6 +99,21 @@ export function canUseContextReferences(
 /** Surfaces the service's own failure text; `details` stays display-only metadata. */
 export function conversationUnavailableMessage(error: unknown): string | undefined {
   return error instanceof Error ? error.message : undefined;
+}
+
+/**
+ * True when the service reports the stored transcript itself is damaged
+ * (`503 messages_unavailable`, cause `transcript_corrupt`). Retrying cannot
+ * help, so the only offer is removing the conversation; an unreachable store
+ * (cause `storage_unreachable`) stays a plain retryable error.
+ */
+export function conversationDamaged(error: unknown): boolean {
+  return (
+    error instanceof TransportError &&
+    error.code === 'messages_unavailable' &&
+    isRecord(error.details) &&
+    error.details.cause === 'transcript_corrupt'
+  );
 }
 
 /** Keep human requests together; draft picks and anchored plans retain their dedicated views. */

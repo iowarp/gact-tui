@@ -7,15 +7,34 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { LoadingFeedback } from './loading-feedback';
 
-export function ResourceLoading({ label, className }: { label: string; className?: string }) {
+/**
+ * The loading state for a region that waits on data (gact-tui#366): the shared
+ * `LoadingFeedback` status, so the wait is announced and its label is visible,
+ * never shown only as a pulse. `block` adds skeleton rows that keep the region's
+ * shape; `line` is the compact spinner and label for inline spots (a tree row,
+ * a section header). Worded status inside a control, such as a select placeholder
+ * or a busy button, stays text.
+ */
+export function ResourceLoading({
+  label,
+  className,
+  variant = 'block',
+}: {
+  label: string;
+  className?: string;
+  variant?: 'block' | 'line';
+}) {
+  if (variant === 'line') return <LoadingFeedback className={className} label={label} />;
   return (
-    <div aria-label={label} className={cn('grid gap-2', className)}>
-      <Skeleton className="h-8 w-full" />
-      <Skeleton className="h-8 w-4/5" />
-      <Skeleton className="h-8 w-11/12" />
-    </div>
+    <LoadingFeedback className={className} label={label} variant="skeleton">
+      <div className="grid gap-2">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-4/5" />
+        <Skeleton className="h-8 w-11/12" />
+      </div>
+    </LoadingFeedback>
   );
 }
 

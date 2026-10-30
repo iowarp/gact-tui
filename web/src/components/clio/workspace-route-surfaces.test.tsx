@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createRef, type ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useUpdateFlowStore } from '@/store/update-flow-store';
+import type { ResourceActions } from './resource-dialogs';
 import {
   WorkspaceHydrating,
   WorkspaceStatusStrip,
@@ -148,6 +149,27 @@ describe('WorkspaceStatusStrip', () => {
 });
 
 describe('WorkspaceTranscriptAlerts', () => {
+  it('offers removal only for a damaged conversation, behind a confirmation', async () => {
+    const deleteSession = vi.fn(async () => undefined);
+    const actions = { deleteSession } as unknown as ResourceActions;
+    const { rerender } = render(
+      <WorkspaceTranscriptAlerts transcriptError="Cannot be read right now. Retry shortly." />,
+    );
+    expect(screen.queryByRole('button', { name: 'Remove conversation' })).not.toBeInTheDocument();
+
+    rerender(
+      <WorkspaceTranscriptAlerts
+        removal={{ actions, session: { id: 'sess_1', title: 'Spotter run' } }}
+        transcriptError="This conversation's stored messages are damaged and cannot be read."
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove conversation' }));
+    expect(deleteSession).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove session' }));
+
+    await waitFor(() => expect(deleteSession).toHaveBeenCalledWith('sess_1'));
+  });
+
   it('shows a stream error under ordinary conditions', () => {
     render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
 

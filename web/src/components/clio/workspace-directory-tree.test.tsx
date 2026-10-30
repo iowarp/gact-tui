@@ -124,3 +124,23 @@ it('loads the next page in the current folder without replacing its first page',
     includeHidden: false,
   });
 });
+
+it('shows a loading status, not bare text, while a folder loads', async () => {
+  files.mockReturnValue(new Promise(() => undefined));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <WorkspaceDirectoryTree
+        workspaceId="workspace"
+        root={{
+          entries: [{ path: 'analysis', type: 'dir', internal: false }],
+          truncated: false,
+          next_offset: null,
+        }}
+        onSelect={vi.fn()}
+      />
+    </QueryClientProvider>,
+  );
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Expand folder analysis' }));
+  expect(await screen.findByRole('status', { name: 'Loading folder' })).toBeInTheDocument();
+  expect(screen.queryByText('Loading folder…')).not.toBeInTheDocument();
+});

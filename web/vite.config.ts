@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from 'node:url';
 import { resolveBrandConfig } from '../branding/brand-config.mjs';
 import { brandPlugin } from './vite-plugin-brand.js';
 import { maplibreWorkerPlugin } from './vite-plugin-maplibre-worker.js';
+import { hdf5ViewerPlugin } from './vite-plugin-hdf5-viewer.js';
 import { offlineReviewPlugin } from './vite-plugin-offline-review.js';
 import { themeBootPlugin } from './vite-plugin-theme.js';
 
@@ -35,6 +36,7 @@ export default defineConfig({
     tailwindcss(),
     maplibreWorkerPlugin(),
     offlineReviewPlugin(),
+    hdf5ViewerPlugin(),
   ],
   resolve: {
     alias: {

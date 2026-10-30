@@ -55,7 +55,7 @@ import {
   type CursorPageOptions,
 } from './transport.js';
 import { mergeA2uiClientMetadata } from './a2ui/index.js';
-import { WorkRepository } from './work-repository.js';
+import { StructuredFileRepository } from './structured-file-repository.js';
 import { decodeCapabilities } from './capability-negotiation.js';
 import { decodeTranscript } from './transcript-decoder.js';
 
@@ -72,7 +72,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  * silently swallowed.
  */
 const MAX_ARTIFACT_PAGES = 100;
-export class ClioRepository extends WorkRepository {
+export class ClioRepository extends StructuredFileRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }

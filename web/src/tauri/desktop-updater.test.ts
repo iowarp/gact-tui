@@ -65,7 +65,10 @@ vi.mock('@tauri-apps/plugin-updater', () => ({
 }));
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: channelMocks.getVersion }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: channelMocks.invoke }));
-vi.mock('@/lib/github-releases', () => ({ latestPublishedRelease: channelMocks.latestRelease }));
+vi.mock('@/lib/github-releases', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/github-releases')>()),
+  latestPublishedRelease: channelMocks.latestRelease,
+}));
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: mocks.relaunch }));
 vi.mock('sonner', () => ({ toast: sonnerMocks.toast }));
 
