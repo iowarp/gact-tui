@@ -1,7 +1,7 @@
 import type { RunState, StreamState } from '@clio/core/v3';
 import { AlertTriangleIcon } from 'lucide-react';
 import { m, useIsPresent } from 'motion/react';
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { LiveConnectionIndicator } from './live-connection-indicator';
+import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
 import { SystemVersionStatus } from './navigation-version-status';
 import { ClioStatus } from './status';
 import { SessionUsageReadout } from './session-usage-readout';
@@ -70,11 +71,15 @@ export function WorkspaceTranscriptAlerts({
   sessionFailed,
   streamError,
   transcriptError,
+  removal,
 }: {
   sessionFailed?: boolean;
   streamError?: string;
   transcriptError?: string;
+  /** Offered when the stored transcript is damaged and no retry can read it again. */
+  removal?: { actions: ResourceActions; session: { id: string; title: string } };
 }) {
+  const [removing, setRemoving] = useState(false);
   // An update in flight (including the post-restart `reconnecting` window)
   // already has its own full-screen `UpdateRestartOverlay` explaining
   // exactly what is happening -- surfacing the stream's own "it broke"
@@ -107,7 +112,21 @@ export function WorkspaceTranscriptAlerts({
           <AlertTriangleIcon aria-hidden="true" />
           <AlertTitle>Conversation unavailable</AlertTitle>
           <AlertDescription>{transcriptError}</AlertDescription>
+          {removal ? (
+            <div className="col-start-2 mt-2">
+              <Button onClick={() => setRemoving(true)} size="sm" variant="outline">
+                Remove conversation
+              </Button>
+            </div>
+          ) : null}
         </Alert>
+      ) : null}
+      {removal && removing ? (
+        <DeleteResourceDialog
+          actions={removal.actions}
+          onClose={() => setRemoving(false)}
+          target={{ kind: 'session', id: removal.session.id, label: removal.session.title }}
+        />
       ) : null}
     </>
   );
