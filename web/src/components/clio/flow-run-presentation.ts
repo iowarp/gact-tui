@@ -1,4 +1,10 @@
-import type { FlowCall, FlowRun, WorkflowStep } from '@clio/core/v3';
+import {
+  operationalRunStateSchema,
+  type AgentTaskRecord,
+  type FlowCall,
+  type FlowRun,
+  type WorkflowStep,
+} from '@clio/core/v3';
 import type { ClioStatusValue } from './status';
 
 /**
@@ -35,6 +41,30 @@ export function flowRunStatus(run: Pick<FlowRun, 'status' | 'outcome'>): {
     return { value: 'task_state_uncertain', label: 'Needs inspection' };
   if (run.status === 'cancelled') return { value: 'cancelled', label: 'Cancelled' };
   return { value: 'failed', label: `Stopped: ${run.status.replaceAll('_', ' ')}` };
+}
+
+/**
+ * A flow task's terminal state with its text label, or `undefined` while the task
+ * has not settled. Used when the task has no flow checkpoint to read the run from.
+ */
+export function settledTaskStatus(
+  task: Pick<AgentTaskRecord, 'status' | 'live_state'>,
+): { value: ClioStatusValue; label: string } | undefined {
+  const state = operationalRunStateSchema.parse(task.live_state || task.status);
+  switch (state) {
+    case 'completed':
+      return { value: state, label: 'Completed' };
+    case 'failed':
+      return { value: state, label: 'Failed' };
+    case 'cancelled':
+      return { value: state, label: 'Cancelled' };
+    case 'interrupted':
+      return { value: state, label: 'Interrupted' };
+    case 'stopped':
+      return { value: state, label: 'Stopped' };
+    default:
+      return undefined;
+  }
 }
 
 /** Whether an empty task list is an unrecorded history rather than a live prelaunch state. */
