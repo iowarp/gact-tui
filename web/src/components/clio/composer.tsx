@@ -53,7 +53,11 @@ import type {
 } from '@/lib/upload-workspace-resources';
 import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
-import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-reference-domain';
+import {
+  toMessagePart,
+  withReferenceMentions,
+  type InlineReferenceSelection,
+} from '@/lib/composer-reference-domain';
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
 import { focusEditorAtOffset as focusComposerEditor } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
@@ -575,7 +579,12 @@ export function ClioComposer({
                 delivery: state === 'running' ? (nextDeliveryRef.current ?? 'queued') : 'start',
                 files,
                 references: selectedReferences.map(({ reference }) => toMessagePart(reference)),
-                text: messageTextWithAnnotations(annotations, trimmed),
+                // Each typed reference stays where it was typed, as `@path` /
+                // `@label`; attached sources live in the tray, not the sentence.
+                text: messageTextWithAnnotations(
+                  annotations,
+                  withReferenceMentions(text, sourceAttachments.inlineReferences).trim(),
+                ),
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
                 onUploadProgress: (progress) => {

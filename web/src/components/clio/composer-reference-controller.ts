@@ -184,8 +184,10 @@ export function useComposerReferenceController({
         { offset, reference },
       ]);
       setInput(nextInput);
-      caretRef.current = offset;
-      setCaret(offset);
+      // Past the space that follows the reference, so the next word is its own.
+      const caret = offset + 1;
+      caretRef.current = caret;
+      setCaret(caret);
       setPickerOpen(false);
       pickerCaretRef.current = undefined;
       setSearchQuery('');
@@ -193,7 +195,7 @@ export function useComposerReferenceController({
       setOptions([]);
       setActiveReferenceId(undefined);
       setActiveOptionId(undefined);
-      focusEditor(offset);
+      focusEditor(caret);
     },
     [
       dismiss,

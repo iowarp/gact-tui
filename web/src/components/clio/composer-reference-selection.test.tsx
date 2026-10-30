@@ -94,7 +94,7 @@ const readmeReference = {
 };
 
 describe('composer reference selection', () => {
-  it('turns an @ selection into a structured reference and keeps it out of text', async () => {
+  it('turns an @ selection into a structured reference and keeps its mention in the text', async () => {
     repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
     const user = userEvent.setup();
     const { onSubmit } = renderComposer();
@@ -111,7 +111,7 @@ describe('composer reference selection', () => {
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
-          text: 'needs a clearer legend',
+          text: '@Displacement plot needs a clearer legend',
           references: [
             {
               type: 'context_ref',
@@ -197,7 +197,7 @@ describe('composer reference selection', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: 'Make the conclusion clearer.',
+        text: '@Review notes.md Make the conclusion clearer.',
         references: [
           {
             type: 'context_ref',
@@ -377,7 +377,7 @@ describe('composer reference selection', () => {
               revision: 'stat:1:42',
             },
           ],
-          text: '',
+          text: '@data/observations.csv',
         }),
       ),
     );
