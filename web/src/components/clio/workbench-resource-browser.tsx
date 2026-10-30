@@ -55,6 +55,8 @@ interface FileBrowserProps {
   filesNextOffset?: number | null;
   selectedPath?: string;
   searchLocation?: FileSearchLocation;
+  /** HDF5 only: the object the viewer opens on. */
+  locator?: string;
   onRefresh?: () => void;
   onSelectedPathChange?: (path: string) => void;
 }
@@ -84,6 +86,7 @@ export function FileBrowser({
   filesNextOffset,
   selectedPath,
   searchLocation,
+  locator,
   onRefresh,
   onSelectedPathChange,
 }: FileBrowserProps) {
@@ -160,7 +163,7 @@ export function FileBrowser({
       />
       <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
         <ResizablePanel
-          defaultSize={stacked ? '42%' : '44%'}
+          defaultSize={stacked ? '42%' : '24%'}
           id="workspace-file-tree"
           minSize={stacked ? '140px' : '190px'}
         >
@@ -273,6 +276,7 @@ export function FileBrowser({
               <Suspense fallback={<ResourceLoading label="Loading file" />}>
                 <WorkspaceFileView
                   key={previewPath}
+                  locator={previewPath === selectedPath ? locator : undefined}
                   mediaType={activeFile?.media_type}
                   path={previewPath}
                   size={activeFile?.size}

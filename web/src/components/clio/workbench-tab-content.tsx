@@ -227,6 +227,7 @@ export function WorkbenchTabContent({
           onSelectedPathChange={(path) => onSelectWorkspaceFilePath(tab.id, path)}
           selectedPath={tab.path}
           searchLocation={tab.line || tab.find ? { line: tab.line, find: tab.find } : undefined}
+          locator={tab.locator}
           workspaceId={tab.workspaceId}
         />
       );

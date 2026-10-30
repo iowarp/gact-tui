@@ -29,6 +29,7 @@ export type WorkbenchTab =
       workspaceId: string;
       line?: number;
       find?: string;
+      locator?: string;
     }
   | {
       id: string;

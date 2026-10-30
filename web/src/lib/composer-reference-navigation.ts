@@ -16,7 +16,7 @@ interface ComposerReferenceNavigation {
   openDiff: (diff: SessionDiff) => void;
   openExternal: (uri: string) => void;
   openSession: (workspaceId: string, sessionId: string) => void;
-  openWorkspaceFile: (path: string) => void;
+  openWorkspaceFile: (path: string, location?: { locator?: string }) => void;
   openWorkspaceResource: (resource: WorkspaceResource) => void;
   reference: WorkspaceReference;
   repository: Pick<ClioRepository, 'artifactDetail' | 'resource'>;
@@ -100,7 +100,8 @@ export async function navigateComposerReference({
     case 'workspace_file': {
       const path = stringNavigation(reference, 'path') || reference.id;
       if (!path) return unresolved('This reference names no workspace path.');
-      openWorkspaceFile(path);
+      const locator = stringNavigation(reference, 'locator');
+      openWorkspaceFile(path, locator ? { locator } : undefined);
       return OPENED;
     }
     case 'resource': {

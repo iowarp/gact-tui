@@ -8,6 +8,10 @@ import { editorCaretOffset } from './composer-editor-model';
 
 const repositoryMocks = vi.hoisted(() => ({
   workspaceReferences: vi.fn(),
+  capabilities: vi.fn(async () => ({ capabilities: { x_clio_hdf5_viewer: true } })),
+  readWorkspaceHdf5: vi.fn(async () =>
+    new TextEncoder().encode(JSON.stringify({ children: [{ name: 'entry', kind: 'group' }] })),
+  ),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repositoryMocks }));
@@ -228,6 +232,34 @@ describe('composer reference popover contract', () => {
     await user.click(await screen.findByRole('button', { name: 'Collapse Workspace files' }));
 
     await waitFor(() => expect(composerEditor()).toHaveFocus());
+  });
+});
+
+const runReference = {
+  kind: 'workspace_file' as const,
+  id: 'data/run.h5',
+  label: 'run.h5',
+  detail: 'data/run.h5 (40 KB)',
+  media_type: 'application/x-hdf5',
+  revision: 'stat:1:40960',
+  navigation: { path: 'data/run.h5' },
+};
+
+describe('composer HDF5 references', () => {
+  it('Tab on an HDF5 file lists its contents and Enter adds one object', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([runReference]);
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+
+    await user.type(editor, 'plot @run');
+    await screen.findByRole('option', { name: /run\.h5/ });
+    await user.keyboard('{Tab}');
+
+    expect(editor).toHaveTextContent('plot @data/run.h5::/');
+    await user.click(await screen.findByRole('option', { name: /\/entry group/ }));
+    const chip = await screen.findByRole('button', { name: 'Open local file run.h5 › /entry' });
+    expect(chip).toHaveTextContent('@run.h5 › /entry');
   });
 });
 
