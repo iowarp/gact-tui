@@ -1,6 +1,11 @@
 import type { WorkspaceReference } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { hdf5DrillQuery, isHdf5File, parseHdf5Mention } from './composer-hdf5-references';
+import {
+  hdf5DrillQuery,
+  isHdf5File,
+  parseHdf5Mention,
+  readableDtype,
+} from './composer-hdf5-references';
 
 function fileReference(id: string, navigation: Record<string, unknown> = {}): WorkspaceReference {
   return {
@@ -46,5 +51,13 @@ describe('HDF5 mentions', () => {
     ).toBeUndefined();
     expect(hdf5DrillQuery(fileReference('README.md'))).toBeUndefined();
     expect(isHdf5File('A/B.HDF5')).toBe(true);
+  });
+
+  it('names dtypes the way readers do', () => {
+    expect(readableDtype('<i4')).toBe('int32');
+    expect(readableDtype('>f8')).toBe('float64');
+    expect(readableDtype('|u1')).toBe('uint8');
+    expect(readableDtype('|b1')).toBe('bool');
+    expect(readableDtype('|O')).toBe('|O');
   });
 });

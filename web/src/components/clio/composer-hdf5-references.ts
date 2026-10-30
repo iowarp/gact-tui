@@ -55,10 +55,21 @@ interface GroupChild {
   type?: { dtype?: string };
 }
 
+const DTYPE_KINDS: Record<string, string> = { i: 'int', u: 'uint', f: 'float', c: 'complex' };
+
+/** `<i4` → `int32`: h5grove reports numpy's byte-order notation, readers expect the type. */
+export function readableDtype(dtype: string | undefined): string | undefined {
+  const match = dtype?.match(/^[<>|=]?([iufcb])(\d+)$/u);
+  if (!match) return dtype;
+  const [, kind, bytes] = match;
+  if (kind === 'b') return 'bool';
+  return `${DTYPE_KINDS[kind!]}${Number(bytes) * 8}`;
+}
+
 function childDetail(child: GroupChild): string {
   if (child.kind === 'dataset') {
     const shape = child.shape?.length ? child.shape.join('×') : 'scalar';
-    return ['dataset', shape, child.type?.dtype].filter(Boolean).join(' · ');
+    return ['dataset', shape, readableDtype(child.type?.dtype)].filter(Boolean).join(' · ');
   }
   if (child.kind === 'external_link') return 'link to another file';
   if (child.kind === 'soft_link') return 'link';
