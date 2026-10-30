@@ -90,6 +90,7 @@ function ExtensionLibraryContents({
   const [adding, setAdding] = useState<ExtensionAdd>();
   const [signing, setSigning] = useState<string>();
   const [backup, setBackup] = useState(false);
+  const [localDetails, setLocalDetails] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [skill, setSkill] = useState<string>();
   const [exploring, setExploring] = useState<string>();
@@ -98,6 +99,22 @@ function ExtensionLibraryContents({
     catalog.data?.plugins.some((plugin) => plugin.marketplace === 'private-local') ||
       agents.data?.some((agent) => agent.kind === 'user'),
   );
+  const exportMarketplace = async () => {
+    setExporting(true);
+    try {
+      downloadBytes(
+        await repository.exportLocalMarketplace(),
+        'application/zip',
+        'private-local-marketplace.zip',
+      );
+    } catch (error) {
+      toast.error('Could not export marketplace', {
+        description: error instanceof Error ? error.message : 'Try again',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
   const saved = useSavedMcpServices();
   const registry = useQuery({
     queryKey: ['extension-discovery', scope, registrySearch, cursor],
@@ -210,7 +227,16 @@ function ExtensionLibraryContents({
       </div>
       {kind === 'marketplaces' ? (
         <MarketplaceSettings
-          localCollection={<PrivateLocalLibrary onBackup={() => setBackup(true)} />}
+          onBackup={() => setBackup(true)}
+          onExport={() => void exportMarketplace()}
+          exportDisabled={!hasLocalItems || exporting}
+          onLocalDetails={() => setLocalDetails(true)}
+          localCollection={
+            <PrivateLocalLibrary
+              detailsOpen={localDetails}
+              onDetailsClose={() => setLocalDetails(false)}
+            />
+          }
         />
       ) : view === 'yours' ? (
         <>
@@ -422,22 +448,7 @@ function ExtensionLibraryContents({
             <div className="flex flex-wrap gap-3">
               <Button
                 disabled={exporting || !hasLocalItems}
-                onClick={async () => {
-                  setExporting(true);
-                  try {
-                    downloadBytes(
-                      await repository.exportLocalMarketplace(),
-                      'application/zip',
-                      'private-local-marketplace.zip',
-                    );
-                  } catch (error) {
-                    toast.error('Could not export marketplace', {
-                      description: error instanceof Error ? error.message : 'Try again',
-                    });
-                  } finally {
-                    setExporting(false);
-                  }
-                }}
+                onClick={() => void exportMarketplace()}
               >
                 {exporting ? 'Preparing…' : 'Download marketplace ZIP'}
               </Button>

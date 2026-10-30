@@ -161,17 +161,60 @@ for (const width of [390, 1280]) {
     await page.screenshot({ path: testInfo.outputPath(`plugins-${width}.png`) });
 
     await page.getByRole('button', { name: 'Marketplaces', exact: true }).click();
-    await page.getByRole('button', { name: /Private local marketplace/ }).click();
+    const marketplacePanel = page
+      .getByRole('region', { name: 'Marketplaces', exact: true, includeHidden: true })
+      .locator('..');
+    const captureMenu = async (name: string) => {
+      const panelBox = (await marketplacePanel.boundingBox())!;
+      const menuBox = (await page.getByRole('menu').boundingBox())!;
+      await page.screenshot({
+        path: testInfo.outputPath(`${name}-${width}.png`),
+        clip: {
+          x: panelBox.x,
+          y: panelBox.y,
+          width: panelBox.width,
+          height: Math.max(panelBox.height, menuBox.y + menuBox.height - panelBox.y) + 8,
+        },
+      });
+    };
+    await page.getByRole('button', { name: 'Actions for clio' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Open repository' })).toHaveAttribute(
+      'href',
+      'https://github.com/iowarp/clio-agent-marketplace',
+    );
+    await expect(page.getByRole('menuitem', { name: 'Copy source' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Update', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Check plugins' })).toBeVisible();
+    await captureMenu('remote-marketplace-menu');
+    await page.keyboard.press('Escape');
+    const localActions = page.getByRole('button', { name: 'Actions for private-local' });
+    await localActions.click();
+    await expect(page.getByRole('menuitem', { name: 'Back up with GitHub…' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Download marketplace ZIP' })).toBeEnabled();
+    await expect(page.getByRole('menuitem', { name: 'Add remote marketplace…' })).toBeVisible();
+    await captureMenu('local-marketplace-menu');
+    await page.getByRole('menuitem', { name: 'Add remote marketplace…' }).click();
+    const remoteInstall = page.getByRole('dialog', { name: 'Install a marketplace' });
+    await expect(remoteInstall.getByRole('textbox', { name: 'Source' })).toBeVisible();
+    await remoteInstall.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await localActions.click();
+    await page.getByRole('menuitem', { name: 'Marketplace details' }).click();
+    const closedRowDetails = page.getByRole('dialog', { name: 'Local marketplace details' });
+    await expect(
+      closedRowDetails.getByText('D:/CLIO/config/plugins/user-agents', { exact: true }),
+    ).toBeVisible();
+    await closedRowDetails.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page.getByRole('button', { name: /Private local marketplace/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     await expect(page.getByText('D:/CLIO/config/plugins/user-agents', { exact: true })).toHaveCount(
       0,
     );
     await expect(page.getByText('Dememory Clio', { exact: true })).toBeVisible();
     await expect(page.getByText('No local skills or plugins yet.')).toHaveCount(0);
     await expect(page.getByText(/"remove":/)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Back up with GitHub' })).toBeVisible();
-    const marketplacePanel = page
-      .getByRole('region', { name: 'Marketplaces', exact: true })
-      .locator('..');
+    await expect(localActions).toBeVisible();
     await marketplacePanel.screenshot({
       path: testInfo.outputPath(`local-marketplace-${width}.png`),
     });
@@ -209,7 +252,8 @@ for (const width of [390, 1280]) {
     expect(fileGeometry.scrollTop).toBe(0);
     await page.screenshot({ path: testInfo.outputPath(`local-agent-source-${width}.png`) });
     await savedFile.getByRole('button', { name: 'Close', exact: true }).click();
-    await page.getByRole('button', { name: 'Marketplace details' }).click();
+    await localActions.click();
+    await page.getByRole('menuitem', { name: 'Marketplace details' }).click();
     const marketplaceDetails = page.getByRole('dialog', { name: 'Local marketplace details' });
     await expect(
       marketplaceDetails.getByText('D:/CLIO/config/plugins/user-agents', { exact: true }),
@@ -217,7 +261,8 @@ for (const width of [390, 1280]) {
     await expect(marketplaceDetails.getByText('Dememory Clio')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`local-storage-${width}.png`) });
     await marketplaceDetails.getByRole('button', { name: 'Close', exact: true }).click();
-    await page.getByRole('button', { name: 'Back up with GitHub' }).click();
+    await localActions.click();
+    await page.getByRole('menuitem', { name: 'Back up with GitHub…' }).click();
     const backup = page.getByRole('dialog', { name: 'Back up to GitHub' });
     await expect(backup.getByRole('button', { name: 'Download marketplace ZIP' })).toBeEnabled();
     await expect(backup.getByRole('link', { name: 'Create GitHub repository' })).toHaveAttribute(
@@ -231,6 +276,10 @@ for (const width of [390, 1280]) {
     expect(saved.suggestedFilename()).toBe('private-local-marketplace.zip');
     expect(await readFile((await saved.path())!)).toEqual(zip);
     await backup.getByRole('button', { name: 'Close', exact: true }).click();
+    await localActions.click();
+    const directDownload = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: 'Download marketplace ZIP' }).click();
+    expect(await readFile((await (await directDownload).path())!)).toEqual(zip);
 
     await page.getByRole('button', { name: 'MCP connections', exact: true }).click();
     const mcp = page.getByRole('button', { name: 'Show the tools of ndp' });

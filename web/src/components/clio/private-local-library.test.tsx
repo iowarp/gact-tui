@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { agentEntrySchema, pluginEntrySchema } from '@clio/core/v3';
 import { queryKeys } from '@/lib/query-keys';
@@ -21,6 +22,7 @@ vi.mock('./file-text-view', () => ({
   FileTextView: ({ content }: { content: string }) => <pre>{content}</pre>,
 }));
 import { PrivateLocalLibrary } from './private-local-library';
+import { MarketplaceActions } from './marketplace-actions';
 
 const definition = {
   id: 'dememory-clio',
@@ -60,11 +62,27 @@ afterEach(() => {
 });
 function view(onBackup = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Library() {
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    return (
+      <>
+        <MarketplaceActions
+          name="private-local"
+          onBackup={onBackup}
+          onDetails={() => setDetailsOpen(true)}
+        />
+        <PrivateLocalLibrary
+          detailsOpen={detailsOpen}
+          onDetailsClose={() => setDetailsOpen(false)}
+        />
+      </>
+    );
+  }
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <TooltipProvider>
-          <PrivateLocalLibrary onBackup={onBackup} />
+          <Library />
         </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -78,7 +96,7 @@ it('keeps the browse view about saved items, with storage and source requested s
   expect(repository.localLibrary).not.toHaveBeenCalled();
   expect(screen.queryByText(/No local skills/)).toBeNull();
   expect(screen.queryByText(/"remove":/)).toBeNull();
-  expect(screen.getByRole('button', { name: 'Back up with GitHub' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Actions for private-local' })).toBeVisible();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Dememory Clio Agent' }));
   expect(screen.getByText(/Starts from/)).toHaveTextContent('removes memory');
@@ -87,7 +105,8 @@ it('keeps the browse view about saved items, with storage and source requested s
   expect(await within(file).findByText(/"remove":/)).toHaveTextContent('"memory"');
   expect(within(file).getByText('D:/clio/plugins/user-agents/dememory-clio.json')).toBeVisible();
   await user.click(within(file).getByRole('button', { name: 'Close' }));
-  await user.click(screen.getByRole('button', { name: 'Marketplace details' }));
+  await user.click(screen.getByRole('button', { name: 'Actions for private-local' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Marketplace details' }));
   const details = await screen.findByRole('dialog', { name: 'Local marketplace details' });
   expect(await within(details).findByText('D:/clio/plugins/user-agents')).toBeVisible();
   await user.click(within(details).getByRole('button', { name: 'Copy agents folder' }));
@@ -99,7 +118,9 @@ it('keeps saved agents visible when an older host cannot report source locations
   view();
   expect(await screen.findByText('Dememory Clio')).toBeVisible();
   expect(screen.queryByRole('alert')).toBeNull();
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Marketplace details' }));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Actions for private-local' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Marketplace details' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
     'Storage details aren’t available from this host.',
   );
@@ -140,7 +161,9 @@ it('keeps GitHub backup visible for a collection containing only an agent', asyn
   const onBackup = vi.fn();
   view(onBackup);
   await screen.findByText('Dememory Clio');
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Back up with GitHub' }));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Actions for private-local' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Back up with GitHub…' }));
   expect(onBackup).toHaveBeenCalledOnce();
   expect(repository.localLibrary).not.toHaveBeenCalled();
 });
@@ -160,9 +183,9 @@ it('offers GitHub backup directly for local plugins as well', async () => {
   view(onBackup);
   expect(await screen.findByText('local-skill')).toBeVisible();
   expect(screen.queryByText('Installed plugins')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Back up with GitHub' })).toBeVisible();
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Back up with GitHub' }));
+  await user.click(screen.getByRole('button', { name: 'Actions for private-local' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Back up with GitHub…' }));
   expect(onBackup).toHaveBeenCalledOnce();
   expect(screen.queryByRole('dialog')).toBeNull();
 });

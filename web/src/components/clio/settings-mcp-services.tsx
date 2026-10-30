@@ -153,7 +153,7 @@ function McpServiceItem({
           {' '}
           <div className="mb-2 ml-7 grid min-w-0 gap-1 text-xs text-muted-foreground">
             <p>
-              {origin(entry)} · {state.label}
+              {origin(entry)}, {state.label}
             </p>
             {saved && showConnection ? (
               <p className="break-all font-mono">{savedTarget(saved)}</p>

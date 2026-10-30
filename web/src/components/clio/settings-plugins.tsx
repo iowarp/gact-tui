@@ -17,25 +17,19 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
 import {
   useAgentPluginsSupported,
   usePluginCatalog,
   usePluginMarketplaces,
 } from '@/hooks/use-session-agent';
-import { AddIcon, DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { PluginMarketplaceDialog, type PluginMarketplaceInput } from './plugin-marketplace-dialog';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
+import { MarketplaceActions } from './marketplace-actions';
 
 type Confirm = { kind: 'trust' | 'uninstall'; marketplace: PluginMarketplace };
 
@@ -49,9 +43,15 @@ function summaryText(summary: MarketplaceSummary): string {
 /** The single owner of marketplace installation, trust, updates and removal. */
 export function MarketplaceSettings({
   onBackup,
+  onExport,
+  onLocalDetails,
+  exportDisabled,
   localCollection,
 }: {
   onBackup?: () => void;
+  onExport?: () => void;
+  onLocalDetails?: () => void;
+  exportDisabled?: boolean;
   localCollection?: ReactNode;
 }) {
   const repository = useRepository();
@@ -186,6 +186,19 @@ export function MarketplaceSettings({
               onUninstall={() => setConfirm({ kind: 'uninstall', marketplace })}
               onUpdate={() => update.mutate(marketplace.name)}
               onBackup={marketplace.name === 'private-local' ? onBackup : undefined}
+              onExport={marketplace.name === 'private-local' ? onExport : undefined}
+              onLocalDetails={
+                localCollection && onLocalDetails
+                  ? () => {
+                      setLocalOpen(true);
+                      onLocalDetails();
+                    }
+                  : undefined
+              }
+              exportDisabled={exportDisabled}
+              onAddRemote={
+                marketplace.name === 'private-local' ? () => setInstalling(true) : undefined
+              }
               updating={update.isPending && update.variables === marketplace.name}
             />
           ))}
@@ -199,6 +212,19 @@ export function MarketplaceSettings({
                 metadata="On this host"
                 open={localOpen}
                 onOpenChange={setLocalOpen}
+                actions={
+                  <MarketplaceActions
+                    name="private-local"
+                    onBackup={onBackup}
+                    onExport={onExport}
+                    exportDisabled={exportDisabled}
+                    onAddRemote={() => setInstalling(true)}
+                    onDetails={() => {
+                      setLocalOpen(true);
+                      onLocalDetails?.();
+                    }}
+                  />
+                }
               >
                 {localCollection}
               </CatalogItem>
@@ -277,6 +303,10 @@ function MarketplaceRow({
   onCheck,
   onUninstall,
   onBackup,
+  onExport,
+  onLocalDetails,
+  onAddRemote,
+  exportDisabled,
   localCollection,
   open,
   onOpenChange,
@@ -292,16 +322,22 @@ function MarketplaceRow({
   onCheck: () => void;
   onUninstall: () => void;
   onBackup?: () => void;
+  onExport?: () => void;
+  onLocalDetails?: () => void;
+  onAddRemote?: () => void;
+  exportDisabled?: boolean;
   localCollection?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const setOpen = onOpenChange ?? setExpanded;
   const errors = marketplace.diagnostics.filter((row) => row.severity === 'error').length;
   return (
     <li className="min-w-0">
       <CatalogItem
-        open={open}
-        onOpenChange={onOpenChange}
+        open={open ?? expanded}
+        onOpenChange={setOpen}
         label={
           marketplace.name === 'private-local' ? 'Private local marketplace' : marketplace.name
         }
@@ -351,41 +387,28 @@ function MarketplaceRow({
                 Trust update
               </Button>
             ) : null}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  aria-label={`Actions for ${marketplace.name}`}
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <MoreIcon aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-48">
-                <DropdownMenuItem disabled={busy} onSelect={onUpdate}>
-                  <RefreshIcon aria-hidden="true" /> {updating ? 'Updating…' : 'Update'}
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={checking} onSelect={onCheck}>
-                  {checking ? 'Checking…' : 'Check plugins'}
-                </DropdownMenuItem>
-                {marketplace.default ? null : (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem disabled={busy} onSelect={onUninstall} variant="destructive">
-                      <DeleteIcon aria-hidden="true" /> Uninstall
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <MarketplaceActions
+              name={marketplace.name}
+              source={marketplace.name === 'private-local' ? undefined : marketplace.source}
+              busy={busy}
+              checking={checking}
+              updating={updating}
+              onBackup={onBackup}
+              onExport={onExport}
+              exportDisabled={exportDisabled}
+              onAddRemote={onAddRemote}
+              onDetails={
+                marketplace.name === 'private-local' && onLocalDetails
+                  ? onLocalDetails
+                  : () => setOpen(true)
+              }
+              onUpdate={onUpdate}
+              onCheck={onCheck}
+              onUninstall={marketplace.default ? undefined : onUninstall}
+            />
           </div>
         }
       >
-        {onBackup && !localCollection ? (
-          <Button className="mt-2" size="sm" variant="outline" onClick={onBackup}>
-            Back up with GitHub
-          </Button>
-        ) : null}
         {!localCollection ? (
           <>
             <p

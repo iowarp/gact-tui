@@ -60,7 +60,7 @@ export function AgentRow({
       >
         <p className="font-mono text-xs text-muted-foreground">
           {agent.ref}
-          {agent.version ? ` · ${agent.version}` : ''}
+          {agent.version ? ` (${agent.version})` : ''}
         </p>
         {agent.description ? <p className="text-muted-foreground">{agent.description}</p> : null}
         {agent.kind === 'user' && agent.extends ? (

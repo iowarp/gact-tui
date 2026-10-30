@@ -1,26 +1,28 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { GitBranchIcon } from 'lucide-react';
 import type { AgentEntry } from '@clio/core/v3';
-import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { queryKeys } from '@/lib/query-keys';
-import { InfoIcon } from '@/lib/icon-vocabulary';
 import { AgentPreviewDialog, AgentRow } from './agent-library-row';
 import { InstalledPluginList } from './installed-plugin-list';
 import { LocalMarketplaceDetails, SavedAgentFile } from './private-local-details';
 
 /** Browse host-local content even when no plugin marketplace has been created yet. */
-export function PrivateLocalLibrary({ onBackup }: { onBackup: () => void }) {
+export function PrivateLocalLibrary({
+  detailsOpen,
+  onDetailsClose,
+}: {
+  detailsOpen: boolean;
+  onDetailsClose: () => void;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const catalog = usePluginCatalog();
   const agents = useInstalledAgents();
   const [previewing, setPreviewing] = useState<AgentEntry>();
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [sourceAgent, setSourceAgent] = useState<AgentEntry>();
   const local = useQuery({
     // Saving/deleting an agent invalidates this same namespace, including its source files.
@@ -72,19 +74,6 @@ export function PrivateLocalLibrary({ onBackup }: { onBackup: () => void }) {
           <p className="py-2 text-muted-foreground">Nothing saved here yet.</p>
         ) : null}
       </section>
-      <div className="flex flex-wrap items-center justify-between gap-1 border-t border-border/60 pt-1">
-        <Button size="xs" variant="ghost" className="text-muted-foreground" onClick={onBackup}>
-          <GitBranchIcon aria-hidden="true" /> Back up with GitHub
-        </Button>
-        <Button
-          size="xs"
-          variant="ghost"
-          className="text-muted-foreground"
-          onClick={() => setDetailsOpen(true)}
-        >
-          <InfoIcon aria-hidden="true" /> Marketplace details
-        </Button>
-      </div>
       {previewing ? (
         <AgentPreviewDialog agent={previewing} onClose={() => setPreviewing(undefined)} />
       ) : null}
@@ -94,7 +83,7 @@ export function PrivateLocalLibrary({ onBackup }: { onBackup: () => void }) {
           error={local.error?.message}
           pending={local.isPending}
           onRetry={() => void local.refetch()}
-          onClose={() => setDetailsOpen(false)}
+          onClose={onDetailsClose}
         />
       ) : null}
       {sourceAgent ? (
