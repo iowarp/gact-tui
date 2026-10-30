@@ -7,7 +7,6 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 import { LoadingFeedback } from './loading-feedback';
 
 /**
