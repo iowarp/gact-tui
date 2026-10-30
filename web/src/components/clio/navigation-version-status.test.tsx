@@ -30,7 +30,10 @@ const restartClio = vi.hoisted(() => vi.fn(async () => undefined));
 const getVersion = vi.hoisted(() => vi.fn(async () => '0.9.4+3'));
 const runtime = vi.hoisted(() => ({ desktopShell: true }));
 const latestPublishedRelease = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/github-releases', () => ({ latestPublishedRelease }));
+vi.mock('@/lib/github-releases', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/github-releases')>()),
+  latestPublishedRelease,
+}));
 
 vi.mock('@tauri-apps/api/app', () => ({ getVersion }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => runtime.desktopShell }));
@@ -59,6 +62,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { useUpdateFlowStore } from '@/store/update-flow-store';
 import { SystemVersionStatus } from './navigation-version-status';
 import { setUpdateChannel } from '@/lib/update-channel';
+import { ReleaseFeedRateLimited } from '@/lib/github-releases';
 
 Object.defineProperty(window, 'matchMedia', {
   configurable: true,
@@ -301,6 +305,23 @@ describe('SystemVersionStatus', () => {
     expect(
       within(screen.getByTestId('version-row-desktop')).getByText('Web interface'),
     ).toBeVisible();
+  });
+
+  it('says when a rate-limited beta feed can be checked again, without retrying it', async () => {
+    runtime.desktopShell = false;
+    vi.stubEnv('VITE_CLIO_WORKSPACE_VERSION', '0.9.4.3');
+    setUpdateChannel('beta');
+    const limited = new ReleaseFeedRateLimited(Date.now() + 10 * 60 * 1000);
+    latestPublishedRelease.mockRejectedValue(limited);
+    renderStatus();
+
+    const trigger = await screen.findByRole('button', { name: 'Could not check for updates' });
+    // Settled as failed after one call: a rate limit is not retried.
+    expect(latestPublishedRelease).toHaveBeenCalledTimes(1);
+    expect(repository.latestRelease).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+
+    expect(await screen.findByText(limited.message)).toBeVisible();
   });
 
   it('says the release server could not be reached for any other failure', async () => {

@@ -1,4 +1,5 @@
 import type { LatestRelease } from '@clio/core/v3';
+import { ReleaseFeedRateLimited } from '@/lib/github-releases';
 import type { DesktopUpdateSnapshot } from '@/tauri/desktop-updater';
 
 /**
@@ -21,9 +22,13 @@ const STILL_PUBLISHING =
 export function agentCheckIssue(
   release: LatestRelease | undefined,
   requestFailed: boolean,
+  error?: unknown,
 ): VersionCheckIssue | undefined {
   const reason = release?.degradation?.reason;
   if (reason === 'manifest_not_published') return { state: 'unavailable', text: STILL_PUBLISHING };
+  if (requestFailed && error instanceof ReleaseFeedRateLimited) {
+    return { state: 'unavailable', text: `Could not check for updates: ${error.message}` };
+  }
   if (reason || requestFailed) {
     return {
       state: 'unavailable',
@@ -43,6 +48,8 @@ export function desktopCheckIssue(snapshot: DesktopUpdateSnapshot): VersionCheck
       return { state: 'error', text: 'The update was rejected: its signature did not match.' };
     case 'manifest_not_published':
       return { state: 'unavailable', text: STILL_PUBLISHING };
+    case 'rate_limited':
+      return { state: 'unavailable', text: `Could not check for updates: ${snapshot.message}` };
     case 'platform_not_published':
       return {
         state: 'unavailable',
