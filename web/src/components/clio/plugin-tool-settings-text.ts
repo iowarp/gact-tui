@@ -42,7 +42,7 @@ export function modeLabel(mode: string): string {
 /** What the plugin's default permission means, in words. */
 export function pluginPermissionText(tool: ToolSetting): string {
   const value = tool.configured_permission || tool.plugin_permission;
-  if (!value) return 'Approval mode decides';
+  if (!value) return 'Approval mode';
   return PERMISSION_TEXT[value].label;
 }
 
@@ -52,7 +52,7 @@ export function pluginDefaultSource(tool: ToolSetting): string {
 }
 
 export function pluginCallersText(tool: ToolSetting): string {
-  if (!tool.plugin_callers_known) return 'known once an agent has loaded it';
+  if (!tool.plugin_callers_known) return 'not known yet';
   return CALLERS_TEXT[tool.plugin_callers].label;
 }
 
@@ -66,7 +66,7 @@ export function callersChoice(tool: ToolSetting): CallersChoice {
 
 /** The tool's flags, in words. */
 export function flagText(tool: ToolSetting): string {
-  if (!tool.flags_known) return 'Read-only flag known once an agent has loaded it';
+  if (!tool.flags_known) return 'Not loaded yet';
   if (tool.read_only) return 'Read-only';
   return tool.destructive ? 'Destructive' : 'Writes or acts';
 }

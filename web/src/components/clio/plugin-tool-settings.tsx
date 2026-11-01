@@ -1,7 +1,7 @@
 import type { ToolRule, ToolSetting, ToolSettingsUpdate } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -125,6 +125,12 @@ export function PluginToolSettings({ reference }: { reference: string }) {
           </SelectContent>
         </Select>
       </div>
+      {data.tools.some((tool) => !tool.flags_known) ? (
+        <p className="text-muted-foreground">
+          Some tools are not loaded yet: their read-only flag and their own I/O default are known
+          once a conversation has used this plugin. Until then they are listed as write tools.
+        </p>
+      ) : null}
       {data.servers_not_loaded.length ? (
         <p className="text-muted-foreground">
           Tools of {data.servers_not_loaded.join(', ')} appear here once a conversation has
@@ -215,6 +221,9 @@ function summary(
   callers: CallersChoice | 'mixed',
   tool?: ToolSetting,
 ): string {
+  if (!tool && permission === 'default' && callers === 'default') {
+    return "Each tool's plugin default";
+  }
   return [
     choiceLabel(permission, PERMISSION_TEXT, tool ? pluginPermissionText(tool) : 'Plugin default'),
     choiceLabel(callers, CALLERS_TEXT, tool ? pluginCallersText(tool) : 'Plugin default'),
@@ -252,12 +261,12 @@ function Controls({
         onValueChange={(value) => setPermission(names, value as PermissionChoice)}
         disabled={busy}
       >
-        <SelectTrigger size="sm" aria-label={`Permission: ${label}`} className="w-40">
+        <SelectTrigger size="sm" aria-label={`Permission: ${label}`} className="w-56 max-w-full">
           <SelectValue placeholder="Mixed" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="default">
-            Plugin default{defaults ? `: ${defaults.permission}` : ''}
+            {defaults ? `Default: ${defaults.permission}` : 'Plugin default'}
           </SelectItem>
           {(['allow', 'ask', 'deny'] as const).map((value) => (
             <SelectItem key={value} value={value}>
@@ -271,12 +280,12 @@ function Controls({
         onValueChange={(value) => setCallers(names, value as CallersChoice)}
         disabled={busy}
       >
-        <SelectTrigger size="sm" aria-label={`I/O: ${label}`} className="w-32">
+        <SelectTrigger size="sm" aria-label={`I/O: ${label}`} className="w-40 max-w-full">
           <SelectValue placeholder="Mixed" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="default">
-            Plugin default{defaults ? `: ${defaults.callers}` : ''}
+            {defaults ? `Default: ${defaults.callers}` : 'Plugin default'}
           </SelectItem>
           {(['direct', 'code', 'both'] as const).map((value) => (
             <SelectItem key={value} value={value}>
@@ -436,8 +445,13 @@ function MobileDetail({
     ? `${pluginPermissionText(one)}, ${pluginDefaultSource(one)}`
     : 'each tool keeps its plugin default';
   const callersDefault = one ? pluginCallersText(one) : 'each tool keeps its plugin default';
+  const top = useRef<HTMLDivElement>(null);
+  // The list may be scrolled; a detail screen opens at its title.
+  useEffect(() => {
+    top.current?.scrollIntoView?.({ block: 'start' });
+  }, []);
   return (
-    <div className="grid gap-4 text-sm">
+    <div ref={top} className="grid gap-4 text-sm">
       <div className="flex items-center gap-2">
         <Button size="sm" variant="ghost" onClick={onBack} aria-label="Back to tools">
           <ChevronLeftIcon aria-hidden className="size-4" />
@@ -482,7 +496,9 @@ function MobileDetail({
       {one ? (
         <>
           <SavedRules tool={one} onRemoveRule={(rule) => onRemoveRule(one.name, rule)} />
-          {one.description ? <p className="text-muted-foreground">{one.description}</p> : null}
+          {one.description ? (
+            <p className="line-clamp-4 text-muted-foreground">{one.description}</p>
+          ) : null}
         </>
       ) : null}
     </div>

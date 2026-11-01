@@ -128,9 +128,9 @@ it('groups tools by their flags and states defaults and outcomes in words', asyn
   expect(screen.getByText(/Tools of calendar appear here/u)).toBeVisible();
   expect(
     within(write).getByRole('combobox', { name: 'Permission: home_light_set' }),
-  ).toHaveTextContent('Plugin default: Needs approval');
+  ).toHaveTextContent('Default: Needs approval');
   expect(within(write).getByRole('combobox', { name: 'I/O: home_light_set' })).toHaveTextContent(
-    'Plugin default: Code',
+    'Default: Code',
   );
 });
 
