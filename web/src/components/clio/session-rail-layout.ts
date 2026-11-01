@@ -7,6 +7,7 @@ export const SESSION_RAIL_SECTIONS = [
   { id: 'goal', label: 'Goal and work' },
   { id: 'connected', label: 'Connected sources' },
   { id: 'questions', label: 'Open questions' },
+  { id: 'plan', label: 'Plan' },
   { id: 'todos', label: 'Todos' },
   { id: 'background', label: 'Background tasks' },
   { id: 'child-agents', label: 'Child agents' },
@@ -26,6 +27,7 @@ export type RailKind = 'session' | 'work';
 const WORK_SECTIONS: readonly SessionRailSectionId[] = [
   'goal',
   'questions',
+  'plan',
   'todos',
   'background',
   'child-agents',

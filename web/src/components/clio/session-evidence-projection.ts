@@ -212,7 +212,7 @@ export function fileName(path: string): string {
   return path.replaceAll('\\', '/').split('/').at(-1) || path;
 }
 
-function normalizedFilePath(path: string): string {
+export function normalizedFilePath(path: string): string {
   return path.replaceAll('\\', '/').toLocaleLowerCase();
 }
 

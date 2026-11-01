@@ -6,7 +6,12 @@ import { openHumanQuestions } from '@/lib/inline-question';
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
 import { ContextUsage } from './context-usage';
 import { sessionEvidenceItems } from './session-evidence-items';
-import { sessionFiles, sessionDiffs, sessionPlans } from './session-evidence-projection';
+import {
+  normalizedFilePath,
+  sessionFiles,
+  sessionDiffs,
+  sessionPlans,
+} from './session-evidence-projection';
 import { sessionSources } from './observability-evidence-sources';
 import { OpenQuestionList } from './open-question-list';
 import { useQuestionAnswer } from './question-answer-context';
@@ -16,6 +21,8 @@ import { SessionSummaryRow } from './session-summary-row';
 import { useSessionConnectedSources, useSessionSchedules } from './session-inventory-queries';
 import { useSessionWork } from './use-session-work';
 import { SessionWorkSummary } from './session-work';
+import { SessionPlanBody } from './session-plan-section';
+import { planStatusLabel } from '@/lib/plan-status';
 import { TodoList, TodoStatusIcon } from './todo-list';
 import { todoCurrentSummary } from './todo-list-summary';
 import type { ReactNode } from 'react';
@@ -59,8 +66,15 @@ export function SessionRailContent({
       ? sessionFiles(evidence.contextFiles, evidence.tools, evidence.executionProvenance)
       : [],
     diffs: dataVisible ? sessionDiffs(evidence.diffs, evidence.tools) : [],
+    // The live session plan has its own section; earlier proposals of the same file
+    // would repeat it.
     plans: workVisible
-      ? sessionPlans(evidence.messages, evidence.interactions ?? [], evidence.artifacts)
+      ? sessionPlans(evidence.messages, evidence.interactions ?? [], evidence.artifacts).filter(
+          (plan) =>
+            !plan.path ||
+            !work.data?.plan ||
+            normalizedFilePath(plan.path) !== normalizedFilePath(work.data.plan.path),
+        )
       : [],
     sources: dataVisible
       ? sessionSources(
@@ -132,6 +146,13 @@ export function SessionRailContent({
       id: 'questions',
       count: questions.length,
       content: <OpenQuestionList questions={questions} />,
+    });
+  if (work.data?.plan && evidence.sessionId)
+    inventory.push({
+      id: 'plan',
+      summary: planStatusLabel(work.data.plan.status),
+      defaultOpen: true,
+      content: <SessionPlanBody plan={work.data.plan} sessionId={evidence.sessionId} />,
     });
   if (todos.length)
     inventory.push({
