@@ -1,0 +1,56 @@
+import { childToolInvocations, type ToolInvocation } from '@clio/core/v3';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { useLiveStore } from '@/store/live-store';
+
+/** How many of a script's calls show before "Show all". */
+const SHOWN = 8;
+
+/**
+ * The tool calls a run_code script made, nested under its row. Each child renders as
+ * a compact tool row (`renderCall`), so it keeps its own status words, duration and
+ * technical details; the heading counts the calls and the failures in words.
+ */
+export function NestedToolCalls({
+  parentId,
+  renderCall,
+}: {
+  parentId: string;
+  renderCall: (tool: ToolInvocation) => ReactNode;
+}) {
+  const tools = useLiveStore((state) => state.entities.tools);
+  const children = useMemo(() => childToolInvocations(tools, parentId), [tools, parentId]);
+  const [all, setAll] = useState(false);
+  if (!children.length) return null;
+  const failed = children.filter((tool) => tool.state === 'failed').length;
+  const running = children.filter((tool) => ['pending', 'running'].includes(tool.state)).length;
+  const shown = all ? children : children.slice(0, SHOWN);
+  const count = `${children.length} tool call${children.length === 1 ? '' : 's'} from this script`;
+  const detail = [failed ? `${failed} failed` : '', running ? `${running} running` : '']
+    .filter(Boolean)
+    .join(', ');
+  return (
+    <section
+      aria-label="Tool calls made by this script"
+      className="ml-2 mt-1 grid min-w-0 gap-0.5 border-l pl-3"
+      data-slot="nested-tool-calls"
+    >
+      <p className="text-xs text-muted-foreground">{detail ? `${count} (${detail})` : count}</p>
+      {shown.map((tool) => (
+        <div className="min-w-0" key={tool.id}>
+          {renderCall(tool)}
+        </div>
+      ))}
+      {children.length > SHOWN ? (
+        <Button
+          className="h-auto w-fit p-0 text-xs"
+          onClick={() => setAll((value) => !value)}
+          size="sm"
+          variant="link"
+        >
+          {all ? 'Show fewer' : `Show all ${children.length}`}
+        </Button>
+      ) : null}
+    </section>
+  );
+}

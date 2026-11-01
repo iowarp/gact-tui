@@ -242,6 +242,8 @@ export interface ToolInvocation {
   completed_at?: string;
   duration_ms?: number;
   error?: string;
+  /** The call this one was made from (a run_code script's tool calls). */
+  parent_call_id?: string;
   /** The original submission RPC remains inspectable when execution is asynchronous. */
   submission?: {
     state: ToolState;
@@ -273,7 +275,7 @@ export interface ApprovalRequest {
   reason?: string;
   risk?: WireValue<'low' | 'medium' | 'high'>;
   status: WireValue<'pending' | 'approved' | 'denied' | 'cancelled'>;
-  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace'>;
+  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace' | 'allow_script'>;
   created_at: string;
   resolved_at?: string;
 }
@@ -631,7 +633,7 @@ export interface PermissionLedgerItem {
   reason?: string;
   created_at: string;
   status: string;
-  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace'>;
+  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace' | 'allow_script'>;
   resolved_at?: string;
 }
 

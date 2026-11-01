@@ -1,5 +1,6 @@
 import {
   PLUGIN_CHANGE_INJECTION_SOURCE,
+  isNestedToolInvocation,
   type Message,
   type MessageBlock,
   type Task,
@@ -268,6 +269,11 @@ function fallbackIterations(
       if (!tool) {
         flush();
         segments.push({ kind: 'block', block });
+        continue;
+      }
+      if (isNestedToolInvocation(tool, tools)) {
+        // A run_code script's call shows under the script's row, not as its own.
+        consumed.add(block.id);
         continue;
       }
       if (!alreadyInLane(current, 'tool', tool.id)) {

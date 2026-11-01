@@ -22,7 +22,13 @@ export const permissionLedgerItemSchema = z
     reason: z.string().optional(),
     created_at: z.string(),
     status: z.string(),
-    action: forwardCompatibleEnum(['allow', 'deny', 'allow_session', 'allow_workspace']).optional(),
+    action: forwardCompatibleEnum([
+      'allow',
+      'deny',
+      'allow_session',
+      'allow_workspace',
+      'allow_script',
+    ]).optional(),
     resolved_at: z.string().optional(),
   })
   .transform((value) => ({
@@ -80,7 +86,13 @@ export const approvalRequestSchema = z.object({
   reason: z.string().optional(),
   risk: forwardCompatibleEnum(['low', 'medium', 'high']).optional(),
   status: forwardCompatibleEnum(['pending', 'approved', 'denied', 'cancelled']),
-  action: forwardCompatibleEnum(['allow', 'deny', 'allow_session', 'allow_workspace']).optional(),
+  action: forwardCompatibleEnum([
+    'allow',
+    'deny',
+    'allow_session',
+    'allow_workspace',
+    'allow_script',
+  ]).optional(),
   created_at: z.string(),
   resolved_at: z.string().optional(),
 });
@@ -554,6 +566,8 @@ export const toolInvocationSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   error: z.string().optional(),
+  /** The call this one was made from (a run_code script's tool calls). */
+  parent_call_id: z.string().optional(),
 });
 
 export const taskSchema = z.object({

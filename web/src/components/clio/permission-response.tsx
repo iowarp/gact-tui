@@ -23,6 +23,12 @@ const SCOPES = [
   { action: 'allow', label: 'Once', button: 'Allow once' },
   { action: 'allow_session', label: 'This session', button: 'Allow for session' },
   { action: 'allow_workspace', label: 'This workspace', button: 'Allow for workspace' },
+  // Offered only on a question asked from a run_code script.
+  {
+    action: 'allow_script',
+    label: 'Rest of this script',
+    button: 'Allow for the rest of this script',
+  },
 ];
 const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
 
@@ -101,6 +107,16 @@ export function PermissionResponse({
       ) : (
         <PermissionOperationDetails interaction={interaction} />
       )}
+      {interaction.payload?.script ? (
+        <div className="mt-3 grid gap-1">
+          <p className="text-xs text-muted-foreground">
+            Asked from this script, which is paused until you answer:
+          </p>
+          <CodeBlock className="max-h-48" code={interaction.payload.script.code} language="python">
+            <CodeBlockCopyButton aria-label="Copy script" />
+          </CodeBlock>
+        </div>
+      ) : null}
       {toolName || toolCall?.input !== undefined ? (
         <TechnicalDetails className="mt-3 text-xs text-muted-foreground" title="Technical details">
           {toolName ? <p className="font-mono">{toolName}</p> : null}

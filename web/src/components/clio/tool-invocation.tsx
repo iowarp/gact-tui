@@ -11,6 +11,7 @@ import { Collapsible } from '@/components/ui/collapsible';
 import { ActivityRow } from './activity-row';
 import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
+import { NestedToolCalls } from './nested-tool-calls';
 import { ToolDetailsContent } from './tool-details-content';
 import { PresentationLink } from './presentation-link';
 import {
@@ -227,6 +228,7 @@ export function ClioToolInvocation({
                     summaryInHeader={summaryInHeader}
                   />
                 )}
+                <NestedToolCalls parentId={tool.id} renderCall={renderNestedCall} />
                 {!presentedTool.presentation?.blocks.length &&
                 !presentedTool.presentation?.summary &&
                 !failure ? (
@@ -295,6 +297,7 @@ export function ClioToolInvocation({
             summaryInHeader={summaryInHeader}
           />
         ) : null}
+        {!compact ? <NestedToolCalls parentId={tool.id} renderCall={renderNestedCall} /> : null}
         {!compact &&
         status === 'failed' &&
         tool.error &&
@@ -415,6 +418,10 @@ const MEMORY_ACTIONS: Record<string, string> = {
   forget_memory: 'Forget',
   propose_memory_change: 'Propose memory change',
 };
+
+function renderNestedCall(child: ToolInvocation) {
+  return <ClioToolInvocation tool={child} compact />;
+}
 
 function withMemoryPresentation(tool: ToolInvocation): ToolInvocation {
   const action = MEMORY_ACTIONS[tool.name];

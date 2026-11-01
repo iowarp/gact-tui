@@ -496,7 +496,8 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         payload.action === 'allow' ||
         payload.action === 'deny' ||
         payload.action === 'allow_session' ||
-        payload.action === 'allow_workspace'
+        payload.action === 'allow_workspace' ||
+        payload.action === 'allow_script'
           ? payload.action
           : approval.action;
       return {

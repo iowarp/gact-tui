@@ -451,7 +451,7 @@ export function useSessionMutations({
       action,
     }: {
       id: string;
-      action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
+      action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace' | 'allow_script';
     }) => repository.respondPermission(id, action),
     onSuccess: async () => {
       await Promise.all([

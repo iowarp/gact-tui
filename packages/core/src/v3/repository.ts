@@ -574,7 +574,7 @@ export class ClioRepository extends StructuredFileRepository {
 
   public respondPermission(
     permissionId: string,
-    action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace',
+    action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace' | 'allow_script',
     signal?: AbortSignal,
   ): Promise<void> {
     return this.transport.request({
