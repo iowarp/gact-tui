@@ -16,6 +16,10 @@ export interface ToolPresentationBlock {
   text?: string;
   label?: string;
   language?: string;
+  /** `code`: the file line number of the block's first line. */
+  start_line?: number;
+  /** `link` to a file: the line it opens at. */
+  line?: number;
   /** "workspace_file" only: the workspace + workspace-relative path the agent
    * inspected via view_image/view_pdf, and the sha256 it verified before the
    * model saw it. Never carries bytes. */

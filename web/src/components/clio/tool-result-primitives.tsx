@@ -356,6 +356,8 @@ export function BlockBody({
       return (
         <CodeBlock
           code={text}
+          showLineNumbers={block.type === 'code' && block.start_line !== undefined}
+          startLine={block.start_line}
           language={
             block.type === 'diff'
               ? 'diff'

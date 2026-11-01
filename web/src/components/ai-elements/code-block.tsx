@@ -120,6 +120,8 @@ type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string;
   language: BundledLanguage;
   showLineNumbers?: boolean;
+  /** The number of the first line when the code is a range of a larger file. */
+  startLine?: number;
 };
 
 interface TokenizedCode {
@@ -263,11 +265,13 @@ const CodeBlockBody = memo(
   ({
     tokenized,
     showLineNumbers,
+    startLine = 1,
     className,
     diff,
   }: {
     tokenized: TokenizedCode;
     showLineNumbers: boolean;
+    startLine?: number;
     className?: string;
     diff: boolean;
   }) => {
@@ -294,6 +298,9 @@ const CodeBlockBody = memo(
             'font-mono text-sm',
             showLineNumbers && '[counter-increment:line_0] [counter-reset:line]',
           )}
+          style={
+            showLineNumbers && startLine > 1 ? { counterReset: `line ${startLine - 1}` } : undefined
+          }
         >
           {keyedLines.map((keyedLine) => (
             <LineSpan
@@ -310,6 +317,7 @@ const CodeBlockBody = memo(
   (prevProps, nextProps) =>
     prevProps.tokenized === nextProps.tokenized &&
     prevProps.showLineNumbers === nextProps.showLineNumbers &&
+    prevProps.startLine === nextProps.startLine &&
     prevProps.diff === nextProps.diff &&
     prevProps.className === nextProps.className,
 );
@@ -387,10 +395,12 @@ export const CodeBlockContent = ({
   code,
   language,
   showLineNumbers = false,
+  startLine,
 }: {
   code: string;
   language: BundledLanguage;
   showLineNumbers?: boolean;
+  startLine?: number;
 }) => {
   // A final newline is part of the file format, not another visible code row.
   // Keep `code` unchanged in CodeBlockContext for copying and technical detail,
@@ -441,6 +451,7 @@ export const CodeBlockContent = ({
     >
       <CodeBlockBody
         showLineNumbers={showLineNumbers}
+        startLine={startLine}
         tokenized={tokenized}
         diff={language === 'diff'}
       />
@@ -452,6 +463,7 @@ export const CodeBlock = ({
   code,
   language,
   showLineNumbers = false,
+  startLine,
   className,
   children,
   ...props
@@ -462,7 +474,12 @@ export const CodeBlock = ({
     <CodeBlockContext.Provider value={contextValue}>
       <CodeBlockContainer className={className} language={language} {...props}>
         {children}
-        <CodeBlockContent code={code} language={language} showLineNumbers={showLineNumbers} />
+        <CodeBlockContent
+          code={code}
+          language={language}
+          showLineNumbers={showLineNumbers}
+          startLine={startLine}
+        />
       </CodeBlockContainer>
     </CodeBlockContext.Provider>
   );

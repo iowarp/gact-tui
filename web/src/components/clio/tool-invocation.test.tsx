@@ -326,6 +326,50 @@ describe('ClioToolInvocation content and subject rendering', () => {
     );
     expect(container.querySelector('[data-language="python"]')).toBeInTheDocument();
   });
+  it('numbers a read range from its first line and opens a search hit at its line', async () => {
+    const openReference = vi.fn();
+    const { container } = render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFileReference: openReference }}
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'read-range',
+            session_id: 's',
+            name: 'fs_read_file',
+            state: 'succeeded',
+            presentation: {
+              action: 'Read',
+              subject: 'file-link',
+              summary: 'Lines 120–121 of 400',
+              blocks: [
+                {
+                  id: 'file-link',
+                  type: 'link',
+                  target: 'file',
+                  uri: '/workspace/core.py',
+                  label: 'core.py',
+                  line: 120,
+                },
+                {
+                  id: 'file',
+                  type: 'code',
+                  language: 'python',
+                  text: 'def answer():\n    return 43',
+                  start_line: 120,
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    const code = container.querySelector('[data-language="python"] code') as HTMLElement;
+    expect(code.style.counterReset).toBe('line 119');
+    expect(screen.getByText('Lines 120–121 of 400')).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'core.py' }));
+    expect(openReference).toHaveBeenCalledWith('/workspace/core.py', { line: 120 });
+  });
   it('normalizes workspace resource reads into a bounded file preview', () => {
     const { container } = render(
       <ClioToolInvocation

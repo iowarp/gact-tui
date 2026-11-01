@@ -89,6 +89,14 @@ export function PresentationLink({
   else if (
     (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
     /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&
+    block.line !== undefined &&
+    navigation?.onOpenFileReference
+  )
+    // A link that names a line (a read range, a search hit) opens the file there.
+    open = () => navigation.onOpenFileReference?.(uri, { line: block.line });
+  else if (
+    (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
+    /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&
     navigation?.onOpenFile
   )
     open = () => navigation.onOpenFile?.(uri);

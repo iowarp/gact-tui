@@ -23,6 +23,18 @@ export const toolPresentationSchema = z.object({
       text: z.string().optional(),
       label: z.string().optional(),
       language: z.string().optional(),
+      start_line: z
+        .number()
+        .int()
+        .positive()
+        .nullish()
+        .transform((value) => value ?? undefined),
+      line: z
+        .number()
+        .int()
+        .positive()
+        .nullish()
+        .transform((value) => value ?? undefined),
       // "workspace_file" only: the workspace-relative identity of a file the
       // agent inspected via view_image/view_pdf. Never carries bytes -- the
       // client fetches and previews the file itself, keyed by workspace_id +
