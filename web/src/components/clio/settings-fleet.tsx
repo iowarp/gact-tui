@@ -25,6 +25,11 @@ const roles = [
     'Memory: organizing',
     'Merges, replaces and retires remembered facts. Unset uses the server default model.',
   ],
+  [
+    'explore',
+    'Explore',
+    'Runs the read-only explore helper that searches files and data. A fast model keeps wide surveys quick. Unset uses the conversation model.',
+  ],
 ] as const;
 
 /** Independent evaluator choices; null inherits the conversation model. */

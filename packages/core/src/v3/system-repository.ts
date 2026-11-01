@@ -15,6 +15,7 @@ export const fleetSettingsSchema = z.object({
       .object({ provider_id: z.string(), model_id: z.string() })
       .nullable()
       .optional(),
+    explore: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
   }),
 });
 import { InfrastructureRepository } from './infrastructure-repository.js';
