@@ -228,6 +228,18 @@ it('shows a choice the person made as blocked, without the default mark', async 
   expect(within(control).queryByText('D')).toBeNull();
 });
 
+it('labels the columns once and explains each title on hover', async () => {
+  setWidth(true);
+  const user = userEvent.setup();
+  renderPage();
+  await screen.findByRole('region', { name: 'Read-only tools (1)' });
+  expect(screen.getAllByText('Permission')).toHaveLength(1);
+  await user.hover(screen.getByText('Permission'));
+  expect(await screen.findByRole('tooltip')).toHaveTextContent(
+    /Always allow: it runs without asking\. Needs approval/u,
+  );
+});
+
 it('says when the settings cannot be read', async () => {
   setWidth(true);
   repository.toolSettings.mockRejectedValue(new Error('Plugin is not installed'));

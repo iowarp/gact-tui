@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
@@ -147,17 +148,20 @@ export function PluginToolSettings({ reference }: { reference: string }) {
         </p>
       ) : null}
       {!groups.length ? <p className="text-muted-foreground">This plugin has no tools.</p> : null}
+      {wide && groups.length ? (
+        // One header for every group; it stays at the top of the list while it scrolls.
+        <TooltipProvider disableHoverableContent>
+          <div className="sticky top-0 z-10 -mb-3 flex items-center justify-between gap-2 border-b bg-popover py-2 text-sm font-medium">
+            <ColumnTitle title="Tool" detail={COLUMN_HELP.tool} className="pl-0" />
+            <span className="flex gap-2">
+              <ColumnTitle title="Permission" detail={COLUMN_HELP.permission} className="w-48" />
+              <ColumnTitle title="I/O" detail={COLUMN_HELP.io} className="w-36" />
+            </span>
+          </div>
+        </TooltipProvider>
+      ) : null}
       {groups.map((group) => (
         <section key={group.id} aria-labelledby={`tool-group-${group.id}`} className="grid gap-2">
-          {wide ? (
-            <div
-              aria-hidden
-              className="-mb-2 hidden justify-end gap-2 text-xs font-medium text-muted-foreground md:flex"
-            >
-              <span className="w-48 px-3">Permission</span>
-              <span className="w-36 px-3">I/O</span>
-            </div>
-          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
             <h3 id={`tool-group-${group.id}`} className="font-medium">
               {group.title} <span className="text-muted-foreground">({group.tools.length})</span>
@@ -211,6 +215,38 @@ export function PluginToolSettings({ reference }: { reference: string }) {
         </section>
       ))}
     </div>
+  );
+}
+
+const COLUMN_HELP = {
+  tool: 'The tool, its read-only flag, its plugin default, and what a call does in the approval mode chosen above, directly and from a run_code script.',
+  permission:
+    "Whether the agent may use the tool. Always allow: it runs without asking. Needs approval: the agent asks you before each use, in every approval mode. Blocked: the tool is hidden from the agent and any call to it is refused. A D marks a default (from the plugin, this deployment, or the tool's flags and the approval mode); choosing a value saves your own rule.",
+  io: "Who calls the tool. Direct: the agent itself; its scripts cannot. Code: only run_code scripts; its schema stays out of the prompt, which saves context. Both: either. A D marks the plugin's default.",
+};
+
+/** A column title that explains its column on hover or keyboard focus. */
+function ColumnTitle({
+  title,
+  detail,
+  className = '',
+}: {
+  title: string;
+  detail: string;
+  className?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          tabIndex={0}
+          className={`cursor-help px-3 underline decoration-dotted underline-offset-4 ${className}`}
+        >
+          {title}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">{detail}</TooltipContent>
+    </Tooltip>
   );
 }
 
