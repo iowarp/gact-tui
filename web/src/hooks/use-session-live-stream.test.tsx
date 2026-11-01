@@ -123,6 +123,17 @@ describe('useSessionLiveStream resume recovery', () => {
     unmount();
   });
 
+  it('refreshes the Work rail when the agent writes its plan or todos', () => {
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'session.work.updated',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).toEqual([['session-work', 'http://127.0.0.1:8790', 'sess_1']]);
+  });
+
   it('maps process events to process and session snapshots', () => {
     expect(
       queryInvalidationKeysForEvent({

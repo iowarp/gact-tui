@@ -408,6 +408,10 @@ export function queryInvalidationKeysForEvent({
     keys.push(queryKeys.sessionObservabilityDetail(endpoint, sessionId, 'agent-iterations'));
     keys.push(['session-work', endpoint, sessionId]);
   }
+  // The agent wrote its plan or todos: the Work rail refreshes now, not on its next poll.
+  if (eventName === 'session.work.updated') {
+    keys.push(['session-work', endpoint, sessionId]);
+  }
   if (isModelConfigurationEvent(eventName)) {
     keys.push(
       queryKeys.capabilities(endpoint),

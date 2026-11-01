@@ -441,7 +441,7 @@ function SessionWorkInventory({ sessionId }: { sessionId: string }) {
       <SessionAccess sessionId={sessionId} />
       {data.plan ? (
         <WorkSection title="Plan" summary={planStatusLabel(data.plan.status)} hasContent>
-          <SessionPlanBody plan={data.plan} />
+          <SessionPlanBody plan={data.plan} sessionId={sessionId} />
         </WorkSection>
       ) : null}
       <WorkSection
