@@ -37,7 +37,7 @@ describe('session plan section', () => {
   it('states the status in words and renders the plan', async () => {
     renderPlan();
     expect(
-      screen.getByText('Approved, being worked on · regression-hunt-abc.md'),
+      screen.getByText('Approved, being worked on, regression-hunt-abc.md'),
     ).toBeInTheDocument();
     expect(await screen.findByText('Find the regression.')).toBeInTheDocument();
   });

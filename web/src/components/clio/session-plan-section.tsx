@@ -39,7 +39,7 @@ export function SessionPlanBody({
     <div className="flex min-w-0 flex-col gap-1" data-slot="session-plan">
       <div className="flex min-w-0 items-center gap-2">
         <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={plan.path}>
-          {planStatusLabel(plan.status)} · {name}
+          {planStatusLabel(plan.status)}, {name}
         </p>
         {draft === null ? (
           <Button
