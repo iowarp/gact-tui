@@ -2,7 +2,7 @@ import type { MessageBlock } from '@clio/core/v3';
 import { SyringeIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { pluginChangeLabel } from '@/lib/plugin-presentation';
+import { pluginChangeLabel, pluginChangeTools } from '@/lib/plugin-presentation';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -15,6 +15,7 @@ export function PluginChangeInjection({ block }: { block: InjectionBlock }) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
   const label = pluginChangeLabel(block.text);
+  const tools = pluginChangeTools(block.text);
   return (
     <section
       className="min-w-0 max-w-full py-0.5"
@@ -43,6 +44,12 @@ export function PluginChangeInjection({ block }: { block: InjectionBlock }) {
           <p className="font-medium">
             Sent to the agent as an instruction. Its system prompt updates at the next compaction.
           </p>
+          {tools.length ? (
+            <p className="text-xs">
+              The agent can call these tools now:{' '}
+              <span className="font-mono">{tools.join(', ')}</span>
+            </p>
+          ) : null}
           <pre className="min-w-0 rounded-md bg-muted p-2 font-mono text-xs leading-5 whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
             {block.text}
           </pre>

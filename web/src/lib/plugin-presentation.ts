@@ -289,9 +289,28 @@ export function pluginChangeSummary(text: string): { added: string[]; removed: s
   return { added, removed: removed.filter(Boolean) };
 }
 
-/** "Plugins changed: +shell, −document-runtime", or "Plugins changed". */
+/**
+ * The tools a plugin change made callable now, from the note's "New tools you can call
+ * now" section (one "- name(arguments): description" line each).
+ */
+export function pluginChangeTools(text: string): string[] {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => line.startsWith('New tools you can call now'));
+  if (start < 0) return [];
+  const tools: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    const match = /^- ([A-Za-z0-9_.-]+)\(/u.exec(line.trim());
+    if (!match) break;
+    tools.push(match[1]!);
+  }
+  return tools;
+}
+
+/** "Plugins changed: +shell, −document-runtime (2 new tools)", or "Plugins changed". */
 export function pluginChangeLabel(text: string): string {
   const { added, removed } = pluginChangeSummary(text);
   const items = [...added.map((id) => `+${id}`), ...removed.map((id) => `−${id}`)];
-  return items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed';
+  const tools = pluginChangeTools(text).length;
+  const reach = tools ? ` (${tools} new ${tools === 1 ? 'tool' : 'tools'})` : '';
+  return (items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed') + reach;
 }
