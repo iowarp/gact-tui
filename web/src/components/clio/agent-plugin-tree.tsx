@@ -333,6 +333,15 @@ function PluginDetails({
             <NameChips names={c.tools} />
           </DetailRow>
         ) : null}
+        {c.deferredTools.length ? (
+          <DetailRow label={`Loaded when needed (${c.deferredTools.length})`}>
+            <p className="mb-1 text-xs text-muted-foreground">
+              Named in the prompt; the agent loads their details with a tool search before using
+              them.
+            </p>
+            <NameChips names={c.deferredTools} />
+          </DetailRow>
+        ) : null}
         {c.skills.length ? (
           <DetailRow label={`Skills (${c.skills.length})`}>
             <DescribedList rows={c.skills} />
@@ -361,6 +370,9 @@ function PluginDetails({
                   <span className="font-mono text-xs">{server.name}</span>
                   {server.type ? (
                     <span className="text-xs text-muted-foreground">{server.type}</span>
+                  ) : null}
+                  {server.deferred ? (
+                    <span className="text-xs text-muted-foreground">tools loaded when needed</span>
                   ) : null}
                 </li>
               ))}
