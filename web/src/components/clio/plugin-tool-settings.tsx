@@ -149,6 +149,15 @@ export function PluginToolSettings({ reference }: { reference: string }) {
       {!groups.length ? <p className="text-muted-foreground">This plugin has no tools.</p> : null}
       {groups.map((group) => (
         <section key={group.id} aria-labelledby={`tool-group-${group.id}`} className="grid gap-2">
+          {wide ? (
+            <div
+              aria-hidden
+              className="-mb-2 hidden justify-end gap-2 text-xs font-medium text-muted-foreground md:flex"
+            >
+              <span className="w-48 px-3">Permission</span>
+              <span className="w-36 px-3">I/O</span>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
             <h3 id={`tool-group-${group.id}`} className="font-medium">
               {group.title} <span className="text-muted-foreground">({group.tools.length})</span>
