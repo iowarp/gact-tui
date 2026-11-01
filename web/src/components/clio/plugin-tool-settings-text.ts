@@ -110,3 +110,30 @@ export function ruleText(action: string, where: string, path: string): string {
         : 'in one workspace';
   return `${verb} ${place}${path ? ` for ${path}` : ''}`;
 }
+
+/** The permission a tool has now in ``mode``, and whether it comes from a default. */
+export function effectivePermission(
+  tool: ToolSetting,
+  mode: string,
+): { value: ToolPermission; isDefault: boolean } {
+  if (tool.permission) return { value: tool.permission, isDefault: false };
+  const declared =
+    tool.configured_permission ||
+    (tool.plugin_permission_source === 'plugin' ? tool.plugin_permission : '');
+  if (declared) return { value: declared, isDefault: true };
+  // Nothing declared: what the tool's flags and the approval mode do with a call.
+  const outcome = tool.outcomes[mode];
+  const result = outcome?.direct === 'unavailable' ? outcome.script : outcome?.direct;
+  const value: ToolPermission =
+    result === 'blocked' ? 'deny' : result === 'asks' || result === 'reviewed' ? 'ask' : 'allow';
+  return { value, isDefault: true };
+}
+
+/** The I/O a tool has now, and whether it comes from a default. */
+export function effectiveCallers(tool: ToolSetting): {
+  value: ToolCallers | '';
+  isDefault: boolean;
+} {
+  if (tool.configured_callers) return { value: tool.configured_callers, isDefault: false };
+  return { value: tool.plugin_callers_known ? tool.plugin_callers : '', isDefault: true };
+}

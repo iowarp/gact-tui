@@ -1,4 +1,10 @@
-import type { ToolRule, ToolSetting, ToolSettingsUpdate } from '@clio/core/v3';
+import type {
+  ToolCallers,
+  ToolPermission,
+  ToolRule,
+  ToolSetting,
+  ToolSettingsUpdate,
+} from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -15,11 +21,14 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { SettingBadge } from './plugin-tool-setting-badge';
 import {
   CALLERS_TEXT,
   OUTCOME_TEXT,
   PERMISSION_TEXT,
   callersChoice,
+  effectiveCallers,
+  effectivePermission,
   flagText,
   groupModeText,
   modeLabel,
@@ -182,7 +191,7 @@ export function PluginToolSettings({ reference }: { reference: string }) {
                 ) : (
                   <MobileRow
                     name={tool.name}
-                    value={summary(permissionChoice(tool), callersChoice(tool), tool)}
+                    value={toolSummary(tool, shown)}
                     outcome={outcome(tool, shown)}
                     onOpen={() => setDetail({ kind: 'tool', name: tool.name })}
                   />
@@ -230,6 +239,19 @@ function summary(
   ].join(', ');
 }
 
+/** A tool's effective values in words, each marked when it is a default. */
+function toolSummary(tool: ToolSetting, mode: string): string {
+  const permission = effectivePermission(tool, mode);
+  const callers = effectiveCallers(tool);
+  const words = (label: string, isDefault: boolean) => (isDefault ? `${label} (default)` : label);
+  return [
+    words(PERMISSION_TEXT[permission.value].label, permission.isDefault),
+    callers.value
+      ? words(CALLERS_TEXT[callers.value].label, callers.isDefault)
+      : 'I/O not known yet',
+  ].join(', ');
+}
+
 function outcome(tool: ToolSetting, mode: string): string {
   const found = tool.outcomes[mode];
   if (!found) return '';
@@ -238,12 +260,14 @@ function outcome(tool: ToolSetting, mode: string): string {
   }.`;
 }
 
+type Shown = { value: ToolPermission | ToolCallers | ''; isDefault: boolean };
+
 function Controls({
   label,
   permission,
   callers,
   names,
-  defaults,
+  shown,
   setPermission,
   setCallers,
   busy,
@@ -252,8 +276,27 @@ function Controls({
   permission: PermissionChoice | 'mixed';
   callers: CallersChoice | 'mixed';
   names: string[];
-  defaults?: { permission: string; callers: string };
+  /** One tool: its effective values now, and what its defaults are. */
+  shown?: { permission: Shown; callers: Shown; defaults: { permission: Shown; callers: Shown } };
 }) {
+  const groupDefault = <span className="text-muted-foreground">Per tool</span>;
+  const trigger = (choice: string, current: Shown | undefined) =>
+    current ? (
+      <SettingBadge {...current} />
+    ) : choice === 'default' ? (
+      groupDefault
+    ) : choice && choice !== 'mixed' ? (
+      <SettingBadge value={choice as ToolPermission} isDefault={false} />
+    ) : undefined;
+  const defaultItem = (current: Shown | undefined) =>
+    current ? (
+      <span className="inline-flex items-center gap-2">
+        <SettingBadge {...current} />
+        <span className="text-muted-foreground">(default)</span>
+      </span>
+    ) : (
+      "Each tool's default"
+    );
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select
@@ -261,16 +304,14 @@ function Controls({
         onValueChange={(value) => setPermission(names, value as PermissionChoice)}
         disabled={busy}
       >
-        <SelectTrigger size="sm" aria-label={`Permission: ${label}`} className="w-56 max-w-full">
-          <SelectValue placeholder="Mixed" />
+        <SelectTrigger size="sm" aria-label={`Permission: ${label}`} className="w-48 max-w-full">
+          <SelectValue placeholder="Mixed">{trigger(permission, shown?.permission)}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="default">
-            {defaults ? `Default: ${defaults.permission}` : 'Plugin default'}
-          </SelectItem>
+          <SelectItem value="default">{defaultItem(shown?.defaults.permission)}</SelectItem>
           {(['allow', 'ask', 'deny'] as const).map((value) => (
             <SelectItem key={value} value={value}>
-              {PERMISSION_TEXT[value].label}
+              <SettingBadge value={value} isDefault={false} />
             </SelectItem>
           ))}
         </SelectContent>
@@ -280,16 +321,14 @@ function Controls({
         onValueChange={(value) => setCallers(names, value as CallersChoice)}
         disabled={busy}
       >
-        <SelectTrigger size="sm" aria-label={`I/O: ${label}`} className="w-40 max-w-full">
-          <SelectValue placeholder="Mixed" />
+        <SelectTrigger size="sm" aria-label={`I/O: ${label}`} className="w-36 max-w-full">
+          <SelectValue placeholder="Mixed">{trigger(callers, shown?.callers)}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="default">
-            {defaults ? `Default: ${defaults.callers}` : 'Plugin default'}
-          </SelectItem>
+          <SelectItem value="default">{defaultItem(shown?.defaults.callers)}</SelectItem>
           {(['direct', 'code', 'both'] as const).map((value) => (
             <SelectItem key={value} value={value}>
-              {CALLERS_TEXT[value].label}
+              <SettingBadge value={value} isDefault={false} />
             </SelectItem>
           ))}
         </SelectContent>
@@ -349,7 +388,14 @@ function ToolRow({
         permission={permissionChoice(tool)}
         callers={callersChoice(tool)}
         names={[tool.name]}
-        defaults={{ permission: pluginPermissionText(tool), callers: pluginCallersText(tool) }}
+        shown={{
+          permission: effectivePermission(tool, mode),
+          callers: effectiveCallers(tool),
+          defaults: {
+            permission: effectivePermission({ ...tool, permission: '' }, mode),
+            callers: effectiveCallers({ ...tool, configured_callers: '' }),
+          },
+        }}
         {...editors}
       />
     </div>

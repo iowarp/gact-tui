@@ -126,12 +126,14 @@ it('groups tools by their flags and states defaults and outcomes in words', asyn
   ).toBeVisible();
   expect(within(write).getByText('Allowed in one conversation')).toBeVisible();
   expect(screen.getByText(/Tools of calendar appear here/u)).toBeVisible();
-  expect(
-    within(write).getByRole('combobox', { name: 'Permission: home_light_set' }),
-  ).toHaveTextContent('Default: Needs approval');
-  expect(within(write).getByRole('combobox', { name: 'I/O: home_light_set' })).toHaveTextContent(
-    'Default: Code',
-  );
+  // Each control shows the value in force; a default carries its mark in words.
+  const permission = within(write).getByRole('combobox', { name: 'Permission: home_light_set' });
+  expect(within(permission).getByLabelText('Needs approval, default')).toBeVisible();
+  const io = within(write).getByRole('combobox', { name: 'I/O: home_light_set' });
+  expect(within(io).getByLabelText('Code, default')).toBeVisible();
+  // No declaration: the flags and the mode decide, so a read-only tool reads as allowed.
+  const list = within(read).getByRole('combobox', { name: 'Permission: home_light_list' });
+  expect(within(list).getByLabelText('Always allow, default')).toBeVisible();
 });
 
 it('saves a per-tool block, a group I/O choice and removes a saved rule', async () => {
@@ -180,7 +182,9 @@ it('on a phone, lists tools and opens a detail screen with explained choices', a
   const user = userEvent.setup();
   renderPage();
   await user.click(
-    await screen.findByRole('button', { name: 'home_light_set: Needs approval, Code' }),
+    await screen.findByRole('button', {
+      name: 'home_light_set: Needs approval (default), Code (default)',
+    }),
   );
   expect(screen.getByRole('heading', { name: 'home_light_set' })).toBeVisible();
   const permission = screen.getByRole('radiogroup', { name: 'Permission' });
@@ -207,6 +211,21 @@ it('on a phone, lists tools and opens a detail screen with explained choices', a
   expect(screen.getByText('Prefer scenes for several lights.')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Back to tools' }));
   expect(screen.getAllByRole('button', { name: /All tools/u })).toHaveLength(2);
+});
+
+it('shows a choice the person made as blocked, without the default mark', async () => {
+  setWidth(true);
+  repository.toolSettings.mockResolvedValue({
+    ...VIEW,
+    tools: VIEW.tools.map((tool) =>
+      tool.name === 'home_light_list' ? { ...tool, permission: 'deny' as const } : tool,
+    ),
+  });
+  renderPage();
+  const read = await screen.findByRole('region', { name: 'Read-only tools (1)' });
+  const control = within(read).getByRole('combobox', { name: 'Permission: home_light_list' });
+  expect(within(control).getByLabelText('Blocked')).toBeVisible();
+  expect(within(control).queryByText('D')).toBeNull();
 });
 
 it('says when the settings cannot be read', async () => {
