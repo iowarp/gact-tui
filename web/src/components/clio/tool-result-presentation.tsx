@@ -38,6 +38,8 @@ import {
 } from './tool-presentation';
 import { withQuestionPresentation } from './question-tool-presentation';
 import { useQuestionAnswer } from './question-answer-context';
+import { ReportTabs } from './report-tabs';
+import { childReports } from '@/lib/child-reports';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
@@ -123,6 +125,25 @@ export function ToolResultPresentation({
             <DefaultBlockPanel key={block.id} block={block} lines={lines} running={false} />
           ),
         )}
+      </div>
+    );
+  }
+  // A wait or a blocking spawn with several returned reports: one tab per child.
+  // While children are only pending, the named snapshots list them instead.
+  const reports = childReports(blocks);
+  if (reports.filter((report) => report.result_kind !== 'snapshot').length >= 2) {
+    const rest = blocks.filter((block) => !reports.includes(block));
+    return (
+      <div className="ml-7 flex min-w-0 flex-col gap-1" data-slot="tool-human-result">
+        {summary ? (
+          <p className="whitespace-pre-wrap pr-2 text-sm leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+            {summary}
+          </p>
+        ) : null}
+        {rest.map((block) => (
+          <DefaultBlockPanel key={block.id} block={block} lines={lines} running={false} />
+        ))}
+        <ReportTabs reports={reports} />
       </div>
     );
   }

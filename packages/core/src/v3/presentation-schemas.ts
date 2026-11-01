@@ -22,6 +22,14 @@ export const toolPresentationSchema = z.object({
       media_type: z.string().optional(),
       text: z.string().optional(),
       label: z.string().optional(),
+      title: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? undefined),
+      model: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? undefined),
       language: z.string().optional(),
       start_line: z
         .number()

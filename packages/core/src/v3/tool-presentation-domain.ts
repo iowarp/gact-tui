@@ -15,6 +15,10 @@ export interface ToolPresentationBlock {
   media_type?: string;
   text?: string;
   label?: string;
+  /** A child report's name (its task label). */
+  title?: string;
+  /** The model a child report's agent ran on. */
+  model?: string;
   language?: string;
   /** `code`: the file line number of the block's first line. */
   start_line?: number;
