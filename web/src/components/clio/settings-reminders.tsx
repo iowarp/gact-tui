@@ -55,7 +55,9 @@ export function RemindersList({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">{prompt.title || prompt.id}</p>
-                <Badge variant="outline">{meta.active ? 'On' : 'Off'}</Badge>
+                <Badge variant="outline">
+                  {meta.required ? 'Always on' : meta.active ? 'On' : 'Off'}
+                </Badge>
                 <Badge variant="outline">{prompt.scope}</Badge>
               </div>
               {prompt.description ? (
@@ -64,19 +66,34 @@ export function RemindersList({
               {meta.trigger ? (
                 <p className="mt-1 text-xs text-muted-foreground">When: {meta.trigger}</p>
               ) : null}
+              {meta.required ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Cannot be turned off: {meta.required}
+                </p>
+              ) : null}
+              {Object.keys(meta.params).length ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Settings:{' '}
+                  {Object.entries(meta.params)
+                    .map(([name, value]) => `${name} = ${value}`)
+                    .join(', ')}
+                </p>
+              ) : null}
               {meta.variables.length ? (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Variables: {meta.variables.map((name) => `{{${name}}}`).join(', ')}
                 </p>
               ) : null}
             </div>
-            <Switch
-              aria-label={`${prompt.title || prompt.id} on`}
-              checked={meta.active}
-              disabled={toggle.isPending}
-              onClick={(event) => event.stopPropagation()}
-              onCheckedChange={(active) => toggle.mutate({ prompt, active })}
-            />
+            {meta.required ? null : (
+              <Switch
+                aria-label={`${prompt.title || prompt.id} on`}
+                checked={meta.active}
+                disabled={toggle.isPending}
+                onClick={(event) => event.stopPropagation()}
+                onCheckedChange={(active) => toggle.mutate({ prompt, active })}
+              />
+            )}
           </div>
         </ClioInteractiveRow>
       ))}

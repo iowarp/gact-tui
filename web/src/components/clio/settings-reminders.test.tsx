@@ -30,14 +30,22 @@ const reminder = {
       name: 'default',
       metadata: {
         kind: 'reminder',
-        active: true,
+        active: 'true',
         trigger: 'after 6 reading calls with no delegation',
-        variables: ['calls', 'explore_model'],
+        variables: 'calls, explore_model',
+        param_after: '6',
       },
     },
   },
 } as unknown as PromptDefinition;
 const plain = { ...reminder, id: 'clio.chat', profiles: { default: { name: 'default' } } };
+const carrier = {
+  ...reminder,
+  id: 'clio.reminder.task_result',
+  title: 'A finished task',
+  metadata: { kind: 'reminder', required: 'it carries the child result', active: 'false' },
+  profiles: { default: { name: 'default' } },
+} as unknown as PromptDefinition;
 
 it('lists reminders with their trigger and variables, and switches one off', async () => {
   expect(reminderMeta(plain as unknown as PromptDefinition)).toBeNull();
@@ -51,7 +59,7 @@ it('lists reminders with their trigger and variables, and switches one off', asy
   render(
     <QueryClientProvider client={new QueryClient()}>
       <RemindersList
-        prompts={[reminder, plain as unknown as PromptDefinition]}
+        prompts={[reminder, plain as unknown as PromptDefinition, carrier]}
         onEdit={vi.fn()}
         onChanged={onChanged}
       />
@@ -61,7 +69,11 @@ it('lists reminders with their trigger and variables, and switches one off', asy
   expect(screen.queryByText('clio.chat')).toBeNull();
   expect(screen.getByText('When: after 6 reading calls with no delegation')).toBeTruthy();
   expect(screen.getByText('Variables: {{calls}}, {{explore_model}}')).toBeTruthy();
+  expect(screen.getByText('Settings: after = 6')).toBeTruthy();
   expect(screen.getByText('On')).toBeTruthy();
+  expect(screen.getByText('Always on')).toBeTruthy();
+  expect(screen.getByText('Cannot be turned off: it carries the child result')).toBeTruthy();
+  expect(screen.queryByRole('switch', { name: 'A finished task on' })).toBeNull();
   await userEvent
     .setup()
     .click(screen.getByRole('switch', { name: 'Suggest Explore while searching on' }));
