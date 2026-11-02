@@ -17,6 +17,8 @@ export const fleetSettingsSchema = z.object({
       .optional(),
     explore: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
   }),
+  /** The explore note: a reminder after a run of reading calls, never a spawn. */
+  explore_nudge: z.object({ enabled: z.boolean(), after: z.number().int().min(0) }).optional(),
 });
 import { InfrastructureRepository } from './infrastructure-repository.js';
 import { spotterAvailabilitySchema, type SpotterAvailability } from './spotter-domain.js';

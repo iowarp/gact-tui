@@ -1,7 +1,10 @@
 import { vocab } from '@/lib/brand-vocabulary';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClioModelPicker } from './model-picker';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -145,7 +148,65 @@ export function FleetSettingsPanel() {
             </div>
           );
         })}
+      {data.explore_nudge ? (
+        <ExploreNudgeSetting
+          value={data.explore_nudge}
+          pending={save.isPending}
+          onChange={(explore_nudge) => save.mutate({ ...data, explore_nudge })}
+        />
+      ) : null}
       {save.error ? <p role="alert">{save.error.message}</p> : null}
     </section>
+  );
+}
+
+/** The explore note: after a run of reading calls, the agent is reminded that explore
+ * exists. A suggestion it weighs, never a spawn. */
+function ExploreNudgeSetting({
+  value,
+  pending,
+  onChange,
+}: {
+  value: { enabled: boolean; after: number };
+  pending: boolean;
+  onChange: (value: { enabled: boolean; after: number }) => void;
+}) {
+  const [draft, setDraft] = useState<number>();
+  const after = draft ?? value.after;
+  return (
+    <div className="flex flex-col gap-3 border-b py-3">
+      <label className="flex flex-wrap items-center justify-between gap-3">
+        <span className="min-w-48 flex-1">
+          <span className="block font-medium">Suggest Explore while searching</span>
+          <span className="block text-sm text-muted-foreground">
+            After a run of searches and reads, remind the agent that Explore can take over the
+            search. It is a suggestion; the agent decides.
+          </span>
+        </span>
+        <Switch
+          aria-label="Suggest Explore while searching"
+          checked={value.enabled}
+          disabled={pending}
+          onCheckedChange={(enabled) => onChange({ ...value, enabled })}
+        />
+      </label>
+      <div className="flex items-center gap-3 text-sm">
+        <span className="min-w-48">Reads before the suggestion</span>
+        <Slider
+          aria-label="Reads before the Explore suggestion"
+          min={2}
+          max={20}
+          step={1}
+          value={[after]}
+          disabled={pending || !value.enabled}
+          onValueChange={(next) => setDraft(next[0])}
+          onValueCommit={(next) => {
+            if (next[0] !== undefined && next[0] !== value.after) onChange({ ...value, after: next[0] });
+            setDraft(undefined);
+          }}
+        />
+        <span className="tabular-nums">{after}</span>
+      </div>
+    </div>
   );
 }

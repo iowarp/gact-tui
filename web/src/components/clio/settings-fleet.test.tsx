@@ -70,3 +70,29 @@ it('inherits three conversation models and changes only the selected judge role'
     }),
   );
 });
+
+it('turns the Explore suggestion off without touching the models', async () => {
+  const initial = {
+    revision: 'r1',
+    judges: { goals: null, variants: null, permissions: null, explore: null },
+    explore_nudge: { enabled: true, after: 6 },
+  };
+  repository.fleetSettings.mockResolvedValue(initial);
+  repository.updateFleetSettings.mockImplementation(async (value) => ({ ...value, revision: 'r2' }));
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <FleetSettingsPanel />
+    </QueryClientProvider>,
+  );
+  const toggle = await screen.findByRole('switch', { name: 'Suggest Explore while searching' });
+  expect(screen.getByText('6')).toBeTruthy();
+  await userEvent.setup().click(toggle);
+  await waitFor(() =>
+    expect(repository.updateFleetSettings).toHaveBeenCalledWith({
+      ...initial,
+      explore_nudge: { enabled: false, after: 6 },
+    }),
+  );
+});
