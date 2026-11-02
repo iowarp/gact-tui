@@ -2821,6 +2821,7 @@ resource.processing_started implemented
 resource.ready implemented
 resource.upload_progress implemented
 session.upserted implemented
+session.work.updated implemented
 stream.gap implemented
 stream.live implemented
 subagent.upserted implemented
@@ -2842,6 +2843,10 @@ run.upserted spec-only
 task.upserted spec-only
 workspace.upserted spec-only
 ```
+
+`session.work.updated` is a refresh hint for the session's working state on the Work rail: the
+agent wrote its plan or its todos. Its payload is `{part}`, `plan` or `todos`. It carries no
+content: the client re-reads `GET /v1/sessions/{sid}/work`.
 
 `task.updated` is a refresh hint for a durable task the receiving session owns, is an ancestor
 of, or subscribes to. Its payload is `{handle, kind, revision, owner_session_id}`, plus
