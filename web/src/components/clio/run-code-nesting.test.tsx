@@ -100,7 +100,7 @@ function scriptQuestion(actions: string[]): PendingInteraction {
     actions,
     payload: {
       permission_id: 'perm_2',
-      tool_call: { tool_name: 'fs_write_file', input: { filepath: 'out.csv' } },
+      tool_call: { tool_name: 'fs_write_file', input: { path: 'out.csv' } },
       script: { call_id: 'call_run', code: 'for f in files:\n    await tools.fs.write_file(f)' },
     },
   } as PendingInteraction;

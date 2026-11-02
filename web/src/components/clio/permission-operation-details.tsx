@@ -12,7 +12,7 @@ export function PermissionOperationDetails({ interaction }: { interaction: Pendi
   const name = access?.operation ?? call?.tool_name ?? interaction.source.tool_name ?? '';
   const text = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
   const command = access?.command || text('command');
-  const path = text('filepath') || text('path') || text('output_path');
+  const path = text('path') || text('output_path');
   const cwd = access?.cwd || interaction.payload?.execution?.cwd || text('cwd');
   const isWebRequest = name === 'web_fetch' || name === 'web_search';
   const isSourceConnection = name === 'connected_data_connect';

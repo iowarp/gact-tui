@@ -304,7 +304,7 @@ export function childProjectionActivityItems(
       continue;
     }
     const owner = lineageBySession.get(ownerSessionId);
-    const filePath = projectedFilePath(span.attributes);
+    const filePath = projectedFilePath(toolName, span.attributes);
     items.push({
       id: `projected:${span.id}`,
       kind: projectedKind(span.kind),
@@ -689,7 +689,7 @@ function projectedActivityLabel(
   const input = attributes.tool_input;
   const qualifier =
     input && typeof input === 'object'
-      ? ['filepath', 'path', 'uri', 'resource_id', 'task_id']
+      ? ['path', 'uri', 'resource_id', 'task_id']
           .map((key) => (input as Record<string, unknown>)[key])
           .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
       : undefined;
@@ -699,10 +699,15 @@ function projectedActivityLabel(
   return `${operation} ${compact}`;
 }
 
-function projectedFilePath(attributes: Record<string, unknown>): string | undefined {
+function projectedFilePath(
+  toolName: string | undefined,
+  attributes: Record<string, unknown>,
+): string | undefined {
+  // Only the file tools' `path` names a file; the listing and search tools' names a folder.
+  if (!toolName || !provenanceFileFact(toolName)) return undefined;
   const input = attributes.tool_input;
   if (!input || typeof input !== 'object') return undefined;
-  const value = (input as Record<string, unknown>).filepath;
+  const value = (input as Record<string, unknown>).path;
   return typeof value === 'string' && value.trim() ? value : undefined;
 }
 

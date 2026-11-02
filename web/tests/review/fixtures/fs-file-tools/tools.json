@@ -1,0 +1,679 @@
+[
+  {
+    "id": "read-code",
+    "session_id": "fs-showcase",
+    "name": "fs_read_file",
+    "title": "Read gateway.py",
+    "state": "succeeded",
+    "duration_ms": 40,
+    "input": {
+      "path": "/workspace/station-triage/src/gateway.py"
+    },
+    "output": {
+      "content": [
+        {
+          "type": "text",
+          "text": "/workspace/station-triage/src/gateway.py  lines 1-3 of 3  (104 bytes)\n     1\tdef route(request):\n     2\t    \"\"\"Send a request to its handler.\"\"\"\n     3\t    return HANDLERS[request.path](request)"
+        }
+      ],
+      "structuredContent": {
+        "path": "/workspace/station-triage/src/gateway.py",
+        "size_bytes": 104,
+        "start_line": 1,
+        "end_line": 3,
+        "total_lines": 3,
+        "truncated": false,
+        "next_offset": null
+      }
+    },
+    "presentation": {
+      "action": "Read",
+      "subject": "file-link",
+      "summary": "Lines 1–3 of 3",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "gateway.py",
+          "language": "",
+          "line": 1,
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/src/gateway.py",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "file",
+          "type": "code",
+          "media_type": "",
+          "text": "def route(request):\n    \"\"\"Send a request to its handler.\"\"\"\n    return HANDLERS[request.path](request)",
+          "label": "",
+          "language": "python",
+          "start_line": 1,
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "uri": "",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        }
+      ]
+    }
+  },
+  {
+    "id": "read-large",
+    "session_id": "fs-showcase",
+    "name": "fs_read_file",
+    "title": "Read report",
+    "state": "succeeded",
+    "duration_ms": 40,
+    "input": {
+      "path": "/workspace/station-triage/reports/station-quality-summary-with-a-deliberately-long-unbroken-name-for-wrapping.md",
+      "limit": 300
+    },
+    "output": {
+      "content": [
+        {
+          "type": "text",
+          "text": "/workspace/station-triage/reports/station-quality-summary-with-a-deliberately-long-unbroken-name-for-wrapping.md  lines 1-70 of 5,006  (860,057 bytes); continue with offset=71\n     1\t---\n     2\ttitle: Station quality\n     3\towner: triage\n     4\t---\n     5\t# Readings\n     6\t\n     7\t- reading 00000: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n     8\t- reading 00001: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n     9\t- reading 00002: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    10\t- reading 00003: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    11\t- reading 00004: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    12\t- reading 00005: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    13\t- reading 00006: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    14\t- reading 00007: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    15\t- reading 00008: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    16\t- reading 00009: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    17\t- reading 00010: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    18\t- reading 00011: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    19\t- reading 00012: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    20\t- reading 00013: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    21\t- reading 00014: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    22\t- reading 00015: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    23\t- reading 00016: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    24\t- reading 00017: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    25\t- reading 00018: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    26\t- reading 00019: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    27\t- reading 00020: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    28\t- reading 00021: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    29\t- reading 00022: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    30\t- reading 00023: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    31\t- reading 00024: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    32\t- reading 00025: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    33\t- reading 00026: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    34\t- reading 00027: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    35\t- reading 00028: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    36\t- reading 00029: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    37\t- reading 00030: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    38\t- reading 00031: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    39\t- reading 00032: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    40\t- reading 00033: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    41\t- reading 00034: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    42\t- reading 00035: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    43\t- reading 00036: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    44\t- reading 00037: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    45\t- reading 00038: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    46\t- reading 00039: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    47\t- reading 00040: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    48\t- reading 00041: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    49\t- reading 00042: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    50\t- reading 00043: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    51\t- reading 00044: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    52\t- reading 00045: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    53\t- reading 00046: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    54\t- reading 00047: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    55\t- reading 00048: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    56\t- reading 00049: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    57\t- reading 00050: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    58\t- reading 00051: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    59\t- reading 00052: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    60\t- reading 00053: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    61\t- reading 00054: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    62\t- reading 00055: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    63\t- reading 00056: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    64\t- reading 00057: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    65\t- reading 00058: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    66\t- reading 00059: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    67\t- reading 00060: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    68\t- reading 00061: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    69\t- reading 00062: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n    70\t- reading 00063: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value "
+        }
+      ],
+      "structuredContent": {
+        "path": "/workspace/station-triage/reports/station-quality-summary-with-a-deliberately-long-unbroken-name-for-wrapping.md",
+        "size_bytes": 860057,
+        "start_line": 1,
+        "end_line": 70,
+        "total_lines": 5006,
+        "truncated": true,
+        "next_offset": 71
+      }
+    },
+    "presentation": {
+      "action": "Read",
+      "subject": "file-link",
+      "summary": "Lines 1–70 of 5,006",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "station-quality-summary-with-a-deliberately-long-unbroken-name-for-wrapping.md",
+          "language": "",
+          "line": 1,
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/reports/station-quality-summary-with-a-deliberately-long-unbroken-name-for-wrapping.md",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "metadata",
+          "type": "text",
+          "media_type": "",
+          "text": "Title: Station quality\nOwner: triage",
+          "label": "",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "uri": "",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "file",
+          "type": "markdown",
+          "media_type": "",
+          "text": "# Readings\n\n- reading 00000: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00001: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00002: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00003: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00004: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00005: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00006: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00007: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00008: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00009: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00010: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00011: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00012: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00013: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00014: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00015: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00016: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00017: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00018: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00019: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00020: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00021: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00022: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00023: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00024: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00025: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00026: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00027: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00028: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00029: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00030: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00031: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00032: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00033: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00034: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00035: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00036: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00037: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00038: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00039: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00040: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00041: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00042: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00043: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00044: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00045: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00046: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00047: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00048: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00049: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00050: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00051: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00052: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00053: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00054: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00055: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00056: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00057: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00058: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00059: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00060: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00061: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00062: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value \n- reading 00063: wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value wide value ",
+          "label": "",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "uri": "",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "continues",
+          "type": "text",
+          "media_type": "",
+          "text": "More lines follow; the next read starts at line 71.",
+          "label": "",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "uri": "",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": "",
+          "severity": "info"
+        }
+      ]
+    }
+  },
+  {
+    "id": "read-empty",
+    "session_id": "fs-showcase",
+    "name": "fs_read_file",
+    "title": "Read empty.log",
+    "state": "succeeded",
+    "duration_ms": 40,
+    "input": {
+      "path": "/workspace/station-triage/empty.log"
+    },
+    "output": {
+      "content": [
+        {
+          "type": "text",
+          "text": "/workspace/station-triage/empty.log  empty file (0 bytes)"
+        }
+      ],
+      "structuredContent": {
+        "path": "/workspace/station-triage/empty.log",
+        "size_bytes": 0,
+        "start_line": null,
+        "end_line": null,
+        "total_lines": 0,
+        "truncated": false,
+        "next_offset": null
+      }
+    },
+    "presentation": {
+      "action": "Read",
+      "subject": "file-link",
+      "summary": "Empty file",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "empty.log",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/empty.log",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        }
+      ]
+    }
+  },
+  {
+    "id": "write-created",
+    "session_id": "fs-showcase",
+    "name": "fs_write_file",
+    "title": "Write plan.md",
+    "state": "succeeded",
+    "duration_ms": 40,
+    "input": {
+      "path": "/workspace/station-triage/notes/plan.md",
+      "content": "# Plan\n\n- triage gateway\n- check readings\n"
+    },
+    "output": {
+      "content": [],
+      "structuredContent": {
+        "path": "/workspace/station-triage/notes/plan.md",
+        "written_path": "/workspace/station-triage/notes/plan.md",
+        "size_bytes": 42,
+        "sha256": "4e76d4755250153a43c258da8197603b8310c5c936ca99dfcf1fbb70ddfebf65",
+        "ok": true,
+        "created": true,
+        "sha256_before": "",
+        "unified_diff": "--- a/plan.md\n+++ b/plan.md\n@@ -0,0 +1,4 @@\n+# Plan\n+\n+- triage gateway\n+- check readings\n",
+        "lines_added": 4,
+        "lines_removed": 0
+      }
+    },
+    "presentation": {
+      "action": "Write",
+      "subject": "file-link",
+      "summary": "",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "plan.md",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/notes/plan.md",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "diff",
+          "type": "diff",
+          "media_type": "",
+          "text": "--- a/plan.md\n+++ b/plan.md\n@@ -0,0 +1,4 @@\n+# Plan\n+\n+- triage gateway\n+- check readings\n",
+          "label": "",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "uri": "",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        }
+      ]
+    }
+  },
+  {
+    "id": "write-overwritten",
+    "session_id": "fs-showcase",
+    "name": "fs_write_file",
+    "title": "Write plan.md",
+    "state": "succeeded",
+    "duration_ms": 40,
+    "input": {
+      "path": "/workspace/station-triage/notes/plan.md",
+      "content": "# Plan\n\n- triage gateway\n- recheck readings after the fix\n"
+    },
+    "output": {
+      "content": [],
+      "structuredContent": {
+        "path": "/workspace/station-triage/notes/plan.md",
+        "written_path": "/workspace/station-triage/notes/plan.md",
+        "size_bytes": 58,
+        "sha256": "04eedd30ae9ca76fb5195434e9c5a153ccb1dcbac953133d21f0eb33620fc64a",
+        "ok": true,
+        "created": false,
+        "sha256_before": "4e76d4755250153a43c258da8197603b8310c5c936ca99dfcf1fbb70ddfebf65",
+        "unified_diff": "--- a/plan.md\n+++ b/plan.md\n@@ -1,4 +1,4 @@\n # Plan\n \n - triage gateway\n-- check readings\n+- recheck readings after the fix\n",
+        "lines_added": 1,
+        "lines_removed": 1
+      }
+    },
+    "presentation": {
+      "action": "Write",
+      "subject": "file-link",
+      "summary": "",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "plan.md",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/notes/plan.md",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "diff",
+          "type": "diff",
+          "media_type": "",
+          "text": "--- a/plan.md\n+++ b/plan.md\n@@ -3,2 +3,2 @@\n - triage gateway\n-- check readings\n+- recheck readings after the fix\n",
+          "label": "",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "uri": "",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        }
+      ]
+    }
+  },
+  {
+    "id": "edit",
+    "session_id": "fs-showcase",
+    "name": "fs_edit_file",
+    "title": "Edit plan.md",
+    "state": "succeeded",
+    "duration_ms": 40,
+    "input": {
+      "path": "/workspace/station-triage/notes/plan.md",
+      "old_string": "triage gateway",
+      "new_string": "triage the API gateway"
+    },
+    "output": {
+      "content": [],
+      "structuredContent": {
+        "path": "/workspace/station-triage/notes/plan.md",
+        "written_path": "/workspace/station-triage/notes/plan.md",
+        "size_bytes": 66,
+        "sha256": "8711ecf3dc7307cc27043a64778b18e20e8fae65704c0a350e61be62de02cb82",
+        "ok": true,
+        "created": false,
+        "sha256_before": "04eedd30ae9ca76fb5195434e9c5a153ccb1dcbac953133d21f0eb33620fc64a",
+        "unified_diff": "--- a/plan.md\n+++ b/plan.md\n@@ -1,4 +1,4 @@\n # Plan\n \n-- triage gateway\n+- triage the API gateway\n - recheck readings after the fix\n",
+        "lines_added": 1,
+        "lines_removed": 1,
+        "replacements": 1
+      }
+    },
+    "presentation": {
+      "action": "Edit",
+      "subject": "file-link",
+      "summary": "",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "plan.md",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/notes/plan.md",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "diff",
+          "type": "diff",
+          "media_type": "",
+          "text": "--- a/plan.md\n+++ b/plan.md\n@@ -2,3 +2,3 @@\n \n-- triage gateway\n+- triage the API gateway\n - recheck readings after the fix\n",
+          "label": "",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "uri": "",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        }
+      ]
+    }
+  },
+  {
+    "id": "edit-refused",
+    "session_id": "fs-showcase",
+    "name": "fs_edit_file",
+    "title": "Edit dupes.txt",
+    "state": "failed",
+    "duration_ms": 40,
+    "input": {
+      "path": "/workspace/station-triage/dupes.txt",
+      "old_string": "threshold = 3",
+      "new_string": "threshold = 5"
+    },
+    "output": {
+      "content": [],
+      "structuredContent": {
+        "ok": false,
+        "path": "/workspace/station-triage/dupes.txt",
+        "error": {
+          "type": "file_edit",
+          "code": "old_string_not_unique",
+          "message": "old_string occurs 2 times in /workspace/station-triage/dupes.txt; include more surrounding text to make it unique, or set replace_all to replace every occurrence",
+          "details": {
+            "occurrences": 2
+          }
+        }
+      }
+    },
+    "presentation": {
+      "action": "Edit",
+      "subject": "file-link",
+      "summary": "",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "dupes.txt",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/dupes.txt",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "execution-error",
+          "type": "text",
+          "label": "Request failed",
+          "severity": "error",
+          "text": "old_string_not_unique: old_string occurs 2 times in /workspace/station-triage/dupes.txt; include more surrounding text to make it unique, or set replace_all to replace every occurrence"
+        }
+      ],
+      "status": "failed"
+    },
+    "error": "old_string_not_unique: old_string occurs 2 times in /workspace/station-triage/dupes.txt; include more surrounding text to make it unique, or set replace_all to replace every occurrence"
+  },
+  {
+    "id": "read-outside",
+    "session_id": "fs-showcase",
+    "name": "fs_read_file",
+    "title": "Read secrets.txt",
+    "state": "failed",
+    "duration_ms": 40,
+    "input": {
+      "path": "/home/scientist/private/secrets.txt"
+    },
+    "output": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Error calling tool 'read_file': Path is outside allowed roots: /home/scientist/private/secrets.txt"
+        }
+      ],
+      "isError": true
+    },
+    "presentation": {
+      "action": "Read",
+      "subject": "file-link",
+      "status": "failed",
+      "summary": "",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "secrets.txt",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/home/scientist/private/secrets.txt",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        },
+        {
+          "id": "content-0",
+          "type": "text",
+          "media_type": "",
+          "text": "Error calling tool 'read_file': Path is outside allowed roots: /home/scientist/private/secrets.txt",
+          "label": "Request failed",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "uri": "",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": "",
+          "severity": "error"
+        }
+      ]
+    },
+    "error": "tool_result_is_error"
+  },
+  {
+    "id": "write-running",
+    "session_id": "fs-showcase",
+    "name": "fs_write_file",
+    "title": "Write report",
+    "state": "running",
+    "input": {
+      "path": "/workspace/station-triage/reports/station-quality-summary-with-a-deliberately-long-unbroken-name-for-wrapping.md",
+      "content": "# Draft\n"
+    },
+    "presentation": {
+      "action": "Write",
+      "subject": "file-link",
+      "summary": "",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "station-quality-summary-with-a-deliberately-long-unbroken-name-for-wrapping.md",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/reports/station-quality-summary-with-a-deliberately-long-unbroken-name-for-wrapping.md",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        }
+      ]
+    }
+  },
+  {
+    "id": "write-denied",
+    "session_id": "fs-showcase",
+    "name": "fs_write_file",
+    "title": "Write plan.md",
+    "state": "denied",
+    "input": {
+      "path": "/workspace/station-triage/notes/plan.md",
+      "content": "x"
+    },
+    "error": "Denied by you",
+    "presentation": {
+      "action": "Write",
+      "subject": "file-link",
+      "summary": "",
+      "blocks": [
+        {
+          "id": "file-link",
+          "type": "link",
+          "media_type": "",
+          "text": "",
+          "label": "plan.md",
+          "language": "",
+          "workspace_id": "",
+          "path": "",
+          "sha256": "",
+          "pages": [],
+          "target": "file",
+          "uri": "/workspace/station-triage/notes/plan.md",
+          "command": "",
+          "timed_out": false,
+          "status": "",
+          "detail": "",
+          "items": [],
+          "action_label": ""
+        }
+      ]
+    }
+  }
+]

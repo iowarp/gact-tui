@@ -44,7 +44,7 @@ function Review() {
     name: 'fs_read_file',
     title: 'Read notes',
     state: phase === 'tool' ? 'running' : 'succeeded',
-    input: { filepath: 'notes.md' },
+    input: { path: 'notes.md' },
     output: phase === 'tool' ? undefined : 'Notes loaded.',
     presentation: { action: 'Read notes', summary: 'notes.md', blocks: [] },
   };

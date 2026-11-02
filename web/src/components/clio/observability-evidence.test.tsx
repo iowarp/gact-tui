@@ -525,7 +525,7 @@ describe('ClioEvidenceView session_lineage fallback', () => {
               attributes: {
                 tool_name: 'fs_read_file',
                 owner_session_id: 'session_gateway',
-                tool_input: { filepath: 'D:/workspace/triage/api_gateway.log' },
+                tool_input: { path: 'D:/workspace/triage/api_gateway.log' },
               },
             },
           ],
