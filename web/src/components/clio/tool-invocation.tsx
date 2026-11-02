@@ -251,7 +251,14 @@ export function ClioToolInvocation({
                 <span className="mr-1 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   {flow ? 'Flow' : 'Tool'}
                 </span>
-                <span className="min-w-0 [overflow-wrap:anywhere]">{actionLabel}</span>
+                {/* The action keeps its words; a long subject truncates instead (Read beside a
+                    long filename at phone width otherwise stacks one letter per line). */}
+                <span
+                  className="max-w-[60%] shrink-0 [overflow-wrap:anywhere]"
+                  data-slot="tool-action-text"
+                >
+                  {actionLabel}
+                </span>
                 {openFlow ? (
                   <>
                     <span aria-hidden="true">(</span>

@@ -83,7 +83,7 @@ export function sessionFiles(
       const toolName = stringAttribute(node.attributes, 'tool_name');
       const fact = provenanceFileFact(toolName);
       const toolInput = objectAttribute(node.attributes, 'tool_input');
-      const path = stringAttribute(toolInput, 'filepath');
+      const path = stringAttribute(toolInput, 'path');
       if (!fact || !path) continue;
       const ownerSessionId =
         stringAttribute(node.attributes, 'owner_session_id') || node.session_id;

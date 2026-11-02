@@ -1531,7 +1531,7 @@ ask` — `allow_session`/`allow_workspace` enforce identically to
   (stored if sent, ignored).
 - Matching: **first match wins in list order**; empty `scope_id`
   matches every session/workspace in scope; the path is extracted from
-  args `filepath|path|output_path|target_path` and matched both raw
+  args `path|output_path|target_path` and matched both raw
   and resolved.
 - Action `ask` matches but merely falls through to the rest of the
   gate (it does NOT defeat the safe-shell fast-allow below).
