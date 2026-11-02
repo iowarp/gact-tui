@@ -3,7 +3,8 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { PromptDefinition } from '@clio/core/v3';
-import { RemindersList, reminderMeta } from './settings-reminders';
+import { reminderMeta } from '@/lib/reminder-meta';
+import { RemindersList } from './settings-reminders';
 
 const { repository } = vi.hoisted(() => ({
   repository: { prompt: vi.fn(), savePrompt: vi.fn() },

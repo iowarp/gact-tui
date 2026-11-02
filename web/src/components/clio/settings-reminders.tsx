@@ -4,31 +4,8 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
+import { reminderMeta } from '@/lib/reminder-meta';
 import { ClioInteractiveRow } from './interactive-row';
-
-/** What a reminder's frontmatter declares (docs/design/sdk/reminders.md in clio-agent). */
-export interface ReminderMeta {
-  active: boolean;
-  trigger: string;
-  variables: string[];
-  params: Record<string, unknown>;
-}
-
-/** A reminder is a prompt whose frontmatter says ``kind: reminder``. */
-export function reminderMeta(prompt: PromptDefinition): ReminderMeta | null {
-  const profile = prompt.profiles[prompt.default_profile ?? 'default'];
-  const meta = { ...prompt.metadata, ...(profile?.metadata ?? {}) } as Record<string, unknown>;
-  if (meta.kind !== 'reminder') return null;
-  return {
-    active: meta.active !== false && meta.active !== 'false',
-    trigger: typeof meta.trigger === 'string' ? meta.trigger : '',
-    variables: Array.isArray(meta.variables) ? meta.variables.map(String) : [],
-    params:
-      meta.params && typeof meta.params === 'object'
-        ? (meta.params as Record<string, unknown>)
-        : {},
-  };
-}
 
 /** Reminders CLIO adds to what the agent reads: each can be switched off or edited. */
 export function RemindersList({

@@ -52,7 +52,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
-import { RemindersList, reminderMeta } from './settings-reminders';
+import { reminderMeta } from '@/lib/reminder-meta';
+import { RemindersList } from './settings-reminders';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
 
