@@ -52,6 +52,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
+import { RemindersList, reminderMeta } from './settings-reminders';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
 
@@ -296,8 +297,27 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
       <Tabs defaultValue="prompts">
         <TabsList>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
+          <TabsTrigger value="reminders">Reminders</TabsTrigger>
           <TabsTrigger value="commands">Commands</TabsTrigger>
         </TabsList>
+        <TabsContent className="mt-4" value="reminders">
+          <Frame spacing="sm">
+            <FrameHeader>
+              <FrameTitle>Reminders</FrameTitle>
+              <FrameDescription>
+                Notes the agent receives during its work. Switch one off, or open it to edit its
+                text; a change saves a visible override.
+              </FrameDescription>
+            </FrameHeader>
+            <FramePanel className="p-2">
+              <RemindersList
+                prompts={prompts.data ?? []}
+                onEdit={(prompt) => openEditor(prompt)}
+                onChanged={() => void prompts.refetch()}
+              />
+            </FramePanel>
+          </Frame>
+        </TabsContent>
         <TabsContent className="mt-4" value="prompts">
           <Frame spacing="sm">
             <FrameHeader>
@@ -307,29 +327,31 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
               </FrameDescription>
             </FrameHeader>
             <FramePanel className="grid gap-1 p-2">
-              {prompts.data?.map((prompt) => (
-                <ClioInteractiveRow
-                  key={prompt.id}
-                  onClick={() => openEditor(prompt)}
-                  role="button"
-                >
-                  <div className="flex items-start gap-3">
-                    <FileTextIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{prompt.title || prompt.id}</p>
-                        <PromptStatus prompt={prompt} />
-                        <Badge variant="outline">{prompt.scope}</Badge>
+              {prompts.data
+                ?.filter((prompt) => !reminderMeta(prompt))
+                .map((prompt) => (
+                  <ClioInteractiveRow
+                    key={prompt.id}
+                    onClick={() => openEditor(prompt)}
+                    role="button"
+                  >
+                    <div className="flex items-start gap-3">
+                      <FileTextIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{prompt.title || prompt.id}</p>
+                          <PromptStatus prompt={prompt} />
+                          <Badge variant="outline">{prompt.scope}</Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {Object.keys(prompt.profiles).length}{' '}
+                          {Object.keys(prompt.profiles).length === 1 ? 'profile' : 'profiles'},
+                          default {prompt.default_profile || 'Unavailable'}
+                        </p>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {Object.keys(prompt.profiles).length}{' '}
-                        {Object.keys(prompt.profiles).length === 1 ? 'profile' : 'profiles'},
-                        default {prompt.default_profile || 'Unavailable'}
-                      </p>
                     </div>
-                  </div>
-                </ClioInteractiveRow>
-              ))}
+                  </ClioInteractiveRow>
+                ))}
               {!prompts.isPending && !prompts.data?.length ? (
                 <p className="p-5 text-sm text-muted-foreground">
                   No prompt families were reported for this view.
