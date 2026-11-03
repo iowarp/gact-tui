@@ -316,7 +316,7 @@ jobs:
             os: windows-latest
             bundle-args: '--bundles msi,nsis'
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-15
             bundle-args: '--bundles dmg --target aarch64-apple-darwin'
           - target: x86_64-apple-darwin
             os: macos-13
