@@ -509,10 +509,11 @@ function SettingsSection({
   if (section === 'runtime')
     return (
       <div className="grid gap-10">
-        <RuntimeSettingsPanel exclude={['Memory']} />
+        <RuntimeSettingsPanel exclude={['Memory', 'Browser']} />
         <ContextHistorySettings initialSessionId={sessionId} />
       </div>
     );
+  if (section === 'browser') return <RuntimeSettingsPanel only="Browser" title="Browser" />;
   if (section === 'fleet') return <FleetSettingsPanel />;
   if (section === 'providers') return <ProvidersSettings />;
   if (section === 'models') return <ModelsSettings />;
