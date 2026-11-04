@@ -13,6 +13,7 @@ import '@/components/ai-elements/markdown';
 import { useLiveStore } from '@/store/live-store';
 import { NestedToolCalls } from './nested-tool-calls';
 import { PermissionResponse } from './permission-response';
+import { PresentationNavigation } from './presentation-navigation';
 
 afterEach(() => {
   cleanup();
@@ -76,6 +77,20 @@ describe('run_code nesting', () => {
     expect(screen.getAllByTestId('child')).toHaveLength(8);
     await user.click(screen.getByRole('button', { name: 'Show all 10' }));
     expect(screen.getAllByTestId('child')).toHaveLength(10);
+  });
+
+  it('reads the calls a conversation supplies, as an offline export does', () => {
+    seed([]); // no live stream fills the store in an export
+    const tools = Object.fromEntries(
+      [tool('run', { name: 'run_code' }), tool('11', { parent_call_id: 'run' })].map((t) => [t.id, t]),
+    );
+    render(
+      <PresentationNavigation.Provider value={{ artifacts: {}, subagents: {}, tools }}>
+        <NestedToolCalls parentId="run" renderCall={(child) => <span>{child.id}</span>} />
+      </PresentationNavigation.Provider>,
+    );
+    expect(screen.getByText('1 tool call from this script')).toBeInTheDocument();
+    expect(screen.getByText('11')).toBeInTheDocument();
   });
 
   it('renders nothing for a call without children', () => {

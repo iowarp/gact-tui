@@ -1,7 +1,8 @@
 import { childToolInvocations, type ToolInvocation } from '@clio/core/v3';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useContext, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLiveStore } from '@/store/live-store';
+import { PresentationNavigation } from './presentation-navigation';
 
 /** How many of a script's calls show before "Show all". */
 const SHOWN = 8;
@@ -18,7 +19,11 @@ export function NestedToolCalls({
   parentId: string;
   renderCall: (tool: ToolInvocation) => ReactNode;
 }) {
-  const tools = useLiveStore((state) => state.entities.tools);
+  // A conversation that carries its own calls (an offline export) supplies them; the live
+  // view reads the store the stream fills.
+  const provided = useContext(PresentationNavigation)?.tools;
+  const live = useLiveStore((state) => state.entities.tools);
+  const tools = provided ?? live;
   const children = useMemo(() => childToolInvocations(tools, parentId), [tools, parentId]);
   const [all, setAll] = useState(false);
   if (!children.length) return null;
