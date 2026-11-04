@@ -34,6 +34,27 @@ export function BrowserLiveView({
 
   useEffect(() => () => cancelAnimationFrame(frameRequest.current), []);
 
+  // The page lays out at this view's size, as in a browser window, so a narrow panel
+  // shows the page's own narrow layout instead of a shrunken wide one.
+  useEffect(() => {
+    const element = surface.current;
+    if (!interactive || !element || typeof ResizeObserver === 'undefined') return;
+    let timer = 0;
+    const report = () => {
+      const { width, height } = element.getBoundingClientRect();
+      if (width >= 1 && height >= 1) send({ type: 'resize', width: Math.round(width), height: Math.round(height) });
+    };
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(report, 150);
+    });
+    observer.observe(element);
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [interactive, send]);
+
   const point = (event: { clientX: number; clientY: number }) => {
     const rect = surface.current?.getBoundingClientRect();
     return rect ? pagePoint(event.clientX, event.clientY, rect, viewport) : null;

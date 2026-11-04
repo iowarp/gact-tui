@@ -188,12 +188,21 @@ export function BrowserSurface({
           <div role="status" className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-1.5 text-sm">
             <BanIcon aria-hidden className="size-4 shrink-0" />
             <span className="min-w-0 flex-1">
-              The page tried to open <strong className="font-medium">{blocked.host}</strong>, which
-              this conversation has not allowed.
+              {blocked.reason === 'browser_scheme_refused' ? (
+                <>
+                  The page tried to open a <strong className="font-medium">{blocked.host}</strong> address. The
+                  shared browser opens only web pages.
+                </>
+              ) : (
+                <>
+                  The page could not open <strong className="font-medium">{blocked.host || 'its next page'}</strong>
+                  {' '}and stayed here.
+                </>
+              )}
             </span>
-            {blocked.reason !== 'browser_scheme_refused' ? (
+            {blocked.reason !== 'browser_scheme_refused' && blocked.host ? (
               <Button size="sm" variant="outline" disabled={allowing} onClick={() => void allow()}>
-                Allow {blocked.host}
+                Try again
               </Button>
             ) : null}
           </div>
