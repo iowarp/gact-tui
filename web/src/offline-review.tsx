@@ -275,6 +275,7 @@ export function Review() {
                 onOpenFolder={openFolder}
                 onOpenSession={(sessionId) => open({ sessionId })}
                 sessionAvailable={(sessionId) => ids.includes(sessionId)}
+                artifactHref={(artifact) => archiveFileHref(`artifact://${artifact.id}`, data.manifest)}
                 onOpenSubagent={(subagent) => {
                   if (subagent.child_session_id && ids.includes(subagent.child_session_id))
                     open({ sessionId: subagent.child_session_id });

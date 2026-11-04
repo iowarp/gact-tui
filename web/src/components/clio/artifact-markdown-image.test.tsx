@@ -46,6 +46,28 @@ describe('registered artifact Markdown images', () => {
     expect(open).toHaveBeenCalledWith(artifact);
     expect(screen.queryByText(/Image blocked/u)).not.toBeInTheDocument();
   });
+  it('shows an archived image from its file beside an offline page, without a read', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <PresentationNavigation.Provider
+          value={{
+            artifacts: { [artifact.id]: artifact },
+            subagents: {},
+            onOpenArtifact: vi.fn(),
+            artifactHref: (item) => `effects/${item.id}/${item.name}`,
+          }}
+        >
+          <GroundedMessageResponse mode="static">{'![Storm figure](artifact://artifact_figure)'}</GroundedMessageResponse>
+        </PresentationNavigation.Provider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('img', { name: 'Storm figure' })).toHaveAttribute(
+      'src',
+      'effects/artifact_figure/figure.png',
+    );
+    expect(repository.readArtifactBytesFor).not.toHaveBeenCalled();
+  });
   it('does not fetch an unregistered artifact reference', async () => {
     response('![Missing figure](artifact://missing)', {});
     expect(await screen.findByText(/Saved image reference unavailable/u)).toBeVisible();

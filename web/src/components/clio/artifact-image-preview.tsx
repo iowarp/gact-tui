@@ -1,8 +1,9 @@
 import type { Artifact } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { PresentationNavigation } from './presentation-navigation';
 
 /**
  * A small inline preview of an image artifact a tool produced (a browser screenshot),
@@ -22,10 +23,12 @@ export function ArtifactImagePreview({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const image = useRef<HTMLImageElement>(null);
+  const href = useContext(PresentationNavigation)?.artifactHref?.(artifact);
   const bytes = useQuery({
     queryKey: ['artifact-image-preview', settings.endpoint, artifact.id],
     queryFn: ({ signal }) => repository.readArtifactBytesFor(artifact, signal),
     staleTime: Infinity,
+    enabled: !href,
   });
 
   useEffect(() => {
@@ -35,6 +38,18 @@ export function ArtifactImagePreview({
     return () => URL.revokeObjectURL(url);
   }, [bytes.data, mediaType]);
 
+  if (href)
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={!onOpen}
+        aria-label={`Open ${label}`}
+        className="block max-w-full overflow-hidden rounded-md border border-border focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <img src={href} alt={label} className="max-h-48 max-w-full object-contain" />
+      </button>
+    );
   if (bytes.isError) return <p className="text-xs text-muted-foreground">The image could not be loaded.</p>;
   if (!bytes.data) return <p className="text-xs text-muted-foreground">Loading the image…</p>;
   return (
