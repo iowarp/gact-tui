@@ -2074,6 +2074,12 @@ const server = createServer(async (request, response) => {
     sendJson(response, { session_id: scienceLog[1], in_study: false });
     return;
   }
+  const browserPages = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/browser\/pages$/u);
+  if (request.method === 'GET' && browserPages) {
+    // These conversation fixtures opened no web pages; the Work rail still asks.
+    sendJson(response, { pages: [] });
+    return;
+  }
   if (
     request.method === 'GET' &&
     url.pathname === `/v1/sessions/${sessionId}/attention/availability`
