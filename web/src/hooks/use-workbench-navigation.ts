@@ -10,6 +10,7 @@ import { workspaceFilePath } from '@/lib/workspace-file-path';
 import type { FileSearchLocation } from '@/lib/search-matches';
 import { useLiveStore } from '@/store/live-store';
 import { toast } from 'sonner';
+import { useRepository } from '@/hooks/use-repository';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
@@ -153,15 +154,29 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
   const activeRequest =
     workbenchRequest?.endpoint === settings.endpoint ? workbenchRequest : searchRequest;
 
+  const repository = useRepository();
+  const openWebPage = useCallback(
+    (url: string, sessionId: string) => {
+      repository
+        .openBrowserPage(sessionId, url)
+        .then((page) => revealWorkbench({ kind: 'browser', pageId: page.id, sessionId, label: page.title || page.host }))
+        .catch((error: unknown) => {
+          toast.error(error instanceof Error ? error.message : 'Could not open the page in the shared browser.');
+        });
+    },
+    [repository, revealWorkbench],
+  );
+
   const conversationNavigation = useMemo(
     () => ({
+      onOpenWebPage: openWebPage,
       onOpenArtifact: openArtifact,
       onOpenFile: openWorkspaceFile,
       onOpenFileReference: openWorkspaceFile,
       onOpenFolder: openWorkspaceFolder,
       onOpenResource: openWorkspaceResource,
     }),
-    [openArtifact, openWorkspaceFile, openWorkspaceFolder, openWorkspaceResource],
+    [openArtifact, openWebPage, openWorkspaceFile, openWorkspaceFolder, openWorkspaceResource],
   );
 
   return {

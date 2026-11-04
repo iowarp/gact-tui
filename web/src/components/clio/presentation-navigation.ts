@@ -12,6 +12,7 @@ type Navigation = Pick<
   | 'onOpenFolder'
   | 'onOpenFileReference'
   | 'onOpenWork'
+  | 'onOpenWebPage'
   | 'onOpenSubagent'
   | 'onOpenFlow'
 > &

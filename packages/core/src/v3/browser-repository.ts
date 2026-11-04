@@ -48,6 +48,7 @@ export type BrowserLiveState = z.infer<typeof browserLiveStateSchema>;
 
 const pagesSchema = z.object({ pages: z.array(browserPageSchema) });
 const allowedSchema = z.object({ allowed: z.string(), page: browserPageSchema });
+const openedSchema = z.object({ page: browserPageSchema });
 
 /** The live view's WebSocket path for one page. */
 export function browserLivePath(sessionId: string, pageId: string): string {
@@ -66,6 +67,18 @@ export class BrowserRepository extends StructuredFileRepository {
       signal,
     });
     return result.pages;
+  }
+
+  /** Open ``url`` in the conversation's shared browser as the person, as a link they clicked. */
+  public async openBrowserPage(sessionId: string, url: string, signal?: AbortSignal): Promise<BrowserPage> {
+    const result = await this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/browser/pages`,
+      body: { url },
+      decode: (value) => openedSchema.parse(value),
+      signal,
+    });
+    return result.page;
   }
 
   public async allowBrowserHost(

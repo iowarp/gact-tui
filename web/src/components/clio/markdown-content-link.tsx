@@ -106,8 +106,24 @@ export function MarkdownContentLink({
         </span>
       );
     }
+    const openHere = navigation?.onOpenWebPage;
+    const sessionId = navigation?.sessionId;
     const external = (
-      <ExternalLink {...props} className={style} href={href}>
+      <ExternalLink
+        {...props}
+        className={style}
+        href={href}
+        title={openHere && sessionId ? 'Opens in the shared browser; shift-click opens it outside' : props.title}
+        onClick={(event) => {
+          props.onClick?.(event);
+          // A plain click opens a web link in the shared browser, so the agent can see the
+          // page the person is reading; shift, ctrl or cmd keeps the external browser.
+          if (event.defaultPrevented || !openHere || !sessionId || !/^https?:\/\//iu.test(href)) return;
+          if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || event.button !== 0) return;
+          event.preventDefault();
+          openHere(href, sessionId);
+        }}
+      >
         {linkText}
       </ExternalLink>
     );
