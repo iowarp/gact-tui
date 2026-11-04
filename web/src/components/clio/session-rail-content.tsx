@@ -1,5 +1,5 @@
 import type { ConnectedSourceState } from '@clio/core/v3';
-import { CalendarClockIcon, DatabaseIcon } from 'lucide-react';
+import { CalendarClockIcon, DatabaseIcon, GlobeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { artifactDeliverables } from '@/lib/artifact-presentation';
 import { openHumanQuestions } from '@/lib/inline-question';
@@ -20,6 +20,7 @@ import { railSectionIds, type RailKind, type SessionRailItem } from './session-r
 import { SessionSummaryRow } from './session-summary-row';
 import { useSessionConnectedSources, useSessionSchedules } from './session-inventory-queries';
 import { useSessionWork } from './use-session-work';
+import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { SessionWorkSummary } from './session-work';
 import { SessionPlanBody } from './session-plan-section';
 import { planStatusLabel } from '@/lib/plan-status';
@@ -44,6 +45,7 @@ export function SessionRailContent({
   const connected = useSessionConnectedSources(kind === 'work' ? '' : (evidence.workspaceId ?? ''));
   const work = useSessionWork(kind === 'session' ? '' : (evidence.sessionId ?? ''));
   const schedules = useSessionSchedules(kind === 'session' ? '' : (evidence.sessionId ?? ''));
+  const browserPages = useBrowserPages(kind === 'session' ? '' : (evidence.sessionId ?? ''));
   const answer = useQuestionAnswer();
   const questions = openHumanQuestions(evidence.interactions ?? answer?.interactions ?? []);
   const todos = work.data?.todos ?? [];
@@ -200,6 +202,33 @@ export function SessionRailContent({
           />
         ))
       ),
+    });
+  const pages = browserPages.data ?? [];
+  if (pages.length)
+    inventory.push({
+      id: 'browser',
+      count: pages.length,
+      defaultOpen: true,
+      content: pages.map((page) => (
+        <SessionSummaryRow
+          key={page.id}
+          icon={<GlobeIcon />}
+          label={browserPageLabel(page)}
+          metadata={page.host || 'Blank page'}
+          title={page.url}
+          onOpen={
+            evidence.onOpenBrowser
+              ? () =>
+                  evidence.onOpenBrowser?.({
+                    kind: 'browser',
+                    pageId: page.id,
+                    sessionId: page.session_id,
+                    label: browserPageLabel(page),
+                  })
+              : undefined
+          }
+        />
+      )),
     });
   const sections = kind ? railSectionIds(kind) : undefined;
   return (

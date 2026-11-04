@@ -412,6 +412,10 @@ export function queryInvalidationKeysForEvent({
   if (eventName === 'session.work.updated') {
     keys.push(['session-work', endpoint, sessionId]);
   }
+  // A browser page opened, changed or closed: the Browser tabs and the Work rail refresh.
+  if (eventName.startsWith('browser.page.')) {
+    keys.push(['browser-pages', endpoint, sessionId]);
+  }
   if (isModelConfigurationEvent(eventName)) {
     keys.push(
       queryKeys.capabilities(endpoint),

@@ -22,6 +22,7 @@ const ALL_TOOL_DOMAINS: ToolDomain[] = [
   'messaging',
   'interaction',
   'science',
+  'browser',
 ];
 
 describe('tool domain labels', () => {

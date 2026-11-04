@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { a2uiSurfaceDomId } from './a2ui-presentation';
 import { ConnectedDataSetupLink } from './connected-data-setup-link';
+import { ArtifactImagePreview } from './artifact-image-preview';
 import { ExternalLinkIcon, PanelRightIcon } from 'lucide-react';
 
 /** Resolve declared result links through the conversation's existing workbench. */
@@ -100,6 +101,18 @@ export function PresentationLink({
     navigation?.onOpenFile
   )
     open = () => navigation.onOpenFile?.(uri);
+  if (block.target === 'artifact' && artifact && /^image\//u.test(block.media_type ?? '') && !iconOnly)
+    return (
+      <span className="flex flex-col items-start gap-1">
+        <ArtifactImagePreview
+          artifact={artifact}
+          mediaType={block.media_type ?? 'image/png'}
+          label={label}
+          onOpen={open ? () => open?.({ shiftKey: false }) : undefined}
+        />
+        <span className={className}>{label}</span>
+      </span>
+    );
   if (open)
     return withTooltip(
       <Button

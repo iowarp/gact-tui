@@ -10,6 +10,8 @@ const OPERATIONS: Record<string, string> = {
   connected_data_download: 'Download source',
   web_fetch: 'Read web source',
   web_search: 'Search the web',
+  browser_host: 'Open a website in the shared browser',
+  browser_evaluate: 'Run a script in a web page',
 };
 
 /** Name a known operation without changing an unknown tool's supplied title. */

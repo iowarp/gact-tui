@@ -14,6 +14,7 @@ import {
   FlaskConicalIcon,
   FileDiffIcon,
   FolderIcon,
+  GlobeIcon,
   Layers3Icon,
   Maximize2Icon,
   Minimize2Icon,
@@ -53,10 +54,9 @@ import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-cont
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
 import { CanvasLauncher, type CanvasResourceKind } from './workbench-resource-browser';
 import { WorkbenchTabContent } from './workbench-tab-content';
-import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
+import { tabForOpenRequest, type ClioWorkbenchOpenRequest } from './workbench-open-request';
+import { fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import { PresentationNavigation } from './presentation-navigation';
-import { workspaceFilePath } from '@/lib/workspace-file-path';
-import { useLiveStore } from '@/store/live-store';
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 import { scienceLogTab, useScienceLogTab } from './science-log-tab-state';
 
@@ -95,32 +95,7 @@ export interface ClioWorkbenchProps {
   inStudy?: boolean;
 }
 
-export type ClioWorkbenchOpenRequest =
-  | { kind: 'knowledge'; sourceId: string; label: string }
-  | {
-      kind: 'workspace-file';
-      path: string;
-      workspaceId?: string;
-      line?: number;
-      find?: string;
-      locator?: string;
-    }
-  | { kind: 'workspace-folder'; path: string; workspaceId?: string }
-  | { kind: 'diff'; diff: SessionDiff }
-  | { kind: 'artifact'; artifact: ArtifactEntity }
-  | {
-      kind: 'resource';
-      resource: WorkspaceResource;
-      relatedResources?: readonly WorkspaceResource[];
-    }
-  | { kind: 'subagent'; subagent: SubagentRun }
-  /** A flow run (a workflow, a council, ...) recorded under the task `handle`. */
-  | { kind: 'flow'; handle: string; label?: string }
-  | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
-  | { kind: 'session' }
-  /** The Science log tab, as `openView` opens a study view in it. */
-  | { kind: 'science-log' }
-  | { kind: 'terminal'; cwd: string };
+export type { ClioWorkbenchOpenRequest } from './workbench-open-request';
 
 export interface ClioWorkbenchHandle {
   open: (request: ClioWorkbenchOpenRequest) => void;
@@ -221,6 +196,7 @@ const workbenchTabIcons = {
   subagent: BoxesIcon,
   flow: WorkflowIcon,
   terminal: TerminalSquareIcon,
+  browser: GlobeIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>
@@ -363,82 +339,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const openRequest = useCallback(
       (request: ClioWorkbenchOpenRequest, targetWorkspaceId: string = workspaceId) => {
         switch (request.kind) {
-          case 'workspace-folder':
-            targetWorkspaceId = request.workspaceId ?? targetWorkspaceId;
-            openTab({
-              id: targetWorkspaceId === workspaceId ? 'files' : `files:${targetWorkspaceId}`,
-              kind: 'files',
-              label: 'Files',
-              workspaceId: targetWorkspaceId,
-              directory: request.path === '.' ? '' : request.path,
-            });
-            return;
-          case 'knowledge':
-            openTab({
-              id: `knowledge:${request.sourceId}`,
-              kind: 'knowledge',
-              sourceId: request.sourceId,
-              label: request.label,
-              workspaceId,
-            });
-            return;
-          case 'workspace-file': {
-            targetWorkspaceId = request.workspaceId ?? targetWorkspaceId;
-            const root = useLiveStore.getState().entities.workspaces[targetWorkspaceId]?.path;
-            const path = workspaceFilePath(request.path, root);
-            openTab({
-              id: `workspace-file:${targetWorkspaceId === workspaceId ? '' : `${targetWorkspaceId}:`}${path}`,
-              kind: 'workspace-file',
-              label: fileName(path),
-              path,
-              workspaceId: targetWorkspaceId,
-              line: request.line,
-              find: request.find,
-              locator: request.locator,
-            });
-            return;
-          }
-          case 'diff':
-            openTab({
-              id: `diff:${sessionId}:${request.diff.path}`,
-              kind: 'diff',
-              label: fileName(request.diff.path),
-              diff: request.diff,
-              sessionId,
-              workspaceId,
-            });
-            return;
-          case 'artifact':
-            openTab({
-              id: `artifact:${request.artifact.id}`,
-              kind: 'artifact',
-              label: artifactDisplayName(request.artifact),
-              artifact: request.artifact,
-              workspaceId: request.artifact.workspace_id ?? workspaceId,
-            });
-            return;
-          case 'resource':
-            openTab({
-              id: `resource:${request.resource.id}`,
-              kind: 'resource',
-              label: request.resource.name,
-              relatedResources: request.relatedResources ?? [request.resource],
-              resource: request.resource,
-              workspaceId: request.resource.workspace_id || workspaceId,
-            });
-            return;
           case 'subagent':
             openSubagentTab(request.subagent);
-            return;
-          case 'flow':
-            openTab({
-              id: `flow:${request.handle}`,
-              kind: 'flow',
-              label: request.label ?? 'Flow run',
-              handle: request.handle,
-              sessionId,
-              workspaceId,
-            });
             return;
           case 'resources':
             openCanvasResource(request.section ?? 'files');
@@ -449,18 +351,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           case 'science-log':
             openTab(scienceLogTab);
             return;
-          case 'terminal':
-            openTab({
-              id: `terminal:${sessionId}`,
-              kind: 'terminal',
-              label: 'Terminal',
-              cwd: request.cwd,
-              sessionId,
-              workspaceId,
-            });
-            return;
           default:
-            assertNever(request);
+            openTab(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
         }
       },
       [openCanvasResource, openSubagentTab, openTab, sessionId, workspaceId],

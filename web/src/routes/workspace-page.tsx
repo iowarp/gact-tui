@@ -522,6 +522,7 @@ export function WorkspacePage() {
               onOpenCanvas={openObservability}
               onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
               onOpenArtifact={openArtifact}
+              onOpenBrowser={revealWorkbench}
               onOpenDiff={openDiff}
               onOpenFile={openWorkspaceFile}
               onOpenResource={openWorkspaceResource}

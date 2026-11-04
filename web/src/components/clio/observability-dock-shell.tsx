@@ -48,7 +48,11 @@ import { getToolPresentation } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 import type { ObservabilityView } from './observability-view-storage';
 
+import type { ClioWorkbenchOpenRequest } from './workbench-open-request';
+
 export interface ClioObservabilityDockProps {
+  /** Opens a shared browser page in the workbench (the Work rail's Browser pages). */
+  onOpenBrowser?: (request: Extract<ClioWorkbenchOpenRequest, { kind: 'browser' }>) => void;
   sessions?: readonly Session[];
   familyProvenance?: ExecutionProvenanceResult;
   familyProvenancePending?: boolean;

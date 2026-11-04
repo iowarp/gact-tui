@@ -14,7 +14,7 @@ export function PermissionOperationDetails({ interaction }: { interaction: Pendi
   const command = access?.command || text('command');
   const path = text('path') || text('output_path');
   const cwd = access?.cwd || interaction.payload?.execution?.cwd || text('cwd');
-  const isWebRequest = name === 'web_fetch' || name === 'web_search';
+  const isWebRequest = name === 'web_fetch' || name === 'web_search' || name === 'browser_host';
   const isSourceConnection = name === 'connected_data_connect';
   const sourceAccess: Record<string, string> = {
     read_only: 'Read only',
@@ -36,6 +36,13 @@ export function PermissionOperationDetails({ interaction }: { interaction: Pendi
     ['Action', permissionOperationLabel(name, input) ?? name],
     ...(name === 'web_fetch' ? [['Source', text('target') || text('url')]] : []),
     ...(name === 'web_search' ? [['Query', text('query')]] : []),
+    ...(name === 'browser_host'
+      ? [
+          ['Site', text('host')],
+          ['Page', text('label')],
+          ['Address', text('url')],
+        ]
+      : []),
     ...(isSourceConnection
       ? [
           ['Source', text('label')],
