@@ -1,5 +1,6 @@
 import { taskFlowState } from './task-flow-state';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useWorkTaskFocus } from './work-task-focus';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { ChevronRightIcon, PanelRightOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -67,8 +68,24 @@ export function TaskActivityRow({
           ? 'Waiting for your answer'
           : status.replaceAll('_', ' ').replace(/^./u, (letter) => letter.toUpperCase());
   const result = task?.result?.answer || task?.result?.answer_excerpt || subagent?.result;
+  const [open, setOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const focused = useWorkTaskFocus((state) => state.handle === entry.key);
+  // A link asked Work to show this task: its row opens, comes into view, and the
+  // request clears, so the reader can close the row again.
+  if (focused && !open) setOpen(true);
+  useEffect(() => {
+    if (!focused) return;
+    rowRef.current?.scrollIntoView?.({ block: 'nearest' });
+    useWorkTaskFocus.getState().clear(entry.key);
+  }, [focused, entry.key]);
   return (
-    <Collapsible className="group/task min-w-0 rounded-lg data-[state=open]:bg-muted/35">
+    <Collapsible
+      ref={rowRef}
+      open={open}
+      onOpenChange={setOpen}
+      className="group/task min-w-0 rounded-lg data-[state=open]:bg-muted/35"
+    >
       <div className="flex min-w-0 items-center gap-0.5">
         <CollapsibleTrigger asChild>
           <button

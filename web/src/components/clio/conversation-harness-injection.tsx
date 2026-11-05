@@ -15,6 +15,7 @@ import { ToolDetailsContent } from './tool-details-content';
 import { PluginChangeInjection } from './conversation-plugin-change';
 import { useQuestionAnswer } from './question-answer-context';
 import { PresentationNavigation } from './presentation-navigation';
+import { PresentationLink } from './presentation-link';
 import { agentMessageName } from './agent-message-presentation';
 import { useLiveStore } from '@/store/live-store';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
@@ -184,6 +185,21 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
             {presentation?.notice ? (
               <p className="text-sm text-muted-foreground">{presentation.notice}</p>
             ) : null}
+            {presentation?.tasks?.map((task) => (
+              <PresentationLink
+                key={task.handle}
+                block={{
+                  id: `task-${task.handle}`,
+                  type: 'link',
+                  target: 'work',
+                  uri: task.handle,
+                  label:
+                    presentation.tasks!.length > 1
+                      ? `Show ${task.label} in Work`
+                      : 'Show the script in Work',
+                }}
+              />
+            ))}
           </div>
         ) : null}
         <ToolDetailsContent inline={false} title={`${label}: Technical details`}>

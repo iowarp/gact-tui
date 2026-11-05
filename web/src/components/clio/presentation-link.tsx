@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { a2uiSurfaceDomId } from './a2ui-presentation';
 import { ConnectedDataSetupLink } from './connected-data-setup-link';
 import { ArtifactImagePreview } from './artifact-image-preview';
+import { showTaskInWork } from './work-task-focus';
 import { ExternalLinkIcon, PanelRightIcon } from 'lucide-react';
 
 /** Resolve declared result links through the conversation's existing workbench. */
@@ -80,8 +81,11 @@ export function PresentationLink({
     navigation.sessionAvailable?.(uri)
   )
     open = () => navigation.onOpenSession?.(uri);
-  else if (block.target === 'work' && navigation?.onOpenWork) open = navigation.onOpenWork;
-  else if (block.target === 'surface' && navigation?.surfaces?.[uri])
+  else if (block.target === 'work' && navigation?.onOpenWork) {
+    const openWork = navigation.onOpenWork;
+    // Work opens at the row the link names (a task's handle), when it lists one.
+    open = uri ? () => showTaskInWork(uri, openWork) : openWork;
+  } else if (block.target === 'surface' && navigation?.surfaces?.[uri])
     open = () => {
       const surface = document.getElementById(a2uiSurfaceDomId(uri));
       surface?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -101,7 +105,12 @@ export function PresentationLink({
     navigation?.onOpenFile
   )
     open = () => navigation.onOpenFile?.(uri);
-  if (block.target === 'artifact' && artifact && /^image\//u.test(block.media_type ?? '') && !iconOnly)
+  if (
+    block.target === 'artifact' &&
+    artifact &&
+    /^image\//u.test(block.media_type ?? '') &&
+    !iconOnly
+  )
     return (
       <span className="flex flex-col items-start gap-1">
         <ArtifactImagePreview

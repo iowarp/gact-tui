@@ -232,6 +232,7 @@ it('reads a background script notify as a message from the script, grouped by sc
     label: 'Message from Watch job 42',
     text: '- Job 42 finished at step 900',
     format: 'markdown',
+    tasks: [{ handle: 'task_a', label: 'Watch job 42' }],
   });
   const two = {
     type: 'clio.code.notify',
@@ -249,4 +250,9 @@ it('reads a background script notify as a message from the script, grouped by sc
   expect(grouped?.text).toBe(
     '**Printer**\n- Nozzle at 231 °C\n\n**a background script**\n- Job done',
   );
+  // Each script is shown in Work by its own handle.
+  expect(grouped?.tasks).toEqual([
+    { handle: 'task_a', label: 'Printer' },
+    { handle: 'task_b', label: 'a background script' },
+  ]);
 });

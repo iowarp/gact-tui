@@ -1,10 +1,11 @@
 import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ClioEvidenceView } from './observability-evidence';
 import { AsyncTaskList } from './async-task-list';
 import { asyncProcessDetail } from './observability-activity';
+import { useWorkTaskFocus } from './work-task-focus';
 
 afterEach(cleanup);
 
@@ -437,7 +438,7 @@ it('says a running script state in words in the compact rail, with its progress'
     ...task,
     id: 'watcher',
     handle: 'task_watcher',
-    kind: 'code',
+    kind: 'mcp-task',
     task_kind: 'Code',
     title: 'printer-watch',
     child_session_id: undefined,
@@ -451,4 +452,31 @@ it('says a running script state in words in the compact rail, with its progress'
   render(<AsyncTaskList processes={[script]} compact />);
   expect(screen.getByText(/^Script: Running/)).toBeVisible();
   expect(screen.getByText(/40 calls/)).toBeVisible();
+});
+
+it('opens the row a link asked Work to show, once', async () => {
+  const script: AsyncProcess = {
+    ...task,
+    id: 'script',
+    handle: 'task_script',
+    kind: 'mcp-task',
+    task_kind: 'Code',
+    title: 'Printer watch',
+    description: 'Poll the printer every 5 s',
+    child_session_id: undefined,
+    effective_status: 'running',
+    live_state: 'running',
+    status: 'working',
+    raw_status: 'working',
+    supported_actions: ['cancel'],
+  };
+  useWorkTaskFocus.setState({ handle: undefined });
+  render(<AsyncTaskList processes={[script]} />);
+  expect(screen.queryByRole('region', { name: 'Assignment: Printer watch' })).toBeNull();
+  act(() => useWorkTaskFocus.getState().focus('task_script'));
+  expect(await screen.findByRole('region', { name: 'Assignment: Printer watch' })).toBeVisible();
+  expect(useWorkTaskFocus.getState().handle).toBeUndefined();
+  // The reader can still close it; the request does not reopen it.
+  await userEvent.click(screen.getByRole('button', { name: 'Task details: Printer watch' }));
+  expect(screen.queryByRole('region', { name: 'Assignment: Printer watch' })).toBeNull();
 });

@@ -16,7 +16,7 @@ const coreReferenceSchema = z.object({
 
 export const taskSnapshotSchema = z.object({
   handle: z.string(),
-  kind: z.enum(['Session', 'Subagent', 'Shell', 'Download', 'Indexing', 'MCP', 'Question']),
+  kind: z.enum(['Session', 'Subagent', 'Shell', 'Download', 'Indexing', 'MCP', 'Question', 'Code']),
   owner: z.object({
     human_id: z.string(),
     session_id: z.string(),

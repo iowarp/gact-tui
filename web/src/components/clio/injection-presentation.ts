@@ -10,6 +10,8 @@ export interface InjectionPresentation {
   notice?: string;
   attribution?: string;
   senderSessionId?: string;
+  /** Background scripts the message came from, each shown in Work by its handle. */
+  tasks?: { handle: string; label: string }[];
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -127,5 +129,10 @@ function backgroundNotices(tasks: unknown[]): InjectionPresentation {
         : `Messages from ${scripts.length} background scripts`,
     text: lines.join('\n').trim() || 'The script sent no text.',
     format: 'markdown',
+    tasks: scripts.flatMap((task) =>
+      typeof task.handle === 'string' && task.handle
+        ? [{ handle: task.handle, label: name(task) }]
+        : [],
+    ),
   };
 }

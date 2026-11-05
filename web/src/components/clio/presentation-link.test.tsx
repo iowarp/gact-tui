@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { a2uiSurfaceDomId } from './a2ui-presentation';
 import { PresentationLink } from './presentation-link';
 import { PresentationNavigation } from './presentation-navigation';
+import { useWorkTaskFocus } from './work-task-focus';
 
 afterEach(cleanup);
 
@@ -136,5 +137,30 @@ describe('presentation navigation', () => {
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
     expect(surface).toHaveFocus();
+  });
+});
+
+describe('a link to a task in Work', () => {
+  it('opens Work and asks for the named task row', () => {
+    const openWork = vi.fn();
+    useWorkTaskFocus.setState({ handle: undefined });
+    render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenWork: openWork }}
+      >
+        <PresentationLink
+          block={{
+            id: 'open-task',
+            type: 'link',
+            target: 'work',
+            uri: 'task_abc',
+            label: 'Show the task in Work',
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Show the task in Work' }));
+    expect(openWork).toHaveBeenCalledTimes(1);
+    expect(useWorkTaskFocus.getState().handle).toBe('task_abc');
   });
 });
