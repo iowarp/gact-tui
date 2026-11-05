@@ -1,14 +1,5 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-  type Ref,
-} from 'react';
-import { BookOpenIcon, EyeIcon, FileCode2Icon, Table2Icon, WrapTextIcon } from 'lucide-react';
+import { lazy, Suspense, useContext, useMemo, useRef, useState, type Ref } from 'react';
+import { BookOpenIcon, FileCode2Icon, Table2Icon, WrapTextIcon } from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { renderedFileText, textFileFormat, type TextFileFormat } from '@/lib/file-presentation';
 import { cn } from '@/lib/utils';
@@ -30,8 +21,6 @@ import { FileSourceView } from './file-source-view';
 import { ContentMarkdown } from './content-markdown';
 import { ClioDataTable } from './data-table';
 import { tabularJsonDataset } from './json-resource-data';
-import { HtmlPreview } from './html-preview';
-import type { HtmlPreviewTextReaderChange } from './html-preview-bridge';
 import { ResourceLoading } from './resource-states';
 
 // The CSV table loads with the first CSV file opened, not with the app (#644).
@@ -67,7 +56,6 @@ export function FileTextView({
     ...(format === 'markdown'
       ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
       : []),
-    ...(format === 'html' ? [{ value: 'read', label: 'HTML preview', icon: EyeIcon }] : []),
     ...(format === 'csv' || dataset ? [{ value: 'data', label: 'Data', icon: Table2Icon }] : []),
     { value: 'source', label: 'Source', icon: FileCode2Icon },
   ];
@@ -80,24 +68,13 @@ export function FileTextView({
       ? chosen
       : modes[0].value;
   const reading = useRef<HTMLDivElement>(null);
-  const htmlReader = useRef<(() => Promise<string>) | undefined>(undefined);
-  const [htmlReady, setHtmlReady] = useState(false);
-  const registerHtmlReader = useCallback((reader?: () => Promise<string>) => {
-    htmlReader.current = reader;
-    setHtmlReady(Boolean(reader));
-  }, []);
   const controls = (
     <>
       {!view ? <FileModeControls modes={modes} value={selected} onChange={setChosen} /> : null}
       <TextFileCopyAction
         name={name}
-        disabled={selected === 'read' && format === 'html' && !htmlReady}
         readText={() =>
-          selected === 'source'
-            ? content
-            : format === 'html'
-              ? htmlReader.current?.()
-              : renderedFileText(reading.current, selected === 'data')
+          selected === 'source' ? content : renderedFileText(reading.current, selected === 'data')
         }
       />
       {!shared && selected === 'source' ? (
@@ -139,15 +116,9 @@ export function FileTextView({
             {controls}
           </div>
         )}
-        {format === 'markdown' || format === 'html' ? (
+        {format === 'markdown' ? (
           <TabsContent value="read" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
-            <FileReadView
-              name={name}
-              content={content}
-              format={format}
-              readingRef={reading}
-              onHtmlTextReader={registerHtmlReader}
-            />
+            <FileReadView name={name} content={content} format={format} readingRef={reading} />
           </TabsContent>
         ) : null}
         {format === 'csv' || dataset ? (
@@ -205,20 +176,14 @@ export function FileTextView({
 
 /** One readable renderer for workspace files, uploads, and registered documents. */
 export function FileReadView({
-  name,
   content,
-  format,
   readingRef,
-  onHtmlTextReader,
 }: {
   name: string;
   content: string;
-  format: 'markdown' | 'html';
+  format: 'markdown';
   readingRef?: Ref<HTMLDivElement>;
-  onHtmlTextReader?: HtmlPreviewTextReaderChange;
 }) {
-  if (format === 'html')
-    return <HtmlPreview name={name} content={content} onTextReader={onHtmlTextReader} />;
   const frontmatter = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)(?:\r?\n|$)/.exec(content);
   const body = frontmatter ? content.slice(frontmatter[0].length) : content;
   return (

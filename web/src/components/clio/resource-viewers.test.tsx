@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { TransportError } from '@clio/core/v3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash, webcrypto } from 'node:crypto';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { OPEN_BROWSER_PAGE_EVENT } from '@/lib/html-in-browser';
 import { ArtifactView, WorkspaceFileView } from './resource-viewers';
 
 const { repository } = vi.hoisted(() => ({
@@ -14,6 +16,7 @@ const { repository } = vi.hoisted(() => ({
     readWorkspaceFile: vi.fn(),
     readWorkspaceFileBytes: vi.fn(),
     workspaceFiles: vi.fn(),
+    openBrowserFile: vi.fn(),
     // No x_clio_hdf5_viewer unless a test grants it: HDF5 then opens as binary.
     capabilities: vi.fn(),
   },
@@ -262,35 +265,41 @@ describe('WorkspaceFileView', () => {
   );
 
   it.each(['cat.html', 'cat.HTM', 'unlabelled.txt'])(
-    'renders HTML %s with its exact source available',
+    'opens HTML %s in the shared browser by its path and shows its exact source',
     async (path) => {
       repository.readWorkspaceFile.mockResolvedValue('<h1>Pedal!</h1>');
+      repository.openBrowserFile.mockResolvedValue({ id: 'p7', title: 'Pedal', url: '', host: '' });
+      const shown: unknown[] = [];
+      const listen = (event: Event) => shown.push((event as CustomEvent).detail);
+      window.addEventListener(OPEN_BROWSER_PAGE_EVENT, listen);
       renderFile(
-        <WorkspaceFileView
-          mediaType="text/html; charset=utf-8"
-          path={path}
-          size={100}
-          workspaceId="workspace_1"
-        />,
+        <MemoryRouter initialEntries={['/workspaces/workspace_1/sessions/sess_1']}>
+          <Routes>
+            <Route
+              element={
+                <WorkspaceFileView
+                  mediaType="text/html; charset=utf-8"
+                  path={path}
+                  size={100}
+                  workspaceId="workspace_1"
+                />
+              }
+              path="/workspaces/:workspaceId/sessions/:sessionId"
+            />
+          </Routes>
+        </MemoryRouter>,
       );
-      expect(await screen.findByTitle(`HTML preview of ${path}`)).toBeVisible();
-      expect(document.querySelectorAll('[data-slot="viewer-toolbar"]')).toHaveLength(1);
-      const toolbar = screen
-        .getByRole('tab', { name: 'Preview' })
-        .closest('[data-slot="viewer-toolbar"]');
-      expect(toolbar).not.toBeNull();
-      expect(toolbar).toContainElement(screen.getByRole('tab', { name: 'Source' }));
-      expect(screen.queryByText(/Static preview ·/)).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
+      await waitFor(() =>
+        expect(repository.openBrowserFile).toHaveBeenCalledWith('sess_1', { path }),
+      );
+      await waitFor(() =>
+        expect(shown).toEqual([{ pageId: 'p7', sessionId: 'sess_1', label: 'Pedal' }]),
+      );
       expect(document.querySelector('[data-language="html"]')).toHaveTextContent('<h1>Pedal!</h1>');
-      await userEvent.click(screen.getByRole('tab', { name: 'HTML preview' }));
-      expect(screen.getByTitle(`HTML preview of ${path}`)).toBeVisible();
+      expect(screen.queryByTitle(`HTML preview of ${path}`)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Open in browser' })).toBeVisible();
       expect(repository.readWorkspaceFile).toHaveBeenCalledTimes(1);
-      expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
-        'workspace_1',
-        path,
-        expect.any(AbortSignal),
-      );
+      window.removeEventListener(OPEN_BROWSER_PAGE_EVENT, listen);
     },
   );
 
@@ -362,7 +371,12 @@ describe('WorkspaceFileView', () => {
     async (mediaType, path) => {
       repository.capabilities.mockResolvedValue({ capabilities: { x_clio_hdf5_viewer: true } });
       renderFile(
-        <WorkspaceFileView mediaType={mediaType} path={path} size={4096} workspaceId="workspace_1" />,
+        <WorkspaceFileView
+          mediaType={mediaType}
+          path={path}
+          size={4096}
+          workspaceId="workspace_1"
+        />,
       );
 
       expect(await screen.findByTitle(`HDF5 viewer: ${path}`)).toBeInTheDocument();

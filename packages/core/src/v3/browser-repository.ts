@@ -105,6 +105,26 @@ export class BrowserRepository extends StructuredFileRepository {
     return result.page;
   }
 
+  /**
+   * Open a local HTML file in the conversation's shared browser as a ``file://`` page: a
+   * workspace file by its path (relative to the workspace, or absolute), or an artifact's
+   * file. The server refuses a file outside what the conversation may read.
+   */
+  public async openBrowserFile(
+    sessionId: string,
+    target: { path: string } | { artifact_id: string },
+    signal?: AbortSignal,
+  ): Promise<BrowserPage> {
+    const result = await this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/browser/pages`,
+      body: target,
+      decode: (value) => openedSchema.parse(value),
+      signal,
+    });
+    return result.page;
+  }
+
   public async allowBrowserHost(
     sessionId: string,
     pageId: string,

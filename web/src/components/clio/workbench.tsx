@@ -57,6 +57,8 @@ import { WorkbenchTabContent } from './workbench-tab-content';
 import { tabForOpenRequest, type ClioWorkbenchOpenRequest } from './workbench-open-request';
 import { fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import { PresentationNavigation } from './presentation-navigation';
+import { htmlBrowserTarget } from '@/lib/html-in-browser';
+import { useOpenFileInBrowser } from '@/hooks/use-open-file-in-browser';
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 import { scienceLogTab, useScienceLogTab } from './science-log-tab-state';
 
@@ -336,6 +338,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       [openTab],
     );
 
+    const openInBrowser = useOpenFileInBrowser();
     const openRequest = useCallback(
       (request: ClioWorkbenchOpenRequest, targetWorkspaceId: string = workspaceId) => {
         switch (request.kind) {
@@ -351,11 +354,17 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           case 'science-log':
             openTab(scienceLogTab);
             return;
-          default:
+          default: {
+            const html = htmlBrowserTarget(request); // HTML files open in the shared browser
+            if (html && targetWorkspaceId === workspaceId) {
+              void openInBrowser(html, 'path' in html ? fileName(html.path) : 'HTML file');
+              return;
+            }
             openTab(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
+          }
         }
       },
-      [openCanvasResource, openSubagentTab, openTab, sessionId, workspaceId],
+      [openCanvasResource, openInBrowser, openSubagentTab, openTab, sessionId, workspaceId],
     );
 
     useImperativeHandle(ref, () => ({ open: openRequest }), [openRequest]);

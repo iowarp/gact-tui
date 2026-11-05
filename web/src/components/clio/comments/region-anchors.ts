@@ -67,23 +67,3 @@ export function imageRegionAnchor(rect: Rect, host: HTMLElement): DocumentAnchor
     natural_height: image.naturalHeight || undefined,
   };
 }
-
-/**
- * A region dragged over an HTML preview. The preview frame grows to its document's height,
- * so the frame's box is the document: the rectangle is normalized to it, with the document
- * size and view width kept for the server's render (comments plan, "Region capture").
- */
-export function htmlRegionAnchor(rect: Rect, host: HTMLElement): DocumentAnchor | undefined {
-  const frame = host.querySelector<HTMLIFrameElement>('iframe');
-  if (!frame) return undefined;
-  const box = frame.getBoundingClientRect();
-  const normal = normalized(clientBox(rect, host), box);
-  if (!normal) return undefined;
-  return {
-    profile: 'region',
-    rect: normal,
-    natural_width: Math.round(box.width),
-    natural_height: Math.round(box.height),
-    viewport_width: Math.round(box.width),
-  };
-}

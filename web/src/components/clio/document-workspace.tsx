@@ -1,13 +1,9 @@
 import { queryKeys } from '@/lib/query-keys';
 import { renderedFileText, textFileFormat } from '@/lib/file-presentation';
-import type {
-  Artifact,
-  DocumentManifest,
-  DocumentWorkingCopy,
-} from '@clio/core/v3';
+import type { Artifact, DocumentManifest, DocumentWorkingCopy } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlertIcon } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { CommentCapture, CommentToggle } from './comments/comment-capture';
 import type { CommentSurface } from './comments/comment-model';
@@ -17,7 +13,8 @@ import {
   useCommentSession,
 } from './comments/comment-session';
 import { CommentThreadList } from './comments/comment-thread-list';
-import { htmlRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
+import { pdfRegionAnchor } from './comments/region-anchors';
+import { HtmlFileInBrowser } from './html-in-browser';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { badgeVariants } from '@/components/reui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -68,12 +65,6 @@ export function ClioDocumentWorkspace({
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
-  const htmlReader = useRef<(() => Promise<string>) | undefined>(undefined);
-  const [htmlReady, setHtmlReady] = useState(false);
-  const registerHtmlReader = useCallback((reader?: () => Promise<string>) => {
-    htmlReader.current = reader;
-    setHtmlReady(Boolean(reader));
-  }, []);
   const [status, setStatus] = useState('');
   const [documentView, setDocumentView] = useState('preview');
   const [workingCopy, setWorkingCopy] = useState<DocumentWorkingCopy>();
@@ -301,16 +292,11 @@ export function ClioDocumentWorkspace({
             {sourceProfile && (activeView === 'raw' || activeView === 'preview') ? (
               <TextFileCopyAction
                 name={artifact.name}
-                disabled={
-                  textContent === undefined ||
-                  (activeView === 'preview' && sourceProfile === 'html-static' && !htmlReady)
-                }
+                disabled={textContent === undefined}
                 readText={() =>
-                  activeView === 'raw'
+                  activeView === 'raw' || sourceProfile === 'html-static'
                     ? textContent
-                    : sourceProfile === 'html-static'
-                      ? htmlReader.current?.()
-                      : renderedFileText(previewRef.current)
+                    : renderedFileText(previewRef.current)
                 }
               />
             ) : null}
@@ -347,11 +333,7 @@ export function ClioDocumentWorkspace({
               />
             ) : null}
             <DocumentRefreshAction
-              refreshing={
-                manifest.isFetching ||
-                pdfPreview.isFetching ||
-                content.isFetching
-              }
+              refreshing={manifest.isFetching || pdfPreview.isFetching || content.isFetching}
               onReviews={refreshComments}
             />
           </div>
@@ -384,53 +366,43 @@ export function ClioDocumentWorkspace({
           aria-label="Document preview"
           aria-labelledby={undefined}
         >
-          <div
-            className="h-full min-h-0 min-w-0 overflow-hidden"
-            ref={previewRef}
-          >
+          <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={previewRef}>
             <CommentCapture
-              regionAnchor={
-                effectiveManifest?.profile === 'pdf'
-                  ? pdfRegionAnchor
-                  : effectiveManifest?.profile === 'html-static'
-                    ? htmlRegionAnchor
-                    : undefined
-              }
+              regionAnchor={effectiveManifest?.profile === 'pdf' ? pdfRegionAnchor : undefined}
               sourcePath={effectiveManifest?.name}
             >
-            <DocumentPreview
-              content={content.data}
-              fallback={
-                sourceProfile === 'html-static' && textContent !== undefined ? (
-                  <FileReadView
-                    name={artifact.name}
-                    content={textContent}
-                    format="html"
-                    onHtmlTextReader={registerHtmlReader}
-                  />
-                ) : (
-                  fallbackPreview
-                )
-              }
-              fit="page"
-              manifest={effectiveManifest}
-              onHtmlTextReader={registerHtmlReader}
-              previewError={
-                (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
-                (effectiveManifest?.profile === 'pdf' ? content.error?.message : undefined)
-              }
-              previewPending={needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)}
-              previewLabel={
-                manifest.data?.pdf_rendition_artifact_id
-                  ? 'Loading PDF preview…'
-                  : 'Rendering PDF preview…'
-              }
-              onRetryPreview={() => {
-                if (pdfPreview.isError) void pdfPreview.refetch();
-                else void content.refetch();
-              }}
-              text={textContent}
-            />
+              <DocumentPreview
+                content={content.data}
+                fallback={
+                  sourceProfile === 'html-static' && textContent !== undefined ? (
+                    <HtmlFileInBrowser
+                      artifactId={artifact.id}
+                      content={textContent}
+                      name={artifact.name}
+                      openOnShow
+                    />
+                  ) : (
+                    fallbackPreview
+                  )
+                }
+                fit="page"
+                manifest={effectiveManifest}
+                previewError={
+                  (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
+                  (effectiveManifest?.profile === 'pdf' ? content.error?.message : undefined)
+                }
+                previewPending={needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)}
+                previewLabel={
+                  manifest.data?.pdf_rendition_artifact_id
+                    ? 'Loading PDF preview…'
+                    : 'Rendering PDF preview…'
+                }
+                onRetryPreview={() => {
+                  if (pdfPreview.isError) void pdfPreview.refetch();
+                  else void content.refetch();
+                }}
+                text={textContent}
+              />
             </CommentCapture>
           </div>
         </TabsContent>
@@ -471,7 +443,6 @@ function DocumentPreview({
   fallback,
   fit,
   manifest,
-  onHtmlTextReader,
   previewError,
   previewPending,
   previewLabel,
@@ -482,7 +453,6 @@ function DocumentPreview({
   fallback: ReactNode;
   fit: 'page' | 'width';
   manifest?: DocumentManifest;
-  onHtmlTextReader: (reader?: () => Promise<string>) => void;
   previewError?: string;
   previewPending: boolean;
   previewLabel: string;
@@ -529,11 +499,11 @@ function DocumentPreview({
   }
   if (manifest.profile === 'html-static' && text !== undefined) {
     return (
-      <FileReadView
-        name={manifest.name}
+      <HtmlFileInBrowser
+        artifactId={manifest.artifact_id}
         content={text}
-        format="html"
-        onHtmlTextReader={onHtmlTextReader}
+        name={manifest.name}
+        openOnShow
       />
     );
   }
@@ -570,24 +540,28 @@ function profileLabel(manifest?: DocumentManifest) {
   return labels[manifest.profile] ?? 'Document';
 }
 
-
 /** What the document workspace offers the shared comment session (comments plan, modes table). */
 function documentCommentSurface(artifact: Artifact, manifest?: DocumentManifest): CommentSurface {
-  if (!manifest) {
-    // Until the version is known the session takes no marks (its toggle stays hidden), but
+  if (!manifest || manifest.profile === 'html-static') {
+    // HTML takes its comments in the shared browser, where it runs. Until the version is known the session takes no marks (its toggle stays hidden), but
     // it is rendered so the workspace keeps its place in the tree when the manifest loads.
     return {
       title: artifact.name,
       modes: ['text'],
       defaultMode: 'text',
-      destination: { kind: 'artifact', sessionId: artifact.session_id, artifactId: '', version: 0, sha256: '' },
+      destination: {
+        kind: 'artifact',
+        sessionId: artifact.session_id,
+        artifactId: '',
+        version: 0,
+        sha256: '',
+      },
     };
   }
   const modes: CommentSurface['modes'][number][] = [];
-  if (manifest.anchors.includes('text-quote') || manifest.anchors.includes('pdf-quad')) modes.push('text');
-  if (manifest.anchors.includes('region') && ['pdf', 'html-static'].includes(manifest.profile))
-    modes.push('region');
-  if (manifest.anchors.includes('dom') && manifest.profile === 'html-static') modes.push('element');
+  if (manifest.anchors.includes('text-quote') || manifest.anchors.includes('pdf-quad'))
+    modes.push('text');
+  if (manifest.anchors.includes('region') && manifest.profile === 'pdf') modes.push('region');
   return {
     title: artifact.name,
     modes: modes.length ? modes : ['text'],

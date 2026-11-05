@@ -38,7 +38,8 @@ import {
 
 import { ClioDocumentWorkspace } from './document-workspace';
 
-import { isHtmlFile } from './html-preview-policy';
+import { HtmlFileInBrowser } from './html-in-browser';
+import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
@@ -78,7 +79,15 @@ export function WorkspaceFileView({
       <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
     ) : detected.startsWith('image/') ? (
       <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
-    ) : isTextMediaType(detected) || html ? (
+    ) : html ? (
+      <WorkspaceTextView
+        html={{ openOnShow: !embedded }}
+        path={path}
+        size={size}
+        workspaceId={workspaceId}
+        mediaType={detected}
+      />
+    ) : isTextMediaType(detected) ? (
       <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
     ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
       <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />}>
@@ -141,13 +150,14 @@ function WorkspaceTextView({
   path,
   size,
   mediaType,
-  htmlView,
+  html,
 }: {
   workspaceId: string;
   path: string;
   size?: number;
   mediaType?: string;
-  htmlView?: 'preview' | 'source';
+  /** An HTML file: shown as its source, and opened in the shared browser. */
+  html?: { openOnShow: boolean };
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -156,18 +166,23 @@ function WorkspaceTextView({
     queryKey: queryKeys.workspaceFile(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
     enabled: canLoad,
-    // Preview and Source are two views of the same loaded file. Switching
-    // between their host tabs must not restart a read of unchanged content.
-    refetchOnMount: htmlView ? false : undefined,
   });
   if (!canLoad) return <LargeResourceNotice name={fileName(path)} size={size} />;
+  if (html && content.data !== undefined)
+    return (
+      <HtmlFileInBrowser
+        content={content.data}
+        name={fileName(path)}
+        openOnShow={html.openOnShow}
+        path={path}
+      />
+    );
   return (
     <TextResourceView
       content={content.data}
       error={content.error?.message}
       path={path}
       mediaType={mediaType}
-      htmlView={htmlView}
     />
   );
 }
@@ -363,7 +378,12 @@ export function ArtifactView({
       artifact.name.endsWith('.dashboard.json') ? (
         <DashboardResourceView content={text.data.content} artifactId={artifact.id} />
       ) : isHtmlFile(artifact.name, artifact.media_type) ? (
-        <FileReadView name={artifact.name} content={text.data.content} format="html" />
+        <HtmlFileInBrowser
+          artifactId={artifact.id}
+          content={text.data.content}
+          name={artifact.name}
+          openOnShow
+        />
       ) : isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <FileReadView name={artifact.name} content={text.data.content} format="markdown" />
       ) : (
@@ -494,13 +514,11 @@ export function TextResourceView({
   content,
   error,
   mediaType,
-  htmlView,
 }: {
   path: string;
   content?: string;
   error?: string;
   mediaType?: string;
-  htmlView?: 'preview' | 'source';
 }) {
   if (content === undefined && !error)
     return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
@@ -510,14 +528,7 @@ export function TextResourceView({
         <ResourceUnavailable detail={error} label="File preview unavailable" />
       </div>
     );
-  return (
-    <FileTextView
-      name={fileName(path)}
-      content={content ?? ''}
-      mediaType={mediaType}
-      view={htmlView}
-    />
-  );
+  return <FileTextView name={fileName(path)} content={content ?? ''} mediaType={mediaType} />;
 }
 function fileName(path: string): string {
   return (
@@ -648,7 +659,13 @@ function inferredWorkspaceMediaType(path: string): string {
 }
 
 /** An image artifact takes region comments when its version is known. */
-function ArtifactImageComments({ artifact, children }: { artifact: Artifact; children: ReactNode }) {
+function ArtifactImageComments({
+  artifact,
+  children,
+}: {
+  artifact: Artifact;
+  children: ReactNode;
+}) {
   if (!artifact.sha256 || !artifact.version) return <>{children}</>;
   return (
     <ArtifactComments

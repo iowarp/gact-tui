@@ -1,9 +1,8 @@
 import type { DocumentAnchor } from '@clio/core/v3';
 import { MessageSquarePlusIcon } from 'lucide-react';
-import { useMemo, useRef, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { CommentRegionLayer, type Rect } from './comment-region-layer';
-import { HtmlPickContext, type HtmlPick } from './html-pick';
 import { useCommentSession } from './comment-session';
 import { textQuoteFromSelection } from './text-anchor';
 
@@ -51,19 +50,6 @@ export function CommentCapture({
   const host = useRef<HTMLDivElement>(null);
   const textMode = session?.active && session.mode === 'text';
   const regionMode = Boolean(session?.active && session.mode === 'region' && regionAnchor);
-  const addMark = session?.addMark;
-  const pickMode = session?.active && session.mode !== 'region' ? session.mode : undefined;
-  const pick = useMemo<HtmlPick | undefined>(
-    () =>
-      addMark
-        ? {
-            mode: pickMode,
-            htmlChars: 400,
-            onPick: (anchor) => addMark(sourcePath ? { ...anchor, source_path: sourcePath } : anchor),
-          }
-        : undefined,
-    [addMark, pickMode, sourcePath],
-  );
   const captureText = () => {
     if (!textMode || !host.current) return;
     const anchor = textQuoteFromSelection(host.current);
@@ -82,7 +68,7 @@ export function CommentCapture({
       onTouchEnd={captureText}
       ref={host}
     >
-      <HtmlPickContext.Provider value={pick}>{children}</HtmlPickContext.Provider>
+      {children}
       {regionMode ? (
         <CommentRegionLayer
           capturing

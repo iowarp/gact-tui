@@ -40,7 +40,15 @@ const repository = vi.hoisted(() => ({
   documentContent: vi.fn(),
   commentThreads: vi.fn(async (artifactId: string) => ({
     artifact_id: artifactId,
-    head: { artifact_id: artifactId, name: 'evidence.md', workspace_id: 'ws', version: 3, sha256: 'a'.repeat(64), path: '', producer: {} },
+    head: {
+      artifact_id: artifactId,
+      name: 'evidence.md',
+      workspace_id: 'ws',
+      version: 3,
+      sha256: 'a'.repeat(64),
+      path: '',
+      producer: {},
+    },
     next_label: 'S1',
     threads: [],
   })),
@@ -155,7 +163,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     async (profile) => {
       repository.documentManifest.mockResolvedValue({ ...manifest, profile });
       repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-1.7'));
-        let finish!: (value: { artifact: DocumentManifest }) => void;
+      let finish!: (value: { artifact: DocumentManifest }) => void;
       repository.createDocumentRendition.mockImplementationOnce(
         () =>
           new Promise((resolve) => {
@@ -384,7 +392,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       repository.documentContent.mockResolvedValue(
         new TextEncoder().encode('Original source text'),
       );
-        renderWorkspace({ name });
+      renderWorkspace({ name });
       await userEvent.click(await screen.findByRole('tab', { name: action }));
       expect(await screen.findByRole('region', { name: region })).toHaveTextContent(
         'Original source text',
@@ -393,7 +401,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     },
   );
 
-  it('renders HTML and switches between its source and preview without requesting a PDF', async () => {
+  it('shows an HTML artifact as its source, to open in the shared browser, without a PDF', async () => {
     const source = '<h1>Pedal!</h1><script>window.original = true;</script>';
     repository.documentManifest.mockResolvedValue({
       ...manifest,
@@ -403,20 +411,15 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
     const { container } = renderWorkspace({ name: 'cat.html', media_type: 'text/html' });
-    const frame = await screen.findByTitle('HTML preview of cat.html');
-    expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
-    expect(frame).toHaveAttribute('src', 'http://127.0.0.1:8790/v1/html-renderer');
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: 'Source' }));
+    expect(await screen.findByRole('button', { name: 'Open in browser' })).toBeVisible();
     expect(container.querySelector('[data-language="html"]')).toHaveTextContent(
       'window.original = true;',
     );
-    await user.click(screen.getByRole('tab', { name: 'HTML preview' }));
-    expect(screen.getByTitle('HTML preview of cat.html')).toBeVisible();
+    expect(container.querySelector('iframe')).toBeNull();
     expect(repository.createDocumentRendition).not.toHaveBeenCalled();
   });
 
-  it('shows a native HTML launch failure while retaining its static preview', async () => {
+  it('shows a native HTML launch failure while keeping its source', async () => {
     repository.documentManifest.mockResolvedValue({
       ...manifest,
       name: 'cat.html',
@@ -432,7 +435,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     await user.click(await screen.findByRole('button', { name: 'Open in' }));
     await user.click(screen.getByRole('menuitem', { name: 'Test Editor (default)' }));
     expect(await screen.findByText('Open the selected app: access denied')).toBeVisible();
-    expect(screen.getByTitle('HTML preview of cat.html')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open in browser' })).toBeVisible();
     expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
 
@@ -445,7 +448,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
           : { ...manifest, profile, pdf_rendition_artifact_id: 'artifact_pdf' },
       );
       repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-1.7'));
-        renderWorkspace();
+      renderWorkspace();
 
       expect(await screen.findByText('PDF preview')).toBeVisible();
       expect(screen.getByText('PDF preview')).toHaveAttribute('data-fit', 'page');
