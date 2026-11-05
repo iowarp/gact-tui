@@ -33,6 +33,7 @@ const INJECTION_LABELS: Record<string, string> = {
   memory: 'Memory',
   task_results: 'Results from background tasks',
   task_result: 'Task result',
+  attention: 'Notice from a background task',
   peer: 'Received message from an agent',
   plugin_change: 'Plugins changed',
   path_hint: 'Path suggestion',

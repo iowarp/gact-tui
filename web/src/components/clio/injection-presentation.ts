@@ -43,6 +43,9 @@ export function injectionPresentation(
       format: 'markdown',
     };
 
+  if (source === 'attention' && body?.type === 'clio.code.notify' && Array.isArray(body.tasks))
+    return backgroundNotices(body.tasks);
+
   const task = /^\[CLIO; [a-z_]+; ([A-Za-z]+) [^\s:]+: ([a-z_]+)/u.exec(text);
   if (!task) return null;
   const label = `${humanizeProtocolValue(task[1])} ${humanizeProtocolValue(task[2]).toLowerCase()}`;
@@ -98,4 +101,31 @@ export function injectionPresentation(
   return typeof output === 'string'
     ? { label, text: output, format: 'markdown' }
     : { label, text: JSON.stringify(output, null, 2), format: 'json' };
+}
+
+/** A background script's notifies, grouped by script; their data stays in the exact text. */
+function backgroundNotices(tasks: unknown[]): InjectionPresentation {
+  const scripts = tasks.flatMap((item) => {
+    const task = record(item);
+    return task ? [task] : [];
+  });
+  const name = (task: Record<string, unknown>) =>
+    typeof task.label === 'string' && task.label.trim() ? task.label.trim() : 'a background script';
+  const lines = scripts.flatMap((task) => {
+    const notifies = (Array.isArray(task.notifies) ? task.notifies : []).flatMap((item) => {
+      const notify = record(item);
+      return notify && typeof notify.message === 'string' && notify.message.trim()
+        ? [`- ${notify.message.trim()}`]
+        : [];
+    });
+    return scripts.length > 1 ? [`**${name(task)}**`, ...notifies, ''] : notifies;
+  });
+  return {
+    label:
+      scripts.length === 1
+        ? `Message from ${name(scripts[0])}`
+        : `Messages from ${scripts.length} background scripts`,
+    text: lines.join('\n').trim() || 'The script sent no text.',
+    format: 'markdown',
+  };
 }

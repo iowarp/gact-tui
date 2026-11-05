@@ -15,6 +15,14 @@ import { taskWorkKind } from './work-kind';
 import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
+/** The task kind as a reader names it (a background run_code task is a script). */
+function kindLabel(kind: string): string {
+  if (kind === 'MCP' || kind === 'Shell') return 'Tool';
+  if (kind === 'Session') return 'Agent';
+  if (kind === 'Code') return 'Script';
+  return kind;
+}
+
 /** A quiet task summary with the original assignment and identity disclosed on demand. */
 export function TaskActivityRow({
   entry,
@@ -91,12 +99,8 @@ export function TaskActivityRow({
                 {flowState
                   ? `Flow: ${flowState.label}`
                   : running || status === 'completed'
-                    ? kind === 'MCP' || kind === 'Shell'
-                      ? 'Tool'
-                      : kind === 'Session'
-                        ? 'Agent'
-                        : kind
-                    : `${kind === 'MCP' || kind === 'Shell' ? 'Tool' : kind}: ${label}`}
+                    ? kindLabel(kind)
+                    : `${kindLabel(kind)}: ${label}`}
                 {!compact && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
