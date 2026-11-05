@@ -364,7 +364,8 @@ function CommentSessionControls({ session }: { session: CommentSessionValue }) {
                 }
               : undefined
           }
-          title={surface.title}
+          // A mark on one of a project's source files (a paper's section) names that file.
+          title={editing.anchor.source_path || surface.title}
         />
       ) : null}
     </>,

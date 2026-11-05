@@ -115,7 +115,10 @@ export function LatexSourcePane({
                       onLine(number);
                     }}
                   >
-                    <span className="flex w-5 shrink-0 select-none justify-center pt-0.5">
+                    <span
+                      className="flex w-5 shrink-0 select-none justify-center pt-0.5"
+                      data-comment-skip=""
+                    >
                       {problems.length ? (
                         failing ? (
                           <CircleAlertIcon
@@ -136,7 +139,10 @@ export function LatexSourcePane({
                         )
                       ) : null}
                     </span>
-                    <span className="w-10 shrink-0 select-none pr-3 text-right text-muted-foreground">
+                    <span
+                      className="w-10 shrink-0 select-none pr-3 text-right text-muted-foreground"
+                      data-comment-skip=""
+                    >
                       {number}
                     </span>
                     <span className="whitespace-pre pr-4">{content || ' '}</span>
