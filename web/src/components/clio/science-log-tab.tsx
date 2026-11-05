@@ -91,6 +91,10 @@ export interface ScienceLogViewProps {
   views?: ReactNode;
 }
 
+type StudyMode = 'views' | 'list' | 'graph';
+/** Each study's chosen mode for this page, so a remounted tab opens where the person left it. */
+const chosenStudyMode = new Map<string, StudyMode>();
+
 /** List and graph views share entry selection, citations and the original record renderer. */
 export function ScienceLogView({
   study,
@@ -115,7 +119,14 @@ export function ScienceLogView({
     : tree.branch;
   const [selectedBranch, setSelectedBranch] = useState(initial);
   const [focusedEntry, setFocusedEntry] = useState<string>();
-  const [studyView, setStudyView] = useState<'views' | 'list' | 'graph'>('list');
+  // The chosen mode outlives a remount (maximizing the canvas remounts the tab).
+  const [studyView, setStudyViewState] = useState<StudyMode>(
+    () => chosenStudyMode.get(study.study) ?? 'list',
+  );
+  const setStudyView = (mode: StudyMode) => {
+    chosenStudyMode.set(study.study, mode);
+    setStudyViewState(mode);
+  };
   // Views, the list and the graph each get the whole tab rather than sharing it.
   const mode = studyView === 'views' && !views ? 'list' : studyView;
   const groups = useMemo(() => observationGroups(study), [study]);
