@@ -480,3 +480,45 @@ it('opens the row a link asked Work to show, once', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Task details: Printer watch' }));
   expect(screen.queryByRole('region', { name: 'Assignment: Printer watch' })).toBeNull();
 });
+
+it('opens Completed work when a link asks for a task that has finished', () => {
+  const finished: AsyncProcess = {
+    ...task,
+    id: 'done-script',
+    handle: 'task_done_script',
+    kind: 'mcp-task',
+    task_kind: 'Code',
+    title: 'lister',
+    description: 'List the folder six times',
+    child_session_id: undefined,
+    effective_status: 'completed',
+    live_state: 'completed',
+    status: 'completed',
+    raw_status: 'completed',
+    supported_actions: [],
+  };
+  const toggle = vi.fn();
+  useWorkTaskFocus.setState({ handle: undefined });
+  render(
+    <AsyncTaskList
+      processes={[]}
+      pagination={{
+        hasMore: false,
+        pending: false,
+        loadMore: async () => {},
+        history: {
+          visible: false,
+          toggle,
+          items: [finished],
+          hasMore: false,
+          pending: false,
+          loadMore: async () => {},
+          error: '',
+        },
+      }}
+    />,
+  );
+  expect(toggle).not.toHaveBeenCalled();
+  act(() => useWorkTaskFocus.getState().focus('task_done_script'));
+  expect(toggle).toHaveBeenCalledTimes(1);
+});
