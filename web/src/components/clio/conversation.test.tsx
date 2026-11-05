@@ -1,6 +1,5 @@
 import { type ClioRepository, type Message as DomainMessage } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
@@ -156,62 +155,6 @@ it('withholds recovery actions while an empty response is still active', () => {
 });
 
 describe('ClioConversation recovery actions', () => {
-  it('keeps a structured context reference visible and clickable in the sent message', async () => {
-    const user = userEvent.setup();
-    const onOpenReference = vi.fn();
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_reference',
-            session_id: 'session_1',
-            role: 'user',
-            created_at: '2026-09-02T00:00:00Z',
-            blocks: [
-              {
-                id: 'reference_part',
-                type: 'context_reference',
-                ref_kind: 'workspace_file',
-                ref_id: 'README.md',
-                label: 'README.md',
-                revision: 'sha256:abc',
-                media_type: 'text/markdown',
-                navigation: { workspace_id: 'workspace_1', path: 'README.md' },
-              },
-              { id: 'text_part', type: 'text', text: 'Use this as context.' },
-            ],
-          },
-        ]}
-        onOpenReference={onOpenReference}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    const reference = screen.getByRole('button', { name: 'Open referenced local file README.md' });
-    // The kind is named the way a reader would name it, and the addressing
-    // revision is not shown as prose anywhere on the card.
-    expect(reference).toHaveAttribute('title', 'local file');
-    expect(reference).toHaveAttribute('data-reference-revision', 'sha256:abc');
-    expect(reference).not.toHaveTextContent('sha256:abc');
-    expect(reference).not.toHaveTextContent('·');
-    expect(reference.querySelector('svg')).toHaveClass('lucide-file-text');
-
-    await user.click(reference);
-    expect(onOpenReference).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'workspace_file',
-        id: 'README.md',
-        detail: '',
-        navigation: { workspace_id: 'workspace_1', path: 'README.md' },
-      }),
-    );
-    expect(screen.getByText('Use this as context.')).toBeInTheDocument();
-  });
-
   it('presents user attachments above the prompt without exposing private prompt context', () => {
     const onOpenResource = vi.fn();
     const resource = {

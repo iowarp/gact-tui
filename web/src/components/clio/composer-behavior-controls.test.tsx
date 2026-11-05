@@ -126,7 +126,7 @@ describe('ClioComposerBehaviorControls', () => {
 });
 
 describe('ClioComposerBehaviorControls SPOTTER availability', () => {
-  it('offers SPOTTER review disabled, with what to enable, when the service cannot arm it', async () => {
+  it('offers unavailable SPOTTER disabled with a short explanation', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
@@ -148,9 +148,7 @@ describe('ClioComposerBehaviorControls SPOTTER availability', () => {
     await user.click(screen.getByRole('button', { name: 'Confirmation policy: Ask first' }));
     const spotter = await screen.findByRole('menuitemradio', { name: /SPOTTER review/ });
     expect(spotter).toHaveAttribute('aria-disabled', 'true');
-    expect(spotter).toHaveTextContent(
-      'Unavailable. To enable: Enable an agentic provenance provider',
-    );
+    expect(spotter).toHaveTextContent('Not available here.');
     await user.click(spotter);
     expect(onChange).not.toHaveBeenCalled();
   });

@@ -1,4 +1,5 @@
 import { useCallback, useContext, useMemo, useRef, useState, type ComponentProps } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
@@ -54,8 +55,9 @@ export function RefreshButton({
   refreshing = false,
   disabled,
   children,
+  idleIcon: IdleIcon,
   ...props
-}: RefreshProps) {
+}: RefreshProps & { idleIcon?: LucideIcon }) {
   const { busy, refresh } = useRefresh(onRefresh, refreshing);
   return (
     <Button
@@ -65,7 +67,7 @@ export function RefreshButton({
       disabled={disabled || busy}
       onClick={() => void refresh()}
     >
-      <RefreshIndicator refreshing={busy} />
+      {IdleIcon && !busy ? <IdleIcon aria-hidden="true" /> : <RefreshIndicator refreshing={busy} />}
       {children ?? label}
       {busy ? (
         <span className="sr-only" role="status">

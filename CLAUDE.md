@@ -7,7 +7,10 @@ The primary product is the top-level React/Tauri workspace:
 - `packages/core/` — shared schemas, normalized state, and transport contracts.
 - `branding/` — product-neutral build-time brand selection.
 
-`tui/` is deprecated compatibility code. The reference emulator and both old web
+`tui/` is frozen, unsupported compatibility code retained for a future upgrade.
+Do not run it, recommend its binaries/images, or use it for current CLIO
+installation or verification. Use Web or Desktop. New releases do not publish
+TUI payloads. The reference emulator and both old web
 trees were removed; do not recreate, build, or request them as development
 dependencies.
 

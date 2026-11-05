@@ -1,18 +1,20 @@
 import { quoteSafe, type SeriesParallel } from './flow-diagram-source';
-import type {
-  FlowMember,
-  FlowState,
-  FlowStep,
-  FlowTone,
-  FlowVerdict,
+import {
+  atOnce,
+  type FlowMember,
+  type FlowState,
+  type FlowStep,
+  type FlowTone,
+  type FlowVerdict,
 } from './flow-run-presentation';
 
 /**
  * A flow as a Pele `railroad-beta` grammar.
  *
  * - `sequence(...)`: steps that run one after another.
- * - `choice(...)`: steps that run side by side (the renderer labels each such
- *   group "parallel", since a railroad choice otherwise reads as either/or).
+ * - `choice(...)`: steps started together (the renderer labels each such group
+ *   with how many may run at once, since a railroad choice otherwise reads as
+ *   either/or).
  * - `optional(...)`: a step an editor proposed that waits for approval.
  * - `oneOrMore(...)`: a step that ran more than once (a retry or a repair).
  * - a step that runs another flow is that flow's own track, inline, inside a
@@ -27,7 +29,8 @@ export type RailroadExpr =
   | { kind: 'terminal'; label: string; mark: RailroadMark }
   | { kind: 'nonterminal'; label: string; mark: RailroadMark }
   | { kind: 'sequence'; items: RailroadExpr[] }
-  | { kind: 'parallel'; items: RailroadExpr[] }
+  /** `atOnce`: how many of the items the flow let run at once; absent for no bound. */
+  | { kind: 'parallel'; items: RailroadExpr[]; atOnce?: number }
   | { kind: 'optional'; item: RailroadExpr }
   | { kind: 'repeat'; item: RailroadExpr }
   /** Another flow's track, boxed and labelled with the step that runs it. */
@@ -54,6 +57,25 @@ export type FlowPick =
   | { kind: 'closing'; label: string; state: FlowState; flow: string; verdict: FlowVerdict };
 
 /** A boxed flow inside the track: its step's mark and the range `[from, to)` of its nodes. */
+/** A parallel group's node range `[from, to)`, its branch count and its bound, if any. */
+export interface RailroadParallel {
+  from: number;
+  to: number;
+  count: number;
+  /** How many branches may run at once, when the flow bounded it below `count`. */
+  atOnce?: number;
+}
+
+/**
+ * A parallel group's label: "3 in parallel", or the bound when it holds the group
+ * below that ("2, one at a time", "4, up to 2 at a time"). A group started together
+ * under a bound of one ran in sequence, so "in parallel" would be false.
+ */
+export function parallelLabel({ count, atOnce }: Pick<RailroadParallel, 'count' | 'atOnce'>) {
+  if (!atOnce || atOnce >= count) return `${count} in parallel`;
+  return atOnce === 1 ? `${count}, one at a time` : `${count}, up to ${atOnce} at a time`;
+}
+
 export interface RailroadBox {
   label: string;
   mark: RailroadMark;
@@ -66,10 +88,10 @@ export interface RailroadDiagram {
   /** One per drawn node (terminal or nonterminal), in the order Pele draws them. */
   marks: RailroadMark[];
   /**
-   * Node index ranges `[from, to)` of each parallel group with no boxed flow in it, and
-   * how many branches it has, for its "N in parallel" label.
+   * Node index ranges `[from, to)` of each parallel group with no boxed flow in it, how
+   * many branches it has and how many of them may run at once, for its label.
    */
-  parallels: { from: number; to: number; count: number }[];
+  parallels: RailroadParallel[];
   /** The flows steps run, drawn inline, each boxed with its step's name. */
   boxes: RailroadBox[];
 }
@@ -77,7 +99,7 @@ export interface RailroadDiagram {
 /** Serialize one rule to `railroad-beta` and collect the marks in drawing order. */
 export function railroadDiagram(name: string, expr: RailroadExpr): RailroadDiagram {
   const marks: RailroadMark[] = [];
-  const parallels: { from: number; to: number; count: number }[] = [];
+  const parallels: RailroadParallel[] = [];
   const boxes: RailroadBox[] = [];
   const write = (expr: RailroadExpr): string => {
     switch (expr.kind) {
@@ -97,7 +119,12 @@ export function railroadDiagram(name: string, expr: RailroadExpr): RailroadDiagr
         const body = expr.items.map(write).join(', ');
         // A branch that is a boxed flow carries its own name; the fork itself shows the rest.
         if (!expr.items.some(boxed))
-          parallels.push({ from, to: marks.length, count: expr.items.length });
+          parallels.push({
+            from,
+            to: marks.length,
+            count: expr.items.length,
+            ...(expr.atOnce ? { atOnce: expr.atOnce } : {}),
+          });
         return `choice(${body})`;
       }
       case 'optional':
@@ -150,11 +177,23 @@ export function workflowRailroadExpr(
   steps: readonly FlowStep[],
   shape: SeriesParallel,
   subflows: ReadonlyMap<string, RailroadExpr> = new Map(),
+  maxConcurrency = 0,
 ): RailroadExpr {
   const byId = new Map(steps.map((step) => [step.id, step]));
   const build = (part: SeriesParallel): RailroadExpr => {
     if (part.kind === 'seq') return { kind: 'sequence', items: part.items.map(build) };
-    if (part.kind === 'par') return { kind: 'parallel', items: part.items.map(build) };
+    if (part.kind === 'par') {
+      // The flow's bound covers every branch; a gather's covers the calls it started.
+      const limits = part.items.map((item) =>
+        item.kind === 'step' ? byId.get(item.id)?.gatherLimit : undefined,
+      );
+      const bound = atOnce(maxConcurrency, ...limits);
+      return {
+        kind: 'parallel',
+        items: part.items.map(build),
+        ...(bound ? { atOnce: bound } : {}),
+      };
+    }
     const step = byId.get(part.id)!;
     const attempts = step.attempts > 1 ? `, ${step.attempts} attempts` : '';
     const name = stepName(step);
@@ -228,7 +267,11 @@ export function membersRailroadExpr(
   return {
     kind: 'sequence',
     items: [
-      { kind: 'parallel', items: members.map(memberTerminal) },
+      {
+        kind: 'parallel',
+        items: members.map(memberTerminal),
+        ...(members[0]?.atOnce ? { atOnce: members[0].atOnce } : {}),
+      },
       {
         kind: 'terminal',
         label: closing.label,
@@ -258,7 +301,11 @@ export function callsRailroadExpr(members: readonly FlowMember[]): RailroadExpr 
   const items = batches.map(
     (batch): RailroadExpr =>
       batch.length > 1
-        ? { kind: 'parallel', items: batch.map(memberTerminal) }
+        ? {
+            kind: 'parallel',
+            items: batch.map(memberTerminal),
+            ...(batch[0]?.atOnce ? { atOnce: batch[0].atOnce } : {}),
+          }
         : memberTerminal(batch[0]!),
   );
   if (!items.length) return undefined;

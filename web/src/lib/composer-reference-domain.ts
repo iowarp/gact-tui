@@ -24,6 +24,29 @@ export function referenceLabel(part: ReferencePart): string {
   return part.type === 'resource_ref' ? part.name : part.label;
 }
 
+/**
+ * How a reference reads in the sent text, the way `@path` reads in a Claude Code
+ * prompt: a workspace file by its path (with any `::/object` locator), anything
+ * else by its label. The structured part still travels beside the text; the
+ * mention keeps the reference where the person put it in the sentence.
+ */
+export function referenceMention(reference: { kind: string; id: string; label: string }): string {
+  return `@${reference.kind === 'workspace_file' ? reference.id : reference.label}`;
+}
+
+/** The draft text with each selected reference written back in at its offset. */
+export function withReferenceMentions(
+  input: string,
+  selections: readonly InlineReferenceSelection[],
+): string {
+  return [...selections]
+    .sort((left, right) => right.offset - left.offset)
+    .reduce((text, { offset, reference }) => {
+      const at = Math.max(0, Math.min(offset, text.length));
+      return `${text.slice(0, at)}${referenceMention(reference)}${text.slice(at)}`;
+    }, input);
+}
+
 export function workspaceReferenceIdentity(reference: WorkspaceReference): string {
   return `${reference.kind}:${reference.id}:${reference.revision}`;
 }

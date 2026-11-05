@@ -23,23 +23,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { ClioEvidenceViewProps } from './observability-evidence';
+import { showCompletedWork, type TaskPageControls } from './task-history';
+export type { TaskPageControls } from './task-history';
 
 const settled = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
-
-export interface TaskPageControls {
-  hasMore: boolean;
-  pending: boolean;
-  loadMore: () => Promise<unknown>;
-  history?: {
-    visible: boolean;
-    toggle: () => void;
-    items: readonly AsyncProcess[];
-    hasMore: boolean;
-    pending: boolean;
-    loadMore: () => Promise<unknown>;
-    error: string;
-  };
-}
 
 /** Continue the same read; a page failure leaves the already loaded work visible. */
 export function TaskPageContinuation({
@@ -281,7 +268,7 @@ export function AsyncTaskList({
     <div className="min-w-0 space-y-0.5" aria-label="Background work">
       {currentRows.map(renderEntry)}
       <TaskPageContinuation pagination={pagination} />
-      {history ? (
+      {history && showCompletedWork(history, entries) ? (
         <Collapsible
           open={history.visible}
           onOpenChange={(open) => {

@@ -15,6 +15,10 @@ workspace.
 
 ## Deferred TUI reference
 
+The TUI is frozen and unsupported for current CLIO. Do not use it for
+installation, deployment or acceptance, including from Claude Code. Use Web or
+Desktop. The retained source and notes are for a future upgrade.
+
 The Bubble Tea notes under `reference/`, the visual studies under `ref/`, and
 the `gact(1)` man page are retained only for a future TUI redesign. They are not
 the web or desktop product specification and are outside the default build and

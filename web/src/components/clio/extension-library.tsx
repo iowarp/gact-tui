@@ -1,4 +1,4 @@
-import type { SavedMcpService, McpRegistryPage } from '@clio/core/v3';
+import type { McpRegistryPage } from '@clio/core/v3';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpenIcon, CableIcon, PackageIcon, SearchIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -18,8 +18,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import {
   usePluginCatalog,
-  usePluginMarketplaces,
   useExtensionsSupported,
+  useInstalledAgents,
+  usePluginMarketplaces,
 } from '@/hooks/use-session-agent';
 import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import { connectionScope } from '@/lib/connection-scope';
@@ -31,9 +32,9 @@ import { McpSignInDialog } from './mcp-sign-in';
 import { MarketplaceSettings } from './settings-plugins';
 import { PluginExplorer } from './plugin-explorer';
 import { downloadBytes } from './surface-export';
-import { McpConnectionDetails as ConnectionFields } from './mcp-connection-details';
-import { InventoryList } from './mcp-inventory';
-import { WrenchIcon } from 'lucide-react';
+import { ToolsSettings } from './settings-tools';
+import { CatalogItem } from './catalog-item';
+import { PrivateLocalLibrary } from './private-local-library';
 
 function registryChoice(server: McpRegistryPage['servers'][number]['server']): ExtensionAdd {
   const title = server.title || server.name.split('/').at(-1);
@@ -59,17 +60,27 @@ function registryChoice(server: McpRegistryPage['servers'][number]['server']): E
 }
 
 /** A shared library of installed instructions, packages and user-owned MCP connections. */
-export function ExtensionLibrary() {
+export function ExtensionLibrary(props: {
+  initialWorkspaceId?: string;
+  initialSessionId?: string;
+}) {
   const { settings } = useConnectionSettings();
-  return <ExtensionLibraryContents key={connectionScope(settings)} />;
+  return <ExtensionLibraryContents key={connectionScope(settings)} {...props} />;
 }
 
-function ExtensionLibraryContents() {
+function ExtensionLibraryContents({
+  initialWorkspaceId,
+  initialSessionId,
+}: {
+  initialWorkspaceId?: string;
+  initialSessionId?: string;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const scope = connectionScope(settings);
   const client = useQueryClient();
   const catalog = usePluginCatalog();
+  const marketplaces = usePluginMarketplaces();
   const supported = useExtensionsSupported();
   const [view, setView] = useState('yours');
   const [kind, setKind] = useState<NonNullable<ExtensionAdd['category']>>('mcp');
@@ -78,12 +89,32 @@ function ExtensionLibraryContents() {
   const [cursor, setCursor] = useState('');
   const [adding, setAdding] = useState<ExtensionAdd>();
   const [signing, setSigning] = useState<string>();
-  const [inspecting, setInspecting] = useState<SavedMcpService>();
   const [backup, setBackup] = useState(false);
+  const [localDetails, setLocalDetails] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [skill, setSkill] = useState<string>();
   const [exploring, setExploring] = useState<string>();
-  const marketplaces = usePluginMarketplaces();
+  const agents = useInstalledAgents();
+  const hasLocalItems = Boolean(
+    catalog.data?.plugins.some((plugin) => plugin.marketplace === 'private-local') ||
+      agents.data?.some((agent) => agent.kind === 'user'),
+  );
+  const exportMarketplace = async () => {
+    setExporting(true);
+    try {
+      downloadBytes(
+        await repository.exportLocalMarketplace(),
+        'application/zip',
+        'private-local-marketplace.zip',
+      );
+    } catch (error) {
+      toast.error('Could not export marketplace', {
+        description: error instanceof Error ? error.message : 'Try again',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
   const saved = useSavedMcpServices();
   const registry = useQuery({
     queryKey: ['extension-discovery', scope, registrySearch, cursor],
@@ -195,64 +226,28 @@ function ExtensionLibraryContents() {
         ) : null}
       </div>
       {kind === 'marketplaces' ? (
-        <>
-          <MarketplaceSettings onBackup={() => setBackup(true)} />
-          {!marketplaces.data?.some((row) => row.name === 'private-local') ? (
-            <section className="rounded-lg border p-4 text-sm">
-              <h2 className="font-medium">Private local marketplace</h2>
-              <p className="mt-1 text-muted-foreground">
-                Skills and plugins you create or upload are saved together on this agent host. They
-                are not published.
-              </p>
-              <Button className="mt-3" variant="outline" onClick={() => setBackup(true)}>
-                Back up with GitHub
-              </Button>
-            </section>
-          ) : null}
-        </>
+        <MarketplaceSettings
+          onBackup={() => setBackup(true)}
+          onExport={() => void exportMarketplace()}
+          exportDisabled={!hasLocalItems || exporting}
+          onLocalDetails={() => setLocalDetails(true)}
+          localCollection={
+            <PrivateLocalLibrary
+              detailsOpen={localDetails}
+              onDetailsClose={() => setLocalDetails(false)}
+            />
+          }
+        />
       ) : view === 'yours' ? (
         <>
           {kind === 'mcp' ? (
-            <section aria-label="Your MCP connections" className="grid gap-2">
-              <h2 className="text-sm font-semibold">MCP connections</h2>
-              {saved.isPending ? <p role="status">Loading connections…</p> : null}
-              {saved.error ? (
-                <p role="alert" className="text-destructive text-sm">
-                  {saved.error.message}
-                </p>
-              ) : null}
-              {services
-                .filter((row) => `${row.label} ${row.name}`.toLowerCase().includes(term))
-                .map((row) => (
-                  <button
-                    key={row.name}
-                    className="flex items-center gap-3 rounded-lg border p-4 text-left hover:bg-muted/40"
-                    onClick={() => setInspecting(row)}
-                  >
-                    <CableIcon className="size-5 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="font-medium">{row.label || row.name}</span>
-                      <span className="mt-1 block text-sm text-muted-foreground">
-                        {row.transport === 'stdio' ? 'Local command' : 'Remote MCP'}, saved on this
-                        agent host
-                      </span>
-                    </span>
-                    <span className="text-xs text-muted-foreground">Details</span>
-                  </button>
-                ))}
-              {!saved.isPending && !services.length ? (
-                <div className="rounded-lg border border-dashed p-5 text-sm">
-                  <p>No custom MCP connections yet.</p>
-                  <Button
-                    variant="link"
-                    className="mt-2 h-auto p-0"
-                    onClick={() => setAdding({ kind: 'remote' })}
-                  >
-                    Add an MCP server
-                  </Button>
-                </div>
-              ) : null}
-            </section>
+            <ToolsSettings
+              embedded
+              filter={term}
+              showAdd={false}
+              initialWorkspaceId={initialWorkspaceId}
+              initialSessionId={initialSessionId}
+            />
           ) : null}
           {kind === 'plugins' ? (
             <InstalledPluginList
@@ -276,22 +271,31 @@ function ExtensionLibraryContents() {
                         .includes(term),
                   )
                   .map((id) => (
-                    <button
+                    <CatalogItem
                       key={`${plugin.ref}:${id}`}
-                      className="flex items-start gap-3 rounded-lg border p-4 text-left hover:bg-muted/40"
-                      onClick={() => {
-                        setSkill(id);
-                        setExploring(plugin.ref);
-                      }}
-                    >
-                      <BookOpenIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0">
-                        <span className="block font-medium">{id}</span>
-                        <span className="block text-sm text-muted-foreground">
+                      label={id}
+                      icon={<BookOpenIcon />}
+                      metadata={
+                        <span className="truncate">
                           {plugin.marketplace} / {plugin.id}
                         </span>
-                      </span>
-                    </button>
+                      }
+                    >
+                      <p className="text-muted-foreground">
+                        {plugin.description || `From ${plugin.ref}`}
+                      </p>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        className="justify-self-start"
+                        onClick={() => {
+                          setSkill(id);
+                          setExploring(plugin.ref);
+                        }}
+                      >
+                        Open skill
+                      </Button>
+                    </CatalogItem>
                   )),
               )}
               {!catalog.isPending &&
@@ -315,7 +319,7 @@ function ExtensionLibraryContents() {
           {kind !== 'mcp' ? (
             <section className="grid gap-3">
               <h2 className="text-sm font-semibold">Explore extensions</h2>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-0">
                 <DiscoveryCard
                   icon="skill"
                   title="Home Assistant skills"
@@ -377,7 +381,7 @@ function ExtensionLibraryContents() {
                   {registry.error.message}
                 </p>
               ) : null}
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-0">
                 {registry.data?.servers.map(({ server }) => (
                   <DiscoveryCard
                     key={`${server.name}:${server.version}`}
@@ -421,9 +425,9 @@ function ExtensionLibraryContents() {
         <Dialog open onOpenChange={setBackup}>
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
-              <DialogTitle>Back up your private marketplace</DialogTitle>
+              <DialogTitle>Back up to GitHub</DialogTitle>
               <DialogDescription>
-                Export portable source files to a private GitHub repository you control.
+                Export your saved agents, skills and plugins to a repository you control.
               </DialogDescription>
             </DialogHeader>
             <ol className="list-decimal space-y-3 pl-5 text-sm">
@@ -443,25 +447,8 @@ function ExtensionLibraryContents() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Button
-                disabled={
-                  exporting || !marketplaces.data?.some((row) => row.name === 'private-local')
-                }
-                onClick={async () => {
-                  setExporting(true);
-                  try {
-                    downloadBytes(
-                      await repository.exportLocalMarketplace(),
-                      'application/zip',
-                      'private-local-marketplace.zip',
-                    );
-                  } catch (error) {
-                    toast.error('Could not export marketplace', {
-                      description: error instanceof Error ? error.message : 'Try again',
-                    });
-                  } finally {
-                    setExporting(false);
-                  }
-                }}
+                disabled={exporting || !hasLocalItems}
+                onClick={() => void exportMarketplace()}
               >
                 {exporting ? 'Preparing…' : 'Download marketplace ZIP'}
               </Button>
@@ -469,10 +456,8 @@ function ExtensionLibraryContents() {
                 Create GitHub repository
               </ExternalLink>
             </div>
-            {!marketplaces.data?.some((row) => row.name === 'private-local') ? (
-              <p className="text-sm text-muted-foreground">
-                Create or upload a skill or plugin first.
-              </p>
+            {!hasLocalItems ? (
+              <p className="text-sm text-muted-foreground">Save an agent, skill or plugin first.</p>
             ) : null}
           </DialogContent>
         </Dialog>
@@ -505,18 +490,6 @@ function ExtensionLibraryContents() {
           onClose={() => setSigning(undefined)}
         />
       ) : null}
-      {inspecting ? (
-        <McpConnectionDetails
-          key={`${scope}:${inspecting.name}`}
-          connection={inspecting}
-          onClose={() => setInspecting(undefined)}
-          onSignIn={() => {
-            setSigning(inspecting.name);
-            setInspecting(undefined);
-          }}
-          onChanged={invalidate}
-        />
-      ) : null}
     </div>
   );
 }
@@ -543,154 +516,22 @@ function DiscoveryCard({
   const Icon = icon === 'mcp' ? CableIcon : icon === 'skill' ? BookOpenIcon : PackageIcon;
   if (filter && !`${title} ${description}`.toLowerCase().includes(filter)) return null;
   return (
-    <article className="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
-      <div className="flex items-start gap-3">
-        <Icon className="mt-1 size-5 shrink-0 text-muted-foreground" />
-        <div className="min-w-0">
-          <h3 className="break-words font-medium">{title}</h3>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      {detail ? <p className="break-words text-xs text-muted-foreground">{detail}</p> : null}
-      <div className="mt-auto flex items-center justify-between gap-2">
-        {source ? (
-          <ExternalLink href={source} className="text-sm underline underline-offset-4">
-            Source
-          </ExternalLink>
-        ) : (
-          <span />
-        )}
-        <Button size="sm" variant="outline" aria-label={`${actionLabel} ${title}`} onClick={onAdd}>
+    <CatalogItem
+      label={title}
+      icon={<Icon />}
+      actions={
+        <Button size="xs" variant="outline" aria-label={`${actionLabel} ${title}`} onClick={onAdd}>
           {actionLabel}
         </Button>
-      </div>
-    </article>
-  );
-}
-
-function McpConnectionDetails({
-  connection,
-  onClose,
-  onSignIn,
-  onChanged,
-}: {
-  connection: SavedMcpService;
-  onClose: () => void;
-  onSignIn: () => void;
-  onChanged: () => Promise<unknown>;
-}) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const [checking, setChecking] = useState(false);
-  const extensionsSupported = useExtensionsSupported();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const status = useQuery({
-    queryKey: ['mcp-connection-check', connectionScope(settings), connection.name],
-    queryFn: ({ signal }) => repository.mcpConfiguration(connection.name, signal),
-    enabled: checking,
-    retry: false,
-    staleTime: 0,
-  });
-  async function change(remove: boolean) {
-    setBusy(true);
-    setError('');
-    try {
-      if (remove) await repository.removeMcpConfiguration(connection.name);
-      else await repository.forgetMcpAuthorization(connection.name);
-      await onChanged();
-      if (remove) onClose();
-      else toast.success('Signed out');
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not update connection');
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+      }
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{connection.label || connection.name}</DialogTitle>
-          <DialogDescription>
-            {connection.transport === 'stdio' ? 'Local MCP command' : 'Remote MCP connection'}:{' '}
-            {connection.name}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 text-sm">
-          <ConnectionFields server={connection} />
-          <p className="text-muted-foreground">
-            {connection.spec.connection_only
-              ? 'Available to agents through plugins that include this connection.'
-              : 'Available through the agent host configuration.'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={busy || status.isFetching}
-              onClick={() => {
-                setChecking(true);
-                void status.refetch();
-              }}
-            >
-              {status.isFetching ? 'Checking…' : 'Check connection'}
-            </Button>
-            {connection.transport !== 'stdio' &&
-            (connection.spec.auth || status.data?.status === 'auth_required') ? (
-              <Button disabled={extensionsSupported !== true} onClick={onSignIn}>
-                Sign in
-              </Button>
-            ) : null}
-          </div>
-          {status.data ? (
-            <div role="status">
-              <p>
-                {status.data.status === 'ready'
-                  ? `Connected, ${status.data.tools_count} ${status.data.tools_count === 1 ? 'tool' : 'tools'} available`
-                  : status.data.status === 'auth_required'
-                    ? 'Sign-in required'
-                    : 'Connection check failed'}
-              </p>
-              {status.data.error ? (
-                <p className="mt-2 text-destructive">{status.data.error}</p>
-              ) : null}
-              {status.data.status === 'ready' ? (
-                <InventoryList
-                  rows={
-                    status.data.tool_details?.length
-                      ? status.data.tool_details
-                      : status.data.tools.map((name) => ({ name }))
-                  }
-                  empty="This server exposes no tools."
-                  icon={WrenchIcon}
-                />
-              ) : null}
-            </div>
-          ) : null}
-          {status.error || error ? (
-            <p role="alert" className="text-destructive">
-              {error || status.error?.message}
-            </p>
-          ) : null}
-          <div className="flex justify-between gap-2 border-t pt-3">
-            {connection.transport !== 'stdio' && connection.spec.auth ? (
-              <Button variant="ghost" disabled={busy} onClick={() => void change(false)}>
-                Sign out
-              </Button>
-            ) : (
-              <span />
-            )}
-            <Button variant="ghost" disabled={busy} onClick={() => void change(true)}>
-              Remove connection
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      <p className="text-muted-foreground">{description}</p>
+      {detail ? <p className="text-xs text-muted-foreground">{detail}</p> : null}
+      {source ? (
+        <ExternalLink href={source} className="text-xs underline underline-offset-4">
+          Source
+        </ExternalLink>
+      ) : null}
+    </CatalogItem>
   );
 }

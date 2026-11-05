@@ -149,6 +149,28 @@ describe('ArtifactProvenance', () => {
     expect(document.querySelector('a[download]')).toBeNull();
   });
 
+  it('shows a loading status while the lineage loads', async () => {
+    repository.artifactLineage.mockReturnValueOnce(new Promise(() => undefined));
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ArtifactProvenance
+          artifact={{
+            id: 'artifact_2',
+            session_id: 'sess_1',
+            name: 'result.csv',
+            media_type: 'text/csv',
+            uri: 'artifact://result.csv',
+          }}
+          view="lineage"
+        />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('status', { name: 'Loading lineage' })).toBeInTheDocument();
+    expect(screen.queryByText('Loading lineage…')).not.toBeInTheDocument();
+  });
+
   it('keeps a failed evidence export out of Downloads', async () => {
     Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
     repository.exportArtifact.mockRejectedValueOnce(new Error('Packaging failed'));

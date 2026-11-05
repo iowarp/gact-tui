@@ -421,7 +421,7 @@ test('data-table pages through the whole referenced dataset, page size and last 
   await expect(table.locator('tbody tr')).toHaveCount(10);
 
   // Change the page size to 100 rows.
-  await page.getByRole('combobox').first().click();
+  await page.getByRole('combobox', { name: 'Rows per page' }).click();
   await page.getByRole('option', { name: '100', exact: true }).click();
   await expect(page.getByText(/1 - 100 of 270/u)).toBeVisible();
   await expect(table.locator('tbody tr')).toHaveCount(100);

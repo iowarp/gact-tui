@@ -123,7 +123,7 @@ export function nestedFlowExpr(run: FlowRun, agentRef: string): RailroadExpr | u
       step.kind === 'flow' ? { ...step, kind: 'agent' as const } : step,
     );
     const shape = seriesParallel(steps);
-    return shape ? workflowRailroadExpr(steps, shape) : undefined;
+    return shape ? workflowRailroadExpr(steps, shape, new Map(), run.max_concurrency) : undefined;
   }
   const members = flowMembers(run, agentRef);
   if (!members.length) return undefined;
@@ -269,7 +269,10 @@ export function flowDiagrams(
         return expr ? [[id, expr] as const] : [];
       }),
     );
-    const railroad = railroadDiagram('workflow', workflowRailroadExpr(steps, shape, subflows));
+    const railroad = railroadDiagram(
+      'workflow',
+      workflowRailroadExpr(steps, shape, subflows, run.max_concurrency),
+    );
     // Recovered launches establish ownership, not the original gather structure.
     if (run.calls.some((call) => call.recovered)) railroad.parallels = [];
     return {

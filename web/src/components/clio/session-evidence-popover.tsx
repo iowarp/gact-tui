@@ -153,7 +153,12 @@ export function SessionEvidencePopover({
           )}
         >
           <div
-            className="flex min-h-0 flex-1 flex-col justify-between gap-3 overflow-hidden"
+            className={cn(
+              'flex min-h-0 flex-1 flex-col gap-3',
+              docked
+                ? 'justify-between overflow-hidden'
+                : 'clio-scrollbar overflow-y-auto overscroll-contain',
+            )}
             data-slot="evidence-regions"
           >
             {(['session', 'work'] as const)
@@ -168,12 +173,15 @@ export function SessionEvidencePopover({
                   aria-label={kind === 'session' ? 'Session rail' : 'Work rail'}
                   data-showcase-section={kind === 'session' ? 'top' : 'bottom'}
                   className={cn(
-                    'flex min-h-0 shrink flex-col overflow-hidden',
-                    kind === 'work' && 'mt-auto',
-                    docked && 'rounded-lg bg-popover shadow-md ring-1 ring-foreground/10',
+                    'flex flex-col',
+                    docked
+                      ? 'min-h-0 shrink overflow-hidden rounded-lg bg-popover shadow-md ring-1 ring-foreground/10'
+                      : 'shrink-0',
+                    docked && kind === 'work' && 'mt-auto',
                   )}
                 >
                   <SessionRailContent
+                    scrollable={docked}
                     kind={kind}
                     evidence={{
                       ...evidence,

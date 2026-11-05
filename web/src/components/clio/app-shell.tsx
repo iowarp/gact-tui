@@ -211,10 +211,11 @@ export function ClioAppShell({
               onKeyUp={synchronizeWorkbenchPanel}
               onPointerUp={synchronizeWorkbenchPanel}
             />
+            {/* A stable default retains the resized width across collapse/expand. */}
             <ResizablePanel
               collapsedSize="0px"
               collapsible
-              defaultSize={workbenchOpen ? '420px' : '0px'}
+              defaultSize="420px"
               maxSize="70%"
               minSize="320px"
               panelRef={workbenchPanelRef}

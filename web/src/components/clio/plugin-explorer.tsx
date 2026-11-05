@@ -4,9 +4,6 @@ import { toast } from 'sonner';
 import { lazy, Suspense, useState } from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { queryKeys } from '@/lib/query-keys';
 import {
   Dialog,
@@ -23,6 +20,7 @@ import { catalogMember } from '@/lib/plugin-catalog-tree';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ScopedDocumentNavigation } from './scoped-document-navigation';
 import { FileViewerShell } from './file-viewer-shell';
+import { PluginSourceEditor } from './plugin-source-editor';
 import { FileIcon } from 'lucide-react';
 
 const FileReader = lazy(async () => ({ default: (await import('./file-text-view')).FileTextView }));
@@ -69,6 +67,7 @@ export function PluginExplorer({
   const [changes, setChanges] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [savedCopy, setSavedCopy] = useState('');
   const [trusting, setTrusting] = useState(false);
   const [trustError, setTrustError] = useState('');
   const files = inspection.data?.files ?? [];
@@ -117,10 +116,11 @@ export function PluginExplorer({
       );
       setEditing(false);
       setChanges({});
-      toast.success('Saved a local variation', {
-        description:
-          'Your original source is unchanged. Trust the new source in Extensions to use it.',
-      });
+      const ref = `private-local/${variation.trim()}`;
+      setSavedCopy(ref);
+      setSelected({ reference: ref, pending: false, skill: selected.skill });
+      setPath('');
+      toast.success('Saved to Private local marketplace');
     } catch (reason) {
       setSaveError(reason instanceof Error ? reason.message : 'Could not save variation');
     } finally {
@@ -171,28 +171,55 @@ export function PluginExplorer({
                 Back to plugin
               </Button>
             ) : null}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={
-                supported !== true ||
-                inspection.data?.incomplete ||
-                files.some((row) => row.truncated || row.error)
-              }
-              onClick={() => {
-                setEditing(!editing);
-                setVariation(`${selected.skill || plugin.id}-local`);
-                setTab('files');
-              }}
-            >
-              {' '}
-              {editing ? 'Cancel editing' : 'Edit a local variation'}
-            </Button>
+            {!editing ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={
+                  supported !== true ||
+                  inspection.data?.incomplete ||
+                  files.some((row) => row.truncated || row.error)
+                }
+                onClick={() => {
+                  setEditing(true);
+                  setSavedCopy('');
+                  setChanges({});
+                  setVariation(`${selected.skill || plugin.id}-local`);
+                  setTab('files');
+                }}
+              >
+                Edit a local copy
+              </Button>
+            ) : null}
             {inspection.data?.incomplete ? (
               <span className="text-xs text-muted-foreground">
                 A complete source is required to save a variation.
               </span>
             ) : null}
+          </div>
+        ) : null}
+        {savedCopy ? (
+          <div
+            role="status"
+            className="clio-scrollbar max-h-40 shrink-0 overflow-y-auto rounded-md border p-3 text-sm"
+          >
+            <p>
+              Saved <span className="break-all font-medium">{savedCopy}</span> in your Private local
+              marketplace. Your repository and current conversation are unchanged.
+            </p>
+            <details className="mt-2">
+              <summary className="cursor-pointer font-medium">Use this copy in an agent</summary>
+              <p className="mt-2">
+                In the conversation, open Customize → Add plugin and choose {savedCopy}. If it needs
+                trust, use Trust source in the Capabilities tab first. Save the agent as a local
+                variation to reuse that setup in new conversations.
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                The copy keeps the skill names declared in its files. Duplicate skill names are
+                rejected. Replacing an individual built-in skill, such as update-models, is not
+                currently supported; adding this copy does not override it.
+              </p>
+            </details>
           </div>
         ) : null}
         {inspection.isPending ? <p role="status">Reading plugin…</p> : null}
@@ -348,73 +375,58 @@ export function PluginExplorer({
                       </p>
                     }
                   >
-                    {editing ? (
-                      <div className="grid gap-3">
-                        <Label className="grid gap-2">
-                          New variation name
-                          <Input
-                            value={variation}
-                            onChange={(event) => setVariation(event.target.value)}
-                          />
-                        </Label>
-                        <Label className="grid gap-2">
-                          {file.path}
-                          <Textarea
-                            className="min-h-72 font-mono text-sm"
-                            value={changes[file.path] ?? file.text}
-                            onChange={(event) =>
-                              setChanges({ ...changes, [file.path]: event.target.value })
-                            }
-                          />
-                        </Label>
-                        {saveError ? (
-                          <p role="alert" className="text-destructive">
-                            {saveError}
-                          </p>
-                        ) : null}
-                        <Button
-                          disabled={saving || !variation.trim()}
-                          className="w-fit"
-                          onClick={() => void saveVariation()}
-                        >
-                          {saving ? 'Saving…' : 'Save as new variation'}
-                        </Button>
-                      </div>
-                    ) : (
-                      <ScopedDocumentNavigation.Provider
-                        value={{
-                          current: file.path,
-                          files: files.map((row) => row.path),
-                          open: setPath,
+                    <ScopedDocumentNavigation.Provider
+                      value={{
+                        current: file.path,
+                        files: files.map((row) => row.path),
+                        open: setPath,
+                      }}
+                    >
+                      <FileViewerShell
+                        source={{
+                          kind: 'provided',
+                          name: file.path,
+                          mediaType: 'text/plain',
+                          ...(!editing ? { size: file.bytes } : {}),
+                          origin: editing ? 'Unsaved local copy' : 'Plugin source',
+                          readBytes: async () =>
+                            new TextEncoder().encode(
+                              editing ? (changes[file.path] ?? file.text) : file.text,
+                            ),
                         }}
-                      >
-                        <FileViewerShell
-                          source={{
-                            kind: 'provided',
-                            name: file.path,
-                            mediaType: 'text/plain',
-                            size: file.bytes,
-                            origin: 'Plugin source',
-                            readBytes: async () => new TextEncoder().encode(file.text),
-                          }}
-                          tabs={[
-                            {
-                              value: 'preview',
-                              label: file.path,
-                              icon: FileIcon,
-                              content: (
-                                <FileReader
-                                  key={`${selected.reference}/${file.path}`}
-                                  name={file.path}
-                                  content={file.text}
-                                  view={file.path.endsWith('.html') ? 'source' : undefined}
-                                />
-                              ),
-                            },
-                          ]}
-                        />
-                      </ScopedDocumentNavigation.Provider>
-                    )}
+                        tabs={[
+                          {
+                            value: 'preview',
+                            label: file.path,
+                            icon: FileIcon,
+                            content: editing ? (
+                              <PluginSourceEditor
+                                path={file.path}
+                                text={changes[file.path] ?? file.text}
+                                name={variation}
+                                saving={saving}
+                                error={saveError}
+                                onText={(text) => setChanges({ ...changes, [file.path]: text })}
+                                onName={setVariation}
+                                onSave={() => void saveVariation()}
+                                onCancel={() => {
+                                  setEditing(false);
+                                  setChanges({});
+                                  setSaveError('');
+                                }}
+                              />
+                            ) : (
+                              <FileReader
+                                key={`${selected.reference}/${file.path}`}
+                                name={file.path}
+                                content={file.text}
+                                view={file.path.endsWith('.html') ? 'source' : undefined}
+                              />
+                            ),
+                          },
+                        ]}
+                      />
+                    </ScopedDocumentNavigation.Provider>
                   </Suspense>
                 ) : (
                   <p className="p-3 text-sm text-muted-foreground">

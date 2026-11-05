@@ -75,6 +75,8 @@ export const flowCallSchema = z.object({
   status: z.string().default(''),
   /** Calls started together (one gather) share the first one's invocation; empty alone. */
   together: z.string().default(''),
+  /** That gather's own bound on how many of its calls run at once; 0 for none. */
+  gather_limit: z.number().int().nonnegative().default(0),
   recovered: z.boolean().optional(),
   returned_after_stop: z.boolean().optional(),
 });
@@ -107,6 +109,8 @@ export const flowRunSchema = z.object({
   flow: z.string(),
   status: z.string().default('running'),
   depth: z.number().int().nonnegative().default(0),
+  /** The flow's bound on how many of its calls run at once; 0 for none. */
+  max_concurrency: z.number().int().nonnegative().default(0),
   root_handle: z.string().default(''),
   entries: z.number().int().nonnegative().default(0),
   view: z

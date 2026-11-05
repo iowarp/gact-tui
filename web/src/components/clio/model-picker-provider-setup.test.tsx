@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
@@ -55,6 +55,12 @@ function sentence(): HTMLElement | null {
   return document.querySelector('[data-slot="provider-connect-sentence"]');
 }
 
+function settingsLink(): HTMLElement {
+  const footer = document.querySelector<HTMLElement>('[data-slot="provider-panel-footer"]');
+  expect(footer).not.toBeNull();
+  return within(footer!).getByRole('link', { name: 'Provider settings' });
+}
+
 async function open(
   pickerOptions: Parameters<typeof ClioModelPicker>[0]['options'],
   provider?: string,
@@ -74,11 +80,12 @@ async function open(
 }
 
 describe('ClioModelPicker: a usable provider', () => {
-  it('lists its models with one action row: Refresh, Reload models, Log out', async () => {
+  it('lists its models with one action row: Refresh, Reload models, Settings, Log out', async () => {
     await open(options, 'codex');
 
     expect(screen.getByText('Luna')).toBeVisible();
     expect(footerButtonNames()).toEqual(['Refresh', 'Reload models', 'Log out']);
+    expect(settingsLink()).toHaveAttribute('href', '/settings/providers?provider=codex');
     // One transport: never an "or".
     expect(document.querySelector('[data-slot="transport-separator"]')).toBeNull();
     // No floating settings icon.
@@ -120,6 +127,7 @@ describe('ClioModelPicker: a usable provider', () => {
     await screen.findByText('gpt-4o-mini');
 
     expect(footerButtonNames()).toEqual(['Refresh', 'Reload models', 'Remove key']);
+    expect(settingsLink()).toHaveAttribute('href', '/settings/providers?provider=openai');
     await user.click(screen.getByRole('button', { name: 'Remove key' }));
     await waitFor(() => expect(repository.clearProviderApiKey).toHaveBeenCalledWith('openai'));
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
@@ -156,6 +164,7 @@ describe('ClioModelPicker: a usable provider', () => {
     await screen.findByText('Sonnet');
 
     expect(footerButtonNames()).toEqual(['Refresh', 'Reload models']);
+    expect(settingsLink()).toHaveAttribute('href', '/settings/providers?provider=claude_code');
   });
 
   it('Refresh runs one check: the stage shows in the row and the heartbeat, then settles', async () => {

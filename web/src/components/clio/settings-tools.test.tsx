@@ -16,6 +16,7 @@ const repository = vi.hoisted(() => ({
   removeMcpConfiguration: vi.fn(),
   reconnectMcpServer: vi.fn(),
   deleteMcpServer: vi.fn(),
+  reconnectSessionMcpServer: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -74,6 +75,42 @@ beforeEach(() => {
   repository.removeMcpConfiguration.mockResolvedValue({});
   repository.reconnectMcpServer.mockResolvedValue(external);
   repository.deleteMcpServer.mockResolvedValue(undefined);
+});
+
+it('keeps the originating conversation scope in the MCP tab and reconnects its namespace', async () => {
+  repository.workspaces.mockResolvedValue([{ id: 'ws_earth', name: 'EarthScope' }]);
+  repository.mcpServers.mockResolvedValue([
+    {
+      ...external,
+      id: 'session_mcp_sess_earth_ndp',
+      name: 'ndp',
+      source: 'plugin',
+      session_id: 'sess_earth',
+      status: 'failed',
+      preparation: {
+        state: 'failed',
+        phase: 'provision',
+        reason: 'mcp_prepare_provision_failed',
+        detail: 'Test provision failure',
+      },
+    },
+  ]);
+  repository.reconnectSessionMcpServer.mockResolvedValue({ state: 'preparing' });
+  renderSettings(
+    <ToolsSettings embedded initialWorkspaceId="ws_earth" initialSessionId="sess_earth" />,
+  );
+  expect(await screen.findByText('MCP services in this conversation')).toBeVisible();
+  await waitFor(() =>
+    expect(repository.mcpServers).toHaveBeenCalledWith('ws_earth', expect.anything(), {
+      sessionId: 'sess_earth',
+    }),
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Show the tools of ndp' }));
+  expect(screen.getByText('The server’s software could not be installed.')).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'Reconnect ndp' }));
+  await waitFor(() =>
+    expect(repository.reconnectSessionMcpServer).toHaveBeenCalledWith('sess_earth', 'ndp'),
+  );
 });
 
 afterEach(() => {

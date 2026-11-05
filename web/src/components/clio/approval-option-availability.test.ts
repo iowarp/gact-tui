@@ -11,14 +11,13 @@ const unavailable = {
 };
 
 describe('approvalOptionViews', () => {
-  it('disables SPOTTER review with the remedy when the service cannot arm it', () => {
+  it('keeps an unavailable SPOTTER concise and retains the diagnostic detail', () => {
     const spotter = approvalOptionViews(SESSION_APPROVAL_OPTIONS, unavailable).find(
       (option) => option.value === 'spotter-ai',
     );
     expect(spotter).toMatchObject({
       disabled: true,
-      description:
-        'Unavailable. To enable: Install the marketplace that provides the clio/spotter-ai agent.',
+      description: 'Not available here.',
       unavailableDetail: unavailable.message,
     });
   });
@@ -36,11 +35,11 @@ describe('approvalOptionViews', () => {
         (option) => option.value === 'spotter-ai',
       );
       expect(view?.disabled).toBe(false);
-      expect(view?.description).toBe('Require the configured SPOTTER policy.');
+      expect(view?.description).toBe('An AI agent watches the session.');
     }
   });
 
-  it('says a statically checked SPOTTER is not verified until first use', () => {
+  it('keeps the same concise explanation after a static setup check', () => {
     const view = approvalOptionViews(SESSION_APPROVAL_OPTIONS, {
       ...unavailable,
       available: true,
@@ -48,19 +47,15 @@ describe('approvalOptionViews', () => {
       verified: 'static',
     }).find((option) => option.value === 'spotter-ai');
     expect(view?.disabled).toBe(false);
-    expect(view?.description).toBe(
-      'Require the configured SPOTTER policy. Setup checked; not verified until first use.',
-    );
+    expect(view?.description).toBe('An AI agent watches the session.');
   });
 });
 
 describe('unavailableApprovalNotice', () => {
-  it('names each unavailable policy with what to enable, and nothing when all are available', () => {
+  it('names unavailable policies concisely and stays empty when all are available', () => {
     expect(
       unavailableApprovalNotice(approvalOptionViews(SESSION_APPROVAL_OPTIONS, unavailable)),
-    ).toBe(
-      'SPOTTER review: Unavailable. To enable: Install the marketplace that provides the clio/spotter-ai agent.',
-    );
+    ).toBe('SPOTTER review: Not available here.');
     expect(
       unavailableApprovalNotice(approvalOptionViews(SESSION_APPROVAL_OPTIONS, undefined)),
     ).toBe('');

@@ -2,6 +2,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { Artifact } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { DownloadIcon } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import {
   Timeline,
   TimelineContent,
@@ -15,9 +16,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ArtifactLineageGraph } from './artifact-lineage-graph';
+import { ResourceLoading } from './resource-states';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
+
+// React Flow and dagre load once a lineage graph is actually shown.
+const ArtifactLineageGraph = lazy(() =>
+  import('./artifact-lineage-graph').then((module) => ({ default: module.ArtifactLineageGraph })),
+);
 import { downloadBytes } from './surface-export';
 
 export function ArtifactProvenance({
@@ -60,11 +66,13 @@ export function ArtifactProvenance({
                 value="degraded"
               />
             ) : null}
-            <ArtifactLineageGraph
-              artifact={artifact}
-              lineage={lineage.data}
-              onOpenArtifact={onOpenArtifact}
-            />
+            <Suspense fallback={<ResourceLoading label="Loading lineage" />}>
+              <ArtifactLineageGraph
+                artifact={artifact}
+                lineage={lineage.data}
+                onOpenArtifact={onOpenArtifact}
+              />
+            </Suspense>
           </>
         ) : lineage.error ? (
           <Unavailable
@@ -73,7 +81,7 @@ export function ArtifactProvenance({
             message="The service could not resolve this file's source relationships. Its saved content remains readable."
           />
         ) : (
-          <p className="text-sm text-muted-foreground">Loading lineage…</p>
+          <ResourceLoading label="Loading lineage" />
         )}
       </section>
     );
@@ -134,7 +142,7 @@ export function ArtifactProvenance({
           message="History is not available for this result. Its saved content remains readable."
         />
       ) : (
-        <p className="text-sm text-muted-foreground">Loading version history…</p>
+        <ResourceLoading label="Loading version history" variant="line" />
       )}
     </section>
   );

@@ -267,6 +267,7 @@ describe('ManagedServices', () => {
   });
 
   it('identifies a command-backed connection on the agent without requiring a service URL', async () => {
+    const user = userEvent.setup();
     repository.mcpServers.mockResolvedValue([
       {
         id: 'mcp_ext_web',
@@ -281,7 +282,9 @@ describe('ManagedServices', () => {
     renderServices({
       connectedAgentLocation: 'Ares',
     });
-    expect(await screen.findByRole('heading', { name: 'Web search' })).toBeVisible();
+    await user.click(await screen.findByRole('button', { name: 'Show the tools of Web search' }));
+    expect(screen.getByRole('list', { name: 'Tools of Web search' })).toHaveTextContent('fetch');
+    expect(screen.getByRole('list', { name: 'Tools of Web search' })).toHaveTextContent('search');
     expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
     expect(screen.queryByText('No service address configured')).toBeNull();
   });

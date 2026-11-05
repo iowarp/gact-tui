@@ -152,6 +152,7 @@ export function WorkspacePage() {
     [interactionSessionIds, interactions, navigationSessions],
   );
   const messageCount = useSessionMessageCount(sessionId);
+  const transcriptDamaged = workspaceRouteState.conversationDamaged(transcript.error);
   const conversationStarted = messageCount > 0 || startedSessionId === sessionId;
   const setConversationStarted = useCallback(
     (started: boolean) =>
@@ -561,18 +562,13 @@ export function WorkspacePage() {
           contextBar={
             <ClioSessionContextBar
               agentLabel={agentLabel}
+              workspaceLabel={activeWorkspace?.display_name}
               management={
                 session
                   ? { session, actions: navigationActions, endpoint: settings.endpoint }
                   : undefined
               }
-              actionsPending={
-                sessionHistory.fork.isPending ||
-                sessionHistory.compact.isPending ||
-                sessionHistory.undo.isPending ||
-                sessionHistory.rewind.isPending ||
-                sessionHistory.share.isPending
-              }
+              actionsPending={sessionHistory.isPending}
               onCompact={async () => {
                 await sessionHistory.compact.mutateAsync();
               }}
@@ -710,7 +706,10 @@ export function WorkspacePage() {
                 transcript.data?.messages.at(-1)?.stop_reason !== 'error'
               }
               streamError={streamError}
-              transcriptError={messageCount > 0 ? transcriptError : undefined}
+              transcriptError={messageCount > 0 || transcriptDamaged ? transcriptError : undefined}
+              removal={
+                transcriptDamaged && session ? { actions: navigationActions, session } : undefined
+              }
             />
             <SessionAttentionTools attention={attention} sessionId={sessionId} />
             <LayoutGroup id={`session-layout:${sessionId}`}>

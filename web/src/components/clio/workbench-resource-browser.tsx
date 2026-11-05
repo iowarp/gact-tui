@@ -35,6 +35,7 @@ import { WorkspaceFileView } from './resource-viewers';
 import { FileSearchPassage } from './file-search-passage';
 import type { FileSearchLocation } from '@/lib/search-matches';
 import { WorkspaceDirectoryTree } from './workspace-directory-tree';
+import { ResourceLoading } from './resource-states';
 
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
@@ -54,6 +55,8 @@ interface FileBrowserProps {
   filesNextOffset?: number | null;
   selectedPath?: string;
   searchLocation?: FileSearchLocation;
+  /** HDF5 only: the object the viewer opens on. */
+  locator?: string;
   onRefresh?: () => void;
   onSelectedPathChange?: (path: string) => void;
 }
@@ -83,6 +86,7 @@ export function FileBrowser({
   filesNextOffset,
   selectedPath,
   searchLocation,
+  locator,
   onRefresh,
   onSelectedPathChange,
 }: FileBrowserProps) {
@@ -159,7 +163,7 @@ export function FileBrowser({
       />
       <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
         <ResizablePanel
-          defaultSize={stacked ? '42%' : '44%'}
+          defaultSize={stacked ? '42%' : '24%'}
           id="workspace-file-tree"
           minSize={stacked ? '140px' : '190px'}
         >
@@ -272,6 +276,7 @@ export function FileBrowser({
               <Suspense fallback={<ResourceLoading label="Loading file" />}>
                 <WorkspaceFileView
                   key={previewPath}
+                  locator={previewPath === selectedPath ? locator : undefined}
                   mediaType={activeFile?.media_type}
                   path={previewPath}
                   size={activeFile?.size}
@@ -393,12 +398,6 @@ export function ArtifactBrowser({
         artifactList
       )}
     </section>
-  );
-}
-
-function ResourceLoading({ label }: { label: string }) {
-  return (
-    <div className="grid h-full place-items-center p-6 text-sm text-muted-foreground">{label}…</div>
   );
 }
 
