@@ -90,7 +90,6 @@ for (const layout of [
           content_url: `/v1/artifacts/${sourceId}/document/content`,
           anchors: [],
           native_open: true,
-          embedded_editors: [],
           rendition_formats: ['pdf'],
           pdf_rendition_artifact_id: item.saved ? pdfId : '',
           provenance: {},

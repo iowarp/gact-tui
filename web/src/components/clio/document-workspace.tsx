@@ -3,7 +3,6 @@ import { renderedFileText, textFileFormat } from '@/lib/file-presentation';
 import type {
   Artifact,
   DocumentAnchor,
-  DocumentEditorSession,
   DocumentManifest,
   DocumentWorkingCopy,
 } from '@clio/core/v3';
@@ -53,7 +52,6 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { downloadBytes } from './surface-export';
 import { DocumentOpenMenu, type DocumentOpenTarget } from './document-open-menu';
 import { DocumentRefreshAction } from './document-refresh-action';
-import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
 import { ClioPdfPreview } from './pdf-preview';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
@@ -62,7 +60,7 @@ import { FileReadView } from './file-text-view';
 import { DocumentSourceView } from './document-source-view';
 import { isDocumentSourceProfile } from './document-open-policy';
 import { prepareDocumentPdf } from './document-pdf';
-import { editorLabel, openDocumentTarget } from './document-launch';
+import { openDocumentTarget } from './document-launch';
 import { TextFileCopyAction } from './text-file-copy-action';
 import { DocumentDownloadActions } from './document-download-actions';
 import { DocumentPolicy, WorkingCopyStatus } from './document-working-copy';
@@ -94,7 +92,6 @@ export function ClioDocumentWorkspace({
   const [status, setStatus] = useState('');
   const [documentView, setDocumentView] = useState('preview');
   const [workingCopy, setWorkingCopy] = useState<DocumentWorkingCopy>();
-  const [editor, setEditor] = useState<DocumentEditorSession>();
   const manifest = useQuery({
     queryKey: queryKeys.key('document-manifest', settings.endpoint, artifact.id),
     queryFn: ({ signal }) => repository.documentManifest(artifact.id, signal),
@@ -129,11 +126,6 @@ export function ClioDocumentWorkspace({
     queryKey: queryKeys.key('artifact-reviews', settings.endpoint, artifact.id),
     queryFn: ({ signal }) => repository.artifactReviews(artifact.id, signal),
     enabled: Boolean(manifest.data),
-  });
-  const editorHealth = useQuery({
-    queryKey: queryKeys.key('document-editor-health', settings.endpoint),
-    queryFn: ({ signal }) => repository.documentEditorHealth(signal),
-    enabled: Boolean(manifest.data?.embedded_editors.length),
   });
   const applications = useQuery({
     queryKey: ['document-applications', artifact.name, artifact.media_type],
@@ -192,28 +184,22 @@ export function ClioDocumentWorkspace({
     mutationFn: (target: DocumentOpenTarget) =>
       openDocumentTarget(repository, manifest.data, artifact.session_id, preparePdf, target),
     onSuccess: (result) => {
-      setWorkingCopy(result.kind === 'native' && result.desktopCopy ? undefined : result.copy);
-      if (result.kind === 'embedded') {
-        setEditor(result.launched);
-        setStatus(`${editorLabel(result.launched.provider)} editing session ready.`);
-      } else {
-        const message = `${result.isPdf ? 'PDF' : artifact.name} opened in ${result.appName}.${
-          result.desktopCopy
-            ? ' Opened a desktop copy; edits are local to this copy.'
-            : result.copy?.auto_checkpoint
-              ? ' Stable saves become immutable revisions.'
-              : ''
-        }`;
-        setStatus(message);
-        toast.success(message);
-      }
+      setWorkingCopy(result.desktopCopy ? undefined : result.copy);
+      const message = `${result.isPdf ? 'PDF' : artifact.name} opened in ${result.appName}.${
+        result.desktopCopy
+          ? ' Opened a desktop copy; edits are local to this copy.'
+          : result.copy?.auto_checkpoint
+            ? ' Stable saves become immutable revisions.'
+            : ''
+      }`;
+      setStatus(message);
+      toast.success(message);
     },
   });
   const closeWorkingCopy = useMutation({
     mutationFn: () => repository.closeDocumentWorkingCopy(workingCopy!.id),
     onSuccess: (copy) => {
       setWorkingCopy(copy);
-      setEditor(undefined);
       setStatus('Working copy closed. The immutable artifact history remains available.');
     },
   });
@@ -386,7 +372,6 @@ export function ClioDocumentWorkspace({
                 applicationsError={applications.error?.message}
                 pdfApplicationsPending={pdfApplications.isPending && inTauri()}
                 pdfApplicationsError={pdfApplications.error?.message}
-                editorHealth={editorHealth.data}
                 openPending={createWorkingCopy.isPending}
                 pdfPending={rendition.isPending}
                 onOpen={(target) => createWorkingCopy.mutate(target)}
@@ -416,7 +401,6 @@ export function ClioDocumentWorkspace({
                 reviews.isFetching
               }
               onReviews={reviews.refetch}
-              onEditorHealth={editorHealth.refetch}
             />
           </div>
         </ViewerToolbarContent>
@@ -455,7 +439,6 @@ export function ClioDocumentWorkspace({
           >
             <DocumentPreview
               content={content.data}
-              editor={editor}
               fallback={
                 sourceProfile === 'html-static' && textContent !== undefined ? (
                   <FileReadView
@@ -515,7 +498,7 @@ export function ClioDocumentWorkspace({
           aria-labelledby={undefined}
         >
           <h2 className="mb-3 text-base font-semibold">Document safety</h2>
-          <DocumentPolicy editorHealth={editorHealth.data} workingCopy={workingCopy} />
+          <DocumentPolicy workingCopy={workingCopy} />
         </TabsContent>
       </Tabs>
       <Dialog onOpenChange={setReviewOpen} open={reviewOpen}>
@@ -560,7 +543,6 @@ export function ClioDocumentWorkspace({
 
 function DocumentPreview({
   content,
-  editor,
   fallback,
   fit,
   manifest,
@@ -573,7 +555,6 @@ function DocumentPreview({
   text,
 }: {
   content?: Uint8Array;
-  editor?: DocumentEditorSession;
   fallback: ReactNode;
   fit: 'page' | 'width';
   manifest?: DocumentManifest;
@@ -585,19 +566,6 @@ function DocumentPreview({
   onRetryPreview: () => void;
   text?: string;
 }) {
-  if (editor?.status === 'ready' && editor.editor_url) {
-    return editor.provider === 'onlyoffice' ? (
-      <ClioOnlyOfficeEditor config={editor.config} editorUrl={editor.editor_url} />
-    ) : (
-      <iframe
-        className="h-full min-h-0 w-full border-0 bg-background"
-        referrerPolicy="no-referrer"
-        sandbox="allow-scripts allow-forms allow-same-origin allow-downloads allow-popups"
-        src={editor.editor_url}
-        title="Collabora document editor"
-      />
-    );
-  }
   if (!manifest) return fallback;
   if (previewError && !previewPending) {
     return (
@@ -619,8 +587,7 @@ function DocumentPreview({
   if (manifest.profile === 'pdf') {
     return (
       // The viewer owns its own scroll region so it can mount only the pages in
-      // view, which needs a bounded box to scroll inside — the same one the
-      // editor branch above uses.
+      // view, which needs a bounded box to scroll inside.
       <div className="h-full min-h-0 w-full">
         <ClioPdfPreview
           bytes={content}

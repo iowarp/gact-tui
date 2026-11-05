@@ -2,7 +2,6 @@ import type { DocumentWorkingCopy } from '@clio/core/v3';
 import { ShieldCheckIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { editorLabel } from './document-launch';
 import { ClioStatus } from './status';
 
 /** The document's working copy: its status and the conflict/close decisions. */
@@ -55,14 +54,8 @@ export function WorkingCopyStatus({
   );
 }
 
-/** The immutable-document guarantees and the embedded editors' health. */
-export function DocumentPolicy({
-  editorHealth,
-  workingCopy,
-}: {
-  editorHealth?: { editors: Array<{ provider: string; healthy: boolean; error?: string }> };
-  workingCopy?: DocumentWorkingCopy;
-}) {
+/** The immutable-document guarantees. */
+export function DocumentPolicy({ workingCopy }: { workingCopy?: DocumentWorkingCopy }) {
   return (
     <Alert>
       <ShieldCheckIcon aria-hidden="true" />
@@ -72,16 +65,7 @@ export function DocumentPolicy({
           <li>The original artifact is canonical; PDF renditions are derived.</li>
           <li>Reviews bind to one version and checksum, so stale anchors are rejected.</li>
           <li>Stable working-copy saves mint or deduplicate immutable revisions.</li>
-          <li>Embedded editors receive short-lived access to one working copy, not credentials.</li>
         </ul>
-        {editorHealth?.editors.map((editor) => (
-          <ClioStatus
-            detail={editor.error}
-            key={editor.provider}
-            label={`${editorLabel(editor.provider)} ${editor.healthy ? 'available' : 'unavailable'}`}
-            value={editor.healthy ? 'healthy' : 'unavailable'}
-          />
-        ))}
         {workingCopy ? (
           <p className="font-mono text-[0.625rem]">
             Working copy {workingCopy.id}, head version {workingCopy.head_version}

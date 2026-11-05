@@ -11,7 +11,6 @@ import {
   revealFileBytes,
 } from '@/tauri/documents';
 import { downloadBytes } from './surface-export';
-import { vocab } from '@/lib/brand-vocabulary';
 import { copyText } from '@/lib/clipboard';
 // Load the real lazy renderer during collection, outside the rendering test's timer.
 import '../ai-elements/markdown';
@@ -32,7 +31,6 @@ const manifest = {
   content_url: '/v1/artifacts/artifact_3/document/content',
   anchors: ['text-quote' as const],
   native_open: true,
-  embedded_editors: [],
   rendition_formats: ['pdf'],
   provenance: {},
 };
@@ -41,11 +39,9 @@ const repository = vi.hoisted(() => ({
   documentManifest: vi.fn(),
   documentContent: vi.fn(),
   artifactReviews: vi.fn(),
-  documentEditorHealth: vi.fn(),
   submitArtifactReview: vi.fn(),
   createDocumentRendition: vi.fn(),
   createDocumentWorkingCopy: vi.fn(),
-  createDocumentEditorSession: vi.fn(),
   closeDocumentWorkingCopy: vi.fn(),
   resolveDocumentConflict: vi.fn(),
 }));
@@ -218,7 +214,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.documentManifest.mockResolvedValue({ ...manifest, profile: 'ooxml-slides' });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-preview'));
     repository.artifactReviews.mockResolvedValue([]);
-    repository.documentEditorHealth.mockResolvedValue({ providers: [] });
     renderWorkspace();
     expect(await screen.findByText('PDF preview')).toBeVisible();
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
@@ -603,7 +598,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     await user.click(screen.getByRole('menuitem', { name: 'Test Editor (default)' }));
     expect(repository.createDocumentWorkingCopy).toHaveBeenCalledWith('artifact_3', {
       session_id: 'sess_1',
-      provider: 'native',
       writable: true,
       auto_checkpoint: true,
     });
@@ -613,38 +607,11 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(screen.queryByRole('tab', { name: 'History' })).not.toBeInTheDocument();
   });
 
-  it('checks editor availability again before creating an editable copy', async () => {
-    repository.documentManifest.mockResolvedValue({
-      ...manifest,
-      name: 'evidence.docx',
-      profile: 'ooxml-word',
-      embedded_editors: ['onlyoffice'],
-    });
-    repository.documentContent.mockResolvedValue(new TextEncoder().encode('# Evidence'));
-    repository.artifactReviews.mockResolvedValue([]);
-    repository.documentEditorHealth
-      .mockResolvedValueOnce({
-        editors: [{ provider: 'onlyoffice', configured: true, healthy: true }],
-      })
-      .mockResolvedValue({
-        editors: [{ provider: 'onlyoffice', configured: true, healthy: false }],
-      });
-    renderWorkspace({ name: 'evidence.docx' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: `ONLYOFFICE (in ${vocab.agent})` }),
-    );
-    expect(await screen.findByText(/ONLYOFFICE is unavailable/)).toBeVisible();
-    expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
-    expect(repository.createDocumentEditorSession).not.toHaveBeenCalled();
-  });
-
-  it('closes a working copy when its editor cannot launch and keeps the preview readable', async () => {
+  it('shows an office file through its PDF rendition with no embedded editor', async () => {
     const wordManifest = {
       ...manifest,
       name: 'evidence.docx',
       profile: 'ooxml-word' as const,
-      embedded_editors: ['onlyoffice'],
       pdf_rendition_artifact_id: 'saved_pdf',
     };
     repository.documentManifest.mockImplementation(async (id: string) =>
@@ -652,28 +619,12 @@ The stopping time is $\sigma_{\infty}(n)$.`,
         ? { ...manifest, artifact_id: id, name: 'evidence.pdf', profile: 'pdf' }
         : wordManifest,
     );
-    repository.documentContent.mockResolvedValue(new TextEncoder().encode('# Evidence'));
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-preview'));
     repository.artifactReviews.mockResolvedValue([]);
-    repository.documentEditorHealth.mockResolvedValue({
-      editors: [{ provider: 'onlyoffice', configured: true, healthy: true }],
-    });
-    repository.createDocumentWorkingCopy.mockResolvedValue({
-      id: 'copy_failed',
-      path: 'confined.docx',
-    });
-    repository.createDocumentEditorSession.mockResolvedValue({
-      status: 'unavailable',
-      error: 'Editor connection refused',
-    });
-    repository.closeDocumentWorkingCopy.mockResolvedValue({ id: 'copy_failed', status: 'closed' });
     renderWorkspace({ name: 'evidence.docx' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: `ONLYOFFICE (in ${vocab.agent})` }),
-    );
-    expect(await screen.findByText('Editor connection refused')).toBeVisible();
-    expect(repository.closeDocumentWorkingCopy).toHaveBeenCalledWith('copy_failed');
     expect(await screen.findByText('PDF preview')).toBeVisible();
-    expect(screen.queryByText('active')).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
+    expect(screen.queryByRole('menuitem', { name: /ONLYOFFICE|Collabora/u })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: /Test Editor/u })).toBeVisible();
   });
 });

@@ -51,7 +51,6 @@ export interface DocumentManifest {
   content_url: string;
   anchors: DocumentAnchorProfile[];
   native_open: boolean;
-  embedded_editors: Array<'onlyoffice' | 'collabora'>;
   rendition_formats: string[];
   pdf_rendition_artifact_id?: string;
   provenance: Record<string, unknown>;
@@ -88,7 +87,6 @@ export interface DocumentWorkingCopy {
   base_sha256: string;
   last_sha256: string;
   path: string;
-  provider: 'native' | 'onlyoffice' | 'collabora';
   writable: boolean;
   auto_checkpoint: boolean;
   status: 'active' | 'conflict' | 'closed' | 'missing' | 'error';
@@ -99,28 +97,6 @@ export interface DocumentWorkingCopy {
   conflict_candidate_sha256?: string;
   error?: string;
   native_comment_fingerprints: string[];
-}
-
-export interface DocumentEditorSession {
-  id: string;
-  working_copy_id: string;
-  provider: 'onlyoffice' | 'collabora';
-  status: 'ready' | 'unavailable' | 'closed';
-  editor_url?: string;
-  token?: string;
-  expires_at?: string;
-  config: Record<string, unknown>;
-  error?: string;
-}
-
-export interface DocumentEditorHealth {
-  editors: Array<{
-    provider: 'onlyoffice' | 'collabora';
-    url: string;
-    configured: boolean;
-    healthy: boolean;
-    error?: string;
-  }>;
 }
 
 export interface DocumentRendition {

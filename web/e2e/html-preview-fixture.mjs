@@ -53,7 +53,6 @@ export function createHtmlPreviewFixture({
     content_url: `/v1/artifacts/${pdfId}/document/content`,
     anchors: [],
     native_open: true,
-    embedded_editors: [],
     rendition_formats: [],
     provenance: {},
   };
@@ -133,7 +132,6 @@ export function createHtmlPreviewFixture({
           content_url: `/v1/artifacts/${markdownId}/document/content`,
           anchors: ['text-quote'],
           native_open: true,
-          embedded_editors: ['onlyoffice'],
           rendition_formats: ['pdf'],
           provenance: {},
         });
@@ -161,7 +159,6 @@ export function createHtmlPreviewFixture({
           content_url: `/v1/artifacts/${id}/document/content`,
           anchors: [],
           native_open: true,
-          embedded_editors: [],
           rendition_formats: ['pdf'],
           pdf_rendition_artifact_id: '',
           provenance: {},

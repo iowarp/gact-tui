@@ -2247,12 +2247,12 @@ provenance remains unchanged.
 
 The capability value is an object with `protocol_version`, `profiles`, `anchors`,
 `review_parts`, `floating_comments`, `immutable_revisions`,
-`native_working_copies`, `native_comment_trigger`, `embedded_editors`,
-`static_html_scripts`, and `executable_html_transition`.
+`native_working_copies`, `native_comment_trigger`, `static_html_scripts`, and
+`executable_html_transition`.
 
 | Method     | Endpoint                                                | Contract                                                                                                                                                                                                         |
 | ---------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET        | `/v1/artifacts/{artifact_id}/document`                  | Return the exact version's `DocumentManifest`: identity, profile, verified content URL, allowed anchors, native-open/editor availability, renditions, and provenance.                                            |
+| GET        | `/v1/artifacts/{artifact_id}/document`                  | Return the exact version's `DocumentManifest`: identity, profile, verified content URL, allowed anchors, native-open availability, renditions, and provenance.                                                   |
 | GET        | `/v1/artifacts/{artifact_id}/document/content`          | Serve exact bytes. Static HTML carries a sandboxed deny-by-default CSP.                                                                                                                                          |
 | GET        | `/v1/artifacts/{artifact_id}/reviews`                   | Return the durable latest projection of reviews for the logical artifact chain.                                                                                                                                  |
 | POST       | `/v1/sessions/{sid}/artifact-reviews`                   | Validate `artifact_id`, `expected_version`, and `expected_sha256`; reject a stale head with `409 stale_artifact_anchor`; idempotently persist and immediately continue the agent with an `artifact_review` part. |
@@ -2260,8 +2260,6 @@ The capability value is an object with `protocol_version`, `profiles`, `anchors`
 | POST       | `/v1/artifacts/{artifact_id}/working-copies`            | Materialize a confined copy with a single writable lease. Stable saves mint immutable revisions; stale heads become explicit conflicts.                                                                          |
 | GET/DELETE | `/v1/document-working-copies/{id}`                      | Read or close a working-copy lease.                                                                                                                                                                              |
 | POST       | `/v1/document-working-copies/{id}/conflict`             | Resolve with `keep-current` or `use-working-copy` against an expected head.                                                                                                                                      |
-| GET        | `/v1/document-editors/health`                           | Report configured and reachable ONLYOFFICE/Collabora endpoints.                                                                                                                                                  |
-| POST       | `/v1/document-working-copies/{id}/editor-sessions`      | Issue a short-lived token scoped to one working copy and provider.                                                                                                                                               |
 
 `artifact_review` is a user part:
 

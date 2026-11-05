@@ -579,7 +579,8 @@ presented.
   also looked equivalent to a current registry record even when its immutable identity could no
   longer be resolved.
 - **Decision:** Document artifacts use the service-owned manifest, bytes, reviews, rendition,
-  working-copy, conflict, editor-health, and editor-session routes. shadcn Tabs and Dialog compose
+  working-copy, and conflict routes. (The embedded ONLYOFFICE and Collabora editor routes were removed by
+  clio-agent's comments and visual feedback plan, ledger FB4.) shadcn Tabs and Dialog compose
   Preview, Reviews, History, and Safety; ReUI Timeline presents review history; AI Elements renders
   Markdown; React-PDF supplies selectable PDF pages with a locally emitted, version-matched worker.
   Text and PDF selections create typed anchors bound to the displayed version and checksum. Native

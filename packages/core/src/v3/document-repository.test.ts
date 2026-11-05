@@ -32,7 +32,6 @@ const manifest = {
   content_url: '/v1/artifacts/artifact%2F3/document/content',
   anchors: ['text-quote'],
   native_open: true,
-  embedded_editors: [],
   rendition_formats: ['pdf'],
   pdf_rendition_artifact_id: 'artifact_pdf',
   provenance: { custody: 'managed' },
@@ -65,7 +64,6 @@ const workingCopy = {
   base_sha256: 'a'.repeat(64),
   last_sha256: 'a'.repeat(64),
   path: 'D:\\workspace\\.clio\\documents\\working-copies\\copy-one\\evidence.md',
-  provider: 'native',
   writable: true,
   auto_checkpoint: true,
   status: 'active',
@@ -148,7 +146,7 @@ describe('DocumentRepository', () => {
     });
   });
 
-  it('uses explicit working-copy, conflict, health, and editor-session routes', async () => {
+  it('uses explicit working-copy and conflict routes', async () => {
     const conflict = {
       ...workingCopy,
       status: 'conflict',
@@ -159,31 +157,11 @@ describe('DocumentRepository', () => {
       workingCopy,
       { ...workingCopy, status: 'closed' },
       conflict,
-      {
-        editors: [
-          {
-            provider: 'onlyoffice',
-            url: 'http://127.0.0.1:8080',
-            configured: true,
-            healthy: false,
-            error: 'connection refused',
-          },
-        ],
-      },
-      {
-        id: 'editor-1',
-        working_copy_id: 'copy/one',
-        provider: 'onlyoffice',
-        status: 'unavailable',
-        config: {},
-        error: 'connection refused',
-      },
     ]);
     const repository = new ClioRepository(transport);
 
     await repository.createDocumentWorkingCopy('artifact/3', {
       session_id: 'session/one',
-      provider: 'native',
       writable: true,
       auto_checkpoint: true,
     });
@@ -193,20 +171,12 @@ describe('DocumentRepository', () => {
       resolution: 'keep-current',
       expected_head_artifact_id: 'artifact/4',
     });
-    await expect(repository.documentEditorHealth()).resolves.toMatchObject({
-      editors: [{ healthy: false }],
-    });
-    await expect(
-      repository.createDocumentEditorSession('copy/one', 'onlyoffice'),
-    ).resolves.toMatchObject({ status: 'unavailable' });
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
       { method: 'POST', path: '/v1/artifacts/artifact%2F3/working-copies' },
       { method: 'GET', path: '/v1/document-working-copies/copy%2Fone' },
       { method: 'DELETE', path: '/v1/document-working-copies/copy%2Fone' },
       { method: 'POST', path: '/v1/document-working-copies/copy%2Fone/conflict' },
-      { method: 'GET', path: '/v1/document-editors/health' },
-      { method: 'POST', path: '/v1/document-working-copies/copy%2Fone/editor-sessions' },
     ]);
     expect(transport.requests[3]?.body).toEqual({
       resolution: 'keep-current',

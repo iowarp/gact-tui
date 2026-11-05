@@ -30,7 +30,6 @@ function Review() {
     profile,
     content_url: '',
     native_open: true,
-    embedded_editors: [],
     anchors: [],
     provenance: {},
     rendition_formats: ['markdown', 'html-static'].includes(profile) ? ['pdf'] : [],
