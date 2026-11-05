@@ -1,9 +1,10 @@
-import { useContext, useState } from 'react';
+import { useContext } from 'react';
 import { ShieldAlertIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { PresentationNavigation } from './presentation-navigation';
+import { setFolderGrant, useFolderGrants } from './sandbox-boundary-grants';
 import type { SandboxBoundary } from './sandbox-boundary';
 
 const folderName = (path: string) => path.split(/[\\/]/u).filter(Boolean).at(-1) || path;
@@ -51,26 +52,37 @@ function headline(boundary: SandboxBoundary): string {
  * and, for a confirmed blocked write, a way for the person to allow that folder for the
  * workspace (the same grant as Settings › Permissions; the agent retries itself).
  */
-export function SandboxBoundaryNotice({ boundary }: { boundary: SandboxBoundary }) {
+export function SandboxBoundaryNotice({
+  boundary,
+  placement = 'call',
+}: {
+  boundary: SandboxBoundary;
+  /** `call`: inside the call's result; `message`: on the turn, where the person reads. */
+  placement?: 'call' | 'message';
+}) {
   const navigation = useContext(PresentationNavigation);
   const repository = useRepository();
-  const [state, setState] = useState<Record<string, 'pending' | 'granted' | string>>({});
   const workspaceId = navigation?.workspaceId;
+  const state = useFolderGrants(workspaceId, boundary.request_roots);
   const grantable =
     boundary.kind === 'write_denied' && boundary.confidence === 'confirmed' && Boolean(workspaceId);
   const grant = async (root: string) => {
-    setState((previous) => ({ ...previous, [root]: 'pending' }));
+    setFolderGrant(workspaceId!, root, 'pending');
     try {
       await repository.grantWorkspaceFolder(workspaceId!, root);
-      setState((previous) => ({ ...previous, [root]: 'granted' }));
+      setFolderGrant(workspaceId!, root, 'granted');
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : String(reason);
-      setState((previous) => ({ ...previous, [root]: message }));
+      setFolderGrant(workspaceId!, root, reason instanceof Error ? reason.message : String(reason));
     }
   };
   return (
     <div
-      className="ml-7 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground"
+      className={
+        placement === 'message'
+          ? 'flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-sm'
+          : 'ml-7 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground'
+      }
+      data-placement={placement}
       data-slot="sandbox-boundary"
     >
       <TooltipProvider>
@@ -113,6 +125,25 @@ export function SandboxBoundaryNotice({ boundary }: { boundary: SandboxBoundary 
             ),
           )
         : null}
+    </div>
+  );
+}
+
+/** The sandbox boundaries a turn's calls ran into, one per blocked folder set. */
+export function TurnSandboxNotices({ boundaries }: { boundaries: SandboxBoundary[] }) {
+  const seen = new Set<string>();
+  const unique = boundaries.filter((boundary) => {
+    const key = `${boundary.kind}:${boundary.request_roots.join('|') || boundary.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (!unique.length) return null;
+  return (
+    <div className="flex min-w-0 flex-col gap-2" data-slot="turn-sandbox-notices">
+      {unique.map((boundary, index) => (
+        <SandboxBoundaryNotice key={index} boundary={boundary} placement="message" />
+      ))}
     </div>
   );
 }

@@ -37,6 +37,8 @@ import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { HarnessInjection } from './conversation-harness-injection';
 import { FlowRunCard } from './flow-run-card';
 import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
+import { sandboxBoundary } from './sandbox-boundary';
+import { TurnSandboxNotices } from './sandbox-boundary-notice';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 
@@ -331,6 +333,16 @@ export function ConversationTurn({
                 .slice(1)
                 .map((item) => <IterationReasoningText key={item.id} iteration={item} />)
             )}
+            {/* A call the sandbox blocked is said where the person reads, with its Allow
+                control, not only inside the folded activity. */}
+            <TurnSandboxNotices
+              boundaries={group.flatMap((item) =>
+                item.tools.flatMap((tool) => {
+                  const boundary = sandboxBoundary(tool.output);
+                  return boundary ? [boundary] : [];
+                }),
+              )}
+            />
           </Fragment>
         );
       })}

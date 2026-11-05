@@ -416,7 +416,15 @@ function ToolResultBody({
                   ) : undefined
                 }
               >
-                <BlockBody block={block} text={block.text ?? ''} />
+                {['code', 'diff', 'media'].includes(block.type) ? (
+                  <BlockBody block={block} text={block.text ?? ''} />
+                ) : (
+                  // Prose in a box keeps the box's inset on every side (the code, diff and
+                  // media bodies carry their own).
+                  <div className="px-2 pb-2 pt-1" data-slot="tool-result-panel-text">
+                    <BlockBody block={block} text={block.text ?? ''} />
+                  </div>
+                )}
               </BoundedResult>
             )}
           </div>

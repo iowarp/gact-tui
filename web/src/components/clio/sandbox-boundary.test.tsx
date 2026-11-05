@@ -2,7 +2,11 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sandboxBoundary } from './sandbox-boundary';
-import { SandboxBoundaryBadge, SandboxBoundaryNotice } from './sandbox-boundary-notice';
+import {
+  SandboxBoundaryBadge,
+  SandboxBoundaryNotice,
+  TurnSandboxNotices,
+} from './sandbox-boundary-notice';
 import { PresentationNavigation } from './presentation-navigation';
 
 const repository = vi.hoisted(() => ({ grantWorkspaceFolder: vi.fn(async () => ({})) }));
@@ -65,4 +69,29 @@ describe('SandboxBoundaryNotice', () => {
 it('marks a blocked call row with the folder in words', () => {
   render(<SandboxBoundaryBadge boundary={sandboxBoundary({ boundary: denied })!} />);
   expect(screen.getByText('Sandbox: Desktop')).toBeVisible();
+});
+
+describe('TurnSandboxNotices', () => {
+  it('says each blocked folder once on the message, and one Allow serves both places', async () => {
+    const boundary = sandboxBoundary({ boundary: denied })!;
+    render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, workspaceId: 'ws_turn' }}
+      >
+        <TurnSandboxNotices boundaries={[boundary, { ...boundary }]} />
+        <SandboxBoundaryNotice boundary={boundary} />
+      </PresentationNavigation.Provider>,
+    );
+    const onMessage = document.querySelectorAll('[data-placement="message"]');
+    expect(onMessage).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Allow Desktop' })).toHaveLength(2);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Allow Desktop' })[0]);
+    expect(await screen.findAllByText('Allowed Desktop for this workspace')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Allow Desktop' })).toBeNull();
+  });
+
+  it('shows nothing for a turn with no blocked call', () => {
+    const { container } = render(<TurnSandboxNotices boundaries={[]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
 });

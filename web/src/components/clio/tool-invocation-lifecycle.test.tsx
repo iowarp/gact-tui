@@ -629,5 +629,11 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
     expect(screen.getByText('Artifact rejected')).toHaveClass('text-destructive');
     expect(screen.getByText('The requested path is outside the active workspace.')).toBeVisible();
+    // Prose in a boxed panel keeps the box's inset on every side.
+    expect(
+      screen
+        .getByText('The requested path is outside the active workspace.')
+        .closest('[data-slot="tool-result-panel-text"]'),
+    ).toHaveClass('px-2', 'pb-2');
   });
 });
