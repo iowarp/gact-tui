@@ -33,7 +33,10 @@ vi.mock('@xyflow/react', () => ({
   ),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.sessionStorage.clear();
+});
 
 const entry = (
   id: string,

@@ -19,6 +19,7 @@ vi.mock('@/providers/appearance-provider', () => ({
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 const hex = (n: number) => n.toString(16).padStart(12, '0');

@@ -92,8 +92,26 @@ export interface ScienceLogViewProps {
 }
 
 type StudyMode = 'views' | 'list' | 'graph';
-/** Each study's chosen mode for this page, so a remounted tab opens where the person left it. */
-const chosenStudyMode = new Map<string, StudyMode>();
+/**
+ * Each study's chosen mode for this browser tab, so a remounted tab (maximizing the canvas)
+ * opens where the person left it. A per-viewer convenience: without storage it is 'list'.
+ */
+const studyModeKey = (study: string) => `clio.science-log.mode.${study}`;
+function chosenStudyMode(study: string): StudyMode | undefined {
+  try {
+    const mode = window.sessionStorage.getItem(studyModeKey(study));
+    return mode === 'views' || mode === 'list' || mode === 'graph' ? mode : undefined;
+  } catch {
+    return undefined; // storage blocked: the default mode
+  }
+}
+function chooseStudyMode(study: string, mode: StudyMode): void {
+  try {
+    window.sessionStorage.setItem(studyModeKey(study), mode);
+  } catch {
+    // storage blocked: the choice lasts until the tab remounts
+  }
+}
 
 /** List and graph views share entry selection, citations and the original record renderer. */
 export function ScienceLogView({
@@ -121,10 +139,10 @@ export function ScienceLogView({
   const [focusedEntry, setFocusedEntry] = useState<string>();
   // The chosen mode outlives a remount (maximizing the canvas remounts the tab).
   const [studyView, setStudyViewState] = useState<StudyMode>(
-    () => chosenStudyMode.get(study.study) ?? 'list',
+    () => chosenStudyMode(study.study) ?? 'list',
   );
   const setStudyView = (mode: StudyMode) => {
-    chosenStudyMode.set(study.study, mode);
+    chooseStudyMode(study.study, mode);
     setStudyViewState(mode);
   };
   // Views, the list and the graph each get the whole tab rather than sharing it.
