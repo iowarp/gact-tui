@@ -18,6 +18,12 @@ import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { BrowserCertificateNotice } from './browser-certificate-notice';
 import { BrowserLiveView } from './browser-live-view';
+import { CommentToggle } from './comments/comment-capture';
+import {
+  BrowserPageComments,
+  BrowserRegionCapture,
+  type SubscribePicks,
+} from './comments/browser-page-comments';
 import type { Viewport } from './browser-live-input';
 import {
   liveRefusalMessage,
@@ -93,6 +99,14 @@ export function BrowserSurface({
   const [editing, setEditing] = useState(false);
   const [allowing, setAllowing] = useState(false);
   const connection = useRef<BrowserLiveConnection | null>(null);
+  const pickListeners = useRef(new Set<(anchor: unknown) => void>());
+  const subscribePicks = useCallback<SubscribePicks>((listener) => {
+    const listeners = pickListeners.current;
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     let disposed = false; // a socket this view closed itself reports nothing back
@@ -105,6 +119,9 @@ export function BrowserSurface({
         setState(next);
         setEnded('');
         if (next.navigation_blocked === null) setNotice('');
+      },
+      onPick: (anchor) => {
+        if (!disposed) for (const listener of pickListeners.current) listener(anchor);
       },
       onNotice: (reason) => {
         if (!disposed)
@@ -150,131 +167,142 @@ export function BrowserSurface({
   };
 
   const blocked = state?.navigation_blocked ?? null;
+  const page = { id: pageId, url: state?.url ?? '', title: state?.title || label };
   return (
     <TooltipProvider>
-      <section
-        aria-label={`Browser: ${label}`}
-        className="flex h-full min-h-0 flex-col"
-        data-slot="browser-surface"
-      >
-        <form onSubmit={go} className="flex items-center gap-1 border-b border-border p-1.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Back"
-            disabled={!interactive}
-            onClick={() => send({ type: 'navigate', action: 'back' })}
-          >
-            <ArrowLeftIcon aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Forward"
-            disabled={!interactive}
-            onClick={() => send({ type: 'navigate', action: 'forward' })}
-          >
-            <ArrowRightIcon aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Reload"
-            disabled={!interactive}
-            onClick={() => send({ type: 'navigate', action: 'reload' })}
-          >
-            <RefreshIcon aria-hidden />
-          </Button>
-          <Input
-            aria-label="Address"
-            value={editing ? address : (state?.url ?? '')}
-            readOnly={!interactive}
-            onFocus={() => {
-              setAddress(state?.url ?? '');
-              setEditing(true);
-            }}
-            onBlur={() => setEditing(false)}
-            onChange={(event) => setAddress(event.target.value)}
-            className="h-8 min-w-0 flex-1 font-mono text-xs"
-            spellCheck={false}
-          />
-          {state?.loading ? (
-            <StatusIcon label="Loading">
-              <LoaderCircleIcon aria-hidden className="size-4 motion-safe:animate-spin" />
-            </StatusIcon>
-          ) : null}
-          {state?.agent_acting ? (
-            <StatusIcon label="Agent acting" detail={state.last_action || undefined}>
-              <BotIcon aria-hidden className="size-4" />
-            </StatusIcon>
-          ) : null}
-          {state?.view_only ? (
-            <StatusIcon label="View only" detail="Another window is using this page">
-              <EyeIcon aria-hidden className="size-4" />
-            </StatusIcon>
-          ) : null}
-          {state?.sandbox_off ? (
-            <StatusIcon label="Browser sandbox off" detail={state.sandbox_reason || undefined}>
-              <ShieldAlertIcon aria-hidden className="size-4" />
-            </StatusIcon>
-          ) : null}
-        </form>
-        {blocked ? (
-          <div
-            role="status"
-            className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-1.5 text-sm"
-          >
-            <BanIcon aria-hidden className="size-4 shrink-0" />
-            <span className="min-w-0 flex-1">
-              {blocked.reason === 'browser_scheme_refused' ? (
-                <>
-                  The page tried to open a <strong className="font-medium">{blocked.host}</strong>{' '}
-                  address. The shared browser opens only web pages.
-                </>
-              ) : (
-                <>
-                  The page could not open{' '}
-                  <strong className="font-medium">{blocked.host || 'its next page'}</strong> and
-                  stayed here.
-                </>
-              )}
-            </span>
-            {blocked.reason !== 'browser_scheme_refused' && blocked.host ? (
-              <Button size="sm" variant="outline" disabled={allowing} onClick={() => void allow()}>
-                Try again
-              </Button>
+      <BrowserPageComments page={page} subscribe={subscribePicks} send={send}>
+        <section
+          aria-label={`Browser: ${label}`}
+          className="flex h-full min-h-0 flex-col"
+          data-slot="browser-surface"
+        >
+          <form onSubmit={go} className="flex items-center gap-1 border-b border-border p-1.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Back"
+              disabled={!interactive}
+              onClick={() => send({ type: 'navigate', action: 'back' })}
+            >
+              <ArrowLeftIcon aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Forward"
+              disabled={!interactive}
+              onClick={() => send({ type: 'navigate', action: 'forward' })}
+            >
+              <ArrowRightIcon aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Reload"
+              disabled={!interactive}
+              onClick={() => send({ type: 'navigate', action: 'reload' })}
+            >
+              <RefreshIcon aria-hidden />
+            </Button>
+            <Input
+              aria-label="Address"
+              value={editing ? address : (state?.url ?? '')}
+              readOnly={!interactive}
+              onFocus={() => {
+                setAddress(state?.url ?? '');
+                setEditing(true);
+              }}
+              onBlur={() => setEditing(false)}
+              onChange={(event) => setAddress(event.target.value)}
+              className="h-8 min-w-0 flex-1 font-mono text-xs"
+              spellCheck={false}
+            />
+            {interactive ? <CommentToggle /> : null}
+            {state?.loading ? (
+              <StatusIcon label="Loading">
+                <LoaderCircleIcon aria-hidden className="size-4 motion-safe:animate-spin" />
+              </StatusIcon>
             ) : null}
-          </div>
-        ) : null}
-        {state?.certificate_untrusted ? (
-          <BrowserCertificateNotice
-            key={state.certificate_untrusted.fingerprint}
-            sessionId={sessionId}
-            pageId={pageId}
-            certificate={state.certificate_untrusted}
-          />
-        ) : null}
-        {ended ? (
-          <p role="status" className="px-3 py-2 text-sm text-muted-foreground">
-            {ended}
-          </p>
-        ) : null}
-        {notice ? (
-          <p role="status" className="px-3 py-1 text-xs text-muted-foreground">
-            {notice}
-          </p>
-        ) : null}
-        <BrowserLiveView
-          frame={frame}
-          viewport={viewport}
-          interactive={interactive}
-          label={state?.title || label}
-          send={send}
-        />
-      </section>
+            {state?.agent_acting ? (
+              <StatusIcon label="Agent acting" detail={state.last_action || undefined}>
+                <BotIcon aria-hidden className="size-4" />
+              </StatusIcon>
+            ) : null}
+            {state?.view_only ? (
+              <StatusIcon label="View only" detail="Another window is using this page">
+                <EyeIcon aria-hidden className="size-4" />
+              </StatusIcon>
+            ) : null}
+            {state?.sandbox_off ? (
+              <StatusIcon label="Browser sandbox off" detail={state.sandbox_reason || undefined}>
+                <ShieldAlertIcon aria-hidden className="size-4" />
+              </StatusIcon>
+            ) : null}
+          </form>
+          {blocked ? (
+            <div
+              role="status"
+              className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-1.5 text-sm"
+            >
+              <BanIcon aria-hidden className="size-4 shrink-0" />
+              <span className="min-w-0 flex-1">
+                {blocked.reason === 'browser_scheme_refused' ? (
+                  <>
+                    The page tried to open a <strong className="font-medium">{blocked.host}</strong>{' '}
+                    address. The shared browser opens only web pages.
+                  </>
+                ) : (
+                  <>
+                    The page could not open{' '}
+                    <strong className="font-medium">{blocked.host || 'its next page'}</strong> and
+                    stayed here.
+                  </>
+                )}
+              </span>
+              {blocked.reason !== 'browser_scheme_refused' && blocked.host ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={allowing}
+                  onClick={() => void allow()}
+                >
+                  Try again
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {state?.certificate_untrusted ? (
+            <BrowserCertificateNotice
+              key={state.certificate_untrusted.fingerprint}
+              sessionId={sessionId}
+              pageId={pageId}
+              certificate={state.certificate_untrusted}
+            />
+          ) : null}
+          {ended ? (
+            <p role="status" className="px-3 py-2 text-sm text-muted-foreground">
+              {ended}
+            </p>
+          ) : null}
+          {notice ? (
+            <p role="status" className="px-3 py-1 text-xs text-muted-foreground">
+              {notice}
+            </p>
+          ) : null}
+          <BrowserLiveView
+            frame={frame}
+            viewport={viewport}
+            interactive={interactive}
+            label={state?.title || label}
+            send={send}
+          >
+            <BrowserRegionCapture page={page} state={state} />
+          </BrowserLiveView>
+        </section>
+      </BrowserPageComments>
     </TooltipProvider>
   );
 }
