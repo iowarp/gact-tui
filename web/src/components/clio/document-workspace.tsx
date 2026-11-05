@@ -16,6 +16,8 @@ import { CommentThreadList } from './comments/comment-thread-list';
 import { pdfRegionAnchor } from './comments/region-anchors';
 import { HtmlFileInBrowser } from './html-in-browser';
 import { LatexWorkspace } from './latex-workspace';
+import { isScientificDocument } from '@/lib/scientific-document';
+import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { badgeVariants } from '@/components/reui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -196,8 +198,11 @@ export function ClioDocumentWorkspace({
     [content.data, effectiveManifest?.profile, fallbackSource],
   );
   const fileFormat = textFileFormat(artifact.name, artifact.media_type);
-  const sourceProfile =
-    effectiveManifest && isDocumentSourceProfile(effectiveManifest.profile)
+  // A paper is its project: it opens as the LaTeX workspace, whose source pane shows every file.
+  const paper = isScientificDocument(artifact);
+  const sourceProfile = paper
+    ? 'latex'
+    : effectiveManifest && isDocumentSourceProfile(effectiveManifest.profile)
       ? effectiveManifest.profile
       : fileFormat === 'markdown'
         ? 'markdown'
@@ -286,6 +291,7 @@ export function ClioDocumentWorkspace({
                 markdown={sourceProfile === 'markdown'}
                 html={sourceProfile === 'html-static'}
                 latex={sourceProfile === 'latex'}
+                paper={paper}
                 reviewCount={commentCount}
                 onChange={setDocumentView}
               />
@@ -577,9 +583,14 @@ function documentCommentSurface(
   const modes: CommentSurface['modes'][number][] = [];
   if (manifest.anchors.includes('text-quote') || manifest.anchors.includes('pdf-quad'))
     modes.push('text');
-  if (manifest.anchors.includes('region') && manifest.profile === 'pdf') modes.push('region');
+  // A LaTeX paper's PDF pane takes regions, like a PDF.
+  if (
+    manifest.anchors.includes('region') &&
+    (manifest.profile === 'pdf' || manifest.profile === 'latex')
+  )
+    modes.push('region');
   return {
-    title: artifact.name,
+    title: artifactDisplayName(artifact),
     modes: modes.length ? modes : ['text'],
     defaultMode: modes[0] ?? 'text',
     destination: {
