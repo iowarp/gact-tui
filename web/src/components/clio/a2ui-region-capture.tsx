@@ -72,6 +72,9 @@ async function labelledPng(
   regions: readonly Region[],
   pixelRatio = Math.min(window.devicePixelRatio || 1, 2),
 ): Promise<Blob> {
+  // A part still loading shows a placeholder; a capture of it would show the agent nothing.
+  if (target.querySelector('[aria-busy="true"]'))
+    throw new Error('Part of this view is still loading. Try again when it has loaded.');
   let background: Element | null = target;
   let backgroundColor = readThemeColor('background');
   while (background) {
@@ -601,7 +604,9 @@ export function A2uiRegionCaptureProvider({
                 near={screenBox(bounds, displayedRegion(target.element, editorRegion))}
                 onCancel={() => setEditingId(undefined)}
                 onDelete={() => {
-                  setRegions((current) => current.filter((region) => region.id !== editorRegion.id));
+                  setRegions((current) =>
+                    current.filter((region) => region.id !== editorRegion.id),
+                  );
                   setEditingId(undefined);
                 }}
                 onDone={(comment) => {

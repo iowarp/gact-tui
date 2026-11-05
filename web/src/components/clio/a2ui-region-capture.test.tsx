@@ -46,4 +46,15 @@ describe('rendered surface PNG', () => {
     );
     expect(target.innerHTML).toBe(original);
   });
+
+  it('refuses a view whose map is still loading instead of capturing its placeholder', async () => {
+    const target = document.createElement('div');
+    target.innerHTML = '<div aria-busy="true" aria-label="Loading Sites map"></div>';
+    renderCanvas.mockClear();
+
+    await expect(captureRenderedSurfacePng(target, 1)).rejects.toThrow(
+      'Part of this view is still loading',
+    );
+    expect(renderCanvas).not.toHaveBeenCalled();
+  });
 });
