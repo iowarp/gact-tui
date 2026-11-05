@@ -110,6 +110,12 @@ describe('ClioToolInvocation content and subject rendering', () => {
       screen.getByRole('button', { name: 'Show result for Read instructions' }),
     );
     expect(screen.getAllByText('Planning guide', { exact: true })).toHaveLength(1);
+    // A named (unlinked) subject is the row's target: it stays in the row when open.
+    expect(
+      within(screen.getByRole('button', { name: 'Show result for Read instructions' })).getByText(
+        'Planning guide',
+      ),
+    ).toBeVisible();
     expect(screen.getByText('Read these instructions before planning.')).toBeVisible();
   });
   it('keeps task-kind glyphs out of both tool-call surfaces with distinct DOM identities', () => {

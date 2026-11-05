@@ -50,7 +50,9 @@ export function ToolCompactRow({
   const subject = getToolSubject(tool);
   const terminal = tool.presentation?.blocks.find((block) => block.type === 'terminal');
   const detail = subject?.label || subject?.text || terminal?.command;
-  const showDetail = !(expanded && subject);
+  // A linked subject moves into the open result (where it navigates); a named one, such
+  // as a script's name, stays in the row as its target.
+  const showDetail = !(expanded && subject?.type === 'link');
   const metadata = getToolCompactMetadata(tool);
   const failure =
     (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);

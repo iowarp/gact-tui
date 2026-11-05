@@ -222,7 +222,8 @@ export function ClioToolInvocation({
                     Open {flow!.label.toLowerCase()} run
                   </Button>
                 ) : null}
-                {subject && presentedTool.presentation?.subject !== 'wait-targets' ? (
+                {subject?.type === 'link' &&
+                presentedTool.presentation?.subject !== 'wait-targets' ? (
                   <PresentationLink block={subject} />
                 ) : null}
                 {isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
