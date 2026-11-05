@@ -321,11 +321,13 @@ export class ArtifactPreviewRepository extends ProviderRepository {
     sessionId: string,
     release = false,
     signal?: AbortSignal,
+    /** This view's own lease, so releasing it leaves other views of the stream watching. */
+    leaseId?: string,
   ): Promise<unknown> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/streams/${encodeURIComponent(streamId)}/watch`,
-      body: { session_id: sessionId, release },
+      body: { session_id: sessionId, release, ...(leaseId ? { lease_id: leaseId } : {}) },
       decode: (value) => value,
       signal,
     });

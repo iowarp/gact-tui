@@ -4,7 +4,7 @@ import {
   type ArtifactTableQueryResult,
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
@@ -200,18 +200,25 @@ export function describeStream(stream: unknown): string {
  * Holds this view's session's lease on a stream while the view is shown, so the stream
  * announces its changes to this session; releases it when the view goes.
  */
-function useStreamLease(streamId: string | undefined, sessionId: string | undefined): void {
+export function useStreamLease(streamId: string | undefined, sessionId: string | undefined): void {
   const repository = useRepository();
+  // Each view holds a lease of its own: one view going away leaves the others watching.
+  const [leaseId] = useState(() => crypto.randomUUID());
   useEffect(() => {
     if (!streamId || !sessionId) return undefined;
-    const renew = () => void repository.watchStream(streamId, sessionId).catch(() => undefined);
+    const renew = () =>
+      void repository
+        .watchStream(streamId, sessionId, false, undefined, leaseId)
+        .catch(() => undefined);
     renew();
     const timer = window.setInterval(renew, STREAM_LEASE_RENEW_MS);
     return () => {
       window.clearInterval(timer);
-      void repository.watchStream(streamId, sessionId, true).catch(() => undefined);
+      void repository
+        .watchStream(streamId, sessionId, true, undefined, leaseId)
+        .catch(() => undefined);
     };
-  }, [repository, streamId, sessionId]);
+  }, [repository, streamId, sessionId, leaseId]);
 }
 
 /** Columnar `{name: values[]}` to row objects (`count` rows). */
