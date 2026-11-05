@@ -96,12 +96,11 @@ export function TaskActivityRow({
               <span
                 className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-xs' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
+                {/* The state in words, never only the icon (also in the compact rail). */}
                 {flowState
                   ? `Flow: ${flowState.label}`
-                  : running || status === 'completed'
-                    ? kindLabel(kind, true)
-                    : `${kindLabel(kind, false)}: ${label}`}
-                {!compact && progress && progress !== label ? ` — ${progress}` : ''}
+                  : `${kindLabel(kind, running || status === 'completed')}: ${label}`}
+                {(!compact || running) && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
             <ChevronRightIcon

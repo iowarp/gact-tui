@@ -431,3 +431,24 @@ it('distinguishes a flow from a subagent and links a no-op follow-up to the actu
   );
   expect(screen.getByRole('menuitem', { name: 'Restart flow' })).toBeVisible();
 });
+
+it('says a running script state in words in the compact rail, with its progress', () => {
+  const script: AsyncProcess = {
+    ...task,
+    id: 'watcher',
+    handle: 'task_watcher',
+    kind: 'code',
+    task_kind: 'Code',
+    title: 'printer-watch',
+    child_session_id: undefined,
+    effective_status: 'running',
+    live_state: 'running',
+    status: 'working',
+    raw_status: 'working',
+    progress: { message: '2 min 5 s, 40 calls, 35 MB' },
+    supported_actions: ['observe', 'cancel'],
+  };
+  render(<AsyncTaskList processes={[script]} compact />);
+  expect(screen.getByText(/^Script: Running/)).toBeVisible();
+  expect(screen.getByText(/40 calls/)).toBeVisible();
+});
