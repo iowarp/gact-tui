@@ -47,7 +47,7 @@ export function SandboxBoundaryNotice({ boundary }: { boundary: SandboxBoundary 
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="flex min-w-0 items-center gap-1.5" tabIndex={0}>
-              <ShieldAlertIcon aria-hidden="true" className="size-4 shrink-0 text-amber-600" />
+              <ShieldAlertIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
               <span className="[overflow-wrap:anywhere]">{headline(boundary)}</span>
             </span>
           </TooltipTrigger>

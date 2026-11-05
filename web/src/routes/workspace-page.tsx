@@ -162,8 +162,7 @@ export function WorkspacePage() {
     [sessionId],
   );
   const attention = useAttentionMode(sessionId, transcript.data?.messages.length ?? 0);
-  // Hydration can lag messageCount by a render. Check both to avoid remounting
-  // the welcome composer and losing drafts or attachments during navigation.
+  // Hydration can lag messageCount by a render: check both, so drafts survive navigation.
   const showConversationWelcome =
     messageCount === 0 &&
     (transcript.data?.messages.length ?? 0) === 0 &&
