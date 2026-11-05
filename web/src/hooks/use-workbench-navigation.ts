@@ -11,7 +11,12 @@ import type { FileSearchLocation } from '@/lib/search-matches';
 import { useLiveStore } from '@/store/live-store';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
-import { OPEN_BROWSER_PAGE_EVENT, type OpenBrowserPageDetail } from '@/lib/html-in-browser';
+import {
+  OPEN_BROWSER_PAGE_EVENT,
+  OPEN_FILE_IN_BROWSER_EVENT,
+  type OpenBrowserPageDetail,
+  type OpenFileInBrowserDetail,
+} from '@/lib/html-in-browser';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
@@ -113,6 +118,30 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     window.addEventListener(OPEN_BROWSER_PAGE_EVENT, show);
     return () => window.removeEventListener(OPEN_BROWSER_PAGE_EVENT, show);
   }, [revealWorkbench]);
+
+  const repositoryForFiles = useRepository();
+  useEffect(() => {
+    const open = (event: Event) => {
+      const { target, sessionId, label } = (event as CustomEvent<OpenFileInBrowserDetail>).detail;
+      repositoryForFiles
+        .openBrowserFile(sessionId, target)
+        .then((page) =>
+          revealWorkbench({
+            kind: 'browser',
+            pageId: page.id,
+            sessionId,
+            label: page.title || label,
+          }),
+        )
+        .catch((error: unknown) => {
+          toast.error(
+            error instanceof Error ? error.message : 'Could not open the file in the browser.',
+          );
+        });
+    };
+    window.addEventListener(OPEN_FILE_IN_BROWSER_EVENT, open);
+    return () => window.removeEventListener(OPEN_FILE_IN_BROWSER_EVENT, open);
+  }, [repositoryForFiles, revealWorkbench]);
 
   const openArtifact = useCallback(
     (artifact: Artifact) => revealWorkbench({ kind: 'artifact', artifact }),

@@ -41,3 +41,12 @@ export function htmlBrowserTarget(
   }
   return undefined;
 }
+
+/** Ask the conversation to open an HTML file in its shared browser (from the workbench). */
+export const OPEN_FILE_IN_BROWSER_EVENT = 'clio:open-file-in-browser';
+
+export interface OpenFileInBrowserDetail {
+  target: BrowserFileTarget;
+  sessionId: string;
+  label: string;
+}
