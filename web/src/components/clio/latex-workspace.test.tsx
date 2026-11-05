@@ -195,6 +195,35 @@ describe('LaTeX workspace', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('shows the source and the PDF, either one alone, and brings the hidden one back', async () => {
+    renderPaper();
+    const panes = await screen.findByRole('radiogroup', { name: 'Panes' });
+    const grid = () => document.querySelector('[data-view]')!;
+    expect(grid().getAttribute('data-view')).toBe('both');
+    fireEvent.click(within(panes).getByRole('radio', { name: 'PDF' }));
+    expect(grid().getAttribute('data-view')).toBe('pdf');
+    expect(within(grid() as HTMLElement).queryByRole('region', { name: /^Source of/u })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show the source beside the PDF' }));
+    expect(grid().getAttribute('data-view')).toBe('both');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the PDF' }));
+    expect(grid().getAttribute('data-view')).toBe('source');
+    expect(grid().querySelector('[data-slot="pdf"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show the PDF beside the source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the source' }));
+    expect(grid().getAttribute('data-view')).toBe('pdf');
+    // A point on the PDF brings its source back beside it.
+    repository.latexLocate.mockResolvedValue({
+      status: 'complete',
+      direction: 'pdf_to_source',
+      file: 'sections/eval.tex',
+      line: 2,
+      node: '',
+      places: [],
+    });
+    viewer.props.onPagePoint?.(0, 0.5, 0.5);
+    await waitFor(() => expect(grid().getAttribute('data-view')).toBe('both'));
+  });
+
   it('says when the build made no PDF, and keeps the problems', async () => {
     repository.latexReport.mockResolvedValue({
       ...report,

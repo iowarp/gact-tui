@@ -1,10 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
-import { ListTreeIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, ListTreeIcon } from 'lucide-react';
 import type { LatexOutlineNode, LatexReport } from '@clio/core/v3';
 import { queryKeys } from '@/lib/query-keys';
-import { cn } from '@/lib/utils';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { CommentCapture } from './comments/comment-capture';
 import { useCommentSession } from './comments/comment-session';
@@ -27,6 +27,45 @@ import { LATEX_WARNING_KINDS, latexKindLabel } from '@/lib/latex-diagnostics';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { ClioStatus } from './status';
+
+/** Which panes the wide layout shows: the source and the PDF side by side, or one of them. */
+type PaneView = 'both' | 'source' | 'pdf';
+
+const VIEW_LABELS: Record<PaneView, string> = {
+  both: 'Source and PDF',
+  source: 'Source',
+  pdf: 'PDF',
+};
+
+/**
+ * The strip between the source and the PDF. Its arrows push it aside: left hides the source,
+ * right hides the PDF; at an edge, its one arrow brings the hidden pane back.
+ */
+function PaneDivider({ view, onView }: { view: PaneView; onView: (view: PaneView) => void }) {
+  const arrow = (to: PaneView, label: string, left: boolean) => (
+    <Button
+      aria-label={label}
+      className="h-10 w-3.5 rounded-sm border bg-muted px-0 text-foreground hover:bg-accent"
+      onClick={() => onView(to)}
+      size="sm"
+      title={label}
+      variant="ghost"
+    >
+      {left ? <ChevronLeftIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
+    </Button>
+  );
+  return (
+    <div
+      className="flex min-h-0 w-4 flex-col items-center justify-center gap-2 border-x bg-muted/40"
+      data-slot="latex-pane-divider"
+    >
+      {view !== 'pdf' ? null : arrow('both', 'Show the source beside the PDF', false)}
+      {view === 'both' ? arrow('pdf', 'Hide the source', true) : null}
+      {view === 'both' ? arrow('source', 'Hide the PDF', false) : null}
+      {view !== 'source' ? null : arrow('both', 'Show the PDF beside the source', true)}
+    </div>
+  );
+}
 
 interface Place {
   file: string;
@@ -205,6 +244,7 @@ export function LatexWorkspace({
   const [highlight, setHighlight] = useState<PdfHighlight>();
   const [outlineOpen, setOutlineOpen] = useState(true);
   const [narrowTab, setNarrowTab] = useState('source');
+  const [view, setView] = useState<PaneView>('both');
   const data = report.data;
   const file = chosen?.file ?? (data ? entryFile(data) : '');
   const files = useMemo(
@@ -241,8 +281,10 @@ export function LatexWorkspace({
       x: fx * width,
       y: fy * height,
     });
-    if (found.status === 'complete' && found.file)
+    if (found.status === 'complete' && found.file) {
       goToSource({ file: found.file, line: found.line });
+      setView((current) => (current === 'pdf' ? 'both' : current));
+    }
   };
   const goToNode = (node: LatexOutlineNode) => {
     goToSource({ file: node.file, line: node.start_line });
@@ -306,7 +348,32 @@ export function LatexWorkspace({
             Building…
           </span>
         ) : null}
-        <BuildSummary onGo={goToSource} report={data} />
+        <ToggleGroup
+          aria-label="Panes"
+          className="hidden @[720px]/latex:flex"
+          onValueChange={(value) => {
+            if (value) setView(value as PaneView);
+          }}
+          size="sm"
+          spacing={0}
+          type="single"
+          value={view}
+          variant="outline"
+        >
+          {(Object.keys(VIEW_LABELS) as PaneView[]).map((value) => (
+            <ToggleGroupItem className="px-2 text-xs" key={value} value={value}>
+              {VIEW_LABELS[value]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <span aria-hidden="true" className="mx-0.5 hidden h-5 w-px bg-border @[720px]/latex:block" />
+        <BuildSummary
+          onGo={(place) => {
+            goToSource(place);
+            setView((current) => (current === 'pdf' ? 'both' : current));
+          }}
+          report={data}
+        />
         <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
         <Button
           aria-label="Rebuild the paper"
@@ -331,14 +398,23 @@ export function LatexWorkspace({
       </div>
       {/* Wide: outline, source and PDF side by side. Narrow: one at a time. */}
       <div
-        className={cn(
-          'hidden min-h-0 flex-1 @[720px]/latex:grid',
-          outlineOpen ? 'grid-cols-[13rem_1fr_1fr]' : 'grid-cols-[1fr_1fr]',
-        )}
+        className="hidden min-h-0 flex-1 @[720px]/latex:grid"
+        data-view={view}
+        style={{
+          gridTemplateColumns: [
+            outlineOpen ? '13rem' : '',
+            view === 'pdf' ? '' : 'minmax(0,1fr)',
+            'auto',
+            view === 'source' ? '' : 'minmax(0,1fr)',
+          ]
+            .filter(Boolean)
+            .join(' '),
+        }}
       >
         {outlineOpen ? <div className="min-h-0 border-r">{outline}</div> : null}
-        <div className="min-h-0 min-w-0 border-r">{sourcePane}</div>
-        <div className="min-h-0 min-w-0">{pdfPane}</div>
+        {view === 'pdf' ? null : <div className="min-h-0 min-w-0">{sourcePane}</div>}
+        <PaneDivider onView={setView} view={view} />
+        {view === 'source' ? null : <div className="min-h-0 min-w-0">{pdfPane}</div>}
       </div>
       <Tabs
         className="flex min-h-0 flex-1 flex-col @[720px]/latex:hidden"
