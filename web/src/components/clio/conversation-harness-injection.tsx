@@ -191,7 +191,7 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
                 block={{
                   id: `task-${task.handle}`,
                   type: 'link',
-                  target: 'work',
+                  target: 'task',
                   uri: task.handle,
                   label:
                     presentation.tasks!.length > 1

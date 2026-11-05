@@ -71,6 +71,7 @@ export const toolPresentationSchema = z.object({
           'url',
           'file',
           'work',
+          'task',
           'surface',
           'connected_data',
           'memory',

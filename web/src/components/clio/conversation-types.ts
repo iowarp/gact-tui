@@ -86,6 +86,8 @@ export interface ClioConversationProps {
   onOpenFolder?: (path: string) => void;
   onOpenFileReference?: (path: string, location: FileSearchLocation) => void;
   onOpenWork?: () => void;
+  /** Open the conversation's background tasks (a `task` link then opens its row there). */
+  onOpenTasks?: () => void;
   /** Open a web link in the conversation's shared browser (shift-click opens it outside). */
   onOpenWebPage?: (url: string, sessionId: string) => void;
   onOpenResource?: (

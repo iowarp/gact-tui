@@ -140,19 +140,20 @@ describe('presentation navigation', () => {
   });
 });
 
-describe('a link to a task in Work', () => {
-  it('opens Work and asks for the named task row', () => {
+describe('a link to a background task', () => {
+  it('opens the background tasks and asks for the named task row', () => {
+    const openTasks = vi.fn();
     const openWork = vi.fn();
     useWorkTaskFocus.setState({ handle: undefined });
     render(
       <PresentationNavigation.Provider
-        value={{ artifacts: {}, subagents: {}, onOpenWork: openWork }}
+        value={{ artifacts: {}, subagents: {}, onOpenWork: openWork, onOpenTasks: openTasks }}
       >
         <PresentationLink
           block={{
             id: 'open-task',
             type: 'link',
-            target: 'work',
+            target: 'task',
             uri: 'task_abc',
             label: 'Show the task in Work',
           }}
@@ -160,7 +161,8 @@ describe('a link to a task in Work', () => {
       </PresentationNavigation.Provider>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Show the task in Work' }));
-    expect(openWork).toHaveBeenCalledTimes(1);
+    expect(openTasks).toHaveBeenCalledTimes(1);
+    expect(openWork).not.toHaveBeenCalled(); // Work lists todos and schedules, not tasks
     expect(useWorkTaskFocus.getState().handle).toBe('task_abc');
   });
 });

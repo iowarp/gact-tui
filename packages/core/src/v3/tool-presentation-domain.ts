@@ -41,6 +41,7 @@ export interface ToolPresentationBlock {
     | 'work'
     | 'surface'
     | 'connected_data'
+    | 'task'
     | 'memory';
   state?: 'pending' | 'in_progress' | 'completed';
   previous_state?: 'pending' | 'in_progress' | 'completed';

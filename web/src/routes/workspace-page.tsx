@@ -746,6 +746,7 @@ export function WorkspacePage() {
                       onActionCardAction={actionCard.mutateAsync}
                       {...conversationNavigation}
                       onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
+                      onOpenTasks={() => openObservability('evidence')}
                       onOpenReference={(reference) => void openComposerReference(reference)}
                       onInteractionResponse={handleInteractionResponse}
                       forkingMessageId={

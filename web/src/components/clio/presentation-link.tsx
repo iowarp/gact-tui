@@ -81,10 +81,11 @@ export function PresentationLink({
     navigation.sessionAvailable?.(uri)
   )
     open = () => navigation.onOpenSession?.(uri);
-  else if (block.target === 'work' && navigation?.onOpenWork) {
-    const openWork = navigation.onOpenWork;
-    // Work opens at the row the link names (a task's handle), when it lists one.
-    open = uri ? () => showTaskInWork(uri, openWork) : openWork;
+  else if (block.target === 'work' && navigation?.onOpenWork) open = navigation.onOpenWork;
+  else if (block.target === 'task' && uri && navigation?.onOpenTasks) {
+    // The background tasks open at the row of the task the link names.
+    const openTasks = navigation.onOpenTasks;
+    open = () => showTaskInWork(uri, openTasks);
   } else if (block.target === 'surface' && navigation?.surfaces?.[uri])
     open = () => {
       const surface = document.getElementById(a2uiSurfaceDomId(uri));

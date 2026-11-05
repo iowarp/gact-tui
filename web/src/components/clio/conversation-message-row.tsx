@@ -708,6 +708,7 @@ export function conversationMessageRowPropsEqual(
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
     left.onOpenWork !== right.onOpenWork ||
+    left.onOpenTasks !== right.onOpenTasks ||
     left.onOpenReference !== right.onOpenReference ||
     left.onOpenResource !== right.onOpenResource ||
     left.onOpenSubagent !== right.onOpenSubagent ||

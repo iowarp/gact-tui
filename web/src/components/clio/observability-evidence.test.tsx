@@ -1,8 +1,9 @@
 import type { Artifact, Message, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioEvidenceView } from './observability-evidence';
+import { useWorkTaskFocus } from './work-task-focus';
 
 afterEach(() => {
   cleanup();
@@ -761,4 +762,34 @@ describe('ClioEvidenceView child agents', () => {
       'canvas',
     );
   });
+});
+
+it('opens Background tasks and the row a task link asked for', async () => {
+  window.localStorage.clear();
+  useWorkTaskFocus.setState({ handle: undefined });
+  render(
+    <ClioEvidenceView
+      artifacts={[]}
+      contextFiles={[]}
+      diffs={[]}
+      messages={[]}
+      processes={[
+        {
+          id: 'watch',
+          handle: 'task_watch',
+          kind: 'mcp-task',
+          task_kind: 'Code',
+          title: 'printer-watch',
+          description: 'Poll the printer',
+          live_state: 'running',
+          status: 'working',
+          effective_status: 'running',
+          metadata: {},
+        },
+      ]}
+    />,
+  );
+  expect(screen.queryByRole('region', { name: 'Assignment: printer-watch' })).toBeNull();
+  act(() => useWorkTaskFocus.getState().focus('task_watch'));
+  expect(await screen.findByRole('region', { name: 'Assignment: printer-watch' })).toBeVisible();
 });
