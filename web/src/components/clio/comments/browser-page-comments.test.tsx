@@ -36,14 +36,17 @@ describe('a region drawn over the live view', () => {
 function Harness({
   send,
   subscribe,
+  interactive = true,
 }: {
   send: (input: BrowserInput) => void;
   subscribe: SubscribePicks;
+  interactive?: boolean;
 }) {
   return (
     <QueryClientProvider client={new QueryClient()}>
       <BrowserPageComments
         page={{ id: 'p1', url: 'http://site.test/form', title: 'Submit a dataset' }}
+        interactive={interactive}
         subscribe={subscribe}
         send={send}
       >
@@ -101,5 +104,20 @@ describe('comments on a browser page', () => {
       ],
     });
     window.removeEventListener(ADD_COMMENT_SESSION_EVENT, listen);
+  });
+});
+
+describe('a view that takes over the page', () => {
+  it('asks for the pick only once it sends the page input', async () => {
+    const user = userEvent.setup();
+    const sent: BrowserInput[] = [];
+    const subscribe: SubscribePicks = () => () => undefined;
+    const { rerender } = render(
+      <Harness interactive={false} send={(input) => sent.push(input)} subscribe={subscribe} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Comment' }));
+    expect(sent).toEqual([]); // view only: the page would ignore it
+    rerender(<Harness interactive send={(input) => sent.push(input)} subscribe={subscribe} />);
+    expect(sent).toEqual([{ type: 'pick.start', mode: 'text' }]);
   });
 });

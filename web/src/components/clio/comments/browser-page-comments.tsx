@@ -26,11 +26,14 @@ export function BrowserPageComments({
   page,
   send,
   subscribe,
+  interactive,
   children,
 }: {
   page: PageRef;
   send: (input: BrowserInput) => void;
   subscribe: SubscribePicks;
+  /** This view sends input to the page; only such a view can ask it for a pick. */
+  interactive: boolean;
   children: ReactNode;
 }) {
   const surface = useMemo<CommentSurface>(
@@ -44,7 +47,7 @@ export function BrowserPageComments({
   );
   return (
     <CommentSessionProvider surface={surface}>
-      <PickBridge page={page} send={send} subscribe={subscribe} />
+      <PickBridge interactive={interactive} page={page} send={send} subscribe={subscribe} />
       {children}
     </CommentSessionProvider>
   );
@@ -55,10 +58,12 @@ function PickBridge({
   page,
   send,
   subscribe,
+  interactive,
 }: {
   page: PageRef;
   send: (input: BrowserInput) => void;
   subscribe: SubscribePicks;
+  interactive: boolean;
 }) {
   const session = useCommentSession();
   const addMark = session?.addMark;
@@ -74,11 +79,13 @@ function PickBridge({
       }),
     [addMark, page.id, subscribe],
   );
+  // Asked again whenever this view gains the page's input: a view that took over from
+  // another (the canvas remounted) is view-only until the other leaves, which ends any pick.
   useEffect(() => {
-    if (!pickMode) return;
+    if (!pickMode || !interactive) return;
     send({ type: 'pick.start', mode: pickMode });
     return () => send({ type: 'pick.stop' });
-  }, [pickMode, send]);
+  }, [interactive, pickMode, send]);
   return null;
 }
 

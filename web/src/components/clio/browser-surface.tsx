@@ -170,7 +170,12 @@ export function BrowserSurface({
   const page = { id: pageId, url: state?.url ?? '', title: state?.title || label };
   return (
     <TooltipProvider>
-      <BrowserPageComments page={page} subscribe={subscribePicks} send={send}>
+      <BrowserPageComments
+        interactive={interactive}
+        page={page}
+        subscribe={subscribePicks}
+        send={send}
+      >
         <section
           aria-label={`Browser: ${label}`}
           className="flex h-full min-h-0 flex-col"
