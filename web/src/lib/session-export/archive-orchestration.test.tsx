@@ -360,6 +360,7 @@ function liveService(requests: string[]): ClioTransport {
       if (path === '/v1/sessions/sess_root/a2ui/surfaces')
         return request.decode({ surfaces: [readingsSurface] });
       if (path.endsWith('/a2ui/surfaces')) return request.decode({ surfaces: [] });
+      if (path.endsWith('/dashboards')) return request.decode([]);
       if (path.includes('/interactions?')) return request.decode({ interactions: [] });
       if (path.includes('/async-processes?')) return request.decode({ processes: [] });
       if (path.endsWith('/work?cursor=0')) return request.decode({ todos: [] });

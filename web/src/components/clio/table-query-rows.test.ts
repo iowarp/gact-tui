@@ -102,6 +102,10 @@ describe('stream notes', () => {
     expect(describeStream({ state: 'stopped', stopped_at: '2026-11-05T10:05:00Z' })).toMatch(
       /^Stopped at .+; showing its last rows\.$/u,
     );
+    // Exported while still written: what the archive shows, never "Live".
+    expect(describeStream({ state: 'captured', captured_at: '2026-11-05T10:06:00Z' })).toMatch(
+      /^Captured at .+ while live; showing the rows it had then\.$/u,
+    );
     expect(describeStream(undefined)).toBe('');
   });
 });

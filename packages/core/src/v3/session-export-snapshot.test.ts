@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { TransportError, type ClioTransport, type TransportRequest } from './transport.js';
-import { captureSessionReview } from './session-export-snapshot.js';
+import { captureSessionReview, streamTableKey } from './session-export-snapshot.js';
 
 it('captures the authored dashboard only, naming files in inactive tabs by reference', async () => {
   const requests: string[] = [];
@@ -72,6 +72,7 @@ it('preserves the authoritative custody redirect and its actual owned image byte
         });
       if (request.path === '/v1/workspaces/ws/files/read?path=plot.png')
         return request.decode(new Uint8Array([1, 2, 3]));
+      if (request.path.endsWith('/dashboards')) return request.decode([]);
       return request.decode({});
     },
     async *stream() {
@@ -147,4 +148,105 @@ it('captures only this session closure, all table pages and identities, without 
   expect(requests.filter((request) => request.path.endsWith('/table-query'))).toHaveLength(2);
   expect(JSON.stringify(snapshot)).not.toContain('private');
   expect(JSON.stringify(snapshot)).not.toContain('Authorization');
+});
+
+it.each([
+  ['stopped', 'stopped'],
+  ['open', 'captured'],
+] as const)(
+  'captures a held stream (%s) with its rows and state, read as the view reads it',
+  async (state, archived) => {
+    const transport: ClioTransport = {
+      async request<T>(request: TransportRequest<T>): Promise<T> {
+        let value: unknown = {};
+        if (request.path.endsWith('/a2ui/surfaces'))
+          value = { surfaces: [{ dataUri: 'artifact://ws/printer@latest' }] };
+        else if (request.path.includes('/references/resolve'))
+          value = {
+            uri: 'artifact://ws/printer@latest',
+            kind: 'artifact',
+            workspace_id: 'ws',
+            name: 'printer',
+            media_type: 'application/vnd.apache.parquet',
+            fetch_path: '/v1/artifacts/artifact_printer/bytes',
+            artifact_id: 'artifact_printer',
+            stream: { stream_id: 'stream_p', state },
+          };
+        else if (request.path.endsWith('/table-query'))
+          value = {
+            schema: [{ name: 'progress', type: 'float64' }],
+            columns: { progress: request.path.includes('/streams/') ? [10, 55, 100] : [10] },
+            totalRows: request.path.includes('/streams/') ? 3 : 1,
+            returnedRows: request.path.includes('/streams/') ? 3 : 1,
+            truncated: false,
+            downsample: { mode: 'none' },
+            ...(request.path.includes('/streams/')
+              ? { stream: { stream_id: 'stream_p', state, stopped_at: '2026-11-05T10:00:00Z' } }
+              : {}),
+          };
+        return request.decode(value);
+      },
+      async *stream() {
+        return;
+      },
+    };
+    const snapshot = await captureSessionReview(transport, ['root'], {
+      session: { id: 'root' },
+      surfaces: [{ dataUri: 'artifact://ws/printer@latest' }],
+      messages: [],
+    });
+    const captured = snapshot.tables[streamTableKey('stream_p')]!;
+    expect((captured.columns as { progress: number[] }).progress).toEqual([10, 55, 100]);
+    expect((captured.stream as { state: string }).state).toBe(archived);
+    if (archived === 'captured')
+      expect((captured.stream as { captured_at?: string }).captured_at).toMatch(/^\d{4}-/u);
+    // The last saved version is kept as well, for a view bound to it by id.
+    expect(snapshot.tables.artifact_printer).toBeDefined();
+  },
+);
+
+it("captures the session's published dashboards and the data they read", async () => {
+  const paths: string[] = [];
+  const transport: ClioTransport = {
+    async request<T>(request: TransportRequest<T>): Promise<T> {
+      paths.push(request.path);
+      let value: unknown = {};
+      if (request.path.endsWith('/a2ui/surfaces')) value = { surfaces: [] };
+      else if (request.path.endsWith('/root/dashboards'))
+        value = [{ id: 'r1', title: 'Printer', artifact_id: 'artifact_dash', created_at: 't' }];
+      else if (request.path.endsWith('/root/dashboards/artifact_dash'))
+        value = { surface: { components: [{ dataUri: 'artifact://artifact_rows' }] } };
+      else if (request.path.includes('/references/resolve'))
+        value = {
+          uri: 'artifact://artifact_rows',
+          kind: 'artifact',
+          workspace_id: 'ws',
+          name: 'rows.parquet',
+          media_type: 'application/vnd.apache.parquet',
+          fetch_path: '/v1/artifacts/artifact_rows/bytes',
+          artifact_id: 'artifact_rows',
+        };
+      else if (request.path.endsWith('/table-query'))
+        value = {
+          schema: [{ name: 'x', type: 'int64' }],
+          columns: { x: [1, 2] },
+          totalRows: 2,
+          returnedRows: 2,
+          truncated: false,
+          downsample: { mode: 'none' },
+        };
+      return request.decode(value);
+    },
+    async *stream() {
+      return;
+    },
+  };
+  const snapshot = await captureSessionReview(transport, ['root'], {
+    session: { id: 'root' },
+    messages: [],
+  });
+  expect(snapshot.responses['GET /v1/sessions/root/dashboards']).toBeDefined();
+  expect(snapshot.responses['GET /v1/sessions/root/dashboards/artifact_dash']).toBeDefined();
+  expect((snapshot.tables.artifact_rows!.columns as { x: number[] }).x).toEqual([1, 2]);
+  expect(snapshot.failures).toEqual([]);
 });

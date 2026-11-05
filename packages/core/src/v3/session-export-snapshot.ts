@@ -152,6 +152,32 @@ export async function captureSessionReview(
         });
     };
     walk(response.surfaces);
+    // The dashboards this session published, newest version of each, with the data they
+    // read, so the review shows them as views and not only as files. A dashboard export
+    // (selected surfaces) carries its own report instead.
+    if (selectedSurfaces?.[sid] === undefined) {
+      try {
+        const saved = (await json(`${prefix}/dashboards`)) as { artifact_id?: string }[];
+        for (const row of saved)
+          if (row.artifact_id)
+            walk(
+              await json(`${prefix}/dashboards/${encodeURIComponent(row.artifact_id)}`).catch(
+                (error: unknown) => {
+                  snapshot.failures.push({
+                    path: `${prefix}/dashboards/${row.artifact_id}`,
+                    message: error instanceof Error ? error.message : String(error),
+                  });
+                  return undefined;
+                },
+              ),
+            );
+      } catch (error) {
+        snapshot.failures.push({
+          path: `${prefix}/dashboards`,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     for (const message of current?.messages ?? [])
       for (const part of message.parts ?? []) {
         if (part.type === 'text' && part.text)
@@ -178,7 +204,18 @@ export async function captureSessionReview(
           await readResolvedReferenceBytes(captured, resolved);
           continue;
         }
+        // A stream the server holds: its rows and its state, read through the route a
+        // view reads it by, so offline the view says it stopped (or was still live).
+        const held = resolved.stream;
+        if (held && !snapshot.tables[streamTableKey(held.stream_id)]) {
+          const table = await captureTable(
+            (body) => json(`/v1/streams/${encodeURIComponent(held.stream_id)}/table-query`, body),
+            {},
+          );
+          snapshot.tables[streamTableKey(held.stream_id)] = capturedStream(table, new Date());
+        }
         const id = resolved.artifact_id;
+        if (!id && held) continue;
         if (!id) throw new Error('This data reference is not a registered table.');
         snapshot.tables[id] = await captureTable(
           (body) => json(`/v1/artifacts/${encodeURIComponent(id)}/table-query`, body),
@@ -222,6 +259,22 @@ export async function captureSessionReview(
     }
   }
   return snapshot;
+}
+
+/** Where an archive keeps a stream's captured rows. */
+export function streamTableKey(streamId: string): string {
+  return `stream:${streamId}`;
+}
+
+/**
+ * A stream's captured rows. A stream still written at export is marked `captured` with
+ * the time, so the offline view says what it shows rather than calling it live.
+ */
+export function capturedStream(table: Record<string, unknown>, at: Date): Record<string, unknown> {
+  const stream = table.stream;
+  if (!stream || typeof stream !== 'object' || (stream as { state?: unknown }).state === 'stopped')
+    return table;
+  return { ...table, stream: { ...stream, state: 'captured', captured_at: at.toISOString() } };
 }
 
 /** A study source a view reads: `study://<study>/<measurements|entries|records/<name>>`. */

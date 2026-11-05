@@ -176,11 +176,18 @@ export function streamRowsQueryPrefix(endpoint: string, streamId: string) {
 /** How often a view on screen renews its lease on a stream (the lease lasts 30 s). */
 export const STREAM_LEASE_RENEW_MS = 15_000;
 
-/** What a stream's state adds to the note: live with its last write, or stopped. */
+/** What a stream's state adds to the note: live with its last write, stopped, or captured. */
 export function describeStream(stream: unknown): string {
   if (!isJsonObject(stream)) return '';
   const at = (value: unknown) =>
     typeof value === 'string' && value ? new Date(value).toLocaleTimeString() : '';
+  if (stream.state === 'captured') {
+    // An export taken while the stream was written: its rows as they stood then.
+    const when = at(stream.captured_at);
+    return when
+      ? `Captured at ${when} while live; showing the rows it had then.`
+      : 'Captured while live; showing the rows it had then.';
+  }
   if (stream.state === 'stopped') {
     const when = at(stream.stopped_at) || at(stream.updated_at);
     return when ? `Stopped at ${when}; showing its last rows.` : 'Stopped; showing its last rows.';

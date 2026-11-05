@@ -119,6 +119,20 @@ describe('offline archive transport', () => {
     });
     expect(aggregated.columns).toEqual({ plant: ['A', 'B', 'C'], area_mean: [3, 100, 80] });
   });
+
+  it('answers a stream view with the rows and the state it had at export', async () => {
+    const stopped = { stream_id: 'stream_p', state: 'stopped', stopped_at: '2026-11-05T10:00:00Z' };
+    const transport = new ArchiveTransport({
+      ...snapshot,
+      tables: { 'stream:stream_p': { ...source, stream: stopped } },
+    });
+    const result = await new ClioRepository(transport).streamTableQuery('stream_p', {
+      columns: ['area'],
+      limit: 10,
+    });
+    expect(result.columns).toEqual({ area: [2, 100, 4, 80] });
+    expect((result as { stream?: unknown }).stream).toEqual(stopped);
+  });
 });
 
 it('casts choice values using column types and reports invalid casts', () => {

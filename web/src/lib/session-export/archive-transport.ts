@@ -1,6 +1,7 @@
 import {
   TransportError,
   sessionReviewRequestKey,
+  streamTableKey,
   type ClioTransport,
   type TransportRequest,
   type SessionReviewSnapshot,
@@ -62,6 +63,18 @@ export class ArchiveTransport implements ClioTransport {
         ),
       );
     }
+    // A stream answers with the rows and state it had at export.
+    const stream = request.path.match(/^\/v1\/streams\/([^/]+)\/table-query$/u);
+    const streamTable = stream
+      ? this.snapshot.tables[streamTableKey(decodeURIComponent(stream[1]!))]
+      : undefined;
+    if (request.method === 'POST' && streamTable)
+      return request.decode(
+        queryArchiveTable(
+          streamTable as unknown as ArtifactTableQueryResult,
+          request.body as ArtifactTableQueryRequest,
+        ),
+      );
     const study = request.path.match(/^\/v1\/studies\/([^/]+)\/table-query$/u);
     const studyBody = request.body as (ArtifactTableQueryRequest & { source?: string }) | undefined;
     const studyTable = study

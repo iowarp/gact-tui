@@ -15,6 +15,8 @@ import { ArchiveTransport } from './lib/session-export/archive-transport';
 import { ArchiveFileList } from './lib/session-export/archive-file-list';
 import { archiveFileHref, archiveFolderPath } from './lib/session-export/archive-file-reference';
 import { ArchiveEvidence } from './lib/session-export/archive-evidence';
+import { ArchiveDashboard } from './lib/session-export/archive-dashboards';
+import { useArchiveDashboards } from './lib/session-export/archive-dashboards-query';
 import {
   type RecordedPart,
   type RecordedTool,
@@ -182,6 +184,7 @@ export function Review() {
   };
   const titleOf = (sessionId: string | undefined) =>
     rows.find((other) => other.session.id === sessionId)?.session.title ?? '';
+  const dashboards = useArchiveDashboards(ids);
   const tools = rows.reduce((count, row) => count + row.tool_records.length, 0);
   const skills = rows.reduce((count, row) => count + row.loaded_skills.length, 0);
   return (
@@ -275,7 +278,9 @@ export function Review() {
                 onOpenFolder={openFolder}
                 onOpenSession={(sessionId) => open({ sessionId })}
                 sessionAvailable={(sessionId) => ids.includes(sessionId)}
-                artifactHref={(artifact) => archiveFileHref(`artifact://${artifact.id}`, data.manifest)}
+                artifactHref={(artifact) =>
+                  archiveFileHref(`artifact://${artifact.id}`, data.manifest)
+                }
                 onOpenSubagent={(subagent) => {
                   if (subagent.child_session_id && ids.includes(subagent.child_session_id))
                     open({ sessionId: subagent.child_session_id });
@@ -295,6 +300,15 @@ export function Review() {
         </TabsContent>
         <TabsContent value="results">
           <h2 className="mb-3 text-2xl font-semibold">Saved results</h2>
+          {dashboards.map(({ sessionId, dashboard }) => (
+            <A2uiReferenceSessionProvider key={dashboard.artifact_id} value={sessionId}>
+              <ArchiveDashboard
+                sessionId={sessionId}
+                artifactId={dashboard.artifact_id}
+                title={dashboard.title}
+              />
+            </A2uiReferenceSessionProvider>
+          ))}
           {rows.map((row) => (
             <A2uiReferenceSessionProvider key={row.session.id} value={row.session.id}>
               {(data.snapshot.sessions[row.session.id] ?? []).map((view, i) => (
@@ -302,12 +316,13 @@ export function Review() {
               ))}
             </A2uiReferenceSessionProvider>
           ))}
-          {!Object.values(data.snapshot.sessions).some((views) => views.length) && (
-            <p>
-              No interactive views were recorded. Images and file references remain in the
-              conversation.
-            </p>
-          )}
+          {!dashboards.length &&
+            !Object.values(data.snapshot.sessions).some((views) => views.length) && (
+              <p>
+                No interactive views were recorded. Images and file references remain in the
+                conversation.
+              </p>
+            )}
         </TabsContent>
         <TabsContent value="files" id="included-files">
           <h2 className="text-2xl font-semibold">Included files</h2>
