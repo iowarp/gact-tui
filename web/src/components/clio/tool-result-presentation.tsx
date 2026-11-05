@@ -6,6 +6,8 @@ import { Shimmer } from '@/components/ai-elements/shimmer';
 import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 import { PresentationLink } from './presentation-link';
+import { sandboxBoundary } from './sandbox-boundary';
+import { SandboxBoundaryNotice } from './sandbox-boundary-notice';
 import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
 import {
@@ -42,7 +44,24 @@ import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
-export function ToolResultPresentation({
+export function ToolResultPresentation(props: {
+  tool: ToolInvocation;
+  subjectId?: string;
+  summaryInHeader?: boolean;
+}) {
+  // A call that failed at the sandbox says so above its result (#1905).
+  const boundary = sandboxBoundary(props.tool.output);
+  const body = <ToolResultBody {...props} />;
+  if (!boundary) return body;
+  return (
+    <>
+      <SandboxBoundaryNotice boundary={boundary} />
+      {body}
+    </>
+  );
+}
+
+function ToolResultBody({
   tool: recordedTool,
   subjectId,
   summaryInHeader = false,
