@@ -552,10 +552,19 @@ export interface PermissionPolicy {
   scope_id?: string;
   action: string;
   priority?: number;
-  kind?: 'tool' | 'domain' | 'fs_root' | 'plan_acl' | 'hook';
+  kind?:
+    | 'tool'
+    | 'domain'
+    | 'fs_root'
+    | 'plan_acl'
+    | 'hook'
+    | 'browser_host'
+    | 'browser_certificate';
   tool_name_pattern?: string;
   path_pattern?: string;
   host_pattern?: string;
+  /** A ``browser_certificate`` row's SHA-256 SPKI fingerprint: the key the person trusted. */
+  fingerprint?: string;
   modes?: string[];
   on?: string[];
   metadata: Record<string, unknown>;

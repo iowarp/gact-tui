@@ -17,6 +17,24 @@ const blockedSchema = z
   .nullable()
   .default(null);
 
+/** A certificate the browser does not trust, which the page shows a warning for. */
+const certificateSchema = z
+  .object({
+    host: z.string(),
+    url: z.string().default(''),
+    error: z.string().default(''),
+    issuer: z.string().default(''),
+    subject: z.string().default(''),
+    fingerprint: z.string().default(''),
+    valid_to: z.string().default(''),
+    /** False in the person's own Chrome: they proceed there, and CLIO keeps no grant. */
+    grantable: z.boolean().default(false),
+  })
+  .nullable()
+  .default(null);
+
+export type BrowserCertificate = NonNullable<z.infer<typeof certificateSchema>>;
+
 export const browserPageSchema = z.object({
   id: z.string(),
   session_id: z.string(),
@@ -31,6 +49,7 @@ export const browserPageSchema = z.object({
   sandbox_off: z.boolean().default(false),
   sandbox_reason: z.string().default(''),
   closed: z.boolean().default(false),
+  certificate_untrusted: certificateSchema,
 });
 
 export type BrowserPage = z.infer<typeof browserPageSchema>;
@@ -49,6 +68,7 @@ export type BrowserLiveState = z.infer<typeof browserLiveStateSchema>;
 const pagesSchema = z.object({ pages: z.array(browserPageSchema) });
 const allowedSchema = z.object({ allowed: z.string(), page: browserPageSchema });
 const openedSchema = z.object({ page: browserPageSchema });
+const trustedSchema = z.object({ host: z.string(), fingerprint: z.string(), scope: z.string() });
 
 /** The live view's WebSocket path for one page. */
 export function browserLivePath(sessionId: string, pageId: string): string {
@@ -70,7 +90,11 @@ export class BrowserRepository extends StructuredFileRepository {
   }
 
   /** Open ``url`` in the conversation's shared browser as the person, as a link they clicked. */
-  public async openBrowserPage(sessionId: string, url: string, signal?: AbortSignal): Promise<BrowserPage> {
+  public async openBrowserPage(
+    sessionId: string,
+    url: string,
+    signal?: AbortSignal,
+  ): Promise<BrowserPage> {
     const result = await this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/browser/pages`,
@@ -90,6 +114,22 @@ export class BrowserRepository extends StructuredFileRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/browser/pages/${encodeURIComponent(pageId)}/allow-host`,
       decode: (value) => allowedSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** The person trusts the certificate the page warns about; the browser then restarts. */
+  public async trustBrowserCertificate(
+    sessionId: string,
+    pageId: string,
+    scope: 'session' | 'workspace',
+    signal?: AbortSignal,
+  ): Promise<{ host: string; fingerprint: string; scope: string }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/browser/pages/${encodeURIComponent(pageId)}/trust-certificate`,
+      body: { scope },
+      decode: (value) => trustedSchema.parse(value),
       signal,
     });
   }

@@ -141,3 +141,35 @@ describe('permission policy settings', () => {
     expect(repository.updatePolicies).toHaveBeenCalledWith([policies[1], policies[2]]);
   });
 });
+
+describe('rules the person made in the shared browser', () => {
+  it('lists a trusted certificate and a site, removable but not editable', async () => {
+    repository.policies.mockResolvedValue([
+      {
+        scope: 'session',
+        scope_id: 'sess_printer',
+        action: 'allow',
+        kind: 'browser_certificate',
+        host_pattern: 'octopi.lan',
+        fingerprint: 'LyHcpzcUfoOk=',
+        metadata: {},
+      },
+      {
+        scope: 'session',
+        scope_id: 'sess_printer',
+        action: 'allow',
+        kind: 'browser_host',
+        host_pattern: 'octopi.lan',
+        metadata: {},
+      },
+    ]);
+    renderPanel(<PermissionPoliciesPanel />);
+    expect(
+      await screen.findByText('Certificate of octopi.lan, key sha256/LyHcpzcUfoOk='),
+    ).toBeTruthy();
+    expect(screen.getByText('Site octopi.lan')).toBeTruthy();
+    expect(screen.getByText('Trusted certificate')).toBeTruthy();
+    expect(screen.getAllByText('One conversation')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /^Edit rule/ })).toBeNull();
+  });
+});

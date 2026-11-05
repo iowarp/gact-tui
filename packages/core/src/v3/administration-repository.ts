@@ -29,10 +29,21 @@ const policySchema = z
     scope_id: z.string().optional(),
     action: z.string(),
     priority: z.number().int().optional(),
-    kind: z.enum(['tool', 'domain', 'fs_root', 'plan_acl', 'hook']).optional(),
+    kind: z
+      .enum([
+        'tool',
+        'domain',
+        'fs_root',
+        'plan_acl',
+        'hook',
+        'browser_host',
+        'browser_certificate',
+      ])
+      .optional(),
     tool_name_pattern: z.string().optional(),
     path_pattern: z.string().optional(),
     host_pattern: z.string().optional(),
+    fingerprint: z.string().optional(),
     modes: z.array(z.string()).optional(),
     on: z.array(z.string()).optional(),
   })
