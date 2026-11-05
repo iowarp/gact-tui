@@ -79,10 +79,36 @@ describe('run_code nesting', () => {
     expect(screen.getAllByTestId('child')).toHaveLength(10);
   });
 
+  it("counts a background script's repeated calls and says how many a row stands for", () => {
+    seed([
+      tool('run', { name: 'run_code' }),
+      tool('11', {
+        parent_call_id: 'run',
+        name: 'create_artifact',
+        input: {
+          path: 'log.csv',
+          _clio_repeat: {
+            count: 12,
+            first_at: '2026-11-01T00:01:00Z',
+            last_at: '2026-11-01T00:02:00Z',
+          },
+        },
+      }),
+      tool('12', { parent_call_id: 'run' }),
+    ]);
+    render(<NestedToolCalls parentId="run" renderCall={(child) => <span>{child.id}</span>} />);
+    expect(screen.getByText('13 tool calls from this script')).toBeInTheDocument();
+    expect(screen.getByText(/^Called 12 times/)).toBeInTheDocument();
+    expect(screen.getAllByText(/^Called \d+ times/)).toHaveLength(1);
+  });
+
   it('reads the calls a conversation supplies, as an offline export does', () => {
     seed([]); // no live stream fills the store in an export
     const tools = Object.fromEntries(
-      [tool('run', { name: 'run_code' }), tool('11', { parent_call_id: 'run' })].map((t) => [t.id, t]),
+      [tool('run', { name: 'run_code' }), tool('11', { parent_call_id: 'run' })].map((t) => [
+        t.id,
+        t,
+      ]),
     );
     render(
       <PresentationNavigation.Provider value={{ artifacts: {}, subagents: {}, tools }}>
