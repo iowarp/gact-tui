@@ -16,9 +16,9 @@ import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 /** The task kind as a reader names it (a background run_code task is a script). */
-function kindLabel(kind: string): string {
+function kindLabel(kind: string, active: boolean): string {
   if (kind === 'MCP' || kind === 'Shell') return 'Tool';
-  if (kind === 'Session') return 'Agent';
+  if (kind === 'Session' && active) return 'Agent'; // a settled one keeps its kind's name
   if (kind === 'Code') return 'Script';
   return kind;
 }
@@ -99,8 +99,8 @@ export function TaskActivityRow({
                 {flowState
                   ? `Flow: ${flowState.label}`
                   : running || status === 'completed'
-                    ? kindLabel(kind)
-                    : `${kindLabel(kind)}: ${label}`}
+                    ? kindLabel(kind, true)
+                    : `${kindLabel(kind, false)}: ${label}`}
                 {!compact && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
