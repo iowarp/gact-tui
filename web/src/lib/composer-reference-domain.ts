@@ -1,6 +1,9 @@
 import type { ComposerMessagePart, WorkspaceReference } from '@clio/core/v3';
 
-export type ReferencePart = Exclude<ComposerMessagePart, { type: 'text' }>;
+export type ReferencePart = Exclude<
+  ComposerMessagePart,
+  { type: 'text' } | { type: 'comment_session' }
+>;
 
 /**
  * One reference the person put in a draft, and where it sits in the draft text.

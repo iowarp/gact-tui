@@ -83,7 +83,7 @@ import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from '@/lib/a2ui/ker
 import { ClioComposerAnnotations } from './composer-annotations';
 import { SelectionActionsProvider } from './selection-actions';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 
 function wrap(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -127,15 +127,16 @@ function selectMenuItem(item: HTMLElement) {
 
 /** A composer stand-in, inside the provider, so "Reference this" has somewhere real to attach to. */
 function ComposerAndChildren({ children }: { children: ReactNode }) {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {});
   return (
     <>
       {children}
       <ClioComposerAnnotations
         annotations={annotations}
-        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+        onChange={setAnnotations}
       />
+      <output data-testid="sent-comments" hidden>{JSON.stringify(annotations)}</output>
     </>
   );
 }
@@ -369,13 +370,11 @@ describe('clio.map.v1 G0 toolbar — inline points', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    const attached = screen.getByRole('list', { name: 'Attached comments' });
     expect(attached).toHaveTextContent('Stations');
     expect(attached).toHaveTextContent('the filtered current view (1 points)');
-
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    // The full reference travels to the agent as the lines under the mark.
+    const popoverBody = screen.getByTestId('sent-comments');
     expect(popoverBody).toHaveTextContent('inline data');
     expect(popoverBody).toHaveTextContent('Station 1');
   });

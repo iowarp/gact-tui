@@ -7,7 +7,7 @@ import { QuestionResponseFrame } from './question-response-frame';
 import { SelectionActionsProvider } from './selection-actions';
 import { DataReferenceThisButton } from './data-reference-this-button';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 
 afterEach(() => {
   cleanup();
@@ -17,7 +17,7 @@ afterEach(() => {
 it('closes a question fullscreen view before its reference focuses the composer', async () => {
   const focused = vi.fn();
   function Page() {
-    const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+    const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
     useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       focused();

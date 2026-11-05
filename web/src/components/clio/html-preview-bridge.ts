@@ -1,3 +1,4 @@
+import { pickerScript } from './comments/html-pick';
 import { themeVariablesCss, type HtmlPreviewTheme } from './html-preview-theme';
 import { nanoid } from 'nanoid';
 
@@ -51,6 +52,7 @@ function bridgeScript(channel: string): string {
   return `(() => {
     const channel = ${JSON.stringify(channel).replace(/</gu, '\\u003c')};
     const maxTextChars = ${MAX_HTML_PREVIEW_TEXT_CHARS};
+    ${pickerScript()}
     let queued = false, previous = 0, lastViewport = 0, lastBody = 0, viewportLayout = false;
     const measure = () => {
       queued = false;

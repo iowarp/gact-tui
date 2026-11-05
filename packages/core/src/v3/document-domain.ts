@@ -9,6 +9,7 @@ export type DocumentProfile =
   | 'odf-text'
   | 'odf-sheet'
   | 'odf-slides'
+  | 'image'
   | 'binary';
 
 export type DocumentAnchorProfile =
@@ -18,7 +19,8 @@ export type DocumentAnchorProfile =
   | 'sheet-range'
   | 'slide-shape'
   | 'native-comment'
-  | 'source-map';
+  | 'source-map'
+  | 'region';
 
 export interface DocumentAnchor {
   profile: DocumentAnchorProfile;
@@ -37,6 +39,15 @@ export interface DocumentAnchor {
   slide_id?: string;
   shape_id?: string;
   native_comment_id?: string;
+  /** A region's normalized [x, y, width, height]; an element's box in CSS pixels. */
+  rect?: number[];
+  natural_width?: number;
+  natural_height?: number;
+  crop_asset?: string;
+  tag?: string;
+  text_excerpt?: string;
+  html_excerpt?: string;
+  viewport_width?: number;
   source?: Record<string, unknown>;
 }
 
@@ -66,13 +77,25 @@ export interface ArtifactReview {
   artifact_sha256: string;
   anchor: DocumentAnchor;
   text: string;
-  status: 'queued' | 'dispatched' | 'human-note' | 'failed' | 'stale';
+  status: 'draft' | 'queued' | 'dispatched' | 'human-note' | 'failed' | 'stale' | 'discarded';
   native: boolean;
   native_text_hash?: string;
   idempotency_key?: string;
   message_id?: string;
   created_at: string;
   error?: string;
+  /** `S1`, `S2`, ...: the mark's label, the same in the viewer, the list and the agent's text. */
+  label?: string;
+  session_key?: string;
+  send_to_agent?: boolean;
+  reply_text?: string;
+  reply_message_id?: string;
+  reply_version_artifact_id?: string;
+  reply_error?: string;
+  anchor_state?: 'current' | 'moved' | 'outdated';
+  current_artifact_id?: string;
+  current_anchor?: DocumentAnchor;
+  updated_at?: string;
 }
 
 export interface DocumentWorkingCopy {
@@ -103,14 +126,4 @@ export interface DocumentRendition {
   source_artifact_id: string;
   converter: string;
   artifact: DocumentManifest;
-}
-
-export interface SubmitArtifactReviewInput {
-  artifact_id: string;
-  expected_version: number;
-  expected_sha256: string;
-  anchor: DocumentAnchor;
-  text: string;
-  idempotency_key: string;
-  allow_historical?: boolean;
 }

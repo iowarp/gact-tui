@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react';
+import { ArtifactComments, WorkspaceFileComments } from './comments/file-comments';
+import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { brand } from '@brand';
@@ -115,14 +118,21 @@ function WorkspacePdfView({
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
-    <div className="size-full overflow-hidden">
-      <ClioPdfPreview
-        bytes={content.data}
-        error={content.error?.message}
-        initialPage={initialPage}
-        name={fileName(path)}
-      />
-    </div>
+    <WorkspaceFileComments
+      modes={['text', 'region']}
+      path={path}
+      regionAnchor={pdfRegionAnchor}
+      workspaceId={workspaceId}
+    >
+      <div className="size-full overflow-hidden">
+        <ClioPdfPreview
+          bytes={content.data}
+          error={content.error?.message}
+          initialPage={initialPage}
+          name={fileName(path)}
+        />
+      </div>
+    </WorkspaceFileComments>
   );
 }
 
@@ -178,12 +188,19 @@ function WorkspaceImageView({
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
-    <ImageResourceView
-      bytes={content.data}
-      error={content.error?.message}
-      mediaType={mediaType}
-      name={fileName(path)}
-    />
+    <WorkspaceFileComments
+      modes={['region']}
+      path={path}
+      regionAnchor={imageRegionAnchor}
+      workspaceId={workspaceId}
+    >
+      <ImageResourceView
+        bytes={content.data}
+        error={content.error?.message}
+        mediaType={mediaType}
+        name={fileName(path)}
+      />
+    </WorkspaceFileComments>
   );
 }
 
@@ -370,12 +387,14 @@ export function ArtifactView({
     )
   ) : canPreviewImage ? (
     canLoadInline ? (
-      <ImageResourceView
-        bytes={image.data?.bytes}
-        error={image.error?.message}
-        mediaType={artifact.media_type || imageMediaType(artifact.name)}
-        name={artifact.name}
-      />
+      <ArtifactImageComments artifact={artifact}>
+        <ImageResourceView
+          bytes={image.data?.bytes}
+          error={image.error?.message}
+          mediaType={artifact.media_type || imageMediaType(artifact.name)}
+          name={artifact.name}
+        />
+      </ArtifactImageComments>
     ) : (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
     )
@@ -626,4 +645,18 @@ function inferredWorkspaceMediaType(path: string): string {
   if (['h5', 'hdf5', 'he5', 'nxs'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
   if (isTextArtifact('', path)) return 'text/plain';
   return 'application/octet-stream';
+}
+
+/** An image artifact takes region comments when its version is known. */
+function ArtifactImageComments({ artifact, children }: { artifact: Artifact; children: ReactNode }) {
+  if (!artifact.sha256 || !artifact.version) return <>{children}</>;
+  return (
+    <ArtifactComments
+      artifact={{ ...artifact, sha256: artifact.sha256, version: artifact.version }}
+      modes={['region']}
+      regionAnchor={imageRegionAnchor}
+    >
+      {children}
+    </ArtifactComments>
+  );
 }

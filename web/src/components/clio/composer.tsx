@@ -62,10 +62,11 @@ import { ComposerInlineReferenceEditor } from './composer-inline-reference-edito
 import { focusEditorAtOffset as focusComposerEditor } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
-import { messageTextWithAnnotations, type ComposerAnnotation } from '@/lib/composer-annotations';
+import { commentSessionParts } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 import { ComposerModelButton } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
-import { useRegionCaptureAnnotation } from './use-region-capture-annotation';
+import { useCommentSessionAttachment } from './comments/use-comment-session-attachment';
 import { ComposerAddContextButton } from './composer-add-context-button';
 import { ClioComposerEvidenceControls } from './composer-evidence-controls';
 import { useComposerSources } from './use-composer-sources';
@@ -146,8 +147,9 @@ export interface ClioComposerProps extends ComposerQueueControls {
   references?: readonly InlineReferenceSelection[];
   onReferencesChange?: (references: readonly InlineReferenceSelection[]) => void;
   /** Selections attached to the next message (sent as quotes ahead of the text). */
-  annotations?: readonly ComposerAnnotation[];
-  onAnnotationsChange?: (annotations: readonly ComposerAnnotation[]) => void;
+  /** Comment sessions attached to the next message (answers, A2UI views, pages). */
+  annotations?: readonly CommentAttachment[];
+  onAnnotationsChange?: (annotations: readonly CommentAttachment[]) => void;
   focusRequestKey?: number;
   variant?: 'docked' | 'welcome';
 }
@@ -330,7 +332,7 @@ export function ClioComposer({
       window.removeEventListener('clio:use-message-draft', useDraft);
     };
   }, [input, setInput]);
-  useRegionCaptureAnnotation(annotations, onAnnotationsChange);
+  useCommentSessionAttachment(annotations, onAnnotationsChange);
   const inputRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
@@ -578,13 +580,13 @@ export function ClioComposer({
                 behavior: messageBehavior,
                 delivery: state === 'running' ? (nextDeliveryRef.current ?? 'queued') : 'start',
                 files,
-                references: selectedReferences.map(({ reference }) => toMessagePart(reference)),
+                references: [
+                  ...selectedReferences.map(({ reference }) => toMessagePart(reference)),
+                  ...commentSessionParts(annotations),
+                ],
                 // Each typed reference stays where it was typed, as `@path` /
                 // `@label`; attached sources live in the tray, not the sentence.
-                text: messageTextWithAnnotations(
-                  annotations,
-                  withReferenceMentions(text, sourceAttachments.inlineReferences).trim(),
-                ),
+                text: withReferenceMentions(text, sourceAttachments.inlineReferences).trim(),
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
                 onUploadProgress: (progress) => {
@@ -625,10 +627,6 @@ export function ClioComposer({
           onFolderFiles={connectedSources.drop}
         />
         <ClioComposerAttachments
-          annotations={annotations}
-          onRemoveCapture={(gone) =>
-            onAnnotationsChange?.(annotations.filter((item) => item !== gone))
-          }
           onPrepareFiles={onPrepareFiles}
           onDiscardFiles={onDiscardFiles}
           resources={resources}
@@ -653,8 +651,8 @@ export function ClioComposer({
           />
         ) : null}
         <ClioComposerAnnotations
-          annotations={annotations.filter((annotation) => annotation.kind !== 'region-capture')}
-          onRemove={(gone) => onAnnotationsChange?.(annotations.filter((item) => item !== gone))}
+          annotations={annotations}
+          onChange={(next) => onAnnotationsChange?.(next)}
         />
         <ComposerInlineReferenceEditor
           attachmentsEnabled={attachments}

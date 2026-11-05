@@ -1,10 +1,8 @@
 import { z } from 'zod';
 import type {
-  ArtifactReview,
   DocumentManifest,
   DocumentRendition,
   DocumentWorkingCopy,
-  SubmitArtifactReviewInput,
 } from './document-domain.js';
 import { readBytesPath } from './artifact-custody.js';
 import { PluginRepository } from './plugin-repository.js';
@@ -31,8 +29,9 @@ const anchorProfileSchema = z.enum([
   'slide-shape',
   'native-comment',
   'source-map',
+  'region',
 ]);
-const documentAnchorSchema = z.object({
+export const documentAnchorSchema = z.object({
   profile: anchorProfileSchema,
   exact: optionalString,
   prefix: optionalString,
@@ -64,6 +63,14 @@ const documentAnchorSchema = z.object({
   slide_id: optionalString,
   shape_id: optionalString,
   native_comment_id: optionalString,
+  rect: z.array(z.number()).optional(),
+  natural_width: z.number().nullish().transform((value) => value ?? undefined),
+  natural_height: z.number().nullish().transform((value) => value ?? undefined),
+  crop_asset: optionalString,
+  tag: optionalString,
+  text_excerpt: optionalString,
+  html_excerpt: optionalString,
+  viewport_width: z.number().nullish().transform((value) => value ?? undefined),
   source: z.record(z.string(), z.unknown()).default({}),
 });
 const documentManifestSchema = z.object({
@@ -84,6 +91,7 @@ const documentManifestSchema = z.object({
     'odf-text',
     'odf-sheet',
     'odf-slides',
+    'image',
     'binary',
   ]),
   content_url: z.string(),
@@ -93,7 +101,7 @@ const documentManifestSchema = z.object({
   pdf_rendition_artifact_id: optionalString,
   provenance: z.record(z.string(), z.unknown()).default({}),
 });
-const artifactReviewSchema = z.object({
+export const artifactReviewSchema = z.object({
   id: z.string(),
   session_id: z.string(),
   workspace_id: z.string(),
@@ -103,13 +111,32 @@ const artifactReviewSchema = z.object({
   artifact_sha256: z.string(),
   anchor: documentAnchorSchema,
   text: z.string(),
-  status: z.enum(['queued', 'dispatched', 'human-note', 'failed', 'stale']),
+  status: z.enum([
+    'draft',
+    'queued',
+    'dispatched',
+    'human-note',
+    'failed',
+    'stale',
+    'discarded',
+  ]),
   native: z.boolean().default(false),
   native_text_hash: optionalString,
   idempotency_key: optionalString,
   message_id: optionalString,
   created_at: z.string(),
   error: optionalString,
+  label: optionalString,
+  session_key: optionalString,
+  send_to_agent: z.boolean().default(true),
+  reply_text: optionalString,
+  reply_message_id: optionalString,
+  reply_version_artifact_id: optionalString,
+  reply_error: optionalString,
+  anchor_state: z.enum(['current', 'moved', 'outdated']).default('current'),
+  current_artifact_id: optionalString,
+  current_anchor: documentAnchorSchema.nullish().transform((value) => value ?? undefined),
+  updated_at: optionalString,
 });
 const workingCopySchema = z.object({
   id: z.string(),
@@ -151,33 +178,6 @@ export class DocumentRepository extends PluginRepository {
       `/v1/artifacts/${encodeURIComponent(artifactId)}/document/content`,
       signal,
     );
-  }
-
-  public async artifactReviews(
-    artifactId: string,
-    signal?: AbortSignal,
-  ): Promise<ArtifactReview[]> {
-    const result = await this.transport.request({
-      method: 'GET',
-      path: `/v1/artifacts/${encodeURIComponent(artifactId)}/reviews`,
-      decode: (value) => z.object({ reviews: z.array(artifactReviewSchema) }).parse(value),
-      signal,
-    });
-    return result.reviews as ArtifactReview[];
-  }
-
-  public submitArtifactReview(
-    sessionId: string,
-    input: SubmitArtifactReviewInput,
-    signal?: AbortSignal,
-  ): Promise<ArtifactReview> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/artifact-reviews`,
-      body: input,
-      decode: (value) => artifactReviewSchema.parse(value),
-      signal,
-    });
   }
 
   public createDocumentRendition(

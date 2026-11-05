@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { sentDataReferences } from './sent-data-references';
-import { messageTextWithAnnotations } from './composer-annotations';
+
+/** How messages sent before comment sessions quoted an attachment ahead of the text. */
+function messageTextWithAnnotations(
+  annotations: ReadonlyArray<{ kind: string; markdown?: string; text?: string }>,
+  text: string,
+): string {
+  const quoted = annotations.map((annotation) =>
+    (annotation.kind === 'text-quote' ? (annotation.text ?? '') : (annotation.markdown ?? ''))
+      .split(/\r?\n/u)
+      .map((line) => (line.trim() ? `> ${line}` : '>'))
+      .join('\n'),
+  );
+  return [...quoted, text].filter(Boolean).join('\n\n');
+}
+
 
 const markdown = '**Storm tracks**\nDataset: Hurricanes.\n\nZone: 12 selected observations.\n\n```json\n{"dataUri":"artifact:test","selectedRows":[1,2]}\n```';
 const annotation = { id: 'selection', kind: 'data-zone-quote' as const, title: 'Storm tracks', summary: '12 selected observations', markdown };

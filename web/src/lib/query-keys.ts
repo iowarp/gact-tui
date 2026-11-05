@@ -24,6 +24,8 @@ export type ClioQueryNamespace =
   | 'connection-availability'
   | 'document-content'
   | 'document-editor-health'
+  | 'comment-crop'
+  | 'comment-threads'
   | 'document-manifest'
   | 'document-pdf'
   | 'execution-provenance'

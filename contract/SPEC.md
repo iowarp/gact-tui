@@ -2247,15 +2247,19 @@ provenance remains unchanged.
 
 The capability value is an object with `protocol_version`, `profiles`, `anchors`,
 `review_parts`, `floating_comments`, `immutable_revisions`,
-`native_working_copies`, `native_comment_trigger`, `static_html_scripts`, and
-`executable_html_transition`.
+`native_working_copies`, `native_comment_trigger`, `static_html_scripts`,
+`executable_html_transition`, and `comment_sessions`.
 
 | Method     | Endpoint                                                | Contract                                                                                                                                                                                                         |
 | ---------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET        | `/v1/artifacts/{artifact_id}/document`                  | Return the exact version's `DocumentManifest`: identity, profile, verified content URL, allowed anchors, native-open availability, renditions, and provenance.                                                   |
 | GET        | `/v1/artifacts/{artifact_id}/document/content`          | Serve exact bytes. Static HTML carries a sandboxed deny-by-default CSP.                                                                                                                                          |
-| GET        | `/v1/artifacts/{artifact_id}/reviews`                   | Return the durable latest projection of reviews for the logical artifact chain.                                                                                                                                  |
-| POST       | `/v1/sessions/{sid}/artifact-reviews`                   | Validate `artifact_id`, `expected_version`, and `expected_sha256`; reject a stale head with `409 stale_artifact_anchor`; idempotently persist and immediately continue the agent with an `artifact_review` part. |
+| GET        | `/v1/workspaces/{wid}/comment-targets?path=`            | The artifact version a workspace file is, or `null` when it is not one yet.                                                                                                                                       |
+| POST       | `/v1/workspaces/{wid}/comment-targets`                  | Register a workspace file as an artifact version so it can hold comment threads (designation `comment-target`; named by relative path when another file holds its basename).                                    |
+| GET        | `/v1/artifacts/{artifact_id}/threads?session_id=`       | Every comment thread of the artifact's chain, re-anchored to its newest version (`current`, `moved`, `outdated`), the newest version, and `next_label` for a new mark on the requested version.                  |
+| PUT        | `/v1/artifacts/{artifact_id}/comment-drafts`            | Keep a session's unsent marks as the draft on one version; marks keep their `S` labels.                                                                                                                          |
+| POST       | `/v1/sessions/{sid}/comment-sessions`                   | Send one select session's marks on one version as threads and one agent turn; `409 stale_artifact_anchor` when the head moved. Human notes start no turn.                                                       |
+| GET        | `/v1/document-threads/{id}/crop?side=before|after`      | A region or element thread's crop (PNG) on its own version or on the newest one.                                                                                                                                 |
 | POST       | `/v1/artifacts/{artifact_id}/renditions?session_id=...` | Create a real derived PDF artifact or return an explicit unavailable/failure error.                                                                                                                              |
 | POST       | `/v1/artifacts/{artifact_id}/working-copies`            | Materialize a confined copy with a single writable lease. Stable saves mint immutable revisions; stale heads become explicit conflicts.                                                                          |
 | GET/DELETE | `/v1/document-working-copies/{id}`                      | Read or close a working-copy lease.                                                                                                                                                                              |

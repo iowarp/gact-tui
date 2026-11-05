@@ -38,7 +38,7 @@ export function DocumentViewControls({
     () => [
       {
         kind: 'view' as const,
-        label: `Reviews${reviewCount ? `, ${reviewCount}` : ''}`,
+        label: `Comments${reviewCount ? `, ${reviewCount}` : ''}`,
         icon: MessageSquareTextIcon,
         selected: value === 'reviews',
         onSelect: () => onChange('reviews'),

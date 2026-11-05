@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 import type { InlineReferenceSelection } from '@/lib/composer-reference-domain';
 
 /** One session's unsent composer draft, held outside the composer. */
 export interface ComposerDraft {
-  annotations: readonly ComposerAnnotation[];
-  onAnnotationsChange: (annotations: readonly ComposerAnnotation[]) => void;
+  annotations: readonly CommentAttachment[];
+  onAnnotationsChange: (annotations: readonly CommentAttachment[]) => void;
   onReferencesChange: (references: readonly InlineReferenceSelection[]) => void;
   onValueChange: (value: string) => void;
   references: readonly InlineReferenceSelection[];
@@ -13,10 +13,10 @@ export interface ComposerDraft {
 }
 
 const EMPTY_REFERENCES: readonly InlineReferenceSelection[] = [];
-const EMPTY_ANNOTATIONS: readonly ComposerAnnotation[] = [];
+const EMPTY_ANNOTATIONS: readonly CommentAttachment[] = [];
 
 interface HeldDraft {
-  annotations: readonly ComposerAnnotation[];
+  annotations: readonly CommentAttachment[];
   references: readonly InlineReferenceSelection[];
   scope: string;
   value: string;
@@ -85,7 +85,7 @@ export function useComposerDraft(
     [patch],
   );
   const onAnnotationsChange = useCallback(
-    (annotations: readonly ComposerAnnotation[]) => patch({ annotations }),
+    (annotations: readonly CommentAttachment[]) => patch({ annotations }),
     [patch],
   );
 

@@ -119,9 +119,9 @@ test('an image opens on a fitted stage, resists dragging, and returns its refere
   }
   await dialog.getByRole('button', { name: 'Reference this', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  const selections = page.getByRole('list', { name: 'Attached selections' });
+  const selections = page.getByRole('list', { name: 'Attached comments' });
   await expect(selections).toContainText('the whole image');
-  await expect(selections.getByRole('listitem')).toHaveCount(1);
+  await expect(selections.locator('[data-slot="attached-comment-session"]')).toHaveCount(1);
   await expect(
     page.getByRole('combobox', { name: /Ask .* to investigate, build, explain, or act/ }),
   ).toBeFocused();

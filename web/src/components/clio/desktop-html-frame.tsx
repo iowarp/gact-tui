@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { elementAnchor, HtmlPickContext, selectionAnchor } from './comments/html-pick';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ResourceUnavailable } from './resource-states';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -45,6 +46,21 @@ function BoundHtmlRendererFrame({ name, html, url, onTextReader }: HtmlRendererF
   const [height, setHeight] = useState<number>();
   const [channel] = useState(() => nanoid(24));
   const textReaderCallback = useRef(onTextReader);
+  const pick = useContext(HtmlPickContext);
+  const pickRef = useRef(pick);
+  useEffect(() => {
+    pickRef.current = pick;
+  }, [pick]);
+  useEffect(() => {
+    const target = frame.current?.contentWindow;
+    if (!target) return;
+    target.postMessage(
+      pick?.mode
+        ? { type: 'clio.html-preview.pick.start', channel, mode: pick.mode, htmlChars: pick.htmlChars }
+        : { type: 'clio.html-preview.pick.cancel', channel },
+      '*',
+    );
+  }, [pick?.mode, pick?.htmlChars, channel]);
   const bridgeReady = useRef(false);
   const pendingText = useRef(
     new Map<
@@ -115,6 +131,16 @@ function BoundHtmlRendererFrame({ name, html, url, onTextReader }: HtmlRendererF
           { type: 'clio.html-preview.theme', channel, theme: currentTheme.current },
           '*',
         );
+      } else if (event.data.type === 'clio.html-preview.pick.selected') {
+        const anchor = pickRef.current?.mode === 'element'
+          ? elementAnchor(event.data as Record<string, unknown>, pickRef.current.htmlChars)
+          : undefined;
+        if (anchor) pickRef.current?.onPick(anchor);
+      } else if (event.data.type === 'clio.html-preview.selection') {
+        const anchor = pickRef.current?.mode === 'text'
+          ? selectionAnchor(event.data as Record<string, unknown>)
+          : undefined;
+        if (anchor) pickRef.current?.onPick(anchor);
       } else if (event.data.type === 'clio.html-preview.text') {
         const requestId: unknown = event.data.requestId;
         const text: unknown = event.data.text;

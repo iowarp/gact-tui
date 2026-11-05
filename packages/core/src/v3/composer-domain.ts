@@ -1,3 +1,4 @@
+import type { CommentAttachment } from './comment-domain.js';
 import type { ProviderClientFact } from './provider-components.js';
 import type { ContextControls } from './context-sizing-contract.js';
 import type {
@@ -92,9 +93,16 @@ export interface WorkspaceReference {
   navigation: Record<string, unknown>;
 }
 
+/** One attached comment session: marks on an answer, an A2UI surface or a browser page. */
+export interface CommentSessionPart {
+  type: 'comment_session';
+  metadata: { comment_session: CommentAttachment };
+}
+
 export type ComposerMessagePart =
   | { type: 'text'; text: string }
   | ContextReferencePart
+  | CommentSessionPart
   | {
       type: 'resource_ref';
       resource_id: string;

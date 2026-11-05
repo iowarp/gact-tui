@@ -1,5 +1,4 @@
 import {
-  captureText,
   displayedRegion,
   geographicBounds,
   mapSurface,
@@ -8,6 +7,8 @@ import {
   type Region,
 } from './a2ui-region-evidence';
 export type { CaptureSurface } from './a2ui-region-evidence';
+import { attachCommentSession } from './comments/comment-model';
+import { a2uiAttachment } from './comments/a2ui-attachment';
 import { getFontEmbedCSS, toCanvas } from 'html-to-image';
 import { CheckIcon, GripVerticalIcon, ListIcon, SendIcon } from 'lucide-react';
 import { CloseIcon, DeleteIcon } from '@/lib/icon-vocabulary';
@@ -426,23 +427,9 @@ export function A2uiRegionCaptureProvider({
     setBusy(true);
     setError('');
     try {
-      const blob = await labelledPng(target.element, regions);
-      const file = new File([blob], `clio-capture-${surface.id}-${Date.now()}.png`, {
-        type: 'image/png',
-      });
-      window.dispatchEvent(
-        new CustomEvent('clio:add-region-capture', {
-          detail: {
-            file,
-            filename: file.name,
-            text: captureText(surface, target, regions),
-            title: `Region capture: ${target.title}`,
-            summary: `${regions.length} labelled region${regions.length === 1 ? '' : 's'}: ${regions.map((region) => region.id).join(', ')}`,
-          },
-        }),
-      );
-      // Staging the image does not end Select mode. The person can add more
-      // labelled regions until they turn Select off or send the message.
+      attachCommentSession(await a2uiAttachment(surface, target, regions, labelledPng));
+      // Attaching does not end Select mode. The person can add more labelled regions
+      // until they turn Select off or send the message.
     } catch (cause) {
       setError(`Capture unavailable: ${cause instanceof Error ? cause.message : String(cause)}`);
     } finally {
@@ -636,7 +623,7 @@ export function A2uiRegionCaptureProvider({
                   <SendIcon aria-hidden="true" className="size-3.5" />
                   {busy
                     ? 'Capturing…'
-                    : `Add ${regions.length} ${regions.length === 1 ? 'region' : 'regions'} to message`}
+                    : `Add ${regions.length} ${regions.length === 1 ? 'mark' : 'marks'} to message`}
                 </Button>
               ) : null}
               {attention && regions.length ? (

@@ -78,8 +78,19 @@ describe('DocumentRepository', () => {
     const transport = new RecordingTransport([
       manifest,
       bytes,
-      { reviews: [review] },
-      review,
+      {
+        artifact_id: 'artifact/3',
+        head: {
+          artifact_id: 'artifact/3',
+          name: 'evidence.md',
+          workspace_id: 'workspace-1',
+          version: 3,
+          sha256: 'a'.repeat(64),
+        },
+        next_label: 'S2',
+        threads: [review],
+      },
+      { session_key: 'cs_1', message_id: 'msg_1', threads: [{ ...review, label: 'S2' }] },
       { source_artifact_id: 'artifact/3', converter: 'pandoc', artifact: manifest },
     ]);
     const repository = new ClioRepository(transport);
@@ -90,15 +101,25 @@ describe('DocumentRepository', () => {
       pdf_rendition_artifact_id: 'artifact_pdf',
     });
     await expect(repository.documentContent('artifact/3')).resolves.toEqual(bytes);
-    await expect(repository.artifactReviews('artifact/3')).resolves.toHaveLength(1);
-    await repository.submitArtifactReview('session/one', {
-      artifact_id: 'artifact/3',
-      expected_version: 3,
-      expected_sha256: 'a'.repeat(64),
-      anchor: { profile: 'text-quote', exact: 'bounded claim' },
-      text: 'State the evidence boundary.',
-      idempotency_key: 'review-once',
+    await expect(repository.commentThreads('artifact/3', 'session/one')).resolves.toMatchObject({
+      next_label: 'S2',
+      threads: [{ anchor_state: 'current', send_to_agent: true }],
     });
+    await expect(
+      repository.sendCommentSession('session/one', {
+        artifact_id: 'artifact/3',
+        expected_version: 3,
+        expected_sha256: 'a'.repeat(64),
+        marks: [
+          {
+            label: 'S2',
+            anchor: { profile: 'text-quote', exact: 'bounded claim' },
+            comment: 'State the evidence boundary.',
+          },
+        ],
+        idempotency_key: 'review-once',
+      }),
+    ).resolves.toMatchObject({ session_key: 'cs_1', threads: [{ label: 'S2' }] });
     await expect(
       repository.createDocumentRendition('artifact/3', 'session/one'),
     ).resolves.toMatchObject({ converter: 'pandoc', artifact: { artifact_id: 'artifact/3' } });
@@ -122,12 +143,12 @@ describe('DocumentRepository', () => {
       },
       {
         method: 'GET',
-        path: '/v1/artifacts/artifact%2F3/reviews',
+        path: '/v1/artifacts/artifact%2F3/threads?session_id=session%2Fone',
         responseType: undefined,
       },
       {
         method: 'POST',
-        path: '/v1/sessions/session%2Fone/artifact-reviews',
+        path: '/v1/sessions/session%2Fone/comment-sessions',
         responseType: undefined,
       },
       {
@@ -136,12 +157,11 @@ describe('DocumentRepository', () => {
         responseType: undefined,
       },
     ]);
-    expect(transport.requests[3]?.body).toEqual({
+    expect(transport.requests[3]?.body).toMatchObject({
       artifact_id: 'artifact/3',
       expected_version: 3,
       expected_sha256: 'a'.repeat(64),
-      anchor: { profile: 'text-quote', exact: 'bounded claim' },
-      text: 'State the evidence boundary.',
+      marks: [{ label: 'S2', comment: 'State the evidence boundary.' }],
       idempotency_key: 'review-once',
     });
   });
