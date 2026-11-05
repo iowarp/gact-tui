@@ -125,11 +125,14 @@ export function BrowserLiveView({
       }}
     >
       {frame ? (
+        // The frame fills the view (contained), as `pagePoint` and `frameRect` assume: a
+        // frame narrower than the view (frames are capped in width) is scaled up, not
+        // shown at its own size, or input and marks would land beside what they point at.
         <img
           ref={image}
           alt=""
           draggable={false}
-          className="pointer-events-none max-h-full max-w-full object-contain"
+          className="pointer-events-none h-full w-full object-contain"
         />
       ) : (
         <p className="text-sm text-muted-foreground">Waiting for the page…</p>
