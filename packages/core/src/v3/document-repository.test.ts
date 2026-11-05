@@ -204,3 +204,12 @@ describe('DocumentRepository', () => {
     });
   });
 });
+
+describe('comment targets', () => {
+  it('reports a workspace file with no artifact as null, which query caches accept', async () => {
+    const transport = new RecordingTransport([{ artifact: null }]);
+    const repository = new ClioRepository(transport);
+    await expect(repository.commentTarget('ws 1', 'figs/plot.png')).resolves.toBeNull();
+    expect(transport.requests[0]?.path).toBe('/v1/workspaces/ws%201/comment-targets?path=figs%2Fplot.png');
+  });
+});

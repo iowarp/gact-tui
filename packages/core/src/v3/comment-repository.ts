@@ -37,14 +37,15 @@ export class CommentRepository extends DocumentRepository {
     workspaceId: string,
     path: string,
     signal?: AbortSignal,
-  ): Promise<CommentTarget | undefined> {
+  ): Promise<CommentTarget | null> {
     const result = await this.transport.request({
       method: 'GET',
       path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/comment-targets?path=${encodeURIComponent(path)}`,
       decode: (value) => z.object({ artifact: commentTargetSchema.nullable() }).parse(value),
       signal,
     });
-    return result.artifact ?? undefined;
+    // null, not undefined, for a file with no artifact yet: query caches refuse undefined.
+    return result.artifact;
   }
 
   /** Register a workspace file as an artifact version so it can hold comment threads. */
