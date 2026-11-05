@@ -1,9 +1,10 @@
 import type { DocumentAnchor } from '@clio/core/v3';
 import { MessageSquarePlusIcon } from 'lucide-react';
-import { useRef, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { CommentRegionLayer, type Rect } from './comment-region-layer';
 import { useCommentSession } from './comment-session';
+import { SvgElementLayer } from './svg-element-layer';
 import { textQuoteFromSelection } from './text-anchor';
 
 function screenBox(rect: DOMRect) {
@@ -43,24 +44,33 @@ export function CommentCapture({
   children,
   sourcePath,
   regionAnchor,
+  svg,
   className,
 }: {
   children: ReactNode;
   sourcePath?: string;
   regionAnchor?: (rect: Rect, host: HTMLElement) => DocumentAnchor | undefined;
+  /** An SVG shown as an image: its bytes, so element marks can pick its elements. */
+  svg?: Uint8Array;
   className?: string;
 }) {
   const session = useCommentSession();
   const host = useRef<HTMLDivElement>(null);
+  const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
+  const elementMode = Boolean(session?.active && session.mode === 'element' && svg);
   const textMode = session?.active && session.mode === 'text';
   const regionMode = Boolean(session?.active && session.mode === 'region' && regionAnchor);
   const captureText = () => {
     if (!textMode || !host.current) return;
     const anchor = textQuoteFromSelection(host.current);
     if (!anchor) return;
-    const range = window.getSelection()?.rangeCount ? window.getSelection()!.getRangeAt(0) : undefined;
+    const range = window.getSelection()?.rangeCount
+      ? window.getSelection()!.getRangeAt(0)
+      : undefined;
     const selected =
-      typeof range?.getBoundingClientRect === 'function' ? range.getBoundingClientRect() : undefined;
+      typeof range?.getBoundingClientRect === 'function'
+        ? range.getBoundingClientRect()
+        : undefined;
     session!.addMark(sourcePath ? { ...anchor, source_path: sourcePath } : anchor, {
       box: selected ? screenBox(selected) : undefined,
     });
@@ -78,9 +88,23 @@ export function CommentCapture({
       }}
       onMouseUp={captureText}
       onTouchEnd={captureText}
-      ref={host}
+      ref={(element) => {
+        host.current = element;
+        setHostElement(element);
+      }}
     >
       {children}
+      {elementMode && hostElement && svg ? (
+        <SvgElementLayer
+          bytes={svg}
+          host={hostElement}
+          onPick={(anchor, box) =>
+            session!.addMark(sourcePath ? { ...anchor, source_path: sourcePath } : anchor, {
+              box: { left: box.left, top: box.top, width: box.width, height: box.height },
+            })
+          }
+        />
+      ) : null}
       {regionMode || shown.length ? (
         <CommentRegionLayer
           capturing={regionMode}

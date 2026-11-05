@@ -226,9 +226,10 @@ function WorkspaceImageView({
   });
   return (
     <WorkspaceFileComments
-      modes={['region']}
+      modes={isSvg(mediaType) ? ['region', 'element'] : ['region']}
       path={path}
       regionAnchor={imageRegionAnchor}
+      svg={isSvg(mediaType) ? content.data : undefined}
       workspaceId={workspaceId}
     >
       <ImageResourceView
@@ -429,7 +430,14 @@ export function ArtifactView({
     )
   ) : canPreviewImage ? (
     canLoadInline ? (
-      <ArtifactImageComments artifact={artifact}>
+      <ArtifactImageComments
+        artifact={artifact}
+        svg={
+          isSvg(artifact.media_type || imageMediaType(artifact.name))
+            ? image.data?.bytes
+            : undefined
+        }
+      >
         <ImageResourceView
           bytes={image.data?.bytes}
           error={image.error?.message}
@@ -681,19 +689,27 @@ function inferredWorkspaceMediaType(path: string): string {
 }
 
 /** An image artifact takes region comments when its version is known. */
+function isSvg(mediaType: string): boolean {
+  return mediaType.split(';', 1)[0]?.trim() === 'image/svg+xml';
+}
+
 function ArtifactImageComments({
   artifact,
+  svg,
   children,
 }: {
   artifact: Artifact;
+  /** An SVG's bytes, so element marks can pick its elements. */
+  svg?: Uint8Array;
   children: ReactNode;
 }) {
   if (!artifact.sha256 || !artifact.version) return <>{children}</>;
   return (
     <ArtifactComments
       artifact={{ ...artifact, sha256: artifact.sha256, version: artifact.version }}
-      modes={['region']}
+      modes={svg ? ['region', 'element'] : ['region']}
       regionAnchor={imageRegionAnchor}
+      svg={svg}
     >
       {children}
     </ArtifactComments>

@@ -27,6 +27,7 @@ function Commentable({
   version,
   modes,
   regionAnchor,
+  svg,
   initiallyActive,
   children,
 }: {
@@ -35,6 +36,7 @@ function Commentable({
   version: Version;
   modes: readonly CommentMode[];
   regionAnchor?: RegionAnchor;
+  svg?: Uint8Array;
   initiallyActive?: boolean;
   children: ReactNode;
 }) {
@@ -65,7 +67,7 @@ function Commentable({
             </PopoverContent>
           </Popover>
         </div>
-        <CommentCapture regionAnchor={regionAnchor} sourcePath={title}>
+        <CommentCapture regionAnchor={regionAnchor} sourcePath={title} svg={svg}>
           {children}
         </CommentCapture>
       </div>
@@ -81,17 +83,20 @@ export function ArtifactComments({
   artifact,
   modes,
   regionAnchor,
+  svg,
   children,
 }: {
   artifact: { id: string; name: string; session_id: string; version: number; sha256: string };
   modes: readonly CommentMode[];
   regionAnchor?: RegionAnchor;
+  svg?: Uint8Array;
   children: ReactNode;
 }) {
   return (
     <Commentable
       modes={modes}
       regionAnchor={regionAnchor}
+      svg={svg}
       sessionId={artifact.session_id}
       title={artifact.name}
       version={{ artifactId: artifact.id, version: artifact.version, sha256: artifact.sha256 }}
@@ -112,12 +117,14 @@ export function WorkspaceFileComments({
   path,
   modes,
   regionAnchor,
+  svg,
   children,
 }: {
   workspaceId: string;
   path: string;
   modes: readonly CommentMode[];
   regionAnchor?: RegionAnchor;
+  svg?: Uint8Array;
   children: ReactNode;
 }) {
   const { sessionId = '' } = useParams();
@@ -161,6 +168,7 @@ export function WorkspaceFileComments({
       modes={modes}
       regionAnchor={regionAnchor}
       sessionId={sessionId}
+      svg={svg}
       title={known.name}
       version={{ artifactId: known.artifact_id, version: known.version, sha256: known.sha256 }}
     >
