@@ -90,10 +90,13 @@ export function useSessionLiveStream({
     let resumeCursor = initialCursor;
     let reconcileBeforeConnect = false;
     const reconcileAfterDisconnect = async () => {
-      const [workspaces, sessions, transcript] = await Promise.all([
+      const [workspaces, sessions, transcript, surfaces] = await Promise.all([
         repository.workspaces(controller.signal),
         repository.sessionFamily(sessionId, controller.signal),
         repository.transcript(sessionId, controller.signal, { limit: TRANSCRIPT_PAGE_SIZE }),
+        // The surfaces route folds every part, so a surface whose creation is older than
+        // the transcript page, or that a background script feeds, is not lost on reconnect.
+        repository.surfaces(sessionId, controller.signal),
       ]);
       if (controller.signal.aborted) return;
       queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
@@ -107,7 +110,7 @@ export function useSessionLiveStream({
         tasks: recordById(transcript.tasks),
         subagents: recordById(transcript.subagents),
         artifacts: recordById(transcript.artifacts),
-        surfaces: recordById(transcript.surfaces),
+        surfaces: { ...recordById(transcript.surfaces), ...recordById(surfaces) },
         revisions: {},
       });
       resumeCursor = transcript.cursor ?? resumeCursor;
@@ -164,6 +167,7 @@ export function useSessionLiveStream({
                 workspaceId,
                 taskOwnerSessionId: taskUpdate?.owner_session_id,
                 taskInvocationId: taskUpdate?.invocation_id,
+                cursor: frame.cursor,
               }),
             );
             const notice = streamNoticeForFrame(frame);
@@ -364,6 +368,7 @@ function resourceInvalidationKeys(
 }
 
 interface QueryInvalidationEvent {
+  cursor?: string;
   taskOwnerSessionId?: string;
   taskInvocationId?: string;
   endpoint: string;
@@ -380,7 +385,11 @@ export function queryInvalidationKeysForEvent({
   workspaceId,
   taskOwnerSessionId,
   taskInvocationId,
+  cursor,
 }: QueryInvalidationEvent): QueryKey[] {
+  // A background script's live feed sends transient upserts (no cursor) every tick;
+  // they change a surface, never a pending interaction, so nothing is refetched.
+  if (eventName === 'a2ui.surface.upserted' && cursor === '') return [];
   const keys: QueryKey[] = [];
   if (eventName === 'task.updated' && taskOwnerSessionId === sessionId && taskInvocationId) {
     keys.push(queryKeys.transcript(endpoint, sessionId));

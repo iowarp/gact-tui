@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => {
   const repository = {
     stream: vi.fn(),
+    surfaces: vi.fn(),
     transcript: vi.fn(),
     workspaces: vi.fn(),
   };
@@ -80,6 +81,8 @@ describe('useSessionLiveStream resume recovery', () => {
     });
     mocks.repository.workspaces.mockReset();
     mocks.repository.workspaces.mockResolvedValue([]);
+    mocks.repository.surfaces.mockReset();
+    mocks.repository.surfaces.mockResolvedValue([]);
     mocks.queryClient.invalidateQueries.mockReset();
     mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
     mocks.resume = undefined;
@@ -507,6 +510,7 @@ describe('useSessionLiveStream resume recovery', () => {
     expect(mocks.storeState.reconcileSnapshots).toHaveBeenCalledWith(
       expect.objectContaining({ messages: {}, tools: {}, revisions: {} }),
     );
+    expect(mocks.repository.surfaces).toHaveBeenCalledWith('sess_1', expect.any(AbortSignal));
     await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(2), {
       timeout: 3_000,
     });
@@ -545,6 +549,53 @@ describe('useSessionLiveStream resume recovery', () => {
         workspaceId: 'ws_1',
       }),
     ).toContainEqual(['pending-interactions', 'http://127.0.0.1:8790']);
+  });
+
+  it('refetches nothing for a transient surface upsert from a live feed', () => {
+    const event = {
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'a2ui.surface.upserted',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+    };
+    expect(queryInvalidationKeysForEvent({ ...event, cursor: '' })).toEqual([]);
+    expect(queryInvalidationKeysForEvent({ ...event, cursor: '42' })).toContainEqual([
+      'pending-interactions',
+      'http://127.0.0.1:8790',
+    ]);
+  });
+
+  it('keeps a surface the transcript page no longer holds when reconnecting', async () => {
+    let attempt = 0;
+    mocks.repository.stream.mockImplementation(async function* (
+      _scope: unknown,
+      _cursor: unknown,
+      signal: AbortSignal,
+    ) {
+      attempt += 1;
+      if (attempt === 1) return;
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve();
+        else signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+      if (!signal.aborted) yield undefined;
+    });
+    const surface = { id: 'dash', surface_id: 'dash', session_id: 'sess_1' };
+    mocks.repository.surfaces.mockResolvedValue([surface]);
+    mocks.storeState.reconcileSnapshots.mockReset();
+
+    const { unmount } = renderHook(() =>
+      useSessionLiveStream({ enabled: true, sessionId: 'sess_1', workspaceId: 'ws_1' }),
+    );
+
+    await waitFor(
+      () =>
+        expect(mocks.storeState.reconcileSnapshots).toHaveBeenCalledWith(
+          expect.objectContaining({ surfaces: { dash: surface } }),
+        ),
+      { timeout: 3_000 },
+    );
+    unmount();
   });
 
   it('invalidates the unscoped questions query the workspace actually reads', async () => {

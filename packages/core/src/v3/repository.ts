@@ -4,6 +4,7 @@ import { sessionMetadataPatch, type SessionUpdateInput } from './session-metadat
 import { agentTaskRecordSchema } from './agent-task-domain.js';
 import type { AgentDelta } from './plugin-domain.js';
 import type {
+  A2UISurface,
   Artifact,
   ArtifactDetail,
   ArtifactLineage,
@@ -24,6 +25,7 @@ import type {
   UserQuestion,
 } from './domain.js';
 import {
+  a2uiSurfaceSchema,
   sessionSchema,
   turnAttemptSchema,
   workspaceSchema,
@@ -705,6 +707,17 @@ export class ClioRepository extends BrowserRepository {
       signal,
     });
     return decodeTranscript(value, signal);
+  }
+
+  /** Every surface of a conversation, folded from all its parts (reconnect catch-up). */
+  public async surfaces(sessionId: string, signal?: AbortSignal): Promise<A2UISurface[]> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/surfaces`,
+      decode: (value) =>
+        z.object({ surfaces: z.array(a2uiSurfaceSchema) }).passthrough().parse(value).surfaces,
+      signal,
+    });
   }
 
   public retryTurn(
