@@ -1,9 +1,10 @@
 import type { BrowserCertificate } from '@clio/core/v3';
-import { InfoIcon, ShieldAlertIcon } from 'lucide-react';
+import { ShieldAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 
 /** The certificate's facts, for the hover card and the screen reader. */
 function certificateFacts(certificate: BrowserCertificate): string[] {
