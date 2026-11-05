@@ -115,9 +115,13 @@ async function labelledPng(
   const scaleY = canvas.height / target.getBoundingClientRect().height;
   const targetRect = target.getBoundingClientRect();
   const mapCanvases = new Set<HTMLCanvasElement>();
-  for (const mapElement of target.querySelectorAll<MapDebugSurface>(
-    '[data-slot="a2ui-map-surface"]',
-  )) {
+  // The capture target can be the map surface itself, which querySelectorAll never returns.
+  const mapSelector = '[data-slot="a2ui-map-surface"]';
+  const mapElements = [
+    ...(target.matches(mapSelector) ? [target as MapDebugSurface] : []),
+    ...target.querySelectorAll<MapDebugSurface>(mapSelector),
+  ];
+  for (const mapElement of mapElements) {
     const mapCanvas = mapElement.querySelector<HTMLCanvasElement>('canvas.maplibregl-canvas');
     if (!mapCanvas || !mapCanvas.getBoundingClientRect().width) continue;
     mapCanvases.add(mapCanvas);
