@@ -31,6 +31,8 @@ import { ToolAttentionField } from './tool-attention-fields';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import { ToolCompactRow } from './tool-compact-row';
 import { useToolDuration } from './use-tool-duration';
+import { sandboxBoundary } from './sandbox-boundary';
+import { SandboxBoundaryBadge } from './sandbox-boundary-notice';
 import { formatDuration } from '@/lib/format';
 import { withTaskWaitPresentation } from './task-wait-presentation';
 import { withTodoPresentation } from './todo-tool-presentation';
@@ -74,6 +76,7 @@ export function ClioToolInvocation({
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [resultOpen, setResultOpen] = useState(() => INLINE_MEMORY_TOOLS.has(tool?.name ?? ''));
   const duration = useToolDuration(tool);
+  const boundary = sandboxBoundary(tool?.output);
   useEffect(() => {
     let frame = 0;
     const inspect = () => {
@@ -180,8 +183,13 @@ export function ClioToolInvocation({
                 duration={duration}
                 surface={surface}
                 attention={
-                  attention ? (
-                    <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
+                  attention || boundary ? (
+                    <>
+                      {boundary ? <SandboxBoundaryBadge boundary={boundary} /> : null}
+                      {attention ? (
+                        <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
+                      ) : null}
+                    </>
                   ) : null
                 }
               />

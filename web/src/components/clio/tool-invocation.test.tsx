@@ -680,3 +680,25 @@ describe('ClioToolInvocation content and subject rendering', () => {
     expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
   });
 });
+
+it('marks a call the sandbox blocked on its compact row (#1905)', () => {
+  const tool = {
+    id: 'blocked-copy',
+    session_id: 's',
+    name: 'shell_bash',
+    state: 'failed' as const,
+    output: {
+      exit_code: 1,
+      boundary: {
+        kind: 'write_denied',
+        confidence: 'confirmed',
+        paths: ['/home/ada/Desktop/notes.txt'],
+        request_roots: ['/home/ada/Desktop'],
+        message: "CLIO's sandbox blocked this write.",
+      },
+    },
+    presentation: { action: 'Run', summary: '', blocks: [] },
+  };
+  render(<ClioToolInvocation compact tool={tool} />);
+  expect(screen.getByText('Sandbox: Desktop')).toBeVisible();
+});

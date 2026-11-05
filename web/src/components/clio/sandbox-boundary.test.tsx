@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sandboxBoundary } from './sandbox-boundary';
-import { SandboxBoundaryNotice } from './sandbox-boundary-notice';
+import { SandboxBoundaryBadge, SandboxBoundaryNotice } from './sandbox-boundary-notice';
 import { PresentationNavigation } from './presentation-navigation';
 
 const repository = vi.hoisted(() => ({ grantWorkspaceFolder: vi.fn(async () => ({})) }));
@@ -60,4 +60,9 @@ describe('SandboxBoundaryNotice', () => {
     expect(screen.getByText('Needs administrator rights')).toBeVisible();
     expect(screen.queryByRole('button', { name: /^Allow/u })).toBeNull();
   });
+});
+
+it('marks a blocked call row with the folder in words', () => {
+  render(<SandboxBoundaryBadge boundary={sandboxBoundary({ boundary: denied })!} />);
+  expect(screen.getByText('Sandbox: Desktop')).toBeVisible();
 });
