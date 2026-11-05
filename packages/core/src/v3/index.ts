@@ -37,6 +37,7 @@ export * from './execution-provenance-repository.js';
 export * from './execution-provenance-schemas.js';
 export * from './event-types.js';
 export * from './comment-repository.js';
+export * from './latex-repository.js';
 export * from './document-repository.js';
 export * from './mcp-repository.js';
 export * from './fleet-repository.js';

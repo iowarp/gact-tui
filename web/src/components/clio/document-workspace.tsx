@@ -15,6 +15,7 @@ import {
 import { CommentThreadList } from './comments/comment-thread-list';
 import { pdfRegionAnchor } from './comments/region-anchors';
 import { HtmlFileInBrowser } from './html-in-browser';
+import { LatexWorkspace } from './latex-workspace';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { badgeVariants } from '@/components/reui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -205,7 +206,7 @@ export function ClioDocumentWorkspace({
           : artifact.name.toLowerCase().endsWith('.tex')
             ? 'latex'
             : undefined;
-  const activeView = sourceProfile === 'latex' && documentView === 'preview' ? 'raw' : documentView;
+  const activeView = documentView;
 
   return withComments(
     commentSurface,
@@ -367,43 +368,50 @@ export function ClioDocumentWorkspace({
           aria-labelledby={undefined}
         >
           <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={previewRef}>
-            <CommentCapture
-              regionAnchor={effectiveManifest?.profile === 'pdf' ? pdfRegionAnchor : undefined}
-              sourcePath={effectiveManifest?.name}
-            >
-              <DocumentPreview
-                content={content.data}
-                fallback={
-                  sourceProfile === 'html-static' && textContent !== undefined ? (
-                    <HtmlFileInBrowser
-                      artifactId={artifact.id}
-                      content={textContent}
-                      name={artifact.name}
-                      openOnShow
-                    />
-                  ) : (
-                    fallbackPreview
-                  )
-                }
-                fit="page"
-                manifest={effectiveManifest}
-                previewError={
-                  (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
-                  (effectiveManifest?.profile === 'pdf' ? content.error?.message : undefined)
-                }
-                previewPending={needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)}
-                previewLabel={
-                  manifest.data?.pdf_rendition_artifact_id
-                    ? 'Loading PDF preview…'
-                    : 'Rendering PDF preview…'
-                }
-                onRetryPreview={() => {
-                  if (pdfPreview.isError) void pdfPreview.refetch();
-                  else void content.refetch();
-                }}
-                text={textContent}
-              />
-            </CommentCapture>
+            {sourceProfile === 'latex' ? (
+              // A paper: source and compiled PDF side by side, built by the server.
+              <LatexWorkspace artifactId={artifact.id} sessionId={artifact.session_id ?? ''} />
+            ) : (
+              <CommentCapture
+                regionAnchor={effectiveManifest?.profile === 'pdf' ? pdfRegionAnchor : undefined}
+                sourcePath={effectiveManifest?.name}
+              >
+                <DocumentPreview
+                  content={content.data}
+                  fallback={
+                    sourceProfile === 'html-static' && textContent !== undefined ? (
+                      <HtmlFileInBrowser
+                        artifactId={artifact.id}
+                        content={textContent}
+                        name={artifact.name}
+                        openOnShow
+                      />
+                    ) : (
+                      fallbackPreview
+                    )
+                  }
+                  fit="page"
+                  manifest={effectiveManifest}
+                  previewError={
+                    (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
+                    (effectiveManifest?.profile === 'pdf' ? content.error?.message : undefined)
+                  }
+                  previewPending={
+                    needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)
+                  }
+                  previewLabel={
+                    manifest.data?.pdf_rendition_artifact_id
+                      ? 'Loading PDF preview…'
+                      : 'Rendering PDF preview…'
+                  }
+                  onRetryPreview={() => {
+                    if (pdfPreview.isError) void pdfPreview.refetch();
+                    else void content.refetch();
+                  }}
+                  text={textContent}
+                />
+              </CommentCapture>
+            )}
           </div>
         </TabsContent>
         {sourceProfile ? (

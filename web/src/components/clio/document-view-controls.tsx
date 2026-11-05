@@ -28,9 +28,11 @@ export function DocumentViewControls({
   onChange: (view: string) => void;
 }) {
   const views = [
-    ...(!latex
-      ? [{ value: 'preview', label: html ? 'HTML preview' : 'Read document', icon: BookOpenIcon }]
-      : []),
+    {
+      value: 'preview',
+      label: latex ? 'Paper' : html ? 'HTML preview' : 'Read document',
+      icon: BookOpenIcon,
+    },
     ...(markdown || html || latex ? [{ value: 'raw', label: 'Source', icon: FileCode2Icon }] : []),
   ];
   const registry = useContext(FileViewerActionRegistry);

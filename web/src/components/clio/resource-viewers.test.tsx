@@ -17,6 +17,8 @@ const { repository } = vi.hoisted(() => ({
     readWorkspaceFileBytes: vi.fn(),
     workspaceFiles: vi.fn(),
     openBrowserFile: vi.fn(),
+    commentTarget: vi.fn(),
+    createCommentTarget: vi.fn(),
     // No x_clio_hdf5_viewer unless a test grants it: HDF5 then opens as binary.
     capabilities: vi.fn(),
   },
@@ -400,6 +402,52 @@ describe('WorkspaceFileView', () => {
     expect(screen.getAllByRole('button', { name: 'Download file' })).toHaveLength(1);
     expect(screen.queryByTitle('HDF5 viewer: data/run.h5')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+  });
+
+  it('shows a .tex listed as a generic binary as its source, not as a binary file', async () => {
+    repository.readWorkspaceFile.mockResolvedValue('\\section{Scaling}\nText.');
+    renderFile(
+      <WorkspaceFileView
+        mediaType="application/octet-stream"
+        path="paper/sections/eval.tex"
+        workspaceId="workspace_1"
+      />,
+    );
+    expect(await screen.findByText(/\\section\{Scaling\}/u)).toBeTruthy();
+    expect(screen.queryByText(/No inline preview/u)).toBeNull();
+  });
+
+  it('offers to build a paper entry opened in a conversation before it is an artifact', async () => {
+    repository.readWorkspaceFile.mockResolvedValue(
+      '\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}',
+    );
+    repository.commentTarget.mockResolvedValue(null);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/sessions/sess_1']}>
+          <Routes>
+            <Route
+              element={
+                <WorkspaceFileView
+                  mediaType="application/x-tex"
+                  path="paper/main.tex"
+                  workspaceId="workspace_1"
+                />
+              }
+              path="/sessions/:sessionId"
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('button', { name: 'Build this paper' })).toBeTruthy();
+    expect(await screen.findByText(/\\documentclass\{article\}/u)).toBeTruthy();
+    expect(repository.commentTarget).toHaveBeenCalledWith(
+      'workspace_1',
+      'paper/main.tex',
+      expect.anything(),
+    );
   });
 
   it('aborts the previous text preview when selection changes', async () => {

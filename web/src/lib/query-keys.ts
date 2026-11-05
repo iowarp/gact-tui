@@ -25,6 +25,7 @@ export type ClioQueryNamespace =
   | 'document-editor-health'
   | 'comment-crop'
   | 'comment-threads'
+  | 'latex-report'
   | 'document-manifest'
   | 'document-pdf'
   | 'execution-provenance'

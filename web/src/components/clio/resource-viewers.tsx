@@ -44,6 +44,7 @@ import {
 import { ClioDocumentWorkspace } from './document-workspace';
 
 import { HtmlFileInBrowser } from './html-in-browser';
+import { LatexFileWorkspace } from './latex-workspace';
 import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
@@ -75,7 +76,10 @@ export function WorkspaceFileView({
   /** The enclosing tool-result card already owns the file identity. */
   embedded?: boolean;
 }) {
-  const detected = mediaType || inferredWorkspaceMediaType(path);
+  // A listing's generic octet-stream says nothing: the name decides (a .tex is text).
+  const detected =
+    (mediaType && mediaType !== 'application/octet-stream' ? mediaType : '') ||
+    inferredWorkspaceMediaType(path);
   const hdf5Viewer = useHdf5ViewerSupported();
   const html =
     detected !== 'application/pdf' && !detected.startsWith('image/') && isHtmlFile(path, detected);
@@ -210,6 +214,13 @@ function WorkspaceTextView({
   // Documents take text comments in the file view too (ledger FB22): Markdown and LaTeX.
   const format = textFileFormat(path, mediaType);
   if (format !== 'markdown' && !path.toLowerCase().endsWith('.tex')) return view;
+  // A paper's entry file (it has \documentclass) opens as the LaTeX workspace.
+  if (path.toLowerCase().endsWith('.tex') && /^[^%\n]*\\documentclass/mu.test(content.data ?? ''))
+    return (
+      <WorkspaceFileComments modes={['text', 'region']} path={path} workspaceId={workspaceId}>
+        <LatexFileWorkspace fallback={view} path={path} workspaceId={workspaceId} />
+      </WorkspaceFileComments>
+    );
   return (
     <WorkspaceFileComments modes={['text']} path={path} workspaceId={workspaceId}>
       {view}
@@ -603,6 +614,13 @@ function isTextArtifact(mediaType: string, name: string): boolean {
       'txt',
       'yaml',
       'yml',
+      // LaTeX sources: a paper's .tex opens as the LaTeX workspace; the rest as text.
+      'tex',
+      'ltx',
+      'bib',
+      'bst',
+      'cls',
+      'sty',
     ].includes(name.split('.').at(-1)?.toLowerCase() ?? '')
   );
 }
