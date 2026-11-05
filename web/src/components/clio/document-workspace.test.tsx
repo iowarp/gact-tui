@@ -499,6 +499,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     selection?.addRange(range);
     fireEvent.mouseUp(claim);
     await user.type(screen.getByRole('textbox', { name: 'Comment for S1' }), 'Verify this.');
+    await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: 'Send 1 comment' }));
 
     expect(repository.sendCommentSession).toHaveBeenCalledWith(

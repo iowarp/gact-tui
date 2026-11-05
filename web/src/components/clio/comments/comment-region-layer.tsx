@@ -21,11 +21,14 @@ export function CommentRegionLayer({
   capturing,
   marks,
   onRegion,
+  onOpenMark,
   label,
 }: {
   capturing: boolean;
   marks: readonly LayerMark[];
   onRegion: (rect: Rect) => void;
+  /** Open a mark's editor from its box on the view, as on an A2UI surface. */
+  onOpenMark?: (label: string) => void;
   label: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -78,25 +81,42 @@ export function CommentRegionLayer({
         touchAction: capturing ? 'none' : undefined,
       }}
     >
-      {[...marks, ...(draft ? [{ label: '', rect: draft }] : [])].map((mark) => (
-        <div
-          className="pointer-events-none absolute border-2 border-primary bg-primary/10"
-          data-mark-label={mark.label || undefined}
-          key={mark.label || 'draft'}
-          style={{
-            left: `${mark.rect[0] * 100}%`,
-            top: `${mark.rect[1] * 100}%`,
-            width: `${mark.rect[2] * 100}%`,
-            height: `${mark.rect[3] * 100}%`,
-          }}
-        >
-          {mark.label ? (
-            <span className="absolute -top-5 left-0 rounded-t bg-primary px-1.5 text-xs font-bold text-primary-foreground">
-              {mark.label}
-            </span>
-          ) : null}
-        </div>
-      ))}
+      {[...marks, ...(draft ? [{ label: '', rect: draft }] : [])].map((mark) => {
+        const style = {
+          left: `${mark.rect[0] * 100}%`,
+          top: `${mark.rect[1] * 100}%`,
+          width: `${mark.rect[2] * 100}%`,
+          height: `${mark.rect[3] * 100}%`,
+        };
+        const badge = mark.label ? (
+          <span className="absolute -top-5 left-0 rounded-t bg-primary px-1.5 text-xs font-bold text-primary-foreground">
+            {mark.label}
+          </span>
+        ) : null;
+        return mark.label && onOpenMark ? (
+          <button
+            aria-label={`Edit ${mark.label}`}
+            className="absolute border-2 border-primary bg-primary/10"
+            data-mark-label={mark.label}
+            key={mark.label}
+            onClick={() => onOpenMark(mark.label)}
+            onPointerDown={(event) => event.stopPropagation()}
+            style={{ ...style, pointerEvents: 'auto' }}
+            type="button"
+          >
+            {badge}
+          </button>
+        ) : (
+          <div
+            className="pointer-events-none absolute border-2 border-primary bg-primary/10"
+            data-mark-label={mark.label || undefined}
+            key={mark.label || 'draft'}
+            style={style}
+          >
+            {badge}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -85,6 +85,7 @@ describe('comments on a browser page', () => {
     expect(screen.queryByRole('textbox', { name: 'Comment for S2' })).toBeNull(); // another page's pick
 
     await user.type(screen.getByRole('textbox', { name: 'Comment for S1' }), 'Make this larger.');
+    await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: /Add 1 mark to message/u }));
     expect(sent.at(-1)).toEqual({ type: 'pick.stop' });
     expect(attached).toHaveLength(1);

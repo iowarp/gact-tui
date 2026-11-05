@@ -6,6 +6,10 @@ import { CommentRegionLayer, type Rect } from './comment-region-layer';
 import { useCommentSession } from './comment-session';
 import { textQuoteFromSelection } from './text-anchor';
 
+function screenBox(rect: DOMRect) {
+  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+}
+
 /** The toolbar control that opens and closes the surface's comment session. */
 export function CommentToggle({ className }: { className?: string }) {
   const session = useCommentSession();
@@ -14,13 +18,13 @@ export function CommentToggle({ className }: { className?: string }) {
   const count = session.marks.length;
   return (
     <Button
-      aria-pressed={session.active}
+      aria-pressed={session.open}
       className={className}
       data-comment-toggle="true"
-      onClick={() => (session.active ? session.stop() : session.start())}
+      onClick={() => (session.open ? session.stop() : session.start())}
       size="sm"
       type="button"
-      variant={session.active ? 'secondary' : 'ghost'}
+      variant={session.open ? 'secondary' : 'ghost'}
     >
       <MessageSquarePlusIcon aria-hidden="true" />
       <span className="@max-[520px]/viewer:sr-only">Comment</span>
@@ -54,9 +58,17 @@ export function CommentCapture({
     if (!textMode || !host.current) return;
     const anchor = textQuoteFromSelection(host.current);
     if (!anchor) return;
-    session!.addMark(sourcePath ? { ...anchor, source_path: sourcePath } : anchor);
+    const range = window.getSelection()?.rangeCount ? window.getSelection()!.getRangeAt(0) : undefined;
+    const selected =
+      typeof range?.getBoundingClientRect === 'function' ? range.getBoundingClientRect() : undefined;
+    session!.addMark(sourcePath ? { ...anchor, source_path: sourcePath } : anchor, {
+      box: selected ? screenBox(selected) : undefined,
+    });
     window.getSelection()?.removeAllRanges();
   };
+  const shown = session?.open
+    ? session.marks.flatMap((mark) => (mark.view ? [{ label: mark.label, rect: mark.view }] : []))
+    : [];
   return (
     <div
       className={className ?? 'relative h-full min-h-0 min-w-0'}
@@ -69,14 +81,25 @@ export function CommentCapture({
       ref={host}
     >
       {children}
-      {regionMode ? (
+      {regionMode || shown.length ? (
         <CommentRegionLayer
-          capturing
+          capturing={regionMode}
           label="Drag to mark a region"
-          marks={[]}
+          marks={shown}
+          onOpenMark={session?.setEditing}
           onRegion={(rect) => {
             const anchor = regionAnchor?.(rect, host.current!);
-            if (anchor) session!.addMark(anchor);
+            if (!anchor) return;
+            const at = host.current!.getBoundingClientRect();
+            session!.addMark(anchor, {
+              view: rect,
+              box: {
+                left: at.left + rect[0] * at.width,
+                top: at.top + rect[1] * at.height,
+                width: rect[2] * at.width,
+                height: rect[3] * at.height,
+              },
+            });
           }}
         />
       ) : null}

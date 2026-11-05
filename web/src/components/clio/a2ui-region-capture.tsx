@@ -10,8 +10,8 @@ export type { CaptureSurface } from './a2ui-region-evidence';
 import { attachCommentSession } from './comments/comment-model';
 import { a2uiAttachment } from './comments/a2ui-attachment';
 import { getFontEmbedCSS, toCanvas } from 'html-to-image';
-import { CheckIcon, GripVerticalIcon, ListIcon, SendIcon } from 'lucide-react';
-import { CloseIcon, DeleteIcon } from '@/lib/icon-vocabulary';
+import { CommentControls } from './comments/comment-controls';
+import { CommentEditor, type ScreenBox } from './comments/comment-editor';
 import {
   createContext,
   useContext,
@@ -28,7 +28,6 @@ import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { useModelImageInput } from '@/lib/model-image-input';
 import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
-import { RegionCoordinateInputs } from './region-coordinate-inputs';
 import { imageAttentionRegion } from '@/lib/a2ui/attention-selection-coordinates';
 import { InfoTip } from './info-tip';
 import { mapPngBlob } from './map-export';
@@ -47,6 +46,16 @@ export const A2uiRegionCaptureContext = createContext<CaptureContext | undefined
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+/** A region shown on the surface, in client pixels: where its editor opens. */
+function screenBox(bounds: DOMRect, region: Omit<Region, 'id' | 'comment'>): ScreenBox {
+  return {
+    left: bounds.left + region.x * bounds.width,
+    top: bounds.top + region.y * bounds.height,
+    width: region.width * bounds.width,
+    height: region.height * bounds.height,
+  };
 }
 
 function regionRect(region: Region, bounds: DOMRect): CSSProperties {
@@ -228,18 +237,13 @@ export function A2uiRegionCaptureProvider({
   const [regions, setRegions] = useState<Region[]>([]);
   const [draft, setDraft] = useState<Region>();
   const [editingId, setEditingId] = useState<string>();
-  const [editText, setEditText] = useState('');
   const [selecting, setSelecting] = useState(false);
-  const [listOpen, setListOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [controlPosition, setControlPosition] = useState<{ x: number; y: number }>();
   const nextId = useRef(1);
   const dragStart = useRef<{ x: number; y: number } | undefined>(undefined);
   const draftRef = useRef<Region | undefined>(undefined);
-  const controlDrag = useRef<{ x: number; y: number; left: number; top: number } | undefined>(
-    undefined,
-  );
   const start = useCallback(
     (next: CaptureTarget) => {
       if (!allowed) return;
@@ -404,7 +408,6 @@ export function A2uiRegionCaptureProvider({
     ]);
     nextId.current += 1;
     setEditingId(finished.id);
-    setEditText('');
     setDraft(undefined);
   };
   const close = () => {
@@ -413,14 +416,6 @@ export function A2uiRegionCaptureProvider({
     setSelecting(false);
     setEditingId(undefined);
     setError('');
-  };
-  const done = () => {
-    setRegions((current) =>
-      current.map((region) =>
-        region.id === editingId ? { ...region, comment: editText.trim() } : region,
-      ),
-    );
-    setEditingId(undefined);
   };
   const send = async () => {
     if (!target || !regions.length || busy) return;
@@ -473,10 +468,7 @@ export function A2uiRegionCaptureProvider({
                   aria-label={`Edit ${region.id} region${region.comment ? `: ${region.comment}` : ''}`}
                   className="absolute border-2 border-primary bg-primary/10 text-left"
                   key={region.id}
-                  onClick={() => {
-                    setEditingId(region.id);
-                    setEditText(region.comment);
-                  }}
+                  onClick={() => setEditingId(region.id)}
                   onPointerDown={(event) => event.stopPropagation()}
                   style={{ ...regionRect(shown, bounds), pointerEvents: 'auto' }}
                   type="button"
@@ -497,135 +489,42 @@ export function A2uiRegionCaptureProvider({
         bounds &&
         createPortal(
           <>
-            <div
-              className="fixed z-40 w-64 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg"
-              data-capture-ui="true"
-              style={{ left: controlPosition?.x ?? 8, top: controlPosition?.y ?? 8 }}
+            <CommentControls
+              addRegionDisabled={regions.length >= 32}
+              busy={busy}
+              error={error}
+              hint="Drag over the surface to add a region."
+              initialPosition={controlPosition}
+              key={controlPosition ? `${controlPosition.x}:${controlPosition.y}` : 'controls'}
+              marks={regions.map((region) => ({ label: region.id, comment: region.comment }))}
+              onAddRegion={() => {
+                const region: Region = {
+                  id: `S${nextId.current++}`,
+                  x: 0.25,
+                  y: 0.25,
+                  width: 0.5,
+                  height: 0.5,
+                  comment: '',
+                };
+                setRegions((current) => [
+                  ...current,
+                  { ...region, geographicBounds: geographicBounds(target.element, region) },
+                ]);
+                setEditingId(region.id);
+              }}
+              onClose={close}
+              onOpenMark={setEditingId}
+              onSend={() => void send()}
+              onToggleSelect={() => setSelecting((active) => !active)}
+              selecting={selecting}
+              sendDisabled={!!editingId}
+              sendLabel={
+                allowDemoCapture || acceptsImages
+                  ? `Add ${regions.length} ${regions.length === 1 ? 'mark' : 'marks'} to message`
+                  : undefined
+              }
+              title={target.title}
             >
-              <div className="flex items-center gap-1">
-                <button
-                  aria-label="Move capture controls"
-                  className="cursor-move rounded p-1 text-muted-foreground hover:bg-muted"
-                  onPointerDown={(event) => {
-                    controlDrag.current = {
-                      x: event.clientX,
-                      y: event.clientY,
-                      left: controlPosition?.x ?? 8,
-                      top: controlPosition?.y ?? 8,
-                    };
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                  }}
-                  onPointerMove={(event) => {
-                    if (controlDrag.current)
-                      setControlPosition({
-                        x: clamp(
-                          controlDrag.current.left + event.clientX - controlDrag.current.x,
-                          0,
-                          window.innerWidth - 250,
-                        ),
-                        y: clamp(
-                          controlDrag.current.top + event.clientY - controlDrag.current.y,
-                          0,
-                          window.innerHeight - 60,
-                        ),
-                      });
-                  }}
-                  onPointerUp={() => {
-                    controlDrag.current = undefined;
-                  }}
-                  type="button"
-                >
-                  <GripVerticalIcon aria-hidden="true" className="size-4" />
-                </button>
-                <Button
-                  aria-pressed={selecting}
-                  onClick={() => {
-                    window.getSelection()?.removeAllRanges();
-                    setSelecting((active) => !active);
-                  }}
-                  size="sm"
-                  variant={selecting ? 'secondary' : 'ghost'}
-                >
-                  Select
-                </Button>
-                <Button
-                  aria-label="Selections list"
-                  aria-expanded={listOpen}
-                  onClick={() => setListOpen((open) => !open)}
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <ListIcon aria-hidden="true" className="size-4" />
-                </Button>
-                <Button
-                  aria-label="Close capture"
-                  className="ml-auto"
-                  onClick={close}
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <CloseIcon aria-hidden="true" className="size-4" />
-                </Button>
-              </div>
-              <Button
-                className="mt-2 w-full"
-                size="sm"
-                variant="outline"
-                disabled={busy || regions.length >= 32}
-                onClick={() => {
-                  const region: Region = {
-                    id: `S${nextId.current++}`,
-                    x: 0.25,
-                    y: 0.25,
-                    width: 0.5,
-                    height: 0.5,
-                    comment: '',
-                  };
-                  setRegions((current) => [
-                    ...current,
-                    { ...region, geographicBounds: geographicBounds(target.element, region) },
-                  ]);
-                  setEditingId(region.id);
-                  setEditText('');
-                }}
-              >
-                Add region
-              </Button>
-              {listOpen ? (
-                <div className="mt-2 max-h-44 space-y-1 overflow-auto border-t pt-2 text-xs">
-                  {regions.length ? (
-                    regions.map((region) => (
-                      <button
-                        className="block w-full truncate rounded p-1 text-left hover:bg-muted"
-                        key={region.id}
-                        onClick={() => {
-                          setEditingId(region.id);
-                          setEditText(region.comment);
-                        }}
-                        type="button"
-                      >
-                        {region.id}: {region.comment || 'Add a comment'}
-                      </button>
-                    ))
-                  ) : (
-                    <p className="text-muted-foreground">Drag over the surface to add a region.</p>
-                  )}
-                </div>
-              ) : null}
-              {regions.length && (allowDemoCapture || acceptsImages) ? (
-                <Button
-                  className="mt-2 w-full"
-                  disabled={busy || !!editingId}
-                  onClick={() => void send()}
-                  size="sm"
-                  type="button"
-                >
-                  <SendIcon aria-hidden="true" className="size-3.5" />
-                  {busy
-                    ? 'Capturing…'
-                    : `Add ${regions.length} ${regions.length === 1 ? 'mark' : 'marks'} to message`}
-                </Button>
-              ) : null}
               {attention && regions.length ? (
                 <div className="mt-2 flex items-center gap-2">
                   <Button
@@ -678,43 +577,13 @@ export function A2uiRegionCaptureProvider({
                   </InfoTip>
                 </div>
               ) : null}
-              {error ? (
-                <p className="mt-2 text-xs text-destructive" role="alert">
-                  {error}
-                </p>
-              ) : null}
-            </div>
+            </CommentControls>
             {editorRegion ? (
-              <div
-                className="fixed z-40 max-h-[calc(100dvh-1rem)] w-[min(26rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl"
-                data-capture-ui="true"
-                style={{
-                  left: clamp(
-                    bounds.left +
-                      (displayedRegion(target.element, editorRegion).x +
-                        displayedRegion(target.element, editorRegion).width) *
-                        bounds.width -
-                      260,
-                    8,
-                    Math.max(8, window.innerWidth - 424),
-                  ),
-                  top: clamp(
-                    bounds.top +
-                      (displayedRegion(target.element, editorRegion).y +
-                        displayedRegion(target.element, editorRegion).height) *
-                        bounds.height +
-                      12,
-                    8,
-                    Math.max(8, window.innerHeight - 340),
-                  ),
-                }}
-              >
-                <p className="mb-2 text-sm font-semibold">
-                  {editorRegion.id} — {target.title}
-                </p>
-                <RegionCoordinateInputs
-                  box={displayedRegion(target.element, editorRegion)}
-                  onChange={(box) =>
+              <CommentEditor
+                comment={editorRegion.comment}
+                coordinates={{
+                  box: displayedRegion(target.element, editorRegion),
+                  onChange: (box) =>
                     setRegions((current) =>
                       current.map((region) =>
                         region.id === editorRegion.id
@@ -725,48 +594,26 @@ export function A2uiRegionCaptureProvider({
                             }
                           : region,
                       ),
-                    )
-                  }
-                />
-                <textarea
-                  autoFocus
-                  aria-label={`Comment for ${editorRegion.id}`}
-                  className="min-h-28 w-full resize-y rounded-md border bg-background p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  onChange={(event) => setEditText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') setEditingId(undefined);
-                    else if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      done();
-                    }
-                  }}
-                  placeholder="What should the agent notice here?"
-                  value={editText}
-                />
-                <div className="mt-2 flex justify-end gap-2">
-                  <Button
-                    aria-label={`Delete ${editorRegion.id}`}
-                    className="mr-auto"
-                    onClick={() => {
-                      setRegions((current) =>
-                        current.filter((region) => region.id !== editorRegion.id),
-                      );
-                      setEditingId(undefined);
-                    }}
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <DeleteIcon aria-hidden="true" className="size-4" />
-                  </Button>
-                  <Button onClick={() => setEditingId(undefined)} size="sm" variant="ghost">
-                    Cancel
-                  </Button>
-                  <Button onClick={done} size="sm">
-                    <CheckIcon aria-hidden="true" className="size-4" />
-                    Done
-                  </Button>
-                </div>
-              </div>
+                    ),
+                }}
+                key={editorRegion.id}
+                label={editorRegion.id}
+                near={screenBox(bounds, displayedRegion(target.element, editorRegion))}
+                onCancel={() => setEditingId(undefined)}
+                onDelete={() => {
+                  setRegions((current) => current.filter((region) => region.id !== editorRegion.id));
+                  setEditingId(undefined);
+                }}
+                onDone={(comment) => {
+                  setRegions((current) =>
+                    current.map((region) =>
+                      region.id === editorRegion.id ? { ...region, comment } : region,
+                    ),
+                  );
+                  setEditingId(undefined);
+                }}
+                title={target.title}
+              />
             ) : null}
           </>,
           target.element.closest('[data-slot="dialog-content"]') ?? document.body,

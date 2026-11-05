@@ -95,9 +95,15 @@ export function BrowserRegionCapture({
 }) {
   const session = useCommentSession();
   const host = useRef<HTMLDivElement>(null);
-  if (!session?.active || session.mode !== 'region' || !state) return null;
+  const capturing = Boolean(session?.active && session.mode === 'region' && state);
+  const shown = session?.open
+    ? session.marks.flatMap((mark) => (mark.view ? [{ label: mark.label, rect: mark.view }] : []))
+    : [];
+  if (!session || !state || (!capturing && !shown.length)) return null;
   const viewport: Viewport = state.viewport;
-  const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
+  const stop = (event: { stopPropagation: () => void }) => {
+    if (capturing) event.stopPropagation();
+  };
   return (
     <div
       className="absolute inset-0"
@@ -106,11 +112,13 @@ export function BrowserRegionCapture({
       onPointerUp={stop}
       ref={host}
       role="presentation"
+      style={{ pointerEvents: capturing ? 'auto' : 'none' }}
     >
       <CommentRegionLayer
-        capturing
+        capturing={capturing}
         label="Drag over the page to mark a region"
-        marks={[]}
+        marks={shown}
+        onOpenMark={session.setEditing}
         onRegion={(rect) => {
           const box = host.current?.getBoundingClientRect();
           const normal = box ? frameRect(rect, box, viewport) : null;
@@ -123,7 +131,17 @@ export function BrowserRegionCapture({
             viewport_width: viewport.width,
             source: { page: { id: page.id, url: page.url, title: page.title } },
           };
-          session.addMark(anchor);
+          session.addMark(anchor, {
+            view: rect,
+            box: box
+              ? {
+                  left: box.left + rect[0] * box.width,
+                  top: box.top + rect[1] * box.height,
+                  width: rect[2] * box.width,
+                  height: rect[3] * box.height,
+                }
+              : undefined,
+          });
         }}
       />
     </div>

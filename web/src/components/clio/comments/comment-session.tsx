@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
@@ -22,11 +23,22 @@ import {
   nextLabel,
   type CommentSurface,
   type DraftMark,
+  type MarkPlace,
 } from './comment-model';
-import { CommentPanel } from './comment-panel';
+import { CommentControls } from './comment-controls';
+import { CommentEditor } from './comment-editor';
+
+const HINTS: Record<CommentMode, string> = {
+  text: 'Select text to mark it.',
+  region: 'Drag over the view to mark a region.',
+  element: 'Click an element to pick it.',
+};
 
 export interface CommentSessionValue {
   surface: CommentSurface;
+  /** The comment controls are shown. */
+  open: boolean;
+  /** Select is on: the next selection, drag or pick becomes a mark. */
   active: boolean;
   mode: CommentMode;
   setMode: (mode: CommentMode) => void;
@@ -35,7 +47,8 @@ export interface CommentSessionValue {
   setEditing: (label?: string) => void;
   start: () => void;
   stop: () => void;
-  addMark: (anchor: DocumentAnchor, preview?: string) => string;
+  toggleSelect: () => void;
+  addMark: (anchor: DocumentAnchor, place?: MarkPlace) => string;
   updateMark: (label: string, patch: Partial<DraftMark>) => void;
   removeMark: (label: string) => void;
   send: () => Promise<void>;
@@ -82,6 +95,7 @@ export function CommentSessionProvider({
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const destination = surface.destination;
+  const [open, setOpen] = useState(initiallyActive);
   const [active, setActive] = useState(initiallyActive);
   const [mode, setMode] = useState<CommentMode>(surface.defaultMode);
   const [marks, setMarks] = useState<DraftMark[]>([]);
@@ -124,29 +138,29 @@ export function CommentSessionProvider({
 
   const floor = labelNumber(threads.data?.next_label) || 1;
   const addMark = useCallback(
-    (anchor: DocumentAnchor, preview?: string) => {
-      let label = '';
-      setMarks((current) => {
-        label = nextLabel(
-          current.map((mark) => mark.label),
-          floor,
-        );
-        return [
-          ...current,
-          {
-            label,
-            mode: anchorMode(anchor),
-            anchor,
-            comment: '',
-            sendToAgent: true,
-            preview: preview ?? anchorPreview(anchor),
-          },
-        ];
-      });
+    (anchor: DocumentAnchor, place: MarkPlace = {}) => {
+      // The label is chosen here, not in the state update, so the new mark's editor opens.
+      const label = nextLabel(
+        marks.map((mark) => mark.label),
+        floor,
+      );
+      const mark: DraftMark = {
+        label,
+        mode: anchorMode(anchor),
+        anchor,
+        comment: '',
+        sendToAgent: true,
+        preview: place.preview ?? anchorPreview(anchor),
+        box: place.box,
+        view: place.view,
+      };
+      setMarks((current) =>
+        current.some((existing) => existing.label === label) ? current : [...current, mark],
+      );
       setEditing(label);
       return label;
     },
-    [floor],
+    [floor, marks],
   );
   const updateMark = useCallback((label: string, patch: Partial<DraftMark>) => {
     setMarks((current) => current.map((mark) => (mark.label === label ? { ...mark, ...patch } : mark)));
@@ -175,6 +189,7 @@ export function CommentSessionProvider({
   );
 
   const stop = useCallback(() => {
+    setOpen(false);
     setActive(false);
     setEditing(undefined);
     if (destination.kind === 'artifact') {
@@ -223,6 +238,7 @@ export function CommentSessionProvider({
         });
       }
       setMarks([]);
+      setOpen(false);
       setActive(false);
       setEditing(undefined);
       onSent?.();
@@ -236,6 +252,7 @@ export function CommentSessionProvider({
   const value = useMemo<CommentSessionValue>(
     () => ({
       surface,
+      open,
       active,
       mode,
       setMode,
@@ -244,9 +261,11 @@ export function CommentSessionProvider({
       setEditing,
       start: () => {
         restoreDrafts();
+        setOpen(true);
         setActive(true);
       },
       stop,
+      toggleSelect: () => setActive((selecting) => !selecting),
       addMark,
       updateMark,
       removeMark,
@@ -256,6 +275,7 @@ export function CommentSessionProvider({
     }),
     [
       surface,
+      open,
       active,
       mode,
       marks,
@@ -273,7 +293,81 @@ export function CommentSessionProvider({
   return (
     <CommentSessionContext.Provider value={value}>
       {children}
-      {active ? <CommentPanel session={value} /> : null}
+      {open ? <CommentSessionControls session={value} /> : null}
     </CommentSessionContext.Provider>
+  );
+}
+
+/** The shared comment controls and, for the mark being edited, its editor. */
+function CommentSessionControls({ session }: { session: CommentSessionValue }) {
+  const { surface, marks } = session;
+  const artifact = surface.destination.kind === 'artifact';
+  const count = marks.length;
+  const editing = marks.find((mark) => mark.label === session.editing);
+  const rect = editing?.anchor.profile === 'region' ? editing.anchor.rect : undefined;
+  return createPortal(
+    <>
+      <CommentControls
+        busy={session.sending}
+        busyLabel="Sending…"
+        error={session.error}
+        hint={HINTS[session.mode]}
+        marks={marks}
+        mode={session.mode}
+        modes={surface.modes}
+        onClose={session.stop}
+        onMode={session.setMode}
+        onOpenMark={session.setEditing}
+        onSend={() => void session.send()}
+        onToggleSelect={session.toggleSelect}
+        selecting={session.active}
+        sendDisabled={Boolean(session.editing)}
+        sendLabel={
+          artifact
+            ? `Send ${count} ${count === 1 ? 'comment' : 'comments'}`
+            : `Add ${count} ${count === 1 ? 'mark' : 'marks'} to message`
+        }
+        title={surface.title}
+      />
+      {editing ? (
+        <CommentEditor
+          comment={editing.comment}
+          coordinates={
+            rect?.length === 4
+              ? {
+                  box: { x: rect[0], y: rect[1], width: rect[2], height: rect[3] },
+                  onChange: (box) =>
+                    session.updateMark(editing.label, {
+                      anchor: { ...editing.anchor, rect: [box.x, box.y, box.width, box.height] },
+                    }),
+                }
+              : undefined
+          }
+          detail={rect ? undefined : editing.preview}
+          key={editing.label}
+          label={editing.label}
+          near={editing.box}
+          onCancel={() => session.setEditing(undefined)}
+          onDelete={() => {
+            session.removeMark(editing.label);
+            session.setEditing(undefined);
+          }}
+          onDone={(comment) => {
+            session.updateMark(editing.label, { comment });
+            session.setEditing(undefined);
+          }}
+          sendToAgent={
+            artifact
+              ? {
+                  checked: editing.sendToAgent,
+                  onChange: (checked) => session.updateMark(editing.label, { sendToAgent: checked }),
+                }
+              : undefined
+          }
+          title={surface.title}
+        />
+      ) : null}
+    </>,
+    document.body,
   );
 }

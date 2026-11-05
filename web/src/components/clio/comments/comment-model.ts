@@ -20,6 +20,17 @@ export interface DraftMark {
   sendToAgent: boolean;
   /** A few words the list shows for the mark (its text, or the element it picked). */
   preview: string;
+  /** Where the mark was made on screen, so its editor opens beside it. */
+  box?: { left: number; top: number; width: number; height: number };
+  /** A region's box normalized to the viewer it was drawn on, to draw it there again. */
+  view?: [number, number, number, number];
+}
+
+/** Where a new mark sits, besides its anchor. */
+export interface MarkPlace {
+  preview?: string;
+  box?: DraftMark['box'];
+  view?: DraftMark['view'];
 }
 
 /** Where a session's marks go when they are sent. */
