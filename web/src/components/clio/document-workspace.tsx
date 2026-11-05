@@ -94,8 +94,8 @@ export function ClioDocumentWorkspace({
   });
   const effectiveManifest = (needsPdfPreview ? pdfPreview.data : undefined) ?? manifest.data;
   const commentSurface = useMemo<CommentSurface>(
-    () => documentCommentSurface(artifact, effectiveManifest),
-    [artifact, effectiveManifest],
+    () => documentCommentSurface(artifact, effectiveManifest, manifest.data),
+    [artifact, effectiveManifest, manifest.data],
   );
   const commentThreads = useQuery({
     queryKey: commentThreadsKey(settings.endpoint, artifact.id),
@@ -540,8 +540,16 @@ function profileLabel(manifest?: DocumentManifest) {
   return labels[manifest.profile] ?? 'Document';
 }
 
-/** What the document workspace offers the shared comment session (comments plan, modes table). */
-function documentCommentSurface(artifact: Artifact, manifest?: DocumentManifest): CommentSurface {
+/**
+ * What the document workspace offers the shared comment session (comments plan, modes table).
+ * `manifest` is what is shown (an Office file's PDF rendition); `source` is the version the
+ * comments are about, which the server resolves on its rendition (comments plan, rule 3).
+ */
+function documentCommentSurface(
+  artifact: Artifact,
+  manifest?: DocumentManifest,
+  source: DocumentManifest | undefined = manifest,
+): CommentSurface {
   if (!manifest || manifest.profile === 'html-static') {
     // HTML takes its comments in the shared browser, where it runs. Until the version is known the session takes no marks (its toggle stays hidden), but
     // it is rendered so the workspace keeps its place in the tree when the manifest loads.
@@ -569,9 +577,9 @@ function documentCommentSurface(artifact: Artifact, manifest?: DocumentManifest)
     destination: {
       kind: 'artifact',
       sessionId: artifact.session_id,
-      artifactId: manifest.artifact_id,
-      version: manifest.version,
-      sha256: manifest.sha256,
+      artifactId: (source ?? manifest).artifact_id,
+      version: (source ?? manifest).version,
+      sha256: (source ?? manifest).sha256,
     },
   };
 }
