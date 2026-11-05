@@ -1,12 +1,11 @@
 import { TransportError } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { STUDY_VIEW_POLL_MS } from '@/lib/runtime-limits';
 import {
   TABLE_DATA_URI,
   artifactIdFromDataUri,
   columnarToRows,
   studySourceFromDataUri,
-  studySourceQueryOptions,
+  STUDY_SOURCE_QUERY,
   tableQueryErrorMessage,
 } from './table-query-rows';
 
@@ -42,17 +41,14 @@ describe('study sources', () => {
     expect(TABLE_DATA_URI.test('study://e_1/entries')).toBe(true);
     expect(TABLE_DATA_URI.test('study://e_1/records/readings')).toBe(true);
     expect(TABLE_DATA_URI.test('study://e_1/records/a/b')).toBe(false);
+    expect(TABLE_DATA_URI.test('artifact://ws_lab/status.csv@latest')).toBe(true);
+    expect(TABLE_DATA_URI.test('artifact://ws_lab/status.csv@v3')).toBe(false);
+    expect(TABLE_DATA_URI.test('artifact://ws_lab/status.csv')).toBe(false);
     expect(TABLE_DATA_URI.test('https://example.test/a.csv')).toBe(false);
   });
 
-  it('is never cached as immutable; plugin records also poll while shown', () => {
-    const measurements = studySourceQueryOptions({ study: 'e_1', source: 'measurements' });
-    expect(measurements.staleTime).toBe(0);
-    expect(measurements.refetchInterval).toBe(false);
-    const records = studySourceQueryOptions({ study: 'e_1', source: 'records/board' });
-    expect(records.staleTime).toBe(0);
-    expect(records.refetchInterval).toBe(STUDY_VIEW_POLL_MS);
-    expect(records.refetchIntervalInBackground).toBe(false);
+  it('is never cached as immutable and never polled: its change events re-read it', () => {
+    expect(STUDY_SOURCE_QUERY).toEqual({ staleTime: 0 });
   });
 
   it('says when the study is not on this server', () => {

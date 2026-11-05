@@ -64,16 +64,6 @@ export const OPERATIONS_POLL_MS = 30_000;
 export const RUNS_POLL_MS = 5_000;
 
 /**
- * Refetch cadence for the parts of a study's views that change without a
- * science-log entry: a plugin-record source (`study://<study>/records/<name>`)
- * while it is on screen, and the attached dashboards themselves while a branch
- * of the study runs (their owners revise them through tool calls). Unit:
- * milliseconds. Four seconds keeps a running study current without a stream of
- * its own.
- */
-export const STUDY_VIEW_POLL_MS = 4_000;
-
-/**
  * Readiness poll cadence for the desktop-managed backend during startup.
  * Unit: milliseconds. Tight because it is a one-shot boot wait against a local
  * process, and every extra interval is startup latency the user watches.

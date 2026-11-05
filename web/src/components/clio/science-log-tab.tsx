@@ -44,7 +44,7 @@ export function ScienceLogTab({
   onOpenFolder,
 }: ScienceLogTabProps) {
   // While a branch runs, the attached dashboards may change between entries.
-  const log = useScienceLog(sessionId, true, true);
+  const log = useScienceLog(sessionId);
   const openTask = useOpenTaskHandle(onOpenSubagent);
   const viewInTranscript = useTranscriptJump(sessionId, workspaceId);
   if (log.isPending) return <p className="p-4 text-sm text-muted-foreground">Loading the study…</p>;
