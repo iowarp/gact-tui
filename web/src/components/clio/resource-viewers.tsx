@@ -199,13 +199,21 @@ function WorkspaceTextView({
         path={path}
       />
     );
-  return (
+  const view = (
     <TextResourceView
       content={content.data}
       error={content.error?.message}
       path={path}
       mediaType={mediaType}
     />
+  );
+  // Documents take text comments in the file view too (ledger FB22): Markdown and LaTeX.
+  const format = textFileFormat(path, mediaType);
+  if (format !== 'markdown' && !path.toLowerCase().endsWith('.tex')) return view;
+  return (
+    <WorkspaceFileComments modes={['text']} path={path} workspaceId={workspaceId}>
+      {view}
+    </WorkspaceFileComments>
   );
 }
 
