@@ -12,14 +12,19 @@ import { FrameBatcher, type FrameClock } from './frame-batcher';
  *   changes when a version of that name is recorded (`artifact.created`,
  *   `artifact.version.added`, `artifact.alias.moved`). Its resolution is re-read; the
  *   rows of each version stay cached under that version's id.
+ * - A stream (a named artifact the server holds in memory) changes with each write; a
+ *   view on screen holds a lease on it and gets `stream.updated`, at most once per push
+ *   interval, and re-reads its rows.
  * - A study's `records/<view>` changes when a tool result carries a record row of that
  *   view (`science.record`). Its measurements and entries change with each entry
  *   (`science.entry`, see `science-log-updates.ts`).
  */
 export type LiveSourceChange =
   | { kind: 'artifact'; workspaceId: string; name: string }
+  | { kind: 'stream'; streamId: string }
   | { kind: 'records'; study: string; view: string };
 
+const LIVE_FRAMES = new Set(['semantic.event', 'science.record', 'stream.updated']);
 const ARTIFACT_EVENTS = new Set([
   'artifact.created',
   'artifact.version.added',
@@ -41,13 +46,17 @@ function record(value: unknown): Record<string, unknown> {
  * stream inside a `semantic.event` frame, so the semantic event's own type is read.
  */
 export function liveSourceChangeForFrame(frame: TransportFrame): LiveSourceChange | undefined {
-  if (frame.eventName !== 'semantic.event' && frame.eventName !== 'science.record') return;
+  if (!LIVE_FRAMES.has(frame.eventName)) return undefined;
   let payload: Record<string, unknown>;
   try {
     payload = record(decodeEventEnvelope(frame.data).payload);
   } catch {
     // Frame reduction owns malformed-envelope gap reporting.
     return undefined;
+  }
+  if (frame.eventName === 'stream.updated') {
+    const streamId = text(payload.stream_id);
+    return streamId ? { kind: 'stream', streamId } : undefined;
   }
   if (frame.eventName === 'science.record') {
     const study = text(payload.study);
@@ -103,10 +112,17 @@ export class LiveSourceRefresher {
     this.batcher = new FrameBatcher<LiveSourceChange>((changes) => {
       const artifacts = new Set<string>();
       const records = new Map<string, { study: string; view: string }>();
+      const streams = new Set<string>();
       for (const change of changes) {
         if (change.kind === 'artifact') artifacts.add(`${change.workspaceId}/${change.name}`);
+        else if (change.kind === 'stream') streams.add(change.streamId);
         else records.set(`${change.study}/${change.view}`, change);
       }
+      // A stream changed: its rows are re-read once per frame, however many writes came.
+      for (const streamId of streams)
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.key('stream-rows', endpoint, streamId),
+        });
       if (artifacts.size) {
         void queryClient.invalidateQueries({
           predicate: (query) => resolvesChangedArtifact(query, endpoint, artifacts),

@@ -6,6 +6,7 @@ import {
   columnarToRows,
   studySourceFromDataUri,
   STUDY_SOURCE_QUERY,
+  describeStream,
   tableQueryErrorMessage,
 } from './table-query-rows';
 
@@ -89,5 +90,18 @@ describe('tableQueryErrorMessage', () => {
     });
     expect(tableQueryErrorMessage(error)).toContain('900000');
     expect(tableQueryErrorMessage(error)).toContain('50000');
+  });
+});
+
+describe('stream notes', () => {
+  it('says whether a stream is live or stopped, in words', () => {
+    expect(describeStream({ state: 'open' })).toBe('Live, no rows yet.');
+    expect(describeStream({ state: 'open', updated_at: '2026-11-05T10:00:00Z' })).toMatch(
+      /^Live, last update .+\.$/u,
+    );
+    expect(describeStream({ state: 'stopped', stopped_at: '2026-11-05T10:05:00Z' })).toMatch(
+      /^Stopped at .+; showing its last rows\.$/u,
+    );
+    expect(describeStream(undefined)).toBe('');
   });
 });

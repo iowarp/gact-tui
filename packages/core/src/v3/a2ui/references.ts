@@ -40,6 +40,16 @@ export const a2uiReferenceResolutionSchema = z
     version: z.number().optional(),
     custody: z.string().optional(),
     state: z.string().optional(),
+    /** Present while the named artifact is a stream this server holds in memory. */
+    stream: z
+      .object({
+        stream_id: z.string(),
+        state: z.string(),
+        window: z.number().optional(),
+        updated_at: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 

@@ -87,4 +87,20 @@ describe('live sources', () => {
     expect(stale(otherName)).toBe(false);
     expect(stale(measurements)).toBe(false);
   });
+
+  it('re-reads a stream on its update, once per frame, and no other stream', () => {
+    // SABOTAGE: drop the `stream.updated` case in `liveSourceChangeForFrame` and the
+    // stream's rows stay cached.
+    const client = new QueryClient();
+    const kiln = [...queryKeys.key('stream-rows', ENDPOINT, 'stream_kiln'), '{}'];
+    const other = [...queryKeys.key('stream-rows', ENDPOINT, 'stream_other'), '{}'];
+    client.setQueryData(kiln, { ok: true });
+    client.setQueryData(other, { ok: true });
+    const refresher = new LiveSourceRefresher(client, ENDPOINT, 'sess_root', CLOCK);
+    for (let n = 0; n < 5; n += 1)
+      refresher.push(frame('stream.updated', { stream_id: 'stream_kiln', writes: n }));
+    refresher.stop({ flush: true });
+    expect(client.getQueryState(kiln)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(other)?.isInvalidated).toBe(false);
+  });
 });

@@ -147,20 +147,27 @@ const artifactTableQuerySchema = z
 /** A columnar slice of a registered table: one array per column, all `returnedRows` long. */
 export type ArtifactTableQueryResult = z.infer<typeof artifactTableQuerySchema>;
 
-const artifactRasterQuerySchema = z.object({
-  width: z.number().int().min(1).max(1024),
-  height: z.number().int().min(1).max(1024),
-  extent: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-  sourceBounds: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-  sourceShape: z.tuple([z.number().int().positive(), z.number().int().positive()]),
-  xLabel: z.string(), yLabel: z.string(),
-  min: z.number().nullable(), max: z.number().nullable(),
-  values: z.array(z.number().nullable()),
-}).superRefine((value, context) => {
-  if (value.values.length !== value.width * value.height) {
-    context.addIssue({ code: 'custom', message: 'Raster sample count does not match its dimensions.' });
-  }
-});
+const artifactRasterQuerySchema = z
+  .object({
+    width: z.number().int().min(1).max(1024),
+    height: z.number().int().min(1).max(1024),
+    extent: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+    sourceBounds: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+    sourceShape: z.tuple([z.number().int().positive(), z.number().int().positive()]),
+    xLabel: z.string(),
+    yLabel: z.string(),
+    min: z.number().nullable(),
+    max: z.number().nullable(),
+    values: z.array(z.number().nullable()),
+  })
+  .superRefine((value, context) => {
+    if (value.values.length !== value.width * value.height) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Raster sample count does not match its dimensions.',
+      });
+    }
+  });
 
 export type ArtifactRasterQueryResult = z.infer<typeof artifactRasterQuerySchema>;
 export interface ArtifactRasterQueryRequest {
@@ -192,7 +199,11 @@ export interface ArtifactTableExportRequest {
 /** Bounded structured previews for immutable registered artifacts. */
 export class ArtifactPreviewRepository extends ProviderRepository {
   /** Read a bounded sample of the visible extent of a registered grid. */
-  public artifactRasterQuery(artifactId: string, query: ArtifactRasterQueryRequest, signal?: AbortSignal): Promise<ArtifactRasterQueryResult> {
+  public artifactRasterQuery(
+    artifactId: string,
+    query: ArtifactRasterQueryRequest,
+    signal?: AbortSignal,
+  ): Promise<ArtifactRasterQueryResult> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/artifacts/${encodeURIComponent(artifactId)}/raster-query`,
@@ -275,6 +286,47 @@ export class ArtifactPreviewRepository extends ProviderRepository {
         }
         return result;
       },
+      signal,
+    });
+  }
+
+  /**
+   * A stream's rows in the server's memory now, through the same pipeline as an
+   * artifact table query; `stream` carries its state (`open` or `stopped`) and the
+   * time of its last write.
+   */
+  public streamTableQuery(
+    streamId: string,
+    query: ArtifactTableQueryRequest,
+    signal?: AbortSignal,
+  ): Promise<ArtifactTableQueryResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/streams/${encodeURIComponent(streamId)}/table-query`,
+      body: { ...query, format: 'json' },
+      decode: (value) => {
+        const result = artifactTableQuerySchema.parse(value);
+        if (result.returnedRows > query.limit) {
+          throw new Error('Stream query exceeded the requested row limit.');
+        }
+        return result;
+      },
+      signal,
+    });
+  }
+
+  /** Hold (or release) this session's lease on a stream, so its changes are announced. */
+  public watchStream(
+    streamId: string,
+    sessionId: string,
+    release = false,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/streams/${encodeURIComponent(streamId)}/watch`,
+      body: { session_id: sessionId, release },
+      decode: (value) => value,
       signal,
     });
   }

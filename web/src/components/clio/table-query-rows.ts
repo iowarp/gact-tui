@@ -4,10 +4,11 @@ import {
   type ArtifactTableQueryResult,
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { useA2uiReferenceSession } from '@/lib/a2ui/reference-session';
 import { useA2uiReference } from '@/lib/a2ui/use-a2ui-reference';
 import { IMMUTABLE_QUERY, TABLE_QUERY_ROW_LIMIT } from '@/lib/runtime-limits';
 import { latestArtifactSource } from '@/lib/streaming/live-source-updates';
@@ -167,6 +168,45 @@ export function studySourceQueryPrefix(endpoint: string, study: string) {
  */
 export const STUDY_SOURCE_QUERY = { staleTime: 0 } as const;
 
+/** The cache key prefix of one stream's reads, which its `stream.updated` events refresh. */
+export function streamRowsQueryPrefix(endpoint: string, streamId: string) {
+  return queryKeys.key('stream-rows', endpoint, streamId);
+}
+
+/** How often a view on screen renews its lease on a stream (the lease lasts 30 s). */
+export const STREAM_LEASE_RENEW_MS = 15_000;
+
+/** What a stream's state adds to the note: live with its last write, or stopped. */
+export function describeStream(stream: unknown): string {
+  if (!isJsonObject(stream)) return '';
+  const at = (value: unknown) =>
+    typeof value === 'string' && value ? new Date(value).toLocaleTimeString() : '';
+  if (stream.state === 'stopped') {
+    const when = at(stream.stopped_at) || at(stream.updated_at);
+    return when ? `Stopped at ${when}; showing its last rows.` : 'Stopped; showing its last rows.';
+  }
+  const last = at(stream.updated_at);
+  return last ? `Live, last update ${last}.` : 'Live, no rows yet.';
+}
+
+/**
+ * Holds this view's session's lease on a stream while the view is shown, so the stream
+ * announces its changes to this session; releases it when the view goes.
+ */
+function useStreamLease(streamId: string | undefined, sessionId: string | undefined): void {
+  const repository = useRepository();
+  useEffect(() => {
+    if (!streamId || !sessionId) return undefined;
+    const renew = () => void repository.watchStream(streamId, sessionId).catch(() => undefined);
+    renew();
+    const timer = window.setInterval(renew, STREAM_LEASE_RENEW_MS);
+    return () => {
+      window.clearInterval(timer);
+      void repository.watchStream(streamId, sessionId, true).catch(() => undefined);
+    };
+  }, [repository, streamId, sessionId]);
+}
+
 /** Columnar `{name: values[]}` to row objects (`count` rows). */
 export function columnarToRows(
   columns: Readonly<Record<string, readonly QueryCell[]>>,
@@ -272,6 +312,9 @@ export function useTableQueryRows({
   const live = !data && latestArtifactSource(dataUri) ? dataUri : undefined;
   const liveReference = useA2uiReference(live ?? '', { readBytes: false, enabled: Boolean(live) });
   const artifactId = artifactIdFromDataUri(dataUri) ?? liveReference.resolution?.artifact_id;
+  // A named artifact that is a stream the server holds: its rows are read from memory.
+  const liveStream = live ? liveReference.resolution?.stream : undefined;
+  useStreamLease(liveStream?.stream_id, useA2uiReferenceSession());
   const limit = Math.min(dataQuery?.limit ?? TABLE_QUERY_ROW_LIMIT, TABLE_QUERY_ROW_LIMIT);
   // The producer's query goes out as written (its shape is the server's); the
   // row budget is always filled in, and the projection only when the caller
@@ -299,8 +342,21 @@ export function useTableQueryRows({
         : undefined,
     ...STUDY_SOURCE_QUERY,
   });
+  const streamQuery = useQuery({
+    enabled: !data && Boolean(liveStream),
+    queryKey: [
+      ...streamRowsQueryPrefix(settings.endpoint, liveStream?.stream_id ?? ''),
+      JSON.stringify(request),
+    ],
+    queryFn: ({ signal }) => repository.streamTableQuery(liveStream!.stream_id, request, signal),
+    retry: retryTableQuery,
+    // Each update keeps the previous rows on screen until the next ones arrive.
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[2] === liveStream?.stream_id ? previousData : undefined,
+    staleTime: 0,
+  });
   const artifactQuery = useQuery({
-    enabled: !data && Boolean(artifactId),
+    enabled: !data && Boolean(artifactId) && !liveStream,
     queryKey: queryKeys.key(
       'artifact-table-query',
       settings.endpoint,
@@ -325,7 +381,7 @@ export function useTableQueryRows({
         : undefined,
     ...IMMUTABLE_QUERY,
   });
-  const query = study ? studyQuery : artifactQuery;
+  const query = study ? studyQuery : liveStream ? streamQuery : artifactQuery;
   const queried = useMemo(
     () =>
       query.data
@@ -401,7 +457,14 @@ export function useTableQueryRows({
     refreshing: query.isFetching && !query.isPending,
     retry: () => void query.refetch(),
     error: '',
-    note: query.data ? describeResult(query.data, (dataQuery?.offset ?? 0) > 0) : '',
+    note: query.data
+      ? [
+          describeStream(query.data.stream),
+          describeResult(query.data, (dataQuery?.offset ?? 0) > 0),
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : '',
     matchedRows: query.data ? (query.data.matchedRows ?? query.data.totalRows) : undefined,
     totalRows: query.data?.totalRows,
     returnedRows: query.data?.returnedRows,
