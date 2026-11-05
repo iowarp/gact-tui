@@ -1,4 +1,4 @@
-import type { CommentMode, DocumentAnchor } from '@clio/core/v3';
+import type { Artifact, CommentMode, DocumentAnchor } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { MessageSquarePlusIcon, MessagesSquareIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -57,7 +57,10 @@ function Commentable({
                 <MessagesSquareIcon aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0">
+            <PopoverContent
+              align="start"
+              className="max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
+            >
               <CommentThreadList artifactId={version.artifactId} sessionId={sessionId} />
             </PopoverContent>
           </Popover>
@@ -164,4 +167,83 @@ export function WorkspaceFileComments({
       {children}
     </Commentable>
   );
+}
+
+const OFFICE_TYPES: Record<string, string> = {
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  odt: 'application/vnd.oasis.opendocument.text',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  odp: 'application/vnd.oasis.opendocument.presentation',
+};
+
+/** The Office or OpenDocument media type of a file name, if it is one. */
+// oxlint-disable-next-line react/only-export-components
+export function officeMediaType(path: string): string | undefined {
+  return OFFICE_TYPES[path.split('.').at(-1)?.toLowerCase() ?? ''];
+}
+
+/**
+ * An Office or OpenDocument file in the workspace (ledger FB22). Its PDF rendition and its
+ * comments belong to an artifact version, so a file the agent never registered offers
+ * Preview and comment, which registers it; a registered file opens in the same document
+ * workspace as any artifact, with its rendition, comments and threads.
+ */
+export function WorkspaceDocumentView({
+  workspaceId,
+  path,
+  mediaType,
+  fallback,
+  documentView,
+}: {
+  workspaceId: string;
+  path: string;
+  mediaType: string;
+  fallback: ReactNode;
+  documentView: (artifact: Artifact) => ReactNode;
+}) {
+  const { sessionId = '' } = useParams();
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const target = useQuery({
+    queryKey: queryKeys.key('comment-threads', settings.endpoint, 'target', workspaceId, path),
+    queryFn: ({ signal }) => repository.commentTarget(workspaceId, path, signal),
+    enabled: Boolean(sessionId),
+    retry: false,
+  });
+  const register = useMutation({
+    mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
+  });
+  const known = register.data ?? target.data;
+  if (!sessionId || !known)
+    return (
+      <div className="relative h-full min-h-0 min-w-0" data-slot="workspace-document-view">
+        {sessionId ? (
+          <div className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-0.5 shadow-sm">
+            <Button
+              disabled={register.isPending || target.isPending}
+              onClick={() => register.mutate()}
+              size="sm"
+              title={register.error?.message}
+              variant="secondary"
+            >
+              <MessageSquarePlusIcon aria-hidden="true" />
+              Preview and comment
+            </Button>
+          </div>
+        ) : null}
+        {fallback}
+      </div>
+    );
+  return documentView({
+    id: known.artifact_id,
+    session_id: sessionId,
+    workspace_id: known.workspace_id,
+    name: known.name,
+    media_type: mediaType,
+    uri: `artifact://${known.workspace_id}/${known.name}@v${known.version}`,
+    sha256: known.sha256,
+    version: known.version,
+  });
 }

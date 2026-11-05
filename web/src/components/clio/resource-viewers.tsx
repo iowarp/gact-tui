@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
-import { ArtifactComments, WorkspaceFileComments } from './comments/file-comments';
+import {
+  ArtifactComments,
+  WorkspaceDocumentView,
+  WorkspaceFileComments,
+  officeMediaType,
+} from './comments/file-comments';
 import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
@@ -93,6 +98,23 @@ export function WorkspaceFileView({
       <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />}>
         <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
       </Suspense>
+    ) : officeMediaType(path) ? (
+      <WorkspaceDocumentView
+        documentView={(artifact) => (
+          <ClioDocumentWorkspace artifact={artifact} fallbackPreview={null} key={artifact.id} />
+        )}
+        fallback={
+          <WorkspaceBinaryView
+            mediaType={detected}
+            path={path}
+            size={size}
+            workspaceId={workspaceId}
+          />
+        }
+        mediaType={officeMediaType(path)!}
+        path={path}
+        workspaceId={workspaceId}
+      />
     ) : (
       <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
     );
