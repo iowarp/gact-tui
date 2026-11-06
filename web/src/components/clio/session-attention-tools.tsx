@@ -19,7 +19,6 @@ export function SessionAttentionTools({
         onDismiss={attention.dismiss}
         state={attention.state}
         onProfileChange={attention.changeProfile}
-        onFocusItem={attention.focusItem}
         view={attention.view}
         onViewChange={attention.changeView}
       />
