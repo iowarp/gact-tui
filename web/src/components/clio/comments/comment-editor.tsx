@@ -25,6 +25,14 @@ type Box = { x: number; y: number; width: number; height: number };
  * the comment, "Send to agent" where comments become threads, and Delete, Cancel and Done.
  * Enter finishes, Escape cancels. It opens just below the mark, kept on screen.
  */
+/** Whether the heading's title only repeats the quote shown under it. */
+function repeats(title: string, detail?: string): boolean {
+  if (!detail) return false;
+  const plain = (text: string) => text.replace(/[“”"…]/g, '').trim().toLowerCase();
+  const head = plain(title);
+  return Boolean(head) && plain(detail).startsWith(head);
+}
+
 export function CommentEditor({
   label,
   title,
@@ -65,7 +73,8 @@ export function CommentEditor({
       }}
     >
       <p className="mb-2 text-sm font-semibold">
-        {label} — {title}
+        {label}
+        {repeats(title, detail) ? null : ` — ${title}`}
       </p>
       {detail ? (
         <p className="mb-2 line-clamp-3 text-xs text-muted-foreground" title={detail}>

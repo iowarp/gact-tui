@@ -17,6 +17,8 @@ const viewer = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+const layout = vi.hoisted(() => ({ wide: true }));
+vi.mock('@/hooks/use-container-query', () => ({ useContainerQuery: () => layout.wide }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
@@ -92,6 +94,7 @@ const report: LatexReport = {
 };
 
 afterEach(() => {
+  layout.wide = true;
   cleanup();
   vi.clearAllMocks();
 });
@@ -109,11 +112,9 @@ function renderPaper() {
 }
 
 describe('LaTeX workspace', () => {
-  it('says how the build went in words, not colour alone, and lists every problem', async () => {
+  it('counts errors and warnings on the log button, in words too, and lists every problem', async () => {
     renderPaper();
-    const summary = await screen.findByRole('button', {
-      name: /2 pages, 1 problem, 1 warning/u,
-    });
+    const summary = await screen.findByRole('button', { name: 'Build log: 1 error, 1 warning' });
     fireEvent.click(summary);
     const problems = await screen.findByRole('list', { name: 'Build problems' });
     expect(within(problems).getByText('Undefined reference')).toBeTruthy();
@@ -125,7 +126,7 @@ describe('LaTeX workspace', () => {
     renderPaper();
     const source = await screen.findAllByRole('region', { name: 'Source of main.tex' });
     expect(source[0]?.textContent).toContain('\\input{sections/eval}');
-    fireEvent.click(await screen.findByRole('button', { name: /2 pages/u }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Build log/u }));
     fireEvent.click(
       within(await screen.findByRole('list', { name: 'Build problems' })).getByText(
         'Undefined reference',
@@ -173,7 +174,7 @@ describe('LaTeX workspace', () => {
         <LatexWorkspace artifactId="art_src" sessionId="sess_1" />
       </QueryClientProvider>,
     );
-    fireEvent.click(await screen.findByRole('button', { name: /1 venue check failed/u }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Build log: 2 errors/u }));
     const problems = await screen.findByRole('list', { name: 'Build problems' });
     expect(within(problems).getByText(/sections\/eval\.tex:3/u)).toBeTruthy();
     fireEvent.click(within(problems).getByText('Double-blind: author names'));
@@ -266,6 +267,17 @@ describe('LaTeX workspace', () => {
     await waitFor(() => expect(grid().getAttribute('data-view')).toBe('both'));
   });
 
+  it('renders one copy of each pane when narrow, so its controls appear once', async () => {
+    layout.wide = false;
+    renderPaper();
+    expect(await screen.findAllByRole('region', { name: 'Source of main.tex' })).toHaveLength(1);
+    expect(document.querySelectorAll('[data-slot="pdf"]')).toHaveLength(0);
+    const tab = screen.getByRole('tab', { name: 'PDF' });
+    fireEvent.mouseDown(tab);
+    fireEvent.click(tab);
+    await waitFor(() => expect(document.querySelectorAll('[data-slot="pdf"]')).toHaveLength(1));
+  });
+
   it('says when the build made no PDF, and keeps the problems', async () => {
     repository.latexReport.mockResolvedValue({
       ...report,
@@ -286,6 +298,6 @@ describe('LaTeX workspace', () => {
     expect(
       (await screen.findAllByText('No PDF: the build stopped before making one')).length,
     ).toBeGreaterThan(0);
-    expect(await screen.findByRole('button', { name: /No PDF, 1 problem/u })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /^Build log: 1 error/u })).toBeTruthy();
   });
 });
