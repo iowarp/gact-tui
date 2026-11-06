@@ -146,10 +146,9 @@ function named(kind: string, target: string, start = false): string {
   return `${start ? 'The' : 'the'} ${kind} ${target}`;
 }
 
-/** Why a summoned target did not start, in words. */
+/** Why a summoned target did not start, when there is more to say than that it was not. */
 function notStartedReason(reason: string): string {
-  if (!reason || reason === 'not_called') return 'the agent did not start it';
-  return reason;
+  return !reason || reason === 'not_called' ? '' : `: ${reason}`;
 }
 
 function kindIcon(kind: string) {
@@ -199,7 +198,7 @@ export function ConversationSummonedWork({ metadata }: { metadata?: Record<strin
           icon={<CircleSlashIcon aria-hidden="true" className="size-3.5 shrink-0" />}
           key={`not-started:${row.kind}:${row.target}`}
         >
-          {named(row.kind, row.target, true)} was not started: {notStartedReason(row.reason)}
+          {named(row.kind, row.target, true)} was not started{notStartedReason(row.reason)}
         </Row>
       ))}
       {summons?.failed.map((row) => (

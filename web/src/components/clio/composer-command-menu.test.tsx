@@ -180,7 +180,7 @@ describe('the transcript', () => {
     );
     expect(screen.getByText('Started explore as you asked')).toBeVisible();
     expect(
-      screen.getByText('The workflow draft-review was not started: the agent did not start it'),
+      screen.getByText('The workflow draft-review was not started'),
     ).toBeVisible();
     expect(screen.getByText('The flow council was not started: flow_not_resolved')).toBeVisible();
   });
