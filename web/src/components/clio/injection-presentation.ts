@@ -136,3 +136,19 @@ function backgroundNotices(tasks: unknown[]): InjectionPresentation {
     ),
   };
 }
+
+/**
+ * "Loaded 3 tools from hdf5" for a server the person summoned. The text is what
+ * `search_tools` returns, one `## <tool>  (<server>)` heading per loaded tool.
+ */
+export function summonServerLabel(block: { source: string; text: string }): string | undefined {
+  if (block.source !== 'summon_server') return undefined;
+  const server = /pointed this message at the (\S+) tools/u.exec(block.text)?.[1];
+  if (!server) return undefined;
+  const count = [...block.text.matchAll(/^## \S+ {2}\(([^)]+)\)$/gmu)].filter(
+    (match) => match[1] === server,
+  ).length;
+  return count
+    ? `Loaded ${count} tool${count === 1 ? '' : 's'} from ${server}`
+    : `You pointed this message at the ${server} tools`;
+}

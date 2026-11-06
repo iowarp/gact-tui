@@ -473,21 +473,51 @@ export const resolvedPromptDefinitionSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
-export const commandDefinitionSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  description: z.string().optional(),
-  source: z.string().default('unknown'),
-  status: z.string().default('unknown'),
-  enabled: z.boolean().default(false),
-  disabled_reason: z.string().optional(),
-  aliases: z.array(z.string()).default([]),
-  agent_id: z.string().optional(),
-  user_invocable: z.boolean().optional(),
-  agent_invocable: z.boolean().optional(),
-  argument_hint: z.string().optional(),
-  arguments: z.array(z.unknown()).default([]),
-  metadata: z.record(z.string(), z.unknown()).default({}),
+export const commandDefinitionSchema = z
+  .object({
+    id: z.string(),
+    kind: forwardCompatibleEnum(['builtin', 'command', 'skill', 'mcp_prompt']).default('command'),
+    name: z.string().optional(),
+    qualified_id: z.string().optional(),
+    title: z.string(),
+    description: z.string().optional(),
+    source: z.string().default('unknown'),
+    plugin: z.string().default(''),
+    label: z.string().default(''),
+    status: z.string().default('unknown'),
+    enabled: z.boolean().default(false),
+    disabled_reason: z.string().optional(),
+    disabled_detail: z.string().optional(),
+    shadowed_by: z.string().optional(),
+    ambiguous: z.boolean().optional(),
+    unsupported_fields: z.array(z.string()).default([]),
+    aliases: z.array(z.string()).default([]),
+    agent: z.string().optional(),
+    argument_hint: z.string().optional(),
+    arguments: z.array(z.unknown()).default([]),
+    metadata: z.record(z.string(), z.unknown()).default({}),
+  })
+  .transform((row) => ({
+    ...row,
+    name: row.name ?? row.id,
+    qualified_id: row.qualified_id ?? row.id,
+  }));
+
+export const summonTargetsSchema = z.object({
+  subagents: z
+    .array(z.object({ id: z.string(), plugin: z.string().default(''), description: z.string().default('') }))
+    .default([]),
+  servers: z
+    .array(
+      z.object({
+        name: z.string(),
+        plugin: z.string().default(''),
+        description: z.string().default(''),
+        deferred: z.boolean().default(false),
+        tools: z.number().int().nonnegative().nullable().default(null),
+      }),
+    )
+    .default([]),
 });
 
 export const contextStateSchema = z.object({

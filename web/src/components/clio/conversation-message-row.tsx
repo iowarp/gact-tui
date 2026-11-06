@@ -53,6 +53,7 @@ import { ClioSubagentProgressLine } from './subagent-card';
 import { canGroupUserMessages, feedbackMessage } from './conversation-user-group';
 import { ParentDelegationMessage } from './parent-delegation-message';
 import { isParentDelegation } from './parent-delegation';
+import { ConversationSummonedWork } from './conversation-summoned-work';
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -513,6 +514,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       compactReferences={message.role === 'user'}
                       {...entities}
                     />
+                    {message.role === 'user' ? (
+                      <ConversationSummonedWork metadata={message.metadata} />
+                    ) : null}
                   </>
                 )}
                 {messageCompactions?.map((compaction) => (

@@ -2,12 +2,17 @@ import type { MessageBlock } from '@clio/core/v3';
 import { referenceMention } from './composer-reference-domain';
 
 export type ContextReferenceBlock = Extract<MessageBlock, { type: 'context_reference' }>;
+/** A subagent or MCP server the person summoned with `@`. */
+export type SummonBlock = Extract<MessageBlock, { type: 'summon' }>;
+/** A block a sent message shows where its `@mention` was typed. */
+export type InlineReferenceBlock = ContextReferenceBlock | SummonBlock;
 
 export type InlineReferenceSegment =
   | { kind: 'text'; text: string }
-  | { kind: 'reference'; block: ContextReferenceBlock };
+  | { kind: 'reference'; block: InlineReferenceBlock };
 
-function blockMention(block: ContextReferenceBlock): string {
+function blockMention(block: InlineReferenceBlock): string {
+  if (block.type === 'summon') return `@${block.target}`;
   return referenceMention({ kind: block.ref_kind, id: block.ref_id, label: block.label });
 }
 
@@ -18,7 +23,7 @@ function blockMention(block: ContextReferenceBlock): string {
  */
 export function inlineReferenceSegments(
   text: string,
-  blocks: readonly ContextReferenceBlock[],
+  blocks: readonly InlineReferenceBlock[],
 ): InlineReferenceSegment[] {
   const mentions = blocks
     .map((block) => ({ block, mention: blockMention(block) }))
@@ -43,7 +48,7 @@ export function inlineReferenceSegments(
 /** The ids of the reference blocks a message's text already shows inline. */
 export function inlinedReferenceIds(
   texts: readonly string[],
-  blocks: readonly ContextReferenceBlock[],
+  blocks: readonly InlineReferenceBlock[],
 ): Set<string> {
   return new Set(
     texts.flatMap((text) =>

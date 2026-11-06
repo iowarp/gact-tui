@@ -73,7 +73,20 @@ export type ContextReferenceKind =
  * account for, not a placeholder: such a reference can be counted and named,
  * but never opened and never sent.
  */
-export type WorkspaceReferenceKind = ContextReferenceKind | 'resource' | 'unknown';
+export type WorkspaceReferenceKind = ContextReferenceKind | 'resource' | SummonTargetKind | 'unknown';
+
+/** What a person can name with `@` to handle a message: a subagent or an MCP server. */
+export type SummonTargetKind = 'subagent' | 'server';
+
+/**
+ * The person named what handles this message. The service acts only on these parts,
+ * never on an `@` typed in prose that the person did not pick.
+ */
+export interface SummonPart {
+  type: 'summon';
+  target_kind: SummonTargetKind;
+  target: string;
+}
 
 export interface ContextReferencePart {
   type: 'context_ref';
@@ -103,6 +116,7 @@ export type ComposerMessagePart =
   | { type: 'text'; text: string }
   | ContextReferencePart
   | CommentSessionPart
+  | SummonPart
   | {
       type: 'resource_ref';
       resource_id: string;

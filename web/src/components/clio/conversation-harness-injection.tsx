@@ -7,7 +7,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { humanizeProtocolValue } from './presentation-labels';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
-import { injectionPresentation } from './injection-presentation';
+import { injectionPresentation, summonServerLabel } from './injection-presentation';
 import { BoundedResult } from './bounded-result';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { ToolTerminalResult } from './tool-terminal-result';
@@ -51,6 +51,7 @@ const INJECTION_LABELS: Record<string, string> = {
   attention: 'Notice from a background task',
   peer: 'Received message from an agent',
   plugin_change: 'Plugins changed',
+  summon_server: 'Loaded tools you pointed this message at',
   path_hint: 'Path suggestion',
   circuit_breaker: 'Repeated-failure warning',
   result_spilled: 'Large result saved to a file',
@@ -95,11 +96,13 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
     navigation?.subagents,
     sessionTitle,
   );
-  const label = presentation?.senderSessionId
-    ? `Received message from ${sender || 'an agent'}`
-    : (presentation?.label ??
-      INJECTION_LABELS[block.source] ??
-      humanizeProtocolValue(block.source));
+  const label =
+    summonServerLabel(block) ??
+    (presentation?.senderSessionId
+      ? `Received message from ${sender || 'an agent'}`
+      : (presentation?.label ??
+        INJECTION_LABELS[block.source] ??
+        humanizeProtocolValue(block.source)));
   const Icon = presentation
     ? presentation.terminal
       ? TerminalIcon

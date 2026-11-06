@@ -158,6 +158,10 @@ export async function navigateComposerReference({
     case 'session':
     case 'agent_run':
       return openOwningSession() ?? unresolved('This reference names no conversation to open.');
+    case 'subagent':
+    case 'server':
+      // A summons names what handles the message; there is nothing to open.
+      return unresolved('An agent or tool set you summoned has no page of its own.');
     case 'unknown':
       return unresolved('This version of the app has no way to open this kind of reference.');
   }

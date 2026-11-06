@@ -32,6 +32,9 @@ const groups: Array<{
   kinds: WorkspaceReference['kind'][];
   label: string;
 }> = [
+  // What the person can summon to handle the message: first, since naming one is a decision.
+  { defaultOpen: true, kinds: ['subagent'], label: 'Agents' },
+  { defaultOpen: true, kinds: ['server'], label: 'Tools' },
   { defaultOpen: true, kinds: ['workspace_file'], label: 'Workspace files' },
   // Uploaded files and tool-observed evidence have different wire identities, but both are
   // user-facing sources. Artifacts remain reserved for generated or registered outputs.
@@ -44,9 +47,10 @@ const groups: Array<{
   { defaultOpen: false, kinds: ['plan'], label: 'Plans' },
 ];
 
+/** Kinds the workspace reference search serves (summon targets come from the session). */
 const nonFileKinds = groups
   .flatMap((group) => group.kinds)
-  .filter((kind) => kind !== 'workspace_file');
+  .filter((kind) => kind !== 'workspace_file' && kind !== 'subagent' && kind !== 'server');
 
 function useDebouncedValue(value: string, delay: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -75,6 +79,7 @@ export function ClioComposerReferenceMenu({
   onQueryChange,
   query,
   searchInput,
+  summons = [],
   workspaceId,
 }: {
   activeReferenceId?: string;
@@ -90,6 +95,8 @@ export function ClioComposerReferenceMenu({
   onQueryChange: (query: string) => void;
   query: string;
   searchInput: boolean;
+  /** The conversation's subagents and MCP servers, as summonable rows. */
+  summons?: readonly WorkspaceReference[];
   workspaceId: string;
 }) {
   const repository = useRepository();
@@ -145,7 +152,18 @@ export function ClioComposerReferenceMenu({
     // React Query retains the collapsed inventory in its cache after the user
     // starts typing. Do not mix those stale unfiltered files into live search
     // results; a query must reflect only the bounded server search.
-    const combined = [...(references.data ?? []), ...(!isSearching ? (localFiles.data ?? []) : [])];
+    const needle = query.trim().toLocaleLowerCase();
+    const summoned = summons.filter(
+      (row) =>
+        !needle ||
+        row.label.toLocaleLowerCase().includes(needle) ||
+        row.detail.toLocaleLowerCase().includes(needle),
+    );
+    const combined = [
+      ...summoned,
+      ...(references.data ?? []),
+      ...(!isSearching ? (localFiles.data ?? []) : []),
+    ];
     const identities = new Set<string>();
     const deduplicated = combined.filter((reference) => {
       const identity = workspaceReferenceIdentity(reference);
@@ -163,7 +181,7 @@ export function ClioComposerReferenceMenu({
       rows: supported.slice(0, REFERENCE_ROW_LIMIT),
       unsupported: deduplicated.length - supported.length,
     };
-  }, [isSearching, localFiles.data, references.data]);
+  }, [isSearching, localFiles.data, query, references.data, summons]);
   const rows = listing.rows;
 
   // Rows the contract refused are reported through the shared degradation

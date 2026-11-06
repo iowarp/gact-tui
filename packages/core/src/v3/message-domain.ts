@@ -97,6 +97,13 @@ export type MessageBlock = MessageBlockContext &
         delivery?: ResourceDeliveryDecision;
       }
     | {
+        /** A subagent or MCP server the person named to handle their message. */
+        id: string;
+        type: 'summon';
+        target_kind: 'subagent' | 'server' | 'unknown';
+        target: string;
+      }
+    | {
         id: string;
         type: 'context_reference';
         ref_kind: ContextReferenceKind;

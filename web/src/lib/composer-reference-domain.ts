@@ -1,4 +1,9 @@
-import type { ComposerMessagePart, WorkspaceReference } from '@clio/core/v3';
+import type {
+  ComposerMessagePart,
+  SummonPart,
+  SummonTargets,
+  WorkspaceReference,
+} from '@clio/core/v3';
 
 export type ReferencePart = Exclude<
   ComposerMessagePart,
@@ -18,13 +23,20 @@ export interface InlineReferenceSelection {
 }
 
 export function referenceIdentity(part: ReferencePart): string {
+  if (part.type === 'summon') return `${part.target_kind}:${part.target}:`;
   return part.type === 'resource_ref'
     ? `resource:${part.resource_id}:${part.resource_revision}`
     : `${part.ref_kind}:${part.ref_id}:${part.revision ?? ''}`;
 }
 
 export function referenceLabel(part: ReferencePart): string {
+  if (part.type === 'summon') return part.target;
   return part.type === 'resource_ref' ? part.name : part.label;
+}
+
+/** A subagent or MCP server the person can `@`-summon, as the popover lists it. */
+export function isSummonReference(reference: { kind: string }): boolean {
+  return reference.kind === 'subagent' || reference.kind === 'server';
 }
 
 /**
@@ -70,7 +82,9 @@ const REFERENCE_KIND_LABELS: Record<string, string> = {
   evidence_source: 'source',
   plan: 'plan',
   resource: 'source',
+  server: 'tools',
   session: 'conversation',
+  subagent: 'agent',
   workspace_file: 'local file',
 };
 
@@ -85,6 +99,9 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
     // this build has no wire mapping for. Explicit so a future caller gets a
     // refusal instead of an invalid ref_kind on the wire.
     throw new Error('This version cannot send a reference of an unrecognized kind.');
+  }
+  if (reference.kind === 'subagent' || reference.kind === 'server') {
+    return { type: 'summon', target_kind: reference.kind, target: reference.id };
   }
   if (reference.kind === 'resource') {
     return {
@@ -101,4 +118,70 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
     label: reference.label,
     revision: reference.revision || undefined,
   };
+}
+
+/** The session's summon targets as popover rows: Agents (subagents) and Tools (servers). */
+export function summonReferences(targets?: SummonTargets): WorkspaceReference[] {
+  if (!targets) return [];
+  const row = (kind: 'subagent' | 'server', id: string, detail: string): WorkspaceReference => ({
+    kind,
+    id,
+    label: id,
+    detail,
+    media_type: '',
+    revision: '',
+    navigation: {},
+  });
+  return [
+    ...targets.subagents.map((agent) => row('subagent', agent.id, agent.description)),
+    ...targets.servers.map((server) =>
+      row(
+        'server',
+        server.name,
+        [
+          server.description,
+          server.tools !== null
+            ? `${server.tools} tool${server.tools === 1 ? '' : 's'}`
+            : server.deferred
+              ? 'tools load when used'
+              : '',
+        ]
+          .filter(Boolean)
+          .join(' — '),
+      ),
+    ),
+  ];
+}
+
+const TYPED_MENTION = /(?:^|(?<=[\s([{"'“]))@([\w-]+)(?=$|[\s,;:!?)\]}"'”]|\.(?:\s|$))/gu;
+
+/**
+ * Summon parts for each `@name` the person typed in full, as its own word, that
+ * exactly names one of the conversation's subagents or servers. Anything else
+ * stays prose: `bob@example.org` is an address, `@explorer` names nobody.
+ */
+export function typedSummons(
+  text: string,
+  targets: SummonTargets | undefined,
+  picked: readonly ReferencePart[],
+): SummonPart[] {
+  if (!targets) return [];
+  const kinds = new Map<string, SummonPart['target_kind']>([
+    ...targets.servers.map((server) => [server.name, 'server'] as const),
+    ...targets.subagents.map((agent) => [agent.id, 'subagent'] as const),
+  ]);
+  const seen = new Set(
+    picked.flatMap((part) =>
+      part.type === 'summon' ? [`${part.target_kind}:${part.target}`] : [],
+    ),
+  );
+  const found: SummonPart[] = [];
+  for (const match of text.matchAll(TYPED_MENTION)) {
+    const name = match[1] ?? '';
+    const kind = kinds.get(name);
+    if (!kind || seen.has(`${kind}:${name}`)) continue;
+    seen.add(`${kind}:${name}`);
+    found.push({ type: 'summon', target_kind: kind, target: name });
+  }
+  return found;
 }

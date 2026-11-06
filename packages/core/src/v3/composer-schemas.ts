@@ -69,6 +69,11 @@ export const composerMessagePartSchema = z.discriminatedUnion('type', [
     name: z.string(),
     delivery_preference: z.string().optional(),
   }),
+  z.object({
+    type: z.literal('summon'),
+    target_kind: z.enum(['subagent', 'server']),
+    target: z.string(),
+  }),
 ]);
 
 export const workspaceReferenceSchema = z.object({

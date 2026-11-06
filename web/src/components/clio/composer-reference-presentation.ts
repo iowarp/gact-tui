@@ -8,6 +8,7 @@ import {
   MessageSquareIcon,
   PackageIcon,
   WaypointsIcon,
+  WrenchIcon,
 } from 'lucide-react';
 import { HelpIcon } from '@/lib/icon-vocabulary';
 import type { ComponentType, SVGProps } from 'react';
@@ -27,7 +28,9 @@ const REFERENCE_KIND_ICONS: Record<string, ReferenceIcon> = {
   evidence_source: WaypointsIcon,
   plan: ListTreeIcon,
   resource: DatabaseIcon,
+  server: WrenchIcon,
   session: MessageSquareIcon,
+  subagent: BotIcon,
   workspace_file: FileTextIcon,
 };
 
