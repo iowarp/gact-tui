@@ -55,7 +55,11 @@ import type {
 } from '@/lib/upload-workspace-resources';
 import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
-import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-reference-domain';
+import {
+  toMessagePart,
+  withReferenceMentions,
+  type InlineReferenceSelection,
+} from '@/lib/composer-reference-domain';
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
 import { focusEditorAtOffset as focusComposerEditor } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
@@ -115,8 +119,6 @@ export interface ClioComposerProps extends ComposerQueueControls {
     delivery: MessageDelivery | 'queued';
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
-    /** A new conversation that neither reads nor writes long-term memory. */
-    memoryOff?: boolean;
     /** The fleet model (`<account>/<model>`) SPOTTER review runs on in a new conversation. */
     spotterModel?: string;
   }) => Promise<void>;
@@ -282,7 +284,6 @@ export function ClioComposer({
   // though the service had asked for it.
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
-  const [memoryOff, setMemoryOff] = useState(false);
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
   const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
     [],
@@ -588,14 +589,18 @@ export function ClioComposer({
                 delivery: state === 'running' ? (nextDeliveryRef.current ?? 'queued') : 'start',
                 files,
                 references: selectedReferences.map(({ reference }) => toMessagePart(reference)),
-                text: messageTextWithAnnotations(annotations, trimmed),
+                // Each typed reference stays where it was typed, as `@path` /
+                // `@label`; attached sources live in the tray, not the sentence.
+                text: messageTextWithAnnotations(
+                  annotations,
+                  withReferenceMentions(text, sourceAttachments.inlineReferences).trim(),
+                ),
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
                 onUploadProgress: (progress) => {
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
                 },
-                ...(variant === 'welcome' && memoryOff ? { memoryOff } : {}),
                 ...(variant === 'welcome' &&
                 spotter.value &&
                 messageBehavior.confirmation_policy === 'spotter-ai'
@@ -704,7 +709,6 @@ export function ClioComposer({
             ) : null}
             <ClioComposerBehaviorControls
               behavior={messageBehavior}
-              {...(variant === 'welcome' ? { memoryOff, onMemoryOffChange: setMemoryOff } : {})}
               spotterAvailability={spotterAvailability}
               spotterModelControl={
                 <ComposerSpotterModel

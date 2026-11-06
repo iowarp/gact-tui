@@ -1,4 +1,4 @@
-import type { RailroadDiagram } from './flow-railroad';
+import { parallelLabel, type RailroadDiagram } from './flow-railroad';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -12,7 +12,7 @@ const TAB_HEIGHT = 18;
 /**
  * Mark each drawn node with its state class, a tooltip and its key, and make
  * it a button that names its state (`selectable`); label each parallel group
- * "parallel"; box each flow a step runs, its step's name on the box; and drop
+ * with how many may run at once; box each flow a step runs, its step's name on the box; and drop
  * the rule's name (the card already names the flow).
  */
 export function markRailroad(svg: SVGElement, diagram: RailroadDiagram, selectable = false) {
@@ -32,7 +32,8 @@ export function markRailroad(svg: SVGElement, diagram: RailroadDiagram, selectab
     node.setAttribute('tabindex', '0');
     node.setAttribute('aria-label', mark.title);
   });
-  for (const { from, to, count } of diagram.parallels) {
+  for (const group of diagram.parallels) {
+    const { from, to } = group;
     const boxes = nodes.slice(from, to).flatMap((node) => {
       const rect = node.querySelector('rect');
       const x = Number(rect?.getAttribute('x'));
@@ -47,7 +48,7 @@ export function markRailroad(svg: SVGElement, diagram: RailroadDiagram, selectab
     label.setAttribute('x', String(left + 2));
     label.setAttribute('y', String(top - 4));
     label.setAttribute('text-anchor', 'start');
-    label.textContent = `${count} in parallel`;
+    label.textContent = parallelLabel(group);
     boxes[0]!.node.parentElement?.append(label);
   }
   let top = Infinity;

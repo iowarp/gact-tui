@@ -1,4 +1,13 @@
-import { useCallback, useContext, useMemo, useRef, useState, type Ref } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from 'react';
 import { BookOpenIcon, EyeIcon, FileCode2Icon, Table2Icon, WrapTextIcon } from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { renderedFileText, textFileFormat, type TextFileFormat } from '@/lib/file-presentation';
@@ -19,11 +28,16 @@ import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { TextFileCopyAction } from './text-file-copy-action';
 import { FileSourceView } from './file-source-view';
 import { ContentMarkdown } from './content-markdown';
-import { ClioCsvView } from './csv-view';
 import { ClioDataTable } from './data-table';
 import { tabularJsonDataset } from './json-resource-data';
 import { HtmlPreview } from './html-preview';
 import type { HtmlPreviewTextReaderChange } from './html-preview-bridge';
+import { ResourceLoading } from './resource-states';
+
+// The CSV table loads with the first CSV file opened, not with the app (#644).
+const ClioCsvView = lazy(() =>
+  import('./csv-view').then((module) => ({ default: module.ClioCsvView })),
+);
 
 /** A file's content contributes representations and Copy to one owning toolbar. */
 export function FileTextView({
@@ -140,7 +154,9 @@ export function FileTextView({
           <TabsContent value="data" className="m-0 min-h-0 min-w-0 flex-1 overflow-auto p-3">
             <div ref={reading}>
               {format === 'csv' ? (
-                <ClioCsvView content={content} title={name} />
+                <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
+                  <ClioCsvView content={content} title={name} />
+                </Suspense>
               ) : dataset ? (
                 <>
                   <ClioDataTable

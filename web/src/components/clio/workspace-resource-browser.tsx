@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/empty';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { FileUpIcon, PanelRightOpenIcon } from 'lucide-react';
 import {
   lazy,
@@ -28,6 +27,7 @@ import {
 } from 'react';
 import { formatResourceSize } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { ResourceLoading } from './resource-states';
 
 const WorkspaceResourceView = lazy(() =>
   import('./workspace-resource-view').then((module) => ({
@@ -172,17 +172,9 @@ export function WorkspaceResourceBrowser({
 }
 
 function LoadingResources() {
-  return (
-    <div aria-label="Loading workspace resources" className="grid w-full gap-2">
-      <Skeleton className="h-14 w-full" />
-      <Skeleton className="h-14 w-5/6" />
-      <Skeleton className="h-14 w-11/12" />
-    </div>
-  );
+  return <ResourceLoading className="w-full" label="Loading workspace resources" />;
 }
 
 function PreviewLoading() {
-  return (
-    <div className="grid h-full place-items-center text-sm text-muted-foreground">Loading…</div>
-  );
+  return <ResourceLoading className="p-4" label="Loading preview" />;
 }

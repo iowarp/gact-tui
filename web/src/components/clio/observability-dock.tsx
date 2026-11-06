@@ -54,6 +54,7 @@ import {
 } from './observability-view-storage';
 
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
+import { ResourceLoading } from './resource-states';
 export { ClioObservabilityDock, type ClioObservabilityDockProps } from './observability-dock-shell';
 
 export function ClioObservabilityView({
@@ -472,7 +473,7 @@ function ProvenanceSourceBar({
         <div className="flex min-w-0 items-center gap-2">
           <WaypointsIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="shrink-0 text-xs font-medium">Evidence sources</span>
-          {pending ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
+          {pending ? <ResourceLoading label="Loading evidence sources" variant="line" /> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {providers && providers.length > 1 && provider && onProviderChange ? (

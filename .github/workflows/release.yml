@@ -1,9 +1,7 @@
 name: Release
 
-# On a v* tag push, cross-compile the gact TUI for the common
-# platforms and attach the binaries to the GitHub Release. The
-# clio-agent installer pulls the matching gact-<os>-<arch> asset
-# instead of building from source.
+# Publish the workspace source release after the changelog and notes gate.
+# The legacy TUI is frozen and unsupported; do not build or attach its binaries.
 
 on:
   push:
@@ -48,85 +46,17 @@ jobs:
           fi
           echo "CHANGELOG.md has an entry for ${version}."
 
-  build:
+  release:
     needs: changelog-gate
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - { goos: linux,   goarch: amd64 }
-          - { goos: linux,   goarch: arm64 }
-          - { goos: darwin,  goarch: amd64 }
-          - { goos: darwin,  goarch: arm64 }
-          - { goos: windows, goarch: amd64 }
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.26.x"
-
-      - name: Build gact
-        working-directory: tui
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-          GOWORK: "off"
-          EXPECTED_REVISION: ${{ github.sha }}
-        run: |
-          ext=""
-          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
-          out="gact-${GOOS}-${GOARCH}${ext}"
-          version_pkg="github.com/JaimeCernuda/gact-tui/tui/internal/version"
-          build_time="$(git show -s --format=%cI "$EXPECTED_REVISION")"
-          ldflags="-s -w"
-          ldflags+=" -X ${version_pkg}.Release=${GITHUB_REF_NAME}"
-          ldflags+=" -X ${version_pkg}.BuildRevision=${EXPECTED_REVISION}"
-          ldflags+=" -X ${version_pkg}.BuildTime=${build_time}"
-          ldflags+=" -X ${version_pkg}.BuildDirty=false"
-          go build -trimpath -ldflags "$ldflags" -o "../$out" .
-          (cd .. && sha256sum "$out" > "$out.sha256")
-          if [ "$GOOS" = "linux" ] && [ "$GOARCH" = "amd64" ]; then
-            chmod +x "../$out"
-            version_output="$("../$out" version)"
-            printf '%s\n' "$version_output"
-            expected_short="${EXPECTED_REVISION:0:12}"
-            if ! printf '%s\n' "$version_output" | grep -q "gact ${GITHUB_REF_NAME}"; then
-              echo "release build version mismatch: expected ${GITHUB_REF_NAME}" >&2
-              exit 1
-            fi
-            if ! printf '%s\n' "$version_output" | grep -q "revision: ${expected_short}"; then
-              echo "release build revision mismatch: expected ${expected_short}" >&2
-              exit 1
-            fi
-          fi
-          echo "ARTIFACT=$out" >> "$GITHUB_ENV"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT }}
-          path: |
-            ${{ env.ARTIFACT }}
-            ${{ env.ARTIFACT }}.sha256
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
     permissions:
-      contents: write   # required to attach assets to the Release
+      contents: write   # required to publish the source release
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
 
       - uses: softprops/action-gh-release@v2
         with:
           body_path: docs/releases/${{ github.ref_name }}.md
-          files: dist/*
           # A beta tag (vX.Y.Z-beta.N) is a pre-release and never becomes latest.
           prerelease: ${{ contains(github.ref_name, '-') }}
           make_latest: ${{ !contains(github.ref_name, '-') }}

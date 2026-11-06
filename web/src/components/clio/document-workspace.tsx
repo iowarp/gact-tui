@@ -611,8 +611,7 @@ function DocumentPreview({
   }
   if (previewPending && !content) {
     return (
-      <div className="space-y-3 p-4" role="status" aria-live="polite">
-        <p className="text-sm text-muted-foreground">{previewLabel}</p>
+      <div className="p-4">
         <ResourceLoading label={previewLabel} />
       </div>
     );

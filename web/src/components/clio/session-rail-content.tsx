@@ -26,11 +26,13 @@ export function SessionRailContent({
   onOpenSource,
   actions,
   kind,
+  scrollable = true,
 }: {
   evidence: ClioObservabilityDockProps;
   onOpenSource: (source: ConnectedSourceState) => void;
   actions?: ReactNode;
   kind?: RailKind;
+  scrollable?: boolean;
 }) {
   const connected = useSessionConnectedSources(kind === 'work' ? '' : (evidence.workspaceId ?? ''));
   const work = useSessionWork(kind === 'session' ? '' : (evidence.sessionId ?? ''));
@@ -181,6 +183,7 @@ export function SessionRailContent({
   const sections = kind ? railSectionIds(kind) : undefined;
   return (
     <SessionRail
+      scrollable={scrollable}
       items={[...inventory, ...items].filter((item) => !sections || sections.includes(item.id))}
       sections={sections}
       title={kind === 'work' ? 'Work' : 'Session'}

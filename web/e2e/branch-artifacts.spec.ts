@@ -40,11 +40,18 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
   await expect(canvas.getByRole('textbox', { name: 'Message this agent' })).toBeVisible();
   await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(canvas).not.toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Open workspace canvas', exact: true }),
+  ).toBeVisible();
   await expect(evidence).toBeVisible();
+  // Closing the canvas resizes/rehosts the rail. Wait for its parent layout
+  // before inspecting an uncontrolled task disclosure from the new host.
+  await expect.poll(() => evidence.evaluate((element) => element.clientWidth)).toBe(parentWidth);
   const reopenedDetails = evidence.getByRole('button', {
     name: 'Task details: Station analysis worker',
     exact: true,
   });
+  await reopenedDetails.click({ trial: true });
   if ((await reopenedDetails.getAttribute('aria-expanded')) !== 'true') {
     await reopenedDetails.click();
   }

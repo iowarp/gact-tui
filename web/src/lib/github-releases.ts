@@ -9,6 +9,56 @@ export interface PublishedRelease {
   assets: Array<{ name: string }>;
 }
 
+/**
+ * GitHub answers anonymous API calls 60 times an hour per network address.
+ * Once that is used up, every further call is another 403 in the console until
+ * the reset, so the reset time is kept across reloads and no call is made
+ * before it.
+ */
+export class ReleaseFeedRateLimited extends Error {
+  constructor(readonly resetAt: number) {
+    const time = new Date(resetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    super(`GitHub's limit for update checks from this network is used up until ${time}.`);
+    this.name = 'ReleaseFeedRateLimited';
+  }
+}
+
+const RATE_LIMIT_STORAGE_PREFIX = 'release-feed-rate-limited-until:';
+// Used only when GitHub limits a call without saying when the limit resets.
+const RATE_LIMIT_FALLBACK_MS = 15 * 60 * 1000;
+
+function rateLimitedUntil(api: string): number | undefined {
+  try {
+    const value = Number(localStorage.getItem(RATE_LIMIT_STORAGE_PREFIX + api));
+    return value > Date.now() ? value : undefined;
+  } catch {
+    return undefined; // No storage: fall back to asking GitHub.
+  }
+}
+
+function recordRateLimit(api: string, response: Response): number | undefined {
+  const remaining = response.headers.get('x-ratelimit-remaining');
+  const retryAfter = Number(response.headers.get('retry-after'));
+  const reset = Number(response.headers.get('x-ratelimit-reset'));
+  if (
+    response.status !== 429 &&
+    !(response.status === 403 && (remaining === '0' || retryAfter > 0))
+  )
+    return undefined;
+  const resetAt =
+    retryAfter > 0
+      ? Date.now() + retryAfter * 1000
+      : reset > 0
+        ? reset * 1000
+        : Date.now() + RATE_LIMIT_FALLBACK_MS;
+  try {
+    localStorage.setItem(RATE_LIMIT_STORAGE_PREFIX + api, String(resetAt));
+  } catch {
+    // Best effort: without storage the next page load asks GitHub again.
+  }
+  return resetAt;
+}
+
 /** Derive the public, CORS-enabled API from the product's branded release location. */
 export function releasesApi(releaseUrl: string): string {
   const url = new URL(releaseUrl);
@@ -50,12 +100,17 @@ export async function latestPublishedRelease(
   if (signal?.aborted) abort();
   signal?.addEventListener('abort', abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), 15_000);
+  const api = releasesApi(releaseUrl);
   let releases: unknown;
   try {
-    const response = await fetch(releasesApi(releaseUrl), {
+    const limitedUntil = rateLimitedUntil(api);
+    if (limitedUntil !== undefined) throw new ReleaseFeedRateLimited(limitedUntil);
+    const response = await fetch(api, {
       headers: { Accept: 'application/vnd.github+json' },
       signal: controller.signal,
     });
+    const resetAt = response.ok ? undefined : recordRateLimit(api, response);
+    if (resetAt !== undefined) throw new ReleaseFeedRateLimited(resetAt);
     if (!response.ok) throw new Error(`Release check failed (HTTP ${response.status}).`);
     releases = await response.json();
   } finally {

@@ -24,6 +24,7 @@ import {
 } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
+import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { referenceKindIcon } from './composer-reference-presentation';
 
 const groups: Array<{
@@ -111,10 +112,12 @@ export function ClioComposerReferenceMenu({
   }, [onRestoreFocus, searchInput]);
   const debouncedQuery = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
   const isSearching = Boolean(query.trim());
+  // `file.h5::/group/` lists that group's objects instead of searching the workspace.
+  const hdf5 = useHdf5ReferenceRows(workspaceId, query.trim());
   const requestedKinds = debouncedQuery ? [] : nonFileKinds;
   const requestedKindsKey = requestedKinds.join(',');
   const references = useQuery({
-    enabled: Boolean(workspaceId),
+    enabled: Boolean(workspaceId) && !hdf5.mention,
     queryKey: queryKeys.workspaceReferences(
       settings.endpoint,
       workspaceId,
@@ -176,12 +179,14 @@ export function ClioComposerReferenceMenu({
 
   const visibleRows = useMemo(
     () =>
-      groups.flatMap((group) =>
-        isSearching || openGroups[group.label]
-          ? rows.filter((row) => group.kinds.includes(row.kind))
-          : [],
-      ),
-    [isSearching, openGroups, rows],
+      hdf5.mention
+        ? hdf5.rows
+        : groups.flatMap((group) =>
+            isSearching || openGroups[group.label]
+              ? rows.filter((row) => group.kinds.includes(row.kind))
+              : [],
+          ),
+    [hdf5.mention, hdf5.rows, isSearching, openGroups, rows],
   );
 
   useEffect(() => onReferencesChange(visibleRows), [onReferencesChange, visibleRows]);
@@ -206,6 +211,35 @@ export function ClioComposerReferenceMenu({
     document.addEventListener('pointerdown', onPointerDown, true);
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [onDismiss]);
+
+  const renderOption = (reference: WorkspaceReference) => {
+    const Icon = referenceKindIcon(reference.kind);
+    const detail = conciseDetail(reference);
+    const drillable = Boolean(hdf5DrillQuery(reference));
+    return (
+      <PromptInputCommandItem
+        aria-label={`${reference.label} ${detail}`}
+        className="h-7 px-2 py-0"
+        key={`${reference.kind}:${reference.id}:${reference.revision}`}
+        onSelect={() => onSelect(reference)}
+        ref={(element) => {
+          const identity = workspaceReferenceIdentity(reference);
+          if (element) optionElements.current.set(identity, element);
+          else optionElements.current.delete(identity);
+        }}
+        value={workspaceReferenceIdentity(reference)}
+      >
+        <Icon aria-hidden="true" className="shrink-0 text-muted-foreground" />
+        <span className="min-w-0 shrink-0 truncate font-medium">
+          {hdf5.mention ? (reference.navigation['locator'] as string) : reference.label}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{detail}</span>
+        {drillable ? (
+          <span className="shrink-0 text-xs text-muted-foreground">Tab to look inside</span>
+        ) : null}
+      </PromptInputCommandItem>
+    );
+  };
 
   return (
     <PromptInputCommand
@@ -236,13 +270,26 @@ export function ClioComposerReferenceMenu({
         style={{ maxHeight: REFERENCE_POPOVER_MAX_HEIGHT }}
       >
         <PromptInputCommandEmpty>
-          {references.isError || localFiles.isError
-            ? 'References are unavailable from the connected service.'
-            : references.isFetching || localFiles.isFetching
-              ? 'Searching workspace context…'
-              : 'No workspace context matches.'}
+          {hdf5.mention
+            ? hdf5.listing.isError
+              ? `${hdf5.mention.file} cannot be read as HDF5 here.`
+              : hdf5.listing.isFetching
+                ? `Reading ${hdf5.mention.group} in ${hdf5.mention.file}…`
+                : 'No objects match.'
+            : references.isError || localFiles.isError
+              ? 'References are unavailable from the connected service.'
+              : references.isFetching || localFiles.isFetching
+                ? 'Searching workspace context…'
+                : 'No workspace context matches.'}
         </PromptInputCommandEmpty>
-        {groups.map((group) => {
+        {hdf5.mention ? (
+          <PromptInputCommandGroup
+            heading={`Inside ${hdf5.mention.file.split('/').at(-1)} — ${hdf5.mention.group}`}
+          >
+            {hdf5.rows.map((reference) => renderOption(reference))}
+          </PromptInputCommandGroup>
+        ) : null}
+        {(hdf5.mention ? [] : groups).map((group) => {
           const matches = rows.filter((row) => group.kinds.includes(row.kind));
           const alwaysVisible = !isSearching && group.label === 'Workspace files';
           if (!matches.length && !alwaysVisible) return null;
@@ -279,32 +326,7 @@ export function ClioComposerReferenceMenu({
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  {matches.map((reference) => {
-                    const Icon = referenceKindIcon(reference.kind);
-                    const detail = conciseDetail(reference);
-                    return (
-                      <PromptInputCommandItem
-                        aria-label={`${reference.label} ${detail}`}
-                        className="h-7 px-2 py-0"
-                        key={`${reference.kind}:${reference.id}:${reference.revision}`}
-                        onSelect={() => onSelect(reference)}
-                        ref={(element) => {
-                          const identity = workspaceReferenceIdentity(reference);
-                          if (element) optionElements.current.set(identity, element);
-                          else optionElements.current.delete(identity);
-                        }}
-                        value={workspaceReferenceIdentity(reference)}
-                      >
-                        <Icon aria-hidden="true" className="shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 shrink-0 truncate font-medium">
-                          {reference.label}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                          {detail}
-                        </span>
-                      </PromptInputCommandItem>
-                    );
-                  })}
+                  {matches.map((reference) => renderOption(reference))}
                 </CollapsibleContent>
               </Collapsible>
             </PromptInputCommandGroup>
@@ -312,7 +334,9 @@ export function ClioComposerReferenceMenu({
         })}
       </PromptInputCommandList>
       <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-        Reference existing material. Type to search, ↑↓ to choose, Enter to add, Esc to close.
+        {hdf5.mention
+          ? 'Tab opens a group, Enter adds the object, Esc to close.'
+          : 'Reference existing material. Type to search, ↑↓ to choose, Enter to add, Esc to close.'}
       </div>
       {unreadable + listing.unsupported > 0 ? (
         <div

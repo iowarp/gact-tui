@@ -68,6 +68,7 @@ import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
 import { AsyncTaskList, type TaskPageControls } from './async-task-list';
+import { showCompletedWork } from './task-history';
 import { SessionEvidenceSummary } from './session-evidence-summary';
 import { isSettledTaskActivity, taskActivity } from './task-activity';
 import { OpenQuestionsSection } from './open-question-list';
@@ -128,7 +129,8 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
     entry.process && entry.subagent ? [entry.subagent] : [],
   );
   // Finished work sits behind Completed work: a count of 0 would read as none ever ran.
-  const finishedWorkHidden = Boolean(props.workPages?.hasMore || props.workPages?.history);
+  const completedWork = showCompletedWork(props.workPages?.history, activity);
+  const finishedWorkHidden = Boolean(props.workPages?.hasMore || completedWork);
   const tasks = showActivity ? (props.tasks ?? []) : [];
   const tools = showActivity ? (props.tools ?? []) : [];
   const files = showData
@@ -259,8 +261,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             <ToolEvidence tools={tools} />
           </EvidenceSection>
         ) : null}
-        {showActivity &&
-        (backgroundProcesses.length || props.workPages?.hasMore || props.workPages?.history) ? (
+        {showActivity && (activity.length || props.workPages?.hasMore || completedWork) ? (
           <EvidenceSection
             icon={ServerIcon}
             label="Background tasks"

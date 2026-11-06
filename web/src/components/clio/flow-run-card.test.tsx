@@ -1,4 +1,4 @@
-import { flowRunSchema, type ToolInvocation } from '@clio/core/v3';
+import { agentTaskRecordSchema, flowRunSchema, type ToolInvocation } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -230,5 +230,50 @@ describe('FlowRunCard', () => {
     expect(await screen.findByText('0 tasks')).toBeVisible();
     expect(screen.getByText('The flow has not started any task yet.')).toBeVisible();
     expect(screen.queryByText('Task history not recorded')).toBeNull();
+  });
+  it('shows a flow whose task failed before any checkpoint as failed, not as not started', async () => {
+    // gact-tui#677: the flow view is 404 (no checkpoint) while the task has the typed failure.
+    repository.taskFlow.mockResolvedValue(null);
+    repository.agentTask.mockResolvedValue(
+      agentTaskRecordSchema.parse({
+        task_id: 'task_flow',
+        status: 'failed',
+        error_reason: 'flow_limit_exceeded: max_model_calls 1 reached',
+      }),
+    );
+    wrap(
+      <FlowRunCard
+        flow={{
+          flow: 'qualification_limits',
+          label: 'Qualification limits',
+          handle: 'task_flow',
+          args: {},
+        }}
+        sessionId="sess_1"
+      />,
+    );
+
+    expect(await screen.findByText('flow_limit_exceeded: max_model_calls 1 reached')).toBeVisible();
+    expect(screen.getByText('Failed')).toBeVisible();
+    expect(screen.queryByText('Not started yet')).toBeNull();
+  });
+
+  it('still says not started while a task without a checkpoint is running', async () => {
+    repository.taskFlow.mockResolvedValue(null);
+    repository.agentTask.mockResolvedValue(
+      agentTaskRecordSchema.parse({ task_id: 'task_flow', status: 'running' }),
+    );
+    wrap(
+      <FlowRunCard
+        flow={{ flow: 'deep-research', label: 'Deep research', handle: 'task_flow', args: {} }}
+        sessionId="sess_1"
+      />,
+    );
+
+    expect(await screen.findByText('Not started yet')).toBeVisible();
+    await waitFor(() =>
+      expect(repository.agentTask).toHaveBeenCalledWith('task_flow', expect.anything()),
+    );
+    expect(screen.getByText('Not started yet')).toBeVisible();
   });
 });

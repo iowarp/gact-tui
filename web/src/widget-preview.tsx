@@ -1,6 +1,6 @@
 import { vocab } from '@/lib/brand-vocabulary';
 // oxlint-disable react/only-export-components -- This is a standalone gallery entrypoint.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { useTheme } from '@/providers/appearance-provider';
@@ -8,6 +8,10 @@ import { Toaster } from 'sonner';
 import { ArrowUpRight, BoxSelect, Image as ImageIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppProviders } from '@/providers/app-providers';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { RepositoryOverrideProvider } from '@/providers/repository-override';
+import { createRepository } from '@/lib/connection';
+import { createGalleryRepository } from '@/lib/gallery-repository';
 import { A2uiDemo, LinkedChartDemo, WidgetGallery } from '@/widget-gallery';
 import { GallerySkillDialog } from '@/gallery-skill-dialog';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
@@ -376,10 +380,19 @@ function Preview() {
   );
 }
 
+/** Serve the gallery's bundled samples over the live connection, for every hook below. */
+function GalleryRepository({ children }: { children: ReactNode }) {
+  const { settings } = useConnectionSettings();
+  const repository = useMemo(() => createGalleryRepository(createRepository(settings)), [settings]);
+  return <RepositoryOverrideProvider repository={repository}>{children}</RepositoryOverrideProvider>;
+}
+
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
     <AppProviders>
-      <Preview />
+      <GalleryRepository>
+        <Preview />
+      </GalleryRepository>
     </AppProviders>
   </BrowserRouter>,
 );

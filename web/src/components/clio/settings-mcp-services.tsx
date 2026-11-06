@@ -107,46 +107,33 @@ function McpServiceItem({
   return (
     <li className="min-w-0">
       <Collapsible onOpenChange={setOpen} open={open}>
-        <div className="flex min-w-0 items-start gap-2 py-3">
+        <div className="flex h-9 min-w-0 items-center gap-1">
           <CollapsibleTrigger asChild>
             <button
               aria-label={`${open ? 'Hide' : 'Show'} the tools of ${title}`}
-              className="mt-0.5 rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+              className="group flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md px-1 text-left text-sm hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring"
               type="button"
             >
               <ChevronRightIcon
                 aria-hidden="true"
-                className={cn('size-4 transition-transform duration-150', open && 'rotate-90')}
+                className={cn(
+                  'size-3.5 shrink-0 transition-transform duration-150',
+                  open && 'rotate-90',
+                )}
+              />
+              <BlocksIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium">{title}</span>
+              <span className="ml-auto truncate text-xs text-muted-foreground">
+                {countLabel(toolNames.length, state.known)}
+              </span>
+              <ClioStatus
+                className="size-4 shrink-0"
+                compact
+                label={state.label}
+                value={state.value}
               />
             </button>
-          </CollapsibleTrigger>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 className="font-medium">{title}</h3>
-              <span className="text-xs text-muted-foreground">
-                {origin(entry)}, {countLabel(toolNames.length, state.known)}
-              </span>
-            </div>
-            {saved && showConnection ? (
-              <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-                {savedTarget(saved)}
-              </p>
-            ) : null}
-            {mcpServerPreparation(server) ? (
-              <McpServerPreparationNote
-                onReconnect={reconnectSession}
-                reconnecting={reconnecting}
-                server={server}
-                title={title}
-              />
-            ) : server?.error ? (
-              <p className="mt-1 text-xs text-destructive">{server.error}</p>
-            ) : null}
-          </div>
-          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-            <ClioStatus className="size-4" compact label={state.label} value={state.value} />
-            <span aria-hidden="true">{state.label}</span>
-          </span>
+          </CollapsibleTrigger>{' '}
           <ServiceActions
             onDetails={server && onDetails ? () => onDetails(server) : undefined}
             onDisconnect={runtime && server ? () => onDisconnect(server) : undefined}
@@ -163,6 +150,25 @@ function McpServiceItem({
           />
         </div>
         <CollapsibleContent>
+          {' '}
+          <div className="mb-2 ml-7 grid min-w-0 gap-1 text-xs text-muted-foreground">
+            <p>
+              {origin(entry)}, {state.label}
+            </p>
+            {saved && showConnection ? (
+              <p className="break-all font-mono">{savedTarget(saved)}</p>
+            ) : null}
+            {mcpServerPreparation(server) ? (
+              <McpServerPreparationNote
+                onReconnect={reconnectSession}
+                reconnecting={reconnecting}
+                server={server}
+                title={title}
+              />
+            ) : server?.error ? (
+              <p className="text-destructive">{server.error}</p>
+            ) : null}
+          </div>
           {toolNames.length ? (
             <ul aria-label={`Tools of ${title}`} className="mb-3 ml-7 min-w-0">
               {toolNames.map((name) => (

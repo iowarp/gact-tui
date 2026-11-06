@@ -611,6 +611,9 @@ describe('connection provider credentials', () => {
       expect(mocks.store).toHaveBeenCalledWith('http://agent.local', 'saved-secret');
       expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
     });
+    // The token goes to the credential store only, never into browser storage.
+    const stored = Object.keys(localStorage).map((key) => localStorage.getItem(key));
+    expect(stored.join('\n')).not.toContain('saved-secret');
 
     fireEvent.click(screen.getByRole('button', { name: 'Forget lab agent' }));
 

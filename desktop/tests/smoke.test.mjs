@@ -205,8 +205,9 @@ test('CSP is present, localhost-scoped, and identical across config variants', (
   // (2) connect-src is scoped to localhost; broad wildcards are removed because
   // remote/SSH-tunneled egress is done by Rust (gact_http/gact_sse), not the WebView.
   for (const csp of [baseCsp, gactCsp]) {
-    assert.match(csp, /(?:^|;)\s*frame-src 'self' http: https:(?:;|$)/,
-      'the opaque interactive renderer must load from the connected service');
+    assert.match(csp, /(?:^|;)\s*frame-src 'self' http: https: gact-viewer:(?:;|$)/,
+      'the opaque interactive renderer must load from the connected service, '
+        + 'and the HDF5 viewer from its own gact-viewer: origin');
     assert.match(csp, /(?:^|;)\s*script-src 'self'(?:;|$)/,
       'preview scripts must not relax the main application script policy');
     assert.match(csp, /connect-src[^;]*'self'/, 'connect-src must allow self');

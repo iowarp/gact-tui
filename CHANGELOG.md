@@ -6,12 +6,23 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.3] - 2026-10-28
+
 ### Changed
 
 - A study's Views are the dashboards its conversations attached to it. Each shows
   its title, purpose and the branch that made it, and its charts and tables can
   read the study's measurements, entries or plugin records live, updating as
   entries arrive. Exports keep each view with the data it showed.
+- Load conversations and older messages in bounded pages, including the workspace
+  rail, so opening a view does not fetch every session.
+- Supervise Windows protection and managed-package preparation through the desktop
+  launcher, retaining progress and ownership until each operation settles.
+
+### Fixed
+
+- Wait for the evidence rail's parent layout before reopening a child conversation
+  after closing its canvas.
 
 ### Removed
 

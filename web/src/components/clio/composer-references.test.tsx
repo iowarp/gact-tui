@@ -15,8 +15,21 @@ const reference: WorkspaceReference = {
   navigation: { workspace_id: 'workspace_1', resource_id: 'resource_nvda' },
 };
 
+const encoder = new TextEncoder();
+const runMeta = {
+  children: [
+    { name: 'I', kind: 'dataset', shape: [3, 4], type: { dtype: '<f4' } },
+    { name: 'image', kind: 'group' },
+    { name: 'detector', kind: 'external_link' },
+  ],
+};
+
 vi.mock('@/hooks/use-repository', () => ({
-  useRepository: () => ({ workspaceReferences: vi.fn(async () => [reference]) }),
+  useRepository: () => ({
+    workspaceReferences: vi.fn(async () => [reference]),
+    capabilities: vi.fn(async () => ({ capabilities: { x_clio_hdf5_viewer: true } })),
+    readWorkspaceHdf5: vi.fn(async () => encoder.encode(JSON.stringify(runMeta))),
+  }),
 }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8788' } }),
@@ -53,5 +66,47 @@ describe('composer reference presentation', () => {
     expect(await screen.findByRole('button', { name: 'Collapse Sources' })).toBeVisible();
     await user.click(screen.getByRole('option', { name: /10K-NVDA\.pdf/ }));
     expect(onSelect).toHaveBeenCalledWith(reference);
+  });
+
+  it('lists the objects inside an HDF5 group for a file::/group/ mention', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ClioComposerReferenceMenu
+          activeReferenceId=""
+          onActiveOptionChange={vi.fn()}
+          onActiveReferenceChange={vi.fn()}
+          onDismiss={vi.fn()}
+          onQueryChange={vi.fn()}
+          onReferencesChange={vi.fn()}
+          onRestoreFocus={vi.fn()}
+          onSelect={onSelect}
+          query="data/run.h5::/entry/"
+          searchInput={false}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Inside run.h5 — /entry')).toBeVisible();
+    const dataset = await screen.findByRole('option', {
+      name: /\/entry\/I dataset, 3×4, float32/,
+    });
+    expect(screen.getByRole('option', { name: /\/entry\/image group/ })).toHaveTextContent(
+      'Tab to look inside',
+    );
+    expect(
+      screen.getByText('Tab opens a group, Enter adds the object, Esc to close.'),
+    ).toBeVisible();
+    await user.click(dataset);
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'workspace_file',
+        id: 'data/run.h5::/entry/I',
+        label: 'run.h5 › /entry/I',
+        navigation: { path: 'data/run.h5', locator: '/entry/I', hdf5_kind: 'dataset' },
+      }),
+    );
   });
 });

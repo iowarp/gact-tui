@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
   agentEntrySchema,
+  localLibrarySchema,
+  type LocalLibrary,
   agentResolutionSchema,
   marketplaceSummarySchema,
   pluginCatalogSchema,
@@ -62,6 +64,15 @@ export interface LocalExtensionInput {
 
 /** Plugins, marketplaces, agents, user agents and the session's pinned agent. */
 export class PluginRepository extends SessionObservabilityRepository {
+  /** Read local source locations without installing or publishing a marketplace. */
+  public localLibrary(signal?: AbortSignal): Promise<LocalLibrary> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/plugins/local',
+      signal,
+      decode: (value) => localLibrarySchema.parse(value),
+    });
+  }
   public discoverMcp(search: string, cursor = '', signal?: AbortSignal): Promise<McpRegistryPage> {
     return this.transport.request({
       method: 'GET',

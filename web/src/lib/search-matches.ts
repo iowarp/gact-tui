@@ -21,6 +21,8 @@ export interface FileSearchLocation {
   workspaceId?: string;
   line?: number;
   find?: string;
+  /** HDF5 only: the object to open the viewer on, e.g. `/entry/data`. */
+  locator?: string;
 }
 
 /** Keep the destination's source identities and search text in the message hash. */

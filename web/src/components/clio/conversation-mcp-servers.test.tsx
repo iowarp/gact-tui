@@ -70,6 +70,11 @@ describe('ConversationMcpServers', () => {
       server({ id: 'mcp_other', name: 'other', session_id: undefined }),
     ]);
 
+    expect(screen.getByRole('button', { name: 'Show the tools of spotter' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Show the tools of spotter' }));
     expect(screen.getByText('The server’s software could not be installed.')).toBeInTheDocument();
     expect(screen.queryByText('other')).toBeNull(); // not this conversation's server
     expect(screen.queryByText(/TOML parse error/u)).toBeNull();

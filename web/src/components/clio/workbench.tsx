@@ -97,7 +97,14 @@ export interface ClioWorkbenchProps {
 
 export type ClioWorkbenchOpenRequest =
   | { kind: 'knowledge'; sourceId: string; label: string }
-  | { kind: 'workspace-file'; path: string; workspaceId?: string; line?: number; find?: string }
+  | {
+      kind: 'workspace-file';
+      path: string;
+      workspaceId?: string;
+      line?: number;
+      find?: string;
+      locator?: string;
+    }
   | { kind: 'workspace-folder'; path: string; workspaceId?: string }
   | { kind: 'diff'; diff: SessionDiff }
   | { kind: 'artifact'; artifact: ArtifactEntity }
@@ -387,6 +394,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               workspaceId: targetWorkspaceId,
               line: request.line,
               find: request.find,
+              locator: request.locator,
             });
             return;
           }
