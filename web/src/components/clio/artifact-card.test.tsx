@@ -62,8 +62,8 @@ function renderCard(onOpen = vi.fn()) {
 }
 
 describe('ClioArtifactCard', () => {
-  it('names a stream as a stream and offers no file to download', () => {
-    render(
+  it('names a stream as a stream, gives it the live-feed icon and offers no file to download', () => {
+    const { container } = render(
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
@@ -83,6 +83,8 @@ describe('ClioArtifactCard', () => {
       </QueryClientProvider>,
     );
     expect(screen.getByText('Stream')).toBeVisible();
+    // A stream has no file type: its icon is the live feed, never the blank-file icon.
+    expect(container.querySelector('svg.lucide-radio')).not.toBeNull();
     expect(screen.queryByRole('button', { name: /Download/u })).toBeNull();
   });
 
