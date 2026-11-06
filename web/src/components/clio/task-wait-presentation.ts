@@ -44,6 +44,8 @@ function resultText(value: unknown): string {
   if (value === undefined || value === null) return 'No result body was recorded.';
   if (typeof value === 'string') return value;
   const row = record(value);
+  // A child agent's result is its run; its report is the answer (the run is in details).
+  if (typeof row?.answer === 'string') return row.answer;
   return typeof row?.output === 'string'
     ? [row.output, row.error_reason].filter(Boolean).join('\n')
     : JSON.stringify(value, null, 2);

@@ -29,6 +29,25 @@ describe('retained task wait receipts', () => {
     },
   );
 
+  it("shows a child agent's answer as its report, not its run's JSON", () => {
+    const run = {
+      selected_expert: 'explore',
+      route_source: 'flow:react',
+      answer: 'The folder holds one file, notes.txt.',
+      tools_called: [{ name: 'fs_list_directory', ok: true }],
+    };
+    const shown = withTaskWaitPresentation({
+      ...tool,
+      input: { tasks: ['child'] },
+      output: {
+        pending: [],
+        results: [{ handle: 'child', kind: 'Session', status: 'completed', result: run }],
+        errors: [],
+      },
+    });
+    expect(shown.presentation?.blocks[2]?.text).toBe('The folder holds one file, notes.txt.');
+  });
+
   it('does not replace an unreadable result with a fabricated outcome', () => {
     const unreadable = { ...tool, output: [{ type: 'text', text: 'truncated' }] };
     const shown = withTaskWaitPresentation(unreadable);
