@@ -1,6 +1,6 @@
 import type { DocumentAnchor } from '@clio/core/v3';
 import { MessageSquarePlusIcon } from 'lucide-react';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CommentRegionLayer, type Rect } from './comment-region-layer';
@@ -57,6 +57,9 @@ export function CommentCapture({
   className?: string;
 }) {
   const session = useCommentSession();
+  // Panes side by side (a paper's source and PDF) share one session; each draws its own marks.
+  const viewer = useId();
+  const mine = (mark: { viewer?: string }) => !mark.viewer || mark.viewer === viewer;
   const host = useRef<HTMLDivElement>(null);
   const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
   const elementMode = Boolean(session?.active && session.mode === 'element' && svg);
@@ -75,11 +78,14 @@ export function CommentCapture({
         : undefined;
     session!.addMark(sourcePath ? { ...anchor, source_path: sourcePath } : anchor, {
       box: selected ? screenBox(selected) : undefined,
+      viewer,
     });
     window.getSelection()?.removeAllRanges();
   };
   const shown = session?.open
-    ? session.marks.flatMap((mark) => (mark.view ? [{ label: mark.label, rect: mark.view }] : []))
+    ? session.marks.flatMap((mark) =>
+        mark.view && mine(mark) ? [{ label: mark.label, rect: mark.view }] : [],
+      )
     : [];
   // Text marks are drawn on the viewer they were made on: the one showing their file.
   const open = Boolean(session?.open);
@@ -91,10 +97,11 @@ export function CommentCapture({
             (mark) =>
               mark.mode === 'text' &&
               mark.anchor.exact &&
+              (!mark.viewer || mark.viewer === viewer) &&
               (mark.anchor.source_path ?? '') === (sourcePath ?? ''),
           )
         : [],
-    [open, marks, sourcePath],
+    [open, marks, sourcePath, viewer],
   );
   return (
     <div
@@ -138,6 +145,7 @@ export function CommentCapture({
             const at = host.current!.getBoundingClientRect();
             session!.addMark(anchor, {
               view: rect,
+              viewer,
               box: {
                 left: at.left + rect[0] * at.width,
                 top: at.top + rect[1] * at.height,

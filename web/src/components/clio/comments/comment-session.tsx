@@ -153,6 +153,7 @@ export function CommentSessionProvider({
         preview: place.preview ?? anchorPreview(anchor),
         box: place.box,
         view: place.view,
+        viewer: place.viewer,
       };
       setMarks((current) =>
         current.some((existing) => existing.label === label) ? current : [...current, mark],

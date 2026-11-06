@@ -24,6 +24,8 @@ export interface DraftMark {
   box?: { left: number; top: number; width: number; height: number };
   /** A region's box normalized to the viewer it was drawn on, to draw it there again. */
   view?: [number, number, number, number];
+  /** The viewer the mark was made on, so it is drawn there and not on a pane beside it. */
+  viewer?: string;
 }
 
 /** Where a new mark sits, besides its anchor. */
@@ -31,6 +33,7 @@ export interface MarkPlace {
   preview?: string;
   box?: DraftMark['box'];
   view?: DraftMark['view'];
+  viewer?: DraftMark['viewer'];
 }
 
 /** Where a session's marks go when they are sent. */
