@@ -261,6 +261,7 @@ export function WorkbenchTabContent({
         <Suspense fallback={<CanvasLoading label="Loading artifact" />}>
           <ArtifactView
             artifact={tab.artifact}
+            sessionId={sessionId}
             onOpenWorkspaceFile={(path) =>
               onOpenTab({
                 id: `workspace-file:${tab.workspaceId}:${path}`,

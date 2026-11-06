@@ -7,6 +7,7 @@ import {
   studySourceFromDataUri,
   STUDY_SOURCE_QUERY,
   describeStream,
+  streamRows,
   tableQueryErrorMessage,
 } from './table-query-rows';
 
@@ -94,18 +95,42 @@ describe('tableQueryErrorMessage', () => {
 });
 
 describe('stream notes', () => {
-  it('says whether a stream is live or stopped, in words', () => {
-    expect(describeStream({ state: 'open' })).toBe('Live, no rows yet.');
+  it('says whether a stream is live or closed, in words', () => {
+    expect(describeStream({ state: 'open' })).toBe('Live, no entries yet.');
     expect(describeStream({ state: 'open', updated_at: '2026-11-05T10:00:00Z' })).toMatch(
       /^Live, last update .+\.$/u,
     );
-    expect(describeStream({ state: 'stopped', stopped_at: '2026-11-05T10:05:00Z' })).toMatch(
-      /^Stopped at .+; showing its last rows\.$/u,
+    expect(describeStream({ state: 'closed', closed_at: '2026-11-05T10:05:00Z' })).toMatch(
+      /^Closed at .+; showing its last entries\.$/u,
     );
     // Exported while still written: what the archive shows, never "Live".
     expect(describeStream({ state: 'captured', captured_at: '2026-11-05T10:06:00Z' })).toMatch(
-      /^Captured at .+ while live; showing the rows it had then\.$/u,
+      /^Captured at .+ while live; showing the entries it had then\.$/u,
     );
     expect(describeStream(undefined)).toBe('');
+  });
+
+  it('gives a view the record entries as rows, leaving text and bytes out', () => {
+    const entry = (seq: number, extra: Record<string, unknown>) => ({
+      seq,
+      at: '2026-11-05T10:00:00Z',
+      media_type: 'application/json',
+      size_bytes: 10,
+      ...extra,
+    });
+    const content = {
+      stream: { stream_id: 's', name: 'n', state: 'open', window: 5, entries: 4, writes: 4 },
+      entries: [
+        entry(1, { value: { t: 1, c: 20 } }),
+        entry(2, { media_type: 'text/plain', text: 'note' }),
+        entry(3, { media_type: 'image/png' }),
+        entry(4, { value: { t: 2, c: 21 } }),
+      ],
+    };
+    expect(streamRows(content)).toEqual([
+      { t: 1, c: 20 },
+      { t: 2, c: 21 },
+    ]);
+    expect(streamRows(undefined)).toBeUndefined();
   });
 });

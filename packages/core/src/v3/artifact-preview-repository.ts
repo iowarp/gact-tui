@@ -197,6 +197,46 @@ export interface ArtifactTableExportRequest {
 }
 
 /** Bounded structured previews for immutable registered artifacts. */
+/** One stream entry as read: JSON as `value`, text as `text`, other types by size. */
+const streamEntrySchema = z
+  .object({
+    seq: z.number(),
+    at: z.string(),
+    media_type: z.string(),
+    size_bytes: z.number(),
+    value: z.unknown().optional(),
+    text: z.string().optional(),
+    entry_path: z.string().optional(),
+  })
+  .passthrough();
+
+/** A stream's description: `open`, or `closed` with when and why. */
+const streamDescriptionSchema = z
+  .object({
+    stream_id: z.string(),
+    name: z.string(),
+    state: z.string(),
+    media_type: z.string().optional(),
+    window: z.number(),
+    entries: z.number(),
+    writes: z.number(),
+    opened_at: z.string().optional(),
+    updated_at: z.string().optional(),
+    closed_at: z.string().optional(),
+    closed_reason: z.string().optional(),
+    captured_at: z.string().optional(),
+  })
+  .passthrough();
+
+const streamContentSchema = z.object({
+  stream: streamDescriptionSchema,
+  entries: z.array(streamEntrySchema),
+});
+
+export type StreamEntry = z.infer<typeof streamEntrySchema>;
+export type StreamDescription = z.infer<typeof streamDescriptionSchema>;
+export type StreamContent = z.infer<typeof streamContentSchema>;
+
 export class ArtifactPreviewRepository extends ProviderRepository {
   /** Read a bounded sample of the visible extent of a registered grid. */
   public artifactRasterQuery(
@@ -291,26 +331,15 @@ export class ArtifactPreviewRepository extends ProviderRepository {
   }
 
   /**
-   * A stream's rows in the server's memory now, through the same pipeline as an
-   * artifact table query; `stream` carries its state (`open` or `stopped`) and the
-   * time of its last write.
+   * A stream as it is now, read from clio-core: its state (`open`, or `closed` and when)
+   * and its newest entries, oldest first (JSON as `value`, text as `text`, other types by
+   * size and `entry_path`). Any reshaping a view wants it does itself.
    */
-  public streamTableQuery(
-    streamId: string,
-    query: ArtifactTableQueryRequest,
-    signal?: AbortSignal,
-  ): Promise<ArtifactTableQueryResult> {
+  public streamContent(contentPath: string, signal?: AbortSignal): Promise<StreamContent> {
     return this.transport.request({
-      method: 'POST',
-      path: `/v1/streams/${encodeURIComponent(streamId)}/table-query`,
-      body: { ...query, format: 'json' },
-      decode: (value) => {
-        const result = artifactTableQuerySchema.parse(value);
-        if (result.returnedRows > query.limit) {
-          throw new Error('Stream query exceeded the requested row limit.');
-        }
-        return result;
-      },
+      method: 'GET',
+      path: contentPath,
+      decode: (value) => streamContentSchema.parse(value),
       signal,
     });
   }

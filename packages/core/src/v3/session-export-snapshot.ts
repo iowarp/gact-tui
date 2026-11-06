@@ -188,6 +188,17 @@ export async function captureSessionReview(
     for (const uri of references) {
       try {
         const resolved = await resolveSessionReference(captured, sid, uri);
+        // A stream: its content as it stands now, read through the route a view reads it
+        // by, so offline the view shows it (closed, or captured while still open).
+        const held = resolved.stream;
+        if (held) {
+          const key = sessionReviewRequestKey('GET', held.content_path);
+          if (!snapshot.responses[key]) {
+            const content = (await json(held.content_path)) as Record<string, unknown>;
+            snapshot.responses[key] = { json: capturedStream(content, new Date()) };
+          }
+          continue;
+        }
         if (
           !/csv|parquet/iu.test(resolved.media_type ?? '') &&
           !/\.(csv|parquet)$/iu.test(resolved.name)
@@ -204,18 +215,7 @@ export async function captureSessionReview(
           await readResolvedReferenceBytes(captured, resolved);
           continue;
         }
-        // A stream the server holds: its rows and its state, read through the route a
-        // view reads it by, so offline the view says it stopped (or was still live).
-        const held = resolved.stream;
-        if (held && !snapshot.tables[streamTableKey(held.stream_id)]) {
-          const table = await captureTable(
-            (body) => json(`/v1/streams/${encodeURIComponent(held.stream_id)}/table-query`, body),
-            {},
-          );
-          snapshot.tables[streamTableKey(held.stream_id)] = capturedStream(table, new Date());
-        }
         const id = resolved.artifact_id;
-        if (!id && held) continue;
         if (!id) throw new Error('This data reference is not a registered table.');
         snapshot.tables[id] = await captureTable(
           (body) => json(`/v1/artifacts/${encodeURIComponent(id)}/table-query`, body),
@@ -261,20 +261,18 @@ export async function captureSessionReview(
   return snapshot;
 }
 
-/** Where an archive keeps a stream's captured rows. */
-export function streamTableKey(streamId: string): string {
-  return `stream:${streamId}`;
-}
-
 /**
- * A stream's captured rows. A stream still written at export is marked `captured` with
- * the time, so the offline view says what it shows rather than calling it live.
+ * A stream's content as exported. A stream still open at export is marked `captured`
+ * with the time, so the offline view says what it shows rather than calling it live.
  */
-export function capturedStream(table: Record<string, unknown>, at: Date): Record<string, unknown> {
-  const stream = table.stream;
-  if (!stream || typeof stream !== 'object' || (stream as { state?: unknown }).state === 'stopped')
-    return table;
-  return { ...table, stream: { ...stream, state: 'captured', captured_at: at.toISOString() } };
+export function capturedStream(
+  content: Record<string, unknown>,
+  at: Date,
+): Record<string, unknown> {
+  const stream = content.stream;
+  if (!stream || typeof stream !== 'object' || (stream as { state?: unknown }).state !== 'open')
+    return content;
+  return { ...content, stream: { ...stream, state: 'captured', captured_at: at.toISOString() } };
 }
 
 /** A study source a view reads: `study://<study>/<measurements|entries|records/<name>>`. */

@@ -1,7 +1,9 @@
 import {
   TransportError,
+  type Artifact,
   type ArtifactTableQueryRequest,
   type ArtifactTableQueryResult,
+  type StreamContent,
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -176,24 +178,35 @@ export function streamRowsQueryPrefix(endpoint: string, streamId: string) {
 /** How often a view on screen renews its lease on a stream (the lease lasts 30 s). */
 export const STREAM_LEASE_RENEW_MS = 15_000;
 
-/** What a stream's state adds to the note: live with its last write, stopped, or captured. */
+/** What a stream's state says: live with its last write, closed, or captured. */
+/** Whether an artifact is a stream (its content lives in clio-core, not in a file). */
+export function isStreamArtifact(artifact: Pick<Artifact, 'producer'>): boolean {
+  return artifact.producer?.['designation'] === 'stream';
+}
+
 export function describeStream(stream: unknown): string {
   if (!isJsonObject(stream)) return '';
   const at = (value: unknown) =>
     typeof value === 'string' && value ? new Date(value).toLocaleTimeString() : '';
   if (stream.state === 'captured') {
-    // An export taken while the stream was written: its rows as they stood then.
+    // An export taken while the stream was written: its entries as they stood then.
     const when = at(stream.captured_at);
     return when
-      ? `Captured at ${when} while live; showing the rows it had then.`
-      : 'Captured while live; showing the rows it had then.';
+      ? `Captured at ${when} while live; showing the entries it had then.`
+      : 'Captured while live; showing the entries it had then.';
   }
-  if (stream.state === 'stopped') {
-    const when = at(stream.stopped_at) || at(stream.updated_at);
-    return when ? `Stopped at ${when}; showing its last rows.` : 'Stopped; showing its last rows.';
+  if (stream.state === 'closed') {
+    const when = at(stream.closed_at) || at(stream.updated_at);
+    return when ? `Closed at ${when}; showing its last entries.` : 'Closed; showing its last entries.';
   }
   const last = at(stream.updated_at);
-  return last ? `Live, last update ${last}.` : 'Live, no rows yet.';
+  return last ? `Live, last update ${last}.` : 'Live, no entries yet.';
+}
+
+/** A stream's JSON record entries as rows (text and binary entries are not rows). */
+export function streamRows(content: StreamContent | undefined): QueryRow[] | undefined {
+  if (!content) return undefined;
+  return content.entries.filter((entry) => isJsonObject(entry.value)).map((entry) => entry.value as QueryRow);
 }
 
 /**
@@ -326,7 +339,7 @@ export function useTableQueryRows({
   const live = !data && latestArtifactSource(dataUri) ? dataUri : undefined;
   const liveReference = useA2uiReference(live ?? '', { readBytes: false, enabled: Boolean(live) });
   const artifactId = artifactIdFromDataUri(dataUri) ?? liveReference.resolution?.artifact_id;
-  // A named artifact that is a stream the server holds: its rows are read from memory.
+  // A named artifact that is a stream: its entries are read as they are, from clio-core.
   const liveStream = live ? liveReference.resolution?.stream : undefined;
   useStreamLease(liveStream?.stream_id, useA2uiReferenceSession());
   const limit = Math.min(dataQuery?.limit ?? TABLE_QUERY_ROW_LIMIT, TABLE_QUERY_ROW_LIMIT);
@@ -358,17 +371,15 @@ export function useTableQueryRows({
   });
   const streamQuery = useQuery({
     enabled: !data && Boolean(liveStream),
-    queryKey: [
-      ...streamRowsQueryPrefix(settings.endpoint, liveStream?.stream_id ?? ''),
-      JSON.stringify(request),
-    ],
-    queryFn: ({ signal }) => repository.streamTableQuery(liveStream!.stream_id, request, signal),
+    queryKey: streamRowsQueryPrefix(settings.endpoint, liveStream?.stream_id ?? ''),
+    queryFn: ({ signal }) => repository.streamContent(liveStream!.content_path, signal),
     retry: retryTableQuery,
-    // Each update keeps the previous rows on screen until the next ones arrive.
+    // Each update keeps the previous entries on screen until the next ones arrive.
     placeholderData: (previousData, previousQuery) =>
       previousQuery?.queryKey[2] === liveStream?.stream_id ? previousData : undefined,
     staleTime: 0,
   });
+  const streamed = useMemo(() => streamRows(streamQuery.data), [streamQuery.data]);
   const artifactQuery = useQuery({
     enabled: !data && Boolean(artifactId) && !liveStream,
     queryKey: queryKeys.key(
@@ -395,7 +406,7 @@ export function useTableQueryRows({
         : undefined,
     ...IMMUTABLE_QUERY,
   });
-  const query = study ? studyQuery : liveStream ? streamQuery : artifactQuery;
+  const query = study ? studyQuery : artifactQuery;
   const queried = useMemo(
     () =>
       query.data
@@ -438,6 +449,21 @@ export function useTableQueryRows({
       rowKey: undefined,
     };
   }
+  if (liveStream) {
+    return {
+      rows: streamed,
+      loading: streamQuery.isPending,
+      refreshing: streamQuery.isFetching && !streamQuery.isPending,
+      retry: () => void streamQuery.refetch(),
+      error: streamQuery.isError ? tableQueryErrorMessage(streamQuery.error) : '',
+      note: streamQuery.data ? describeStream(streamQuery.data.stream) : '',
+      matchedRows: streamed?.length,
+      totalRows: streamed?.length,
+      returnedRows: streamed?.length,
+      schema: undefined,
+      rowKey: undefined,
+    };
+  }
   if (!artifactId && !study) {
     return {
       rows: undefined,
@@ -473,7 +499,6 @@ export function useTableQueryRows({
     error: '',
     note: query.data
       ? [
-          describeStream(query.data.stream),
           describeResult(query.data, (dataQuery?.offset ?? 0) > 0),
         ]
           .filter(Boolean)

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { TransportError, type ClioTransport, type TransportRequest } from './transport.js';
-import { captureSessionReview, streamTableKey } from './session-export-snapshot.js';
+import { captureSessionReview, sessionReviewRequestKey } from './session-export-snapshot.js';
 
 it('captures the authored dashboard only, naming files in inactive tabs by reference', async () => {
   const requests: string[] = [];
@@ -151,13 +151,16 @@ it('captures only this session closure, all table pages and identities, without 
 });
 
 it.each([
-  ['stopped', 'stopped'],
+  ['closed', 'closed'],
   ['open', 'captured'],
 ] as const)(
-  'captures a held stream (%s) with its rows and state, read as the view reads it',
+  'captures a bound stream (%s) with its entries and state, read as the view reads it',
   async (state, archived) => {
+    const paths: string[] = [];
+    const content_path = '/v1/streams/stream_p/content';
     const transport: ClioTransport = {
       async request<T>(request: TransportRequest<T>): Promise<T> {
+        paths.push(request.path);
         let value: unknown = {};
         if (request.path.endsWith('/a2ui/surfaces'))
           value = { surfaces: [{ dataUri: 'artifact://ws/printer@latest' }] };
@@ -167,22 +170,21 @@ it.each([
             kind: 'artifact',
             workspace_id: 'ws',
             name: 'printer',
-            media_type: 'application/vnd.apache.parquet',
+            media_type: 'application/vnd.clio.stream+json',
             fetch_path: '/v1/artifacts/artifact_printer/bytes',
             artifact_id: 'artifact_printer',
-            stream: { stream_id: 'stream_p', state },
+            stream: { stream_id: 'stream_p', content_path },
           };
-        else if (request.path.endsWith('/table-query'))
+        else if (request.path === content_path)
           value = {
-            schema: [{ name: 'progress', type: 'float64' }],
-            columns: { progress: request.path.includes('/streams/') ? [10, 55, 100] : [10] },
-            totalRows: request.path.includes('/streams/') ? 3 : 1,
-            returnedRows: request.path.includes('/streams/') ? 3 : 1,
-            truncated: false,
-            downsample: { mode: 'none' },
-            ...(request.path.includes('/streams/')
-              ? { stream: { stream_id: 'stream_p', state, stopped_at: '2026-11-05T10:00:00Z' } }
-              : {}),
+            stream: { stream_id: 'stream_p', name: 'printer', state, window: 3, entries: 3, writes: 7 },
+            entries: [10, 55, 100].map((progress, index) => ({
+              seq: index + 5,
+              at: '2026-11-05T10:00:00Z',
+              media_type: 'application/json',
+              size_bytes: 16,
+              value: { progress },
+            })),
           };
         return request.decode(value);
       },
@@ -195,13 +197,17 @@ it.each([
       surfaces: [{ dataUri: 'artifact://ws/printer@latest' }],
       messages: [],
     });
-    const captured = snapshot.tables[streamTableKey('stream_p')]!;
-    expect((captured.columns as { progress: number[] }).progress).toEqual([10, 55, 100]);
-    expect((captured.stream as { state: string }).state).toBe(archived);
-    if (archived === 'captured')
-      expect((captured.stream as { captured_at?: string }).captured_at).toMatch(/^\d{4}-/u);
-    // The last saved version is kept as well, for a view bound to it by id.
-    expect(snapshot.tables.artifact_printer).toBeDefined();
+    const captured = snapshot.responses[sessionReviewRequestKey('GET', content_path)]!.json as {
+      stream: { state: string; captured_at?: string };
+      entries: { value: { progress: number } }[];
+    };
+    expect(captured.entries.map((entry) => entry.value.progress)).toEqual([10, 55, 100]);
+    expect(captured.stream.state).toBe(archived);
+    if (archived === 'captured') expect(captured.stream.captured_at).toMatch(/^\d{4}-/u);
+    // A stream has no file: nothing reads its bytes or queries it as a table.
+    expect(paths.some((path) => path.endsWith('/table-query') || path.endsWith('/bytes'))).toBe(
+      false,
+    );
   },
 );
 

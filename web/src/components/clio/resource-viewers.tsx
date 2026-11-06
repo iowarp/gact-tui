@@ -52,6 +52,8 @@ import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { FileViewerShell } from './file-viewer-shell';
 
 import { ImageResourceView } from './image-resource-view';
+import { StreamArtifactView } from './stream-artifact-view';
+import { isStreamArtifact } from './table-query-rows';
 import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
 
@@ -318,19 +320,32 @@ function WorkspaceBinaryView({
   );
 }
 
-export function ArtifactView({
-  artifact,
-  workspaceId,
-  files,
-  onOpenArtifact,
-  onOpenWorkspaceFile,
-}: {
+type ArtifactViewProps = {
   artifact: Artifact;
   workspaceId: string;
   files: readonly WorkspaceFileEntry[];
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenWorkspaceFile?: (path: string) => void;
-}) {
+  /** The open conversation, which holds a stream's watch lease while it is shown. */
+  sessionId?: string;
+};
+
+/** An artifact in the side panel: a stream reads from clio-core, anything else is a file. */
+export function ArtifactView({ sessionId, ...props }: ArtifactViewProps) {
+  return isStreamArtifact(props.artifact) ? (
+    <StreamArtifactView artifact={props.artifact} sessionId={sessionId} />
+  ) : (
+    <ArtifactFileView {...props} />
+  );
+}
+
+function ArtifactFileView({
+  artifact,
+  workspaceId,
+  files,
+  onOpenArtifact,
+  onOpenWorkspaceFile,
+}: Omit<ArtifactViewProps, 'sessionId'>) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const canPreviewText = isTextArtifact(artifact.media_type, artifact.name);
