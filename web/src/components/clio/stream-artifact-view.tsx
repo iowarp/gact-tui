@@ -81,7 +81,7 @@ export function StreamArtifactView({
       </p>
     );
   return (
-    <section aria-label={`Stream ${artifact.name}`} className="flex min-h-0 flex-col gap-3 p-4">
+    <section aria-label={`Stream ${artifact.name}`} className="flex h-full min-h-0 flex-col gap-3 p-4">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-medium">{artifact.name}</h2>
         <p data-slot="stream-state" className="text-xs text-muted-foreground">

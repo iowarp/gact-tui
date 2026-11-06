@@ -532,7 +532,8 @@ function ArtifactFileView({
                 />
               ) : (
                 <div className="flex h-full min-h-0 min-w-0 flex-col">
-                  <div className="min-h-0 flex-1">{preview}</div>
+                  {/* A preview taller than the panel (a dashboard) scrolls here. */}
+                  <div className="min-h-0 flex-1 overflow-auto">{preview}</div>
                   {text.data?.recovered ? (
                     <p className="mt-3 text-xs text-muted-foreground">
                       Recovered from the matching workspace file.
