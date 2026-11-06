@@ -25,7 +25,15 @@ function publishedArtifactId(output: unknown): string | undefined {
     : undefined;
 }
 
-/** Open freshly published reports in the viewed conversation so the agent can review their pixels. */
+/** What a succeeded call opens in the canvas, by the artifact's producer designation: a
+ * published report (so the agent can review its pixels) and an opened stream (so the person
+ * sees it live, as the agent tells them). */
+const OPENS: Readonly<Record<string, string>> = {
+  publish_dashboard_report: 'dashboard-report',
+  open_stream: 'stream',
+};
+
+/** Open freshly published reports and opened streams in the viewed conversation's canvas. */
 export function useDashboardReviewOpening(
   tools: Readonly<Record<string, ToolInvocation>>,
   artifacts: Readonly<Record<string, Artifact>>,
@@ -37,6 +45,7 @@ export function useDashboardReviewOpening(
     sessionId: string;
     mountedAt: number;
     opened: Set<string>;
+    artifacts: Set<string>;
     pending: Map<string, AbortController>;
   }>(undefined);
   useEffect(() => {
@@ -44,6 +53,7 @@ export function useDashboardReviewOpening(
       sessionId,
       mountedAt: Date.now(),
       opened: new Set<string>(),
+      artifacts: new Set<string>(),
       pending: new Map<string, AbortController>(),
     };
     review.current = current;
@@ -58,7 +68,7 @@ export function useDashboardReviewOpening(
     for (const tool of Object.values(tools)) {
       if (
         tool.session_id !== sessionId ||
-        tool.name !== 'publish_dashboard_report' ||
+        !OPENS[tool.name] ||
         tool.state !== 'succeeded' ||
         !tool.started_at ||
         !(Date.parse(tool.started_at) >= current.mountedAt) ||
@@ -66,10 +76,16 @@ export function useDashboardReviewOpening(
       )
         continue;
       const id = publishedArtifactId(tool.output);
+      // A stream opened again (a script restarting its watcher) is already on screen.
+      if (id && current.artifacts.has(id)) {
+        current.opened.add(tool.id);
+        continue;
+      }
       const artifact = id ? artifacts[id] : undefined;
-      if (artifact) {
+      if (artifact && id) {
         if (artifact.session_id !== sessionId) continue;
         current.opened.add(tool.id);
+        current.artifacts.add(id);
         onOpenArtifact(artifact);
       } else if (id && !current.pending.has(tool.id)) {
         // Message hydration can attach artifacts only after the turn finishes.
@@ -89,10 +105,12 @@ export function useDashboardReviewOpening(
             if (
               detail.resolved.artifact_id !== id ||
               detail.resolved.producer.session_id !== sessionId ||
-              detail.resolved.producer.designation !== 'dashboard-report'
+              detail.resolved.producer.designation !== OPENS[tool.name] ||
+              current.artifacts.has(id)
             )
               return;
             current.opened.add(tool.id);
+            current.artifacts.add(id);
             onOpenArtifact(artifactDetailVersionEntity(detail, id, sessionId));
           })
           .catch((error) => {

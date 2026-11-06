@@ -150,3 +150,50 @@ describe('new report visual review', () => {
     },
   );
 });
+
+describe('a stream opened in the conversation', () => {
+  const stream: Artifact = {
+    id: 'artifact_feed',
+    session_id: 'current',
+    name: 'sensor',
+    uri: 'artifact://ws/sensor@v1',
+    media_type: 'application/vnd.clio.stream+json',
+    producer: { designation: 'stream', stream_id: 'stream_1' },
+  };
+  const opening = (id: string): ToolInvocation => ({
+    id,
+    session_id: 'current',
+    name: 'open_stream',
+    state: 'succeeded',
+    started_at: new Date(2000).toISOString(),
+    output: { ok: true, artifact_id: stream.id, stream_id: 'stream_1' },
+  });
+
+  it('opens in the canvas once, however often a script reopens it', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1000);
+    const open = vi.fn();
+    const { rerender } = renderHook(
+      ({ tools }) =>
+        useDashboardReviewOpening(tools, { [stream.id]: stream }, 'current', open, repository),
+      { initialProps: { tools: { first: opening('first') } as Record<string, ToolInvocation> } },
+    );
+    expect(open).toHaveBeenCalledWith(stream);
+    rerender({ tools: { first: opening('first'), again: opening('again') } });
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open a stream opened before the conversation was shown', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(5000);
+    const open = vi.fn();
+    renderHook(() =>
+      useDashboardReviewOpening(
+        { first: opening('first') },
+        { [stream.id]: stream },
+        'current',
+        open,
+        repository,
+      ),
+    );
+    expect(open).not.toHaveBeenCalled();
+  });
+});
