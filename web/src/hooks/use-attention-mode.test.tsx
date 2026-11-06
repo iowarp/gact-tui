@@ -155,6 +155,12 @@ describe('useAttentionMode', () => {
     if (!(signal instanceof AbortSignal)) throw new Error('Expected request cancellation signal');
     expect(signal.aborted).toBe(true);
   });
+  it('paints heat by line with the hottest token by default, and keeps a chosen view', () => {
+    const { result } = renderHook(() => useAttentionMode('sess_1', 0), { wrapper });
+    expect(result.current.view).toEqual({ unit: 'line', reduction: 'max' });
+    act(() => result.current.changeView({ unit: 'token', reduction: 'mean' }));
+    expect(result.current.view).toEqual({ unit: 'token', reduction: 'mean' });
+  });
   it('starts idle and registers the understand-attention selection action', async () => {
     const { result } = renderHook(
       () => {

@@ -738,6 +738,7 @@ export function WorkspacePage() {
                       processes={processes}
                       artifacts={artifacts}
                       attentionData={attention.heat}
+                      attentionView={attention.view}
                       bottomInset={dockedComposerHeight}
                       error={transcriptError}
                       hasEarlierMessages={Boolean(transcript.data?.next_cursor)}

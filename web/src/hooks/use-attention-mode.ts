@@ -15,6 +15,7 @@ import { useSelectionAction } from './use-selection-action';
 import { connectionScope } from '@/lib/connection-scope';
 import { hasAttentionCaptures } from '@/lib/attention-availability';
 import { attentionSelectionBody } from '@/lib/attention-selection-body';
+import { type AttentionHeatView, DEFAULT_ATTENTION_HEAT_VIEW } from '@/lib/attention-line-heat';
 
 /**
  * One answer item of the selection (SPOTTER, `attn_analytics.py`): the
@@ -66,6 +67,9 @@ export function useAttentionMode(
   changeProfile: (profile: AttentionProfile) => void;
   /** Show one answer item's heat, or the whole selection again with `undefined`. */
   focusItem: (focus: AttentionItemFocus | undefined) => void;
+  /** How the conversation paints heat: per source line (default) or per token. */
+  view: AttentionHeatView;
+  changeView: (view: AttentionHeatView) => void;
   heat: AttentionAvailable | undefined;
   showLookupHeat: (data: AttentionAvailable | undefined) => void;
   availability: AttentionSessionAvailability | undefined;
@@ -75,6 +79,7 @@ export function useAttentionMode(
   const scope = `${connectionScope(settings)}\0${sessionId}`;
   const [lookupHeat, setLookupHeat] = useState<{ scope: string; data?: AttentionAvailable }>();
   const [profile, setProfile] = useState<AttentionProfile>();
+  const [view, setView] = useState<AttentionHeatView>(DEFAULT_ATTENTION_HEAT_VIEW);
   // Which answers can show attention. The action is offered only on those, so
   // a CLIO without attention capture, or an answer from another provider, never
   // shows it.
@@ -197,18 +202,19 @@ export function useAttentionMode(
     [scope, setState],
   );
 
+  const heat = !canInspect
+    ? undefined
+    : lookupHeat?.scope === scope && lookupHeat.data
+      ? lookupHeat.data
+      : current.status === 'shown'
+        ? current.data
+        : undefined;
   return {
     availability: capability,
     state: canInspect ? current : { status: 'idle' },
     dismiss,
     showLookupHeat,
-    heat: !canInspect
-      ? undefined
-      : lookupHeat?.scope === scope && lookupHeat.data
-        ? lookupHeat.data
-        : current.status === 'shown'
-          ? current.data
-          : undefined,
+    heat,
     changeProfile: (next) => {
       setProfile(next);
       if (canInspect && current.status !== 'idle')
@@ -217,5 +223,7 @@ export function useAttentionMode(
     focusItem: (focus) => {
       if (canInspect && current.status !== 'idle') void request(current.selection, profile, focus);
     },
+    view,
+    changeView: setView,
   };
 }

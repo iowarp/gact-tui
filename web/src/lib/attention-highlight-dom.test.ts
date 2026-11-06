@@ -3,6 +3,7 @@ import type { ResolvedAttentionBlock } from './attention-highlight-sources';
 import { bindTranscriptText } from './transcript-content-selection';
 import {
   buildAttentionHighlightRanges,
+  buildLineHighlightRanges,
   buildSelectedRange,
   findPartElement,
   mergeRunsByBucket,
@@ -216,5 +217,103 @@ describe('buildSelectedRange', () => {
       blocks: [],
     };
     expect(buildSelectedRange(document.body, data, 'the confirmed column names')).toBeUndefined();
+  });
+});
+
+describe('buildLineHighlightRanges', () => {
+  // One rendered paragraph made of three source lines (the wrap is in the source).
+  const source =
+    'which accession is its nearest\nanalogue by profile, and does\npeak fall on round 1?';
+  const block = {
+    message_id: 'msg_1',
+    part_id: 'u0',
+    field: 'text',
+    kind: 'user_text' as const,
+    share: 0.1,
+    mean: 0.01,
+  };
+  const mount = () => {
+    document.body.innerHTML = `
+      <div data-message-id="msg_1">
+        <p data-part-id="u0" data-field="text">which accession is its nearest analogue by profile, and does peak fall on round 1?</p>
+      </div>`;
+  };
+
+  it('paints one band per source line inside a rendered paragraph', () => {
+    mount();
+    const second = source.indexOf('analogue');
+    const third = source.indexOf('peak');
+    const { heat } = buildLineHighlightRanges(
+      document.body,
+      [
+        {
+          block: {
+            ...block,
+            runs: [
+              [6, 15, 1],
+              [second, second + 8, 0.5],
+              [third, third + 4, 0.2],
+            ],
+          },
+          sourceText: source,
+        },
+      ],
+      'max',
+    );
+    expect(heat).toHaveLength(10);
+    expect(heat[9]?.map(String)).toEqual(['which accession is its nearest']);
+    expect(heat[5]?.map(String)).toEqual(['analogue by profile, and does']);
+    expect(heat[2]?.map(String)).toEqual(['peak fall on round 1?']);
+    expect(heat[0]).toEqual([]);
+  });
+
+  it('keeps neighbouring bands of the same level apart and skips unmeasured lines', () => {
+    mount();
+    const second = source.indexOf('analogue');
+    const { heat } = buildLineHighlightRanges(
+      document.body,
+      [
+        {
+          block: {
+            ...block,
+            runs: [
+              [0, 5, 0.8],
+              [second, second + 8, 0.8],
+            ],
+          },
+          sourceText: source,
+        },
+      ],
+      'max',
+    );
+    expect(heat[9]?.map(String)).toEqual([
+      'which accession is its nearest',
+      'analogue by profile, and does',
+    ]);
+    expect(heat.flat()).toHaveLength(2);
+  });
+
+  it('scales mean values to the hottest line', () => {
+    mount();
+    const second = source.indexOf('analogue');
+    const { heat } = buildLineHighlightRanges(
+      document.body,
+      [
+        {
+          block: {
+            ...block,
+            runs: [
+              [0, 5, 1],
+              [6, 15, 0],
+              [second, second + 8, 1],
+            ],
+          },
+          sourceText: source,
+        },
+      ],
+      'mean',
+    );
+    expect(heat[9]?.map(String)).toEqual(['analogue by profile, and does']);
+    expect(heat[5]?.map(String)).toEqual(['which accession is its nearest']);
   });
 });
