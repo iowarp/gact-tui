@@ -78,6 +78,10 @@ describe('StreamArtifactView', () => {
       'status',
     ]);
     expect(within(table).getByText('21.6')).toBeTruthy();
+    // The newest record is shown as fields, every value at once.
+    const fields = within(screen.getByLabelText('Newest entry'));
+    expect(fields.getByText('status')).toBeTruthy();
+    expect(fields.getByText('ok')).toBeTruthy();
     // Newest first: the latest reading is the first row.
     expect(within(table).getAllByRole('row')[1]!.textContent).toContain('21.6');
     expect(screen.getByText(/^Live, last update .+ 2 writes; keeps the newest 60\.$/u)).toBeTruthy();

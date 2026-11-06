@@ -64,12 +64,16 @@ export function StreamArtifactView({
   // The route answers oldest first; the panel leads with the newest entry.
   const entries = useMemo(() => [...(content.data?.entries ?? [])].reverse(), [content.data]);
   const records = useMemo(
-    () => entries.filter((entry) => isRecord(entry.value)).map((entry) => entry.value as Record<string, unknown>),
+    () =>
+      entries
+        .filter((entry) => isRecord(entry.value))
+        .map((entry) => entry.value as Record<string, unknown>),
     [entries],
   );
   const columns = useMemo(() => recordColumns(records), [records]);
   const stream = content.data?.stream;
-  if (!streamId) return <p className="p-4 text-sm text-muted-foreground">This stream has no address.</p>;
+  if (!streamId)
+    return <p className="p-4 text-sm text-muted-foreground">This stream has no address.</p>;
   if (content.isError)
     return (
       <p role="alert" className="p-4 text-sm text-destructive">
@@ -82,36 +86,52 @@ export function StreamArtifactView({
         <h2 className="text-sm font-medium">{artifact.name}</h2>
         <p data-slot="stream-state" className="text-xs text-muted-foreground">
           {content.isPending ? 'Reading the stream…' : describeStream(stream)}
-          {stream ? ` ${stream.writes.toLocaleString()} writes; keeps the newest ${stream.window.toLocaleString()}.` : ''}
+          {stream
+            ? ` ${stream.writes.toLocaleString()} writes; keeps the newest ${stream.window.toLocaleString()}.`
+            : ''}
         </p>
       </header>
       {!content.isPending && entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">No entries yet.</p>
       ) : records.length === entries.length && records.length > 0 ? (
-        <div className="min-h-0 overflow-auto rounded-md border">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-muted">
-              <tr>
-                {columns.map((column) => (
-                  <th key={column} scope="col" className="px-2 py-1 font-medium">
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((record, index) => (
-                <tr key={entries[index]!.seq} className="border-t">
+        <>
+          {/* The newest record as fields: a narrow panel shows every value of it at once. */}
+          <dl
+            aria-label="Newest entry"
+            className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border p-3 text-xs"
+          >
+            {Object.entries(records[0]!).map(([field, value]) => (
+              <div key={field} className="contents">
+                <dt className="text-muted-foreground">{field}</dt>
+                <dd className="min-w-0 break-words tabular-nums">{cellText(value)}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="min-h-0 overflow-auto rounded-md border">
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 bg-muted">
+                <tr>
                   {columns.map((column) => (
-                    <td key={column} className="px-2 py-1 tabular-nums">
-                      {cellText(record[column])}
-                    </td>
+                    <th key={column} scope="col" className="px-2 py-1 font-medium">
+                      {column}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {records.map((record, index) => (
+                  <tr key={entries[index]!.seq} className="border-t">
+                    {columns.map((column) => (
+                      <td key={column} className="px-2 py-1 tabular-nums">
+                        {cellText(record[column])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
         <ol className="min-h-0 overflow-auto rounded-md border font-mono text-xs">
           {entries.map((entry) => (
