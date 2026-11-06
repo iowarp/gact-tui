@@ -120,4 +120,22 @@ export function useDashboardReviewOpening(
       }
     }
   }, [tools, artifacts, sessionId, onOpenArtifact, repository]);
+  useEffect(() => {
+    // A background script's calls are recorded in windows, so its stream.open can reach the
+    // conversation long after the stream does: open a stream when its artifact appears.
+    const current = review.current;
+    if (!current || current.sessionId !== sessionId) return;
+    for (const artifact of Object.values(artifacts)) {
+      if (
+        artifact.session_id !== sessionId ||
+        artifact.producer?.['designation'] !== 'stream' ||
+        !artifact.created_at ||
+        !(Date.parse(artifact.created_at) >= current.mountedAt) ||
+        current.artifacts.has(artifact.id)
+      )
+        continue;
+      current.artifacts.add(artifact.id);
+      onOpenArtifact(artifact);
+    }
+  }, [artifacts, sessionId, onOpenArtifact]);
 }
