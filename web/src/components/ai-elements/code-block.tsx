@@ -489,12 +489,15 @@ export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void;
   onError?: (error: Error) => void;
   timeout?: number;
+  /** What Copy copies when it differs from the text shown (default: the shown text). */
+  value?: string;
 };
 
 export const CodeBlockCopyButton = ({
   onCopy,
   onError,
   timeout = 2000,
+  value,
   children,
   className,
   ...props
@@ -511,7 +514,7 @@ export const CodeBlockCopyButton = ({
 
     try {
       if (!isCopied) {
-        await copyText(code);
+        await copyText(value ?? code);
         setIsCopied(true);
         onCopy?.();
         timeoutRef.current = window.setTimeout(() => setIsCopied(false), timeout);
@@ -519,7 +522,7 @@ export const CodeBlockCopyButton = ({
     } catch (error) {
       onError?.(error as Error);
     }
-  }, [code, onCopy, onError, timeout, isCopied]);
+  }, [code, value, onCopy, onError, timeout, isCopied]);
 
   useEffect(
     () => () => {

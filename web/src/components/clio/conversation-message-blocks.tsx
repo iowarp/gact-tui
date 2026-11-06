@@ -321,7 +321,7 @@ function MessageBlockView({
     case 'diff':
       return (
         <BoundedResult lines={previewLines} title="File changes">
-          <CodeBlock code={block.unified_diff} language="diff" showLineNumbers>
+          <CodeBlock code={withoutFileHeaders(block.unified_diff)} language="diff" showLineNumbers>
             <CodeBlockHeader>
               <CodeBlockTitle>
                 <FileCode2Icon aria-hidden="true" className="size-3.5" />
@@ -338,7 +338,10 @@ function MessageBlockView({
                     <PanelsTopLeftIcon aria-hidden="true" />
                   </Button>
                 ) : null}
-                <CodeBlockCopyButton aria-label={`Copy diff for ${block.path}`} />
+                <CodeBlockCopyButton
+                  aria-label={`Copy diff for ${block.path}`}
+                  value={block.unified_diff}
+                />
               </CodeBlockActions>
             </CodeBlockHeader>
           </CodeBlock>
@@ -533,4 +536,13 @@ export function MessageBlockSequence({
   }
 
   return rendered;
+}
+
+/** A diff's ``---``/``+++`` file lines repeat the path its header shows; the preview's
+ *  few lines go to the change itself (Copy keeps the whole diff). */
+function withoutFileHeaders(diff: string): string {
+  const lines = diff.split('\n');
+  let start = 0;
+  while (start < lines.length && /^(---|\+\+\+) /u.test(lines[start]!)) start += 1;
+  return start > 0 && start < lines.length ? lines.slice(start).join('\n') : diff;
 }

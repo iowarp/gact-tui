@@ -699,6 +699,12 @@ html[data-clio-motion='reduced'] *::after {
   font-size: 0.875rem;
   line-height: 1.5rem;
 }
+/* A bounded preview measures its rendered lines to decide how much to show. A code
+   block's content-visibility skip (rendering deferred while clipped) left nothing to
+   measure, so a file change collapsed to its path; inside a preview it always renders. */
+.tool-presentation-body [data-language] {
+  content-visibility: visible !important;
+}
 [data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6) {
   font-size: 1rem;
   line-height: 1.5rem;

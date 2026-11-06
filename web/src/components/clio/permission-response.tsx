@@ -136,7 +136,7 @@ export function PermissionResponse({
         </TechnicalDetails>
       ) : null}
       <ResponseErrorNotice error={responseError} />
-      <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 bg-background/95 py-2 backdrop-blur-sm">
+      <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 bg-composer py-2">
         {!interaction.actions || interaction.actions.includes('deny') ? (
           <Button
             size="sm"
