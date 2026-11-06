@@ -76,7 +76,7 @@ export function ToolCompactRow({
     <div
       data-slot="activity-row"
       className={cn(
-        'group/tool-trigger flex min-h-8 min-w-0 flex-1 items-start gap-2 rounded-sm px-1 py-1 text-sm',
+        'group/tool-trigger flex min-h-8 min-w-0 flex-1 items-start gap-2 rounded-sm px-1 py-1 text-sm max-sm:flex-wrap',
         surface === 'evidence' && 'px-2 py-2',
       )}
     >
@@ -120,7 +120,15 @@ export function ToolCompactRow({
             ) : subject.type === 'link' ? (
               <PresentationLink block={subject} compact />
             ) : (
-              <span className="[overflow-wrap:anywhere]">{subject.label || subject.text}</span>
+              <span
+                className={cn(
+                  '[overflow-wrap:anywhere]',
+                  // A command reads as code, as it does in its terminal block.
+                  subject.id === 'operation-command' && 'font-mono text-[0.8125rem]',
+                )}
+              >
+                {subject.label || subject.text}
+              </span>
             )}
             {/* A list's comma stays against its name, so a wrap never starts with one. */}
             {index < operation.subjects.length - 2 ? <span className="-ml-1.5">,</span> : null}
@@ -140,19 +148,24 @@ export function ToolCompactRow({
           </span>
         ) : null}
       </div>
-      {/* A failure is named in words, not only by its mark's colour; success stays quiet and a
-          partial outcome is counted in words by the operation's own metadata. */}
-      {!active && !success && !interrupted && !(status === 'degraded' && operation.metadata) ? (
-        <span
-          data-slot="tool-outcome"
-          className={cn(
-            'mt-0.5 shrink-0 text-xs',
-            status === 'unknown' || status === 'degraded' ? 'text-warning' : 'text-destructive',
-          )}
-        >
-          {status === 'unknown' ? 'Unknown' : status}
-        </span>
-      ) : null}
+      {/* On a phone the outcome and marks take their own line under the row, so a long
+          command keeps the row's width. */}
+      <span className="flex shrink-0 items-start gap-2 empty:hidden max-sm:order-last max-sm:basis-full max-sm:pl-5.5">
+        {/* A failure is named in words, not only by its mark's colour; success stays quiet and a
+            partial outcome is counted in words by the operation's own metadata. */}
+        {!active && !success && !interrupted && !(status === 'degraded' && operation.metadata) ? (
+          <span
+            data-slot="tool-outcome"
+            className={cn(
+              'mt-0.5 shrink-0 text-xs',
+              status === 'unknown' || status === 'degraded' ? 'text-warning' : 'text-destructive',
+            )}
+          >
+            {status === 'unknown' ? 'Unknown' : status}
+          </span>
+        ) : null}
+        {attention}
+      </span>
       {duration !== undefined ? (
         <span
           className="mt-0.5 shrink-0 text-xs tabular-nums text-muted-foreground max-sm:hidden"
@@ -162,7 +175,6 @@ export function ToolCompactRow({
           {formatDuration(duration, 'tenths')}
         </span>
       ) : null}
-      {attention}
       {operation.expandable ? (
         <CollapsibleTrigger asChild>
           <Button
