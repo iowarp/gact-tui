@@ -70,8 +70,8 @@ describe('GPU device values', () => {
   });
 
   it('labels a GPU with its index, model and memory', () => {
-    expect(gpuLabel(a100(1))).toBe('GPU 1 · A100-SXM4-40GB · 40 GB');
-    expect(gpuLabel({ ...a100(0), memory_total_mib: undefined })).toBe('GPU 0 · A100-SXM4-40GB');
+    expect(gpuLabel(a100(1))).toBe('GPU 1, A100-SXM4-40GB, 40 GB');
+    expect(gpuLabel({ ...a100(0), memory_total_mib: undefined })).toBe('GPU 0, A100-SXM4-40GB');
   });
 
   it('offers a CUDA parameter only the NVIDIA GPUs', () => {
@@ -118,7 +118,7 @@ describe('named instances', () => {
       vllm({ id: 'llama_cpp', label: 'llama.cpp' }),
       vllm(),
     ]);
-    expect(rows.map((row) => row.label)).toEqual(['llama.cpp', 'vLLM', 'vLLM · spotter']);
+    expect(rows.map((row) => row.label)).toEqual(['llama.cpp', 'vLLM', 'vLLM (spotter)']);
   });
 
   it('adds a named instance the catalog has not reported yet, from its engine', () => {
@@ -128,7 +128,7 @@ describe('named instances', () => {
     );
     expect(rows.map((row) => row.id)).toEqual(['vllm', 'vllm@judge']);
     expect(rows[1]).toMatchObject({
-      label: 'vLLM · judge',
+      label: 'vLLM (judge)',
       instance_of: 'vllm',
       instance_name: 'judge',
       state: 'not_installed',
@@ -141,7 +141,7 @@ describe('named instances', () => {
   it('prefers the catalog’s row once CLIO reports the instance', () => {
     const reported = vllm({
       id: 'vllm@judge',
-      label: 'vLLM · judge',
+      label: 'vLLM (judge)',
       instance_of: 'vllm',
       instance_name: 'judge',
       state: 'running',
@@ -149,6 +149,6 @@ describe('named instances', () => {
     const rows = servicesWithInstances([vllm(), reported], { 'vllm@judge': 'vllm' });
     expect(rows).toHaveLength(2);
     expect(rows[1].state).toBe('running');
-    expect(rows[1].label).toBe('vLLM · judge');
+    expect(rows[1].label).toBe('vLLM (judge)');
   });
 });

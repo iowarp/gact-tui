@@ -116,6 +116,12 @@ describe('ClioConversation transcript viewport', () => {
       <ClioConversation {...props} messages={[...history, assistant]} />,
     );
     const disclosure = screen.getByRole('button', { name: 'Thinking: Selected evidence.' });
+    // Streaming thinking is open; closing and reopening it is the reader's explicit choice,
+    // which outlives completion.
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.pointerDown(disclosure);
+    fireEvent.click(disclosure);
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     fireEvent.pointerDown(disclosure);
     fireEvent.click(disclosure);
     expect(disclosure).toHaveAttribute('aria-expanded', 'true');

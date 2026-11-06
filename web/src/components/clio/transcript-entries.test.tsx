@@ -138,12 +138,16 @@ it.each(['codex', 'claude_code', 'vllm'])(
   },
 );
 
-it('leaves streaming thinking collapsed and retains the reader choice after completion', () => {
+it('opens streaming thinking and folds it once it completes, unless the reader chose', () => {
   const view = render(
     <ConversationTurn iterations={[iteration('one', 0, true)]} mode="chain" subagents={{}} />,
   );
   fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-  expect(screen.getByText('Private recorded one reasoning.')).toBeVisible();
+  expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  expect(screen.getByRole('region', { name: 'Thinking details' })).toBeVisible();
   view.rerender(
     <ConversationTurn
       answerStarted
