@@ -1,6 +1,7 @@
 import { FileTextIcon } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import type { DocumentAnchor } from '@clio/core/v3';
+import type { PdfHighlight } from './document-pdf-viewer';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 
 const ClioDocumentPdfViewer = lazy(() =>
@@ -23,6 +24,8 @@ export function ClioPdfPreview({
   fit,
   initialPage,
   onSelection,
+  highlight,
+  onPagePoint,
 }: {
   bytes?: Uint8Array;
   error?: string;
@@ -32,9 +35,15 @@ export function ClioPdfPreview({
    * knows which page matters (e.g. a view_pdf call's viewed page range). */
   initialPage?: number;
   onSelection?: (anchor: DocumentAnchor) => void;
+  /** Outlined and scrolled into view on its page. */
+  highlight?: PdfHighlight;
+  /** A double-click on a page (0-based) at x, y as fractions of the page. */
+  onPagePoint?: (page: number, x: number, y: number) => void;
 }) {
   if (error) {
-    return <ResourceUnavailable detail={error} icon={FileTextIcon} label="PDF preview unavailable" />;
+    return (
+      <ResourceUnavailable detail={error} icon={FileTextIcon} label="PDF preview unavailable" />
+    );
   }
   if (!bytes) return <ResourceLoading className="p-4" label={`Loading ${name}`} />;
   return (
@@ -45,6 +54,8 @@ export function ClioPdfPreview({
         initialPage={initialPage}
         name={name}
         onSelection={onSelection ?? (() => undefined)}
+        highlight={highlight}
+        onPagePoint={onPagePoint}
       />
     </Suspense>
   );

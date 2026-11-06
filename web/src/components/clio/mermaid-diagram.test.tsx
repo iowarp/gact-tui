@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useEffect, useState, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { SelectionActionsProvider } from './selection-actions';
 
@@ -86,15 +86,16 @@ function selectMenuItem(item: HTMLElement) {
 
 /** Mirrors `a2ui-chart.test.tsx`'s harness: attaches "Reference this" clicks to a real composer-annotations list. */
 function ComposerHarness({ children }: { children: ReactNode }) {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {});
   return (
     <>
       {children}
       <ClioComposerAnnotations
         annotations={annotations}
-        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+        onChange={setAnnotations}
       />
+      <output data-testid="sent-comments" hidden>{JSON.stringify(annotations)}</output>
     </>
   );
 }
@@ -249,13 +250,13 @@ describe('ClioMermaidDiagram', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    const attached = screen.getByRole('list', { name: 'Attached comments' });
     expect(attached).toHaveTextContent('Pipeline');
     expect(attached).toHaveTextContent('the whole diagram');
 
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    // The full reference travels to the agent as the lines under the mark.
+
+    const popoverBody = screen.getByTestId('sent-comments');
     expect(popoverBody).toHaveTextContent('artifact_pipeline01');
   });
 
@@ -271,9 +272,9 @@ describe('ClioMermaidDiagram', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    // The full reference travels to the agent as the lines under the mark.
+
+    const popoverBody = screen.getByTestId('sent-comments');
     expect(popoverBody).toHaveTextContent('inline diagram');
     expect(popoverBody).toHaveTextContent('flowchart LR'); // the query JSON names the diagram by its source
   });

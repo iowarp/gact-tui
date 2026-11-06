@@ -11,6 +11,12 @@ import type { FileSearchLocation } from '@/lib/search-matches';
 import { useLiveStore } from '@/store/live-store';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
+import {
+  OPEN_BROWSER_PAGE_EVENT,
+  OPEN_FILE_IN_BROWSER_EVENT,
+  type OpenBrowserPageDetail,
+  type OpenFileInBrowserDetail,
+} from '@/lib/html-in-browser';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
@@ -104,6 +110,39 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     return () => window.removeEventListener(KNOWLEDGE_OPEN_EVENT, open);
   }, [workspaceId, settings, revealWorkbench]);
 
+  useEffect(() => {
+    const show = (event: Event) => {
+      const { pageId, sessionId, label } = (event as CustomEvent<OpenBrowserPageDetail>).detail;
+      revealWorkbench({ kind: 'browser', pageId, sessionId, label });
+    };
+    window.addEventListener(OPEN_BROWSER_PAGE_EVENT, show);
+    return () => window.removeEventListener(OPEN_BROWSER_PAGE_EVENT, show);
+  }, [revealWorkbench]);
+
+  const repositoryForFiles = useRepository();
+  useEffect(() => {
+    const open = (event: Event) => {
+      const { target, sessionId, label } = (event as CustomEvent<OpenFileInBrowserDetail>).detail;
+      repositoryForFiles
+        .openBrowserFile(sessionId, target)
+        .then((page) =>
+          revealWorkbench({
+            kind: 'browser',
+            pageId: page.id,
+            sessionId,
+            label: page.title || label,
+          }),
+        )
+        .catch((error: unknown) => {
+          toast.error(
+            error instanceof Error ? error.message : 'Could not open the file in the browser.',
+          );
+        });
+    };
+    window.addEventListener(OPEN_FILE_IN_BROWSER_EVENT, open);
+    return () => window.removeEventListener(OPEN_FILE_IN_BROWSER_EVENT, open);
+  }, [repositoryForFiles, revealWorkbench]);
+
   const openArtifact = useCallback(
     (artifact: Artifact) => revealWorkbench({ kind: 'artifact', artifact }),
     [revealWorkbench],
@@ -159,9 +198,20 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     (url: string, sessionId: string) => {
       repository
         .openBrowserPage(sessionId, url)
-        .then((page) => revealWorkbench({ kind: 'browser', pageId: page.id, sessionId, label: page.title || page.host }))
+        .then((page) =>
+          revealWorkbench({
+            kind: 'browser',
+            pageId: page.id,
+            sessionId,
+            label: page.title || page.host,
+          }),
+        )
         .catch((error: unknown) => {
-          toast.error(error instanceof Error ? error.message : 'Could not open the page in the shared browser.');
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : 'Could not open the page in the shared browser.',
+          );
         });
     },
     [repository, revealWorkbench],

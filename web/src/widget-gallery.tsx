@@ -1,3 +1,5 @@
+import type { CommentAttachment } from '@clio/core/v3';
+import { ADD_COMMENT_SESSION_EVENT } from '@/components/clio/comments/comment-model';
 import { vocab } from '@/lib/brand-vocabulary';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { galleryComponentFromHash, galleryComponentSlug } from '@/lib/gallery-component-links';
@@ -279,14 +281,17 @@ export function A2uiDemo({ name, variant, demoSelection, onInteract }: { name: C
   }, [name, demoSelection, surface]);
   useEffect(() => {
     const showCapture = (event: Event) => {
-      const detail = (event as CustomEvent<{ file: File; text: string }>).detail;
-      if (!surface || !detail.file.name.startsWith(`clio-capture-${surface.id}-`)) return;
-      setCapturePreview({ imageUrl: URL.createObjectURL(detail.file), text: detail.text });
+      const detail = (event as CustomEvent<CommentAttachment>).detail;
+      const overview = detail?.images?.find((image) => !image.label);
+      if (!surface || detail?.kind !== 'a2ui-surface' || !overview) return;
+      const text = detail.marks
+        .map((mark) => [`${mark.label}: ${mark.comment || '(no comment)'}`, ...((mark.anchor.source?.under as string[] | undefined) ?? [])].join('\n'))
+        .join('\n\n');
+      setCapturePreview({ imageUrl: overview.data, text });
     };
-    window.addEventListener('clio:add-region-capture', showCapture);
-    return () => window.removeEventListener('clio:add-region-capture', showCapture);
+    window.addEventListener(ADD_COMMENT_SESSION_EVENT, showCapture);
+    return () => window.removeEventListener(ADD_COMMENT_SESSION_EVENT, showCapture);
   }, [surface]);
-  useEffect(() => () => { if (capturePreview) URL.revokeObjectURL(capturePreview.imageUrl); }, [capturePreview]);
   if (!surface) return <p className="text-sm text-muted-foreground">This example could not be created.</p>;
   const captureSurface: CaptureSurface = {
     id: surface.id,

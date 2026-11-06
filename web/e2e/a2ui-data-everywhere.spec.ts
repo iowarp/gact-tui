@@ -726,7 +726,7 @@ test('"Reference this" puts a clean chip in the composer and a properly rendered
   // The chip: a plain-language one-line summary, never the full markdown
   // block flattened onto one line (#1533 coordinator review). No zone is
   // selected on this chart, so it names the whole view.
-  const attached = page.getByRole('list', { name: 'Attached selections' });
+  const attached = page.getByRole('list', { name: 'Attached comments' });
   await expect(attached).toBeVisible();
   await expect(attached).toContainText('the filtered current view (500 rows)');
   expect(await attached.innerText()).not.toContain('```json');
@@ -738,15 +738,8 @@ test('"Reference this" puts a clean chip in the composer and a properly rendered
     clip: (await attached.boundingBox()) ?? undefined,
   });
 
-  // Expand: the full machine-readable reference, properly rendered (a real
-  // <table>, not a pipe-delimited line), not just present as text.
-  await attached.getByRole('button', { name: /Show the full .* reference/u }).click();
-  const popover = page.getByText('Sent with your next message, exactly as shown below.');
-  await expect(popover).toBeVisible();
-  const popoverBody = page.locator('[data-slot="popover-content"]');
-  await expect(popoverBody.getByRole('table')).toBeVisible();
-  await expect(popoverBody).toContainText('artifact_earthquake');
-  await page.keyboard.press('Escape');
+  // The full machine-readable reference is not shown on the chip: it travels to the agent as
+  // the readable lines under the mark (comments plan, addendum A section 2).
 
   // NOTE on the "sent" round trip (#1533 coordinator review item 2): this
   // suite's fixture server has no route for the composer's real

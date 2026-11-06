@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -6,7 +6,7 @@ import { ClioComposerAnnotations } from './composer-annotations';
 import { DataReferenceThisButton } from './data-reference-this-button';
 import { SelectionActionsProvider } from './selection-actions';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 
 afterEach(cleanup);
@@ -16,7 +16,7 @@ function Page({
 }: {
   buildReference: () => { title: string; summary: string; markdown: string };
 }) {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   const [focused, setFocused] = useState(0);
   useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () =>
     setFocused((count) => count + 1),
@@ -26,8 +26,9 @@ function Page({
       <DataReferenceThisButton buildReference={buildReference} />
       <ClioComposerAnnotations
         annotations={annotations}
-        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+        onChange={setAnnotations}
       />
+      <output data-testid="sent-comments" hidden>{JSON.stringify(annotations)}</output>
       <output data-testid="focus">{focused}</output>
     </>
   );
@@ -57,12 +58,13 @@ describe('DataReferenceThisButton', () => {
     fireEvent(document, new Event('selectionchange'));
     await userEvent.click(screen.getByRole('button', { name: 'Reference selected text' }));
     expect(window.getSelection()!.isCollapsed).toBe(true);
-    expect(screen.getByRole('list', { name: 'Attached selections' })).toHaveTextContent(
+    expect(screen.getByRole('list', { name: 'Attached comments' })).toHaveTextContent(
       'Selected text: final step',
     );
-    await userEvent.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    expect(await screen.findByText('Artifact: artifact://flow')).toBeVisible();
-    expect(screen.getByRole('blockquote')).toHaveTextContent('final step');
+    // The full reference travels to the agent as the lines under the mark.
+    const sent = screen.getByTestId('sent-comments');
+    expect(sent).toHaveTextContent('Artifact: artifact://flow');
+    expect(sent).toHaveTextContent('final step');
   });
   it('attaches the built reference to the composer and focuses it, via the shared selection-action registry', async () => {
     const user = userEvent.setup();
@@ -81,7 +83,7 @@ describe('DataReferenceThisButton', () => {
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
     expect(buildReference).toHaveBeenCalledTimes(1);
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    const attached = screen.getByRole('list', { name: 'Attached comments' });
     expect(attached).toHaveTextContent('Depth vs. magnitude chart');
     expect(attached).toHaveTextContent('23 of 270 rows');
     expect(screen.getByTestId('focus')).toHaveTextContent('1');
@@ -102,22 +104,15 @@ describe('DataReferenceThisButton', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    const attached = screen.getByRole('list', { name: 'Attached comments' });
     // The card's own text never contains raw markdown syntax.
     expect(attached).toHaveTextContent('172 of 500 rows — depth 6.8–14.9');
     expect(attached.textContent).not.toContain('**');
     expect(attached.textContent).not.toContain('```');
     expect(attached.textContent).not.toContain('|');
 
-    // The expand control shows the full block, properly rendered — the table
-    // as an actual <table>, not pipe-delimited text.
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') ?? popover.parentElement!;
-    expect(within(popoverBody as HTMLElement).getByRole('table')).toBeInTheDocument();
-    expect(
-      within(popoverBody as HTMLElement).getByRole('cell', { name: 'eq0001' }),
-    ).toBeInTheDocument();
+    // The full block, its table included, travels as the lines under the mark.
+    expect(screen.getByTestId('sent-comments')).toHaveTextContent('eq0001');
   });
 
   it('renders nothing outside a SelectionActionsProvider, rather than crashing the surface', () => {
@@ -133,7 +128,7 @@ describe('DataReferenceThisButton', () => {
     const user = userEvent.setup();
     function ExpandedPage() {
       const [fullscreen, setFullscreen] = useSurfaceFullScreen();
-      const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+      const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
       const [focused, setFocused] = useState(0);
       useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -160,7 +155,7 @@ describe('DataReferenceThisButton', () => {
           >
             <span>Figure content</span>
           </SurfaceFullScreenHost>
-          <ClioComposerAnnotations annotations={annotations} onRemove={() => {}} />
+          <ClioComposerAnnotations annotations={annotations} onChange={() => {}} />
           <output data-testid="focus">{focused}</output>
         </>
       );
@@ -174,7 +169,7 @@ describe('DataReferenceThisButton', () => {
     expect(screen.getByRole('dialog', { name: 'Figure' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('list', { name: 'Attached selections' })).toHaveTextContent('Figure');
+    expect(screen.getByRole('list', { name: 'Attached comments' })).toHaveTextContent('Figure');
     expect(screen.getByTestId('focus')).toHaveTextContent('1');
   });
 });

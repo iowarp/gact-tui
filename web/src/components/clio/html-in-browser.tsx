@@ -1,0 +1,61 @@
+import { GlobeIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { useOpenFileInBrowser } from '@/hooks/use-open-file-in-browser';
+import type { BrowserFileTarget } from '@/lib/html-in-browser';
+import { FileTextView } from './file-text-view';
+
+/**
+ * An HTML file where a viewer would have previewed it: it opens in the browser when shown
+ * (`openOnShow`, a viewer the person opened), and here shows its source with the control
+ * that opens it again.
+ */
+export function HtmlFileInBrowser({
+  name,
+  content,
+  path,
+  artifactId,
+  openOnShow = false,
+}: {
+  name: string;
+  content: string;
+  /** The workspace file's path; or `artifactId` for an artifact's file. */
+  path?: string;
+  artifactId?: string;
+  openOnShow?: boolean;
+}) {
+  const open = useOpenFileInBrowser();
+  const [opening, setOpening] = useState(false);
+  const opened = useRef(false);
+  const show = useCallback(() => {
+    const target: BrowserFileTarget | undefined = artifactId
+      ? { artifact_id: artifactId }
+      : path
+        ? { path }
+        : undefined;
+    if (!target) return;
+    setOpening(true);
+    void open(target, name).finally(() => setOpening(false));
+  }, [artifactId, name, open, path]);
+  useEffect(() => {
+    if (!openOnShow || opened.current) return;
+    opened.current = true;
+    show();
+  }, [openOnShow, show]);
+  return (
+    <div className="flex h-full min-h-0 flex-col" data-slot="html-file-in-browser">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 text-sm">
+        <GlobeIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+        <span className="min-w-0 flex-1 text-muted-foreground">
+          HTML files open in the shared browser, where their scripts run.
+        </span>
+        <Button disabled={opening} onClick={show} size="sm" variant="secondary">
+          Open in browser
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1">
+        <FileTextView content={content} format="html" name={name} view="source" />
+      </div>
+    </div>
+  );
+}

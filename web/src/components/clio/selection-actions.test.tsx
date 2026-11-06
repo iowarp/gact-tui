@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { ClioSelectionActionToolbar, SelectionActionsProvider } from './selection-actions';
 import { useAddToChatSelectionAction } from '@/hooks/use-add-to-chat-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 
 afterEach(() => {
   window.getSelection()?.removeAllRanges();
@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 function Page() {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   const [focused, setFocused] = useState(0);
   useAddToChatSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () =>
     setFocused((count) => count + 1),
@@ -27,7 +27,7 @@ function Page() {
       </div>
       <ClioComposerAnnotations
         annotations={annotations}
-        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+        onChange={setAnnotations}
       />
       <output data-testid="focus">{focused}</output>
     </>
@@ -65,13 +65,13 @@ describe('selection actions on an agent answer', () => {
     await user.click(screen.getByRole('button', { name: 'Add to chat' }));
 
     expect(toolbar).not.toBeInTheDocument();
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
-    expect(attached).toHaveTextContent('Selected text');
+    const attached = screen.getByRole('list', { name: 'Attached comments' });
+    expect(attached).toHaveTextContent('Comment on an answer');
     expect(attached).toHaveTextContent('brighter, tangy');
     expect(screen.getByTestId('focus')).toHaveTextContent('1');
 
-    await user.click(screen.getByRole('button', { name: 'Remove selected text 1' }));
-    expect(screen.queryByRole('list', { name: 'Attached selections' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Remove comment on an answer' }));
+    expect(screen.queryByRole('list', { name: 'Attached comments' })).not.toBeInTheDocument();
   });
 
   it('is reachable from the keyboard: Shift+F10 focuses the menu, Enter runs an action', async () => {
@@ -100,7 +100,7 @@ describe('selection actions on an agent answer', () => {
     );
     await user.keyboard('{Enter}');
 
-    expect(screen.getByRole('list', { name: 'Attached selections' })).toHaveTextContent(
+    expect(screen.getByRole('list', { name: 'Attached comments' })).toHaveTextContent(
       'brighter, tangy',
     );
   });

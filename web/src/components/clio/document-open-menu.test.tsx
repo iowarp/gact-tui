@@ -3,7 +3,6 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DocumentOpenMenu } from './document-open-menu';
-import { vocab } from '@/lib/brand-vocabulary';
 const host = vi.hoisted(() => ({ native: true }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => host.native }));
 afterEach(() => {
@@ -28,7 +27,6 @@ const manifest: DocumentManifest = {
   profile: 'markdown',
   content_url: '',
   native_open: true,
-  embedded_editors: [],
   anchors: [],
   rendition_formats: ['pdf'],
   provenance: {},
@@ -131,19 +129,8 @@ it('keeps the folder fallback available with no apps, downloads, or PDF renditio
   await userEvent.click(screen.getByRole('menuitem', { name: 'Open in folder' }));
   expect(onReveal).toHaveBeenCalledOnce();
 });
-it('keeps configured embedded editors specific to office formats', async () => {
-  menu('ooxml-word', {
-    manifest: { ...manifest, profile: 'ooxml-word', embedded_editors: ['onlyoffice', 'collabora'] },
-    editorHealth: {
-      editors: [
-        { provider: 'onlyoffice', configured: true, healthy: true, url: '' },
-        { provider: 'collabora', configured: true, healthy: false, url: '', error: 'offline' },
-      ],
-    },
-  });
+it('offers only desktop applications for office formats', async () => {
+  menu('ooxml-word', { manifest: { ...manifest, profile: 'ooxml-word' } });
   await userEvent.click(screen.getByRole('button', { name: 'Open in' }));
-  expect(screen.getByRole('menuitem', { name: `ONLYOFFICE (in ${vocab.agent})` })).toBeVisible();
-  expect(
-    screen.getByRole('menuitem', { name: `Collabora (in ${vocab.agent}) — unavailable` }),
-  ).toHaveAttribute('data-disabled');
+  expect(screen.queryByRole('menuitem', { name: /ONLYOFFICE|Collabora/u })).toBeNull();
 });

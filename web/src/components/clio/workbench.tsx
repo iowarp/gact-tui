@@ -57,6 +57,11 @@ import { WorkbenchTabContent } from './workbench-tab-content';
 import { tabForOpenRequest, type ClioWorkbenchOpenRequest } from './workbench-open-request';
 import { fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import { PresentationNavigation } from './presentation-navigation';
+import {
+  htmlBrowserTarget,
+  OPEN_FILE_IN_BROWSER_EVENT,
+  type OpenFileInBrowserDetail,
+} from '@/lib/html-in-browser';
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 import { scienceLogTab, useScienceLogTab } from './science-log-tab-state';
 
@@ -351,8 +356,22 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           case 'science-log':
             openTab(scienceLogTab);
             return;
-          default:
+          default: {
+            const html = htmlBrowserTarget(request); // HTML files open in the shared browser
+            if (html && targetWorkspaceId === workspaceId) {
+              window.dispatchEvent(
+                new CustomEvent<OpenFileInBrowserDetail>(OPEN_FILE_IN_BROWSER_EVENT, {
+                  detail: {
+                    target: html,
+                    sessionId,
+                    label: 'path' in html ? fileName(html.path) : 'HTML file',
+                  },
+                }),
+              );
+              return;
+            }
             openTab(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
+          }
         }
       },
       [openCanvasResource, openSubagentTab, openTab, sessionId, workspaceId],

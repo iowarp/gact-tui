@@ -90,7 +90,6 @@ for (const layout of [
           content_url: `/v1/artifacts/${sourceId}/document/content`,
           anchors: [],
           native_open: true,
-          embedded_editors: [],
           rendition_formats: ['pdf'],
           pdf_rendition_artifact_id: item.saved ? pdfId : '',
           provenance: {},
@@ -213,8 +212,15 @@ for (const layout of [
             await route.fulfill({ contentType: 'application/pdf', body: pdf });
           } else if (path === `/v1/artifacts/${sourceId}/bytes`) {
             await route.fulfill({ contentType: item.mime, body: source });
-          } else if (path === `/v1/artifacts/${sourceId}/reviews`) {
-            await route.fulfill({ json: { reviews: [] } });
+          } else if (path === `/v1/artifacts/${sourceId}/threads`) {
+            await route.fulfill({
+              json: {
+                artifact_id: sourceId,
+                head: { artifact_id: sourceId, name: item.name, workspace_id: 'ws', version: 1, sha256: '' },
+                threads: [],
+                next_label: 'S1',
+              },
+            });
           } else if (path.endsWith('/renditions')) {
             conversions.push(path);
             if (!item.saved) {

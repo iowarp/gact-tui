@@ -74,7 +74,8 @@ const formats: readonly FormatCase[] = [
     name: 'report.html',
     mediaType: 'text/html',
     content: '<!doctype html><html><body><h1>HTML report</h1></body></html>',
-    modes: ['HTML preview', 'Source'],
+    // HTML runs in the shared browser; a file viewer shows only its source.
+    modes: [],
     readableText: undefined,
   },
   {

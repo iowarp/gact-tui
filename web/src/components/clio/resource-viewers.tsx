@@ -1,3 +1,11 @@
+import type { ReactNode } from 'react';
+import {
+  ArtifactComments,
+  WorkspaceDocumentView,
+  WorkspaceFileComments,
+  officeMediaType,
+} from './comments/file-comments';
+import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { brand } from '@brand';
@@ -35,7 +43,9 @@ import {
 
 import { ClioDocumentWorkspace } from './document-workspace';
 
-import { isHtmlFile } from './html-preview-policy';
+import { HtmlFileInBrowser } from './html-in-browser';
+import { LatexFileWorkspace } from './latex-workspace';
+import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
@@ -66,7 +76,10 @@ export function WorkspaceFileView({
   /** The enclosing tool-result card already owns the file identity. */
   embedded?: boolean;
 }) {
-  const detected = mediaType || inferredWorkspaceMediaType(path);
+  // A listing's generic octet-stream says nothing: the name decides (a .tex is text).
+  const detected =
+    (mediaType && mediaType !== 'application/octet-stream' ? mediaType : '') ||
+    inferredWorkspaceMediaType(path);
   const hdf5Viewer = useHdf5ViewerSupported();
   const html =
     detected !== 'application/pdf' && !detected.startsWith('image/') && isHtmlFile(path, detected);
@@ -75,12 +88,37 @@ export function WorkspaceFileView({
       <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
     ) : detected.startsWith('image/') ? (
       <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
-    ) : isTextMediaType(detected) || html ? (
+    ) : html ? (
+      <WorkspaceTextView
+        html={{ openOnShow: !embedded }}
+        path={path}
+        size={size}
+        workspaceId={workspaceId}
+        mediaType={detected}
+      />
+    ) : isTextMediaType(detected) ? (
       <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
     ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
       <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />}>
         <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
       </Suspense>
+    ) : officeMediaType(path) ? (
+      <WorkspaceDocumentView
+        documentView={(artifact) => (
+          <ClioDocumentWorkspace artifact={artifact} fallbackPreview={null} key={artifact.id} />
+        )}
+        fallback={
+          <WorkspaceBinaryView
+            mediaType={detected}
+            path={path}
+            size={size}
+            workspaceId={workspaceId}
+          />
+        }
+        mediaType={officeMediaType(path)!}
+        path={path}
+        workspaceId={workspaceId}
+      />
     ) : (
       <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
     );
@@ -115,14 +153,21 @@ function WorkspacePdfView({
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
-    <div className="size-full overflow-hidden">
-      <ClioPdfPreview
-        bytes={content.data}
-        error={content.error?.message}
-        initialPage={initialPage}
-        name={fileName(path)}
-      />
-    </div>
+    <WorkspaceFileComments
+      modes={['text', 'region']}
+      path={path}
+      regionAnchor={pdfRegionAnchor}
+      workspaceId={workspaceId}
+    >
+      <div className="size-full overflow-hidden">
+        <ClioPdfPreview
+          bytes={content.data}
+          error={content.error?.message}
+          initialPage={initialPage}
+          name={fileName(path)}
+        />
+      </div>
+    </WorkspaceFileComments>
   );
 }
 
@@ -131,13 +176,14 @@ function WorkspaceTextView({
   path,
   size,
   mediaType,
-  htmlView,
+  html,
 }: {
   workspaceId: string;
   path: string;
   size?: number;
   mediaType?: string;
-  htmlView?: 'preview' | 'source';
+  /** An HTML file: shown as its source, and opened in the shared browser. */
+  html?: { openOnShow: boolean };
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -146,19 +192,39 @@ function WorkspaceTextView({
     queryKey: queryKeys.workspaceFile(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
     enabled: canLoad,
-    // Preview and Source are two views of the same loaded file. Switching
-    // between their host tabs must not restart a read of unchanged content.
-    refetchOnMount: htmlView ? false : undefined,
   });
   if (!canLoad) return <LargeResourceNotice name={fileName(path)} size={size} />;
-  return (
+  if (html && content.data !== undefined)
+    return (
+      <HtmlFileInBrowser
+        content={content.data}
+        name={fileName(path)}
+        openOnShow={html.openOnShow}
+        path={path}
+      />
+    );
+  const view = (
     <TextResourceView
       content={content.data}
       error={content.error?.message}
       path={path}
       mediaType={mediaType}
-      htmlView={htmlView}
     />
+  );
+  // Documents take text comments in the file view too (ledger FB22): Markdown and LaTeX.
+  const format = textFileFormat(path, mediaType);
+  if (format !== 'markdown' && !path.toLowerCase().endsWith('.tex')) return view;
+  // A paper's entry file (it has \documentclass) opens as the LaTeX workspace.
+  if (path.toLowerCase().endsWith('.tex') && /^[^%\n]*\\documentclass/mu.test(content.data ?? ''))
+    return (
+      <WorkspaceFileComments modes={['text', 'region']} path={path} workspaceId={workspaceId}>
+        <LatexFileWorkspace fallback={view} path={path} workspaceId={workspaceId} />
+      </WorkspaceFileComments>
+    );
+  return (
+    <WorkspaceFileComments modes={['text']} path={path} workspaceId={workspaceId}>
+      {view}
+    </WorkspaceFileComments>
   );
 }
 
@@ -178,12 +244,20 @@ function WorkspaceImageView({
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
-    <ImageResourceView
-      bytes={content.data}
-      error={content.error?.message}
-      mediaType={mediaType}
-      name={fileName(path)}
-    />
+    <WorkspaceFileComments
+      modes={isSvg(mediaType) ? ['region', 'element'] : ['region']}
+      path={path}
+      regionAnchor={imageRegionAnchor}
+      svg={isSvg(mediaType) ? content.data : undefined}
+      workspaceId={workspaceId}
+    >
+      <ImageResourceView
+        bytes={content.data}
+        error={content.error?.message}
+        mediaType={mediaType}
+        name={fileName(path)}
+      />
+    </WorkspaceFileComments>
   );
 }
 
@@ -346,7 +420,12 @@ export function ArtifactView({
       artifact.name.endsWith('.dashboard.json') ? (
         <DashboardResourceView content={text.data.content} artifactId={artifact.id} />
       ) : isHtmlFile(artifact.name, artifact.media_type) ? (
-        <FileReadView name={artifact.name} content={text.data.content} format="html" />
+        <HtmlFileInBrowser
+          artifactId={artifact.id}
+          content={text.data.content}
+          name={artifact.name}
+          openOnShow
+        />
       ) : isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <FileReadView name={artifact.name} content={text.data.content} format="markdown" />
       ) : (
@@ -370,12 +449,21 @@ export function ArtifactView({
     )
   ) : canPreviewImage ? (
     canLoadInline ? (
-      <ImageResourceView
-        bytes={image.data?.bytes}
-        error={image.error?.message}
-        mediaType={artifact.media_type || imageMediaType(artifact.name)}
-        name={artifact.name}
-      />
+      <ArtifactImageComments
+        artifact={artifact}
+        svg={
+          isSvg(artifact.media_type || imageMediaType(artifact.name))
+            ? image.data?.bytes
+            : undefined
+        }
+      >
+        <ImageResourceView
+          bytes={image.data?.bytes}
+          error={image.error?.message}
+          mediaType={artifact.media_type || imageMediaType(artifact.name)}
+          name={artifact.name}
+        />
+      </ArtifactImageComments>
     ) : (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
     )
@@ -475,13 +563,11 @@ export function TextResourceView({
   content,
   error,
   mediaType,
-  htmlView,
 }: {
   path: string;
   content?: string;
   error?: string;
   mediaType?: string;
-  htmlView?: 'preview' | 'source';
 }) {
   if (content === undefined && !error)
     return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
@@ -491,14 +577,7 @@ export function TextResourceView({
         <ResourceUnavailable detail={error} label="File preview unavailable" />
       </div>
     );
-  return (
-    <FileTextView
-      name={fileName(path)}
-      content={content ?? ''}
-      mediaType={mediaType}
-      view={htmlView}
-    />
-  );
+  return <FileTextView name={fileName(path)} content={content ?? ''} mediaType={mediaType} />;
 }
 function fileName(path: string): string {
   return (
@@ -535,6 +614,13 @@ function isTextArtifact(mediaType: string, name: string): boolean {
       'txt',
       'yaml',
       'yml',
+      // LaTeX sources: a paper's .tex opens as the LaTeX workspace; the rest as text.
+      'tex',
+      'ltx',
+      'bib',
+      'bst',
+      'cls',
+      'sty',
     ].includes(name.split('.').at(-1)?.toLowerCase() ?? '')
   );
 }
@@ -626,4 +712,32 @@ function inferredWorkspaceMediaType(path: string): string {
   if (['h5', 'hdf5', 'he5', 'nxs'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
   if (isTextArtifact('', path)) return 'text/plain';
   return 'application/octet-stream';
+}
+
+/** An image artifact takes region comments when its version is known. */
+function isSvg(mediaType: string): boolean {
+  return mediaType.split(';', 1)[0]?.trim() === 'image/svg+xml';
+}
+
+function ArtifactImageComments({
+  artifact,
+  svg,
+  children,
+}: {
+  artifact: Artifact;
+  /** An SVG's bytes, so element marks can pick its elements. */
+  svg?: Uint8Array;
+  children: ReactNode;
+}) {
+  if (!artifact.sha256 || !artifact.version) return <>{children}</>;
+  return (
+    <ArtifactComments
+      artifact={{ ...artifact, sha256: artifact.sha256, version: artifact.version }}
+      modes={svg ? ['region', 'element'] : ['region']}
+      regionAnchor={imageRegionAnchor}
+      svg={svg}
+    >
+      {children}
+    </ArtifactComments>
+  );
 }

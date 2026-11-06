@@ -1,4 +1,11 @@
-import { useEffect, useRef, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type WheelEvent,
+} from 'react';
 import { cn } from '@/lib/utils';
 import type { BrowserInput } from './browser-live-socket';
 import { BUTTONS, keyInput, pagePoint, type Viewport } from './browser-live-input';
@@ -13,12 +20,15 @@ export function BrowserLiveView({
   interactive,
   label,
   send,
+  children,
 }: {
   frame: Blob | null;
   viewport: Viewport;
   interactive: boolean;
   label: string;
   send: (input: BrowserInput) => void;
+  /** Drawn over the frame (the comment region tool). */
+  children?: ReactNode;
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const image = useRef<HTMLImageElement>(null);
@@ -42,7 +52,8 @@ export function BrowserLiveView({
     let timer = 0;
     const report = () => {
       const { width, height } = element.getBoundingClientRect();
-      if (width >= 1 && height >= 1) send({ type: 'resize', width: Math.round(width), height: Math.round(height) });
+      if (width >= 1 && height >= 1)
+        send({ type: 'resize', width: Math.round(width), height: Math.round(height) });
     };
     const observer = new ResizeObserver(() => {
       window.clearTimeout(timer);
@@ -114,15 +125,19 @@ export function BrowserLiveView({
       }}
     >
       {frame ? (
+        // The frame fills the view (contained), as `pagePoint` and `frameRect` assume: a
+        // frame narrower than the view (frames are capped in width) is scaled up, not
+        // shown at its own size, or input and marks would land beside what they point at.
         <img
           ref={image}
           alt=""
           draggable={false}
-          className="pointer-events-none max-h-full max-w-full object-contain"
+          className="pointer-events-none h-full w-full object-contain"
         />
       ) : (
         <p className="text-sm text-muted-foreground">Waiting for the page…</p>
       )}
+      {children}
     </div>
   );
 }

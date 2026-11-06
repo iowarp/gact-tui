@@ -8,11 +8,9 @@ import { RefreshAction } from './refresh-button';
 export function DocumentRefreshAction({
   refreshing,
   onReviews,
-  onEditorHealth,
 }: {
   refreshing: boolean;
   onReviews: () => Promise<unknown>;
-  onEditorHealth: () => Promise<unknown>;
 }) {
   const client = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -21,9 +19,8 @@ export function DocumentRefreshAction({
       client.invalidateQueries({ queryKey: queryKeys.key('document-manifest', settings.endpoint) }),
       client.invalidateQueries({ queryKey: queryKeys.key('document-content', settings.endpoint) }),
       onReviews(),
-      onEditorHealth(),
     ]);
-  }, [client, settings.endpoint, onReviews, onEditorHealth]);
+  }, [client, settings.endpoint, onReviews]);
   return (
     <RefreshAction
       secondary

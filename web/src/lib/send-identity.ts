@@ -67,7 +67,11 @@ export function sendFingerprint(value: {
     value.delivery,
     value.text.trim(),
     (value.references ?? []).map((reference) =>
-      reference.type === 'text' ? `text:${reference.text}` : referenceIdentity(reference),
+      reference.type === 'text'
+        ? `text:${reference.text}`
+        : reference.type === 'comment_session'
+          ? `comments:${JSON.stringify(reference.metadata.comment_session.marks)}`
+          : referenceIdentity(reference),
     ),
     (value.files ?? []).map((file) => file.url),
   ]);

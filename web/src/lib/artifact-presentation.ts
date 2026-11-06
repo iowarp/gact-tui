@@ -1,4 +1,5 @@
 import type { Artifact, MessageBlock } from '@clio/core/v3';
+import { withoutPaperMembers } from './scientific-document';
 
 /** Recognize a retained document preview from its recorded binding, never its filename. */
 export function isDocumentPreview(artifact: Artifact): boolean {
@@ -11,7 +12,7 @@ export function isDocumentPreview(artifact: Artifact): boolean {
 
 /** Keep deliverables in output surfaces; preview records remain available for lineage. */
 export function artifactDeliverables(artifacts: readonly Artifact[]): Artifact[] {
-  return artifacts.filter(
+  return withoutPaperMembers(artifacts).filter(
     (artifact) =>
       artifactEvidenceLabel(artifact) === 'Output' || artifact.session_relation === 'used',
   );
@@ -36,7 +37,8 @@ export function artifactEvidenceLabel(artifact: Artifact): string {
  */
 export function latestResponseArtifacts(artifacts: readonly Artifact[]): Artifact[] {
   const selected = new Map<string, Artifact>();
-  for (const artifact of artifacts) {
+  // A paper's sources are shown inside it, not as cards beside it.
+  for (const artifact of withoutPaperMembers(artifacts)) {
     if (isDocumentPreview(artifact)) continue;
     const producer = artifact.producer;
     const owner = producer?.['session_id'];

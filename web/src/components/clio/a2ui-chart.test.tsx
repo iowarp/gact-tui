@@ -53,18 +53,19 @@ import { ClioComposerAnnotations } from './composer-annotations';
 import { mapCategoryColors } from './map-category-palette';
 import { SelectionActionsProvider } from './selection-actions';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 
 function ComposerHarness({ children }: { children: ReactNode }) {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {});
   return (
     <>
       {children}
       <ClioComposerAnnotations
         annotations={annotations}
-        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+        onChange={setAnnotations}
       />
+      <output data-testid="sent-comments" hidden>{JSON.stringify(annotations)}</output>
     </>
   );
 }
@@ -751,14 +752,12 @@ describe('ClioChart', () => {
     // The card: a plain label and one-line summary only (#1533 coordinator
     // review) — the dataset id and filter live in the full reference,
     // reached via the expand control and sent with the message.
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    const attached = screen.getByRole('list', { name: 'Attached comments' });
     expect(attached).toHaveTextContent('Loss over time');
     expect(attached).toHaveTextContent('the filtered current view (4 rows)');
     expect(attached.textContent).not.toContain('artifact_runs01');
-
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    // The full reference travels to the agent as the lines under the mark.
+    const popoverBody = screen.getByTestId('sent-comments');
     expect(popoverBody).toHaveTextContent('artifact_runs01');
     expect(popoverBody).toHaveTextContent('run = a');
   });

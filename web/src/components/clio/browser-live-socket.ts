@@ -7,19 +7,31 @@ import {
 
 /** What the person sends to the shared page, in page CSS pixels. */
 export type BrowserInput =
-  | { type: 'mouse'; action: 'move' | 'down' | 'up' | 'click'; x: number; y: number; button?: string; count?: number }
+  | {
+      type: 'mouse';
+      action: 'move' | 'down' | 'up' | 'click';
+      x: number;
+      y: number;
+      button?: string;
+      count?: number;
+    }
   | { type: 'wheel'; dx: number; dy: number }
   | { type: 'key'; action: 'down' | 'up' | 'press'; key: string }
   | { type: 'text'; text: string }
   | { type: 'resize'; width: number; height: number }
   | { type: 'navigate'; action: 'goto' | 'back' | 'forward' | 'reload'; url?: string }
-  | { type: 'theme'; accent: string };
+  | { type: 'theme'; accent: string }
+  | { type: 'pick.start'; mode: 'element' | 'text' }
+  | { type: 'pick.stop' };
 
 export interface BrowserLiveHandlers {
   onFrame: (frame: Blob) => void;
   onState: (state: BrowserLiveState) => void;
   /** The server said why it ignored or rejected an input (view only, a bad message). */
   onNotice?: (reason: string, detail?: string) => void;
+  /** An element or text the person picked while a comment pick was active (a `dom` or
+   * `text-quote` anchor, checked by the caller). */
+  onPick?: (anchor: unknown) => void;
   /** The view ended; `reason` is the server's close reason when it refused. */
   onClose: (code: number, reason: string) => void;
 }
@@ -86,6 +98,10 @@ export function openBrowserLive(
     if (kind === 'state') {
       const parsed = browserLiveStateSchema.safeParse(message);
       if (parsed.success) handlers.onState(parsed.data);
+      return;
+    }
+    if (kind === 'pick') {
+      handlers.onPick?.((message as { anchor?: unknown }).anchor);
       return;
     }
     if (kind === 'ignored' || kind === 'error') {

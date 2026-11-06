@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServerDefinition, McpUserConfiguration } from './domain.js';
-import { DocumentRepository } from './document-repository.js';
+import { LatexRepository } from './latex-repository.js';
 import { mcpServerListSchema } from './repository-decoders.js';
 import { mcpServerDefinitionSchema, mcpServerPreparationSchema } from './schemas.js';
 
@@ -97,7 +97,7 @@ export interface McpServerListOptions {
 }
 
 /** Tool-provider discovery, lifecycle, and inventory routes. */
-export class McpRepository extends DocumentRepository {
+export class McpRepository extends LatexRepository {
   /** Start an explicit user sign-in; credentials never enter conversation messages. */
   public startMcpSignIn(
     name: string,

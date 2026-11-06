@@ -161,9 +161,13 @@ const requiredImports = {
     '@/components/clio/settings-frame',
   ],
   // Its readable view is the shared file-text-view (#681); the LaTeX source keeps CodeBlock.
+  // The ReUI Timeline of the old Reviews tab is replaced by the shared comment thread list
+  // and the one comment session every viewer uses (clio-agent comments plan, rules 1 and 2;
+  // the Review selection dialog and Reviews tab are deleted there).
   'web/src/components/clio/document-workspace.tsx': [
     '@/components/ai-elements/code-block',
-    '@/components/reui/timeline',
+    './comments/comment-session',
+    './comments/comment-thread-list',
     './file-text-view',
   ],
 };
