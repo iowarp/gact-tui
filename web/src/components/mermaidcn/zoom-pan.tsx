@@ -516,8 +516,10 @@ export function ZoomPan({
     updateImmediate();
   };
 
+  // No preventDefault here: React's touch listeners are passive, so it would only
+  // log a console error. The viewport and canvas are `touch-none`
+  // (`touch-action: none`), which already stops the browser panning or zooming.
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.cancelable) e.preventDefault();
     if (!touchStartRef.current) return;
 
     if (e.touches.length === 1 && isDragging.current) {

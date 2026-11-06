@@ -176,6 +176,25 @@ describe('ZoomPan wheel scoping', () => {
   });
 });
 
+describe('ZoomPan touch', () => {
+  it('pans on touchmove without a passive-listener preventDefault', async () => {
+    const canvas = renderZoomPan();
+    // `touch-action: none` is what stops the browser panning the page here.
+    expect(canvas).toHaveClass('touch-none');
+    const preventDefault = vi.spyOn(Event.prototype, 'preventDefault');
+    try {
+      await act(async () => {
+        fireEvent.touchStart(canvas, { touches: [{ clientX: 10, clientY: 10 }] });
+        fireEvent.touchMove(canvas, { touches: [{ clientX: 40, clientY: 30 }] });
+        fireEvent.touchEnd(canvas, { changedTouches: [{ clientX: 40, clientY: 30 }] });
+      });
+      expect(preventDefault).not.toHaveBeenCalled();
+    } finally {
+      preventDefault.mockRestore();
+    }
+  });
+});
+
 /**
  * #1549 G9 follow-up (adversarial review of #514): the toolbar hint said
  * "Scroll to zoom, drag to pan" even after the wheel listener above started
