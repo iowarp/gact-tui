@@ -84,11 +84,13 @@ const REFERENCE_KIND_LABELS: Record<string, string> = {
   context_frame: 'context record',
   diff: 'changed file',
   evidence_source: 'source',
+  flow: 'flow',
   plan: 'plan',
   resource: 'source',
   server: 'tools',
   session: 'conversation',
   subagent: 'agent',
+  workflow: 'workflow',
   workspace_file: 'local file',
 };
 

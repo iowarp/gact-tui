@@ -33,19 +33,27 @@ import { referenceKindIcon } from './composer-reference-presentation';
 
 const groups: Array<{
   defaultOpen: boolean;
+  browseOpen?: boolean;
   kinds: WorkspaceReference['kind'][];
   label: string;
 }> = [
-  // What the person can summon to handle the message: first, since naming one is a decision.
-  { defaultOpen: true, kinds: ['subagent'], label: 'Agents' },
-  { defaultOpen: true, kinds: ['workflow'], label: 'Workflows' },
-  { defaultOpen: true, kinds: ['flow'], label: 'Flows' },
-  { defaultOpen: true, kinds: ['server'], label: 'Tools' },
-  { defaultOpen: true, kinds: ['workspace_file'], label: 'Workspace files' },
+  // An @ mention starts with only local files open (`defaultOpen`); typing shows each
+  // category's matches. The "Reference existing context" picker is for browsing, so it
+  // opens the common categories (`browseOpen`). What can be summoned comes first.
+  { defaultOpen: false, browseOpen: true, kinds: ['subagent'], label: 'Agents' },
+  { defaultOpen: false, browseOpen: true, kinds: ['workflow'], label: 'Workflows' },
+  { defaultOpen: false, browseOpen: true, kinds: ['flow'], label: 'Flows' },
+  { defaultOpen: false, browseOpen: true, kinds: ['server'], label: 'Tools' },
+  { defaultOpen: true, browseOpen: true, kinds: ['workspace_file'], label: 'Workspace files' },
   // Uploaded files and tool-observed evidence have different wire identities, but both are
   // user-facing sources. Artifacts remain reserved for generated or registered outputs.
-  { defaultOpen: true, kinds: ['resource', 'evidence_source'], label: 'Sources' },
-  { defaultOpen: true, kinds: ['artifact'], label: 'Artifacts' },
+  {
+    defaultOpen: false,
+    browseOpen: true,
+    kinds: ['resource', 'evidence_source'],
+    label: 'Sources',
+  },
+  { defaultOpen: false, browseOpen: true, kinds: ['artifact'], label: 'Artifacts' },
   { defaultOpen: false, kinds: ['session'], label: 'Conversations' },
   { defaultOpen: false, kinds: ['agent_run'], label: 'Agents and runs' },
   { defaultOpen: false, kinds: ['context_frame'], label: 'Context records' },
@@ -111,7 +119,12 @@ export function ClioComposerReferenceMenu({
   const searchRef = useRef<HTMLInputElement>(null);
   const optionElements = useRef(new Map<string, HTMLElement>());
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(groups.map((group) => [group.label, group.defaultOpen])),
+    Object.fromEntries(
+      groups.map((group) => [
+        group.label,
+        searchInput ? (group.browseOpen ?? group.defaultOpen) : group.defaultOpen,
+      ]),
+    ),
   );
   /**
    * Whichever control drives this surface keeps the keyboard: its own search
